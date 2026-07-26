@@ -1,0 +1,76 @@
+# Memory: 轮子复用决策 — 调研结论压缩
+
+> 2026-07-27 调研；数据源：1MCP exa deepdive + 开源爬取
+> 受众：下一个接手的 AI / 人类；用途：替代重复调研，决定"造 vs 抄"。
+
+## 一句话结论
+
+**80% 核心逻辑已被 Resin (Go, 1732★) 生产验证完成。保留 mihomo 订阅编译 + Tauri 壳 + 进程路由三大差异化能力，其余直接拥抱 Resin，省 3-6 个月重复造轮子。**
+
+## 你在造轮子吗 — 模块对照
+
+| 你的模块 | 现有轮子 | 复用度 | 建议动作 |
+|---|---|---|---|
+| 节点调度 / P2C / TD-EWMA / 粘性 IP | Resin 100% 覆盖 | 高 | **直接集成 Resin 为核心内核**，弃自研 scheduler/ |
+| SSE 会话锁 / 熔断 / 健康检查 | Resin + Comox 覆盖 | 高 | 迁移到 Resin Platform/Account 事件模型 |
+| 多协议入口 (HTTP/SOCKS5/进程路由) | Resin 有 HTTP+SOCKS5 | 中 | 保留你的进程路由 entry/，其余委托 Resin |
+| mihomo L4 侧车（订阅编译） | 你的强项 | — | **保留**，作为 Resin 下游出口 |
+| 高并发连接池 | Pingora 共享池 | 低（>50K RPS 才需） | 中长期加 pingora feature，短期 reqwest 够用 |
+| Tauri 桌面壳 + safety net | Ghost 成熟模式 | 中 | 参考 Ghost 启动握手/崩溃自愈/system tray |
+| 跨平台打包 | Tauri 官方 tauri-action | 高 | 直接套官方矩阵 workflow |
+
+## 5 个参考项目速查
+
+### Resin (Resinat/Resin) — Go, 1732★, MIT
+- 10万+ 节点；P2C + 域名感知 TD-EWMA；粘性锚定出口 IP（同 IP 多节点可互换）
+- Platform + Account 双层隔离；每 Platform 独立可路由视图 + xsync.Map 租约表
+- 热路径无锁（P2C + 原子）；冷路径全量重建可路由集合；TD-EWMA 分权威域名/普通站点 LRU
+- 单二进制：go build -tags "with_quic with_wireguard with_grpc with_utls"
+- 三种入口：HTTP 正向代理 / SOCKS5 / 反向代理（BaseURL 替换）
+- 零侵入：可从 Authorization 头提取 Account 自动绑定 IP
+
+### Pingora (Cloudflare / STOA 嵌入) — Rust, Apache-2.0
+- 共享连接池替代 per-client pool；50K+ RPS 不耗尽；H2 global multiplexing
+- STOA 选择 Embedded Connector（feature-gated pingora），单二进制零 sidecar
+- <1K RPS 差异 0.5ms p95；>50K RPS 才体现优势
+- 迁移成本 13 pts（STOA 估算）；需 cmake；CI 需预装
+- 迁移模式：ProxyPhase trait 1:1 映射 ProxyHttp，仅代理路径切 PingoraPool.send_request()
+
+### Ghost (Ghostsproxy) — Tauri + Go sidecar
+- Rust Tauri 壳 + Go ghost-engine sidecar；HTTP/WS 通信
+- safety net：sidecar 死后 Rust 调 OS API 关系统代理，不依赖 sidecar 存活
+- 启动握手：sidecar 15s 内输出 JSON（api_port/proxy_port/token），超时退出
+- system tray：每 3s 轮询后端状态，连续 3 次失败触发 safety net
+
+### Comox AI Gateway — Go, 企业级 LLM 网关
+- goroutine 万级并发 SSE；单二进制；GC 亚毫秒停顿
+- Least-Latency 路由 + 模型回退 + 语义缓存（向量）+ 熔断器
+- 印证高并发 SSE 必须 Go/Rust；无 SOCKS5/进程路由/粘性 IP（仅算法参考）
+
+### Only1MCP — Rust (axum), 10k+ req/s, <5ms
+- MCP 聚合网关；bb8 连接池 + DashMap 缓存；SSE/STDIO/HTTP 多传输
+- 仅作 Rust 高并发模式参考；无代理池/出口 IP/订阅导入
+
+## 推荐迁移路径（分阶段）
+
+| 阶段 | 目标 | 工作量 | 风险 |
+|---|---|---|---|
+| P0 | scheduler/ 替换为 Resin Platform/Account；gateway/proxy.rs 转发到 Resin sidecar | ~2 周 | 低（Resin HTTP API 稳定） |
+| P1 | SSE 粘性锁迁到 Resin 租约；补进程路由；Ghost 式 safety net | ~1 周 | 低 |
+| P2 | Tauri + Resin sidecar 编排；CI/CD 矩阵 Win/Linux/macOS | ~1 周 | 中（sidecar 打包） |
+| P3 | pingora feature gate 替换 reqwest；语义缓存/模型回退（Comox） | 持续 | 低 |
+
+## 可直接复用的代码 / 配置源
+
+- Resin 核心：github.com/Resinat/Resin（go build 得 resin 二进制，Tauri sidecar 托管）
+- Resin 配置：RESIN_AUTH_VERSION=V1 + Platform/Account YAML（替代拓扑 JSON）
+- Tauri CI：tauri-apps/tauri-action 官方矩阵 workflow
+- Ghost safety net：disable_system_proxy_native() + sidecar 心跳
+- Pingora 嵌入实现：stoa-platform/stoa#1801 PR
+
+## 关键技术取舍已定
+
+- 不强行 Rust SSE：高并发层走 Go (Resin / Comox 路径)
+- 不抛 mihomo：保留订阅编译 + Clash YAML 编译能力，作为 Resin 下游
+- 不自己实现 IP 粘性：用 Resin 出口 IP 锚定 + 租约表
+- 不引入 Pingora 直至 >50K RPS：短期 reqwest pool_max_idle=0 足够

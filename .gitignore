@@ -1,0 +1,54 @@
+# dependencies
+node_modules/
+dist/
+dist-ssr/
+target/
+
+# tauri
+src-tauri/target/
+src-tauri/gen/
+src-tauri/sidecar/*
+!src-tauri/sidecar/.keep
+
+# local data
+*.sqlite
+*.sqlite3
+*.db
+
+# logs
+*.log
+.omx/
+
+# temp
+.codex-tmp/
+
+# secrets & env
+.env
+.env.*
+*.pem
+*.key
+!*.pub
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# tauri build artifacts
+src-tauri/gen/
+src-tauri/icons/
+!src-tauri/icons/*.png
+
+# rust toolchain
+.cargo/
+rust-toolchain.toml
+
+# codegraph
+.codegraph/
