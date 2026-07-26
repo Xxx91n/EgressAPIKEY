@@ -1,0 +1,28 @@
+[package]
+name = "ai-api-route-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Tauri 2 desktop shell for ai-api-route"
+
+[lib]
+name = "ai_api_route_app"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ai-api-route"
+path = "src/main.rs"
+
+[dependencies]
+resin-core = { path = "../crates/resin-core" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Tauri deps wire fully in P2; the workspace builds the core first.
