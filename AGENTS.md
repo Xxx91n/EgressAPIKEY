@@ -38,3 +38,65 @@ CodeGraph is the project's indexed code intelligence layer. The index lives at `
 
 **Index sync is mandatory after code changes** (same commit that changes code must update the index). The index is gitignored and never committed.
 ## Project Overview
+
+ai-api-route is a Tauri 2 + React 19 desktop app: an L7 proxy gateway specialized for AI API keys. Each key hashes into a lane; every request opens a fresh TCP through mihomo to guarantee distinct exit IPs, solving the same-domain/same-IP collision that breaks AI API key pools. SSE streams lock the lane until completion. The kernel reuses the Resin (Go) Platform/Account/P2C/TD-EWMA architecture but is re-implemented in Rust so the whole OS-facing app is one Tauri build.
+
+- Backend core: `crates/resin-core/` (Rust: tokio, axum, reqwest, petgraph, rusqlite)
+- Desktop shell: `src-tauri/` (Tauri 2, sidecar lifecycle, system tray, Ghost safety net)
+- Frontend: `src/` (React 19, TS, Vite, Tailwind, ReactFlow 12, Zustand 5, react-i18next)
+- Docs: `docs/ARCHITECTURE.md`, `docs/PROJECT_PLAN.md`, `docs/MEMORY_REUSE_DECISION.md`
+- Release artifacts: `release/` (gitignored except tags)
+
+---
+
+## /init conventions (enforced from P0)
+
+Any agent or human landing on this repo MUST apply these conventions. Violating any is a blocking review comment.
+
+### 1. Code exploration - CodeGraph MANDATORY
+- Before reading source files to answer "how does X work / where is X / what calls Y", query CodeGraph first. See the CodeGraph block above for commands.
+- After any source change in a commit, run `codegraph sync .` in the SAME session before committing so the index reflects the change. The index lives in `.codegraph/` (gitignored, never committed).
+- Treat codegraph-returned source as already-Read; do NOT re-open those files in the same session.
+
+### 2. Tool routing - context-mode MANDATORY
+- See the context-mode routing block at the top. File edits, large grep, web fetch, data analysis all go through ctx_* first. `curl`/`wget`/inline HTTP are forbidden; use `ctx_fetch_and_index`. Shell is OK for bounded mutating commands (git, mkdir, cargo build, pnpm scripts).
+
+### 3. i18n - decoupled, full-key coverage
+- All user-visible strings in `src/` MUST come from the i18n catalog (`src/locales/<locale>/*.json`) via `react-i18next` `t()` / `Trans`. Never hard-code English (or any locale) in components.
+- Base locales: `en`, `zh`. Adding a string means adding the key to BOTH base locales in the same commit.
+- `pnpm i18n:scan` extracts keys; `pnpm i18n:check` fails the build if coverage is below 100% for base locales.
+- Locale files are the single source of truth for UI text; no inline substitutions of translated strings.
+
+### 4. Tests - mandatory per behavior
+- Rust: every public function in `crates/resin-core/` has a unit test in the same file (`#[cfg(test)] mod tests`) or an integration test under `crates/resin-core/tests/`. New behavior without a test is blocked.
+- Frontend: Zustand stores and pure reducers have vitest unit tests under `src/**/*.test.ts(x)`. Component interactions have playwright e2e under `e2e/`.
+- Evaluator for the whole repo: `bash scripts/verify-build.sh` - runs cargo build, cargo test, pnpm build, pnpm test; exits non-zero if any fail. CI calls this; so should pre-push hooks.
+
+### 5. CI/CD - multi-platform packaging to release/
+- GitHub Actions matrix builds four artifact groups into `release/`:
+  1. windows-gui - Tauri MSI/NSIS (x64)
+  2. linux-gui - Tauri .deb (Debian) + AppImage (x64)
+  3. macos-gui - Tauri .dmg (universal/arm64)
+  4. Backend-only headless target - `cargo build --release -p resin-core` for each OS, tar.gz per platform named `release/<os>-backend.tar.gz`
+- iOS GUI note: iPadOS cannot run a Tauri desktop shell; the Apple-silicon desktop sibling is the macOS .dmg. Documented in CI and README. Do not promise an iOS iPad build.
+- Artifacts are produced by `tauri-action` and the backend matrix job; release/ is gitignored except for tagged release assets uploaded to the GitHub Release.
+
+### 6. Git hygiene - push after every change
+- Commit convention: `<Phase>: <area> - <summary>` e.g. `P1: core - lane hash + SSE lease`.
+- Every phase/feature commit MUST be pushed (`git push`) so the project is always traceable. Do not accumulate local-only work across phases.
+- `.gitattributes` LF policy is authoritative; `git diff --check` must be clean before each commit. Never commit with CRLF outside the allow set (`.bat`, `.ps1`, `.cmd`).
+- `git config core.autocrlf false` at repo level (set at init). Do not re-enable autocrlf.
+
+### 7. File integrity (host protocol)
+- New source files: UTF-8 no BOM, LF line endings unless extension is in the CRLF allow set.
+- Edits to existing files: re-read the affected region before destructive change; after two failed apply_patch attempts on the same file, do one whole-file rewrite and verify bytes.
+- Never inline `$` PowerShell logic; write a `.ps1` and run with `-File` (host transport strips inline `$`).
+
+### 8. Subagent policy for this repo
+- This thread runs with subagents DISABLED (per user instruction). Do NOT spawn Codex native subagents or OMX team/worker lanes. Execute everything single-threaded in this agent.
+
+### 9. Don't revert work you didn't make
+- If uncommitted changes appear that this agent did not make, treat them as user/external and do not revert. Either ignore (unrelated) or build with them (affects the task).
+
+### 10. Update this file in the same commit that changes the project
+- AGENTS.md is the source of truth. When structure, conventions, module boundaries, tech stack, or release/push protocol changes, update this file in the SAME commit that introduces the change.
