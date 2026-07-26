@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 dist/
+# typescript incremental build cache
+*.tsbuildinfo
+tsconfig.tsbuildinfo
 dist-ssr/
 target/
 
@@ -54,3 +57,8 @@ rust-toolchain.toml
 .codegraph/
 # release artifacts
 release/
+
+# playwright
+playwright-report/
+test-results/
+.playwright/

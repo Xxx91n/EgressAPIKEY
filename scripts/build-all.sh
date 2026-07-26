@@ -23,7 +23,10 @@ mkdir -p release
 STAGE="release/${NAME}-backend"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
-cp target/release/resin-core* "$STAGE/" 2>/dev/null || true
+# Find the built binary across host-target layouts (target/release/ or target/<triple>/release/).
+BINS="$(find target -maxdepth 3 -type f \( -name 'resin-core' -o -name 'resin-core.exe' \) -path '*/release/*' 2>/dev/null)"
+for BIN in $BINS; do cp "$BIN" "$STAGE/"; done
+test -n "$BINS" || { echo "resin-core binary not found after build"; exit 1; }
 cp -r docs "$STAGE/docs" 2>/dev/null || true
 tar -czf "${STAGE}.tar.gz" "$STAGE"
 echo "[build-all] backend artifact: ${STAGE}.tar.gz"

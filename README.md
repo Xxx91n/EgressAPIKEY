@@ -27,6 +27,7 @@ pnpm tauri dev
 | `docs/MEMORY.md` | Compressed research memory — read first |
 | `docs/ARCHITECTURE.md` | Layers, data flow, tech stack, fallback plan |
 | `docs/PROJECT_PLAN.md` | Phased delivery (P0–P9) and success criteria |
+| `docs/RELEASE.md` | Release pipeline: CI matrix, artifact groups, iOS-class note |
 
 ## Tech stack
 
@@ -39,4 +40,19 @@ pnpm tauri dev
 
 ## License
 
-MIT
+GPL-3.0-or-later
+
+## i18n
+
+Decoupled catalog under `src/locales/<locale>/*.json` (base: `en`, `zh`). `pnpm i18n:scan` extracts keys; `pnpm i18n:check` fails the build on missing base-locale keys.
+
+## Tests & build
+
+```powershell
+bash scripts/verify-build.sh   # cargo build+test, tsc, vite build, vitest, i18n check
+bash scripts/build-all.sh      # local reproduction of the CI matrix (backend tarball + GUI if tauri-cli installed)
+```
+
+## Release artifacts
+
+CI builds five artifact groups into `release/` (published to the GitHub Release): Windows GUI, Linux/debian GUI, macOS GUI (universal/arm64), plus per-OS headless backend tarballs. iPadOS cannot run a Tauri desktop shell; the Apple-silicon desktop sibling is the macOS `.dmg`. See `docs/RELEASE.md`.

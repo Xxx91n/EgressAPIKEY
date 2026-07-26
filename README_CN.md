@@ -75,4 +75,4 @@ npx codegraph sync
 
 ## 许可
 
-MIT
+GPL-3.0-or-later
