@@ -4,6 +4,11 @@ dist/
 # typescript incremental build cache
 *.tsbuildinfo
 tsconfig.tsbuildinfo
+# tsc project references may also produce these side-products; do not commit
+vite.config.d.ts
+vite.config.js
+# pnpm may auto-create this workspace file; not used here
+pnpm-workspace.yaml
 dist-ssr/
 target/
 

@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "composite": true,
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
@@ -8,5 +7,7 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "scripts/**/*.cjs", "i18next-scanner.config.cjs"]
+  "include": ["vite.config.ts", "vitest.config.ts", "scripts/**/*.cjs", "i18next-scanner.config.cjs"],
+  "noEmit": true,
+  "emitDeclarationOnly": false
 }
