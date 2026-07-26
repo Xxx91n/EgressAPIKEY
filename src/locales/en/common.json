@@ -1,0 +1,62 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "AI API key specialized proxy pool with a topology canvas"
+  },
+  "nav": {
+    "topology": "Topology",
+    "settings": "Settings",
+    "processRoute": "Process Route",
+    "subscriptions": "Subscriptions"
+  },
+  "platform": {
+    "title": "Platforms",
+    "add": "Add platform",
+    "name": "Name",
+    "accounts": "Accounts",
+    "empty": "No platforms configured."
+  },
+  "account": {
+    "id": "Account id",
+    "lane": "Lane",
+    "exitIp": "Exit IP",
+    "active": "Active",
+    "bindIp": "Bind exit IP",
+    "add": "Add account"
+  },
+  "settings": {
+    "general": "General",
+    "language": "Language",
+    "lanes": "Lanes",
+    "gatewayBind": "Gateway bind address",
+    "mihomoApi": "mihomo API URL",
+    "save": "Save"
+  },
+  "subscription": {
+    "title": "Subscriptions",
+    "import": "Import subscription",
+    "url": "Subscription URL",
+    "imported": "Imported {{count}} nodes into {{lanes}} lanes"
+  },
+  "topology": {
+    "title": "Topology canvas",
+    "live": "Lanes refresh live from the gateway",
+    "lane": "Lane {{index}}",
+    "ip": "Exit IP {{ip}}",
+    "busy": "busy",
+    "free": "free"
+  },
+  "processRoute": {
+    "title": "Process route",
+    "add": "Add routing rule",
+    "process": "Process name",
+    "target": "Target lane",
+    "empty": "No per-process routing rules."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit"
+  }
+}

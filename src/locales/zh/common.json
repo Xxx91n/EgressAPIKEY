@@ -1,0 +1,62 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "带拓扑画布的 AI API key 专用代理池"
+  },
+  "nav": {
+    "topology": "拓扑",
+    "settings": "设置",
+    "processRoute": "进程路由",
+    "subscriptions": "订阅"
+  },
+  "platform": {
+    "title": "平台",
+    "add": "添加平台",
+    "name": "名称",
+    "accounts": "账号",
+    "empty": "尚未配置任何平台。"
+  },
+  "account": {
+    "id": "账号 ID",
+    "lane": "出口通道",
+    "exitIp": "出口 IP",
+    "active": "启用",
+    "bindIp": "绑定出口 IP",
+    "add": "添加账号"
+  },
+  "settings": {
+    "general": "通用",
+    "language": "语言",
+    "lanes": "出口通道数",
+    "gatewayBind": "网关监听地址",
+    "mihomoApi": "mihomo API 地址",
+    "save": "保存"
+  },
+  "subscription": {
+    "title": "订阅",
+    "import": "导入订阅",
+    "url": "订阅地址",
+    "imported": "已将 {{count}} 个节点导入 {{lanes}} 条通道"
+  },
+  "topology": {
+    "title": "拓扑画布",
+    "live": "通道状态由网关实时刷新",
+    "lane": "通道 {{index}}",
+    "ip": "出口 IP {{ip}}",
+    "busy": "繁忙",
+    "free": "空闲"
+  },
+  "processRoute": {
+    "title": "进程路由",
+    "add": "添加路由规则",
+    "process": "进程名",
+    "target": "目标通道",
+    "empty": "暂无进程路由规则。"
+  },
+  "common": {
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑"
+  }
+}

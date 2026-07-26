@@ -52,3 +52,5 @@ rust-toolchain.toml
 
 # codegraph
 .codegraph/
+# release artifacts
+release/
