@@ -5,7 +5,7 @@
 //! in resin-core stay intact.
 
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::SharedGateway;
 
@@ -128,4 +128,14 @@ pub fn gateway_snapshot(state: State<SharedGateway>) -> Result<LaneSnapshot, Str
     let busy = g.lease_table.live_count();
     let latencies = g.tdewma_snapshot();
     Ok(LaneSnapshot { lane_count, busy, latencies })
+}
+
+/// Live-refresh tray labels after the user changes the UI language in
+/// SettingsView (Re10). Stateless: does NOT take SharedGateway, so a flood of
+/// language toggles cannot contend on the gateway lock. The tray itself owns
+/// the public label text; the only failure mode (no tray yet) is silently
+/// ignored via `apply_labels` returning Ok.
+#[tauri::command]
+pub fn tray_refresh_labels(app: AppHandle) -> Result<(), String> {
+    crate::tray::apply_labels(&app).map_err(|e| format!("tray_refresh_labels: {e:?}"))
 }
