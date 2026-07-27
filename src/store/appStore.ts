@@ -46,7 +46,7 @@ export type Locale = "en" | "zh" | "ja" | "es" | "fr" | "de" | "ko" | "ru" | "pt
 /// Colour-scheme preference. "system" follows prefers-color-scheme at runtime.
 export type Theme = "light" | "dark" | "system";
 
-export type View = "topology" | "settings" | "processRoute" | "subscriptions";
+export type View = "topology" | "platforms" | "settings" | "processRoute" | "subscriptions";
 
 export interface AppState {
   view: View;

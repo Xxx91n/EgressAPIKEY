@@ -7,7 +7,8 @@
     "topology": "Топология",
     "settings": "Настройки",
     "processRoute": "Маршрут процесса",
-    "subscriptions": "Подписки"
+    "subscriptions": "Подписки",
+    "platforms": "Платформы"
   },
   "platform": {
     "title": "Платформы",

@@ -52,3 +52,20 @@ export async function saveTheme(theme: string): Promise<void> {
     /* noop outside tauri */
   }
 }
+export async function loadLaneCount(): Promise<number | null> {
+  try {
+    const v = await store().get<number>("laneCount");
+    return typeof v === "number" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveLaneCount(n: number): Promise<void> {
+  try {
+    await store().set("laneCount", n);
+    await store().save();
+  } catch {
+    /* noop outside tauri */
+  }
+}

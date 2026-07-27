@@ -7,7 +7,8 @@
     "topology": "토폴로지",
     "settings": "설정",
     "processRoute": "프로세스 경로",
-    "subscriptions": "구독"
+    "subscriptions": "구독",
+    "platforms": "플랫폼"
   },
   "platform": {
     "title": "플랫폼",

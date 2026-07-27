@@ -6,6 +6,7 @@
   "nav": {
     "topology": "Topology",
     "settings": "Settings",
+    "platforms": "Platforms",
     "processRoute": "Process Route",
     "subscriptions": "Subscriptions"
   },

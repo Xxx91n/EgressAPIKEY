@@ -7,7 +7,8 @@
     "topology": "Topologie",
     "settings": "Réglages",
     "processRoute": "Routage des processus",
-    "subscriptions": "Abonnements"
+    "subscriptions": "Abonnements",
+    "platforms": "Plateformes"
   },
   "platform": {
     "title": "Plateformes",

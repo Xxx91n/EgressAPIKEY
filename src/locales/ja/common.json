@@ -7,7 +7,8 @@
     "topology": "トポロジー",
     "settings": "設定",
     "processRoute": "プロセスルート",
-    "subscriptions": "サブスクリプション"
+    "subscriptions": "サブスクリプション",
+    "platforms": "プラットフォーム"
   },
   "platform": {
     "title": "プラットフォーム",

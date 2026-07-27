@@ -1,46 +1,53 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { Navigation, Network, Settings as SettingsIcon, Route, FolderTree, RadioTower } from "lucide-react";
 import { useAppStore, type Locale, type Theme } from "./store/appStore";
 import { TopologyView } from "./views/TopologyView";
 import { SettingsView } from "./views/SettingsView";
 import { ProcessRouteView } from "./views/ProcessRouteView";
 import { SubscriptionsView } from "./views/SubscriptionsView";
+import { PlatformsView } from "./views/PlatformsView";
 import { useTheme } from "./lib/useTheme";
 import { LogPanel } from "./components/LogPanel";
-import { loadLocale, loadTheme } from "./lib/settings";
+import { loadLocale, loadTheme, loadLaneCount } from "./lib/settings";
 
+// Side rail nav: icon + label, desktop-tool density. Lucide vector icons
+// (not emoji) per ui-ux-pro-max: scalable, theme-aware, consistent stroke.
 const NAV_ITEMS = [
-  { key: "topology", icon: "\u{1F6F0}" },
-  { key: "settings", icon: "\u2699" },
-  { key: "processRoute", icon: "\u{1F9ED}" },
-  { key: "subscriptions", icon: "\u{1F4E1}" },
+  { key: "topology", icon: Network },
+  { key: "platforms", icon: FolderTree },
+  { key: "processRoute", icon: Route },
+  { key: "subscriptions", icon: RadioTower },
+  { key: "settings", icon: SettingsIcon },
 ] as const;
 
-function NavBar() {
+function SideRail() {
   const { t } = useTranslation();
   const view = useAppStore((s) => s.view);
   const setView = useAppStore((s) => s.setView);
   return (
-    <nav className="flex gap-2 border-b border-zinc-200 dark:border-zinc-800 px-3 py-2 bg-white dark:bg-zinc-950">
-      {NAV_ITEMS.map((item) => (
-        <button
-          key={item.key}
-          onClick={() => setView(item.key)}
-          aria-pressed={view === item.key}
-          title={t(`nav.${item.key}`)}
-          className={
-            "px-3 py-1.5 rounded text-sm " +
-            (view === item.key
-              ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-              : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800")
-          }
-        >
-          <span aria-hidden className="mr-1">
-            {item.icon}
-          </span>
-          {t(`nav.${item.key}`)}
-        </button>
-      ))}
+    <nav className="w-14 flex flex-col items-center gap-1 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 py-3 shrink-0">
+      {NAV_ITEMS.map((item) => {
+        const Icon = item.icon;
+        const active = view === item.key;
+        return (
+          <button
+            key={item.key}
+            onClick={() => setView(item.key)}
+            aria-pressed={active}
+            aria-label={t(`nav.${item.key}`)}
+            title={t(`nav.${item.key}`)}
+            className={
+              "w-9 h-9 flex items-center justify-center rounded-md transition-colors " +
+              (active
+                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200/60 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800")
+            }
+          >
+            <Icon size={18} strokeWidth={1.75} />
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -50,6 +57,7 @@ export default function App() {
   const view = useAppStore((s) => s.view);
   const setLocale = useAppStore((s) => s.setLocale);
   const setTheme = useAppStore((s) => s.setTheme);
+  const setLaneCount = useAppStore((s) => s.setLaneCount);
   useTheme();
 
   // Bootstrap persisted prefs once on mount (no-op outside Tauri/vitest).
@@ -65,24 +73,32 @@ export default function App() {
       if (savedTheme && !cancelled) {
         setTheme(savedTheme as Theme);
       }
+      const savedLaneCount = await loadLaneCount();
+      if (savedLaneCount && !cancelled) {
+        setLaneCount(savedLaneCount);
+      }
     })();
     return () => { cancelled = true; };
-  }, [setLocale, setTheme, i18n]);
+  }, [setLocale, setTheme, setLaneCount, i18n]);
 
   return (
-    <div className="h-full flex flex-col bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-      <header className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
-        <h1 className="text-lg font-semibold">{t("app.title")}</h1>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("app.tagline")}</p>
-      </header>
-      <NavBar />
-      <main className="flex-1 overflow-auto p-4">
-        {view === "topology" && <TopologyView />}
-        {view === "settings" && <SettingsView />}
-        {view === "processRoute" && <ProcessRouteView />}
-        {view === "subscriptions" && <SubscriptionsView />}
-      </main>
-      <LogPanel />
+    <div className="h-full flex bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+      <SideRail />
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
+          <Navigation size={16} className="text-zinc-400" strokeWidth={1.75} />
+          <h1 className="text-sm font-semibold tracking-tight">{t("app.title")}</h1>
+          <span className="text-xs text-zinc-400 dark:text-zinc-500 hidden sm:inline">· {t("app.tagline")}</span>
+        </header>
+        <main className="flex-1 overflow-auto">
+          {view === "topology" && <TopologyView />}
+          {view === "platforms" && <PlatformsView />}
+          {view === "settings" && <SettingsView />}
+          {view === "processRoute" && <ProcessRouteView />}
+          {view === "subscriptions" && <SubscriptionsView />}
+        </main>
+        <LogPanel />
+      </div>
     </div>
   );
 }

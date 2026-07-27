@@ -46,3 +46,21 @@ once_cell = { workspace = true }
 
 [build-dependencies]
 tauri-build = { version = "2", features = ["codegen"] }
+
+# Tauri's generate_context! macro picks dev (devUrl) vs prod (embedded
+# frontendDist) via cfg!(not(feature = "custom-protocol")). `tauri build`
+# enables this feature automatically, but `cargo build` does NOT — so a plain
+# `cargo build --release` would still set dev:true and the webview would try
+# to load http://localhost:1420 (ERR_CONNECTION_REFUSED when no dev server
+# runs). Forward the feature so our portable build path can opt in:
+#   cargo build --release -p ai-api-route-app --features custom-protocol
+# build-all.sh / CI must pass --features custom-protocol for every GUI build
+# that is handed to a user. See AGENTS.md section 5.
+[features]
+default = []
+# Forwards to tauri's custom-protocol feature so generate_context! compiles
+# the frontendDist assets into the binary (dev:false). Without this, any
+# `cargo build` (including --release) leaves dev:true and the webview loads
+# devUrl, which fails with ERR_CONNECTION_REFUSED on a user machine without
+# the Vite dev server running.
+custom-protocol = ["tauri/custom-protocol"]

@@ -7,7 +7,8 @@
     "topology": "拓扑",
     "settings": "设置",
     "processRoute": "进程路由",
-    "subscriptions": "订阅"
+    "subscriptions": "订阅",
+    "platforms": "平台"
   },
   "platform": {
     "title": "平台",

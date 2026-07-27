@@ -7,7 +7,8 @@
     "topology": "Topologia",
     "settings": "Configurações",
     "processRoute": "Rota de processo",
-    "subscriptions": "Assinaturas"
+    "subscriptions": "Assinaturas",
+    "platforms": "Plataformas"
   },
   "platform": {
     "title": "Plataformas",

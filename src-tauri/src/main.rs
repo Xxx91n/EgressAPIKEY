@@ -6,7 +6,7 @@
 
 use ai_api_route_app::{build_shared_gateway, build_shared_registry, commands, tray::build_tray};
 use resin_core::DEFAULT_LANES;
-use tauri::{Manager, Emitter};
+use tauri::{Manager, Emitter, WindowEvent};
 
 fn main() {
     let lanes = std::env::var("AI_API_ROUTE_LANES")
@@ -52,6 +52,18 @@ fn main() {
         )
         .manage(gateway)
         .manage(registry)
+        // Closing the main window hides to tray instead of quitting the app
+        // (problem 5). The tray "Quit" item is the real exit path; the tray
+        // left-click and "Show Window" item restore the hidden window. We
+        // prevent the default close so the process keeps running for SSE
+        // streams and lane leases while the user has dismissed the GUI.
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                // Best-effort hide; never panic if the window is already gone.
+                let _ = window.hide();
+                api.prevent_close();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::gateway_reserve,
             commands::gateway_release,
