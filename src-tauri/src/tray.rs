@@ -16,7 +16,7 @@ use tauri::{AppHandle, Manager, tray::{TrayIconBuilder, MouseButton, MouseButton
 /// Supported tray label locales (18 base locales). MUST stay in lockstep with
 /// `src/locales/<lc>/common.json` keys `tray.*` and the `Locale` union in
 /// `src/store/appStore.ts`.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TrayLang { En, Zh, Ja, Es, Fr, De, Ko, Ru, Pt, Ar, It, Nl, Pl, Tr, Vi, Th, Id, Hi }
 
 /// Per-locale tray label set.
@@ -54,11 +54,13 @@ pub fn labels(lc: TrayLang) -> TrayLabels {
 
 /// Read the active frontend locale from tauri-plugin-store ("lang") and map it
 /// to a `TrayLang`. Default English if unreadable or unknown; never panics.
-pub fn current_lang(app: &AppHandle) -> TrayLang {
-    use tauri_plugin_store::StoreExt;
-    let Ok(store) = app.store("settings.json") else { return TrayLang::En; };
-    let lang = store.get("lang").and_then(|v| v.as_str().map(String::from)).unwrap_or_else(|| "en".into());
-    match lang.as_str() {
+/// Map a frontend locale string ("en","zh",...) to a `TrayLang`. Extracted as a
+/// pure fn so the locale-key table is unit-testable without an `AppHandle`
+/// (which needs a full Tauri runtime). `current_lang` reads the persisted
+/// "lang" key and delegates here. Unknown/empty -> English; never panics.
+pub fn lang_for_str(s: &str) -> TrayLang {
+    match s {
+        "en" | "" => TrayLang::En,
         "zh" => TrayLang::Zh,
         "ja" => TrayLang::Ja,
         "es" => TrayLang::Es,
@@ -78,6 +80,13 @@ pub fn current_lang(app: &AppHandle) -> TrayLang {
         "hi" => TrayLang::Hi,
         _ => TrayLang::En,
     }
+}
+
+pub fn current_lang(app: &AppHandle) -> TrayLang {
+    use tauri_plugin_store::StoreExt;
+    let Ok(store) = app.store("settings.json") else { return TrayLang::En; };
+    let lang = store.get("lang").and_then(|v| v.as_str().map(String::from)).unwrap_or_else(|| "en".into());
+    lang_for_str(&lang)
 }
 
 /// Re-apply the labels in-place after a language change. Called from the
@@ -141,4 +150,69 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     }
     builder.build(app)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every TrayLang variant must produce a non-empty `show`/`quit` label.
+    /// Catches a future row left as "" or a typo'd empty literal.
+    #[test]
+    fn labels_all_variants_non_empty() {
+        let all = [
+            TrayLang::En, TrayLang::Zh, TrayLang::Ja, TrayLang::Es, TrayLang::Fr, TrayLang::De,
+            TrayLang::Ko, TrayLang::Ru, TrayLang::Pt, TrayLang::Ar, TrayLang::It, TrayLang::Nl,
+            TrayLang::Pl, TrayLang::Tr, TrayLang::Vi, TrayLang::Th, TrayLang::Id, TrayLang::Hi,
+        ];
+        for lc in all {
+            let l = labels(lc);
+            assert!(!l.show.is_empty(), "show label empty for variant {:?}", lc);
+            assert!(!l.quit.is_empty(), "quit label empty for variant {:?}", lc);
+            assert_eq!(l.tooltip, "ai-api-route", "tooltip must be the app name");
+        }
+    }
+
+    /// Each locale gets a distinct `show` string (translations must not
+    /// collide by copy-paste). Quit strings are also distinct except where two
+    /// locales intentionally share a word; we only assert show distinction.
+    #[test]
+    fn labels_show_distinct_per_locale() {
+        let all = [
+            TrayLang::En, TrayLang::Zh, TrayLang::Ja, TrayLang::Es, TrayLang::Fr, TrayLang::De,
+            TrayLang::Ko, TrayLang::Ru, TrayLang::Pt, TrayLang::Ar, TrayLang::It, TrayLang::Nl,
+            TrayLang::Pl, TrayLang::Tr, TrayLang::Vi, TrayLang::Th, TrayLang::Id, TrayLang::Hi,
+        ];
+        let shows: Vec<&str> = all.iter().map(|lc| labels(*lc).show).collect();
+        let mut dedup = shows.clone();
+        dedup.sort_unstable();
+        dedup.dedup();
+        assert_eq!(dedup.len(), shows.len(),
+            "show labels must be distinct per locale; duplicates found");
+    }
+
+    /// The locale-key table must cover every frontend base locale (the 18 in
+    /// `src/store/appStore.ts` Locale union). Unknown/garbage -> English.
+    #[test]
+    fn lang_for_str_covers_all_base_locales() {
+        let base = ["en", "zh", "ja", "es", "fr", "de", "ko", "ru", "pt", "ar",
+                    "it", "nl", "pl", "tr", "vi", "th", "id", "hi"];
+        // Each maps to the expected variant (round-trip on the canonical key).
+        let expect = [TrayLang::En, TrayLang::Zh, TrayLang::Ja, TrayLang::Es, TrayLang::Fr,
+            TrayLang::De, TrayLang::Ko, TrayLang::Ru, TrayLang::Pt, TrayLang::Ar, TrayLang::It,
+            TrayLang::Nl, TrayLang::Pl, TrayLang::Tr, TrayLang::Vi, TrayLang::Th, TrayLang::Id,
+            TrayLang::Hi];
+        for (k, want) in base.iter().zip(expect.iter()) {
+            assert_eq!(lang_for_str(k), *want, "lang_for_str({k:?}) mismatch");
+        }
+    }
+
+    /// Unknown / empty locale keys default to English and never panic.
+    #[test]
+    fn lang_for_str_unknown_defaults_english() {
+        assert_eq!(lang_for_str(""), TrayLang::En);
+        assert_eq!(lang_for_str("xx"), TrayLang::En);
+        assert_eq!(lang_for_str("EN"), TrayLang::En); // case-sensitive: no implicit upper
+        assert_eq!(lang_for_str("zh-CN"), TrayLang::En); // region suffix not matched
+    }
 }
