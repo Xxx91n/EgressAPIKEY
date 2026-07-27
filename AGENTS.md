@@ -63,7 +63,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 
 ### 3. i18n - decoupled, full-key coverage
 - All user-visible strings in `src/` MUST come from the i18n catalog (`src/locales/<locale>/*.json`) via `react-i18next` `t()` / `Trans`. Never hard-code English (or any locale) in components.
-- Base locales: `en`, `zh`. Adding a string means adding the key to BOTH base locales in the same commit.
+- Base locales: `en`, `zh`, `ja`, `es`, `fr`. Adding a string means adding the key to ALL base locales in the same commit.
 - `pnpm i18n:scan` extracts keys; `pnpm i18n:check` fails the build if coverage is below 100% for base locales.
 - Locale files are the single source of truth for UI text; no inline substitutions of translated strings.
 
@@ -73,13 +73,15 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 - Evaluator for the whole repo: `bash scripts/verify-build.sh` - runs cargo build, cargo test, pnpm build, pnpm test; exits non-zero if any fail. CI calls this; so should pre-push hooks.
 
 ### 5. CI/CD - multi-platform packaging to release/
-- GitHub Actions matrix builds four artifact groups into `release/`:
-  1. windows-gui - Tauri MSI/NSIS (x64)
-  2. linux-gui - Tauri .deb (Debian) + AppImage (x64)
-  3. macos-gui - Tauri .dmg (universal/arm64)
-  4. Backend-only headless target - `cargo build --release -p resin-core` for each OS, tar.gz per platform named `release/<os>-backend.tar.gz`
-- iOS GUI note: iPadOS cannot run a Tauri desktop shell; the Apple-silicon desktop sibling is the macOS .dmg. Documented in CI and README. Do not promise an iOS iPad build.
-- Artifacts are produced by `tauri-action` and the backend matrix job; release/ is gitignored except for tagged release assets uploaded to the GitHub Release.
+- GitHub Actions matrix builds five artifact groups into `release/`:
+  1. windows-gui - Tauri MSI + NSIS `-setup.exe` installer (x86_64 msvc)
+  2. linux-gui - Tauri `.deb` (Debian) + `.AppImage` (x86_64)
+  3. macos-gui - Tauri `.dmg` arm64 AND x86_64 (split matrix jobs)
+  4. gui-portable - one Tauri `--no-bundle` GUI executable per OS (no installer) for the convenient drop-and-run variant alongside the installer
+  5. Backend-only headless target - `cargo build --release -p resin-core` per OS, tar.gz per platform named `release/<os>-backend.tar.gz`
+- Local reproduction: `bash scripts/build-all.sh` runs the same pipeline on the host OS and stages artifacts at `release/<os>-backend.tar.gz`, `release/<os>-gui/<installers>`, and `release/<os>-gui/<os>-portable-gui`. Requires `@tauri-apps/cli` (devDependency).
+- iOS GUI note: iPadOS cannot run a Tauri desktop shell; the Apple-silicon desktop sibling is the macOS `.dmg`. Documented in CI and README. Do not promise an iOS iPad build.
+- Artifacts are produced by `tauri-action` (installer + portable) and the backend matrix job; `release/` is gitignored except for tagged release assets uploaded to the GitHub Release.
 
 ### 6. Git hygiene - push after every change
 - Commit convention: `<Phase>: <area> - <summary>` e.g. `P1: core - lane hash + SSE lease`.
