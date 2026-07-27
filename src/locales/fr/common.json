@@ -1,0 +1,62 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "Pool de proxies spécialisé en clés d'IA avec canevas de topologie"
+  },
+  "nav": {
+    "topology": "Topologie",
+    "settings": "Réglages",
+    "processRoute": "Routage des processus",
+    "subscriptions": "Abonnements"
+  },
+  "platform": {
+    "title": "Plateformes",
+    "add": "Ajouter une plateforme",
+    "name": "Nom",
+    "accounts": "Comptes",
+    "empty": "Aucune plateforme configurée."
+  },
+  "account": {
+    "id": "ID du compte",
+    "lane": "Voie",
+    "exitIp": "IP de sortie",
+    "active": "Actif",
+    "bindIp": "Assigner l'IP de sortie",
+    "add": "Ajouter un compte"
+  },
+  "settings": {
+    "general": "Général",
+    "language": "Langue",
+    "lanes": "Voies",
+    "gatewayBind": "Adresse d'écoute du gateway",
+    "mihomoApi": "URL de l'API mihomo",
+    "save": "Enregistrer"
+  },
+  "subscription": {
+    "title": "Abonnements",
+    "import": "Importer l'abonnement",
+    "url": "URL de l'abonnement",
+    "imported": "{{count}} nœuds importés dans {{lanes}} voies"
+  },
+  "topology": {
+    "title": "Canevas de topologie",
+    "live": "Voies mises à jour en direct depuis le gateway",
+    "lane": "Voie {{index}}",
+    "ip": "IP de sortie {{ip}}",
+    "busy": "occupé",
+    "free": "libre"
+  },
+  "processRoute": {
+    "title": "Routage des processus",
+    "add": "Ajouter une règle de routage",
+    "process": "Nom du processus",
+    "target": "Voie cible",
+    "empty": "Aucune règle de routage par processus."
+  },
+  "common": {
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "delete": "Supprimer",
+    "edit": "Modifier"
+  }
+}

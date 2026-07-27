@@ -18,15 +18,22 @@ function flatten(obj, prefix, acc) {
   return acc;
 }
 
+// Canonical catalog is en; every shipped locale must match its set of keys.
+const ALL = ["en", "zh", "ja", "es", "fr"];
 const en = flatten(load("en"), "", new Set());
-const zh = flatten(load("zh"), "", new Set());
-const missingZh = [...en].filter((k) => !zh.has(k));
-const missingEn = [...zh].filter((k) => !en.has(k));
-
-if (missingZh.length === 0 && missingEn.length === 0) {
-  console.log("i18n coverage OK: en and zh in sync");
+let missing = 0;
+let extra = 0;
+for (const lc of ALL) {
+  const set = flatten(load(lc), "", new Set());
+  const miss = [...en].filter((k) => !set.has(k));
+  const ext = [...set].filter((k) => !en.has(k));
+  if (miss.length) console.error(`Missing in ${lc}:`, miss.join(", "));
+  if (ext.length) console.error(`Unexpected in ${lc}:`, ext.join(", "));
+  missing += miss.length;
+  extra += ext.length;
+}
+if (missing === 0 && extra === 0) {
+  console.log(`i18n coverage OK: all ${ALL.length} locales match en (${en.size} keys)`);
   process.exit(0);
 }
-if (missingZh.length) console.error("Missing in zh:", missingZh.join(", "));
-if (missingEn.length) console.error("Missing in en:", missingEn.join(", "));
 process.exit(1);

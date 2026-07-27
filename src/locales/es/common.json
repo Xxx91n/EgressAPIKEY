@@ -1,0 +1,62 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "Pool de proxies especializado en claves de IA con lienzo de topología"
+  },
+  "nav": {
+    "topology": "Topología",
+    "settings": "Ajustes",
+    "processRoute": "Ruta de proceso",
+    "subscriptions": "Suscripciones"
+  },
+  "platform": {
+    "title": "Plataformas",
+    "add": "Añadir plataforma",
+    "name": "Nombre",
+    "accounts": "Cuentas",
+    "empty": "No hay plataformas configuradas."
+  },
+  "account": {
+    "id": "ID de cuenta",
+    "lane": "Carril",
+    "exitIp": "IP de salida",
+    "active": "Activo",
+    "bindIp": "Asignar IP de salida",
+    "add": "Añadir cuenta"
+  },
+  "settings": {
+    "general": "General",
+    "language": "Idioma",
+    "lanes": "Carriles",
+    "gatewayBind": "Dirección de enlace del gateway",
+    "mihomoApi": "URL de la API de mihomo",
+    "save": "Guardar"
+  },
+  "subscription": {
+    "title": "Suscripciones",
+    "import": "Importar suscripción",
+    "url": "URL de suscripción",
+    "imported": "{{count}} nodos importados en {{lanes}} carriles"
+  },
+  "topology": {
+    "title": "Lienzo de topología",
+    "live": "Carriles actualizados en vivo desde el gateway",
+    "lane": "Carril {{index}}",
+    "ip": "IP de salida {{ip}}",
+    "busy": "ocupado",
+    "free": "libre"
+  },
+  "processRoute": {
+    "title": "Ruta de proceso",
+    "add": "Añadir regla de enrutamiento",
+    "process": "Nombre del proceso",
+    "target": "Carril destino",
+    "empty": "No hay reglas de enrutamiento por proceso."
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar"
+  }
+}

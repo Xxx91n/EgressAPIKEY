@@ -1,0 +1,62 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "AI APIキー専用プロキシプール（トポロジーキャンバス付き）"
+  },
+  "nav": {
+    "topology": "トポロジー",
+    "settings": "設定",
+    "processRoute": "プロセスルート",
+    "subscriptions": "サブスクリプション"
+  },
+  "platform": {
+    "title": "プラットフォーム",
+    "add": "プラットフォームを追加",
+    "name": "名前",
+    "accounts": "アカウント",
+    "empty": "プラットフォームが設定されていません。"
+  },
+  "account": {
+    "id": "アカウントID",
+    "lane": "レーン",
+    "exitIp": "出口IP",
+    "active": "有効",
+    "bindIp": "出口IPをバインド",
+    "add": "アカウントを追加"
+  },
+  "settings": {
+    "general": "一般",
+    "language": "言語",
+    "lanes": "レーン数",
+    "gatewayBind": "ゲートウェイバインドアドレス",
+    "mihomoApi": "mihomo API URL",
+    "save": "保存"
+  },
+  "subscription": {
+    "title": "サブスクリプション",
+    "import": "サブスクリプションをインポート",
+    "url": "サブスクリプションURL",
+    "imported": "{{count}}ノードを{{lanes}}レーンにインポートしました"
+  },
+  "topology": {
+    "title": "トポロジーキャンバス",
+    "live": "レーンはゲートウェイからリアルタイム更新",
+    "lane": "レーン {{index}}",
+    "ip": "出口IP {{ip}}",
+    "busy": "使用中",
+    "free": "空き"
+  },
+  "processRoute": {
+    "title": "プロセスルート",
+    "add": "ルーティングルールを追加",
+    "process": "プロセス名",
+    "target": "対象レーン",
+    "empty": "プロセスルーティングルールがありません。"
+  },
+  "common": {
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "delete": "削除",
+    "edit": "編集"
+  }
+}

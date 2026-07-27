@@ -48,7 +48,7 @@ export interface AppState {
   processRoutes: ProcessRoute[];
   subscriptions: Subscription[];
   laneCount: number;
-  locale: "en" | "zh";
+  locale: "en" | "zh" | "ja" | "es" | "fr";
 
   setView: (v: View) => void;
   setLanes: (l: LaneState[]) => void;
@@ -61,7 +61,7 @@ export interface AppState {
   removeProcessRoute: (id: string) => void;
   addSubscription: (url: string, nodeCount: number, lanes: number) => void;
   setLaneCount: (n: number) => void;
-  setLocale: (l: "en" | "zh") => void;
+  setLocale: (l: "en" | "zh" | "ja" | "es" | "fr") => void;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);

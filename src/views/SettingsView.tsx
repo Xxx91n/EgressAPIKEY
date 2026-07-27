@@ -20,7 +20,7 @@ export function SettingsView() {
         <select
           value={locale}
           onChange={(e) => {
-            const next = e.target.value as "en" | "zh";
+            const next = e.target.value as "en" | "zh" | "ja" | "es" | "fr";
             setLocale(next);
             void i18n.changeLanguage(next);
           }}
@@ -28,6 +28,9 @@ export function SettingsView() {
         >
           <option value="en">English</option>
           <option value="zh">中文</option>
+          <option value="ja">日本語</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
         </select>
       </div>
       <div className="space-y-2">
