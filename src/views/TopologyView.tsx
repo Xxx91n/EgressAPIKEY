@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ReactFlow, Background, Controls } from "@xyflow/react";
+import { ReactFlow, Background, BackgroundVariant, Controls, MiniMap } from "@xyflow/react";
 import { useMemo } from "react";
 import "@xyflow/react/dist/style.css";
 import { useAppStore, LaneState } from "../store/appStore";
@@ -55,8 +55,9 @@ export function TopologyView() {
       </header>
       <div className="flex-1 border border-zinc-200 dark:border-zinc-800 rounded">
         <ReactFlow nodes={nodes} edges={edges} fitView colorMode={colorMode}>
-          <Background />
+          <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
           <Controls />
+          <MiniMap pannable zoomable />
         </ReactFlow>
       </div>
     </section>
