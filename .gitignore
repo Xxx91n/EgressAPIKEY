@@ -53,6 +53,8 @@ Desktop.ini
 src-tauri/gen/
 src-tauri/icons/
 !src-tauri/icons/*.png
+!src-tauri/icons/*.icns
+!src-tauri/icons/*.ico
 
 # rust toolchain
 .cargo/

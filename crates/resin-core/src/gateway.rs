@@ -111,6 +111,17 @@ impl GatewayState {
     pub fn evict_lane(&self, lane: usize) {
         self.lease_table.evict_lane(lane);
     }
+
+    /// Snapshot of the TD-EWMA table as `(authority, ema_ms, samples, trend)`
+    /// tuples. The Tauri IPC `gateway_snapshot` command uses this to project
+    /// the latency table into a flat array for the topology canvas.
+    pub fn tdewma_snapshot(&self) -> Vec<(String, f64, u64, i8)> {
+        self.tdewma
+            .iter_owned()
+            .into_iter()
+            .map(|(a, s)| (a, s.ema_ms, s.samples, s.trend))
+            .collect()
+    }
 }
 
 /// Decide whether a content-type header indicates an SSE stream.

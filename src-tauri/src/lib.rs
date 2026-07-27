@@ -2,21 +2,49 @@
 //! system tray, and the Ghost-style safety net. Wires frontend IPC commands
 //! to a resin-core GatewayState instance.
 //!
-//! P2 wires the full Tauri plugin set; this module builds standalone so the
-//! workspace compiles and the pure-backend target produces a resin-core binary
-//! before the GUI is integrated.
+//! IPC commands live in the `commands` submodule so the names registered via
+//! `tauri::generate_handler!` do not collide with the macro-generated helper
+//! items (Tauri 2 + Rust 1.97 build-time check).
 
-use anyhow::Result;
+pub mod commands;
+pub mod tray;
+
+use resin_core::gateway::GatewayState;
+use std::sync::Arc;
+
+/// Shared gateway state wrapped so Tauri commands can lock it cheaply.
+pub type SharedGateway = Arc<parking_lot::Mutex<GatewayState>>;
 
 /// Construct a fresh resin_core::gateway::GatewayState for the desktop session.
-/// Tauri commands will wrap this handle.
-pub fn new_gateway_state() -> resin_core::gateway::GatewayState {
-    resin_core::gateway::GatewayState::new(resin_core::DEFAULT_LANES)
+pub fn new_gateway_state() -> GatewayState {
+    GatewayState::new(resin_core::DEFAULT_LANES)
 }
 
-/// Placeholder entrypoint used while the GUI talks only to resin-core. The
-/// real Tauri main is added in src/main.rs once the plugin set is wired.
-pub fn init() -> Result<()> {
-    tracing::trace!("ai-api-route shell init (placeholder)");
+/// Initialise the shared gateway state used by all Tauri commands.
+pub fn build_shared_gateway(lanes: usize) -> SharedGateway {
+    Arc::new(parking_lot::Mutex::new(GatewayState::new(lanes)))
+}
+
+/// Legacy placeholder kept for any external callers/tests that used `init()`.
+pub fn init() -> anyhow::Result<()> {
+    tracing::trace!("ai-api-route shell init");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shared_gateway_creates_with_default_lanes() {
+        let g = build_shared_gateway(resin_core::DEFAULT_LANES);
+        assert_eq!(g.lock().tdewma_snapshot().len(), 0);
+    }
+
+    #[test]
+    fn reservation_keeps_lane() {
+        let g = build_shared_gateway(resin_core::DEFAULT_LANES);
+        let r = g.lock().reserve("sk-test", "acct", "api.openai.com", Some("1.2.3.4"));
+        assert!(r.lease.is_some());
+    }
 }

@@ -82,6 +82,16 @@ impl TdEwma {
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
+
+    /// Iterate over (authority, stats) as owned tuples, snapshotting the
+    /// current TD-EWMA table. Used by the Tauri IPC `gateway_snapshot`
+    /// command to project the table into a flat array for the frontend.
+    pub fn iter_owned(&self) -> Vec<(String, LatencyStats)> {
+        self.inner
+            .iter()
+            .map(|e| (e.key().clone(), *e.value()))
+            .collect()
+    }
 }
 
 impl Default for TdEwma {

@@ -25,4 +25,15 @@ tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
-# Tauri deps wire fully in P2; the workspace builds the core first.
+# Tauri 2 desktop runtime + the plugin set the GUI uses. Versions pinned to
+# the v2 line so cargo + npm agree on the JS @tauri-apps/* counterpart.
+tauri = { version = "2", features = ["wry", "tray-icon", "image-ico", "image-png"] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
+tauri-plugin-opener = "2"
+parking_lot = { workspace = true }
+once_cell = { workspace = true }
+
+[build-dependencies]
+tauri-build = { version = "2", features = ["codegen"] }
