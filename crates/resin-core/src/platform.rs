@@ -51,15 +51,52 @@ impl Platform {
         self.accounts.push(account);
     }
 
-    /// Pick a routable account (power-of-two-choices-lite): sample two and
-    /// return the one with the lower lane index when both active. Resin uses
-    /// True TD-EWMA + P2C; here we expose a deterministic selection so the
-    /// scheduler has a fallback path before full TD-EWMA wiring.
+    /// Pick a routable account: deterministic lane-preferring selection.
+    ///
+    /// Used when no latency signal is available (cold start / no TD-EWMA yet).
+    /// Prefer accounts already bound to `prefer_lane`, then the lowest lane
+    /// index — a stable, reproducible fallback that keeps SSE stickiness for a
+    /// key's lane. Same behaviour as before; renamed docstring to reflect the
+    /// new weighted sibling below.
     pub fn pick_account(&self, prefer_lane: usize) -> Option<&Account> {
         self.accounts
             .iter()
             .filter(|a| a.active)
             .min_by_key(|a| (a.lane != prefer_lane, a.lane))
+    }
+
+    /// Pick a routable account with TD-EWMA weighting (Resin's True P2C path).
+    ///
+    /// Resin's selection prefers lanes with the lowest latency EMA; a lane
+    /// with no sample yet (fresh) is treated as more attractive than any lane
+    /// that already has a (potentially high) EMA, so the scheduler can
+    /// explore cold lanes before falling back to the proven-fast one. This is
+    /// implemented as a deterministic min-by-key over the candidate set — no
+    /// `rand` dependency — using a single tuple ordering:
+    ///
+    ///   (has_sample? 1 : 0, latency_ms_or_0, lane != prefer_lane? 1 : 0, lane)
+    ///
+    /// Lower tuple wins. `latency_for` is supplied by the caller (the
+    /// Tauri command or gateway) so this module does NOT import TdEwma; the
+    /// weighting source is pluggable and `platform` stays a leaf module.
+    pub fn pick_account_weighted<'a, F>(
+        &'a self,
+        prefer_lane: usize,
+        latency_for: F,
+    ) -> Option<&'a Account>
+    where
+        F: Fn(&Account) -> Option<f64>,
+    {
+        self.accounts
+            .iter()
+            .filter(|a| a.active)
+            .min_by_key(|a| {
+                let sample = latency_for(a);
+                let has_sample = if sample.is_some() { 1u8 } else { 0u8 };
+                let latency = sample.map(|m| m.round() as u64).unwrap_or(0u64);
+                let lane_match = if a.lane == prefer_lane { 0u8 } else { 1u8 };
+                (has_sample, latency, lane_match, a.lane)
+            })
     }
 }
 
@@ -120,6 +157,57 @@ mod tests {
         assert!(a.anchor_ip().is_none());
         a.bind_ip("203.0.113.5");
         assert_eq!(a.anchor_ip(), Some("203.0.113.5"));
+    }
+
+    /// Re3: TD-EWMA weighted pick chooses the cold lane over a saturated one.
+    #[test]
+    fn pick_account_weighted_prefers_unsampled_lane() {
+        let mut p = Platform::new("openai");
+        // lane 2 has a measured 800ms EMA, lane 3 is fresh (no sample yet).
+        p.add_account(Account::new("acct-2", "openai", 2));
+        p.add_account(Account::new("acct-3", "openai", 3));
+
+        let pick = p
+            .pick_account_weighted(0, |a| {
+                if a.lane == 2 { Some(800.0) } else { None }
+            })
+            .unwrap();
+        assert_eq!(pick.lane, 3, "fresh (unmeasured) lane must beat slow sampled lane");
+    }
+
+    /// Re3: When all candidates are sampled, the lowest EMA wins.
+    #[test]
+    fn pick_account_weighted_prefers_lower_latency() {
+        let mut p = Platform::new("openai");
+        p.add_account(Account::new("slow", "openai", 1));
+        p.add_account(Account::new("fast", "openai", 4));
+
+        let pick = p
+            .pick_account_weighted(0, |a| match a.lane {
+                1 => Some(900.0),
+                4 => Some(120.0),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(pick.lane, 4, "lower EMA lane should win");
+    }
+
+    /// Re3: Ties on (sample, latency) fall back to lane preference — preserving
+    /// the SSE stickiness invariant: the same key always lands on the same lane.
+    #[test]
+    fn pick_account_weighted_lane_match_breaks_ties() {
+        let mut p = Platform::new("openai");
+        p.add_account(Account::new("a", "openai", 5));
+        p.add_account(Account::new("b", "openai", 7));
+
+        let pick = p
+            .pick_account_weighted(5, |a| match a.lane {
+                5 => Some(100.0),
+                7 => Some(100.0),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(pick.lane, 5, "tied latency must break on preferred lane");
     }
 
     #[test]
