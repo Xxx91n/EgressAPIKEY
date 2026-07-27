@@ -69,3 +69,46 @@ export async function saveLaneCount(n: number): Promise<void> {
     /* noop outside tauri */
   }
 }
+
+/// Gateway bind address ("127.0.0.1:7897") — read by the Rust shell at
+/// startup into CoreConfig::bind. The Rust side is the trust boundary: it
+/// coerces to a loopback bind; a non-loopback value saved here is refused at
+/// the kernel, never piped through a raw-string IPC command (AGENTS §7.6).
+export async function loadGatewayBind(): Promise<string | null> {
+  try {
+    return await store().get<string>("gatewayBind") ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveGatewayBind(addr: string): Promise<void> {
+  try {
+    await store().set("gatewayBind", addr);
+    await store().save();
+  } catch {
+    /* noop outside tauri */
+  }
+}
+
+/// mihomo REST API base URL ("http://127.0.0.1:9090"). The Rust shell reads
+/// this into CoreConfig::mihomo_api and constructs MihomoController::new from
+/// it ONLY if loopback (see crates/resin-core/src/mihomo.rs loopback guard);
+/// a non-loopback url saved here is rejected at construction, never via an
+/// IPC command taking a raw String (§7.6) — settings.json is server-trusted.
+export async function loadMihomoApi(): Promise<string | null> {
+  try {
+    return await store().get<string>("mihomoApi") ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveMihomoApi(url: string): Promise<void> {
+  try {
+    await store().set("mihomoApi", url);
+    await store().save();
+  } catch {
+    /* noop outside tauri */
+  }
+}

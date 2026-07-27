@@ -1,9 +1,17 @@
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Globe, Activity, Server, Save, Check } from "lucide-react";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
-import { saveLocale, saveTheme, saveLaneCount } from "../lib/settings";
+import {
+  saveLocale,
+  saveTheme,
+  saveLaneCount,
+  loadGatewayBind,
+  saveGatewayBind,
+  loadMihomoApi,
+  saveMihomoApi,
+} from "../lib/settings";
 
 const LOCALES: Locale[] = ["en", "zh", "es", "fr", "de", "ja", "ko", "ru", "pt", "it", "nl", "pl", "tr", "ar", "vi", "th", "id", "hi"];
 
@@ -71,6 +79,24 @@ export function SettingsView() {
   const setTheme = useAppStore((s) => s.setTheme);
   const [lanes, setLanes] = useState(laneCount);
   const [saved, setSaved] = useState(false);
+  // Network settings (problem 6 parity): loaded from tauri-plugin-store on
+  // mount, persisted via the Save button. The Rust shell reads these keys
+  // (gatewayBind, mihomoApi) at startup into CoreConfig; mihomoApi flows to
+  // MihomoController::new which refuses non-loopback URLs (§7.6).
+  const [gatewayBind, setGatewayBind] = useState("127.0.0.1:7897");
+  const [mihomoApi, setMihomoApi] = useState("http://127.0.0.1:9090");
+
+  // Hydrate persisted network settings on mount (webview only; no-op in vitest).
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [b, m] = await Promise.all([loadGatewayBind(), loadMihomoApi()]);
+      if (cancelled) return;
+      if (b) setGatewayBind(b);
+      if (m) setMihomoApi(m);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const changeLocale = async (next: Locale) => {
     setLocale(next);
@@ -87,11 +113,21 @@ export function SettingsView() {
 
   // Persist laneCount to tauri-plugin-store (problem 6 fix: the old Save
   // button only updated the in-memory store, so the count was lost on quit).
+  // The Network section shares the same Save action so all three persisted
+  // settings write in one user gesture.
   const saveAll = async () => {
     const n = Math.max(1, Math.min(50, Math.trunc(lanes)));
     setLanes(n);
     setLaneCount(n);
     await saveLaneCount(n);
+    // Basic sanity: bind must be non-empty, mihomo url must start with http.
+    // The Rust side is the real trust boundary (loopback guard); this trim is
+    // just UX so a stray blank does not get saved.
+    const bind = gatewayBind.trim() || "127.0.0.1:7897";
+    const api = mihomoApi.trim() || "http://127.0.0.1:9090";
+    setGatewayBind(bind);
+    setMihomoApi(api);
+    await Promise.all([saveGatewayBind(bind), saveMihomoApi(api)]);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };
@@ -153,16 +189,20 @@ export function SettingsView() {
       </SectionCard>
 
       <SectionCard icon={<Server size={16} strokeWidth={1.75} />} title={t("settings.network")}>
-        <Field label={t("settings.gatewayBind")} hint="127.0.0.1:10086">
+        <Field label={t("settings.gatewayBind")} hint="127.0.0.1:7897">
           <input
             type="text"
-            placeholder="127.0.0.1:10086"
+            value={gatewayBind}
+            onChange={(e) => setGatewayBind(e.target.value)}
+            placeholder="127.0.0.1:7897"
             className="w-56 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           />
         </Field>
         <Field label={t("settings.mihomoApi")} hint="http://127.0.0.1:9090">
           <input
             type="text"
+            value={mihomoApi}
+            onChange={(e) => setMihomoApi(e.target.value)}
             placeholder="http://127.0.0.1:9090"
             className="w-56 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           />
