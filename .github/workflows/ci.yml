@@ -148,7 +148,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --target ${{ matrix.target }}
+          # custom-protocol MUST be passed: without it tauri::generate_context!
+          # compiles dev:true → webview loads devUrl (localhost:1420) →
+          # ERR_CONNECTION_REFUSED on the user's machine (no Vite dev server).
+          # See AGENTS.md section 5 + src-tauri/Cargo.toml [features].
+          args: --target ${{ matrix.target }} --features custom-protocol
           tagName: ${{ github.ref_name }}
           releaseName: "ai-api-route ${{ github.ref_name }}"
           releaseBody: "Windows MSI+NSIS setup, Linux deb+AppImage, macOS dmg (arm64 + x86_64), plus per-OS headless backend tarballs."
@@ -221,7 +225,8 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - name: tauri build --no-bundle (portable binary)
-        run: npx --no-install tauri build --no-bundle --target ${{ matrix.target }}
+        # custom-protocol MUST be passed (see installer job comment above).
+        run: npx --no-install tauri build --no-bundle --features custom-protocol --target ${{ matrix.target }}
       - name: stage release/
         shell: bash
         run: |

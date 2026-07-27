@@ -44,7 +44,7 @@ GPL-3.0-or-later
 
 ## i18n
 
-Decoupled catalog under `src/locales/<locale>/*.json` (base: `en`, `zh`). `pnpm i18n:scan` extracts keys; `pnpm i18n:check` fails the build on missing base-locale keys.
+Decoupled catalog under `src/locales/<locale>/*.json`. 18 base locales today (`en`, `zh`, `ja`, `es`, `fr`, `de`, `ko`, `ru`, `pt`, `ar`, `it`, `nl`, `pl`, `tr`, `vi`, `th`, `id`, `hi`); `en` is the canonical key set. `pnpm i18n:scan` extracts keys; `pnpm i18n:check` fails the build on any missing/extra locale key vs `en`. New user-visible strings must touch every base locale in the same commit; see AGENTS.md `/init conventions` section 3.
 
 ## Tests & build
 
