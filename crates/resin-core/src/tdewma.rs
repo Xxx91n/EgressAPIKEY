@@ -20,6 +20,14 @@ pub struct LatencyStats {
     pub trend: i8,
 }
 
+/// Maximum number of tracked authorities. Caps unbounded growth from a
+/// hostile or buggy caller that floods the IPC `gateway_record_latency`
+/// with a new authority string every request. Existing authorities get
+/// refreshed under their existing entry; brand-new authorities past this cap
+/// are reported as a transient stats snapshot without persisting an entry, so
+/// `len()` and `iter_owned()` remain bounded.
+pub const MAX_AUTHORITIES: usize = 256;
+
 /// Per-authority latency tracker.
 pub struct TdEwma {
     inner: DashMap<String, LatencyStats>,
@@ -35,33 +43,58 @@ impl TdEwma {
         Self { inner: DashMap::new(), alpha: alpha.clamp(0.01, 1.0) }
     }
 
+    /// Cap state: when the table already holds `MAX_AUTHORITIES` entries,
+    /// a brand-new authority is served a throw-away snapshot (synthesised from
+    /// this single sample) instead of being inserted. Known authorities are
+    /// always updated. This is the in-process analog of an LRU but without
+    /// the bookkeeping cost, good enough for the capped threat model.
+    fn is_full(&self) -> bool {
+        self.inner.len() >= MAX_AUTHORITIES
+    }
+
  /// Record a latency sample for `authority` (e.g. "api.openai.com").
- /// Returns the updated stats.
+ /// Returns the updated stats. When the authority table is already at
+ /// `MAX_AUTHORITIES` and `authority` is new, the insert is rejected and a
+ /// one-shot snapshot is returned; the table stays bounded and the caller
+ /// still gets a non-empty stats record.
     pub fn record(&self, authority: &str, latency: Duration) -> LatencyStats {
         let ms = latency.as_secs_f64() * 1000.0;
+        // Fast path: existing entry short-circuits the cap check.
+        if let Some(mut existing) = self.inner.get_mut(authority) {
+            let st = existing.value_mut();
+            Self::update(st, self.alpha, ms);
+            return *st;
+        }
+        if self.is_full() {
+            return LatencyStats { ema_ms: ms, samples: 1, trend: 0 };
+        }
         let mut entry = self.inner.entry(authority.to_string()).or_insert(LatencyStats {
             ema_ms: ms,
             samples: 0,
             trend: 0,
         });
         let s = entry.value_mut();
-        if s.samples == 0 {
-            // First sample seeds the EMA directly.
-            s.ema_ms = ms;
-            s.trend = 0;
+        Self::update(s, self.alpha, ms);
+        *s
+    }
+
+    /// Shared EMA/trend update for both branch arms.
+    fn update(st: &mut LatencyStats, alpha: f64, ms: f64) {
+        if st.samples == 0 {
+            st.ema_ms = ms;
+            st.trend = 0;
         } else {
-            let prev = s.ema_ms;
-            s.ema_ms = (1.0 - self.alpha) * prev + self.alpha * ms;
-            s.trend = if (ms - s.ema_ms).abs() < 1e-9 {
+            let prev = st.ema_ms;
+            st.ema_ms = (1.0 - alpha) * prev + alpha * ms;
+            st.trend = if (ms - st.ema_ms).abs() < 1e-9 {
                 0
-            } else if ms > s.ema_ms {
+            } else if ms > st.ema_ms {
                 1
             } else {
                 -1
             };
         }
-        s.samples += 1;
-        *s
+        st.samples += 1;
     }
 
     /// Snapshot the stats for an authority (None if unseen).
@@ -141,6 +174,32 @@ mod tests {
         t.forget("z");
         assert!(t.get("z").is_none());
         assert!(t.is_empty());
+    }
+
+    #[test]
+    fn cap_rejects_new_authority_past_max() {
+        let t = TdEwma::new();
+        for i in 0..MAX_AUTHORITIES {
+            let _ = t.record(&format!("host{i}"), Duration::from_millis(10));
+        }
+        assert_eq!(t.len(), MAX_AUTHORITIES);
+        let s = t.record("newhost", Duration::from_millis(42));
+        assert_eq!(s.ema_ms, 42.0);
+        assert_eq!(s.samples, 1);
+        assert_eq!(t.len(), MAX_AUTHORITIES, "capacity must not grow on new-authority overflow");
+        assert!(t.get("newhost").is_none());
+    }
+
+    #[test]
+    fn cap_does_not_lock_existing_authority() {
+        let t = TdEwma::new();
+        let _ = t.record("known", Duration::from_millis(100));
+        for i in 0..MAX_AUTHORITIES {
+            let _ = t.record(&format!("h{i}"), Duration::from_millis(1));
+        }
+        let s = t.record("known", Duration::from_millis(500));
+        assert!(s.samples >= 2, "known authority must keep accumulating samples at cap");
+        assert_eq!(s.trend, 1, "500ms above prior ema marks degradation");
     }
 
     #[test]

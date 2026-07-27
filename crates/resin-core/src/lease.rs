@@ -138,7 +138,17 @@ impl LeaseTable {
     }
 
     /// Force-evict a lane (failure path). Frees it for the next request.
-    pub fn evict_lane(&self, lane: usize) {
+    ///
+    /// Returns false when `lane` is out of range (`>= MAX_LANES`); the caller
+    /// (Tauri IPC, integration tests, the gateway) MUST treat a false result
+    /// as "no such lane" and never forward further work for it. This is the
+    /// defense-in-depth boundary: the check in src-tauri/commands and the
+    /// runtime check here are both authoritative so a race that lets a stale
+    /// `lane` value reach the kernel cannot panic the proxy.
+    pub fn evict_lane(&self, lane: usize) -> bool {
+        if lane >= crate::MAX_LANES {
+            return false;
+        }
         // Clear the slot first so a concurrent acquire cannot re-admit a
         // lease for the same lane while we are evicting it.
         {
@@ -155,6 +165,7 @@ impl LeaseTable {
         for id in to_remove {
             self.inner.remove(&id);
         }
+        true
     }
 
     /// Number of currently-held leases.
@@ -223,7 +234,7 @@ mod tests {
     fn evict_lane_releases_all_live_on_lane() {
         let t = LeaseTable::new();
         let _a = t.acquire(4, "a", "1.1.1.1", "api.x.com", ttl());
-        t.evict_lane(4);
+        assert!(t.evict_lane(4));
         assert_eq!(t.live_count(), 0);
     }
 
@@ -277,6 +288,17 @@ mod tests {
             1,
             "exactly one concurrent acquire should win the lane"
         );
+    }
+
+    /// Out-of-range lane must not panic and must return false (defense
+    /// against a stale or hostile lane value reaching the kernel).
+    #[test]
+    fn evict_lane_out_of_range_does_not_panic() {
+        let t = LeaseTable::new();
+        assert!(!t.evict_lane(crate::MAX_LANES));
+        assert!(!t.evict_lane(usize::MAX));
+        // live_count unaffected, no panic, no slots damaged.
+        assert_eq!(t.live_count(), 0);
     }
 
     /// Concurrency: concurrent release + acquire must not deadlock or corrupt

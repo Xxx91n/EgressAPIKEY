@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capability for the ai-api-route main window. Custom app commands (reserve/release/evict/snapshot/record-latency) are allowed to all windows by the Tauri 2 default; this file wires the core + plugin defaults the GUI relies on.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:event:default",
+    "core:app:default",
+    "core:tray:default",
+    "shell:default",
+    "dialog:default",
+    "store:default",
+    "opener:default"
+  ]
+}

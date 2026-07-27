@@ -108,8 +108,13 @@ impl GatewayState {
     }
 
     /// Failure path: evict the lane entirely so the next request picks fresh.
-    pub fn evict_lane(&self, lane: usize) {
-        self.lease_table.evict_lane(lane);
+    ///
+    /// Returns false when the kernel rejects `lane` (out of range). Same
+    /// defense-in-depth boundary as `LeaseTable::evict_lane`: callers must
+    /// treat a `false` return as "no such lane in this process" and not
+    /// forward further work.
+    pub fn evict_lane(&self, lane: usize) -> bool {
+        self.lease_table.evict_lane(lane)
     }
 
     /// Snapshot of the TD-EWMA table as `(authority, ema_ms, samples, trend)`

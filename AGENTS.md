@@ -94,6 +94,14 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 - Edits to existing files: re-read the affected region before destructive change; after two failed apply_patch attempts on the same file, do one whole-file rewrite and verify bytes.
 - Never inline `$` PowerShell logic; write a `.ps1` and run with `-File` (host transport strips inline `$`).
 
+### 7.5. Tauri IPC input validation (from P-1 security audit)
+
+- Every `#[tauri::command]` in `src-tauri/src/commands/` MUST validate its input BEFORE locking `SharedGateway` and before calling resin-core. The kernel is defense-in-depth, not the first line.
+- Lane indices (`lane: usize`) must be rejected at the IPC layer with an explicit `Err` when `lane >= resin_core::MAX_LANES`. `LeaseTable::evict_lane` (and any other lane-indexed API) returns `bool`; callers MUST treat `false` as "no such lane" and never panic.
+- Free-form string identifiers (e.g. `authority`) passed to a bounded table (`TdEwma`, future registries) MUST be length-capped (≤253 chars per DNS host) and reject NUL/control characters. The bounded table itself MUST enforce a capacity ceiling (`TdEwma::MAX_AUTHORITIES = 256`) so a hostile or buggy caller cannot grow memory unbounded.
+- Numeric inputs (`latency_ms`, etc.) that feed an EMA or accumulator MUST be capped to a plausible ceiling before entering the kernel (e.g. `LATENCY_CAP_MS = 24h`) so u64::MAX cannot poison the EMA.
+- Do NOT lock the whole `SharedGateway` across an await; commands lock for one short critical section and return. (Current commands are sync; if a future command is async, keep the same invariant.)
+
 ### 8. Subagent policy for this repo
 - This thread runs with subagents DISABLED (per user instruction). Do NOT spawn Codex native subagents or OMX team/worker lanes. Execute everything single-threaded in this agent.
 
