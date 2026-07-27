@@ -2,11 +2,12 @@ name: ci
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, codex/*]
   pull_request:
     branches: [main, master]
 
 jobs:
+  # 1. Lint + typecheck + build + unit tests + i18n coverage gate.
   verify:
     name: verify (build + test + i18n)
     runs-on: ubuntu-latest
@@ -20,9 +21,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - name: verify-build
+      - name: verify-build (cargo build+test, tsc, vite, vitest, i18n)
         run: bash scripts/verify-build.sh
+      - name: line-ending guard
+        run: git diff --check || (echo "::error::CRLF/whitespace errors detected" && exit 1)
 
+  # 2. Frontend e2e (playwright) on the Vite dev server surface.
   e2e:
     name: e2e (playwright)
     runs-on: ubuntu-latest
@@ -44,14 +48,16 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # 3. Headless backend matrix: resin-core per-OS binary + docs tarball,
+  #    used by users who only want the proxy without the GUI shell.
   backend:
-    name: backend headless (${{ matrix.os }})
+    name: backend headless (${{ matrix.name }})
     needs: verify
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             name: linux
           - os: windows-latest
@@ -59,7 +65,10 @@ jobs:
             name: windows
           - os: macos-latest
             target: aarch64-apple-darwin
-            name: macos
+            name: macos-arm64
+          - os: macos-13
+            target: x86_64-apple-darwin
+            name: macos-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -67,66 +76,163 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
       - name: Build backend binary
         run: cargo build --release --target ${{ matrix.target }} -p resin-core
       - name: Package backend
         shell: bash
         run: |
+          set -e
           mkdir -p release
           STAGE="release/${{ matrix.name }}-backend"
           mkdir -p "$STAGE"
-          cp target/${{ matrix.target }}/release/resin-core* "$STAGE/" 2>/dev/null || true
-          cp Cargo.toml crates/resin-core/Cargo.toml "$STAGE/" 2>/dev/null || true
+          cp "target/${{ matrix.target }}/release/resin-core" "$STAGE/" 2>/dev/null || \
+            cp "target/${{ matrix.target }}/release/resin-core.exe" "$STAGE/" 2>/dev/null || true
           cp -r docs "$STAGE/docs" 2>/dev/null || true
           tar -czf "$STAGE.tar.gz" "$STAGE"
+          ls -lh "$STAGE.tar.gz"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}-backend
           path: release/${{ matrix.name }}-backend.tar.gz
           if-no-files-found: error
 
+  # 4. GUI installer matrix: tauri-action produces per-OS installer bundles.
+  #    Windows -> msi + nsis setup.exe; Linux -> deb + AppImage; macOS -> dmg (universal).
   gui:
-    name: gui (${{ matrix.os }})
+    name: gui installer (${{ matrix.name }})
     needs: verify
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            args: "--target x86_64-unknown-linux-gnu"
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
             name: linux-gui
+            ubuntuDeps: true
           - os: windows-latest
-            args: "--target x86_64-pc-windows-msvc"
+            target: x86_64-pc-windows-msvc
             name: windows-gui
+            ubuntuDeps: false
           - os: macos-latest
-            args: "--target universal-apple-darwin"
-            name: macos-gui
+            target: aarch64-apple-darwin
+            name: macos-gui-arm64
+            ubuntuDeps: false
+          - os: macos-13
+            target: x86_64-apple-darwin
+            name: macos-gui-x86_64
+            ubuntuDeps: false
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: install Linux native deps
+        if: matrix.ubuntuDeps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ contains(matrix.args, 'universal') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - uses: tauri-apps/tauri-action@v0
+      - name: tauri build (installer bundles)
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: ${{ matrix.args }}
+          args: --target ${{ matrix.target }}
           tagName: ${{ github.ref_name }}
           releaseName: "ai-api-route ${{ github.ref_name }}"
-          releaseBody: "See docs/ for build instructions. Artifacts: Windows GUI, Linux/debian GUI, macOS GUI, plus per-OS headless backend tarballs."
+          releaseBody: "Windows MSI+NSIS setup, Linux deb+AppImage, macOS dmg (arm64 + x86_64), plus per-OS headless backend tarballs."
           releaseDraft: true
           prerelease: false
+      - name: stage release/
+        shell: bash
+        run: |
+          set -e
+          STAGE="release/${{ matrix.name }}"
+          mkdir -p "$STAGE"
+          find "src-tauri/target/${{ matrix.target }}/release/bundle" \
+               src-tauri/target/release/bundle \
+               -type f \( \
+            -name '*.msi' -o -name '*-setup.exe' -o \
+            -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' \) \
+               -print 2>/dev/null | while read -r f; do
+            cp "$f" "$STAGE/"
+          done
+          ls -lh "$STAGE" || true
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}-artifacts
-          path: |
-            src-tauri/target/*/release/bundle/
-            src-tauri/target/release/bundle/
-          if-no-files-found: warn
+          name: ${{ matrix.name }}-installers
+          path: release/${{ matrix.name }}/*
+          if-no-files-found: error
+
+  # 5. Portable GUI binary matrix: a single uninstalled GUI executable per
+  #    OS for users who want to run without an installer. Comes from Tauri
+  #    v2's `--no-bundle` build mode.
+  gui-portable:
+    name: gui portable (${{ matrix.name }})
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            name: linux-gui-portable
+            ubuntuDeps: true
+            bin: ai-api-route
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-gui-portable
+            ubuntuDeps: false
+            bin: ai-api-route.exe
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-gui-portable-arm64
+            ubuntuDeps: false
+            bin: ai-api-route
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: install Linux native deps
+        if: matrix.ubuntuDeps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: tauri build --no-bundle (portable binary)
+        run: npx --no-install tauri build --no-bundle --target ${{ matrix.target }}
+      - name: stage release/
+        shell: bash
+        run: |
+          set -e
+          STAGE="release/${{ matrix.name }}"
+          mkdir -p "$STAGE"
+          cp "src-tauri/target/${{ matrix.target }}/release/${{ matrix.bin }}" "$STAGE/${{ matrix.bin }}" 2>/dev/null || \
+            cp "src-tauri/target/release/${{ matrix.bin }}" "$STAGE/${{ matrix.bin }}" 2>/dev/null || true
+          ls -lh "$STAGE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: release/${{ matrix.name }}/*
+          if-no-files-found: error
