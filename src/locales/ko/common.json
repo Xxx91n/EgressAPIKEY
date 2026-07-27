@@ -1,0 +1,73 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "토폴로지 캔버스가 있는 API 키 전용 프록시 풀"
+  },
+  "nav": {
+    "topology": "토폴로지",
+    "settings": "설정",
+    "processRoute": "프로세스 경로",
+    "subscriptions": "구독"
+  },
+  "platform": {
+    "title": "플랫폼",
+    "add": "플랫폼 추가",
+    "name": "이름",
+    "accounts": "계정",
+    "empty": "구성된 플랫폼이 없습니다."
+  },
+  "account": {
+    "id": "계정 ID",
+    "lane": "레인",
+    "exitIp": "출구 IP",
+    "active": "활성",
+    "bindIp": "출구 IP 바인딩",
+    "add": "계정 추가"
+  },
+  "settings": {
+    "general": "일반",
+    "language": "언어",
+    "lanes": "레인",
+    "gatewayBind": "게이트웨이 바인딩 주소",
+    "mihomoApi": "mihomo API URL",
+    "save": "저장"
+  },
+  "subscription": {
+    "title": "구독",
+    "import": "구독 가져오기",
+    "url": "구독 URL",
+    "imported": "{{count}}개 노드를 {{lanes}}개 레인으로 가져왔습니다"
+  },
+  "topology": {
+    "title": "토폴로지 캔버스",
+    "live": "레인이 게이트웨이에서 실시간으로 새로고침됩니다",
+    "lane": "레인 {{index}}",
+    "ip": "출구 IP {{ip}}",
+    "busy": "사용 중",
+    "free": "사용 가능"
+  },
+  "processRoute": {
+    "title": "프로세스 경로",
+    "add": "라우팅 규칙 추가",
+    "process": "프로세스 이름",
+    "target": "대상 레인",
+    "empty": "프로세스별 라우팅 규칙이 없습니다."
+  },
+  "common": {
+    "cancel": "취소",
+    "confirm": "확인",
+    "delete": "삭제",
+    "edit": "편집"
+  },
+  "tray": {
+    "show": "창 표시",
+    "quit": "종료",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "테마",
+    "light": "밝게",
+    "dark": "어둡게",
+    "system": "시스템"
+  }
+}

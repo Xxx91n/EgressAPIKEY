@@ -1,0 +1,73 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "تجمع بروكسي متخصص لمفاتيح API مع لوحة طوبولوجيا"
+  },
+  "nav": {
+    "topology": "الطوبولوجيا",
+    "settings": "الإعدادات",
+    "processRoute": "مسار العملية",
+    "subscriptions": "الاشتراكات"
+  },
+  "platform": {
+    "title": "المنصات",
+    "add": "إضافة منصة",
+    "name": "الاسم",
+    "accounts": "الحسابات",
+    "empty": "لا توجد منصات مُعدة."
+  },
+  "account": {
+    "id": "معرف الحساب",
+    "lane": "المسار",
+    "exitIp": "IP الخروج",
+    "active": "نشط",
+    "bindIp": "ربط IP الخروج",
+    "add": "إضافة حساب"
+  },
+  "settings": {
+    "general": "عام",
+    "language": "اللغة",
+    "lanes": "المسارات",
+    "gatewayBind": "عنوان ربط البوابة",
+    "mihomoApi": "رابط API mihomo",
+    "save": "حفظ"
+  },
+  "subscription": {
+    "title": "الاشتراكات",
+    "import": "استيراد اشتراك",
+    "url": "رابط الاشتراك",
+    "imported": "تم استيراد {{count}} عقدة في {{lanes}} مسارات"
+  },
+  "topology": {
+    "title": "لوحة الطوبولوجيا",
+    "live": "تتحدد المسارات مباشرة من البوابة",
+    "lane": "المسار {{index}}",
+    "ip": "IP الخروج {{ip}}",
+    "busy": "مشغول",
+    "free": "متاح"
+  },
+  "processRoute": {
+    "title": "مسار العملية",
+    "add": "إضافة قاعدة توجيه",
+    "process": "اسم العملية",
+    "target": "المسار المستهدف",
+    "empty": "لا توجد قواعد توجيه لكل عملية."
+  },
+  "common": {
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "delete": "حذف",
+    "edit": "تحرير"
+  },
+  "tray": {
+    "show": "إظهار النافذة",
+    "quit": "إنهاء",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "السمة",
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "النظام"
+  }
+}

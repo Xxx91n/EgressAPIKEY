@@ -1,0 +1,73 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "Pool de proxy especializado para chaves de API com tela de topologia"
+  },
+  "nav": {
+    "topology": "Topologia",
+    "settings": "Configurações",
+    "processRoute": "Rota de processo",
+    "subscriptions": "Assinaturas"
+  },
+  "platform": {
+    "title": "Plataformas",
+    "add": "Adicionar plataforma",
+    "name": "Nome",
+    "accounts": "Contas",
+    "empty": "Nenhuma plataforma configurada."
+  },
+  "account": {
+    "id": "ID da conta",
+    "lane": "Linha",
+    "exitIp": "IP de saída",
+    "active": "Ativo",
+    "bindIp": "Vincular IP de saída",
+    "add": "Adicionar conta"
+  },
+  "settings": {
+    "general": "Geral",
+    "language": "Idioma",
+    "lanes": "Linhas",
+    "gatewayBind": "Endereço de bind do gateway",
+    "mihomoApi": "URL da API mihomo",
+    "save": "Salvar"
+  },
+  "subscription": {
+    "title": "Assinaturas",
+    "import": "Importar assinatura",
+    "url": "URL da assinatura",
+    "imported": "Importados {{count}} nós em {{lanes}} linhas"
+  },
+  "topology": {
+    "title": "Tela de topologia",
+    "live": "As linhas são atualizadas em tempo real do gateway",
+    "lane": "Linha {{index}}",
+    "ip": "IP de saída {{ip}}",
+    "busy": "ocupado",
+    "free": "livre"
+  },
+  "processRoute": {
+    "title": "Rota de processo",
+    "add": "Adicionar regra de roteamento",
+    "process": "Nome do processo",
+    "target": "Linha de destino",
+    "empty": "Nenhuma regra de roteamento por processo."
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Excluir",
+    "edit": "Editar"
+  },
+  "tray": {
+    "show": "Mostrar Janela",
+    "quit": "Sair",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Sistema"
+  }
+}

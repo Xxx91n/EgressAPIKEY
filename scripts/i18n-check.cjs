@@ -19,7 +19,10 @@ function flatten(obj, prefix, acc) {
 }
 
 // Canonical catalog is en; every shipped locale must match its set of keys.
-const ALL = ["en", "zh", "ja", "es", "fr"];
+// Keep this list in sync with src/locales/ directories and the Locale union in
+// src/store/appStore.ts. Adding a language means adding the directory, all en
+// keys translated, AND registering it here.
+const ALL = ["en", "zh", "ja", "es", "fr", "de", "ko", "ru", "pt", "ar"];
 const en = flatten(load("en"), "", new Set());
 let missing = 0;
 let extra = 0;

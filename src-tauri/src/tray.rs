@@ -1,4 +1,4 @@
-//! System tray with i18n labels (en/zh/ja/es/fr) + click-to-show GUI.
+//! System tray with i18n labels (en/zh/ja/es/fr/de/ko/ru/pt/ar) + click-to-show GUI.
 //!
 //! Label source: a static table in `labels()` (the 5 base locales already
 //! shipped by the frontend i18n catalog). The active language is picked from
@@ -13,10 +13,10 @@
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::{AppHandle, Manager, tray::{TrayIconBuilder, MouseButton, MouseButtonState, TrayIconEvent}};
 
-/// Supported tray label locales. MUST stay in lockstep with
+/// Supported tray label locales (10 base locales). MUST stay in lockstep with
 /// `src/locales/<lc>/common.json` keys `tray.*`.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum TrayLang { En, Zh, Ja, Es, Fr }
+pub enum TrayLang { En, Zh, Ja, Es, Fr, De, Ko, Ru, Pt, Ar }
 
 /// Per-locale tray label set.
 pub struct TrayLabels {
@@ -35,6 +35,11 @@ pub fn labels(lc: TrayLang) -> TrayLabels {
         TrayLang::Ja => TrayLabels { show: "ウィンドウを表示", quit: "終了", tooltip: "ai-api-route" },
         TrayLang::Es => TrayLabels { show: "Mostrar Ventana", quit: "Salir", tooltip: "ai-api-route" },
         TrayLang::Fr => TrayLabels { show: "Afficher la Fenêtre", quit: "Quitter", tooltip: "ai-api-route" },
+        TrayLang::De => TrayLabels { show: "Fenster anzeigen", quit: "Beenden", tooltip: "ai-api-route" },
+        TrayLang::Ko => TrayLabels { show: "창 표시", quit: "종료", tooltip: "ai-api-route" },
+        TrayLang::Ru => TrayLabels { show: "Показать окно", quit: "Выйти", tooltip: "ai-api-route" },
+        TrayLang::Pt => TrayLabels { show: "Mostrar Janela", quit: "Sair", tooltip: "ai-api-route" },
+        TrayLang::Ar => TrayLabels { show: "إظهار النافذة", quit: "إنهاء", tooltip: "ai-api-route" },
     }
 }
 
@@ -49,6 +54,11 @@ pub fn current_lang(app: &AppHandle) -> TrayLang {
         "ja" => TrayLang::Ja,
         "es" => TrayLang::Es,
         "fr" => TrayLang::Fr,
+        "de" => TrayLang::De,
+        "ko" => TrayLang::Ko,
+        "ru" => TrayLang::Ru,
+        "pt" => TrayLang::Pt,
+        "ar" => TrayLang::Ar,
         _ => TrayLang::En,
     }
 }

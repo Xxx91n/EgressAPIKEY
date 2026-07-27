@@ -3,6 +3,7 @@ import { ReactFlow, Background, Controls } from "@xyflow/react";
 import { useMemo } from "react";
 import "@xyflow/react/dist/style.css";
 import { useAppStore, LaneState } from "../store/appStore";
+import type { ColorMode } from "@xyflow/react";
 import i18n from "../i18n";
 
 /// Build reactflow nodes for the live lane state. Text is resolved against the
@@ -32,6 +33,9 @@ function buildNodes(lanes: LaneState[]) {
 export function TopologyView() {
   const { t } = useTranslation();
   const lanes = useAppStore((s) => s.lanes);
+  const theme = useAppStore((s) => s.theme);
+  // ReactFlow 12 built-in colorMode: light/dark/system map 1:1 to our Theme.
+  const colorMode: ColorMode = theme;
   const nodes = useMemo(() => buildNodes(lanes), [lanes]);
   const edges = useMemo(
     () =>
@@ -50,7 +54,7 @@ export function TopologyView() {
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("topology.live")}</p>
       </header>
       <div className="flex-1 border border-zinc-200 dark:border-zinc-800 rounded">
-        <ReactFlow nodes={nodes} edges={edges} fitView>
+        <ReactFlow nodes={nodes} edges={edges} fitView colorMode={colorMode}>
           <Background />
           <Controls />
         </ReactFlow>

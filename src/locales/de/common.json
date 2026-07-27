@@ -1,0 +1,73 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "Spezialisierter Proxy-Pool für API-Schlüssel mit Topologie-Canvas"
+  },
+  "nav": {
+    "topology": "Topologie",
+    "settings": "Einstellungen",
+    "processRoute": "Prozessroute",
+    "subscriptions": "Abonnements"
+  },
+  "platform": {
+    "title": "Plattformen",
+    "add": "Plattform hinzufügen",
+    "name": "Name",
+    "accounts": "Konten",
+    "empty": "Keine Plattformen konfiguriert."
+  },
+  "account": {
+    "id": "Konto-ID",
+    "lane": "Lane",
+    "exitIp": "Exit-IP",
+    "active": "Aktiv",
+    "bindIp": "Exit-IP binden",
+    "add": "Konto hinzufügen"
+  },
+  "settings": {
+    "general": "Allgemein",
+    "language": "Sprache",
+    "lanes": "Lanes",
+    "gatewayBind": "Gateway-Bindungsadresse",
+    "mihomoApi": "mihomo API-URL",
+    "save": "Speichern"
+  },
+  "subscription": {
+    "title": "Abonnements",
+    "import": "Abonnement importieren",
+    "url": "Abonnement-URL",
+    "imported": "{{count}} Knoten in {{lanes}} Lanes importiert"
+  },
+  "topology": {
+    "title": "Topologie-Canvas",
+    "live": "Lanes werden live vom Gateway aktualisiert",
+    "lane": "Lane {{index}}",
+    "ip": "Exit-IP {{ip}}",
+    "busy": "beschäftigt",
+    "free": "frei"
+  },
+  "processRoute": {
+    "title": "Prozessroute",
+    "add": "Routing-Regel hinzufügen",
+    "process": "Prozessname",
+    "target": "Ziel-Lane",
+    "empty": "Keine prozessspezifischen Routing-Regeln."
+  },
+  "common": {
+    "cancel": "Abbrechen",
+    "confirm": "Bestätigen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten"
+  },
+  "tray": {
+    "show": "Fenster anzeigen",
+    "quit": "Beenden",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "Design",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
+  }
+}

@@ -39,6 +39,13 @@ export interface Subscription {
 }
 
 /// View selection between the three primary desktop views.
+/// Supported UI locales. MUST stay in lockstep with src/locales/ directories
+/// and scripts/i18n-check.cjs ALL list.
+export type Locale = "en" | "zh" | "ja" | "es" | "fr" | "de" | "ko" | "ru" | "pt" | "ar";
+
+/// Colour-scheme preference. "system" follows prefers-color-scheme at runtime.
+export type Theme = "light" | "dark" | "system";
+
 export type View = "topology" | "settings" | "processRoute" | "subscriptions";
 
 export interface AppState {
@@ -48,7 +55,8 @@ export interface AppState {
   processRoutes: ProcessRoute[];
   subscriptions: Subscription[];
   laneCount: number;
-  locale: "en" | "zh" | "ja" | "es" | "fr";
+  locale: Locale;
+  theme: Theme;
 
   setView: (v: View) => void;
   setLanes: (l: LaneState[]) => void;
@@ -61,7 +69,8 @@ export interface AppState {
   removeProcessRoute: (id: string) => void;
   addSubscription: (url: string, nodeCount: number, lanes: number) => void;
   setLaneCount: (n: number) => void;
-  setLocale: (l: "en" | "zh" | "ja" | "es" | "fr") => void;
+  setLocale: (l: Locale) => void;
+  setTheme: (t: Theme) => void;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -77,6 +86,7 @@ export const useAppStore = create<AppState>((set) => ({
   subscriptions: [],
   laneCount: 10,
   locale: "en",
+  theme: "system",
 
   setView: (view) => set({ view }),
   setLanes: (lanes) => set({ lanes }),
@@ -125,4 +135,5 @@ export const useAppStore = create<AppState>((set) => ({
     })),
   setLaneCount: (n) => set({ laneCount: Math.max(1, Math.min(50, n)) }),
   setLocale: (locale) => set({ locale }),
+  setTheme: (theme) => set({ theme }),
 }));

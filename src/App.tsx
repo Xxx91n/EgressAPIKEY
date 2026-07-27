@@ -1,9 +1,12 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useAppStore } from "./store/appStore";
+import { useAppStore, type Locale, type Theme } from "./store/appStore";
 import { TopologyView } from "./views/TopologyView";
 import { SettingsView } from "./views/SettingsView";
 import { ProcessRouteView } from "./views/ProcessRouteView";
 import { SubscriptionsView } from "./views/SubscriptionsView";
+import { useTheme } from "./lib/useTheme";
+import { loadLocale, loadTheme } from "./lib/settings";
 
 const NAV_ITEMS = [
   { key: "topology", icon: "\u{1F6F0}" },
@@ -42,8 +45,29 @@ function NavBar() {
 }
 
 export default function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const view = useAppStore((s) => s.view);
+  const setLocale = useAppStore((s) => s.setLocale);
+  const setTheme = useAppStore((s) => s.setTheme);
+  useTheme();
+
+  // Bootstrap persisted prefs once on mount (no-op outside Tauri/vitest).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const savedLocale = await loadLocale();
+      if (savedLocale && !cancelled) {
+        setLocale(savedLocale as Locale);
+        void i18n.changeLanguage(savedLocale);
+      }
+      const savedTheme = await loadTheme();
+      if (savedTheme && !cancelled) {
+        setTheme(savedTheme as Theme);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [setLocale, setTheme, i18n]);
+
   return (
     <div className="h-full flex flex-col bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
       <header className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">

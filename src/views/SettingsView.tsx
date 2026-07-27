@@ -1,6 +1,26 @@
 import { useTranslation } from "react-i18next";
+import { invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
-import { useAppStore } from "../store/appStore";
+import { useAppStore, type Locale, type Theme } from "../store/appStore";
+import { saveLocale, saveTheme } from "../lib/settings";
+
+const LOCALES: Locale[] = ["en", "zh", "ja", "es", "fr", "de", "ko", "ru", "pt", "ar"];
+
+/// Native endonym for each locale, shown in the language <select>.
+const LOCALE_ENDONYM: Record<Locale, string> = {
+  en: "English",
+  zh: "中文",
+  ja: "日本語",
+  es: "Español",
+  fr: "Français",
+  de: "Deutsch",
+  ko: "한국어",
+  ru: "Русский",
+  pt: "Português",
+  ar: "العربية",
+};
+
+const THEMES: Theme[] = ["light", "dark", "system"];
 
 export function SettingsView() {
   const { t, i18n } = useTranslation();
@@ -8,7 +28,22 @@ export function SettingsView() {
   const setLaneCount = useAppStore((s) => s.setLaneCount);
   const locale = useAppStore((s) => s.locale);
   const setLocale = useAppStore((s) => s.setLocale);
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
   const [lanes, setLanes] = useState(laneCount);
+
+  const changeLocale = async (next: Locale) => {
+    setLocale(next);
+    await i18n.changeLanguage(next);
+    void saveLocale(next);
+    // Re-localise the OS tray menu; best-effort, ignored outside Tauri.
+    void invoke("tray_refresh_labels").catch(() => {});
+  };
+
+  const changeTheme = async (next: Theme) => {
+    setTheme(next);
+    void saveTheme(next);
+  };
 
   return (
     <section className="max-w-xl space-y-6">
@@ -19,18 +54,28 @@ export function SettingsView() {
         <label className="block text-sm font-medium">{t("settings.language")}</label>
         <select
           value={locale}
-          onChange={(e) => {
-            const next = e.target.value as "en" | "zh" | "ja" | "es" | "fr";
-            setLocale(next);
-            void i18n.changeLanguage(next);
-          }}
+          onChange={(e) => void changeLocale(e.target.value as Locale)}
           className="border border-zinc-300 dark:border-zinc-700 rounded px-2 py-1 bg-white dark:bg-zinc-900"
         >
-          <option value="en">English</option>
-          <option value="zh">中文</option>
-          <option value="ja">日本語</option>
-          <option value="es">Español</option>
-          <option value="fr">Français</option>
+          {LOCALES.map((lc) => (
+            <option key={lc} value={lc}>
+              {LOCALE_ENDONYM[lc]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium">{t("theme.label")}</label>
+        <select
+          value={theme}
+          onChange={(e) => void changeTheme(e.target.value as Theme)}
+          className="border border-zinc-300 dark:border-zinc-700 rounded px-2 py-1 bg-white dark:bg-zinc-900"
+        >
+          {THEMES.map((th) => (
+            <option key={th} value={th}>
+              {t(`theme.${th}`)}
+            </option>
+          ))}
         </select>
       </div>
       <div className="space-y-2">
