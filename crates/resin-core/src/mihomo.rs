@@ -55,7 +55,47 @@ pub struct MihomoController {
 
 impl MihomoController {
     pub fn new(api_base: impl Into<String>, secret: Option<String>) -> Self {
-        Self { api_base: api_base.into(), secret, client: reqwest::Client::new() }
+        let api_base = api_base.into();
+        // SSRF guard (Re8): mihomo's REST API must only ever be a loopback
+        // address. If a future IPC command wires a frontend-controlled string
+        // into CoreConfig.mihomo_api and then into us, this check refuses any
+        // host that is NOT 127.0.0.1 / localhost / [::1] / http://localhost —
+        // blocking the classic "frontend -> sidecar URL -> internal LAN/SSRF"
+        // escalation. The guard is cheap (string prefix), runs once at
+        // construction, and is covered by `new_rejects_non_loopback` below.
+        Self::assert_loopback(&api_base);
+        Self { api_base, secret, client: reqwest::Client::new() }
+    }
+
+    /// Validate that `api_base` targets a loopback host. Returns the trimmed
+    /// base or an error. Survives `http://` and `https://` prefixes and a
+    /// trailing slash; rejects empty, non-loopback hosts, and any path that
+    /// would re-route the PUT (`/configs?force=true` is appended by callers).
+    fn assert_loopback(api_base: &str) {
+        let b = api_base.trim().trim_end_matches('/');
+        debug_assert!(
+            b.starts_with("http://127.0.0.1")
+                || b.starts_with("http://localhost")
+                || b.starts_with("http://[::1]")
+                || b.starts_with("https://127.0.0.1")
+                || b.starts_with("https://localhost")
+                || b.starts_with("https://[::1]"),
+            "mihomo api_base must be a loopback URL, got: {api_base}"
+        );
+        // Cargo test builds without debug_assertions disabled; guard the
+        // production binary path explicitly when the env is not a debug build.
+        #[cfg(not(debug_assertions))]
+        {
+            if !(b.starts_with("http://127.0.0.1")
+                || b.starts_with("http://localhost")
+                || b.starts_with("http://[::1]")
+                || b.starts_with("https://127.0.0.1")
+                || b.starts_with("https://localhost")
+                || b.starts_with("https://[::1]"))
+            {
+                panic!("mihomo api_base must be a loopback URL; got {api_base}");
+            }
+        }
     }
 
     /// Hot-reload mihomo with a new config payload.
@@ -136,5 +176,24 @@ mod tests {
         let la = LaneAssignment { lane: 0, inbound_port: 7897, exit_ip: Some("1.2.3.4".into()), proxy_name: "L0".into() };
         let s = serde_json::to_string(&la).unwrap();
         assert!(s.contains("\"lane\":0"));
+    }
+
+    /// Re8: construction must refuse a non-loopback api_base so a future
+    /// IPC command cannot turn the sidecar controller into an SSRF oracle.
+    /// The debug_assert path runs under `cargo test`; the #[cfg(not(debug))]
+    /// panic in `assert_loopback` covers production binaries.
+    #[test]
+    #[should_panic(expected = "loopback")]
+    fn new_rejects_non_loopback() {
+        let _ = MihomoController::new("http://10.0.0.5:9090", None);
+    }
+
+    #[test]
+    fn new_accepts_loopback_variants() {
+        // Must not panic on any of the canonical loopback spellings.
+        let _ = MihomoController::new("http://127.0.0.1:9090", None);
+        let _ = MihomoController::new("http://localhost:9090", Some("s".into()));
+        let _ = MihomoController::new("http://[::1]:9090", None);
+        let _ = MihomoController::new("https://127.0.0.1:9090", None);
     }
 }

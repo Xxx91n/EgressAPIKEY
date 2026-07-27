@@ -102,9 +102,16 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 - Numeric inputs (`latency_ms`, etc.) that feed an EMA or accumulator MUST be capped to a plausible ceiling before entering the kernel (e.g. `LATENCY_CAP_MS = 24h`) so u64::MAX cannot poison the EMA.
 - Do NOT lock the whole `SharedGateway` across an await; commands lock for one short critical section and return. (Current commands are sync; if a future command is async, keep the same invariant.)
 
+
+### 7.6. Sidecar SSRF guard + IPC surface discipline (Re8 audit)
+- `crates/resin-core/src/mihomo.rs` `MihomoController::new` validates its `api_base` is a loopback URL (`http://127.0.0.1` / `http://localhost` / `http://[::1]`, plus https variants) and rejects anything else at construction. This blocks the classic "frontend string -> sidecar REST base -> internal LAN/SSRF" escalation from any future IPC command that wires `CoreConfig.mihomo_api` from the UI. Guard runs once at construction; covered by `new_rejects_non_loopback` + `new_accepts_loopback_variants` unit tests.
+- Frontend `invoke()` site list (Re8): the ONLY live RPC from `src/` in this branch is `tray_refresh_labels` (SettingsView.tsx) — a no-arg command. The Re3 platform/account IPC commands (`platform_add/remove/list/snapshot`, `account_add`, `account_bind_ip`, `gateway_select_account`) are wired on the Rust side but NOT yet invoked from `src/`. When wiring them, the store layer MUST treat the response's `reason` / `lane` / `account` as untrusted and validate at the TS boundary, never pipe IPC strings directly into another URL or command.
+- Never expose `MihomoController`, `CoreConfig.mihomo_api`, or `CoreConfig.mihomo_secret` through a `#[tauri::command]` that takes a raw `String` and constructs the controller from it. Config must come from `tauri-plugin-store` settings.json (server-side trust), not from the webview.
+- The current `MihomoController` is NOT yet instantiated by the Tauri shell (only `resin-core` references it). Keeping it uninstantiated until the sidecar lifecycle wiring is an explicit safety boundary; do not wire it through a frontend-controlled constructor without revisiting this section.
+
+
 ### 8. Subagent policy for this repo
 - This thread runs with subagents DISABLED (per user instruction). Do NOT spawn Codex native subagents or OMX team/worker lanes. Execute everything single-threaded in this agent.
-
 ### 9. Don't revert work you didn't make
 - If uncommitted changes appear that this agent did not make, treat them as user/external and do not revert. Either ignore (unrelated) or build with them (affects the task).
 
