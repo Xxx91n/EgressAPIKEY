@@ -111,20 +111,26 @@ export function SettingsView() {
     void saveTheme(next);
   };
 
-  // Persist laneCount to tauri-plugin-store (problem 6 fix: the old Save
-  // button only updated the in-memory store, so the count was lost on quit).
-  // The Network section shares the same Save action so all three persisted
-  // settings write in one user gesture.
+  // Persist laneCount + network settings to tauri-plugin-store (problem 6 fix:
+  // the old Save button only updated the in-memory store, so the count was lost
+  // on quit). Client-side guards here are UX-only: trim, a `^https?://` shape
+  // check on mihomoApi, and a length cap so we never persist a multi-MB string.
+  // The Rust side is the real trust boundary (MihomoController::new refuses
+  // non-loopback URLs, see crates/resin-core/src/mihomo.rs + AGENTS §7.6).
   const saveAll = async () => {
     const n = Math.max(1, Math.min(50, Math.trunc(lanes)));
     setLanes(n);
     setLaneCount(n);
     await saveLaneCount(n);
-    // Basic sanity: bind must be non-empty, mihomo url must start with http.
-    // The Rust side is the real trust boundary (loopback guard); this trim is
-    // just UX so a stray blank does not get saved.
-    const bind = gatewayBind.trim() || "127.0.0.1:7897";
-    const api = mihomoApi.trim() || "http://127.0.0.1:9090";
+
+    const rawBind = gatewayBind.trim().slice(0, 2048);
+    const bind = rawBind || "127.0.0.1:7897";
+    const rawApi = mihomoApi.trim().slice(0, 2048);
+    // Reject an mihomoApi that is not an http(s) URL shape (UX only; the Rust
+    // loopback guard is still the authoritative check). On bad shape we keep
+    // the canonical default so the saved store never holds garbage.
+    const looksLikeUrl = /^https?:\/\//i.test(rawApi);
+    const api = looksLikeUrl ? rawApi : "http://127.0.0.1:9090";
     setGatewayBind(bind);
     setMihomoApi(api);
     await Promise.all([saveGatewayBind(bind), saveMihomoApi(api)]);

@@ -6,9 +6,14 @@
  * the Tauri store plugin; views/effects call these helpers and then update
  * the appStore + apply side effects (html class, tray refresh) themselves.
  *
- * Keys: "lang" (Locale), "theme" (Theme). The Rust tray reads "lang" directly
- * via tauri-plugin-store (see src-tauri/src/tray.rs::current_lang) so the tray
- * is localised even before the webview mounts.
+ * Persisted keys (all in settings.json, single source of truth): "lang" (Locale),
+ * "theme" (Theme), "laneCount" (number 1..50), "gatewayBind" (loopback addr),
+ * "mihomoApi" (http(s):// URL). The Rust tray reads "lang" directly via
+ * tauri-plugin-store (see src-tauri/src/tray.rs::current_lang) so the tray is
+ * localised even before the webview mounts. gatewayBind/mihomoApi are read
+ * server-side by the Rust shell into CoreConfig; mihomoApi ONLY feeds
+ * MihomoController::new which refuses non-loopback URLs (AGENTS §7.6 — never
+ * expose these via a raw-String #[tauri::command]).
  */
 
 import { LazyStore } from "@tauri-apps/plugin-store";

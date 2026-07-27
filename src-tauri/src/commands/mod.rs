@@ -23,7 +23,10 @@ pub struct ReserveResult {
 ///
 /// IPC input validation mirrors `gateway_record_latency`: empty api_key /
 /// account / authority are rejected so lane hashing never collapses on the
-/// empty-string bucket, and authority is bounded to keep TdEwma finite.
+/// empty-string bucket, and authority is bounded to keep TdEwma finite. All
+/// free-text inputs are length-capped (KEY_MAX_LEN / AUTHORITY_MAX_LEN /
+/// IP_MAX_LEN) so a hostile or misbehaving caller cannot grow memory by
+/// passing multi-MB strings each call — defense-in-depth (AGENTS §7.5).
 #[tauri::command]
 pub fn gateway_reserve(
     state: State<SharedGateway>,
@@ -35,7 +38,13 @@ pub fn gateway_reserve(
     if api_key.is_empty() || account.is_empty() {
         return Err("api_key and account must be non-empty".to_string());
     }
+    if api_key.len() > KEY_MAX_LEN || account.len() > KEY_MAX_LEN {
+        return Err(format!("api_key/account length out of range (1..={KEY_MAX_LEN})"));
+    }
     validate_authority(&authority)?;
+    if let Some(ip) = exit_ip.as_deref() {
+        validate_ip(ip)?;
+    }
     let g = state.lock();
     let r = g.reserve(&api_key, &account, &authority, exit_ip.as_deref());
     Ok(ReserveResult {
@@ -83,6 +92,10 @@ pub fn gateway_evict_lane(state: State<SharedGateway>, lane: usize) -> Result<()
 ///   caller cannot poison the EMA with u64::MAX.
 const AUTHORITY_MAX_LEN: usize = 253;
 const LATENCY_CAP_MS: u64 = 24 * 60 * 60 * 1000;
+/// Cap for free-text IPC identifiers (api_key, account). Generous: real
+/// api keys are <256 chars; 4096 covers exotic providers without leaving a
+/// surface for hostile multi-MB allocations from a misbehaving caller.
+const KEY_MAX_LEN: usize = 4096;
 
 fn validate_authority(authority: &str) -> Result<(), String> {
     if authority.is_empty() || authority.len() > AUTHORITY_MAX_LEN {
@@ -307,5 +320,57 @@ pub fn gateway_select_account(
                 reason: "none".into(),
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// F-C2 regression: the IPC api_key/account length cap constant exists
+    /// and is non-trivial. A future edit that drops KEY_MAX_LEN to 0 or
+    /// removes the constant would let a huge string through unguarded.
+    #[test]
+    fn key_max_len_is_reasonable_cap() {
+        assert!(KEY_MAX_LEN >= 64, "KEY_MAX_LEN too small: {KEY_MAX_LEN}");
+        assert!(KEY_MAX_LEN <= 32_768, "KEY_MAX_LEN absurdly large: {KEY_MAX_LEN}");
+    }
+
+    /// validate_authority: rejects empty, over-cap, NUL/control, accepts a
+    /// normal host. This is the guard `gateway_reserve` + `gateway_record_latency`
+    /// both route through; a regression that lets garbage through would poison
+    /// the TD-EWMA table or the lease bucket.
+    #[test]
+    fn validate_authority_accepts_normal_rejects_bad() {
+        assert!(validate_authority("api.openai.com").is_ok());
+        assert!(validate_authority("").is_err());
+        assert!(validate_authority(&"x".repeat(AUTHORITY_MAX_LEN + 1)).is_err());
+        // NUL + a control char (0x01) + DEL must be rejected; tab (0x09) allowed.
+        assert!(validate_authority("a\x00b").is_err());
+        assert!(validate_authority("a\x01b").is_err());
+        assert!(validate_authority("a\x7fb").is_err());
+        assert!(validate_authority("a\tb").is_ok());
+    }
+
+    /// validate_ip: rejects empty / over-cap / control / space. gateway_reserve
+    /// now routes exit_ip through this guard too (F-C2), so a hostile IP string
+    /// can never reach the lease table.
+    #[test]
+    fn validate_ip_accepts_normal_rejects_bad() {
+        assert!(validate_ip("203.0.113.7").is_ok());
+        assert!(validate_ip("::1").is_ok());
+        assert!(validate_ip("").is_err());
+        assert!(validate_ip(&"1".repeat(254)).is_err());
+        assert!(validate_ip("127.0.0.1 x").is_err()); // space
+        assert!(validate_ip("127.0.\x00.1").is_err()); // NUL
+    }
+
+    /// validate_short_name: empty / over-cap / control rejected; normal ok.
+    #[test]
+    fn validate_short_name_bounds() {
+        assert!(validate_short_name("openai", "platform").is_ok());
+        assert!(validate_short_name("", "platform").is_err());
+        assert!(validate_short_name(&"x".repeat(NAME_MAX_LEN + 1), "account").is_err());
+        assert!(validate_short_name("a\x01z", "platform").is_err());
     }
 }
