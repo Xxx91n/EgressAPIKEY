@@ -63,8 +63,8 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 
 ### 3. i18n - decoupled, full-key coverage
 - All user-visible strings in `src/` MUST come from the i18n catalog (`src/locales/<locale>/*.json`) via `react-i18next` `t()` / `Trans`. Never hard-code English (or any locale) in components.
-- Base locales: `en`, `zh`, `ja`, `es`, `fr`. Adding a string means adding the key to ALL base locales in the same commit.
-- `pnpm i18n:scan` extracts keys; `pnpm i18n:check` fails the build if coverage is below 100% for base locales.
+- Base locales (10): `en`, `zh`, `ja`, `es`, `fr`, `de`, `ko`, `ru`, `pt`, `ar`. Adding a string means adding the key to ALL base locales in the same commit. The `Locale` union in `src/store/appStore.ts` and the `ALL` list in `scripts/i18n-check.cjs` MUST stay in lockstep with `src/locales/` directories.
+- `pnpm i18n:scan` runs `i18next-parser` (config `i18next-parser.config.js`) to extract t()/Trans keys into `src/locales/`; `pnpm i18n:check` fails the build if any base locale is missing a key (or has an extra one) vs the canonical `en` catalog. i18n.ts lazy-loads each (locale, namespace) chunk via `i18next-resources-to-backend` so Vite code-splits one chunk per locale.
 - Locale files are the single source of truth for UI text; no inline substitutions of translated strings.
 
 ### 4. Tests - mandatory per behavior

@@ -9,10 +9,6 @@ use resin_core::DEFAULT_LANES;
 use tauri::{Manager, Emitter};
 
 fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
-
     let lanes = std::env::var("AI_API_ROUTE_LANES")
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
@@ -41,11 +37,16 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
-        // Re7: Tauri official log plugin — bridges Rust `log`/`tracing` events
-        // to the frontend `@tauri-apps/plugin-log` surface (log viewer panel).
+        // Re7: tauri-plugin-tracing — one `tracing` pipeline for resin-core +
+        // shell. Wires stdout + a WebviewLayer (Rust logs -> frontend log panel
+        // via the `tracing://log` event the npm guest binds) + a daily-rotating
+        // file appender under app_log_dir() (Re6). Replaces tauri-plugin-log so
+        // every `tracing::` macro in the codebase flows through one subscriber.
         .plugin(
-            tauri_plugin_log::Builder::new()
-                .level(log::LevelFilter::Info)
+            tauri_plugin_tracing::Builder::new()
+                .with_max_level(tauri_plugin_tracing::LevelFilter::INFO)
+                .with_file_logging()
+                .with_default_subscriber()
                 .build(),
         )
         .manage(gateway)

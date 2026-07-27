@@ -69,5 +69,11 @@
     "light": "Hell",
     "dark": "Dunkel",
     "system": "System"
+  },
+  "log": {
+    "title": "Protokolle",
+    "clear": "Leeren",
+    "collapse": "Einklappen",
+    "empty": "Noch keine Protokolleinträge."
   }
 }

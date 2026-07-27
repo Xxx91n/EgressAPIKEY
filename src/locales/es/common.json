@@ -69,5 +69,11 @@
     "light": "Claro",
     "dark": "Oscuro",
     "system": "Sistema"
+  },
+  "log": {
+    "title": "Registros",
+    "clear": "Limpiar",
+    "collapse": "Contraer",
+    "empty": "Aún no hay entradas de registro."
   }
 }

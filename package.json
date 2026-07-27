@@ -16,6 +16,7 @@
     "i18n:check": "node scripts/i18n-check.cjs"
   },
   "dependencies": {
+    "@fltsci/tauri-plugin-tracing": "^0.3.4",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-shell": "^2.0.0",

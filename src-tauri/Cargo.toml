@@ -36,11 +36,11 @@ tauri-plugin-opener = "2"
 # clicking a second GUI exe focuses the existing window instead of spawning a
 # new process. Linux uses D-Bus, Windows/macOS native.
 tauri-plugin-single-instance = "2"
-# Structured logging with cross-platform daily-rotating file appender and a
-# WebviewLayer that forwards Rust logs to the frontend log panel (Re7).
-tauri-plugin-log = { version = "2", features = ["colored"] }
-# `log` crate is the macro API surface used by tauri-plugin-log Builder.
-log = { workspace = true }
+# Structured logging via tauri-plugin-tracing: native `tracing` consumer
+# with a WebviewLayer (Rust logs -> frontend log panel) + daily-rotating file
+# appender to the OS log dir (Re7) + stdout. Replaces tauri-plugin-log so the
+# whole codebase (resin-core + shell) uses one `tracing` pipeline (Re7/Re6).
+tauri-plugin-tracing = "0.3"
 parking_lot = { workspace = true }
 once_cell = { workspace = true }
 

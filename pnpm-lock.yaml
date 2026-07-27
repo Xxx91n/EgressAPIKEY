@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@fltsci/tauri-plugin-tracing':
+        specifier: ^0.3.4
+        version: 0.3.4
       '@tauri-apps/api':
         specifier: ^2.0.0
         version: 2.11.1
@@ -366,6 +369,10 @@ packages:
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@fltsci/tauri-plugin-tracing@0.3.4':
+    resolution: {integrity: sha512-MLwqLBzlL6Np782W3eGQ+nbd8geUHLTyGV+xUVkYwj21LChU828JEWCOE2asXzRJjJGftM8ICKIFjsC8ftkJiA==}
+    engines: {pnpm: ^10.0.0}
+
   '@gulpjs/to-absolute-glob@4.0.0':
     resolution: {integrity: sha512-kjotm7XJrJ6v+7knhPaRgaT6q8F8K2jiafwYdNHLzmV0uGLuZY43FK6smNSHUPrhq5kX2slCUy+RGG/xGqmIKA==}
     engines: {node: '>=10.13.0'}
@@ -586,6 +593,9 @@ packages:
     resolution: {integrity: sha512-BfzEnDJOt9T8M989/lA37EcJgat01wLRnoi5dQf3QzOH7jzpqTAzdDbVfRljVr5r+jzKqpbHeyOfAaXxAd0PAA==}
     cpu: [x64]
     os: [win32]
+
+  '@tauri-apps/api@2.11.0':
+    resolution: {integrity: sha512-7CinYODhky9lmO23xHnUFv0Xt43fbtWMyxZcLcRBlFkcgXKuEirBvHpmtJ89YMhyeGcq20Wuc47Fa4XjyniywA==}
 
   '@tauri-apps/api@2.11.1':
     resolution: {integrity: sha512-M2FPuYND2m+wh5hfW9ZpSdxMPdEJovPBWwoHJmwUpysTYNHaOkVFN419m/K0LIgjb/7KU2vBgsUepJWugQCvAA==}
@@ -2428,6 +2438,10 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
+  '@fltsci/tauri-plugin-tracing@0.3.4':
+    dependencies:
+      '@tauri-apps/api': 2.11.0
+
   '@gulpjs/to-absolute-glob@4.0.0':
     dependencies:
       is-negated-glob: 1.0.0
@@ -2587,6 +2601,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.62.2':
     optional: true
+
+  '@tauri-apps/api@2.11.0': {}
 
   '@tauri-apps/api@2.11.1': {}
 

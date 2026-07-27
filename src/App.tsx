@@ -6,6 +6,7 @@ import { SettingsView } from "./views/SettingsView";
 import { ProcessRouteView } from "./views/ProcessRouteView";
 import { SubscriptionsView } from "./views/SubscriptionsView";
 import { useTheme } from "./lib/useTheme";
+import { LogPanel } from "./components/LogPanel";
 import { loadLocale, loadTheme } from "./lib/settings";
 
 const NAV_ITEMS = [
@@ -81,6 +82,7 @@ export default function App() {
         {view === "processRoute" && <ProcessRouteView />}
         {view === "subscriptions" && <SubscriptionsView />}
       </main>
+      <LogPanel />
     </div>
   );
 }

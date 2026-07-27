@@ -69,5 +69,11 @@
     "light": "Clair",
     "dark": "Sombre",
     "system": "Système"
+  },
+  "log": {
+    "title": "Journaux",
+    "clear": "Effacer",
+    "collapse": "Réduire",
+    "empty": "Aucune entrée de journal pour le moment."
   }
 }

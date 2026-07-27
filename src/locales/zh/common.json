@@ -69,5 +69,11 @@
     "light": "浅色",
     "dark": "深色",
     "system": "跟随系统"
+  },
+  "log": {
+    "title": "日志",
+    "clear": "清空",
+    "collapse": "收起",
+    "empty": "暂无日志条目。"
   }
 }

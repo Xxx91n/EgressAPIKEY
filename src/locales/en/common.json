@@ -69,5 +69,11 @@
     "light": "Light",
     "dark": "Dark",
     "system": "System"
+  },
+  "log": {
+    "title": "Logs",
+    "clear": "Clear",
+    "collapse": "Collapse",
+    "empty": "No log entries yet."
   }
 }
