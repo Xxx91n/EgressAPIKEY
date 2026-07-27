@@ -4,7 +4,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use ai_api_route_app::{build_shared_gateway, commands, tray::build_tray};
+use ai_api_route_app::{build_shared_gateway, build_shared_registry, commands, tray::build_tray};
 use resin_core::DEFAULT_LANES;
 use tauri::{Manager, Emitter};
 
@@ -15,6 +15,7 @@ fn main() {
         .unwrap_or(DEFAULT_LANES);
 
     let gateway = build_shared_gateway(lanes);
+    let registry = build_shared_registry();
 
     tauri::Builder::default()
         // Re9: Single-instance must be the FIRST plugin registered (Tauri 2
@@ -50,6 +51,7 @@ fn main() {
                 .build(),
         )
         .manage(gateway)
+        .manage(registry)
         .invoke_handler(tauri::generate_handler![
             commands::gateway_reserve,
             commands::gateway_release,
@@ -57,6 +59,14 @@ fn main() {
             commands::gateway_record_latency,
             commands::gateway_snapshot,
             commands::tray_refresh_labels,
+            // Re3: Platform/Account registry + weighted account selection.
+            commands::platform_add,
+            commands::platform_remove,
+            commands::platform_list,
+            commands::platform_snapshot,
+            commands::account_add,
+            commands::account_bind_ip,
+            commands::gateway_select_account,
         ])
         .setup(|app| {
             build_tray(app.handle())?;

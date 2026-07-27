@@ -25,6 +25,17 @@ pub fn build_shared_gateway(lanes: usize) -> SharedGateway {
     Arc::new(parking_lot::Mutex::new(GatewayState::new(lanes)))
 }
 
+/// Shared PlatformRegistry (Resin Platform/Account model) wrapped for Tauri
+/// commands. Same concurrency story as SharedGateway — locked per-call, never
+/// held across an await.
+pub type SharedRegistry = Arc<resin_core::platform::PlatformRegistry>;
+
+/// Construct a fresh empty PlatformRegistry for the desktop session. The
+/// frontend populates it via the `platform_add` / `account_add` IPC commands.
+pub fn build_shared_registry() -> SharedRegistry {
+    Arc::new(resin_core::platform::PlatformRegistry::new())
+}
+
 /// Legacy placeholder kept for any external callers/tests that used `init()`.
 pub fn init() -> anyhow::Result<()> {
     tracing::trace!("ai-api-route shell init");

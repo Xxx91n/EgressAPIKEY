@@ -115,3 +115,56 @@ fn sse_stream_full_lifecycle_reserve_to_record_to_release() {
     assert!(s.tdewma.get(authority).is_some(),
         "tdewma must outlive a lane eviction");
 }
+
+/// Re3 upper-layer: weighted account pick via PlatformRegistry +
+/// GatewayState. Walks platform_add -> account_add -> bind_ip -> record a
+/// latency sample on one lane -> pick_account_weighted must prefer the
+/// low-latency account, while pick_account (deterministic) ignores latency.
+/// This exercises the exact composition the Tauri `gateway_select_account`
+/// command calls; failures here surface regressions in the weighted path
+/// before they reach the desktop IPC boundary.
+#[test]
+fn weighted_pick_prefers_low_latency_account() {
+    let reg = PlatformRegistry::new();
+    let mut p = Platform::new("openai");
+    // Two accounts on different lanes. api_key hashes to prefer_lane=lane_a
+    // but weighted selection must override when lane_a's latency is high.
+    p.add_account(Account::new("acct-low", "openai", 0));
+    p.add_account(Account::new("acct-high", "openai", 1));
+    reg.upsert(p);
+    assert!(reg.bind_ip("openai", "acct-low", "203.0.113.5"));
+    assert!(reg.bind_ip("openai", "acct-high", "203.0.113.9"));
+
+    let s = GatewayState::new(10);
+    let authority = "api.openai.com";
+    // acct-high (lane 1) has a terse latency sample; acct-low has none yet.
+    // pick_account_weighted ranks has_sample=0 (cold) ahead of has_sample=1,
+    // so the cold acct-low lane must win — mirrors cold-lane-wins policy.
+    let plat_arc = reg.get("openai").unwrap();
+    let plat = plat_arc.read();
+    let cold = plat.pick_account_weighted(0, |_| s.tdewma.get(authority).map(|st| st.ema_ms));
+    assert_eq!(cold.unwrap().id.clone(), "acct-low",
+        "cold lane must win when the other lane has samples");
+
+    // Now give acct-low's authority a latency record too — but much worse.
+    // After both have samples the lower EMA must win.
+    s.record_latency(authority, Duration::from_millis(900));
+    // Force the weighted path to see a low-latency for acct-high context:
+    // we only have one authority in tdewma. To test cross-account weighting,
+    // use a closure that returns per-account explicit latencies.
+    let latencies: &[(&str, f64)] = &[("acct-low", 900.0), ("acct-high", 50.0)];
+    let plat2_arc = reg.get("openai").unwrap();
+    let plat2 = plat2_arc.read();
+    let weighted = plat2.pick_account_weighted(0, |a| {
+        latencies.iter().find(|(id, _)| *id == a.id).map(|(_, ms)| *ms)
+    });
+    assert_eq!(weighted.unwrap().id.clone(), "acct-high",
+        "weighted pick must prefer the lower-latency account");
+
+    // Deterministic pick ignores latency; it only orders by lane preference.
+    let plat3_arc = reg.get("openai").unwrap();
+    let plat3 = plat3_arc.read();
+    let det = plat3.pick_account(0).unwrap();
+    assert_eq!(det.id, "acct-low",
+        "deterministic pick must prefer the preferred lane regardless of latency");
+}

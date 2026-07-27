@@ -7,7 +7,8 @@
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
-use crate::SharedGateway;
+use crate::{SharedGateway, SharedRegistry};
+use resin_core::platform::{Account, Platform};
 
 /// Outcome of one attempt to acquire a lane+lease for a request.
 #[derive(Debug, Serialize)]
@@ -138,4 +139,173 @@ pub fn gateway_snapshot(state: State<SharedGateway>) -> Result<LaneSnapshot, Str
 #[tauri::command]
 pub fn tray_refresh_labels(app: AppHandle) -> Result<(), String> {
     crate::tray::apply_labels(&app).map_err(|e| format!("tray_refresh_labels: {e:?}"))
+}
+
+// ---- Re3 upper-layer wiring: Platform/Account registry over IPC ----
+//
+// All inputs validated at the IPC boundary per AGENTS.md §7.5 BEFORE touching
+// registry: lane range, name/id length + control chars, IP basic shape.
+
+const NAME_MAX_LEN: usize = 128;
+
+fn validate_short_name(name: &str, field: &str) -> Result<(), String> {
+    if name.is_empty() || name.len() > NAME_MAX_LEN {
+        return Err(format!("{field} length out of range (1..={NAME_MAX_LEN})"));
+    }
+    if name.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+        return Err(format!("{field} contains control characters"));
+    }
+    Ok(())
+}
+
+/// Basic IPv4/IPv6 sanity without pulling a parse dep; rejects empty, control
+/// chars, and obvious garbage. mihomo validates the real binding downstream.
+fn validate_ip(ip: &str) -> Result<(), String> {
+    if ip.is_empty() || ip.len() > 253 {
+        return Err("exit_ip length out of range".to_string());
+    }
+    if ip.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ') {
+        return Err("exit_ip contains control/space characters".to_string());
+    }
+    Ok(())
+}
+
+/// Add (or replace) an empty Platform. Idempotent on name.
+#[tauri::command]
+pub fn platform_add(reg: State<SharedRegistry>, name: String) -> Result<(), String> {
+    validate_short_name(&name, "platform")?;
+    reg.upsert(Platform::new(name));
+    Ok(())
+}
+
+/// Remove a Platform. Returns true if it existed.
+#[tauri::command]
+pub fn platform_remove(reg: State<SharedRegistry>, name: String) -> Result<bool, String> {
+    validate_short_name(&name, "platform")?;
+    Ok(reg.remove(&name))
+}
+
+/// List all Platform names.
+#[tauri::command]
+pub fn platform_list(reg: State<SharedRegistry>) -> Result<Vec<String>, String> {
+    Ok(reg.list())
+}
+
+/// Snapshot of one Platform's accounts (serialised).
+#[tauri::command]
+pub fn platform_snapshot(reg: State<SharedRegistry>, name: String) -> Result<Vec<Account>, String> {
+    validate_short_name(&name, "platform")?;
+    reg.account_snapshot(&name).ok_or_else(|| format!("platform not found: {name}"))
+}
+
+/// Add an account to a platform with a bound lane. Validates lane range and
+/// id; upserts (does not dedupe — frontend manages uniqueness).
+#[tauri::command]
+pub fn account_add(
+    reg: State<SharedRegistry>,
+    platform: String,
+    id: String,
+    lane: usize,
+) -> Result<(), String> {
+    validate_short_name(&platform, "platform")?;
+    validate_short_name(&id, "account")?;
+    if lane >= resin_core::MAX_LANES {
+        return Err(format!("lane {lane} out of range (max {})", resin_core::MAX_LANES - 1));
+    }
+    let p = reg.get(&platform).ok_or_else(|| format!("platform not found: {platform}"))?;
+    p.write().add_account(Account::new(id, platform, lane));
+    Ok(())
+}
+
+/// Bind an anchored exit IP to an account.
+#[tauri::command]
+pub fn account_bind_ip(
+    reg: State<SharedRegistry>,
+    platform: String,
+    account: String,
+    ip: String,
+) -> Result<bool, String> {
+    validate_short_name(&platform, "platform")?;
+    validate_short_name(&account, "account")?;
+    validate_ip(&ip)?;
+    Ok(reg.bind_ip(&platform, &account, &ip))
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct SelectResult {
+    pub account: Option<String>,
+    pub lane: usize,
+    pub exit_ip: Option<String>,
+    /// "none" when no active account, else the account id.
+    pub reason: String,
+}
+
+/// Re3: select a routable account for (platform, api_key). The lane is hashed
+/// from api_key (so the same key always targets the same lane — SSE stickiness
+/// invariant); among active accounts on that platform we pick:
+///   - weighted = false: pick_account — deterministic lane-prefer
+///   - weighted = true:  pick_account_weighted — TD-EWMA P2C path, latency
+///     pulled from the gateway's tdewma for `authority` (cold lanes win when
+///     no sample). The latency source is pluggable; wiring real per-account
+///     EMA here is the documented extension point.
+#[tauri::command]
+pub fn gateway_select_account(
+    gw: State<SharedGateway>,
+    reg: State<SharedRegistry>,
+    platform: String,
+    api_key: String,
+    authority: String,
+    weighted: Option<bool>,
+) -> Result<SelectResult, String> {
+    validate_short_name(&platform, "platform")?;
+    if api_key.is_empty() {
+        return Err("api_key must be non-empty".to_string());
+    }
+    validate_authority(&authority)?;
+    let p = reg.get(&platform).ok_or_else(|| format!("platform not found: {platform}"))?;
+    let prefer_lane = {
+        let g = gw.lock();
+        resin_core::lane_index(&api_key, &g.lanes)
+    };
+    if weighted.unwrap_or(false) {
+        let g = gw.lock();
+        // Weighted selection: TD-EWMA latency lookup for the authority. Cold
+        // lanes (no sample) win via pick_account_weighted's `(has_sample,
+        // latency, lane_match, lane)` ordering - has_sample=0 sorts first.
+        // Gateway lock held only across the synchronous pick; no await.
+        let plat = p.read();
+        let acc = plat
+            .pick_account_weighted(prefer_lane, |_| g.tdewma.get(&authority).map(|s| s.ema_ms));
+        Ok(match acc {
+            Some(a) => SelectResult {
+                account: Some(a.id.clone()),
+                lane: a.lane,
+                exit_ip: a.exit_ip.clone(),
+                reason: a.id.clone(),
+            },
+            None => SelectResult {
+                account: None,
+                lane: prefer_lane,
+                exit_ip: None,
+                reason: "none".into(),
+            },
+        })
+    } else {
+        let plat = p.read();
+        let acc = plat.pick_account(prefer_lane);
+        Ok(match acc {
+            Some(a) => SelectResult {
+                account: Some(a.id.clone()),
+                lane: a.lane,
+                exit_ip: a.exit_ip.clone(),
+                reason: a.id.clone(),
+            },
+            None => SelectResult {
+                account: None,
+                lane: prefer_lane,
+                exit_ip: None,
+                reason: "none".into(),
+            },
+        })
+    }
 }
