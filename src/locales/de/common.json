@@ -31,7 +31,9 @@
     "lanes": "Lanes",
     "gatewayBind": "Gateway-Bindungsadresse",
     "mihomoApi": "mihomo API-URL",
-    "save": "Speichern"
+    "save": "Speichern",
+    "network": "Netzwerk",
+    "advanced": "Erweitert"
   },
   "subscription": {
     "title": "Abonnements",

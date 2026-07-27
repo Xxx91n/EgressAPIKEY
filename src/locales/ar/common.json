@@ -31,7 +31,9 @@
     "lanes": "المسارات",
     "gatewayBind": "عنوان ربط البوابة",
     "mihomoApi": "رابط API mihomo",
-    "save": "حفظ"
+    "save": "حفظ",
+    "network": "الشبكة",
+    "advanced": "متقدم"
   },
   "subscription": {
     "title": "الاشتراكات",

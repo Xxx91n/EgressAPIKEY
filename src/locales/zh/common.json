@@ -31,7 +31,9 @@
     "lanes": "出口通道数",
     "gatewayBind": "网关监听地址",
     "mihomoApi": "mihomo API 地址",
-    "save": "保存"
+    "save": "保存",
+    "network": "网络",
+    "advanced": "高级"
   },
   "subscription": {
     "title": "订阅",

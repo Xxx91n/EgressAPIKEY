@@ -31,7 +31,9 @@
     "lanes": "Lanes",
     "gatewayBind": "Gateway bind address",
     "mihomoApi": "mihomo API URL",
-    "save": "Save"
+    "save": "Save",
+    "network": "Network",
+    "advanced": "Advanced"
   },
   "subscription": {
     "title": "Subscriptions",

@@ -31,7 +31,9 @@
     "lanes": "レーン数",
     "gatewayBind": "ゲートウェイバインドアドレス",
     "mihomoApi": "mihomo API URL",
-    "save": "保存"
+    "save": "保存",
+    "network": "ネットワーク",
+    "advanced": "詳細"
   },
   "subscription": {
     "title": "サブスクリプション",

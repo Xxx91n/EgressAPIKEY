@@ -31,7 +31,9 @@
     "lanes": "Linhas",
     "gatewayBind": "Endereço de bind do gateway",
     "mihomoApi": "URL da API mihomo",
-    "save": "Salvar"
+    "save": "Salvar",
+    "network": "Rede",
+    "advanced": "Avançado"
   },
   "subscription": {
     "title": "Assinaturas",

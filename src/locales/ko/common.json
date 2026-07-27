@@ -31,7 +31,9 @@
     "lanes": "레인",
     "gatewayBind": "게이트웨이 바인딩 주소",
     "mihomoApi": "mihomo API URL",
-    "save": "저장"
+    "save": "저장",
+    "network": "네트웍크",
+    "advanced": "고급"
   },
   "subscription": {
     "title": "구독",

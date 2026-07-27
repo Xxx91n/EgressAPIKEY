@@ -31,7 +31,9 @@
     "lanes": "Линии",
     "gatewayBind": "Адрес привязки шлюза",
     "mihomoApi": "URL API mihomo",
-    "save": "Сохранить"
+    "save": "Сохранить",
+    "network": "Сеть",
+    "advanced": "Расширенные"
   },
   "subscription": {
     "title": "Подписки",

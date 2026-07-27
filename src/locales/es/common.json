@@ -31,7 +31,9 @@
     "lanes": "Carriles",
     "gatewayBind": "Dirección de enlace del gateway",
     "mihomoApi": "URL de la API de mihomo",
-    "save": "Guardar"
+    "save": "Guardar",
+    "network": "Red",
+    "advanced": "Avanzado"
   },
   "subscription": {
     "title": "Suscripciones",

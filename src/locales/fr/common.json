@@ -31,7 +31,9 @@
     "lanes": "Voies",
     "gatewayBind": "Adresse d'écoute du gateway",
     "mihomoApi": "URL de l'API mihomo",
-    "save": "Enregistrer"
+    "save": "Enregistrer",
+    "network": "Réseau",
+    "advanced": "Avancé"
   },
   "subscription": {
     "title": "Abonnements",
