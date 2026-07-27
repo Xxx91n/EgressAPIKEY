@@ -1,0 +1,82 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "พูลพร็อกซีเฉพาะสำหรับคีย์ API AI พร้อมผืนผ้าทอพอโลยี"
+  },
+  "nav": {
+    "topology": "ทอพอโลยี",
+    "settings": "การตั้งค่า",
+    "platforms": "แพลตฟอร์ม",
+    "processRoute": "เส้นทางโปรเซส",
+    "subscriptions": "การสมัครรับข้อมูล"
+  },
+  "platform": {
+    "title": "แพลตฟอร์ม",
+    "add": "เพิ่มแพลตฟอร์ม",
+    "name": "ชื่อ",
+    "accounts": "บัญชี",
+    "empty": "ยังไม่ได้กำหนดค่าแพลตฟอร์ม"
+  },
+  "account": {
+    "id": "รหัสบัญชี",
+    "lane": "เลน",
+    "exitIp": "IP ออก",
+    "active": "ใช้งาน",
+    "bindIp": "ผูก IP ออก",
+    "add": "เพิ่มบัญชี"
+  },
+  "settings": {
+    "general": "ทั่วไป",
+    "language": "ภาษา",
+    "lanes": "เลน",
+    "gatewayBind": "ที่อยู่ bind เกตเวย์",
+    "mihomoApi": "URL API mihomo",
+    "save": "บันทึก",
+    "network": "เครือข่าย",
+    "advanced": "ขั้นสูง"
+  },
+  "subscription": {
+    "title": "การสมัครรับข้อมูล",
+    "import": "นำเข้าการสมัครรับข้อมูล",
+    "url": "URL การสมัครรับข้อมูล",
+    "imported": "นำเข้า {{count}} โหนด ใน {{lanes}} เลน"
+  },
+  "topology": {
+    "title": "ผืนผ้าทอพอโลยี",
+    "live": "เลนรีเฟรชสดจากเกตเวย์",
+    "lane": "เลน {{index}}",
+    "ip": "IP ออก {{ip}}",
+    "busy": "ไม่ว่าง",
+    "free": "ว่าง"
+  },
+  "processRoute": {
+    "title": "เส้นทางโปรเซส",
+    "add": "เพิ่มกฎ",
+    "process": "ชื่อโปรเซส",
+    "target": "เลนปลายทาง",
+    "empty": "ไม่มีกฎกำหนดเส้นทางตามโปรเซส"
+  },
+  "common": {
+    "cancel": "ยกเลิก",
+    "confirm": "ยืนยัน",
+    "delete": "ลบ",
+    "edit": "แก้ไข"
+  },
+  "tray": {
+    "show": "แสดงหน้าต่าง",
+    "quit": "ออก",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "ธีม",
+    "light": "สว่าง",
+    "dark": "มืด",
+    "system": "ระบบ"
+  },
+  "log": {
+    "title": "บันทึก",
+    "clear": "ล้าง",
+    "collapse": "ยุบ",
+    "empty": "ยังไม่มีบันทึก"
+  }
+}

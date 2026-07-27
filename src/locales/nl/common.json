@@ -1,0 +1,82 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "Gespecialiseerde proxypool voor AI API-sleutels met een topologie-canvas"
+  },
+  "nav": {
+    "topology": "Topologie",
+    "settings": "Instellingen",
+    "platforms": "Platforms",
+    "processRoute": "Procesroute",
+    "subscriptions": "Abonnementen"
+  },
+  "platform": {
+    "title": "Platforms",
+    "add": "Platform toevoegen",
+    "name": "Naam",
+    "accounts": "Accounts",
+    "empty": "Geen platforms geconfigureerd."
+  },
+  "account": {
+    "id": "Account-id",
+    "lane": "Baan",
+    "exitIp": "Exit-IP",
+    "active": "Actief",
+    "bindIp": "Exit-IP binden",
+    "add": "Account toevoegen"
+  },
+  "settings": {
+    "general": "Algemeen",
+    "language": "Taal",
+    "lanes": "Banen",
+    "gatewayBind": "Gateway bind-adres",
+    "mihomoApi": "mihomo API-URL",
+    "save": "Opslaan",
+    "network": "Netwerk",
+    "advanced": "Geavanceerd"
+  },
+  "subscription": {
+    "title": "Abonnementen",
+    "import": "Abonnement importeren",
+    "url": "Abonnements-URL",
+    "imported": "{{count}} knopen geïmporteerd in {{lanes}} banen"
+  },
+  "topology": {
+    "title": "Topologie-canvas",
+    "live": "Banen worden live vernieuwd via de gateway",
+    "lane": "Baan {{index}}",
+    "ip": "Exit-IP {{ip}}",
+    "busy": "bezig",
+    "free": "vrij"
+  },
+  "processRoute": {
+    "title": "Procesroute",
+    "add": "Regel toevoegen",
+    "process": "Procesnaam",
+    "target": "Doelbaan",
+    "empty": "Geen per-proces routeringsregels."
+  },
+  "common": {
+    "cancel": "Annuleren",
+    "confirm": "Bevestigen",
+    "delete": "Verwijderen",
+    "edit": "Bewerken"
+  },
+  "tray": {
+    "show": "Venster tonen",
+    "quit": "Afsluiten",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "Thema",
+    "light": "Licht",
+    "dark": "Donker",
+    "system": "Systeem"
+  },
+  "log": {
+    "title": "Logs",
+    "clear": "Wissen",
+    "collapse": "Samenvouwen",
+    "empty": "Nog geen logs."
+  }
+}

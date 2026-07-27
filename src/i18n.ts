@@ -20,8 +20,8 @@ import resourcesToBackend from "i18next-resources-to-backend";
  *
  * Adding a user-visible string means adding the key to EVERY base locale in
  * the same commit; `pnpm i18n:check` fails the build on any missing key per
- * the canonical `en` catalog. Base locales: en, zh, ja, es, fr, de, ko, ru,
- * pt, ar.
+ * the canonical `en` catalog. Base locales (18): en, zh, ja, es, fr, de, ko,
+ * ru, pt, ar, it, nl, pl, tr, vi, th, id, hi.
  */
 void i18n
   .use(

@@ -22,7 +22,7 @@ function flatten(obj, prefix, acc) {
 // Keep this list in sync with src/locales/ directories and the Locale union in
 // src/store/appStore.ts. Adding a language means adding the directory, all en
 // keys translated, AND registering it here.
-const ALL = ["en", "zh", "ja", "es", "fr", "de", "ko", "ru", "pt", "ar"];
+const ALL = ["en", "zh", "ja", "es", "fr", "de", "ko", "ru", "pt", "ar", "it", "nl", "pl", "tr", "vi", "th", "id", "hi"];
 const en = flatten(load("en"), "", new Set());
 let missing = 0;
 let extra = 0;

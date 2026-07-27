@@ -1,4 +1,4 @@
-//! System tray with i18n labels (en/zh/ja/es/fr/de/ko/ru/pt/ar) + click-to-show GUI.
+//! System tray with i18n labels (18 base locales) + click-to-show GUI.
 //!
 //! Label source: a static table in `labels()` (the 5 base locales already
 //! shipped by the frontend i18n catalog). The active language is picked from
@@ -13,10 +13,11 @@
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::{AppHandle, Manager, tray::{TrayIconBuilder, MouseButton, MouseButtonState, TrayIconEvent}};
 
-/// Supported tray label locales (10 base locales). MUST stay in lockstep with
-/// `src/locales/<lc>/common.json` keys `tray.*`.
+/// Supported tray label locales (18 base locales). MUST stay in lockstep with
+/// `src/locales/<lc>/common.json` keys `tray.*` and the `Locale` union in
+/// `src/store/appStore.ts`.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum TrayLang { En, Zh, Ja, Es, Fr, De, Ko, Ru, Pt, Ar }
+pub enum TrayLang { En, Zh, Ja, Es, Fr, De, Ko, Ru, Pt, Ar, It, Nl, Pl, Tr, Vi, Th, Id, Hi }
 
 /// Per-locale tray label set.
 pub struct TrayLabels {
@@ -40,6 +41,14 @@ pub fn labels(lc: TrayLang) -> TrayLabels {
         TrayLang::Ru => TrayLabels { show: "Показать окно", quit: "Выйти", tooltip: "ai-api-route" },
         TrayLang::Pt => TrayLabels { show: "Mostrar Janela", quit: "Sair", tooltip: "ai-api-route" },
         TrayLang::Ar => TrayLabels { show: "إظهار النافذة", quit: "إنهاء", tooltip: "ai-api-route" },
+        TrayLang::It => TrayLabels { show: "Mostra finestra", quit: "Esci", tooltip: "ai-api-route" },
+        TrayLang::Nl => TrayLabels { show: "Venster tonen", quit: "Afsluiten", tooltip: "ai-api-route" },
+        TrayLang::Pl => TrayLabels { show: "Pokaż okno", quit: "Zakończ", tooltip: "ai-api-route" },
+        TrayLang::Tr => TrayLabels { show: "Pencereyi göster", quit: "Çık", tooltip: "ai-api-route" },
+        TrayLang::Vi => TrayLabels { show: "Hiện cửa sổ", quit: "Thoát", tooltip: "ai-api-route" },
+        TrayLang::Th => TrayLabels { show: "แสดงหน้าต่าง", quit: "ออก", tooltip: "ai-api-route" },
+        TrayLang::Id => TrayLabels { show: "Tampilkan jendela", quit: "Keluar", tooltip: "ai-api-route" },
+        TrayLang::Hi => TrayLabels { show: "विंडो दिखाएं", quit: "बाहर निकलें", tooltip: "ai-api-route" },
     }
 }
 
@@ -59,6 +68,14 @@ pub fn current_lang(app: &AppHandle) -> TrayLang {
         "ru" => TrayLang::Ru,
         "pt" => TrayLang::Pt,
         "ar" => TrayLang::Ar,
+        "it" => TrayLang::It,
+        "nl" => TrayLang::Nl,
+        "pl" => TrayLang::Pl,
+        "tr" => TrayLang::Tr,
+        "vi" => TrayLang::Vi,
+        "th" => TrayLang::Th,
+        "id" => TrayLang::Id,
+        "hi" => TrayLang::Hi,
         _ => TrayLang::En,
     }
 }

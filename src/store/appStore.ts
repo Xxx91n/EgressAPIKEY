@@ -41,7 +41,7 @@ export interface Subscription {
 /// View selection between the three primary desktop views.
 /// Supported UI locales. MUST stay in lockstep with src/locales/ directories
 /// and scripts/i18n-check.cjs ALL list.
-export type Locale = "en" | "zh" | "ja" | "es" | "fr" | "de" | "ko" | "ru" | "pt" | "ar";
+export type Locale = "en" | "zh" | "ja" | "es" | "fr" | "de" | "ko" | "ru" | "pt" | "ar" | "it" | "nl" | "pl" | "tr" | "vi" | "th" | "id" | "hi";
 
 /// Colour-scheme preference. "system" follows prefers-color-scheme at runtime.
 export type Theme = "light" | "dark" | "system";

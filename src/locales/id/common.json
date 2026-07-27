@@ -1,0 +1,82 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "Kumpulan proxy khusus untuk kunci API AI dengan kanvas topologi"
+  },
+  "nav": {
+    "topology": "Topologi",
+    "settings": "Pengaturan",
+    "platforms": "Platform",
+    "processRoute": "Rute proses",
+    "subscriptions": "Langganan"
+  },
+  "platform": {
+    "title": "Platform",
+    "add": "Tambah platform",
+    "name": "Nama",
+    "accounts": "Akun",
+    "empty": "Belum ada platform dikonfigurasi."
+  },
+  "account": {
+    "id": "ID akun",
+    "lane": "Jalur",
+    "exitIp": "IP keluar",
+    "active": "Aktif",
+    "bindIp": "Ikat IP keluar",
+    "add": "Tambah akun"
+  },
+  "settings": {
+    "general": "Umum",
+    "language": "Bahasa",
+    "lanes": "Jalur",
+    "gatewayBind": "Alamat bind gateway",
+    "mihomoApi": "URL API mihomo",
+    "save": "Simpan",
+    "network": "Jaringan",
+    "advanced": "Lanjutan"
+  },
+  "subscription": {
+    "title": "Langganan",
+    "import": "Impor langganan",
+    "url": "URL langganan",
+    "imported": "Mengimpor {{count}} node ke {{lanes}} jalur"
+  },
+  "topology": {
+    "title": "Kanvas topologi",
+    "live": "Jalur disegarkan langsung dari gateway",
+    "lane": "Jalur {{index}}",
+    "ip": "IP keluar {{ip}}",
+    "busy": "sibuk",
+    "free": "kosong"
+  },
+  "processRoute": {
+    "title": "Rute proses",
+    "add": "Tambah aturan",
+    "process": "Nama proses",
+    "target": "Jalur tujuan",
+    "empty": "Tidak ada aturan routing per proses."
+  },
+  "common": {
+    "cancel": "Batal",
+    "confirm": "Konfirmasi",
+    "delete": "Hapus",
+    "edit": "Edit"
+  },
+  "tray": {
+    "show": "Tampilkan jendela",
+    "quit": "Keluar",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Terang",
+    "dark": "Gelap",
+    "system": "Sistem"
+  },
+  "log": {
+    "title": "Log",
+    "clear": "Bersihkan",
+    "collapse": "Lipat",
+    "empty": "Belum ada log."
+  }
+}

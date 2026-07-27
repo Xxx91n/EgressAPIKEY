@@ -1,0 +1,82 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "Pool proxy chuyên dụng cho khóa API AI với canvas tô pô"
+  },
+  "nav": {
+    "topology": "Tô pô",
+    "settings": "Cài đặt",
+    "platforms": "Nền tảng",
+    "processRoute": "Tuyến tiến trình",
+    "subscriptions": "Đăng ký"
+  },
+  "platform": {
+    "title": "Nền tảng",
+    "add": "Thêm nền tảng",
+    "name": "Tên",
+    "accounts": "Tài khoản",
+    "empty": "Chưa cấu hình nền tảng."
+  },
+  "account": {
+    "id": "ID tài khoản",
+    "lane": "Làn",
+    "exitIp": "IP đầu ra",
+    "active": "Hoạt động",
+    "bindIp": "Gắn IP đầu ra",
+    "add": "Thêm tài khoản"
+  },
+  "settings": {
+    "general": "Chung",
+    "language": "Ngôn ngữ",
+    "lanes": "Làn",
+    "gatewayBind": "Địa chỉ bind cổng",
+    "mihomoApi": "URL API mihomo",
+    "save": "Lưu",
+    "network": "Mạng",
+    "advanced": "Nâng cao"
+  },
+  "subscription": {
+    "title": "Đăng ký",
+    "import": "Nhập đăng ký",
+    "url": "URL đăng ký",
+    "imported": "Đã nhập {{count}} nút vào {{lanes}} làn"
+  },
+  "topology": {
+    "title": "Canvas tô pô",
+    "live": "Các làn làm mới trực tiếp từ cổng",
+    "lane": "Làn {{index}}",
+    "ip": "IP đầu ra {{ip}}",
+    "busy": "bận",
+    "free": "rảnh"
+  },
+  "processRoute": {
+    "title": "Tuyến tiến trình",
+    "add": "Thêm quy tắc",
+    "process": "Tên tiến trình",
+    "target": "Làn đích",
+    "empty": "Không có quy tắc định tuyến theo tiến trình."
+  },
+  "common": {
+    "cancel": "Hủy",
+    "confirm": "Xác nhận",
+    "delete": "Xóa",
+    "edit": "Sửa"
+  },
+  "tray": {
+    "show": "Hiện cửa sổ",
+    "quit": "Thoát",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "Giao diện",
+    "light": "Sáng",
+    "dark": "Tối",
+    "system": "Hệ thống"
+  },
+  "log": {
+    "title": "Nhật ký",
+    "clear": "Xóa",
+    "collapse": "Thu gọn",
+    "empty": "Chưa có nhật ký."
+  }
+}

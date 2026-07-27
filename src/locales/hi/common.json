@@ -1,0 +1,82 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "AI API कुंजियों के लिए विशेष प्रॉक्सी पूल, टोपोलॉजी कैनवास के साथ"
+  },
+  "nav": {
+    "topology": "टोपोलॉजी",
+    "settings": "सेटिंग्स",
+    "platforms": "प्लेटफ़ॉर्म",
+    "processRoute": "प्रक्रिया मार्ग",
+    "subscriptions": "सब्सक्रिप्शन"
+  },
+  "platform": {
+    "title": "प्लेटफ़ॉर्म",
+    "add": "प्लेटफ़ॉर्म जोड़ें",
+    "name": "नाम",
+    "accounts": "खाते",
+    "empty": "कोई प्लेटफ़ॉर्म कॉन्फ़िगर नहीं।"
+  },
+  "account": {
+    "id": "खाता आईडी",
+    "lane": "लेन",
+    "exitIp": "निकास IP",
+    "active": "सक्रिय",
+    "bindIp": "निकास IP बाइंड करें",
+    "add": "खाता जोड़ें"
+  },
+  "settings": {
+    "general": "सामान्य",
+    "language": "भाषा",
+    "lanes": "लेन",
+    "gatewayBind": "गेटवे बाइंड पता",
+    "mihomoApi": "mihomo API URL",
+    "save": "सहेजें",
+    "network": "नेटवर्क",
+    "advanced": "उन्नत"
+  },
+  "subscription": {
+    "title": "सब्सक्रिप्शन",
+    "import": "सब्सक्रिप्शन आयात करें",
+    "url": "सब्सक्रिप्शन URL",
+    "imported": "{{lanes}} लेन में {{count}} नोड आयातित"
+  },
+  "topology": {
+    "title": "टोपोलॉजी कैनवास",
+    "live": "लेन गेटवे से लाइव रिफ्रेश होते हैं",
+    "lane": "लेन {{index}}",
+    "ip": "निकास IP {{ip}}",
+    "busy": "व्यस्त",
+    "free": "खाली"
+  },
+  "processRoute": {
+    "title": "प्रक्रिया मार्ग",
+    "add": "नियम जोड़ें",
+    "process": "प्रक्रिया नाम",
+    "target": "लक्ष्य लेन",
+    "empty": "कोई प्रति-प्रक्रिया रूटिंग नियम नहीं।"
+  },
+  "common": {
+    "cancel": "रद्द करें",
+    "confirm": "पुष्टि करें",
+    "delete": "हटाएं",
+    "edit": "संपादित करें"
+  },
+  "tray": {
+    "show": "विंडो दिखाएं",
+    "quit": "बाहर निकलें",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "थीम",
+    "light": "हल्का",
+    "dark": "गहरा",
+    "system": "सिस्टम"
+  },
+  "log": {
+    "title": "लॉग",
+    "clear": "साफ़ करें",
+    "collapse": "संक्षिप्त करें",
+    "empty": "अभी तक कोई लॉग नहीं।"
+  }
+}

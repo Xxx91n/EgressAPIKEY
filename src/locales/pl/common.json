@@ -1,0 +1,82 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "Specjalistyczna pula proxy dla kluczy API AI z kanwą topologii"
+  },
+  "nav": {
+    "topology": "Topologia",
+    "settings": "Ustawienia",
+    "platforms": "Platformy",
+    "processRoute": "Trasa procesu",
+    "subscriptions": "Subskrypcje"
+  },
+  "platform": {
+    "title": "Platformy",
+    "add": "Dodaj platformę",
+    "name": "Nazwa",
+    "accounts": "Konta",
+    "empty": "Brak skonfigurowanych platform."
+  },
+  "account": {
+    "id": "ID konta",
+    "lane": "Tor",
+    "exitIp": "IP wyjściowe",
+    "active": "Aktywne",
+    "bindIp": "Powiąż IP wyjściowe",
+    "add": "Dodaj konto"
+  },
+  "settings": {
+    "general": "Ogólne",
+    "language": "Język",
+    "lanes": "Tory",
+    "gatewayBind": "Adres bind bramy",
+    "mihomoApi": "Adres URL API mihomo",
+    "save": "Zapisz",
+    "network": "Sieć",
+    "advanced": "Zaawansowane"
+  },
+  "subscription": {
+    "title": "Subskrypcje",
+    "import": "Importuj subskrypcję",
+    "url": "URL subskrypcji",
+    "imported": "Zaimportowano {{count}} węzłów w {{lanes}} tory"
+  },
+  "topology": {
+    "title": "Kanwa topologii",
+    "live": "Tory odświeżają się na żywo z bramy",
+    "lane": "Tor {{index}}",
+    "ip": "IP wyjściowe {{ip}}",
+    "busy": "zajęty",
+    "free": "wolny"
+  },
+  "processRoute": {
+    "title": "Trasa procesu",
+    "add": "Dodaj regułę",
+    "process": "Nazwa procesu",
+    "target": "Tor docelowy",
+    "empty": "Brak reguł routingu per proces."
+  },
+  "common": {
+    "cancel": "Anuluj",
+    "confirm": "Potwierdź",
+    "delete": "Usuń",
+    "edit": "Edytuj"
+  },
+  "tray": {
+    "show": "Pokaż okno",
+    "quit": "Zakończ",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "Motyw",
+    "light": "Jasny",
+    "dark": "Ciemny",
+    "system": "System"
+  },
+  "log": {
+    "title": "Logi",
+    "clear": "Wyczyść",
+    "collapse": "Zwiń",
+    "empty": "Brak logów."
+  }
+}

@@ -5,7 +5,7 @@ import { Globe, Activity, Server, Save, Check } from "lucide-react";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import { saveLocale, saveTheme, saveLaneCount } from "../lib/settings";
 
-const LOCALES: Locale[] = ["en", "zh", "ja", "es", "fr", "de", "ko", "ru", "pt", "ar"];
+const LOCALES: Locale[] = ["en", "zh", "es", "fr", "de", "ja", "ko", "ru", "pt", "it", "nl", "pl", "tr", "ar", "vi", "th", "id", "hi"];
 
 /// Native endonym for each locale, shown in the language <select>.
 const LOCALE_ENDONYM: Record<Locale, string> = {
@@ -19,6 +19,14 @@ const LOCALE_ENDONYM: Record<Locale, string> = {
   ru: "Русский",
   pt: "Português",
   ar: "العربية",
+  it: "Italiano",
+  nl: "Nederlands",
+  pl: "Polski",
+  tr: "Türkçe",
+  vi: "Tiếng Việt",
+  th: "ไทย",
+  id: "Bahasa Indonesia",
+  hi: "हिन्दी",
 };
 
 const THEMES: Theme[] = ["light", "dark", "system"];

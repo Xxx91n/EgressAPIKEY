@@ -1,0 +1,82 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "AI API anahtarları için uzmanlaşmış proxy havuzu, topoloji tuvali ile"
+  },
+  "nav": {
+    "topology": "Topoloji",
+    "settings": "Ayarlar",
+    "platforms": "Platformlar",
+    "processRoute": "Süreç rotası",
+    "subscriptions": "Abonelikler"
+  },
+  "platform": {
+    "title": "Platformlar",
+    "add": "Platform ekle",
+    "name": "Ad",
+    "accounts": "Hesaplar",
+    "empty": "Yapılandırılmış platform yok."
+  },
+  "account": {
+    "id": "Hesap kimliği",
+    "lane": "Şerit",
+    "exitIp": "Çıkış IP",
+    "active": "Aktif",
+    "bindIp": "Çıkış IP bağla",
+    "add": "Hesap ekle"
+  },
+  "settings": {
+    "general": "Genel",
+    "language": "Dil",
+    "lanes": "Şeritler",
+    "gatewayBind": "Ağ geçidi bağlama adresi",
+    "mihomoApi": "mihomo API URL",
+    "save": "Kaydet",
+    "network": "Ağ",
+    "advanced": "Gelişmiş"
+  },
+  "subscription": {
+    "title": "Abonelikler",
+    "import": "Abonelik içe aktar",
+    "url": "Abonelik URL",
+    "imported": "{{lanes}} şeride {{count}} düğüm içe aktarıldı"
+  },
+  "topology": {
+    "title": "Topoloji tuvali",
+    "live": "Şeritler ağ geçidinden canlı yenilenir",
+    "lane": "Şerit {{index}}",
+    "ip": "Çıkış IP {{ip}}",
+    "busy": "meşgul",
+    "free": "boş"
+  },
+  "processRoute": {
+    "title": "Süreç rotası",
+    "add": "Kural ekle",
+    "process": "Süreç adı",
+    "target": "Hedef şerit",
+    "empty": "Süreç başına yönlendirme kuralı yok."
+  },
+  "common": {
+    "cancel": "İptal",
+    "confirm": "Onayla",
+    "delete": "Sil",
+    "edit": "Düzenle"
+  },
+  "tray": {
+    "show": "Pencereyi göster",
+    "quit": "Çık",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Açık",
+    "dark": "Koyu",
+    "system": "Sistem"
+  },
+  "log": {
+    "title": "Günlükler",
+    "clear": "Temizle",
+    "collapse": "Daralt",
+    "empty": "Henüz günlük yok."
+  }
+}

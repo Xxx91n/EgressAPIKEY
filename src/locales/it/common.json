@@ -1,0 +1,82 @@
+{
+  "app": {
+    "title": "AI API Route",
+    "tagline": "Pool di proxy specializzato per chiavi API AI con canvas topologico"
+  },
+  "nav": {
+    "topology": "Topologia",
+    "settings": "Impostazioni",
+    "platforms": "Piattaforme",
+    "processRoute": "Instradamento processi",
+    "subscriptions": "Sottoscrizioni"
+  },
+  "platform": {
+    "title": "Piattaforme",
+    "add": "Aggiungi piattaforma",
+    "name": "Nome",
+    "accounts": "Account",
+    "empty": "Nessuna piattaforma configurata."
+  },
+  "account": {
+    "id": "ID account",
+    "lane": "Corsia",
+    "exitIp": "IP di uscita",
+    "active": "Attivo",
+    "bindIp": "Associa IP di uscita",
+    "add": "Aggiungi account"
+  },
+  "settings": {
+    "general": "Generale",
+    "language": "Lingua",
+    "lanes": "Corsie",
+    "gatewayBind": "Indirizzo bind gateway",
+    "mihomoApi": "URL API mihomo",
+    "save": "Salva",
+    "network": "Rete",
+    "advanced": "Avanzate"
+  },
+  "subscription": {
+    "title": "Sottoscrizioni",
+    "import": "Importa sottoscrizione",
+    "url": "URL sottoscrizione",
+    "imported": "Importati {{count}} nodi in {{lanes}} corsie"
+  },
+  "topology": {
+    "title": "Canvas topologico",
+    "live": "Le corsie si aggiornano in tempo reale dal gateway",
+    "lane": "Corsia {{index}}",
+    "ip": "IP di uscita {{ip}}",
+    "busy": "occupato",
+    "free": "libero"
+  },
+  "processRoute": {
+    "title": "Instradamento processi",
+    "add": "Aggiungi regola",
+    "process": "Nome processo",
+    "target": "Corsia di destinazione",
+    "empty": "Nessuna regola di instradamento per processo."
+  },
+  "common": {
+    "cancel": "Annulla",
+    "confirm": "Conferma",
+    "delete": "Elimina",
+    "edit": "Modifica"
+  },
+  "tray": {
+    "show": "Mostra finestra",
+    "quit": "Esci",
+    "tooltip": "ai-api-route"
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Chiaro",
+    "dark": "Scuro",
+    "system": "Sistema"
+  },
+  "log": {
+    "title": "Log",
+    "clear": "Pulisci",
+    "collapse": "Comprimi",
+    "empty": "Nessun log."
+  }
+}
