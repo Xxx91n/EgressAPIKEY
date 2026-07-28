@@ -102,9 +102,10 @@ export function SettingsView() {
   const changeLocale = async (next: Locale) => {
     setLocale(next);
     await i18n.changeLanguage(next);
-    void saveLocale(next);
-    // Re-localise the OS tray menu; best-effort, ignored outside Tauri.
-    void invoke("tray_refresh_labels").catch(() => {});
+    await saveLocale(next);
+    // Re-localise the OS tray AFTER the persisted lang is flushed so current_lang
+    // reads the new value (race fix for tray i18n lag). Best-effort outside Tauri.
+    await invoke("tray_refresh_labels").catch(() => {});
   };
 
   const changeTheme = async (next: Theme) => {
@@ -205,7 +206,7 @@ export function SettingsView() {
       </SectionCard>
 
       <SectionCard icon={<Server size={16} strokeWidth={1.75} />} title={t("settings.network")}>
-        <Field label={t("settings.gatewayBind")} hint="127.0.0.1:7897">
+        <Field label={t("settings.gatewayBind")}>
           <input
             type="text"
             value={gatewayBind}
@@ -214,7 +215,7 @@ export function SettingsView() {
             className="w-56 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           />
         </Field>
-        <Field label={t("settings.mihomoApi")} hint="http://127.0.0.1:9090">
+        <Field label={t("settings.mihomoApi")}>
           <input
             type="text"
             value={mihomoApi}

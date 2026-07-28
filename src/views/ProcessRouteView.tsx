@@ -50,6 +50,7 @@ export function ProcessRouteView() {
             />
           </div>
           <button
+            disabled={!process.trim()}
             onClick={() => {
               if (process.trim()) {
                 const tgt = Math.max(0, Math.min(laneCount - 1, Math.trunc(target)));
@@ -58,7 +59,7 @@ export function ProcessRouteView() {
                 setTarget(0);
               }
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 text-white text-sm font-medium transition-colors"
           >
             <Plus size={14} strokeWidth={2} />
             {t("processRoute.add")}
