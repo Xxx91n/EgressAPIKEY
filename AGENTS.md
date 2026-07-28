@@ -49,6 +49,16 @@ ai-api-route is a Tauri 2 + React 19 desktop app: an L7 proxy gateway specialize
 
 ---
 
+## Storage locations (runtime)
+
+The app stores user data in OS-standard dirs (resolved by Tauri's `app.path()`). On Windows these land under `%APPDATA%`; on macOS under `~/Library/Application Support`; on Linux under `~/.config` / `~/.local/share`.
+
+- **Config (`settings.json`)**: `app_config_dir()` — written by `tauri-plugin-store`. Keys: `gatewayBind`, `mihomoApi`, `theme`, `locale`. The Rust shell reads this as server-trust config (never from the webview); see §7.6.
+- **Logs**: `app_log_dir()` — `tauri-plugin-tracing` runs `.with_file_logging()` for a daily-rotating file appender. All `tracing::` macros in the Rust side flow here. No separate log DB.
+- **Database**: none yet. `rusqlite` is a Cargo dependency but is NOT instantiated, and no `Connection::open` call exists in `crates/resin-core/src/`. When a DB lands it should use `app_config_dir()` as the parent so it sits beside `settings.json`.
+
+The Settings > Storage card exposes `Open config directory` and `Open log directory` buttons (commands `get_config_dir` / `get_log_dir` in `src-tauri/src/commands/mod.rs`, scoped `opener:allow-open-path` capability) so a user can reach these paths from inside the GUI.
+
 ## /init conventions (enforced from P0)
 
 Any agent or human landing on this repo MUST apply these conventions. Violating any is a blocking review comment.
