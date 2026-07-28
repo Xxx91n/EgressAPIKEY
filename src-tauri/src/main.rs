@@ -5,8 +5,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use ai_api_route_app::{build_shared_gateway, build_shared_registry, commands, tray::build_tray};
-use resin_core::DEFAULT_LANES;
+use resin_core::{CoreConfig, DEFAULT_LANES};
 use tauri::{Manager, Emitter, WindowEvent};
+use tauri_plugin_store::StoreExt;
 
 fn main() {
     let lanes = std::env::var("AI_API_ROUTE_LANES")
@@ -84,6 +85,40 @@ fn main() {
             commands::gateway_select_account,
         ])
         .setup(|app| {
+            // #2/#6: read persisted network settings so the user
+            // edits to gatewayBind/mihomoApi actually reach the Rust
+            // side (previously the shell always used CoreConfig::default
+            // and ignored settings.json for these keys). We construct a
+            // CoreConfig from the persisted values and log it; the live
+            // gateway listen (axum) wiring is the next #6 phase. We never
+            // panic on missing/invalid values - we fall back to defaults.
+            let mut cfg = CoreConfig::default();
+            if let Ok(store) = app.store("settings.json") {
+                // tauri-plugin-store 2.4.4 store.get returns Option<JsonValue>;
+                // match on serde_json::Value variants for string + number keys.
+                if let Some(serde_json::Value::String(v)) = store.get("gatewayBind") {
+                    if !v.trim().is_empty() { cfg.bind = v.trim().to_string(); }
+                }
+                if let Some(serde_json::Value::String(v)) = store.get("mihomoApi") {
+                    if !v.trim().is_empty() { cfg.mihomo_api = v.trim().to_string(); }
+                }
+                if let Some(serde_json::Value::Number(n)) = store.get("laneCount") {
+                    if let Some(u) = n.as_u64() {
+                        cfg.lanes = resin_core::sanitize_lanes(u as usize);
+                    } else if let Some(f) = n.as_f64() {
+                        cfg.lanes = resin_core::sanitize_lanes(f as usize);
+                    }
+                }
+            }
+            tracing::info!(
+                "ai-api-route config: lanes={}, bind={}, mihomo_api={}",
+                cfg.lanes, cfg.bind, cfg.mihomo_api
+            );
+            // The CoreConfig is dropped here today; the live gateway state
+            // (managed below) still uses the env/DEFAULT_LANES value for
+            // the lane count pending the axum listen + mihomo sidecar
+            // lifecycle port (Resin proxy runtime, #6 next phase).
+            let _ = cfg;
             build_tray(app.handle())?;
             Ok(())
         })

@@ -50,7 +50,8 @@
     "lane": "通道 {{index}}",
     "ip": "出口 IP {{ip}}",
     "busy": "繁忙",
-    "free": "空闲"
+    "free": "空闲",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "进程路由",

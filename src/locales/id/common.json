@@ -50,7 +50,8 @@
     "lane": "Jalur {{index}}",
     "ip": "IP keluar {{ip}}",
     "busy": "sibuk",
-    "free": "kosong"
+    "free": "kosong",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "Rute proses",

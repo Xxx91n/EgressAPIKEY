@@ -50,7 +50,8 @@
     "lane": "المسار {{index}}",
     "ip": "IP الخروج {{ip}}",
     "busy": "مشغول",
-    "free": "متاح"
+    "free": "متاح",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "مسار العملية",

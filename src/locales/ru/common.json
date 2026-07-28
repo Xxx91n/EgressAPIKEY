@@ -50,7 +50,8 @@
     "lane": "Линия {{index}}",
     "ip": "Выходной IP {{ip}}",
     "busy": "занято",
-    "free": "свободно"
+    "free": "свободно",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "Маршрут процесса",

@@ -50,7 +50,8 @@
     "lane": "Tor {{index}}",
     "ip": "IP wyjściowe {{ip}}",
     "busy": "zajęty",
-    "free": "wolny"
+    "free": "wolny",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "Trasa procesu",

@@ -50,7 +50,8 @@
     "lane": "레인 {{index}}",
     "ip": "출구 IP {{ip}}",
     "busy": "사용 중",
-    "free": "사용 가능"
+    "free": "사용 가능",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "프로세스 경로",

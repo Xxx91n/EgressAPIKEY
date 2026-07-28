@@ -50,7 +50,8 @@
     "lane": "लेन {{index}}",
     "ip": "निकास IP {{ip}}",
     "busy": "व्यस्त",
-    "free": "खाली"
+    "free": "खाली",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "प्रक्रिया मार्ग",

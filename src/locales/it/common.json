@@ -50,7 +50,8 @@
     "lane": "Corsia {{index}}",
     "ip": "IP di uscita {{ip}}",
     "busy": "occupato",
-    "free": "libero"
+    "free": "libero",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "Instradamento processi",

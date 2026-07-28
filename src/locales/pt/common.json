@@ -50,7 +50,8 @@
     "lane": "Linha {{index}}",
     "ip": "IP de saída {{ip}}",
     "busy": "ocupado",
-    "free": "livre"
+    "free": "livre",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "Rota de processo",

@@ -50,7 +50,8 @@
     "lane": "Baan {{index}}",
     "ip": "Exit-IP {{ip}}",
     "busy": "bezig",
-    "free": "vrij"
+    "free": "vrij",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "Procesroute",

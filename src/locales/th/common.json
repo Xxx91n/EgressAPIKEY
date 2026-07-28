@@ -50,7 +50,8 @@
     "lane": "เลน {{index}}",
     "ip": "IP ออก {{ip}}",
     "busy": "ไม่ว่าง",
-    "free": "ว่าง"
+    "free": "ว่าง",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "เส้นทางโปรเซส",

@@ -50,7 +50,8 @@
     "lane": "Làn {{index}}",
     "ip": "IP đầu ra {{ip}}",
     "busy": "bận",
-    "free": "rảnh"
+    "free": "rảnh",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "Tuyến tiến trình",

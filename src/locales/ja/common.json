@@ -50,7 +50,8 @@
     "lane": "レーン {{index}}",
     "ip": "出口IP {{ip}}",
     "busy": "使用中",
-    "free": "空き"
+    "free": "空き",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "プロセスルート",

@@ -50,7 +50,8 @@
     "lane": "Şerit {{index}}",
     "ip": "Çıkış IP {{ip}}",
     "busy": "meşgul",
-    "free": "boş"
+    "free": "boş",
+    "status": "{{lanes}} / {{busy}}"
   },
   "processRoute": {
     "title": "Süreç rotası",
