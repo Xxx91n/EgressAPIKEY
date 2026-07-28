@@ -71,6 +71,9 @@ fn main() {
             commands::gateway_record_latency,
             commands::gateway_snapshot,
             commands::tray_refresh_labels,
+            // #7: open config / log directory buttons in Settings.
+            commands::get_config_dir,
+            commands::get_log_dir,
             // Re3: Platform/Account registry + weighted account selection.
             commands::platform_add,
             commands::platform_remove,

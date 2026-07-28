@@ -33,7 +33,10 @@
     "mihomoApi": "URL API mihomo",
     "save": "บันทึก",
     "network": "เครือข่าย",
-    "advanced": "ขั้นสูง"
+    "advanced": "ขั้นสูง",
+    "storage": "ที่เก็บข้อมูล",
+    "openConfigDir": "เปิดไดเรกทอรีการตั้งค่า",
+    "openLogDir": "เปิดไดเรกทอรีบันทึก"
   },
   "subscription": {
     "title": "การสมัครรับข้อมูล",

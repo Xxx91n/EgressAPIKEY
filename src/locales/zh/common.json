@@ -33,7 +33,10 @@
     "mihomoApi": "mihomo API 地址",
     "save": "保存",
     "network": "网络",
-    "advanced": "高级"
+    "advanced": "高级",
+    "storage": "存储",
+    "openConfigDir": "打开配置目录",
+    "openLogDir": "打开日志目录"
   },
   "subscription": {
     "title": "订阅",

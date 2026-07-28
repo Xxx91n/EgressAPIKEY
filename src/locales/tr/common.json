@@ -33,7 +33,10 @@
     "mihomoApi": "mihomo API URL",
     "save": "Kaydet",
     "network": "Ağ",
-    "advanced": "Gelişmiş"
+    "advanced": "Gelişmiş",
+    "storage": "Depolama",
+    "openConfigDir": "Yapılandırma dizinini aç",
+    "openLogDir": "Günlük dizinini aç"
   },
   "subscription": {
     "title": "Abonelikler",

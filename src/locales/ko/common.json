@@ -33,7 +33,10 @@
     "mihomoApi": "mihomo API URL",
     "save": "저장",
     "network": "네트웍크",
-    "advanced": "고급"
+    "advanced": "고급",
+    "storage": "저장소",
+    "openConfigDir": "설정 디렉터리 열기",
+    "openLogDir": "로그 디렉터리 열기"
   },
   "subscription": {
     "title": "구독",

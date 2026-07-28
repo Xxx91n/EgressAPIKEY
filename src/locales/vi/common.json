@@ -33,7 +33,10 @@
     "mihomoApi": "URL API mihomo",
     "save": "Lưu",
     "network": "Mạng",
-    "advanced": "Nâng cao"
+    "advanced": "Nâng cao",
+    "storage": "Lưu trữ",
+    "openConfigDir": "Mở thư mục cấu hình",
+    "openLogDir": "Mở thư mục nhật ký"
   },
   "subscription": {
     "title": "Đăng ký",

@@ -33,7 +33,10 @@
     "mihomoApi": "Adres URL API mihomo",
     "save": "Zapisz",
     "network": "Sieć",
-    "advanced": "Zaawansowane"
+    "advanced": "Zaawansowane",
+    "storage": "Pamięć",
+    "openConfigDir": "Otwórz katalog konfiguracji",
+    "openLogDir": "Otwórz katalog dzienników"
   },
   "subscription": {
     "title": "Subskrypcje",

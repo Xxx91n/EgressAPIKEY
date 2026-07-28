@@ -33,7 +33,10 @@
     "mihomoApi": "URL da API mihomo",
     "save": "Salvar",
     "network": "Rede",
-    "advanced": "Avançado"
+    "advanced": "Avançado",
+    "storage": "Armazenamento",
+    "openConfigDir": "Abrir diretório de configuração",
+    "openLogDir": "Abrir diretório de logs"
   },
   "subscription": {
     "title": "Assinaturas",

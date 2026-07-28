@@ -33,7 +33,10 @@
     "mihomoApi": "mihomo API URL",
     "save": "सहेजें",
     "network": "नेटवर्क",
-    "advanced": "उन्नत"
+    "advanced": "उन्नत",
+    "storage": "भंडारण",
+    "openConfigDir": "कॉन्फ़िगरेशन निर्देशिका खोलें",
+    "openLogDir": "लॉग निर्देशिका खोलें"
   },
   "subscription": {
     "title": "सब्सक्रिप्शन",

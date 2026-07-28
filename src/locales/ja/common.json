@@ -33,7 +33,10 @@
     "mihomoApi": "mihomo API URL",
     "save": "保存",
     "network": "ネットワーク",
-    "advanced": "詳細"
+    "advanced": "詳細",
+    "storage": "ストレージ",
+    "openConfigDir": "設定ディレクトリを開く",
+    "openLogDir": "ログディレクトリを開く"
   },
   "subscription": {
     "title": "サブスクリプション",

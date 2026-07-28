@@ -33,7 +33,10 @@
     "mihomoApi": "URL de l'API mihomo",
     "save": "Enregistrer",
     "network": "Réseau",
-    "advanced": "Avancé"
+    "advanced": "Avancé",
+    "storage": "Stockage",
+    "openConfigDir": "Ouvrir le répertoire de configuration",
+    "openLogDir": "Ouvrir le répertoire des journaux"
   },
   "subscription": {
     "title": "Abonnements",

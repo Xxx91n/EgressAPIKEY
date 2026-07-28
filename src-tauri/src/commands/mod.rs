@@ -5,7 +5,7 @@
 //! in resin-core stay intact.
 
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::{SharedGateway, SharedRegistry};
 use resin_core::platform::{Account, Platform};
@@ -320,6 +320,32 @@ pub fn gateway_select_account(
                 reason: "none".into(),
             },
         })
+    }
+}
+
+
+/// Return the app config directory (where settings.json lives) so the
+/// Settings Open-config-directory button can open it in the file manager.
+/// Path comes from the Tauri Manager path API (server-trusted); the webview
+/// never supplies the path, so there is no arbitrary-open risk — only the
+/// app own dirs are ever returned. Empty-string path is impossible here
+/// (app_config_dir only errors when the OS cannot resolve the base, which
+/// is rare); the JS handler treats Err as a no-op toast.
+#[tauri::command]
+pub fn get_config_dir(app: AppHandle) -> Result<String, String> {
+    match app.path().app_config_dir() {
+        Ok(p) => Ok(p.to_string_lossy().into_owned()),
+        Err(e) => Err(format!("app_config_dir: {e:?}")),
+    }
+}
+
+/// Return the app log directory (tauri-plugin-tracing daily-rotating file
+/// appender writes here). Same trust model as get_config_dir.
+#[tauri::command]
+pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
+    match app.path().app_log_dir() {
+        Ok(p) => Ok(p.to_string_lossy().into_owned()),
+        Err(e) => Err(format!("app_log_dir: {e:?}")),
     }
 }
 

@@ -33,7 +33,10 @@
     "mihomoApi": "رابط API mihomo",
     "save": "حفظ",
     "network": "الشبكة",
-    "advanced": "متقدم"
+    "advanced": "متقدم",
+    "storage": "التخزين",
+    "openConfigDir": "فتح دليل التهيئة",
+    "openLogDir": "فتح دليل السجلات"
   },
   "subscription": {
     "title": "الاشتراكات",

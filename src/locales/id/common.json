@@ -33,7 +33,10 @@
     "mihomoApi": "URL API mihomo",
     "save": "Simpan",
     "network": "Jaringan",
-    "advanced": "Lanjutan"
+    "advanced": "Lanjutan",
+    "storage": "Penyimpanan",
+    "openConfigDir": "Buka direktori konfigurasi",
+    "openLogDir": "Buka direktori log"
   },
   "subscription": {
     "title": "Langganan",

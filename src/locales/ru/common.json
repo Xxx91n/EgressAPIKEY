@@ -33,7 +33,10 @@
     "mihomoApi": "URL API mihomo",
     "save": "Сохранить",
     "network": "Сеть",
-    "advanced": "Расширенные"
+    "advanced": "Расширенные",
+    "storage": "Хранилище",
+    "openConfigDir": "Открыть каталог конфигурации",
+    "openLogDir": "Открыть каталог журналов"
   },
   "subscription": {
     "title": "Подписки",

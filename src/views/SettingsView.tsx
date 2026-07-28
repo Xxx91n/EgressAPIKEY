@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { Globe, Activity, Server, Save, Check } from "lucide-react";
+import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText } from "lucide-react";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import {
   saveLocale,
@@ -138,6 +139,15 @@ export function SettingsView() {
     setTimeout(() => setSaved(false), 1500);
   };
 
+  const openDir = async (which: "config" | "log") => {
+    try {
+      const dir = await invoke<string>(which === "config" ? "get_config_dir" : "get_log_dir");
+      if (dir) await openPath(dir);
+    } catch {
+      /* not in tauri (vitest) or path unresolved — no-op */
+    }
+  };
+
   const selectCls =
     "w-56 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40";
 
@@ -213,6 +223,24 @@ export function SettingsView() {
             className="w-56 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           />
         </Field>
+      </SectionCard>
+      <SectionCard icon={<FolderOpen size={16} strokeWidth={1.75} />} title={t("settings.storage")}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:gap-3">
+          <button
+            onClick={() => void openDir("config")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors"
+          >
+            <FolderOpen size={14} strokeWidth={1.75} />
+            {t("settings.openConfigDir")}
+          </button>
+          <button
+            onClick={() => void openDir("log")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors"
+          >
+            <ScrollText size={14} strokeWidth={1.75} />
+            {t("settings.openLogDir")}
+          </button>
+        </div>
       </SectionCard>
     </section>
   );

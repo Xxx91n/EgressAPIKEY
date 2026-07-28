@@ -33,7 +33,10 @@
     "mihomoApi": "mihomo API-URL",
     "save": "Opslaan",
     "network": "Netwerk",
-    "advanced": "Geavanceerd"
+    "advanced": "Geavanceerd",
+    "storage": "Opslag",
+    "openConfigDir": "Configuratiemap openen",
+    "openLogDir": "Logmap openen"
   },
   "subscription": {
     "title": "Abonnementen",
