@@ -126,6 +126,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
       - name: install Linux native deps
         if: matrix.ubuntuDeps
         run: |
@@ -143,6 +144,9 @@ jobs:
           workspaces: "./src-tauri -> target"
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
+      - name: fetch Resin Go sidecar binary (windows powershell / unix bash)
+        shell: bash
+        run: bash scripts/fetch_resin.sh
       - name: tauri build (installer bundles)
         uses: tauri-apps/tauri-action@v0
         env:
@@ -207,6 +211,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
       - name: install Linux native deps
         if: matrix.ubuntuDeps
         run: |
@@ -224,6 +229,9 @@ jobs:
           workspaces: "./src-tauri -> target"
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
+      - name: fetch Resin Go sidecar binary (windows powershell / unix bash)
+        shell: bash
+        run: bash scripts/fetch_resin.sh
       - name: tauri build --no-bundle (portable binary)
         # custom-protocol MUST be passed (see installer job comment above).
         run: npx --no-install tauri build --no-bundle --features custom-protocol --target ${{ matrix.target }}

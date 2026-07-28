@@ -22,8 +22,13 @@ trap "rm -rf $tmpdir" EXIT
 echo "downloading $BU/$asset"
 if command -v curl >/dev/null 2>&1; then curl -fsSL "$BU/$asset" -o "$tmpdir/asset"; else wget -q -O "$tmpdir/asset" "$BU/$asset"; fi
 if [[ "$asset" == *.zip ]]; then
-  unzip -q "$tmpdir/asset" -d "$tmpdir/expanded"
-  srcbin="$(find "$tmpdir/expanded" -name "resin*.exe" | head -n1)"
+  if command -v unzip >/dev/null 2>&1; then
+    unzip -q "$tmpdir/asset" -d "$tmpdir/expanded"
+  else
+    # Windows / any host without unzip: fall back to PowerShell Expand-Archive.
+    powershell -NoProfile -Command "Expand-Archive -Path '$tmpdir/asset' -DestinationPath '$tmpdir/expanded' -Force"
+  fi
+  srcbin="$(find "$tmpdir/expanded" -type f -name 'resin*.exe' | head -n1)"
 else
   mkdir -p "$tmpdir/expanded"
   tar -xzf "$tmpdir/asset" -C "$tmpdir/expanded"
