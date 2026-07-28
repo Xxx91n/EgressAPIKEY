@@ -4,7 +4,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use ai_api_route_app::{build_shared_gateway, build_shared_registry, commands, sidecar::{boot_resin, SidecarHandle}, tray::build_tray};
+use ai_api_route_app::{build_shared_gateway, build_shared_registry, commands, sidecar::{boot_resin, spawn_health_poll, SidecarHandle}, tray::build_tray};
 use resin_core::{CoreConfig, DEFAULT_LANES};
 use tauri::{Manager, Emitter, WindowEvent};
 use tauri_plugin_store::StoreExt;
@@ -137,6 +137,13 @@ fn main() {
                 admin_token: sidecar.admin_token,
                 proxy_token: sidecar.proxy_token,
             });
+            // G3: Ghost safety-net - /healthz poll every 3s, 3 consecutive
+            // failures flip the tray red, clear OS system proxy if any, and
+            // emit a sidecar-status "unhealthy" event to the webview. When
+            // the sidecar recovers, tray flips green and a "healthy" event
+            // is emitted. Spawn AFTER app.manage so the poll can resolve
+            // State<SidecarHandle> immediately on its first iteration.
+            spawn_health_poll(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

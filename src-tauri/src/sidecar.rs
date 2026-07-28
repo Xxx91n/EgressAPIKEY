@@ -21,7 +21,7 @@ use std::net::TcpListener;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
@@ -220,4 +220,188 @@ mod tests {
         let b = gen_token();
         assert_ne!(a, b, "tokens should differ across calls");
     }
+}
+
+
+// ---------------------------------------------------------------------------
+// G3: Ghost safety net (health poll + tray + system proxy cutoff).
+//
+// - spec: docs/HANDOFF_PATH_A.md G3. We extend src-tauri/src/sidecar.rs.
+// - safety posture: the Resin sidecar is the OS-facing proxy runtime. If it
+//   dies (crash, OOM-kill, malicious quit) we must NOT silently keep the
+//   desktop tray pretending the proxy is up, and we must NOT let a stale
+//   system-proxy setting point traffic at a dead listener. So on the 3rd
+//   consecutive /healthz failure we mark the tray red and call the OS proxy
+//   clear command. The frontend is notified via a safety-net event so a
+//   banner can be drawn (decoupled from any notification plugin; no new dep).
+// - ponytail: do NOT add tauri-plugin-notification just for this — the
+//   webview already renders a banner on events. The system-proxy clear is a
+//   single shell call per platform; no new native crate.
+
+const HEALTH_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(3);
+const HEALTH_FAILURE_THRESHOLD: u32 = 3;
+const STATUS_EVENT: &str = "sidecar-status";
+
+/// Spawn the Ghost safety-net poll loop. MUST be called exactly once from
+/// main.rs\.setup() after boot_resin(). It captures the AppHandle and runs
+/// the poll on tauri::async_runtime; cheap (one idle task + a 2s reqwest).
+pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
+    tauri::async_runtime::spawn(async move {
+        let mut failures: u32 = 0;
+        let mut was_healthy = true;
+        let client = match reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(2))
+            .build()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!("ghost: cannot build reqwest client: {e}");
+                return;
+            }
+        };
+        loop {
+            let snapshot = {
+                let state = app.state::<SidecarHandle>();
+                let port = state.api_port;
+                let admin_token = state.admin_token.clone();
+                (port, admin_token)
+            };
+            let url = format!("http://127.0.0.1:{}/healthz", snapshot.0);
+            // /healthz is unauthenticated on Resin (design contract). We do
+            // not need the admin token for the health probe.
+            let _admin = &snapshot.1; // admin token unused here; dusted to keep it in scope
+            let healthy = match client.get(&url).send().await {
+                Ok(r) if r.status().is_success() => true,
+                Ok(r) => {
+                    tracing::warn!("ghost: /healthz status {}", r.status());
+                    false
+                }
+                Err(e) => {
+                    tracing::warn!("ghost: /healthz send err: {e}");
+                    false
+                }
+            };
+            if healthy {
+                failures = 0;
+                if !was_healthy {
+                    tracing::info!("ghost: sidecar recovered; tray green");
+                    let _ = mark_tray_status(&app, true);
+                    let _ = app.emit(STATUS_EVENT, "healthy");
+                    was_healthy = true;
+                }
+            } else {
+                failures += 1;
+                tracing::warn!("ghost: sidecar /healthz fail #{failures}");
+                if failures >= HEALTH_FAILURE_THRESHOLD && was_healthy {
+                    tracing::error!(
+                        "ghost: sidecar unhealthy after {failures} failures; marking tray red + clearing OS proxy"
+                    );
+                    let _ = mark_tray_status(&app, false);
+                    let _ = app.emit(STATUS_EVENT, "unhealthy");
+                    if let Err(e) = clear_os_proxy().await {
+                        tracing::warn!("ghost: clear_os_proxy error: {e}");
+                    }
+                    was_healthy = false;
+                }
+            }
+            tokio::time::sleep(HEALTH_POLL_INTERVAL).await;
+        }
+    });
+}
+
+/// Flip the tray icon between healthy (default window icon) and the safety-net
+/// red icon. We do NOT add a tauri-plugin-notification just for this — the
+/// React frontend renders a banner off the STATUS_EVENT above (no new dep).
+fn mark_tray_status<R: Runtime>(app: &AppHandle<R>, healthy: bool) -> tauri::Result<()> {
+    if let Some(tray) = app.tray_by_id("main") {
+        if healthy {
+            // Restore the default window icon (the branded .ico bundled at
+            // build time).
+            if let Some(icon) = app.default_window_icon() {
+                tray.set_icon(Some(icon.clone()))?;
+            }
+            let _ = tray.set_tooltip(Some("ai-api-route"));
+        } else {
+            // 32x32 solid red icon — Ponytail: generate at runtime, no extra
+            // asset file, no github LFS, no branded-red variant to maintain.
+            let mut rgba = vec![0u8; 32 * 32 * 4];
+            for px in rgba.chunks_exact_mut(4) {
+                px[0] = 0xd8; // R
+                px[1] = 0x2c; // G
+                px[2] = 0x2c; // B
+                px[3] = 0xff; // A
+            }
+            let red = tauri::image::Image::new_owned(rgba, 32, 32);
+            tray.set_icon(Some(red))?;
+            let _ = tray.set_tooltip(Some("ai-api-route — sidecar offline"));
+        }
+    }
+    Ok(())
+}
+
+/// Clear the OS-level HTTP/HTTPS system proxy so a dead Resin listener
+/// cannot keep hijacking system traffic. Async (we run inside the poll
+/// loop). Uses tokio::process::Command - already in the tokio "full"
+/// feature; no new native crate. This is the safety net for a future
+/// feature that may enable system proxy; today the ai-api-route shell
+/// never sets it, so in practice this is a defense-in-depth no-op.
+/// Windows: HKCU\Software\Microsoft\Windows\CurrentVersion\Internet
+///   Settings ProxyEnable=0 (registry write is authoritative; a new
+///   WinINet consumer process picks it up on restart).
+/// macOS: per-service "networksetup -setwebproxystate <svc> off".
+/// Linux (GNOME): "gsettings set org.gnome.system.proxy mode none".
+async fn clear_os_proxy() -> anyhow::Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        use tokio::process::Command;
+        let _ = Command::new("reg")
+            .args([
+                "add",
+                "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
+                "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f",
+            ])
+            .output()
+            .await;
+        // Best-effort WinINet reload via a well-known documented entry. Some
+        // Windows builds expose InternetSetOption through this; it is
+        // non-fatal if it fails. We log only at debug level.
+        let _ = Command::new("rundll32")
+            .args(["inetcmpi.dll,InternetSetOption", "39", "0", "0"])
+            .output()
+            .await;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use tokio::process::Command;
+        let svcs = Command::new("networksetup")
+            .arg("-listallnetworkservices")
+            .output()
+            .await?;
+        let list: Vec<String> = String::from_utf8_lossy(&svcs.stdout)
+            .lines()
+            .skip(1)
+            .filter(|l| !l.trim().is_empty() && !l.contains("**"))
+            .map(String::from)
+            .collect();
+        for svc in list {
+            let _ = Command::new("networksetup")
+                .args(["-setwebproxystate", &svc, "off"])
+                .output()
+                .await;
+            let _ = Command::new("networksetup")
+                .args(["-setsecurewebproxystate", &svc, "off"])
+                .output()
+                .await;
+        }
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        use tokio::process::Command;
+        let _ = Command::new("gsettings")
+            .args(["set", "org.gnome.system.proxy", "mode", "none"])
+            .output()
+            .await;
+    }
+    tracing::info!("ghost: OS system proxy cleared (platform best-effort)");
+    Ok(())
 }

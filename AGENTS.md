@@ -130,6 +130,14 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 - **Smoke verified**: release exe (`cargo build --release -p ai-api-route-app --features custom-protocol`) boots, `MainWindowTitle = "ai-api-route"`, WorkingSet ~36MB, `resin.exe` child process spawned, `/healthz` returns 200 within 15s (typically 0ms on this host), sidecar SQLite `state.db` + `cache.db` + `country.mmdb` (GeoIP) created under `%APPDATA%/com.ai-api-route.desktop/resin-*`. See G1 commit message for the pid/title/logs evidence.
 - **Debug build keeps `MihomoController` uninstantiated**: the resin-core `MihomoController` (`crates/resin-core/src/mihomo.rs`) remains a per-call DTO; the Resin sidecar handles its own mihomo/sing-box node runtime. Do NOT wire `MihomoController` from a frontend-controlled constructor without revisiting §7.6.
 
+
+### 13. Ghost safety net (G3, P4 path A)
+- **Live**: `src-tauri/src/sidecar.rs` additionally owns `spawn_health_poll(app_handle)`. Called once from `main.rs .setup()` after `app.manage(SidecarHandle)`. Polls `http://127.0.0.1:<api_port>/healthz` (2s reqwest timeout) every 3s. After **3 consecutive failures** the tray flips red, the OS system HTTP/HTTPS proxy is cleared (Windows: `reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings /v ProxyEnable /t REG_DWORD /d 0 /f`; macOS: `networksetup -setwebproxystate <svc> off` per service; Linux GNOME: `gsettings set org.gnome.system.proxy mode none`), and a `sidecar-status` event with payload `"unhealthy"` is emitted to the webview. On the next successful /healthz the tray flips green and a `"healthy"` event is emitted. No `tauri-plugin-notification` dependency (Ponytail: React shell renders an event-driven banner; G4 wires the listener).
+- **Async health probe**: async `reqwest::Client` inside `tauri::async_runtime::spawn`; each poll bounded by a 2s reqwest timeout so a hung sidecar cannot stall the net.
+- **Smoke verified**: release exe boots green; manual `Stop-Process -Id <resin.exe>` -> ~9s later stdout reads "ghost: sidecar /healthz fail #1/#2/#3" + "ghost: sidecar unhealthy after 3 failures; marking tray red + clearing OS proxy". See G3 commit message for the full log.
+- **Security**: observation-only. Never auto-restart the sidecar from here; restart policy is owned by a future G2/G4 wrapper that re-runs `boot_resin`.
+- **Contract event name**: `sidecar-status`. Payload: literal string `"healthy"` or `"unhealthy"` (no object). Frontend subscribes via `@tauri-apps/api/event`.
+
 ### 8. Subagent policy for this repo
 - This thread runs with subagents DISABLED (per user instruction). Do NOT spawn Codex native subagents or OMX team/worker lanes. Execute everything single-threaded in this agent.
 ### 9. Don't revert work you didn't make
