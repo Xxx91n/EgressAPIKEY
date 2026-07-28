@@ -9,7 +9,9 @@
 # devUrl (http://localhost:1420), giving ERR_CONNECTION_REFUSED on any
 # machine without a Vite dev server. A flow guard launches the portable exe
 # and verifies MainWindowTitle == ai-api-route + alive 5s + no panic
-# (mirrors AGENTS.md section 5 launch-verify).
+# (mirrors AGENTS.md section 5 launch-verify). The find searches BOTH
+# src-tauri/target AND the workspace root target/ because tauri build may
+# output the portable exe under either (gnu/msvc target triple subdir).
 set -euo pipefail
 
 OS=$(uname -s)
@@ -49,10 +51,10 @@ fi
 GUI_STAGE="release/${NAME}-gui"
 rm -rf "$GUI_STAGE"
 mkdir -p "$GUI_STAGE"
-BUNDLES="$(find src-tauri/target -maxdepth 6 -type f \( -name '*.msi' -o -name '*-setup.exe' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' \) 2>/dev/null || true)"
+BUNDLES="$(find src-tauri/target target -maxdepth 6 -type f \( -name '*.msi' -o -name '*-setup.exe' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' \) 2>/dev/null || true)"
 for f in $BUNDLES; do cp "$f" "$GUI_STAGE/" 2>/dev/null || true; done
-PORT_BIN="$(find src-tauri/target -maxdepth 4 -type f \( -name 'ai-api-route' -o -name 'ai-api-route.exe' \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | head -n1 || true)"
-if [ -z "$PORT_BIN" ]; then echo "[build-all] ERROR: portable GUI binary not found"; exit 1; fi
+PORT_BIN="$(find src-tauri/target target -maxdepth 5 -type f \( -name 'ai-api-route' -o -name 'ai-api-route.exe' \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | head -n1 || true)"
+if [ -z "$PORT_BIN" ]; then echo "[build-all] ERROR: portable GUI binary not found (searched src-tauri/target and target)"; exit 1; fi
 PORT_NAME=ai-api-route
 case $NAME in windows) PORT_NAME=ai-api-route.exe ;; esac
 cp "$PORT_BIN" "$GUI_STAGE/$PORT_NAME"
@@ -72,4 +74,4 @@ if [ $NAME = windows ]; then
     echo "[build-all] flow guard FAIL: portable exited within 5s"; exit 1
   fi
 fi
-echo BUILD-ALL OK
+echo "BUILD-ALL OK"
