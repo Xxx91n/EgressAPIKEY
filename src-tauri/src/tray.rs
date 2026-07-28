@@ -122,6 +122,13 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let mut builder = TrayIconBuilder::with_id("main")
         .menu(&menu)
         .tooltip(l.tooltip)
+        // Bug fix (#5): on Windows the default `show_menu_on_left_click(true)`
+        // makes the context menu briefly appear on left-click before our
+        // on_tray_icon_event show+focus handler overrides it — the user saw
+        // the menu "flash" into view then vanish. Disable native left-click
+        // menu so a left click runs only our show+focus handler; the context
+        // menu still opens on right-click (the OS default for tray icons).
+        .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => {
                 if let Some(w) = app.get_webview_window("main") {

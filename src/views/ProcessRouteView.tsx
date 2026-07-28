@@ -17,12 +17,12 @@ export function ProcessRouteView() {
 
   return (
     <section className="max-w-2xl space-y-4">
-      <div className="flex items-center gap-2">
-        <Route size={16} className="text-zinc-500" strokeWidth={1.75} />
-        <h2 className="text-sm font-semibold tracking-tight">{t("processRoute.title")}</h2>
-      </div>
-
-      <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-4">
+      <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
+          <Route size={16} className="text-zinc-500 dark:text-zinc-400" strokeWidth={1.75} />
+          <h2 className="text-sm font-semibold tracking-tight">{t("processRoute.title")}</h2>
+        </div>
+        <div className="p-4">
         <div className="flex gap-2 items-end">
           <div className="flex-1 space-y-1.5">
             <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">
@@ -63,6 +63,7 @@ export function ProcessRouteView() {
             <Plus size={14} strokeWidth={2} />
             {t("processRoute.add")}
           </button>
+        </div>
         </div>
       </div>
 

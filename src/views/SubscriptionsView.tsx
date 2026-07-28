@@ -15,12 +15,12 @@ export function SubscriptionsView() {
 
   return (
     <section className="max-w-2xl space-y-4">
-      <div className="flex items-center gap-2">
-        <Rss size={16} className="text-zinc-500" strokeWidth={1.75} />
-        <h2 className="text-sm font-semibold tracking-tight">{t("subscription.title")}</h2>
-      </div>
-
-      <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-4">
+      <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
+          <Rss size={16} className="text-zinc-500 dark:text-zinc-400" strokeWidth={1.75} />
+          <h2 className="text-sm font-semibold tracking-tight">{t("subscription.title")}</h2>
+        </div>
+        <div className="p-4">
         <div className="flex gap-2">
           <input
             value={url}
@@ -41,6 +41,7 @@ export function SubscriptionsView() {
             <Download size={14} strokeWidth={2} />
             {t("subscription.import")}
           </button>
+        </div>
         </div>
       </div>
 
