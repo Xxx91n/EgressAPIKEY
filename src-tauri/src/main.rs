@@ -83,6 +83,10 @@ fn main() {
             commands::account_add,
             commands::account_bind_ip,
             commands::gateway_select_account,
+            commands::subscription_add,
+            commands::subscription_remove,
+            commands::subscription_list,
+            commands::node_pool_snapshot,
         ])
         .setup(|app| {
             // #2/#6: read persisted network settings so the user

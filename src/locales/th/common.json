@@ -42,7 +42,8 @@
     "title": "การสมัครรับข้อมูล",
     "import": "นำเข้าการสมัครรับข้อมูล",
     "url": "URL การสมัครรับข้อมูล",
-    "imported": "นำเข้า {{count}} โหนด ใน {{lanes}} เลน"
+    "imported": "นำเข้า {{count}} โหนด ใน {{lanes}} เลน",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "ผืนผ้าทอพอโลยี",
@@ -51,7 +52,8 @@
     "ip": "IP ออก {{ip}}",
     "busy": "ไม่ว่าง",
     "free": "ว่าง",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "เส้นทางโปรเซส",

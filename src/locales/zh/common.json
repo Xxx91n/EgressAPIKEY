@@ -42,7 +42,8 @@
     "title": "订阅",
     "import": "导入订阅",
     "url": "订阅地址",
-    "imported": "已将 {{count}} 个节点导入 {{lanes}} 条通道"
+    "imported": "已将 {{count}} 个节点导入 {{lanes}} 条通道",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "拓扑画布",
@@ -51,7 +52,8 @@
     "ip": "出口 IP {{ip}}",
     "busy": "繁忙",
     "free": "空闲",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "进程路由",

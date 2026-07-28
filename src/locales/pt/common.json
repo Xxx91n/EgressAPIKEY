@@ -42,7 +42,8 @@
     "title": "Assinaturas",
     "import": "Importar assinatura",
     "url": "URL da assinatura",
-    "imported": "Importados {{count}} nós em {{lanes}} linhas"
+    "imported": "Importados {{count}} nós em {{lanes}} linhas",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "Tela de topologia",
@@ -51,7 +52,8 @@
     "ip": "IP de saída {{ip}}",
     "busy": "ocupado",
     "free": "livre",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "Rota de processo",

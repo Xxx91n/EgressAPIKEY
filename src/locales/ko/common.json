@@ -42,7 +42,8 @@
     "title": "구독",
     "import": "구독 가져오기",
     "url": "구독 URL",
-    "imported": "{{count}}개 노드를 {{lanes}}개 레인으로 가져왔습니다"
+    "imported": "{{count}}개 노드를 {{lanes}}개 레인으로 가져왔습니다",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "토폴로지 캔버스",
@@ -51,7 +52,8 @@
     "ip": "출구 IP {{ip}}",
     "busy": "사용 중",
     "free": "사용 가능",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "프로세스 경로",

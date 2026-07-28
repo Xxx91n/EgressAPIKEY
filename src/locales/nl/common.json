@@ -42,7 +42,8 @@
     "title": "Abonnementen",
     "import": "Abonnement importeren",
     "url": "Abonnements-URL",
-    "imported": "{{count}} knopen geïmporteerd in {{lanes}} banen"
+    "imported": "{{count}} knopen geïmporteerd in {{lanes}} banen",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "Topologie-canvas",
@@ -51,7 +52,8 @@
     "ip": "Exit-IP {{ip}}",
     "busy": "bezig",
     "free": "vrij",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "Procesroute",

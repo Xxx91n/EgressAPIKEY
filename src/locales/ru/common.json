@@ -42,7 +42,8 @@
     "title": "Подписки",
     "import": "Импортировать подписку",
     "url": "URL подписки",
-    "imported": "Импортировано {{count}} узлов в {{lanes}} линий"
+    "imported": "Импортировано {{count}} узлов в {{lanes}} линий",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "Холст топологии",
@@ -51,7 +52,8 @@
     "ip": "Выходной IP {{ip}}",
     "busy": "занято",
     "free": "свободно",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "Маршрут процесса",

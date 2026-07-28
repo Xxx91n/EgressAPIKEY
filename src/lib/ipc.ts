@@ -119,3 +119,31 @@ export async function ipcEvictLane(lane: number): Promise<void> {
   if (lane < 0 || lane >= 50) throw new Error(`lane ${lane} out of range (0..49)`);
   await invoke("gateway_evict_lane", { lane });
 }
+
+// ---- Subscriptions + node pool (G4) ----
+/// Resin-level (name, node_count) for each imported subscription.
+export interface SubscriptionSnapshotEntry {
+  name: string;
+  node_count: number;
+}
+
+export async function ipcSubscriptionAdd(name: string, url: string): Promise<void> {
+  assertShortName(name, "subscription");
+  if (!url || url.length > 4096) throw new Error("subscription url invalid");
+  if (!/^https?:\/\//.test(url)) throw new Error("subscription url must start with http:// or https://");
+  await invoke("subscription_add", { name, url });
+}
+
+export async function ipcSubscriptionRemove(name: string): Promise<boolean> {
+  assertShortName(name, "subscription");
+  return invoke<boolean>("subscription_remove", { name });
+}
+
+export async function ipcSubscriptionList(): Promise<SubscriptionSnapshotEntry[]> {
+  return invoke<SubscriptionSnapshotEntry[]>("subscription_list");
+}
+
+export async function ipcNodePoolSnapshot(): Promise<{ total_nodes: number; healthy_nodes: number; egress_ip_count: number; healthy_egress_ip_count: number }> {
+  return invoke("node_pool_snapshot");
+}
+

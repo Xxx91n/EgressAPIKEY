@@ -42,7 +42,8 @@
     "title": "Subskrypcje",
     "import": "Importuj subskrypcję",
     "url": "URL subskrypcji",
-    "imported": "Zaimportowano {{count}} węzłów w {{lanes}} tory"
+    "imported": "Zaimportowano {{count}} węzłów w {{lanes}} tory",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "Kanwa topologii",
@@ -51,7 +52,8 @@
     "ip": "IP wyjściowe {{ip}}",
     "busy": "zajęty",
     "free": "wolny",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "Trasa procesu",

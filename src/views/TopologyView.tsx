@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import { useAppStore, LaneState } from "../store/appStore";
 import { ipcGatewaySnapshot } from "../lib/ipc";
+import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
+import { AlertTriangle } from "lucide-react";
 
 /// Build reactflow nodes for the live lane state. `t` comes from
 /// useTranslation()'s bound t, which is guaranteed to be the locale-resolved
@@ -47,6 +49,18 @@ export function TopologyView() {
   // keep the existing laneCount-derived lanes. Polls every 5s.
   const [busyTotal, setBusyTotal] = useState<number | null>(null);
   const [laneTotal, setLaneTotal] = useState<number | null>(null);
+  // G3 contract: listen for sidecar-status poll events from the Rust shell;
+  // when the Ghost safety-net trips (3 consecutive /healthz failures), it
+  // emits "unhealthy" and we raise a red warning banner above the canvas.
+  // Outside Tauri, listen() rejects gracefully and we never set a banner.
+  const [sidecarStatus, setSidecarStatus] = useState<"healthy" | "unhealthy" | null>(null);
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<string>("sidecar-status", (e) => {
+      setSidecarStatus(e.payload as "healthy" | "unhealthy");
+    }).then((fn) => { unlisten = fn; }).catch(() => { /* outside Tauri */ });
+    return () => { if (unlisten) unlisten(); };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +108,12 @@ export function TopologyView() {
   );
   return (
     <section className="h-full flex flex-col">
+      {sidecarStatus === "unhealthy" && (
+        <div className="mb-2 flex items-center gap-2 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+          <AlertTriangle size={14} className="shrink-0" />
+          <span>{t("topology.sidecarUnhealthy", { defaultValue: "Sidecar unsafe: Resin proxy offline. System proxy cleared." })}</span>
+        </div>
+      )}
       <div className="flex items-center justify-between px-1 pb-2">
         <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("topology.live")}</span>
         {laneTotal !== null && busyTotal !== null ? (

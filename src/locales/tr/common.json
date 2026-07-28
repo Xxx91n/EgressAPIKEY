@@ -42,7 +42,8 @@
     "title": "Abonelikler",
     "import": "Abonelik içe aktar",
     "url": "Abonelik URL",
-    "imported": "{{lanes}} şeride {{count}} düğüm içe aktarıldı"
+    "imported": "{{lanes}} şeride {{count}} düğüm içe aktarıldı",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "Topoloji tuvali",
@@ -51,7 +52,8 @@
     "ip": "Çıkış IP {{ip}}",
     "busy": "meşgul",
     "free": "boş",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "Süreç rotası",

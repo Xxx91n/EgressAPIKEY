@@ -42,7 +42,8 @@
     "title": "Đăng ký",
     "import": "Nhập đăng ký",
     "url": "URL đăng ký",
-    "imported": "Đã nhập {{count}} nút vào {{lanes}} làn"
+    "imported": "Đã nhập {{count}} nút vào {{lanes}} làn",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "Canvas tô pô",
@@ -51,7 +52,8 @@
     "ip": "IP đầu ra {{ip}}",
     "busy": "bận",
     "free": "rảnh",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "Tuyến tiến trình",

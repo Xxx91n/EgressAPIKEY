@@ -42,7 +42,8 @@
     "title": "الاشتراكات",
     "import": "استيراد اشتراك",
     "url": "رابط الاشتراك",
-    "imported": "تم استيراد {{count}} عقدة في {{lanes}} مسارات"
+    "imported": "تم استيراد {{count}} عقدة في {{lanes}} مسارات",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "لوحة الطوبولوجيا",
@@ -51,7 +52,8 @@
     "ip": "IP الخروج {{ip}}",
     "busy": "مشغول",
     "free": "متاح",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "مسار العملية",

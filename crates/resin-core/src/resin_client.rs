@@ -186,6 +186,24 @@ impl ResinClient {
     pub async fn node_pool_snapshot(&self) -> Result<Value> {
         self.send(reqwest::Method::GET, "/metrics/snapshots/node-pool", None).await
     }
+
+    /// POST /subscriptions - create a subscription. `source_type` is "remote"
+    /// (with a `url`) or "local" (with `content`). The webview supplies the
+    /// fields via a free-form JSON body; Resin fetches the nodes itself.
+    pub async fn create_subscription(&self, body: Value) -> Result<Value> {
+        self.send(reqwest::Method::POST, "/subscriptions", Some(body)).await
+    }
+
+    /// GET /subscriptions - list all subscriptions (raw array).
+    pub async fn list_subscriptions(&self) -> Result<Value> {
+        self.send(reqwest::Method::GET, "/subscriptions", None).await
+    }
+
+    /// DELETE /subscriptions/{id} - remove a subscription (204 -> Null).
+    pub async fn delete_subscription(&self, id: &str) -> Result<Value> {
+        let path = format!("/subscriptions/{}", urlencoding(id));
+        self.send(reqwest::Method::DELETE, &path, None).await
+    }
 }
 
 /// URL-encode a single path segment. serde_urlencoded::encode over-encodes;
@@ -302,6 +320,44 @@ mod tests {
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
         let err = c.get_platform("missing").await.unwrap_err().to_string();
         assert!(err.contains("404"), "error message must surface status: {err}");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_create_subscription_happy_path() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"name":"sub-A","id":"22222222-2222-2222-2222-222222222222","source_type":"remote"}"#;
+        let m = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .create_subscription(serde_json::json!({ "name": "sub-A", "url": "https://example.com/sub" }))
+            .await
+            .expect("create_subscription should succeed against mockito");
+        assert_eq!(out["name"], "sub-A");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_delete_subscription_204_no_content_round_trip() {
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("DELETE", "/api/v1/subscriptions/abc-123")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(204)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c.delete_subscription("abc-123").await.expect("delete_subscription should succeed");
+        assert!(out.is_null(), "204 No Content should parse to Value::Null");
         m.assert_async().await;
     }
 }

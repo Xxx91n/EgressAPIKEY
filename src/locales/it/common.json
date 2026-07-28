@@ -42,7 +42,8 @@
     "title": "Sottoscrizioni",
     "import": "Importa sottoscrizione",
     "url": "URL sottoscrizione",
-    "imported": "Importati {{count}} nodi in {{lanes}} corsie"
+    "imported": "Importati {{count}} nodi in {{lanes}} corsie",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "Canvas topologico",
@@ -51,7 +52,8 @@
     "ip": "IP di uscita {{ip}}",
     "busy": "occupato",
     "free": "libero",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "Instradamento processi",

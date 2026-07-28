@@ -42,7 +42,8 @@
     "title": "Abonnements",
     "import": "Abonnement importieren",
     "url": "Abonnement-URL",
-    "imported": "{{count}} Knoten in {{lanes}} Lanes importiert"
+    "imported": "{{count}} Knoten in {{lanes}} Lanes importiert",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "Topologie-Canvas",
@@ -51,7 +52,8 @@
     "ip": "Exit-IP {{ip}}",
     "busy": "beschäftigt",
     "free": "frei",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "Prozessroute",

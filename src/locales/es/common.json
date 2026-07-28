@@ -42,7 +42,8 @@
     "title": "Suscripciones",
     "import": "Importar suscripción",
     "url": "URL de suscripción",
-    "imported": "{{count}} nodos importados en {{lanes}} carriles"
+    "imported": "{{count}} nodos importados en {{lanes}} carriles",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "Lienzo de topología",
@@ -51,7 +52,8 @@
     "ip": "IP de salida {{ip}}",
     "busy": "ocupado",
     "free": "libre",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "Ruta de proceso",

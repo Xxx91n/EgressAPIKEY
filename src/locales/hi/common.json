@@ -42,7 +42,8 @@
     "title": "सब्सक्रिप्शन",
     "import": "सब्सक्रिप्शन आयात करें",
     "url": "सब्सक्रिप्शन URL",
-    "imported": "{{lanes}} लेन में {{count}} नोड आयातित"
+    "imported": "{{lanes}} लेन में {{count}} नोड आयातित",
+    "name": "Subscription name"
   },
   "topology": {
     "title": "टोपोलॉजी कैनवास",
@@ -51,7 +52,8 @@
     "ip": "निकास IP {{ip}}",
     "busy": "व्यस्त",
     "free": "खाली",
-    "status": "{{lanes}} / {{busy}}"
+    "status": "{{lanes}} / {{busy}}",
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
   },
   "processRoute": {
     "title": "प्रक्रिया मार्ग",

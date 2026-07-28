@@ -233,6 +233,76 @@ fn platform_id_for_name(v: &serde_json::Value, want: &str) -> Option<String> {
     None
 }
 
+// ---------------------------------------------------------------------------
+// Subscriptions - FORWARDED to Resin via ResinClient (DESIGN.md /subscriptions).
+
+#[tauri::command]
+pub async fn subscription_add(sidecar: State<'_, SidecarHandle>, name: String, url: String) -> Result<(), String> {
+    validate_short_name(&name, "subscription")?;
+    if url.trim().is_empty() { return Err("subscription url must be non-empty".to_string()); }
+    if url.len() > KEY_MAX_LEN { return Err("subscription url out of range".to_string()); }
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("subscription url must start with http:// or https://".to_string());
+    }
+    let client = resin_client(&sidecar)?;
+    let body = serde_json::json!({ "name": name, "source_type": "remote", "url": url });
+    client.create_subscription(body).await.map(|_| ()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn subscription_remove(sidecar: State<'_, SidecarHandle>, name: String) -> Result<bool, String> {
+    validate_short_name(&name, "subscription")?;
+    let client = resin_client(&sidecar)?;
+    let list = client.list_subscriptions().await.map_err(|e| e.to_string())?;
+    let id = subscription_id_for_name(&list, &name).ok_or_else(|| format!("subscription not found: {name}"))?;
+    client.delete_subscription(&id).await.map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[derive(Debug, Serialize)]
+pub struct SubscriptionSnapshotEntry {
+    pub name: String,
+    pub node_count: u64,
+}
+
+#[tauri::command]
+pub async fn subscription_list(sidecar: State<'_, SidecarHandle>) -> Result<Vec<SubscriptionSnapshotEntry>, String> {
+    let client = resin_client(&sidecar)?;
+    let list = client.list_subscriptions().await.map_err(|e| e.to_string())?;
+    Ok(subscription_snapshot(&list))
+}
+
+#[tauri::command]
+pub async fn node_pool_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
+    let client = resin_client(&sidecar)?;
+    client.node_pool_snapshot().await.map_err(|e| e.to_string())
+}
+
+fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotEntry> {
+    if let Some(arr) = v.as_array() {
+        arr.iter().filter_map(|p| {
+            let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
+            let node_count = p.get("node_count").and_then(|n| n.as_u64()).unwrap_or(0);
+            if name.is_empty() { None } else { Some(SubscriptionSnapshotEntry { name: name.to_string(), node_count }) }
+        }).collect()
+    } else {
+        Vec::new()
+    }
+}
+
+fn subscription_id_for_name(v: &serde_json::Value, want: &str) -> Option<String> {
+    if let Some(arr) = v.as_array() {
+        for p in arr {
+            let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
+            if name == want {
+                let id = p.get("id").and_then(|n| n.as_str()).unwrap_or("");
+                if !id.is_empty() { return Some(id.to_string()); }
+            }
+        }
+    }
+    None
+}
+
 #[tauri::command]
 pub fn tray_refresh_labels(app: AppHandle) -> Result<(), String> {
     crate::tray::apply_labels(&app).map_err(|e| format!("tray_refresh_labels: {e:?}"))
