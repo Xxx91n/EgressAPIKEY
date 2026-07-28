@@ -36,8 +36,12 @@ export async function saveLocale(lang: string): Promise<void> {
   try {
     await store().set("lang", lang);
     await store().save();
-  } catch {
-    /* noop outside tauri */
+  } catch (e) {
+    // UX bug #2: surface tauri-plugin-store failures instead of silently
+    // swallowing — the old /* noop */ let saves fail invisibly so the user
+    // believed edits were lost. We keep the function non-throwing (vitest runs
+    // without a webview) but log so devtools surfaces the real cause.
+    console.warn("[settings] save failed:", e);
   }
 }
 
@@ -53,8 +57,12 @@ export async function saveTheme(theme: string): Promise<void> {
   try {
     await store().set("theme", theme);
     await store().save();
-  } catch {
-    /* noop outside tauri */
+  } catch (e) {
+    // UX bug #2: surface tauri-plugin-store failures instead of silently
+    // swallowing — the old /* noop */ let saves fail invisibly so the user
+    // believed edits were lost. We keep the function non-throwing (vitest runs
+    // without a webview) but log so devtools surfaces the real cause.
+    console.warn("[settings] save failed:", e);
   }
 }
 export async function loadLaneCount(): Promise<number | null> {
@@ -70,8 +78,12 @@ export async function saveLaneCount(n: number): Promise<void> {
   try {
     await store().set("laneCount", n);
     await store().save();
-  } catch {
-    /* noop outside tauri */
+  } catch (e) {
+    // UX bug #2: surface tauri-plugin-store failures instead of silently
+    // swallowing — the old /* noop */ let saves fail invisibly so the user
+    // believed edits were lost. We keep the function non-throwing (vitest runs
+    // without a webview) but log so devtools surfaces the real cause.
+    console.warn("[settings] save failed:", e);
   }
 }
 
@@ -91,8 +103,12 @@ export async function saveGatewayBind(addr: string): Promise<void> {
   try {
     await store().set("gatewayBind", addr);
     await store().save();
-  } catch {
-    /* noop outside tauri */
+  } catch (e) {
+    // UX bug #2: surface tauri-plugin-store failures instead of silently
+    // swallowing — the old /* noop */ let saves fail invisibly so the user
+    // believed edits were lost. We keep the function non-throwing (vitest runs
+    // without a webview) but log so devtools surfaces the real cause.
+    console.warn("[settings] save failed:", e);
   }
 }
 
@@ -113,7 +129,11 @@ export async function saveMihomoApi(url: string): Promise<void> {
   try {
     await store().set("mihomoApi", url);
     await store().save();
-  } catch {
-    /* noop outside tauri */
+  } catch (e) {
+    // UX bug #2: surface tauri-plugin-store failures instead of silently
+    // swallowing — the old /* noop */ let saves fail invisibly so the user
+    // believed edits were lost. We keep the function non-throwing (vitest runs
+    // without a webview) but log so devtools surfaces the real cause.
+    console.warn("[settings] save failed:", e);
   }
 }

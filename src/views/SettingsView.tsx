@@ -224,6 +224,15 @@ export function SettingsView() {
             className="w-56 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           />
         </Field>
+        <div className="flex justify-end pt-1">
+          <button
+            onClick={() => void saveAll()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+          >
+            {saved ? <Check size={14} strokeWidth={2.5} /> : <Save size={14} strokeWidth={2} />}
+            {t("settings.save")}
+          </button>
+        </div>
       </SectionCard>
       <SectionCard icon={<FolderOpen size={16} strokeWidth={1.75} />} title={t("settings.storage")}>
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-3">
