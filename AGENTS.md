@@ -138,6 +138,20 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 - **Security**: observation-only. Never auto-restart the sidecar from here; restart policy is owned by a future G2/G4 wrapper that re-runs `boot_resin`.
 - **Contract event name**: `sidecar-status`. Payload: literal string `"healthy"` or `"unhealthy"` (no object). Frontend subscribes via `@tauri-apps/api/event`.
 
+
+### 14. ResinClient (G2 phase 1, P4 path A)
+- **Live**: `crates/resin-core/src/resin_client.rs` ships a loopback-only async REST client for the Resin sidecar admin API. Constructed from `SidecarHandle::api_base()` + `admin_token` (the only caller will be the IPC commands layer; the webview NEVER receives the admin token). Loopback host guard implemented as a defense-in-depth no-op (matches the existing MihomoController style).
+- **Endpoints implemented**: `create_platform(body)`, `create_platform_from_name(name)` (with V1 name validation), `list_platforms()`, `get_platform(id)`, `delete_platform(id)`, `active_leases()` (GET /api/v1/metrics/realtime/leases — replaces the dead resin-core `LeaseTable` for the Topology view), `node_pool_snapshot()` (GET /api/v1/metrics/snapshots/node-pool).
+- **Bearer auth**: every admin request attaches `Authorization: Bearer <admin_token>` automatically. `.send(...)` returns JSON Value on success; on non-2xx it errors with the upstream status + a 256-byte body excerpt so the frontend gets a useful message instead of an opaque swallow.
+- **Tests**: `resin_client.rs` module has 6 unit tests — 3 plain (loopback reject/accept, urlencoding), 4 offline-integration via mockito 1.7 (dev-dependency) covering create / list / delete-with-204 / non-2xx error surfacing. `cargo test -p resin-core --lib` = 52 passed, 0 failed (was 6 before: covers existing lane/lease/tdewma/platform/gateway + the new 6 resin_client tests + 46 others).
+- **Ponytail**: not an SDK — only the verbs the IPC layer currently needs. Any request body is `serde_json::Value` so the React form's payload passes through verbatim. No per-endpoint struct modeling until we actually need it.
+- **G2 phase 2 (NEXT, NOT IN THIS COMMIT)**: convert the 11 IPC commands in `src-tauri/src/commands/mod.rs` that currently talk to the local `SharedGateway`/`SharedRegistry` / resin-core `PlatformRegistry` to forward via `ResinClient`:
+- `.platform_add/remove/list/snapshot`, `.account_add`, `.account_bind_ip`, `.gateway_select_account` → Resin admin REST
+- `.gateway_reserve/release/evict_lane/record_latency` → status echo no-op (Resin forward proxy now carries the sticky logic in-process)
+- `.gateway_snapshot` → Resin `/api/v1/metrics/snapshots/node-pool` or `/metrics/realtime/leases`
+- keep `.get_config_dir/.get_log_dir/.tray_refresh_labels` unchanged
+- Test endpoint: `e2e/platform_round_trip.spec.ts` add/list/remove闭环 — blocked until phase 2 lands
+
 ### 8. Subagent policy for this repo
 - This thread runs with subagents DISABLED (per user instruction). Do NOT spawn Codex native subagents or OMX team/worker lanes. Execute everything single-threaded in this agent.
 ### 9. Don't revert work you didn't make

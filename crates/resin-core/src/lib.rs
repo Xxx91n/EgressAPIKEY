@@ -14,11 +14,13 @@ pub mod tdewma;
 pub mod platform;
 pub mod mihomo;
 pub mod gateway;
+pub mod resin_client;
 
 pub use lane::{lane_index, LaneConfig};
 pub use lease::{LeaseTable, LeaseId};
 pub use tdewma::TdEwma;
 pub use platform::{Platform, Account, PlatformRegistry};
+pub use resin_client::ResinClient;
 
 /// Re-export canonical config for the whole core.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
