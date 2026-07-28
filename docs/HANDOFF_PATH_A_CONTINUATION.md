@@ -47,3 +47,31 @@ The plan-level ultragoal CLI final gate (`codeReview.recommendation: APPROVE` + 
 - `.codex-tmp/push.cjs` is the gh-token push recipe to `https://github.com/RCrushMe/ai-api-route-v2.git` (old `origin` to ai-api-route is stale-divergent; IGNORE it). `.codex-tmp/` is gitignored.
 - File edits go through `ctx_*` (AGENTS \2). `ctx_execute(shell)` on this host routes to `pwsh.exe` — use forward-slash Windows paths (`D:/Aworker/...`) for both `cwd` and inline paths. Inline PS `$` is stripped by the host transport — write a `.ps1` and run with `-File`.
 - After every source commit: `git push origin-fresh` THEN `codegraph sync .`.
+
+
+## Performance-goal stop-hook coordination (BLOCKED, needs user decision)
+
+This thread's stop hook (`hook_run_id: stop:9`) requires `omx performance-goal complete --slug ai-api-route-build --codex-goal-json <get_goal JSON or path> --evidence <text>`. **It cannot complete under the repo's own rules; this is a structural blocker, not a quality gap.**
+
+**Observed failure (authoritative, reproduced this window):**
+```
+omx performance-goal complete --slug ai-api-route-build --codex-goal-json .omx/ultragoal/codex-goal-snapshot.json --evidence "..."  ->  EXIT=1
+[performance-goal] Codex goal objective mismatch: expected "Build ai-api-route Tauri+Rust desktop app implementing Resin-pattern API key proxy pool with SSE stickiness, topology canvas, i18n, CI/CD packaging, tests — evaluator: cargo build + pnpm build + unit tests pass + release artifacts produced for all 4 targets", got "完成 Phase 4 路径 A 全部 5 个里程碑（G1–G5），fork Resin Go 二进制作为 Tauri sidecar，Rust 壳做生命周期 + Ghost 安全网 + mihomo 控制，前端搬入 Resin/webui 并桌面化五 tab，CI/CD 三平台 matrix 打包。详细 spec 在 docs/HANDOFF_PATH_A.md 和 .omx/ultragoal/goals.json。依赖图：G1 → (G2 || G3) → (G4 || G5)。每步 push + codegraph sync。不起子代理（AGENTS §8）。".
+```
+
+**Root cause:** two parallel OMX workflows were created on different days against different Codex goals that were never linked:
+- `performance-goal ai-api-route-build` (2026-07-26): declared Codex objective = the English "Build ai-api-route Tauri+Rust desktop app ..."; `state.json` records `validation_passed` (cargo 39 rust tests + 6 vitest + i18n en/zh + verify-build.sh exit 0 + windows-backend.tar.gz locally + CI matrix covering linux/macos) but NEVER recorded a Codex goal id nor a Codex snapshot.
+- `ultragoal` Phase-4 Path A (2026-07-29, this thread): aggregate Codex objective = the Chinese "完成 Phase 4 路径 A 全部 5 个里程碑..."; this is the one I drove to `complete` via `update_goal({status:"complete"})` and saved as `.omx/ultragoal/codex-goal-snapshot.json`.
+
+The performance-goal `complete` reconciler requires byte-exact objective string equality between the supplied `--codex-goal-json` goal.objective and the objective recorded in `.omx/goals/performance/ai-api-route-build/state.json`. My saved ultragoal snapshot carries the Chinese objective, so it is rejected.
+
+**Why I did NOT fabricate a pass:**
+- The stop hook rule: "Hooks must not mutate Codex goal state." Synthesizing a \"complete\" JSON whose `objective` == the performance-goal's English objective would be inventing Codex state, not capturing it. That violates both the hook rule and the user's standing "不产生幻觉" (no hallucination) instruction. `get_goal` correctly returns `{"goal":null}` in this thread now (the complete ultragoal goal has been cleared from the thread context), so there is no real Codex snapshot with the English objective to capture.
+- Forging an APPROVE under AGENTS §8 (which disables subagents here) is the same anti-pattern: the mandated independent subagent review path is structurally impossible; I recorded it as `COMMENT\`, not `APPROVE`, in `.omx/ultragoal/quality-gate-final.json`.
+
+**Resolution the next window needs from the user (decide one):**
+1. Lift AGENTS §8 (allow subagents) for one follow-up turn, `create_goal` with the English "Build ai-api-route..." objective, drive it, then `omx performance-goal complete --codex-goal-json <fresh get_goal JSON>`. This is the only path that satisfies the hook without fabrication.
+2. Archive/delete the stale `ai-api-route-build` performance goal (its `validation_passed` is from 2026-07-26 and is superseded by the Phase-4 ultragoal's verified completion). Then the stop-hook reconciliation no longer applies.
+3. Authorise me to run `omx performance-goal create --objective "<English objective>" --force --slug ai-api-route-build` to overwrite its declared objective so it matches the current Chinese ultragoal objective — a state mutation that I will not perform unauthorised.
+
+**To the next agent:** the shipped work (G1–G5 + 7 commits pushed to `origin-fresh` on `codex/rust-port`) is real and the test/build evidence is fresh this window. The stop-hook loop is purely an OMX-bookkeeping mismatch between two parallel workflows; do not relitigate the code, and do not synthesise a matching Codex goal to satisfy the hook. Surface this block to the user for one of the three resolutions above.
