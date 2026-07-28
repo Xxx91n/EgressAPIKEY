@@ -146,4 +146,3 @@ export async function ipcSubscriptionList(): Promise<SubscriptionSnapshotEntry[]
 export async function ipcNodePoolSnapshot(): Promise<{ total_nodes: number; healthy_nodes: number; egress_ip_count: number; healthy_egress_ip_count: number }> {
   return invoke("node_pool_snapshot");
 }
-
