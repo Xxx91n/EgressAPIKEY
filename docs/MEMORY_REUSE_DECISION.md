@@ -74,3 +74,47 @@
 - 不抛 mihomo：保留订阅编译 + Clash YAML 编译能力，作为 Resin 下游
 - 不自己实现 IP 粘性：用 Resin 出口 IP 锚定 + 租约表
 - 不引入 Pingora 直至 >50K RPS：短期 reqwest pool_max_idle=0 足够
+
+
+---
+
+## 决策复审：A vs C（2026-07-29)
+
+> 本节在上文「推荐迁移路径」之后追加；复审动机来自第一窗口的代码证据质疑——当前代码库是否真的 fork 了 Resin。
+> 证据链：github.com/Resinat/Resin/languages API、commits API、exa 抓取的 README/Dockerfile、本仓库 crates/resin-core/src 实际 LoC。
+> 全过程产物持久在 .omx/goals/autoresearch/go-vs-rust-path/{mission.json,rubric.md,ledger.jsonl,completion.json}。
+
+### 路径定义
+
+- **A**：fork Resin（github.com/Resinat/Resin），把其 Go 单二进制 `resin` 作为 Tauri sidecar 嵌入，Rust 壳只做 life-cycle 编排 + Ghost 安全网 + mihomo 控制；前端把 `Resin/webui` 改桌面包。
+- **C**：保留当前 `crates/resin-core`，从零用 Rust 重写 P2C / TD-EWMA / lane / lease / Platform / Account，并在 Rust 生态里补上 sing-box 多协议 outbound 的对应物。
+
+### 关键证据（可验证）
+
+- Resin Go 代码量：**1,834,190 字节**（GitHub `/languages` API 返回），折算 ~30k LoC
+- Resin TypeScript webui：**473,116 字节**，~10k LoC，React + Vite
+- Resin 活跃度：最近提交 **2026-07-05**，Go 1.25，MIT
+- Resin 构建产物：**单二进制 `resin`**，`webui/dist` 被 `go:embed` 打进二进制；构建 tag `with_quic with_wireguard with_grpc with_utls`
+- 当前 `crates/resin-core/src` Rust：**1370 LoC**，只实现了 lane/lease/tdewma/platform 四个模块的「最外层 pattern」，无 axum 监听、无 sing-box outbound 集成、无 SQLite 状态持久化、无订阅编译器、无 geoip、无熔断
+- 当前前端 `src/`：**1549 LoC** TS/TSX across 16 files，自研 React + ReactFlow
+
+### 三维裁决
+
+| Dimension (权重) | A | C | 胜方 |
+|---|---|---|---|
+| completion_difficulty (0.33) | 剩 ~3-4k LoC 粘合；Resin 生产路径已验证 | 需 ~25-35k LoC from-scratch + 不可绕过的 sing-box-Rust 替代子系统（生态硬缺口） | **A**，decisive |
+| architecture_complexity (0.33) | 2 二进制 + HTTP-IPC（Resin 本就是单 port 2260 承载 API+Web+代理）+ Ghost 安全网 | 当前态简单，目标态需自研多协议 outbound 引擎（独立开源项目级子系统） | **A**，margin |
+| long_term_maintenance (0.34) | 上游 MIT 托底 + 周期性 rebase drift；Resin V1 API 已稳定 | 永久 chasing sing-box 上游 + 自研子系统全责，无托底 | **A**，3/4 子轴 |
+
+### 决策：**采用路径 A**
+
+### A 路径已知代价与缓解
+
+1. 二进制体积膨胀到 ~33MB：接受，代理软件常态 mihomo 同量级
+2. sidecar 崩溃面新增：Ghost 模式 3s 轮询 + Resin `/health` REST + 关系统代理 safety-net；Ghost 已生产验证
+3. 三平台初次 Go 工具链集成：直接拉 Resin 官方预编译二进制，不本地自建除非改 `vendor/resin` 源
+4. IPC 纪律：admin token 留 Rust 侧，webview 走 Rust 中继 IPC，沿用 AGENTS §7.6 现成规矩
+
+### 与原任务指令的对齐
+
+原任务 #2 字面「复用 Resin 的 webui 代码：把 Resin/webui/ 整个搬进 Tauri src/」，被 exa 抓取证据证实：`Resin/webui/` 确实是现成 React+TS+Vite 项目。该任务前提成立，第一窗口误判为「前提不成立」并走偏到 C；本次复审修正回 A。
