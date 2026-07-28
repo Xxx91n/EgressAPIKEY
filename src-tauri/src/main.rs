@@ -4,7 +4,7 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use ai_api_route_app::{build_shared_gateway, build_shared_registry, commands, tray::build_tray};
+use ai_api_route_app::{build_shared_gateway, build_shared_registry, commands, sidecar::{boot_resin, SidecarHandle}, tray::build_tray};
 use resin_core::{CoreConfig, DEFAULT_LANES};
 use tauri::{Manager, Emitter, WindowEvent};
 use tauri_plugin_store::StoreExt;
@@ -120,6 +120,23 @@ fn main() {
             // lifecycle port (Resin proxy runtime, #6 next phase).
             let _ = cfg;
             build_tray(app.handle())?;
+
+            // G1: boot the Resin Go sidecar and expose it to IPC commands (G2
+            // ResinClient reads admin_token from this State). boot_resin blocks
+            // up to 15s waiting for the sidecar /health endpoint; on timeout we
+            // surface the error to setup so the app refuses to start rather
+            // than running a half-broken shell with no proxy backend.
+            let sidecar = boot_resin(app.handle())?;
+            tracing::info!(
+                "resin sidecar booted: api_base={}",
+                sidecar.api_base()
+            );
+            app.manage(SidecarHandle {
+                child: sidecar.child,
+                api_port: sidecar.api_port,
+                admin_token: sidecar.admin_token,
+                proxy_token: sidecar.proxy_token,
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

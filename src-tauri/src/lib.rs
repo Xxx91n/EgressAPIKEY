@@ -7,6 +7,7 @@
 //! items (Tauri 2 + Rust 1.97 build-time check).
 
 pub mod commands;
+pub mod sidecar;
 pub mod tray;
 
 use resin_core::gateway::GatewayState;

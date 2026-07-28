@@ -18,13 +18,28 @@
     {
       "identifier": "opener:allow-open-path",
       "allow": [
-        { "path": "$APPCONFIG" },
-        { "path": "$APPCONFIG/*" },
-        { "path": "$APPCONFIG/**" },
-        { "path": "$APPLOG" },
-        { "path": "$APPLOG/*" },
-        { "path": "$APPLOG/**" }
+        {
+          "path": "$APPCONFIG"
+        },
+        {
+          "path": "$APPCONFIG/*"
+        },
+        {
+          "path": "$APPCONFIG/**"
+        },
+        {
+          "path": "$APPLOG"
+        },
+        {
+          "path": "$APPLOG/*"
+        },
+        {
+          "path": "$APPLOG/**"
+        }
       ]
-    }
+    },
+    "shell:allow-spawn",
+    "shell:allow-kill",
+    "shell:allow-stdin-write"
   ]
 }

@@ -18,6 +18,18 @@ src-tauri/gen/
 src-tauri/sidecar/*
 !src-tauri/sidecar/.keep
 
+# resin sidecar binary staging: the resin-<triple>.(exe|) binaries are
+# fetched per-platform by scripts/fetch_resin.{ps1,sh} at build/CI time
+# from the published Resin GitHub release matching the host triple. We do
+# NOT commit the ~38MB per-platform Go binary: that would bloat the repo
+# history and the binaries are identical upstream releases, just renamed
+# to the target triple Tauri expects.
+src-tauri/binaries/*.zip
+src-tauri/binaries/_tmp_win/
+src-tauri/binaries/_version*.txt
+src-tauri/binaries/resin*
+!src-tauri/binaries/.gitkeep
+
 # local data
 *.sqlite
 *.sqlite3
