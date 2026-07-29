@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigation, Network, Settings as SettingsIcon, Route, FolderTree, RadioTower } from "lucide-react";
 import { useAppStore, type Locale, type Theme } from "./store/appStore";
-import { TopologyView } from "./views/TopologyView";
+const TopologyView = lazy(() => import("./views/TopologyView").then(m => ({ default: m.TopologyView })));
 import { SettingsView } from "./views/SettingsView";
 import { ProcessRouteView } from "./views/ProcessRouteView";
 import { SubscriptionsView } from "./views/SubscriptionsView";
@@ -102,7 +102,7 @@ export default function App() {
           <span className="text-xs text-zinc-400 dark:text-zinc-500 hidden sm:inline">· {t("app.tagline")}</span>
         </header>
         <main className="flex-1 overflow-auto">
-          {view === "topology" && <TopologyView />}
+          {view === "topology" && <Suspense fallback={<div className="flex-1 flex items-center justify-center text-sm text-zinc-400">Loading...</div>}><TopologyView /></Suspense>}
           {view === "platforms" && <PlatformsView />}
           {view === "settings" && <SettingsView />}
           {view === "processRoute" && <ProcessRouteView />}
