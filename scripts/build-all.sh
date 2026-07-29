@@ -58,6 +58,27 @@ if [ -z "$PORT_BIN" ]; then echo "[build-all] ERROR: portable GUI binary not fou
 PORT_NAME=ai-api-route
 case $NAME in windows) PORT_NAME=ai-api-route.exe ;; esac
 cp "$PORT_BIN" "$GUI_STAGE/$PORT_NAME"
+
+# Ponytail: portable exe needs the sidecar binary (resin) in the SAME
+# directory at runtime - tauri-plugin-shell sidecar() resolves it as
+# <exe_dir>/resin (triple suffix stripped by tauri build --no-bundle).
+# Without this the GUI boots then panics "failed to spawn resin binary".
+# Find the sidecar next to the portable exe in the release build dir.
+SIDECAR_NAME=resin
+case $NAME in windows) SIDECAR_NAME=resin.exe ;; esac
+PORT_DIR="$(dirname "$PORT_BIN")"
+SIDECAR_BIN="$(find "$PORT_DIR" -maxdepth 1 -type f -name "$SIDECAR_NAME" 2>/dev/null | head -n1 || true)"
+if [ -z "$SIDECAR_BIN" ]; then
+  # fallback: also check src-tauri/binaries with triple suffix
+  SIDECAR_BIN="$(find src-tauri/binaries -maxdepth 1 -type f -name "resin-*" 2>/dev/null | head -n1 || true)"
+fi
+if [ -n "$SIDECAR_BIN" ]; then
+  cp "$SIDECAR_BIN" "$GUI_STAGE/$SIDECAR_NAME"
+  echo "[build-all] sidecar binary staged: $GUI_STAGE/$SIDECAR_NAME"
+else
+  echo "[build-all] WARNING: sidecar binary not found - portable GUI will panic at boot"
+fi
+
 echo "[build-all] portable GUI staged: $GUI_STAGE/$PORT_NAME"
 if [ -n "$BUNDLES" ] && [ "$(ls -A $GUI_STAGE 2>/dev/null)" ]; then tar -czf "$GUI_STAGE.tar.gz" "$GUI_STAGE"; fi
 echo "[build-all] GUI artifact: $GUI_STAGE ($PORT_NAME + bundles)"
