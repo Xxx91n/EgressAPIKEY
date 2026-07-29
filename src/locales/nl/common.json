@@ -36,14 +36,18 @@
     "advanced": "Geavanceerd",
     "storage": "Opslag",
     "openConfigDir": "Configuratiemap openen",
-    "openLogDir": "Logmap openen"
+    "openLogDir": "Logmap openen",
+    "unifiedHelp": "Alle wijzigingen opslaan"
   },
   "subscription": {
     "title": "Abonnementen",
     "import": "Abonnement importeren",
     "url": "Abonnements-URL",
     "imported": "{{count}} knopen geïmporteerd in {{lanes}} banen",
-    "name": "Subscription name"
+    "name": "Abonnementsnaam",
+    "description": "Optioneel label voor dit geïmporteerde abonnement",
+    "importSuccess": "Abonnement geïmporteerd",
+    "dragHint": "Sleep rijen om te herschikken"
   },
   "topology": {
     "title": "Topologie-canvas",
@@ -53,14 +57,19 @@
     "busy": "bezig",
     "free": "vrij",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar onveilig: Resin-proxy offline. Systeemproxy gewist.",
+    "entry": "Ingang: {{platform}}",
+    "keyHash": "Sleutel-hash: {{hash}}",
+    "sseLocked": "SSE vergrendeld"
   },
   "processRoute": {
     "title": "Procesroute",
     "add": "Regel toevoegen",
     "process": "Procesnaam",
     "target": "Doelbaan",
-    "empty": "Geen per-proces routeringsregels."
+    "empty": "Geen per-proces routeringsregels.",
+    "conflict": "Lane {{lane}} al gebonden aan '{{process}}'",
+    "backendSaved": "Routeringsregel opgeslagen"
   },
   "common": {
     "cancel": "Annuleren",

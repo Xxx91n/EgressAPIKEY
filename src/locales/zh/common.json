@@ -36,14 +36,18 @@
     "advanced": "高级",
     "storage": "存储",
     "openConfigDir": "打开配置目录",
-    "openLogDir": "打开日志目录"
+    "openLogDir": "打开日志目录",
+    "unifiedHelp": "保存所有更改"
   },
   "subscription": {
     "title": "订阅",
     "import": "导入订阅",
     "url": "订阅地址",
     "imported": "已将 {{count}} 个节点导入 {{lanes}} 条通道",
-    "name": "Subscription name"
+    "name": "订阅名称",
+    "description": "此导入订阅的可选标签",
+    "importSuccess": "订阅导入成功",
+    "dragHint": "拖动行以重新排序"
   },
   "topology": {
     "title": "拓扑画布",
@@ -53,14 +57,19 @@
     "busy": "繁忙",
     "free": "空闲",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar 不安全: Resin 代理离线。系统代理已清除。",
+    "entry": "入口: {{platform}}",
+    "keyHash": "密钥哈希: {{hash}}",
+    "sseLocked": "SSE 锁定"
   },
   "processRoute": {
     "title": "进程路由",
     "add": "添加路由规则",
     "process": "进程名",
     "target": "目标通道",
-    "empty": "暂无进程路由规则。"
+    "empty": "暂无进程路由规则。",
+    "conflict": "通道 {{lane}} 已绑定到 '{{process}}'",
+    "backendSaved": "路由规则已保存"
   },
   "common": {
     "cancel": "取消",

@@ -36,14 +36,18 @@
     "advanced": "Gelişmiş",
     "storage": "Depolama",
     "openConfigDir": "Yapılandırma dizinini aç",
-    "openLogDir": "Günlük dizinini aç"
+    "openLogDir": "Günlük dizinini aç",
+    "unifiedHelp": "Tüm değişiklikleri kaydet"
   },
   "subscription": {
     "title": "Abonelikler",
     "import": "Abonelik içe aktar",
     "url": "Abonelik URL",
     "imported": "{{lanes}} şeride {{count}} düğüm içe aktarıldı",
-    "name": "Subscription name"
+    "name": "Abonelik adı",
+    "description": "Bu içe aktarılan abonelik için isteğe bağlı etiket",
+    "importSuccess": "Abonelik içe aktarıldı",
+    "dragHint": "Yeniden sıralamak için satırları sürükleyin"
   },
   "topology": {
     "title": "Topoloji tuvali",
@@ -53,14 +57,19 @@
     "busy": "meşgul",
     "free": "boş",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar güvensiz: Resin proxy çevrimdışı. Sistem proxy temizlendi.",
+    "entry": "Giriş: {{platform}}",
+    "keyHash": "Anahtar hash: {{hash}}",
+    "sseLocked": "SSE kilitli"
   },
   "processRoute": {
     "title": "Süreç rotası",
     "add": "Kural ekle",
     "process": "Süreç adı",
     "target": "Hedef şerit",
-    "empty": "Süreç başına yönlendirme kuralı yok."
+    "empty": "Süreç başına yönlendirme kuralı yok.",
+    "conflict": "Lane {{lane}} zaten '{{process}}' ile bağlı",
+    "backendSaved": "Yönlendirme kuralı kaydedildi"
   },
   "common": {
     "cancel": "İptal",

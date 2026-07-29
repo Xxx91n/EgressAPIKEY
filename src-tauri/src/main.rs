@@ -10,6 +10,14 @@ use tauri::{Manager, Emitter, WindowEvent};
 use tauri_plugin_store::StoreExt;
 
 fn main() {
+    // Issue 11: capture panics into the tracing pipeline so a crashed
+    // sidecar thread or IPC handler surfaces a log line instead of silently
+    // unwinding. The default hook prints to stderr only, which the GUI hides.
+    let prev_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        tracing::error!(panic = %info, backtrace = ?std::backtrace::Backtrace::force_capture(), "panic captured");
+        prev_hook(info);
+    }));
     let lanes = std::env::var("AI_API_ROUTE_LANES")
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
@@ -45,9 +53,16 @@ fn main() {
         // file appender under app_log_dir() (Re6). Replaces tauri-plugin-log so
         // every `tracing::` macro in the codebase flows through one subscriber.
         .plugin(
+            // Issue 11: log hardening. Rotate daily OR at 10MB, keep the 7 most
+            // recent files so a runaway stream cannot fill the user's disk.
+            // Ponytail: use the plugin's built-in MaxFileSize + RotationStrategy
+            // rather than a custom subscriber (zero new code, no overflow path).
             tauri_plugin_tracing::Builder::new()
                 .with_max_level(tauri_plugin_tracing::LevelFilter::INFO)
                 .with_file_logging()
+                .with_rotation(tauri_plugin_tracing::Rotation::Daily)
+                .with_max_file_size(tauri_plugin_tracing::MaxFileSize::mb(10))
+                .with_rotation_strategy(tauri_plugin_tracing::RotationStrategy::KeepSome(7))
                 .with_default_subscriber()
                 .build(),
         )
@@ -83,6 +98,9 @@ fn main() {
             commands::account_add,
             commands::account_bind_ip,
             commands::gateway_select_account,
+            commands::process_route_add,
+            commands::process_route_remove,
+            commands::process_route_list,
             commands::subscription_add,
             commands::subscription_remove,
             commands::subscription_list,

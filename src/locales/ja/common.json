@@ -36,14 +36,18 @@
     "advanced": "詳細",
     "storage": "ストレージ",
     "openConfigDir": "設定ディレクトリを開く",
-    "openLogDir": "ログディレクトリを開く"
+    "openLogDir": "ログディレクトリを開く",
+    "unifiedHelp": "すべての変更を保存"
   },
   "subscription": {
     "title": "サブスクリプション",
     "import": "サブスクリプションをインポート",
     "url": "サブスクリプションURL",
     "imported": "{{count}}ノードを{{lanes}}レーンにインポートしました",
-    "name": "Subscription name"
+    "name": "サブスクリプション名",
+    "description": "このインポート済みサブスクリプションのオプションラベル",
+    "importSuccess": "サブスクリプションをインポートしました",
+    "dragHint": "行をドラッグして並べ替え"
   },
   "topology": {
     "title": "トポロジーキャンバス",
@@ -53,14 +57,19 @@
     "busy": "使用中",
     "free": "空き",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "サイドカーが安全ではありません: Resin プロキシがオフラインです。システム プロキシをクリアしました。",
+    "entry": "エントリー: {{platform}}",
+    "keyHash": "キーハッシュ: {{hash}}",
+    "sseLocked": "SSE ロック中"
   },
   "processRoute": {
     "title": "プロセスルート",
     "add": "ルーティングルールを追加",
     "process": "プロセス名",
     "target": "対象レーン",
-    "empty": "プロセスルーティングルールがありません。"
+    "empty": "プロセスルーティングルールがありません。",
+    "conflict": "レーン {{lane}} はすでに '{{process}}' にバインドされています",
+    "backendSaved": "ルーティングルールを保存しました"
   },
   "common": {
     "cancel": "キャンセル",

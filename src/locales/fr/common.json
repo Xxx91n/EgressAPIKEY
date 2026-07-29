@@ -36,14 +36,18 @@
     "advanced": "Avancé",
     "storage": "Stockage",
     "openConfigDir": "Ouvrir le répertoire de configuration",
-    "openLogDir": "Ouvrir le répertoire des journaux"
+    "openLogDir": "Ouvrir le répertoire des journaux",
+    "unifiedHelp": "Enregistrer toutes les modifications"
   },
   "subscription": {
     "title": "Abonnements",
     "import": "Importer l'abonnement",
     "url": "URL de l'abonnement",
     "imported": "{{count}} nœuds importés dans {{lanes}} voies",
-    "name": "Subscription name"
+    "name": "Nom de l'abonnement",
+    "description": "Étiquette facultative pour cet abonnement importé",
+    "importSuccess": "Abonnement importé",
+    "dragHint": "Glisser les lignes pour réorganiser"
   },
   "topology": {
     "title": "Canevas de topologie",
@@ -53,14 +57,19 @@
     "busy": "occupé",
     "free": "libre",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar non sécurisé : proxy Resin hors ligne. Proxy système effacé.",
+    "entry": "Entrée : {{platform}}",
+    "keyHash": "Hash de clé : {{hash}}",
+    "sseLocked": "SSE verrouillé"
   },
   "processRoute": {
     "title": "Routage des processus",
     "add": "Ajouter une règle de routage",
     "process": "Nom du processus",
     "target": "Voie cible",
-    "empty": "Aucune règle de routage par processus."
+    "empty": "Aucune règle de routage par processus.",
+    "conflict": "Lane {{lane}} déjà liée à '{{process}}'",
+    "backendSaved": "Règle de routage enregistrée"
   },
   "common": {
     "cancel": "Annuler",

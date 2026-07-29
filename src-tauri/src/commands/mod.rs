@@ -7,7 +7,7 @@
 //! the Resin forward proxy owns sticky-session + exit-ip allocation natively.
 //! Each command still validates its inputs at the IPC boundary (AGENTS 7.5).
 
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use tauri::{AppHandle, Manager, State};
 
 use crate::sidecar::SidecarHandle;
@@ -236,6 +236,68 @@ fn platform_id_for_name(v: &serde_json::Value, want: &str) -> Option<String> {
 // ---------------------------------------------------------------------------
 // Subscriptions - FORWARDED to Resin via ResinClient (DESIGN.md /subscriptions).
 
+// ---- Process routing (issue 3+10) ----
+// Per-process -> lane routing rules stored server-side in tauri-plugin-store.
+// The Rust side rejects lane collisions (the same target lane already bound
+// to a different process in a live rule) BEFORE we record the rule. This is the
+// user-visible "conflict detect + refuse + clear toast" surface. The auth
+// boundary stays on the OS side (server-trusted store); per-request auth lives
+// in the Resin sidecar proxy. We only own the routing rule registry here.
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProcessRouteRule {
+    pub process: String,
+    pub target_lane: usize,
+}
+
+#[tauri::command]
+pub async fn process_route_add(app: AppHandle, process: String, target_lane: usize) -> Result<(), String> {
+    validate_short_name(&process, "process")?;
+    if target_lane >= MAX_LANES {
+        return Err(format!("process_route_add: lane {target_lane} out of range (max {})", MAX_LANES - 1));
+    }
+    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json").map_err(|e| format!("store: {e:?}"))?;
+    let mut rules: Vec<ProcessRouteRule> = store.get("processRoutes")
+        .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
+        .unwrap_or_default();
+    // conflict detect via the extracted helper (unit-testable)
+    process_route_conflict_check(&rules, &process, target_lane)?;
+    if let Some(slot) = rules.iter_mut().find(|r| r.process.trim() == process.trim()) {
+        slot.target_lane = target_lane;
+    } else {
+        rules.push(ProcessRouteRule { process: process.trim().to_string(), target_lane });
+    }
+    store.set("processRoutes", serde_json::to_value(&rules).unwrap());
+    store.save().map_err(|e| format!("store save: {e:?}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn process_route_remove(app: AppHandle, process: String) -> Result<bool, String> {
+    validate_short_name(&process, "process")?;
+    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json").map_err(|e| format!("store: {e:?}"))?;
+    let mut rules: Vec<ProcessRouteRule> = store.get("processRoutes")
+        .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
+        .unwrap_or_default();
+    let before = rules.len();
+    rules.retain(|r| r.process.trim() != process.trim());
+    if rules.len() != before {
+        store.set("processRoutes", serde_json::to_value(&rules).unwrap());
+        store.save().map_err(|e| format!("store save: {e:?}"))?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+#[tauri::command]
+pub async fn process_route_list(app: AppHandle) -> Result<Vec<ProcessRouteRule>, String> {
+    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json").map_err(|e| format!("store: {e:?}"))?;
+    Ok(store.get("processRoutes")
+        .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
+        .unwrap_or_default())
+}
+
 #[tauri::command]
 pub async fn subscription_add(sidecar: State<'_, SidecarHandle>, name: String, url: String) -> Result<(), String> {
     validate_short_name(&name, "subscription")?;
@@ -442,6 +504,23 @@ pub async fn backup_list(url: String, username: String, password: String) -> Res
     Ok(names)
 }
 
+
+// Pure helper: returns Err(msg) if adding {process, target_lane} would
+// conflict with an existing rule (same target lane, different process).
+// Extracted for unit testing without an AppHandle.
+pub fn process_route_conflict_check(
+    existing: &[ProcessRouteRule],
+    new_process: &str,
+    new_lane: usize,
+) -> Result<(), String> {
+    for r in existing {
+        if r.target_lane == new_lane && new_process.trim() != r.process.trim() {
+            return Err(format!("conflict: lane {new_lane} already bound to process '{}'", r.process));
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -501,5 +580,17 @@ mod tests {
         assert_eq!(sum_active_leases(&json!({ "items": [{ "active_leases": 7 }, { "active_leases": 5 }] })), 12);
         assert_eq!(sum_active_leases(&json!({ "active_leases": 4 })), 4);
         assert_eq!(sum_active_leases(&json!({})), 0);
+    }
+    #[test]
+    fn process_route_conflict_rejects_same_lane_different_process() {
+        let existing = vec![
+            ProcessRouteRule { process: "ollama".to_string(), target_lane: 3 },
+        ];
+        // same process + same lane -> ok (update path)
+        assert!(process_route_conflict_check(&existing, "ollama", 3).is_ok());
+        // different process, same lane -> conflict
+        assert!(process_route_conflict_check(&existing, "openai", 3).is_err());
+        // different process, different lane -> ok
+        assert!(process_route_conflict_check(&existing, "openai", 4).is_ok());
     }
 }

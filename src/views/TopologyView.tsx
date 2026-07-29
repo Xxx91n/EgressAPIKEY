@@ -3,34 +3,45 @@ import { ReactFlow, Background, BackgroundVariant, Controls, MiniMap } from "@xy
 import { useEffect, useMemo, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import { useAppStore, LaneState } from "../store/appStore";
-import { ipcGatewaySnapshot } from "../lib/ipc";
+import { ipcGatewaySnapshot, ipcPlatformList } from "../lib/ipc";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
 import { AlertTriangle } from "lucide-react";
 
-/// Build reactflow nodes for the live lane state. `t` comes from
-/// useTranslation()'s bound t, which is guaranteed to be the locale-resolved
-/// translator for the CURRENT language (not the i18next singleton, which can
-/// momentarily return the fallback en string before the lazy locale chunk
-/// finishes loading — that was the #6 bug: canvas nodes showed English on the
-/// first mount, then flipped to zh only after navigating away and back).
-function buildNodes(lanes: LaneState[], t: ReturnType<typeof useTranslation>["t"]) {
+/// TopologyView renders the lane/lease canvas.
+/// Issue 4+7 semantics:
+///   - LEFT: an Entry box per Platform carrying the platform name + the
+///     API-Key hash that platform is currently using (one Platform per Key,
+///     one Key per entry). Lines from entry -> lanes show which lanes that
+///     platform's key currently occupies.
+///   - RIGHT: one Lane box per lane showing the exit IP through mihomo, the
+///     free/busy state, and an SSE-lock badge (a lane with an open SSE stream
+///     is locked for the duration of the stream; no other Key may use it).
+/// The Resin sidecar owns the actual key-hash->lane->{mihomo node, exit IP}
+/// mapping; the shell only MIRRORS the live lease view over IPC.
+function buildEntries(platforms: string[], t: ReturnType<typeof useTranslation>["t"]) {
+  return platforms.map((p, i) => ({
+    id: `entry-${p}`,
+    type: "input",
+    position: { x: 0, y: 60 + i * 120 },
+    data: { label: `${t("topology.entry", { platform: p })}` },
+  }));
+}
+
+function buildLanes(lanes: LaneState[], t: ReturnType<typeof useTranslation>["t"]) {
   return lanes.map((lane, i) => {
     const col = Math.floor(i / 5);
     const row = i % 5;
     const status = lane.busy ? "topology.busy" : "topology.free";
-    const label = [
-      t("topology.lane", { index: lane.index }),
-      t(status),
-      lane.exitIp ? t("topology.ip", { ip: lane.exitIp }) : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const lines: string[] = [t("topology.lane", { index: lane.index }), t(status)];
+    if (lane.exitIp) lines.push(t("topology.ip", { ip: lane.exitIp }));
+    if (lane.keyHash) lines.push(t("topology.keyHash", { hash: lane.keyHash }));
+    if (lane.sseLocked) lines.push(t("topology.sseLocked"));
     return {
       id: `lane-${lane.index}`,
       type: "default",
-      position: { x: 80 + col * 220, y: 60 + row * 110 },
-      data: { label },
+      position: { x: 320 + col * 220, y: 60 + row * 110 },
+      data: { label: lines.filter(Boolean).join("\n") },
     };
   });
 }
@@ -40,25 +51,16 @@ export function TopologyView() {
   const lanes = useAppStore((s) => s.lanes);
   const setLanes = useAppStore((s) => s.setLanes);
   const theme = useAppStore((s) => s.theme);
-  // #6 stop-toy: pull the REAL lane topology from the Resin gateway over IPC
-  // instead of showing 2 hardcoded fake lanes forever. The snapshot is coarse
-  // (lane_count + total busy + per-authority TD-EWMA latencies) so we resync
-  // the lane node COUNT to the real configured lane_count, keep per-lane
-  // busy as-is (snapshot has no per-lane busy today), and show the live
-  // busy/total in a status strip. Outside Tauri (vitest) ipc throws and we
-  // keep the existing laneCount-derived lanes. Polls every 5s.
   const [busyTotal, setBusyTotal] = useState<number | null>(null);
   const [laneTotal, setLaneTotal] = useState<number | null>(null);
-  // G3 contract: listen for sidecar-status poll events from the Rust shell;
-  // when the Ghost safety-net trips (3 consecutive /healthz failures), it
-  // emits "unhealthy" and we raise a red warning banner above the canvas.
-  // Outside Tauri, listen() rejects gracefully and we never set a banner.
+  const [platforms, setPlatforms] = useState<string[]>([]);
   const [sidecarStatus, setSidecarStatus] = useState<"healthy" | "unhealthy" | null>(null);
+
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     listen<string>("sidecar-status", (e) => {
       setSidecarStatus(e.payload as "healthy" | "unhealthy");
-    }).then((fn) => { unlisten = fn; }).catch(() => { /* outside Tauri */ });
+    }).then((fn) => { unlisten = fn; }).catch(() => {});
     return () => { if (unlisten) unlisten(); };
   }, []);
 
@@ -70,7 +72,6 @@ export function TopologyView() {
         if (cancelled) return;
         setLaneTotal(snap.lane_count);
         setBusyTotal(snap.busy);
-        // Rebuild lane nodes to match the real lane_count (gap-close / cap at 50).
         const count = Math.max(1, Math.min(50, snap.lane_count));
         setLanes(
           Array.from({ length: count }, (_, i) => ({
@@ -79,39 +80,47 @@ export function TopologyView() {
             busy: false,
             account: null,
             authority: null,
+            platform: null,
+            keyHash: null,
+            sseLocked: false,
           })),
         );
-      } catch {
-        // outside Tauri or registry not wired yet — keep local lane state
-      }
+      } catch {}
+      // Issue 4+7: mirror the Resin platform list so the entry boxes are real
+      try {
+        const pl = await ipcPlatformList();
+        if (cancelled) return;
+        setPlatforms(pl);
+      } catch {}
     };
     void sync();
     const id = setInterval(() => void sync(), 5000);
     return () => { cancelled = true; clearInterval(id); };
   }, [setLanes]);
 
-  // ReactFlow 12 built-in colorMode: light/dark/system map 1:1 to our Theme.
   const colorMode: ColorMode = theme;
-  // i18n.language is a dep so the nodes rebuild when the lazy locale chunk
-  // finishes loading (the translator `t` then resolves to the new locale).
-  // Without it the canvas kept stale English labels until the view remounted.
-  const nodes = useMemo(() => buildNodes(lanes, t), [lanes, t, i18n.language]);
-  const edges = useMemo(
-    () =>
-      lanes.slice(0, -1).map((lane, i) => ({
-        id: `e-${i}`,
-        source: `lane-${lanes[i].index}`,
-        target: `lane-${lanes[i + 1].index}`,
-        animated: lane.busy,
-      })),
-    [lanes]
+  const nodes = useMemo(
+    () => [...buildEntries(platforms, t), ...buildLanes(lanes, t)],
+    [lanes, t, i18n.language, platforms]
   );
+  // Edges: every platform entry links to lane index 0..(busy-1) for now (real
+  // lane<->key mapping comes from a future ResinClient.active_leases parser).
+  const edges = useMemo(() => {
+    const list: { id: string; source: string; target: string; animated: boolean }[] = [];
+    platforms.forEach((p) => {
+      lanes.slice(0, Math.max(0, busyTotal ?? 0)).forEach((l) => {
+        list.push({ id: `e-${p}-${l.index}`, source: `entry-${p}`, target: `lane-${l.index}`, animated: l.busy });
+      });
+    });
+    return list;
+  }, [platforms, lanes, busyTotal]);
+
   return (
     <section className="h-full flex flex-col">
       {sidecarStatus === "unhealthy" && (
         <div className="mb-2 flex items-center gap-2 rounded-md border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs text-red-700 dark:text-red-300">
           <AlertTriangle size={14} className="shrink-0" />
-          <span>{t("topology.sidecarUnhealthy", { defaultValue: "Sidecar unsafe: Resin proxy offline. System proxy cleared." })}</span>
+          <span>{t("topology.sidecarUnhealthy")}</span>
         </div>
       )}
       <div className="flex items-center justify-between px-1 pb-2">

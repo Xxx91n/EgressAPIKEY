@@ -36,14 +36,18 @@
     "advanced": "Avançado",
     "storage": "Armazenamento",
     "openConfigDir": "Abrir diretório de configuração",
-    "openLogDir": "Abrir diretório de logs"
+    "openLogDir": "Abrir diretório de logs",
+    "unifiedHelp": "Salvar todas as alterações"
   },
   "subscription": {
     "title": "Assinaturas",
     "import": "Importar assinatura",
     "url": "URL da assinatura",
     "imported": "Importados {{count}} nós em {{lanes}} linhas",
-    "name": "Subscription name"
+    "name": "Nome da assinatura",
+    "description": "Rótulo opcional para esta assinatura importada",
+    "importSuccess": "Assinatura importada",
+    "dragHint": "Arraste linhas para reordenar"
   },
   "topology": {
     "title": "Tela de topologia",
@@ -53,14 +57,19 @@
     "busy": "ocupado",
     "free": "livre",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar inseguro: proxy Resin offline. Proxy do sistema limpo.",
+    "entry": "Entrada: {{platform}}",
+    "keyHash": "Hash da chave: {{hash}}",
+    "sseLocked": "SSE bloqueado"
   },
   "processRoute": {
     "title": "Rota de processo",
     "add": "Adicionar regra de roteamento",
     "process": "Nome do processo",
     "target": "Linha de destino",
-    "empty": "Nenhuma regra de roteamento por processo."
+    "empty": "Nenhuma regra de roteamento por processo.",
+    "conflict": "Faixa {{lane}} já vinculada a '{{process}}'",
+    "backendSaved": "Regra de roteamento salva"
   },
   "common": {
     "cancel": "Cancelar",

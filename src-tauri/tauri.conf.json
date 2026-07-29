@@ -49,7 +49,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "category": "Network",
     "shortDescription": "AI API key specialized proxy pool",
     "longDescription": "L7 proxy gateway for AI API keys with lane hashing, SSE session stickiness, and a topology canvas.",
     "externalBin": [

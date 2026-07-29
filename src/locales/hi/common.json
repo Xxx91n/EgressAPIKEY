@@ -36,14 +36,18 @@
     "advanced": "उन्नत",
     "storage": "भंडारण",
     "openConfigDir": "कॉन्फ़िगरेशन निर्देशिका खोलें",
-    "openLogDir": "लॉग निर्देशिका खोलें"
+    "openLogDir": "लॉग निर्देशिका खोलें",
+    "unifiedHelp": "सभी परिवर्तन सहेजें"
   },
   "subscription": {
     "title": "सब्सक्रिप्शन",
     "import": "सब्सक्रिप्शन आयात करें",
     "url": "सब्सक्रिप्शन URL",
     "imported": "{{lanes}} लेन में {{count}} नोड आयातित",
-    "name": "Subscription name"
+    "name": "सब्सक्रिप्शन का नाम",
+    "description": "इस आयातित सब्सक्रिप्शन के लिए वैकल्पिक लेबल",
+    "importSuccess": "सब्सक्रिप्शन आयातित",
+    "dragHint": "पंक्तियाँ हटाकर पुनः क्रमित करें"
   },
   "topology": {
     "title": "टोपोलॉजी कैनवास",
@@ -53,14 +57,19 @@
     "busy": "व्यस्त",
     "free": "खाली",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "साइडकार असुरक्षित: Resin प्रॉक्सी ऑफ़लाइन। सिस्टम प्रॉक्सी साफ़ कर दिया गया।",
+    "entry": "प्रवेश: {{platform}}",
+    "keyHash": "कुंजी हैश: {{hash}}",
+    "sseLocked": "SSE लॉक किया गया"
   },
   "processRoute": {
     "title": "प्रक्रिया मार्ग",
     "add": "नियम जोड़ें",
     "process": "प्रक्रिया नाम",
     "target": "लक्ष्य लेन",
-    "empty": "कोई प्रति-प्रक्रिया रूटिंग नियम नहीं।"
+    "empty": "कोई प्रति-प्रक्रिया रूटिंग नियम नहीं।",
+    "conflict": "लेन {{lane}} पहले से '{{process}}' से बंधी है",
+    "backendSaved": "राउटिंग नियम सहेजा गया"
   },
   "common": {
     "cancel": "रद्द करें",

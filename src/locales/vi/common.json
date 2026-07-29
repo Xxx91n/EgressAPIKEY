@@ -36,14 +36,18 @@
     "advanced": "Nâng cao",
     "storage": "Lưu trữ",
     "openConfigDir": "Mở thư mục cấu hình",
-    "openLogDir": "Mở thư mục nhật ký"
+    "openLogDir": "Mở thư mục nhật ký",
+    "unifiedHelp": "Lưu tất cả thay đổi"
   },
   "subscription": {
     "title": "Đăng ký",
     "import": "Nhập đăng ký",
     "url": "URL đăng ký",
     "imported": "Đã nhập {{count}} nút vào {{lanes}} làn",
-    "name": "Subscription name"
+    "name": "Tên đăng ký",
+    "description": "Nhãn tùy chọn cho mục đăng ký đã nhập này",
+    "importSuccess": "Đã nhập mục đăng ký",
+    "dragHint": "Kéo các hàng để sắp xếp lại"
   },
   "topology": {
     "title": "Canvas tô pô",
@@ -53,14 +57,19 @@
     "busy": "bận",
     "free": "rảnh",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar không an toàn: proxy Resin ngoại tuyến. Proxy hệ thống đã được xóa.",
+    "entry": "Lối vào: {{platform}}",
+    "keyHash": "Băm khóa: {{hash}}",
+    "sseLocked": "SSE đã khóa"
   },
   "processRoute": {
     "title": "Tuyến tiến trình",
     "add": "Thêm quy tắc",
     "process": "Tên tiến trình",
     "target": "Làn đích",
-    "empty": "Không có quy tắc định tuyến theo tiến trình."
+    "empty": "Không có quy tắc định tuyến theo tiến trình.",
+    "conflict": "Lane {{lane}} đã liên kết với '{{process}}'",
+    "backendSaved": "Đã lưu quy tắc định tuyến"
   },
   "common": {
     "cancel": "Hủy",

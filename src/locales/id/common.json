@@ -36,14 +36,18 @@
     "advanced": "Lanjutan",
     "storage": "Penyimpanan",
     "openConfigDir": "Buka direktori konfigurasi",
-    "openLogDir": "Buka direktori log"
+    "openLogDir": "Buka direktori log",
+    "unifiedHelp": "Simpan semua perubahan"
   },
   "subscription": {
     "title": "Langganan",
     "import": "Impor langganan",
     "url": "URL langganan",
     "imported": "Mengimpor {{count}} node ke {{lanes}} jalur",
-    "name": "Subscription name"
+    "name": "Nama langganan",
+    "description": "Label opsional untuk langganan yang diimpor ini",
+    "importSuccess": "Langganan diimpor",
+    "dragHint": "Seret baris untuk menyusun ulang"
   },
   "topology": {
     "title": "Kanvas topologi",
@@ -53,14 +57,19 @@
     "busy": "sibuk",
     "free": "kosong",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar tidak aman: proxy Resin luring. Proxy sistem dibersihkan.",
+    "entry": "Masuk: {{platform}}",
+    "keyHash": "Hash kunci: {{hash}}",
+    "sseLocked": "SSE terkunci"
   },
   "processRoute": {
     "title": "Rute proses",
     "add": "Tambah aturan",
     "process": "Nama proses",
     "target": "Jalur tujuan",
-    "empty": "Tidak ada aturan routing per proses."
+    "empty": "Tidak ada aturan routing per proses.",
+    "conflict": "Lane {{lane}} sudah mengikat ke '{{process}}'",
+    "backendSaved": "Aturan routing disimpan"
   },
   "common": {
     "cancel": "Batal",

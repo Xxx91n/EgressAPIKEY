@@ -1,5 +1,12 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useAppStore } from "./appStore";
+
+// mock the settings module so saving through tauri-plugin-store (which is
+// unavailable in vitest) is a no-op and we silence the console.warn noise.
+vi.mock("../lib/settings", () => ({
+  saveView: vi.fn().mockResolvedValue(undefined),
+  saveProcessRoutes: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe("appStore", () => {
   beforeEach(() => {

@@ -83,6 +83,7 @@ export function SettingsView() {
   const setTheme = useAppStore((s) => s.setTheme);
   const [lanes, setLanes] = useState(laneCount);
   const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
   // Network settings (problem 6 parity): loaded from tauri-plugin-store on
   // mount, persisted via the Save button. The Rust shell reads these keys
   // (gatewayBind, mihomoApi) at startup into CoreConfig; mihomoApi flows to
@@ -164,6 +165,8 @@ export function SettingsView() {
   };
 
   const saveAll = async () => {
+    setBusy(true);
+    try {
     const n = Math.max(1, Math.min(50, Math.trunc(lanes)));
     setLanes(n);
     setLaneCount(n);
@@ -182,6 +185,7 @@ export function SettingsView() {
     await Promise.all([saveGatewayBind(bind), saveMihomoApi(api)]);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
+    } finally { setBusy(false); }
   };
 
   const openDir = async (which: "config" | "log") => {
@@ -242,13 +246,8 @@ export function SettingsView() {
               onChange={(e) => setLanes(Number(e.target.value))}
               className="w-24 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
             />
-            <button
-              onClick={() => void saveAll()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
-            >
-              {saved ? <Check size={14} strokeWidth={2.5} /> : <Save size={14} strokeWidth={2} />}
-              {t("settings.save")}
-            </button>
+            {/* Issue 6: unified Save moved to the sticky bottom bar so the user
+                sees a single save action for the whole settings panel. */}
           </div>
         </Field>
       </SectionCard>
@@ -341,6 +340,17 @@ export function SettingsView() {
           {backupMsg ? <span className="text-xs text-zinc-500">{backupMsg}</span> : null}
         </div>
       </SectionCard>
+      <div className="sticky bottom-0 left-0 right-0 mt-4 px-4 py-3 bg-white/85 dark:bg-zinc-900/80 backdrop-blur border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2">
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("settings.unifiedHelp")}</span>
+        <button
+          onClick={() => void saveAll()}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-40"
+        >
+          {saved ? <Check size={14} strokeWidth={2.5} /> : <Save size={14} strokeWidth={2} />}
+          {t("settings.save")}
+        </button>
+      </div>
     </section>
 
       

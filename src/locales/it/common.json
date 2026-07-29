@@ -36,14 +36,18 @@
     "advanced": "Avanzate",
     "storage": "Archiviazione",
     "openConfigDir": "Apri directory di configurazione",
-    "openLogDir": "Apri directory dei log"
+    "openLogDir": "Apri directory dei log",
+    "unifiedHelp": "Salva tutte le modifiche"
   },
   "subscription": {
     "title": "Sottoscrizioni",
     "import": "Importa sottoscrizione",
     "url": "URL sottoscrizione",
     "imported": "Importati {{count}} nodi in {{lanes}} corsie",
-    "name": "Subscription name"
+    "name": "Nome abbonamento",
+    "description": "Etichetta opzionale per questo abbonamento importato",
+    "importSuccess": "Abbonamento importato",
+    "dragHint": "Trascina le righe per riordinare"
   },
   "topology": {
     "title": "Canvas topologico",
@@ -53,14 +57,19 @@
     "busy": "occupato",
     "free": "libero",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar non sicuro: proxy Resin offline. Proxy di sistema cancellato.",
+    "entry": "Ingresso: {{platform}}",
+    "keyHash": "Hash chiave: {{hash}}",
+    "sseLocked": "SSE bloccato"
   },
   "processRoute": {
     "title": "Instradamento processi",
     "add": "Aggiungi regola",
     "process": "Nome processo",
     "target": "Corsia di destinazione",
-    "empty": "Nessuna regola di instradamento per processo."
+    "empty": "Nessuna regola di instradamento per processo.",
+    "conflict": "Linea {{lane}} già collegata a '{{process}}'",
+    "backendSaved": "Regola di instradamento salvata"
   },
   "common": {
     "cancel": "Annulla",

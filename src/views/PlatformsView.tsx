@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Link2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Link2, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import {
   ipcPlatformAdd,
@@ -33,6 +33,7 @@ export function PlatformsView() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [ipEdits, setIpEdits] = useState<Record<string, string>>({});
   const [newAcct, setNewAcct] = useState<{ platform: string; id: string; lane: string }>({ platform: "", id: "", lane: "0" });
+  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
 
   // Pull the live platform list + per-platform snapshots from the Resin
   // registry over IPC. On any failure (no Tauri, command missing) we keep
@@ -54,13 +55,15 @@ export function PlatformsView() {
   const handleAddPlatform = async () => {
     const name = newPlatform.trim();
     if (!name) return;
-    setBusy(true);
+    setBusy(true); setToast(null);
     addPlatform(name);
     try {
       await ipcPlatformAdd(name);
       await refresh();
-    } catch {
-      // dev fallback: local reducer already updated above
+      setToast({ kind: "ok", msg: t("platform.add") + " OK" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setToast({ kind: "err", msg });
     }
     setNewPlatform("");
     setBusy(false);
@@ -115,6 +118,16 @@ export function PlatformsView() {
         <h2 className="text-sm font-semibold tracking-tight">{t("platform.title")}</h2>
       </header>
 
+      {toast && (
+        <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-md ${
+          toast.kind === "ok"
+            ? "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-900"
+            : "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900"
+        }`}>
+          {toast.kind === "ok" ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+          <span>{toast.msg}</span>
+        </div>
+      )}
       <div className="flex gap-2">
         <input
           value={newPlatform}

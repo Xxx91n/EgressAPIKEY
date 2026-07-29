@@ -8,6 +8,15 @@ export interface LaneState {
   busy: boolean;
   account: string | null;
   authority: string | null;
+  // Issue 4+7: each lane carries the platform + key-hash it currently
+  // serves, plus an SSE-locked flag. The Resin sidecar computes the
+  // lane<->exit-IP mapping (token-hash->lane native); the desktop shell
+  // only mirrors the live lease view here, so these default falsy and
+  // only populate when the IPC gateway_snapshot active_leases includes
+  // platform/token/exit_ip fields (Resin is the source of truth).
+  platform: string | null;
+  keyHash: string | null;
+  sseLocked: boolean;
 }
 
 /// One Platform + its accounts (Resin Platform/Account model).
@@ -80,8 +89,8 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 export const useAppStore = create<AppState>((set) => ({
   view: "topology",
   lanes: [
-    { index: 0, exitIp: null, busy: false, account: null, authority: null },
-    { index: 1, exitIp: null, busy: false, account: null, authority: null },
+    { index: 0, exitIp: null, busy: false, account: null, authority: null, platform: null, keyHash: null, sseLocked: false },
+    { index: 1, exitIp: null, busy: false, account: null, authority: null, platform: null, keyHash: null, sseLocked: false },
   ],
   platforms: [],
   processRoutes: [],

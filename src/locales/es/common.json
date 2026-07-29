@@ -36,14 +36,18 @@
     "advanced": "Avanzado",
     "storage": "Almacenamiento",
     "openConfigDir": "Abrir directorio de configuración",
-    "openLogDir": "Abrir directorio de registros"
+    "openLogDir": "Abrir directorio de registros",
+    "unifiedHelp": "Guardar todos los cambios"
   },
   "subscription": {
     "title": "Suscripciones",
     "import": "Importar suscripción",
     "url": "URL de suscripción",
     "imported": "{{count}} nodos importados en {{lanes}} carriles",
-    "name": "Subscription name"
+    "name": "Nombre de la suscripción",
+    "description": "Etiqueta opcional para esta suscripción importada",
+    "importSuccess": "Suscripción importada",
+    "dragHint": "Arrastra filas para reordenar"
   },
   "topology": {
     "title": "Lienzo de topología",
@@ -53,14 +57,19 @@
     "busy": "ocupado",
     "free": "libre",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar inseguro: proxy de Resin fuera de línea. Proxy del sistema borrado.",
+    "entry": "Entrada: {{platform}}",
+    "keyHash": "Hash de clave: {{hash}}",
+    "sseLocked": "SSE bloqueado"
   },
   "processRoute": {
     "title": "Ruta de proceso",
     "add": "Añadir regla de enrutamiento",
     "process": "Nombre del proceso",
     "target": "Carril destino",
-    "empty": "No hay reglas de enrutamiento por proceso."
+    "empty": "No hay reglas de enrutamiento por proceso.",
+    "conflict": "Carril {{lane}} ya enlazado a '{{process}}'",
+    "backendSaved": "Regla de enrutamiento guardada"
   },
   "common": {
     "cancel": "Cancelar",

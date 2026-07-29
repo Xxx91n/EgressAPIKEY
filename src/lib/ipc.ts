@@ -167,3 +167,24 @@ export async function ipcBackupList(url: string, username: string, password: str
   if (!/^https?:\/\//.test(url)) throw new Error("webdav url must start with http:// or https://");
   return invoke<string[]>("backup_list", { url, username, password });
 }
+
+// ---- Process routing (issue 3+10) ----
+export interface ProcessRouteRule {
+  process: string;
+  target_lane: number;
+}
+
+export async function ipcProcessRouteAdd(process: string, targetLane: number): Promise<void> {
+  assertShortName(process, "process");
+  if (targetLane < 0 || targetLane >= 50) throw new Error(`lane ${targetLane} out of range (0..49)`);
+  await invoke("process_route_add", { process, targetLane });
+}
+
+export async function ipcProcessRouteRemove(process: string): Promise<boolean> {
+  assertShortName(process, "process");
+  return invoke<boolean>("process_route_remove", { process });
+}
+
+export async function ipcProcessRouteList(): Promise<ProcessRouteRule[]> {
+  return invoke<ProcessRouteRule[]>("process_route_list");
+}

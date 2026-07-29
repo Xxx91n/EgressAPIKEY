@@ -36,14 +36,18 @@
     "advanced": "Advanced",
     "storage": "Storage",
     "openConfigDir": "Open config directory",
-    "openLogDir": "Open log directory"
+    "openLogDir": "Open log directory",
+    "unifiedHelp": "Save all changes"
   },
   "subscription": {
     "title": "Subscriptions",
     "import": "Import subscription",
     "url": "Subscription URL",
     "imported": "Imported {{count}} nodes into {{lanes}} lanes",
-    "name": "Subscription name"
+    "name": "Subscription name",
+    "description": "Optional label for this imported subscription",
+    "importSuccess": "Subscription imported",
+    "dragHint": "Drag rows to reorder"
   },
   "topology": {
     "title": "Topology canvas",
@@ -53,14 +57,19 @@
     "busy": "busy",
     "free": "free",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared.",
+    "entry": "Entry: {{platform}}",
+    "keyHash": "Key hash: {{hash}}",
+    "sseLocked": "SSE locked"
   },
   "processRoute": {
     "title": "Process route",
     "add": "Add routing rule",
     "process": "Process name",
     "target": "Target lane",
-    "empty": "No per-process routing rules."
+    "empty": "No per-process routing rules.",
+    "conflict": "Lane {{lane}} already bound to '{{process}}'",
+    "backendSaved": "Routing rule saved"
   },
   "common": {
     "cancel": "Cancel",

@@ -36,14 +36,18 @@
     "advanced": "ขั้นสูง",
     "storage": "ที่เก็บข้อมูล",
     "openConfigDir": "เปิดไดเรกทอรีการตั้งค่า",
-    "openLogDir": "เปิดไดเรกทอรีบันทึก"
+    "openLogDir": "เปิดไดเรกทอรีบันทึก",
+    "unifiedHelp": "บันทึกการเปลี่ยนแปลงทั้งหมด"
   },
   "subscription": {
     "title": "การสมัครรับข้อมูล",
     "import": "นำเข้าการสมัครรับข้อมูล",
     "url": "URL การสมัครรับข้อมูล",
     "imported": "นำเข้า {{count}} โหนด ใน {{lanes}} เลน",
-    "name": "Subscription name"
+    "name": "ชื่อการสมัครรับข้อมูล",
+    "description": "ป้ายกำกับทางเลือกสำหรับการสมัครรับข้อมูลที่นำเข้านี้",
+    "importSuccess": "นำเข้าการสมัครรับข้อมูลแล้ว",
+    "dragHint": "ลากแถวเพื่อจัดลำดับใหม่"
   },
   "topology": {
     "title": "ผืนผ้าทอพอโลยี",
@@ -53,14 +57,19 @@
     "busy": "ไม่ว่าง",
     "free": "ว่าง",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "ไซด์คาร์ไม่ปลอดภัย: พร็อกซี Resin ออฟไลน์ ล้างพร็อกซีของระบบแล้ว",
+    "entry": "ทางเข้า: {{platform}}",
+    "keyHash": "แฮชคีย์: {{hash}}",
+    "sseLocked": "SSE ถูกล็อก"
   },
   "processRoute": {
     "title": "เส้นทางโปรเซส",
     "add": "เพิ่มกฎ",
     "process": "ชื่อโปรเซส",
     "target": "เลนปลายทาง",
-    "empty": "ไม่มีกฎกำหนดเส้นทางตามโปรเซส"
+    "empty": "ไม่มีกฎกำหนดเส้นทางตามโปรเซส",
+    "conflict": "เลน {{lane}} ถูกผูกกับ '{{process}}' แล้ว",
+    "backendSaved": "บันทึกกฎการกำหนดเส้นทางแล้ว"
   },
   "common": {
     "cancel": "ยกเลิก",

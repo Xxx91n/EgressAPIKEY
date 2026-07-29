@@ -36,14 +36,18 @@
     "advanced": "Erweitert",
     "storage": "Speicher",
     "openConfigDir": "Konfigurationsverzeichnis öffnen",
-    "openLogDir": "Protokollverzeichnis öffnen"
+    "openLogDir": "Protokollverzeichnis öffnen",
+    "unifiedHelp": "Alle Änderungen speichern"
   },
   "subscription": {
     "title": "Abonnements",
     "import": "Abonnement importieren",
     "url": "Abonnement-URL",
     "imported": "{{count}} Knoten in {{lanes}} Lanes importiert",
-    "name": "Subscription name"
+    "name": "Abonnementname",
+    "description": "Optionale Bezeichnung für dieses importierte Abonnement",
+    "importSuccess": "Abonnement importiert",
+    "dragHint": "Zeilen ziehen zum Sortieren"
   },
   "topology": {
     "title": "Topologie-Canvas",
@@ -53,14 +57,19 @@
     "busy": "beschäftigt",
     "free": "frei",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidebar unsicher: Resin-Proxy offline. System-Proxy gelöscht.",
+    "entry": "Eingang: {{platform}}",
+    "keyHash": "Schlüssel-Hash: {{hash}}",
+    "sseLocked": "SSE gesperrt"
   },
   "processRoute": {
     "title": "Prozessroute",
     "add": "Routing-Regel hinzufügen",
     "process": "Prozessname",
     "target": "Ziel-Lane",
-    "empty": "Keine prozessspezifischen Routing-Regeln."
+    "empty": "Keine prozessspezifischen Routing-Regeln.",
+    "conflict": "Lane {{lane}} bereits an '{{process}}' gebunden",
+    "backendSaved": "Routing-Regel gespeichert"
   },
   "common": {
     "cancel": "Abbrechen",

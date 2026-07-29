@@ -36,14 +36,18 @@
     "advanced": "Zaawansowane",
     "storage": "Pamięć",
     "openConfigDir": "Otwórz katalog konfiguracji",
-    "openLogDir": "Otwórz katalog dzienników"
+    "openLogDir": "Otwórz katalog dzienników",
+    "unifiedHelp": "Zapisz wszystkie zmiany"
   },
   "subscription": {
     "title": "Subskrypcje",
     "import": "Importuj subskrypcję",
     "url": "URL subskrypcji",
     "imported": "Zaimportowano {{count}} węzłów w {{lanes}} tory",
-    "name": "Subscription name"
+    "name": "Nazwa subskrypcji",
+    "description": "Opcjonalna etykieta dla tej zaimportowanej subskrypcji",
+    "importSuccess": "Subskrypcję zaimportowano",
+    "dragHint": "Przeciągnij wiersze, aby zmienić kolejność"
   },
   "topology": {
     "title": "Kanwa topologii",
@@ -53,14 +57,19 @@
     "busy": "zajęty",
     "free": "wolny",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar niebezpieczny: proxy Resin offline. Proxy systemu wyczyszczone.",
+    "entry": "Wejście: {{platform}}",
+    "keyHash": "Hash klucza: {{hash}}",
+    "sseLocked": "SSE zablokowane"
   },
   "processRoute": {
     "title": "Trasa procesu",
     "add": "Dodaj regułę",
     "process": "Nazwa procesu",
     "target": "Tor docelowy",
-    "empty": "Brak reguł routingu per proces."
+    "empty": "Brak reguł routingu per proces.",
+    "conflict": "Linia {{lane}} już powiązana z '{{process}}'",
+    "backendSaved": "Reguła routingu zapisana"
   },
   "common": {
     "cancel": "Anuluj",

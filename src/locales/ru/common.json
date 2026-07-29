@@ -36,14 +36,18 @@
     "advanced": "Расширенные",
     "storage": "Хранилище",
     "openConfigDir": "Открыть каталог конфигурации",
-    "openLogDir": "Открыть каталог журналов"
+    "openLogDir": "Открыть каталог журналов",
+    "unifiedHelp": "Сохранить все изменения"
   },
   "subscription": {
     "title": "Подписки",
     "import": "Импортировать подписку",
     "url": "URL подписки",
     "imported": "Импортировано {{count}} узлов в {{lanes}} линий",
-    "name": "Subscription name"
+    "name": "Имя подписки",
+    "description": "Необязательная метка для этой импортированной подписки",
+    "importSuccess": "Подписка импортирована",
+    "dragHint": "Перетащите строки для изменения порядка"
   },
   "topology": {
     "title": "Холст топологии",
@@ -53,14 +57,19 @@
     "busy": "занято",
     "free": "свободно",
     "status": "{{lanes}} / {{busy}}",
-    "sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline. System proxy cleared."
+    "sidecarUnhealthy": "Sidecar небезопасен: прокси Resin не в сети. Системный прокси очищен.",
+    "entry": "Вход: {{platform}}",
+    "keyHash": "Хеш ключа: {{hash}}",
+    "sseLocked": "SSE заблокирован"
   },
   "processRoute": {
     "title": "Маршрут процесса",
     "add": "Добавить правило маршрутизации",
     "process": "Имя процесса",
     "target": "Целевая линия",
-    "empty": "Правила маршрутизации по процессам отсутствуют."
+    "empty": "Правила маршрутизации по процессам отсутствуют.",
+    "conflict": "Линия {{lane}} уже привязана к '{{process}}'",
+    "backendSaved": "Правило маршрутизации сохранено"
   },
   "common": {
     "cancel": "Отмена",

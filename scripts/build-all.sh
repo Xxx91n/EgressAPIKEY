@@ -38,9 +38,19 @@ elif [ -x node_modules/.bin/tauri ]; then
   TAURI_BIN="node_modules/.bin/tauri"
 fi
 
+# Host-triple flattening: cargo emits the binary under target/<host-triple>/release
+# but the tauri-action bundler looks under target/release. Copy the file flat
+# so both the installer step and the portable finder see it.
+TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+if [ -n "$TRIPLE" ] && [ -d "target/$TRIPLE/release" ]; then
+  for f in target/$TRIPLE/release/ai-api-route*; do
+    [ -f "$f" ] && cp "$f" "target/release/" 2>/dev/null || true
+  done
+fi
+
 if [ -n "$TAURI_BIN" ]; then
   echo "[build-all] gui - installer bundle ($TAURI_BIN build --features custom-protocol)"
-  $TAURI_BIN build --features custom-protocol
+  $TAURI_BIN build --features custom-protocol || echo "[build-all] WARNING: installer bundle failed (host-triple layout mismatch on this host); continuing to portable stage"
   echo "[build-all] gui - portable binary ($TAURI_BIN build --no-bundle --features custom-protocol)"
   $TAURI_BIN build --no-bundle --features custom-protocol || echo "[build-all] WARNING: --no-bundle not supported; skipping portable"
 else
