@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "Sidecar tidak aman: proxy Resin luring. Proxy sistem dibersihkan.",
     "entry": "Masuk: {{platform}}",
     "keyHash": "Hash kunci: {{hash}}",
-    "sseLocked": "SSE terkunci"
+    "sseLocked": "SSE terkunci",
+    "leasesActive": "Sewa aktif: {{count}}"
   },
   "processRoute": {
     "title": "Rute proses",

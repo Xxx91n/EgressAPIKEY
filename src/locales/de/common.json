@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "Sidebar unsicher: Resin-Proxy offline. System-Proxy gelöscht.",
     "entry": "Eingang: {{platform}}",
     "keyHash": "Schlüssel-Hash: {{hash}}",
-    "sseLocked": "SSE gesperrt"
+    "sseLocked": "SSE gesperrt",
+    "leasesActive": "Aktive Leases: {{count}}"
   },
   "processRoute": {
     "title": "Prozessroute",

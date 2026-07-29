@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "الأنبوب الجانبي غير آمن: بروكسي Resin غير متصل. تم مسح بروكسي النظام.",
     "entry": "دخول: {{platform}}",
     "keyHash": "هاش المفتاح: {{hash}}",
-    "sseLocked": "SSE مقفل"
+    "sseLocked": "SSE مقفل",
+    "leasesActive": "الإيجارات النشطة: {{count}}"
   },
   "processRoute": {
     "title": "مسار العملية",

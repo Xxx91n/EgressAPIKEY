@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "Sidecar inseguro: proxy Resin offline. Proxy do sistema limpo.",
     "entry": "Entrada: {{platform}}",
     "keyHash": "Hash da chave: {{hash}}",
-    "sseLocked": "SSE bloqueado"
+    "sseLocked": "SSE bloqueado",
+    "leasesActive": "Concessões ativas: {{count}}"
   },
   "processRoute": {
     "title": "Rota de processo",

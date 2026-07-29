@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "Sidecar 不安全: Resin 代理离线。系统代理已清除。",
     "entry": "入口: {{platform}}",
     "keyHash": "密钥哈希: {{hash}}",
-    "sseLocked": "SSE 锁定"
+    "sseLocked": "SSE 锁定",
+    "leasesActive": "活跃租约: {{count}}"
   },
   "processRoute": {
     "title": "进程路由",

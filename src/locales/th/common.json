@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "ไซด์คาร์ไม่ปลอดภัย: พร็อกซี Resin ออฟไลน์ ล้างพร็อกซีของระบบแล้ว",
     "entry": "ทางเข้า: {{platform}}",
     "keyHash": "แฮชคีย์: {{hash}}",
-    "sseLocked": "SSE ถูกล็อก"
+    "sseLocked": "SSE ถูกล็อก",
+    "leasesActive": "สัญญาเช่าที่ใช้งานอยู่: {{count}}"
   },
   "processRoute": {
     "title": "เส้นทางโปรเซส",

@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "Sidecar không an toàn: proxy Resin ngoại tuyến. Proxy hệ thống đã được xóa.",
     "entry": "Lối vào: {{platform}}",
     "keyHash": "Băm khóa: {{hash}}",
-    "sseLocked": "SSE đã khóa"
+    "sseLocked": "SSE đã khóa",
+    "leasesActive": "Bản thuê hoạt động: {{count}}"
   },
   "processRoute": {
     "title": "Tuyến tiến trình",

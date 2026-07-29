@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "साइडकार असुरक्षित: Resin प्रॉक्सी ऑफ़लाइन। सिस्टम प्रॉक्सी साफ़ कर दिया गया।",
     "entry": "प्रवेश: {{platform}}",
     "keyHash": "कुंजी हैश: {{hash}}",
-    "sseLocked": "SSE लॉक किया गया"
+    "sseLocked": "SSE लॉक किया गया",
+    "leasesActive": "सक्रिय लीज़: {{count}}"
   },
   "processRoute": {
     "title": "प्रक्रिया मार्ग",

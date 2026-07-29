@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "Sidecar небезопасен: прокси Resin не в сети. Системный прокси очищен.",
     "entry": "Вход: {{platform}}",
     "keyHash": "Хеш ключа: {{hash}}",
-    "sseLocked": "SSE заблокирован"
+    "sseLocked": "SSE заблокирован",
+    "leasesActive": "Активные аренды: {{count}}"
   },
   "processRoute": {
     "title": "Маршрут процесса",

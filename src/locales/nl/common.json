@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "Sidecar onveilig: Resin-proxy offline. Systeemproxy gewist.",
     "entry": "Ingang: {{platform}}",
     "keyHash": "Sleutel-hash: {{hash}}",
-    "sseLocked": "SSE vergrendeld"
+    "sseLocked": "SSE vergrendeld",
+    "leasesActive": "Actieve leases: {{count}}"
   },
   "processRoute": {
     "title": "Procesroute",

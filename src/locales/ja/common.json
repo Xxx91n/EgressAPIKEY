@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "サイドカーが安全ではありません: Resin プロキシがオフラインです。システム プロキシをクリアしました。",
     "entry": "エントリー: {{platform}}",
     "keyHash": "キーハッシュ: {{hash}}",
-    "sseLocked": "SSE ロック中"
+    "sseLocked": "SSE ロック中",
+    "leasesActive": "アクティブリース: {{count}}"
   },
   "processRoute": {
     "title": "プロセスルート",

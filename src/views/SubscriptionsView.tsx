@@ -40,6 +40,22 @@ export function SubscriptionsView() {
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
 
+  // Issue 8: Resin fetches remote subscriptions asynchronously in the
+  // background; node_count may stay 0 for seconds after POST. Poll up to
+  // 3 times with 1s gaps so the user sees the live count.
+  const refreshWithRetry = useCallback(async () => {
+    for (let i = 0; i < 3; i++) {
+      try {
+        const lst = await ipcSubscriptionList();
+        setLive(lst);
+        const total = lst.reduce((s: number, x: SubscriptionSnapshotEntry) => s + x.node_count, 0);
+        if (total > 0) return;
+      } catch { return; }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    try { setLive(await ipcSubscriptionList()); } catch {}
+  }, []);
+
   const handleAdd = async () => {
     const n = name.trim() || url.trim().replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 48);
     const u = url.trim();
@@ -48,10 +64,9 @@ export function SubscriptionsView() {
     localAdd(u, 0, lanes);
     try {
       await ipcSubscriptionAdd(n, u);
-      // Issue 8: refresh both the sub list AND the node pool so the
-      // node_count reflects the live Resin fetch (Resin fetches async).
-      await new Promise((r) => setTimeout(r, 500));
-      await refresh();
+      // Issue 8: retry-refresh catches the async Resin subscription fetch.
+      await new Promise((r) => setTimeout(r, 800));
+      await refreshWithRetry();
       try {
         const pool = await ipcNodePoolSnapshot();
         const total = Number(pool?.total_nodes ?? 0);

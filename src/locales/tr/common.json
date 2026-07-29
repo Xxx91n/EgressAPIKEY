@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "Sidecar güvensiz: Resin proxy çevrimdışı. Sistem proxy temizlendi.",
     "entry": "Giriş: {{platform}}",
     "keyHash": "Anahtar hash: {{hash}}",
-    "sseLocked": "SSE kilitli"
+    "sseLocked": "SSE kilitli",
+    "leasesActive": "Aktif kiralamalar: {{count}}"
   },
   "processRoute": {
     "title": "Süreç rotası",

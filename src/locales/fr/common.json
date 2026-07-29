@@ -60,7 +60,8 @@
     "sidecarUnhealthy": "Sidecar non sécurisé : proxy Resin hors ligne. Proxy système effacé.",
     "entry": "Entrée : {{platform}}",
     "keyHash": "Hash de clé : {{hash}}",
-    "sseLocked": "SSE verrouillé"
+    "sseLocked": "SSE verrouillé",
+    "leasesActive": "Bails actifs: {{count}}"
   },
   "processRoute": {
     "title": "Routage des processus",
