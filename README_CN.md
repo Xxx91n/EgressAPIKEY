@@ -33,7 +33,7 @@ pnpm tauri dev
               |
               | Tauri IPC
               v
-后端      Rust (tokio + axum + reqwest + petgraph + rusqlite)
+后端      Rust (tokio + axum + reqwest + rusqlite)
               |
               | HTTP proxy, pool_max_idle=0
               v
@@ -48,14 +48,14 @@ pnpm tauri dev
 |---|------|
 | 桌面壳 | Tauri 2 (Rust) |
 | 前端 | React 19, TypeScript, ReactFlow 12, Zustand 5, Tailwind CSS |
-| 后端 | Rust (tokio, axum, reqwest, petgraph, rusqlite) |
+| 后端 | Rust (tokio, axum, reqwest, rusqlite) |
 | 代理心 | mihomo (侧车, REST API) |
 
 ## 文档
 
 | 文件 | 用途 |
 |------|------|
-| `docs/MEMORY.md` | 压缩研究记忆——首先阅读 |
+| `docs/MEMORY_REUSE_DECISION.md` | 压缩研究记忆——首先阅读 |
 | `docs/ARCHITECTURE.md` | 分层架构、数据流、技术栈、回退方案 |
 | `docs/PROJECT_PLAN.md` | 分阶段交付（P0–P9）及成功标准 |
 

@@ -24,7 +24,7 @@ pnpm tauri dev
 
 | File | Purpose |
 |------|---------|
-| `docs/MEMORY.md` | Compressed research memory — read first |
+| `docs/MEMORY_REUSE_DECISION.md` | Compressed research memory — read first |
 | `docs/ARCHITECTURE.md` | Layers, data flow, tech stack, fallback plan |
 | `docs/PROJECT_PLAN.md` | Phased delivery (P0–P9) and success criteria |
 | `docs/RELEASE.md` | Release pipeline: CI matrix, artifact groups, iOS-class note |
@@ -35,7 +35,7 @@ pnpm tauri dev
 |-------|-----------|
 | Desktop shell | Tauri 2 (Rust) |
 | Frontend | React 19, TypeScript, ReactFlow 12, Zustand 5, Tailwind CSS |
-| Backend | Rust (tokio, axum, reqwest, petgraph, rusqlite) |
+| Backend | Rust (tokio, axum, reqwest, rusqlite) |
 | Proxy core | mihomo (sidecar subprocess, REST API control) |
 
 ## License
