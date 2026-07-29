@@ -70,7 +70,8 @@
     "target": "Linha de destino",
     "empty": "Nenhuma regra de roteamento por processo.",
     "conflict": "Faixa {{lane}} já vinculada a '{{process}}'",
-    "backendSaved": "Regra de roteamento salva"
+    "backendSaved": "Regra de roteamento salva",
+    "proxyNote": "As regras de roteamento só se aplicam quando o tráfego do cliente passa pelo proxy Resin. O sidecar impõe autenticação por requisição; isto é um registro local de regras."
   },
   "common": {
     "cancel": "Cancelar",

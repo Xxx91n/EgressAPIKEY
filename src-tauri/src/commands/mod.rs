@@ -1,4 +1,4 @@
-//! IPC commands exposed to the React frontend via `tauri::generate_handler!`.
+﻿//! IPC commands exposed to the React frontend via `tauri::generate_handler!`.
 //!
 //! Path A (fork Resin Go sidecar): the webview talks to the Resin Go control
 //! plane WRAPPED behind Rust IPC. Platform create/list/delete are FORWARDED
@@ -129,6 +129,10 @@ pub struct LaneSnapshot {
     pub lane_count: usize,
     pub busy: usize,
     pub latencies: Vec<(String, f64, u64, i8)>,
+    /// Per-platform active lease counts (platform name, active_count).
+    /// The TS side uses this to render entry boxes with the real active
+    /// lease occupancy instead of a placeholder 0. Resin is the source.
+    pub per_platform_active: Vec<(String, usize)>,
 }
 
 #[tauri::command]
@@ -136,7 +140,20 @@ pub async fn gateway_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<LaneS
     let client = resin_client(&sidecar)?;
     let leases = client.active_leases().await.map_err(|e| e.to_string())?;
     let busy = sum_active_leases(&leases);
-    Ok(LaneSnapshot { lane_count: MAX_LANES, busy, latencies: Vec::new() })
+    // Issue 4+7: pull the Resin /platforms list once per snapshot so we can
+    // resolve lease items' platform_id back to the user-visible platform NAME
+    // that the Topology canvas shows as an Entry box (the leases endpoint only
+    // exposes platform_id as a UUID; Resin owns the UUID->name mapping). On
+    // any failure we fall back to the raw platform_id so the canvas still
+    // renders a real entry instead of dropping the lease count.
+    let platforms = client.list_platforms().await.unwrap_or_else(|_| serde_json::json!([]));
+    let per_platform_active = per_platform_active_from_leases(&leases, &platforms);
+    Ok(LaneSnapshot {
+        lane_count: MAX_LANES,
+        busy,
+        latencies: Vec::new(),
+        per_platform_active,
+    })
 }
 
 fn sum_active_leases(v: &serde_json::Value) -> usize {
@@ -147,6 +164,54 @@ fn sum_active_leases(v: &serde_json::Value) -> usize {
             .sum();
     }
     v.get("active_leases").and_then(|n| n.as_u64()).map(|n| n as usize).unwrap_or(0)
+}
+
+/// Build per-platform (name, active_count) from a /metrics/realtime/leases
+/// response by joining each lease item's platform_id to the platforms list.
+/// If a lease item has no platform_id (Resin's "Default" platform emits
+/// the empty string instead of the Default platform UUID), we attribute
+/// the active count to the Default platform if it exists in the platforms
+/// list; otherwise we surface it under the raw id so the count is not lost.
+fn per_platform_active_from_leases(
+    leases: &serde_json::Value,
+    platforms: &serde_json::Value,
+) -> Vec<(String, usize)> {
+    let id_to_name: std::collections::HashMap<String, String> = platforms
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|p| {
+                    let id = p.get("id").and_then(|i| i.as_str())?.trim().to_string();
+                    let name = p.get("name").and_then(|n| n.as_str())?.trim().to_string();
+                    if id.is_empty() || name.is_empty() { None } else { Some((id, name)) }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let default_name = platforms.as_array().and_then(|arr| {
+        arr.iter()
+            .find(|p| p.get("name").and_then(|n| n.as_str()) == Some("Default"))
+            .and_then(|p| p.get("name").and_then(|n| n.as_str()).map(String::from))
+    });
+    let items = match leases.get("items").and_then(|i| i.as_array()) {
+        Some(arr) => arr,
+        None => return Vec::new(),
+    };
+    let mut acc: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for it in items {
+        let raw_id = it.get("platform_id").and_then(|i| i.as_str()).unwrap_or("").trim().to_string();
+        let active = it.get("active_leases").and_then(|n| n.as_u64()).map(|n| n as usize).unwrap_or(0);
+        let resolved = if raw_id.is_empty() {
+            // Resin emits "Default" platform leases with platform_id = ""
+            default_name.clone()
+        } else {
+            id_to_name.get(&raw_id).cloned().or(Some(raw_id.clone()))
+        };
+        if let Some(name) = resolved {
+            *acc.entry(name).or_insert(0) += active;
+        }
+    }
+    acc.into_iter().collect()
 }
 
 #[tauri::command]
@@ -592,5 +657,37 @@ mod tests {
         assert!(process_route_conflict_check(&existing, "openai", 3).is_err());
         // different process, different lane -> ok
         assert!(process_route_conflict_check(&existing, "openai", 4).is_ok());
+    }
+
+    #[test]
+    fn per_platform_active_resolves_uuid_to_name() {
+        // Default platform + one custom platform; Default emits platform_id = ""
+        let platforms = json!([
+            { "name": "Default", "id": "00000000-0000-0000-0000-000000000000" },
+            { "name": "OpenAI",   "id": "11111111-1111-1111-1111-111111111111" },
+        ]);
+        let leases = json!({
+            "items": [
+                { "platform_id": "", "active_leases": 4, "ts": "x" },
+                { "platform_id": "11111111-1111-1111-1111-111111111111", "active_leases": 2, "ts": "x" },
+            ],
+            "step_seconds": 5,
+        });
+        let got = per_platform_active_from_leases(&leases, &platforms);
+        let map: std::collections::HashMap<String, usize> = got.into_iter().collect();
+        assert_eq!(map.get("Default"), Some(&4));
+        assert_eq!(map.get("OpenAI"), Some(&2));
+    }
+
+    #[test]
+    fn per_platform_active_falls_back_to_raw_id_when_unknown() {
+        // Lease for a UUID not present in the platforms list; we surface the raw
+        // UUID string instead of dropping the count so the canvas still renders.
+        let platforms = json!([ { "name": "Default", "id": "00000000-0000-0000-0000-000000000000" } ]);
+        let leases = json!({
+            "items": [ { "platform_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "active_leases": 7 } ],
+        });
+        let got = per_platform_active_from_leases(&leases, &platforms);
+        assert!(got.iter().any(|(n, c)| n == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" && *c == 7));
     }
 }

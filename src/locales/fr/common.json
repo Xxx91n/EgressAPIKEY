@@ -70,7 +70,8 @@
     "target": "Voie cible",
     "empty": "Aucune règle de routage par processus.",
     "conflict": "Lane {{lane}} déjà liée à '{{process}}'",
-    "backendSaved": "Règle de routage enregistrée"
+    "backendSaved": "Règle de routage enregistrée",
+    "proxyNote": "Les règles de routage ne s'appliquent que lorsque le trafic client passe par le proxy Resin. Le sidecar applique une auth par requête ; ceci est un registre local de règles."
   },
   "common": {
     "cancel": "Annuler",

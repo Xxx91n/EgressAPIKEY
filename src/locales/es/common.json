@@ -70,7 +70,8 @@
     "target": "Carril destino",
     "empty": "No hay reglas de enrutamiento por proceso.",
     "conflict": "Carril {{lane}} ya enlazado a '{{process}}'",
-    "backendSaved": "Regla de enrutamiento guardada"
+    "backendSaved": "Regla de enrutamiento guardada",
+    "proxyNote": "Las reglas de enrutamiento solo se aplican cuando el tráfico del cliente pasa por el proxy Resin. El sidecar aplica autenticación por solicitud; esto es un registro local de reglas."
   },
   "common": {
     "cancel": "Cancelar",

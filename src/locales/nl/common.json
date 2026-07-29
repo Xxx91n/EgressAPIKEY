@@ -70,7 +70,8 @@
     "target": "Doelbaan",
     "empty": "Geen per-proces routeringsregels.",
     "conflict": "Lane {{lane}} al gebonden aan '{{process}}'",
-    "backendSaved": "Routeringsregel opgeslagen"
+    "backendSaved": "Routeringsregel opgeslagen",
+    "proxyNote": "Routeringsregels zijn alleen van toepassing wanneer clientverkeer via de Resin-proxy loopt. De sidecar dwingt authenticatie per verzoek af; dit is een lokaal regelregister."
   },
   "common": {
     "cancel": "Annuleren",

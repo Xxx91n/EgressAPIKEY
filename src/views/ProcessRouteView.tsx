@@ -113,6 +113,11 @@ export function ProcessRouteView() {
         </div>
       </div>
 
+      <div className="rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-950/30 px-4 py-2 text-xs text-blue-600 dark:text-blue-400 flex items-start gap-2">
+        <AlertCircle size={14} className="mt-0.5 shrink-0" strokeWidth={1.75} />
+        <span className="leading-relaxed">{t("processRoute.proxyNote")}</span>
+      </div>
+
       {localRoutes.length === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 py-8 flex flex-col items-center gap-2 text-zinc-400 dark:text-zinc-500">
           <Inbox size={20} strokeWidth={1.5} />

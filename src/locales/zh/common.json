@@ -70,7 +70,8 @@
     "target": "目标通道",
     "empty": "暂无进程路由规则。",
     "conflict": "通道 {{lane}} 已绑定到 '{{process}}'",
-    "backendSaved": "路由规则已保存"
+    "backendSaved": "路由规则已保存",
+    "proxyNote": "路由规则仅当客户端流量经由 Resin 代理转发时生效。Resin 边车按请求鉴权；此处为本地规则注册表。"
   },
   "common": {
     "cancel": "取消",

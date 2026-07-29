@@ -70,7 +70,8 @@
     "target": "Hedef şerit",
     "empty": "Süreç başına yönlendirme kuralı yok.",
     "conflict": "Lane {{lane}} zaten '{{process}}' ile bağlı",
-    "backendSaved": "Yönlendirme kuralı kaydedildi"
+    "backendSaved": "Yönlendirme kuralı kaydedildi",
+    "proxyNote": "Yönlendirme kuralları yalnızca istemci trafiği Resin proxy üzerinden geçtiğinde uygulanır. Sidecar istek başına kimlik doğrulamasını zorlar; bu yerel bir kural kayıt defteridir."
   },
   "common": {
     "cancel": "İptal",

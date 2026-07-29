@@ -104,19 +104,22 @@ export function TopologyView() {
         const pl = await ipcPlatformList();
         if (cancelled) return;
         setPlatforms(pl);
-        // Parse the gateway snapshot's latencies if any (none today), else 0.
+        // T2: read the per-platform active-lease count from the gateway
+        // snapshot's per_platform_active field (resolved by the Rust side from
+        // /metrics/realtime/leases joined with /platforms). Each entry maps the
+        // user-visible platform NAME to the active-lease count Resin reports.
+        // T2: fetch a fresh snapshot here to read per_platform_active with
+        // platforms in scope. The outer snapshot's per_platform_active from the
+        // first try tried to use snap but snap is out of scope here; we re-fetch
+        // so we can join by platform NAME. Resin returns this in ~few ms.
         const counts: Record<string, number> = {};
-        pl.forEach((name) => { counts[name] = 0; });
-        // The lease endpoint is always available via the ipc gateway snapshot,
-        // not as a separate call; we approximate per-platform count by dividing
-        // busyTotal across platforms if there are active leases. The Resin Go
-        // binary is the source of truth; this mirrors what it returns today.
-        if (pl.length > 0 && (await ipcGatewaySnapshot().catch(() => null))) {
-          // Resin's /metrics/realtime/leases items only expose an aggregate
-          // active_leases counter per platform_id, not per-key/ex per-lane.
-          // The desktop shell cannot see per-key/per-lane detail yet; we show
-          // the aggregate busy total against the lane boxes as busy/free state.
-        }
+        try {
+          const snap2 = await ipcGatewaySnapshot();
+          snap2.per_platform_active?.forEach(([name, n]) => { counts[name] = n; });
+        } catch {}
+        // Zero-fill platforms in the list that have no active leases so each
+        // entry box renders without an undefined count.
+        pl.forEach((name) => { if (counts[name] === undefined) counts[name] = 0; });
         setLeaseCounts(counts);
       } catch {}
     };

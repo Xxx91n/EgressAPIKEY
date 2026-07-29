@@ -70,7 +70,8 @@
     "target": "Target lane",
     "empty": "No per-process routing rules.",
     "conflict": "Lane {{lane}} already bound to '{{process}}'",
-    "backendSaved": "Routing rule saved"
+    "backendSaved": "Routing rule saved",
+    "proxyNote": "Routing rules apply only when client traffic flows through the Resin proxy. The sidecar enforces per-request auth; rules here are a local registry."
   },
   "common": {
     "cancel": "Cancel",

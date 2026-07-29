@@ -70,7 +70,8 @@
     "target": "Corsia di destinazione",
     "empty": "Nessuna regola di instradamento per processo.",
     "conflict": "Linea {{lane}} già collegata a '{{process}}'",
-    "backendSaved": "Regola di instradamento salvata"
+    "backendSaved": "Regola di instradamento salvata",
+    "proxyNote": "Le regole di routing si applicano solo quando il traffico del client attraversa il proxy Resin. Il sidecar applica l'autenticazione per richiesta; questo è un registro locale di regole."
   },
   "common": {
     "cancel": "Annulla",

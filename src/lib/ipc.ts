@@ -44,6 +44,9 @@ export interface LaneSnapshot {
   lane_count: number;
   busy: number;
   latencies: [string, number, number, number][];
+  /// Per-platform (name, active_count) pairs from Resin /metrics/realtime/leases
+  /// joined with /platforms to resolve platform_id -> user-visible name.
+  per_platform_active: [string, number][];
 }
 
 export async function ipcPlatformAdd(name: string): Promise<void> {

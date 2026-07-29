@@ -70,7 +70,8 @@
     "target": "Tor docelowy",
     "empty": "Brak reguł routingu per proces.",
     "conflict": "Linia {{lane}} już powiązana z '{{process}}'",
-    "backendSaved": "Reguła routingu zapisana"
+    "backendSaved": "Reguła routingu zapisana",
+    "proxyNote": "Reguły routingu mają zastosowanie tylko, gdy ruch klienta przepływa przez proxy Resin. Sidecar wymusza autoryzację per żądanie; jest to lokalny rejestr reguł."
   },
   "common": {
     "cancel": "Anuluj",
