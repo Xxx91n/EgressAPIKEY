@@ -1,3 +1,11 @@
+# Handoff — Path A (ARCHIVED: pre-G1 spec)
+
+> **Status**: All G1-G5 milestones in this document have been IMPLEMENTED and verified at source level.
+> This file is kept for historical reference (the original spec). The live handoff is [HANDOFF_PATH_A_CONTINUATION.md](./HANDOFF_PATH_A_CONTINUATION.md).
+> G1: sidecar.rs boot_resin ✅ | G2: resin_client.rs + commands/mod.rs 19 commands ✅ | G3: spawn_health_poll clear_os_proxy ✅ | G4: 5 tabs + sidecar-status listener ✅ | G5: ci.yml 5 jobs + fetch_resin ✅
+
+---
+
 # Handoff — Path A 实施移交（2026-07-29）
 
 > 接手 agent 必读：

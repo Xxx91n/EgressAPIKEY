@@ -84,5 +84,19 @@
     "clear": "Clear",
     "collapse": "Collapse",
     "empty": "No log entries yet."
+  },
+  "backup": {
+    "title": "Backup",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "Username",
+    "webdavPass": "Password",
+    "save": "Save WebDAV config",
+    "create": "Create backup",
+    "upload": "Upload backup",
+    "list": "List backups",
+    "restore": "Restore",
+    "success": "Backup completed",
+    "failed": "Backup failed",
+    "noConfig": "WebDAV not configured"
   }
 }

@@ -84,5 +84,19 @@
     "clear": "साफ़ करें",
     "collapse": "संक्षिप्त करें",
     "empty": "अभी तक कोई लॉग नहीं।"
+  },
+  "backup": {
+    "title": "बैकअप",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "उपयोगकर्ता",
+    "webdavPass": "पासवर्ड",
+    "save": "WebDAV सहेजें",
+    "create": "बैकअप बनाएं",
+    "upload": "अपलोड",
+    "list": "बैकअप सूची",
+    "restore": "पुनर्स्थापन",
+    "success": "बैकअप पूर्ण",
+    "failed": "बैकअप विफल",
+    "noConfig": "WebDAV अनकॉन्फ़िगर्ड"
   }
 }

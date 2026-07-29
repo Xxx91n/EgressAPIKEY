@@ -84,5 +84,19 @@
     "clear": "Wissen",
     "collapse": "Samenvouwen",
     "empty": "Nog geen logs."
+  },
+  "backup": {
+    "title": "Back-up",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "Gebruikersnaam",
+    "webdavPass": "Wachtwoord",
+    "save": "WebDAV opslaan",
+    "create": "Back-up maken",
+    "upload": "Back-up uploaden",
+    "list": "Back-ups lijst",
+    "restore": "Herstellen",
+    "success": "Back-up voltooid",
+    "failed": "Back-up mislukt",
+    "noConfig": "WebDAV niet geconfigureerd"
   }
 }

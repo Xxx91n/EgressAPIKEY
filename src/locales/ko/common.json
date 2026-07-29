@@ -84,5 +84,19 @@
     "clear": "지우기",
     "collapse": "접기",
     "empty": "로그 항목이 아직 없습니다."
+  },
+  "backup": {
+    "title": "백업",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "사용자명",
+    "webdavPass": "비밀번호",
+    "save": "WebDAV 설정 저장",
+    "create": "백업 생성",
+    "upload": "백업 업로드",
+    "list": "백업 목록",
+    "restore": "복원",
+    "success": "백업 완료",
+    "failed": "백업 실패",
+    "noConfig": "WebDAV 미설정"
   }
 }

@@ -84,5 +84,19 @@
     "clear": "クリア",
     "collapse": "折りたたむ",
     "empty": "ログエントリはまだありません。"
+  },
+  "backup": {
+    "title": "バックアップ",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "ユーザー名",
+    "webdavPass": "パスワード",
+    "save": "WebDAV設定を保存",
+    "create": "バックアップ作成",
+    "upload": "バックアップ送信",
+    "list": "バックアップ一覧",
+    "restore": "復元",
+    "success": "バックアップ完了",
+    "failed": "バックアップ失敗",
+    "noConfig": "WebDAV未設定"
   }
 }

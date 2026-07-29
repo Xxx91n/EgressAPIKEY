@@ -9,7 +9,7 @@ import { SubscriptionsView } from "./views/SubscriptionsView";
 import { PlatformsView } from "./views/PlatformsView";
 import { useTheme } from "./lib/useTheme";
 import { LogPanel } from "./components/LogPanel";
-import { loadLocale, loadTheme, loadLaneCount } from "./lib/settings";
+import { loadLocale, loadTheme, loadLaneCount, loadView, loadProcessRoutes } from "./lib/settings";
 
 // Side rail nav: icon + label, desktop-tool density. Lucide vector icons
 // (not emoji) per ui-ux-pro-max: scalable, theme-aware, consistent stroke.
@@ -25,6 +25,7 @@ function SideRail() {
   const { t } = useTranslation();
   const view = useAppStore((s) => s.view);
   const setView = useAppStore((s) => s.setView);
+
   return (
     <nav className="w-14 flex flex-col items-center gap-1 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 py-3 shrink-0">
       {NAV_ITEMS.map((item) => {
@@ -58,6 +59,8 @@ export default function App() {
   const setLocale = useAppStore((s) => s.setLocale);
   const setTheme = useAppStore((s) => s.setTheme);
   const setLaneCount = useAppStore((s) => s.setLaneCount);
+  const setView = useAppStore((s) => s.setView);
+  const setProcessRoutes = useAppStore((s) => s.setProcessRoutes);
   useTheme();
 
   // Bootstrap persisted prefs once on mount (no-op outside Tauri/vitest).
@@ -77,9 +80,17 @@ export default function App() {
       if (savedLaneCount && !cancelled) {
         setLaneCount(savedLaneCount);
       }
+      const savedView = await loadView();
+      if (savedView && !cancelled) {
+        setView(savedView as any);
+      }
+      const savedRoutes = await loadProcessRoutes();
+      if (savedRoutes && !cancelled) {
+        setProcessRoutes(savedRoutes as any);
+      }
     })();
     return () => { cancelled = true; };
-  }, [setLocale, setTheme, setLaneCount, i18n]);
+  }, [setLocale, setTheme, setLaneCount, setView, setProcessRoutes, i18n]);
 
   return (
     <div className="h-full flex bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">

@@ -84,5 +84,19 @@
     "clear": "Effacer",
     "collapse": "Réduire",
     "empty": "Aucune entrée de journal pour le moment."
+  },
+  "backup": {
+    "title": "Sauvegarde",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Utilisateur",
+    "webdavPass": "Mot de passe",
+    "save": "Enregistrer WebDAV",
+    "create": "Créer sauvegarde",
+    "upload": "Téléverser",
+    "list": "Lister sauvegardes",
+    "restore": "Restaurer",
+    "success": "Sauvegarde terminée",
+    "failed": "Sauvegarde échouée",
+    "noConfig": "WebDAV non configuré"
   }
 }

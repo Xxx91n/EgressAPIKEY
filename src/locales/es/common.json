@@ -84,5 +84,19 @@
     "clear": "Limpiar",
     "collapse": "Contraer",
     "empty": "Aún no hay entradas de registro."
+  },
+  "backup": {
+    "title": "Copia de seguridad",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Usuario",
+    "webdavPass": "Contraseña",
+    "save": "Guardar config WebDAV",
+    "create": "Crear copia",
+    "upload": "Subir copia",
+    "list": "Listar copias",
+    "restore": "Restaurar",
+    "success": "Copia completada",
+    "failed": "Copia fallida",
+    "noConfig": "WebDAV no configurado"
   }
 }

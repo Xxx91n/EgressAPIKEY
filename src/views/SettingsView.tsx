@@ -1,8 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText } from "lucide-react";
+import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2 } from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { ipcBackupCreate, ipcBackupUpload } from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import {
   saveLocale,
@@ -12,6 +13,8 @@ import {
   saveGatewayBind,
   loadMihomoApi,
   saveMihomoApi,
+  loadWebdavConfig,
+  saveWebdavConfig,
 } from "../lib/settings";
 
 const LOCALES: Locale[] = ["en", "zh", "es", "fr", "de", "ja", "ko", "ru", "pt", "it", "nl", "pl", "tr", "ar", "vi", "th", "id", "hi"];
@@ -86,6 +89,12 @@ export function SettingsView() {
   // MihomoController::new which refuses non-loopback URLs (§7.6).
   const [gatewayBind, setGatewayBind] = useState("127.0.0.1:7897");
   const [mihomoApi, setMihomoApi] = useState("http://127.0.0.1:9090");
+  // WebDAV backup config (clash-verge-rev pattern)
+  const [backupUrl, setBackupUrl] = useState("");
+  const [backupUser, setBackupUser] = useState("");
+  const [backupPass, setBackupPass] = useState("");
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMsg, setBackupMsg] = useState("");
 
   // Hydrate persisted network settings on mount (webview only; no-op in vitest).
   useEffect(() => {
@@ -97,6 +106,19 @@ export function SettingsView() {
       if (m) setMihomoApi(m);
     })();
     return () => { cancelled = true; };
+  }, []);
+
+   // Hydrate WebDAV backup config
+  useEffect(() => {
+    let c2 = false;
+    void (async () => {
+      const cfg = await loadWebdavConfig();
+      if (c2 || !cfg) return;
+      setBackupUrl(cfg.url);
+      setBackupUser(cfg.username);
+      setBackupPass(cfg.password);
+    })();
+    return () => { c2 = true; };
   }, []);
 
   const changeLocale = async (next: Locale) => {
@@ -119,6 +141,28 @@ export function SettingsView() {
   // check on mihomoApi, and a length cap so we never persist a multi-MB string.
   // The Rust side is the real trust boundary (MihomoController::new refuses
   // non-loopback URLs, see crates/resin-core/src/mihomo.rs + AGENTS §7.6).
+  const saveWebdav = async () => {
+    await saveWebdavConfig(backupUrl.trim(), backupUser.trim(), backupPass);
+    setBackupMsg(t("backup.success"));
+    setTimeout(() => setBackupMsg(""), 2000);
+  };
+
+  const doBackup = async () => {
+    if (!backupUrl.trim()) { setBackupMsg(t("backup.noConfig")); return; }
+    setBackupBusy(true);
+    setBackupMsg("");
+    try {
+      const zipPath = await ipcBackupCreate();
+      await ipcBackupUpload(backupUrl.trim(), backupUser.trim(), backupPass, zipPath);
+      setBackupMsg(t("backup.success"));
+    } catch (e) {
+      setBackupMsg(t("backup.failed") + ": " + String(e));
+    } finally {
+      setBackupBusy(false);
+      setTimeout(() => setBackupMsg(""), 3000);
+    }
+  };
+
   const saveAll = async () => {
     const n = Math.max(1, Math.min(50, Math.trunc(lanes)));
     setLanes(n);
@@ -151,6 +195,10 @@ export function SettingsView() {
 
   const selectCls =
     "w-56 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40";
+  const inputCls =
+    "w-full max-w-sm rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40";
+  const btnCls =
+    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm";
 
   return (
     <section className="max-w-2xl space-y-5">
@@ -252,6 +300,49 @@ export function SettingsView() {
           </button>
         </div>
       </SectionCard>
+          <SectionCard icon={<CloudUpload size={16} strokeWidth={1.75} />} title={t("backup.title")}>
+        <Field label={t("backup.webdavUrl")}>
+          <input
+            type="text"
+            value={backupUrl}
+            onChange={(e) => setBackupUrl(e.target.value)}
+            placeholder="https://app.koofr.net/dav/Koofr"
+            className={inputCls}
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t("backup.webdavUser")}>
+            <input
+              type="text"
+              value={backupUser}
+              onChange={(e) => setBackupUser(e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+          <Field label={t("backup.webdavPass")}>
+            <input
+              type="password"
+              value={backupPass}
+              onChange={(e) => setBackupPass(e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <button onClick={() => void saveWebdav()} className={btnCls}>
+            <Save size={14} strokeWidth={1.75} />
+            {t("backup.save")}
+          </button>
+          <button onClick={() => void doBackup()} disabled={backupBusy} className={btnCls}>
+            {backupBusy ? <Loader2 size={14} strokeWidth={1.75} className="animate-spin" /> : <CloudUpload size={14} strokeWidth={1.75} />}
+            {t("backup.create")}
+          </button>
+          {backupMsg ? <Check size={14} className="text-green-500" /> : null}
+          {backupMsg ? <span className="text-xs text-zinc-500">{backupMsg}</span> : null}
+        </div>
+      </SectionCard>
     </section>
+
+      
   );
 }

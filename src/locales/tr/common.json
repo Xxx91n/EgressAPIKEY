@@ -84,5 +84,19 @@
     "clear": "Temizle",
     "collapse": "Daralt",
     "empty": "Henüz günlük yok."
+  },
+  "backup": {
+    "title": "Yedek",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "Kullanıcı adı",
+    "webdavPass": "Şifre",
+    "save": "WebDAV kaydet",
+    "create": "Yedek oluştur",
+    "upload": "Yedek yükle",
+    "list": "Yedekleri listele",
+    "restore": "Geri yükle",
+    "success": "Yedek tamamlandı",
+    "failed": "Yedek başarısız",
+    "noConfig": "WebDAV yapılandırılmadı"
   }
 }

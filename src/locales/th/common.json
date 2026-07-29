@@ -84,5 +84,19 @@
     "clear": "ล้าง",
     "collapse": "ยุบ",
     "empty": "ยังไม่มีบันทึก"
+  },
+  "backup": {
+    "title": "สำรองข้อมูล",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "ชื่อผู้ใช้",
+    "webdavPass": "รหัสผ่าน",
+    "save": "บันทึก WebDAV",
+    "create": "สร้างสำรอง",
+    "upload": "อัปโหลด",
+    "list": "รายการสำรอง",
+    "restore": "กู้คืน",
+    "success": "สำรองสำเร็จ",
+    "failed": "สำรองล้มเหลว",
+    "noConfig": "WebDAV ยังไม่ได้ตั้ง"
   }
 }

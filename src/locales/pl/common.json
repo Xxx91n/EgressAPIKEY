@@ -84,5 +84,19 @@
     "clear": "Wyczyść",
     "collapse": "Zwiń",
     "empty": "Brak logów."
+  },
+  "backup": {
+    "title": "Kopia zapasowa",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Nazwa użytkownika",
+    "webdavPass": "Hasło",
+    "save": "Zapisz WebDAV",
+    "create": "Utwórz kopię",
+    "upload": "Wyślij kopię",
+    "list": "Lista kopii",
+    "restore": "Przywróć",
+    "success": "Kopia utworzona",
+    "failed": "Kopia nieudana",
+    "noConfig": "WebDAV nie skonfigurowany"
   }
 }

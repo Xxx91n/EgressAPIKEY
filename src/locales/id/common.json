@@ -84,5 +84,19 @@
     "clear": "Bersihkan",
     "collapse": "Lipat",
     "empty": "Belum ada log."
+  },
+  "backup": {
+    "title": "Cadangan",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Nama pengguna",
+    "webdavPass": "Kata sandi",
+    "save": "Simpan WebDAV",
+    "create": "Buat cadangan",
+    "upload": "Unggah cadangan",
+    "list": "Daftar cadangan",
+    "restore": "Pulihkan",
+    "success": "Cadangan selesai",
+    "failed": "Cadangan gagal",
+    "noConfig": "WebDAV belum diatur"
   }
 }

@@ -84,5 +84,19 @@
     "clear": "Xóa",
     "collapse": "Thu gọn",
     "empty": "Chưa có nhật ký."
+  },
+  "backup": {
+    "title": "Sao lưu",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Tên người dùng",
+    "webdavPass": "Mật khẩu",
+    "save": "Lưu WebDAV",
+    "create": "Tạo bản sao",
+    "upload": "Tải lên",
+    "list": "Danh sách sao lưu",
+    "restore": "Khôi phục",
+    "success": "Sao lưu hoàn tất",
+    "failed": "Sao lưu thất bại",
+    "noConfig": "WebDAV chưa cấu hình"
   }
 }

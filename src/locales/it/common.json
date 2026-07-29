@@ -84,5 +84,19 @@
     "clear": "Pulisci",
     "collapse": "Comprimi",
     "empty": "Nessun log."
+  },
+  "backup": {
+    "title": "Backup",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Utente",
+    "webdavPass": "Password",
+    "save": "Salva WebDAV",
+    "create": "Crea backup",
+    "upload": "Carica backup",
+    "list": "Elenca backup",
+    "restore": "Ripristina",
+    "success": "Backup completato",
+    "failed": "Backup fallito",
+    "noConfig": "WebDAV non configurato"
   }
 }

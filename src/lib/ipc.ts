@@ -146,3 +146,24 @@ export async function ipcSubscriptionList(): Promise<SubscriptionSnapshotEntry[]
 export async function ipcNodePoolSnapshot(): Promise<{ total_nodes: number; healthy_nodes: number; egress_ip_count: number; healthy_egress_ip_count: number }> {
   return invoke("node_pool_snapshot");
 }
+
+
+/// Backup: create zip of settings + resin state, return temp path.
+export async function ipcBackupCreate(): Promise<string> {
+  return invoke<string>("backup_create");
+}
+
+/// Backup: upload zip to WebDAV server.
+export async function ipcBackupUpload(url: string, username: string, password: string, zipPath: string): Promise<void> {
+  if (!url || url.length > 2048) throw new Error("webdav url invalid");
+  if (!/^https?:\/\//.test(url)) throw new Error("webdav url must start with http:// or https://");
+  if (!zipPath) throw new Error("zip path must be non-empty");
+  await invoke("backup_upload", { url, username, password, zipPath });
+}
+
+/// Backup: list backups on WebDAV server.
+export async function ipcBackupList(url: string, username: string, password: string): Promise<string[]> {
+  if (!url || url.length > 2048) throw new Error("webdav url invalid");
+  if (!/^https?:\/\//.test(url)) throw new Error("webdav url must start with http:// or https://");
+  return invoke<string[]>("backup_list", { url, username, password });
+}

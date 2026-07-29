@@ -87,6 +87,9 @@ fn main() {
             commands::subscription_remove,
             commands::subscription_list,
             commands::node_pool_snapshot,
+            commands::backup_create,
+            commands::backup_upload,
+            commands::backup_list,
         ])
         .setup(|app| {
             // #2/#6: read persisted network settings so the user

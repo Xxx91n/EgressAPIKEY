@@ -84,5 +84,19 @@
     "clear": "مسح",
     "collapse": "طي",
     "empty": "لا توجد إدخالات سجل بعد."
+  },
+  "backup": {
+    "title": "نسخة احتياطية",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "المستخدم",
+    "webdavPass": "كلمة المرور",
+    "save": "حفظ WebDAV",
+    "create": "إنشاء نسخة",
+    "upload": "رفع",
+    "list": "قائمة النسخ",
+    "restore": "استعادة",
+    "success": "تم النسخ",
+    "failed": "فشل النسخ",
+    "noConfig": "WebDAV غير مُعد"
   }
 }

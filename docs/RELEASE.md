@@ -1,18 +1,26 @@
 # Release pipeline
 
-CI produces five artifact groups that land in release/ (gitignored; published to the GitHub Release):
+CI produces artifact groups landing in release/ (gitignored; GitHub Release):
 
 | Name | Job | Output |
 |---|---|---|
-| windows-gui | gui matrix (windows-latest) | Tauri MSI + NSIS installer |
-| linux-gui | gui matrix (ubuntu-latest) | Tauri deb + AppImage |
-| macos-gui | gui matrix (macos-latest, universal) | Tauri dmg (and .app) |
-| windows-backend | backend matrix | release/windows-backend.tar.gz (resin-core binary) |
-| linux-backend | backend matrix | release/linux-backend.tar.gz |
-| macos-backend | backend matrix | release/macos-backend.tar.gz |
+| windows-gui | gui matrix (windows-latest) | MSI + NSIS + portable ai-api-route.exe |
+| linux-gui | gui matrix (ubuntu-latest) | deb + AppImage + portable ai-api-route |
+| macos-gui | gui matrix (macos-latest) | dmg + portable ai-api-route |
+| backend | backend matrix (per OS) | <os>-backend.tar.gz |
 
-## iOS-class desktop target
+## Portable variant
 
-iPadOS cannot run a Tauri desktop shell. The Apple-silicon desktop sibling is the macOS universal dmg, which supports arm64. This is documented in CI and README; do not promise an iPad build.
+Every GUI OS ships BOTH installer bundles AND the drop-and-run portable binary. The portable binary requires resin.exe alongside (build-all.sh stages both).
 
-Verify locally with bash scripts/build-all.sh before pushing.
+## iOS-class desktop
+
+iPadOS cannot run Tauri; macOS dmg (arm64) is the Apple-silicon sibling.
+
+## Local reproduction
+
+```bash
+bash scripts/build-all.sh
+```
+
+The release portable exe is what users get (debug exe shows ERR_CONNECTION_REFUSED without Vite dev server).

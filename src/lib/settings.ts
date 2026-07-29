@@ -137,3 +137,54 @@ export async function saveMihomoApi(url: string): Promise<void> {
     console.warn("[settings] save failed:", e);
   }
 }
+
+// --- View persistence (last-active tab) ---
+export async function loadView(): Promise<string | null> {
+  try {
+    return await store().get<string>("view") ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveView(view: string): Promise<void> {
+  try {
+    await store().set("view", view);
+    await store().save();
+  } catch (e) { console.warn("[settings] save failed:", e); }
+}
+
+// --- Process routes persistence (pure-frontend state) ---
+export async function loadProcessRoutes<T>(): Promise<T[] | null> {
+  try {
+    const v = await store().get<T[]>("processRoutes");
+    return Array.isArray(v) ? v : null;
+  } catch { return null; }
+}
+
+export async function saveProcessRoutes(routes: unknown[]): Promise<void> {
+  try {
+    await store().set("processRoutes", routes);
+    await store().save();
+  } catch (e) { console.warn("[settings] save failed:", e); }
+}
+
+// --- WebDAV backup config persistence (clash-verge-rev pattern) ---
+export async function loadWebdavConfig(): Promise<{ url: string; username: string; password: string } | null> {
+  try {
+    const url = await store().get<string>("webdavUrl");
+    const username = await store().get<string>("webdavUsername");
+    const password = await store().get<string>("webdavPassword");
+    if (url && username) return { url, username, password: password ?? "" };
+    return null;
+  } catch { return null; }
+}
+
+export async function saveWebdavConfig(url: string, username: string, password: string): Promise<void> {
+  try {
+    await store().set("webdavUrl", url);
+    await store().set("webdavUsername", username);
+    await store().set("webdavPassword", password);
+    await store().save();
+  } catch (e) { console.warn("[settings] save failed:", e); }
+}

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { saveView, saveProcessRoutes } from "../lib/settings";
 
 /// One lane in the topology canvas. Matches resin-core lane state.
 export interface LaneState {
@@ -67,6 +68,7 @@ export interface AppState {
   bindExitIp: (platform: string, account: string, ip: string) => void;
   addProcessRoute: (process: string, targetLane: number) => void;
   removeProcessRoute: (id: string) => void;
+  setProcessRoutes: (routes: ProcessRoute[]) => void;
   addSubscription: (url: string, nodeCount: number, lanes: number) => void;
   setLaneCount: (n: number) => void;
   setLocale: (l: Locale) => void;
@@ -88,7 +90,7 @@ export const useAppStore = create<AppState>((set) => ({
   locale: "en",
   theme: "system",
 
-  setView: (view) => set({ view }),
+  setView: (view) => { set({ view }); void saveView(view); },
   setLanes: (lanes) => set({ lanes }),
   setPlatforms: (platforms) => set({ platforms }),
   addPlatform: (name) =>
@@ -127,12 +129,16 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({
       processRoutes: [...s.processRoutes, { id: uid(), process, targetLane }],
     })),
-  removeProcessRoute: (id) =>
-    set((s) => ({ processRoutes: s.processRoutes.filter((r) => r.id !== id) })),
+  removeProcessRoute: (id) => {
+    const next = useAppStore.getState().processRoutes.filter((r) => r.id !== id);
+    set({ processRoutes: next });
+    void saveProcessRoutes(next);
+  },
   addSubscription: (url, nodeCount, lanes) =>
     set((s) => ({
       subscriptions: [...s.subscriptions, { id: uid(), url, nodeCount, lanes }],
     })),
+  setProcessRoutes: (routes) => { set({ processRoutes: routes }); void saveProcessRoutes(routes); },
   setLaneCount: (n) => set({ laneCount: Math.max(1, Math.min(50, n)) }),
   setLocale: (locale) => set({ locale }),
   setTheme: (theme) => set({ theme }),

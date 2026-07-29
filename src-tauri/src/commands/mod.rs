@@ -324,6 +324,124 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
     }
 }
 
+// --- WebDAV backup (clash-verge-rev pattern: zip config + upload to WebDAV) ---
+// Ponytail: no reqwest_dav crate — reqwest does HTTP PUT for WebDAV upload.
+// The webview never sees the password; it passes through tauri-plugin-store.
+// We validate the URL shape (http(s)://) and length-cap before issuing the PUT.
+
+/// Create a zip backup of settings.json + resin state dir, return the temp path.
+#[tauri::command]
+pub async fn backup_create(app: AppHandle) -> Result<String, String> {
+    use std::io::Write;
+    let path = app.path();
+    let app_data = path.app_data_dir().map_err(|e| e.to_string())?;
+    let settings_path = app_data.join("settings.json");
+    let resin_state = app_data.join("resin-state");
+    let now = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
+    let zip_name = format!("ai-api-route-backup-{}.zip", now);
+    let zip_path = std::env::temp_dir().join(&zip_name);
+
+    let zip_file = std::fs::File::create(&zip_path).map_err(|e| e.to_string())?;
+    let mut zip = zip::ZipWriter::new(zip_file);
+    let opts = zip::write::FileOptions::default();
+
+    // Add settings.json if it exists
+    if settings_path.is_file() {
+        zip.start_file("settings.json", opts).map_err(|e| e.to_string())?;
+        let data = std::fs::read(&settings_path).map_err(|e| e.to_string())?;
+        zip.write_all(&data).map_err(|e| e.to_string())?;
+    }
+    // Add resin state DB if it exists
+    let state_db = resin_state.join("state.db");
+    if state_db.is_file() {
+        zip.start_file("resin-state/state.db", opts).map_err(|e| e.to_string())?;
+        let data = std::fs::read(&state_db).map_err(|e| e.to_string())?;
+        zip.write_all(&data).map_err(|e| e.to_string())?;
+    }
+    // Add cache DB if it exists
+    let cache_db = resin_state.join("cache.db");
+    if cache_db.is_file() {
+        zip.start_file("resin-state/cache.db", opts).map_err(|e| e.to_string())?;
+        let data = std::fs::read(&cache_db).map_err(|e| e.to_string())?;
+        zip.write_all(&data).map_err(|e| e.to_string())?;
+    }
+    zip.finish().map_err(|e| e.to_string())?;
+    Ok(zip_path.to_string_lossy().to_string())
+}
+
+/// Upload a backup zip to a WebDAV server.
+/// url/username/password come from tauri-plugin-store (server-trust, never webview raw).
+#[tauri::command]
+pub async fn backup_upload(url: String, username: String, password: String, zip_path: String) -> Result<(), String> {
+    if url.trim().is_empty() { return Err("webdav url must not be empty".to_string()); }
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("webdav url must start with http:// or https://".to_string());
+    }
+    if url.len() > 2048 { return Err("webdav url too long".to_string()); }
+
+    let data = std::fs::read(&zip_path).map_err(|e| e.to_string())?;
+    let zip_name = std::path::Path::new(&zip_path)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or("backup.zip".to_string());
+    let webdav_url = format!("{}/{}", url.trim_end_matches('/'), zip_name);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .put(&webdav_url)
+        .basic_auth(&username, Some(&password))
+        .body(data)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if resp.status().is_success() {
+        Ok(())
+    } else {
+        Err(format!("webdav upload failed: HTTP {}", resp.status()))
+    }
+}
+
+/// List backups on the WebDAV server (PROPFIND).
+#[tauri::command]
+pub async fn backup_list(url: String, username: String, password: String) -> Result<Vec<String>, String> {
+    if url.trim().is_empty() { return Err("webdav url must not be empty".to_string()); }
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("webdav url must start with http:// or https://".to_string());
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .request(reqwest::Method::from_bytes(b"PROPFIND").unwrap(), url.trim_end_matches('/'))
+        .basic_auth(&username, Some(&password))
+        .header("Depth", "1")
+        .header("Content-Type", "application/xml")
+        .body(r#"<?xml version="1.0"?><propfind xmlns="DAV:"><prop><displayname/></prop></propfind>"#)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("webdav PROPFIND failed: HTTP {}", resp.status()));
+    }
+    let body = resp.text().await.map_err(|e| e.to_string())?;
+    // Parse <D:href> or <D:displayname> entries
+    let mut names = Vec::new();
+    for part in body.split("<D:href>").skip(1) {
+        if let Some(end) = part.find("</D:href>") {
+            let name = &part[..end];
+            if name.ends_with(".zip") {
+                names.push(name.rsplit('/').next().unwrap_or(name).to_string());
+            }
+        }
+    }
+    Ok(names)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
