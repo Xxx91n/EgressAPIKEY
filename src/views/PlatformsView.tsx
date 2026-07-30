@@ -60,7 +60,7 @@ export function PlatformsView() {
     try {
       await ipcPlatformAdd(name);
       await refresh();
-      setToast({ kind: "ok", msg: t("platform.add") + " OK" });
+      setToast({ kind: "ok", msg: t("platform.addOk") });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setToast({ kind: "err", msg });

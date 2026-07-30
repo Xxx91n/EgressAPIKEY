@@ -15,7 +15,8 @@
     "add": "Thêm nền tảng",
     "name": "Tên",
     "accounts": "Tài khoản",
-    "empty": "Chưa cấu hình nền tảng."
+    "empty": "Chưa cấu hình nền tảng.",
+    "addOk": "Đã thêm nền tảng"
   },
   "account": {
     "id": "ID tài khoản",
@@ -46,7 +47,7 @@
     "imported": "Đã nhập {{count}} nút vào {{lanes}} làn",
     "name": "Tên đăng ký",
     "description": "Nhãn tùy chọn cho mục đăng ký đã nhập này",
-    "importSuccess": "Đã nhập mục đăng ký",
+    "importSuccess": "Đã nhập đăng ký — {{total}} nút",
     "dragHint": "Kéo các hàng để sắp xếp lại"
   },
   "topology": {

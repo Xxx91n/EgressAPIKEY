@@ -15,7 +15,8 @@
     "add": "Añadir plataforma",
     "name": "Nombre",
     "accounts": "Cuentas",
-    "empty": "No hay plataformas configuradas."
+    "empty": "No hay plataformas configuradas.",
+    "addOk": "Plataforma añadida"
   },
   "account": {
     "id": "ID de cuenta",
@@ -46,7 +47,7 @@
     "imported": "{{count}} nodos importados en {{lanes}} carriles",
     "name": "Nombre de la suscripción",
     "description": "Etiqueta opcional para esta suscripción importada",
-    "importSuccess": "Suscripción importada",
+    "importSuccess": "Suscripción importada — {{total}} nodos",
     "dragHint": "Arrastra filas para reordenar"
   },
   "topology": {

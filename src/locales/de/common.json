@@ -15,7 +15,8 @@
     "add": "Plattform hinzufügen",
     "name": "Name",
     "accounts": "Konten",
-    "empty": "Keine Plattformen konfiguriert."
+    "empty": "Keine Plattformen konfiguriert.",
+    "addOk": "Plattform hinzugefügt"
   },
   "account": {
     "id": "Konto-ID",
@@ -46,7 +47,7 @@
     "imported": "{{count}} Knoten in {{lanes}} Lanes importiert",
     "name": "Abonnementname",
     "description": "Optionale Bezeichnung für dieses importierte Abonnement",
-    "importSuccess": "Abonnement importiert",
+    "importSuccess": "Abonnement importiert — {{total}} Knoten",
     "dragHint": "Zeilen ziehen zum Sortieren"
   },
   "topology": {

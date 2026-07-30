@@ -1,4 +1,4 @@
-﻿//! IPC commands exposed to the React frontend via `tauri::generate_handler!`.
+//! IPC commands exposed to the React frontend via `tauri::generate_handler!`.
 //!
 //! Path A (fork Resin Go sidecar): the webview talks to the Resin Go control
 //! plane WRAPPED behind Rust IPC. Platform create/list/delete are FORWARDED
@@ -11,7 +11,7 @@ use serde::{Serialize, Deserialize};
 use tauri::{AppHandle, Manager, State};
 
 use crate::sidecar::SidecarHandle;
-use resin_core::{ResinClient, MAX_LANES};
+use resin_core::{ResinClient, MAX_LANES, fetch_clash_subscription, clash_yaml_to_proxies_block};
 use resin_core::platform::Account;
 
 const AUTHORITY_MAX_LEN: usize = 253;
@@ -101,6 +101,20 @@ pub async fn gateway_record_latency(authority: String, latency_ms: u64) -> Resul
     Ok(())
 }
 
+/// Extract the array from a Resin list response. Resin wraps paginated
+/// collections as `{"items":[...], "total", "limit", "offset"}`; a few
+/// legacy endpoints still return a bare array. Accept both so a future
+/// Resin API tightening cannot silently empty the UI (P13 root cause).
+fn items_arr<'a>(v: &'a serde_json::Value) -> &'a [serde_json::Value] {
+    if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
+        return arr.as_slice();
+    }
+    if let Some(arr) = v.as_array() {
+        return arr.as_slice();
+    }
+    &[]
+}
+
 #[derive(Debug, Serialize)]
 pub struct SelectResult {
     pub account: Option<String>,
@@ -176,23 +190,19 @@ fn per_platform_active_from_leases(
     leases: &serde_json::Value,
     platforms: &serde_json::Value,
 ) -> Vec<(String, usize)> {
-    let id_to_name: std::collections::HashMap<String, String> = platforms
-        .as_array()
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|p| {
-                    let id = p.get("id").and_then(|i| i.as_str())?.trim().to_string();
-                    let name = p.get("name").and_then(|n| n.as_str())?.trim().to_string();
-                    if id.is_empty() || name.is_empty() { None } else { Some((id, name)) }
-                })
-                .collect()
+    let parr = items_arr(platforms);
+    let id_to_name: std::collections::HashMap<String, String> = parr
+        .iter()
+        .filter_map(|p| {
+            let id = p.get("id").and_then(|i| i.as_str())?.trim().to_string();
+            let name = p.get("name").and_then(|n| n.as_str())?.trim().to_string();
+            if id.is_empty() || name.is_empty() { None } else { Some((id, name)) }
         })
-        .unwrap_or_default();
-    let default_name = platforms.as_array().and_then(|arr| {
-        arr.iter()
-            .find(|p| p.get("name").and_then(|n| n.as_str()) == Some("Default"))
-            .and_then(|p| p.get("name").and_then(|n| n.as_str()).map(String::from))
-    });
+        .collect();
+    let default_name = parr
+        .iter()
+        .find(|p| p.get("name").and_then(|n| n.as_str()) == Some("Default"))
+        .and_then(|p| p.get("name").and_then(|n| n.as_str()).map(String::from));
     let items = match leases.get("items").and_then(|i| i.as_array()) {
         Some(arr) => arr,
         None => return Vec::new(),
@@ -276,22 +286,19 @@ pub async fn account_bind_ip(
 }
 
 fn platform_names(v: &serde_json::Value) -> Vec<String> {
-    if let Some(arr) = v.as_array() {
-        arr.iter().filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(String::from)).collect()
-    } else {
-        Vec::new()
-    }
+    items_arr(v)
+        .iter()
+        .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(String::from))
+        .collect()
 }
 
 fn platform_id_for_name(v: &serde_json::Value, want: &str) -> Option<String> {
-    if let Some(arr) = v.as_array() {
-        for p in arr {
-            let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
-            if name == want {
-                let id = p.get("id").and_then(|n| n.as_str()).unwrap_or("");
-                if !id.is_empty() {
-                    return Some(id.to_string());
-                }
+    for p in items_arr(v) {
+        let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
+        if name == want {
+            let id = p.get("id").and_then(|n| n.as_str()).unwrap_or("");
+            if !id.is_empty() {
+                return Some(id.to_string());
             }
         }
     }
@@ -372,8 +379,42 @@ pub async fn subscription_add(sidecar: State<'_, SidecarHandle>, name: String, u
         return Err("subscription url must start with http:// or https://".to_string());
     }
     let client = resin_client(&sidecar)?;
-    let body = serde_json::json!({ "name": name, "source_type": "remote", "url": url });
-    client.create_subscription(body).await.map(|_| ()).map_err(|e| e.to_string())
+
+    // P13 B4: Resin's own remote-fetch uses a default HTTP UA that many
+    // subscription providers (the user's test host included) reject with 403.
+    // We fetch the Clash YAML ourselves with a clash-family UA, convert the
+    // flow-style `proxies:` segment into block-style (Resin's Go YAML parser
+    // chokes on flow-style inline mappings), and POST it as a local
+    // subscription so Resin parses the nodes we already fetched. The user's
+    // url is retained as metadata so the UI can still show the source.
+    tracing::info!(subscription = %name, url = %url, "subscription_add: fetching clash yaml");
+    let yaml = fetch_clash_subscription(&url).await
+        .map_err(|e| { tracing::warn!(error = ?e, "subscription_add: fetch failed"); e.to_string() })?;
+    tracing::info!(bytes = yaml.len(), "subscription_add: fetched yaml, converting to proxies-only block");
+    let block = clash_yaml_to_proxies_block(&yaml)
+        .map_err(|e| { tracing::warn!(error = ?e, "subscription_add: convert failed"); e.to_string() })?;
+    tracing::info!(block_bytes = block.len(), "subscription_add: posting local subscription to Resin");
+
+    // 30s update_interval so Resin's scheduler parses the local content on the
+    // first tick (seconds, not the default 5m). Resin does not expose a
+    // force-refresh endpoint.
+    let body = serde_json::json!({
+        "name": name,
+        "source_type": "local",
+        "content": block,
+        "url": url,
+        "update_interval": "30s",
+    });
+    match client.create_subscription(body).await {
+        Ok(v) => {
+            tracing::info!(?v, "subscription_add: Resin accepted subscription");
+            Ok(())
+        }
+        Err(e) => {
+            tracing::warn!(error = ?e, "subscription_add: Resin POST failed");
+            Err(e.to_string())
+        }
+    }
 }
 
 #[tauri::command]
@@ -406,25 +447,22 @@ pub async fn node_pool_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<ser
 }
 
 fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotEntry> {
-    if let Some(arr) = v.as_array() {
-        arr.iter().filter_map(|p| {
+    items_arr(v)
+        .iter()
+        .filter_map(|p| {
             let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
             let node_count = p.get("node_count").and_then(|n| n.as_u64()).unwrap_or(0);
             if name.is_empty() { None } else { Some(SubscriptionSnapshotEntry { name: name.to_string(), node_count }) }
-        }).collect()
-    } else {
-        Vec::new()
-    }
+        })
+        .collect()
 }
 
 fn subscription_id_for_name(v: &serde_json::Value, want: &str) -> Option<String> {
-    if let Some(arr) = v.as_array() {
-        for p in arr {
-            let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
-            if name == want {
-                let id = p.get("id").and_then(|n| n.as_str()).unwrap_or("");
-                if !id.is_empty() { return Some(id.to_string()); }
-            }
+    for p in items_arr(v) {
+        let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
+        if name == want {
+            let id = p.get("id").and_then(|n| n.as_str()).unwrap_or("");
+            if !id.is_empty() { return Some(id.to_string()); }
         }
     }
     None
@@ -689,5 +727,77 @@ mod tests {
         });
         let got = per_platform_active_from_leases(&leases, &platforms);
         assert!(got.iter().any(|(n, c)| n == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" && *c == 7));
+    }
+
+    /// P13 B6/B4: Resin wraps list responses as `{"items":[...]}`. The old
+    /// code used `v.as_array()` which always returned None for that shape,
+    /// so platform_list / subscription_list returned empty even with live data.
+    /// These tests pin both the bare-array back-compat path and the items path.
+    #[test]
+    fn items_arr_accepts_resin_items_wrapper() {
+        let v = json!({ "items": [{ "name": "a" }, { "name": "b" }], "total": 2 });
+        let arr = items_arr(&v);
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0]["name"], "a");
+    }
+
+    #[test]
+    fn items_arr_accepts_bare_array_back_compat() {
+        let v = json!([{ "name": "x" }]);
+        assert_eq!(items_arr(&v).len(), 1);
+    }
+
+    #[test]
+    fn items_arr_returns_empty_for_non_list_object() {
+        let v = json!({ "active_leases": 4 });
+        assert!(items_arr(&v).is_empty());
+    }
+
+    #[test]
+    fn platform_names_reads_resin_items_wrapper() {
+        let v = json!({
+            "items": [
+                { "id": "uuid-1", "name": "Default" },
+                { "id": "uuid-2", "name": "OpenAI" },
+            ],
+            "total": 2, "limit": 50, "offset": 0,
+        });
+        assert_eq!(platform_names(&v), vec!["Default".to_string(), "OpenAI".to_string()]);
+    }
+
+    #[test]
+    fn platform_id_for_name_reads_resin_items_wrapper() {
+        let v = json!({
+            "items": [ { "id": "uuid-9", "name": "Anthropic" } ],
+            "total": 1,
+        });
+        assert_eq!(platform_id_for_name(&v, "Anthropic"), Some("uuid-9".to_string()));
+        assert_eq!(platform_id_for_name(&v, "Missing"), None);
+    }
+
+    #[test]
+    fn subscription_snapshot_reads_resin_items_wrapper_with_node_count() {
+        let v = json!({
+            "items": [
+                { "id": "s1", "name": "sub-a", "node_count": 33 },
+                { "id": "s2", "name": "sub-b", "node_count": 0 },
+            ],
+            "total": 2, "limit": 50, "offset": 0,
+        });
+        let snap = subscription_snapshot(&v);
+        assert_eq!(snap.len(), 2);
+        assert_eq!(snap[0].name, "sub-a");
+        assert_eq!(snap[0].node_count, 33);
+        assert_eq!(snap[1].node_count, 0);
+    }
+
+    #[test]
+    fn subscription_id_for_name_reads_resin_items_wrapper() {
+        let v = json!({
+            "items": [ { "id": "sub-uuid-1", "name": "main" } ],
+            "total": 1,
+        });
+        assert_eq!(subscription_id_for_name(&v, "main"), Some("sub-uuid-1".to_string()));
+        assert_eq!(subscription_id_for_name(&v, "nope"), None);
     }
 }

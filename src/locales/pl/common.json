@@ -15,7 +15,8 @@
     "add": "Dodaj platformę",
     "name": "Nazwa",
     "accounts": "Konta",
-    "empty": "Brak skonfigurowanych platform."
+    "empty": "Brak skonfigurowanych platform.",
+    "addOk": "Platforma dodana"
   },
   "account": {
     "id": "ID konta",
@@ -46,7 +47,7 @@
     "imported": "Zaimportowano {{count}} węzłów w {{lanes}} tory",
     "name": "Nazwa subskrypcji",
     "description": "Opcjonalna etykieta dla tej zaimportowanej subskrypcji",
-    "importSuccess": "Subskrypcję zaimportowano",
+    "importSuccess": "Subskrypcja zaimportowana — {{total}} węzłów",
     "dragHint": "Przeciągnij wiersze, aby zmienić kolejność"
   },
   "topology": {

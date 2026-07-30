@@ -15,7 +15,8 @@
     "add": "添加平台",
     "name": "名称",
     "accounts": "账号",
-    "empty": "尚未配置任何平台。"
+    "empty": "尚未配置任何平台。",
+    "addOk": "平台添加成功"
   },
   "account": {
     "id": "账号 ID",
@@ -46,7 +47,7 @@
     "imported": "已将 {{count}} 个节点导入 {{lanes}} 条通道",
     "name": "订阅名称",
     "description": "此导入订阅的可选标签",
-    "importSuccess": "订阅导入成功",
+    "importSuccess": "订阅导入成功 — 共 {{total}} 个节点",
     "dragHint": "拖动行以重新排序"
   },
   "topology": {

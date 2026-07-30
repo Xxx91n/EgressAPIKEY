@@ -15,7 +15,8 @@
     "add": "플랫폼 추가",
     "name": "이름",
     "accounts": "계정",
-    "empty": "구성된 플랫폼이 없습니다."
+    "empty": "구성된 플랫폼이 없습니다.",
+    "addOk": "플랫폼 추가됨"
   },
   "account": {
     "id": "계정 ID",
@@ -46,7 +47,7 @@
     "imported": "{{count}}개 노드를 {{lanes}}개 레인으로 가져왔습니다",
     "name": "구독 이름",
     "description": "이 가져온 구독에 대한 선택적 레이블",
-    "importSuccess": "구독 가져옴",
+    "importSuccess": "구독 가져오기 — {{total}} 노드",
     "dragHint": "행을 드래그하여 재정렬"
   },
   "topology": {

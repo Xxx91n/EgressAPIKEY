@@ -15,7 +15,8 @@
     "add": "Tambah platform",
     "name": "Nama",
     "accounts": "Akun",
-    "empty": "Belum ada platform dikonfigurasi."
+    "empty": "Belum ada platform dikonfigurasi.",
+    "addOk": "Platform ditambahkan"
   },
   "account": {
     "id": "ID akun",
@@ -46,7 +47,7 @@
     "imported": "Mengimpor {{count}} node ke {{lanes}} jalur",
     "name": "Nama langganan",
     "description": "Label opsional untuk langganan yang diimpor ini",
-    "importSuccess": "Langganan diimpor",
+    "importSuccess": "Langganan diimpor — {{total}} node",
     "dragHint": "Seret baris untuk menyusun ulang"
   },
   "topology": {

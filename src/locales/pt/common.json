@@ -15,7 +15,8 @@
     "add": "Adicionar plataforma",
     "name": "Nome",
     "accounts": "Contas",
-    "empty": "Nenhuma plataforma configurada."
+    "empty": "Nenhuma plataforma configurada.",
+    "addOk": "Plataforma adicionada"
   },
   "account": {
     "id": "ID da conta",
@@ -46,7 +47,7 @@
     "imported": "Importados {{count}} nós em {{lanes}} linhas",
     "name": "Nome da assinatura",
     "description": "Rótulo opcional para esta assinatura importada",
-    "importSuccess": "Assinatura importada",
+    "importSuccess": "Assinatura importada — {{total}} nós",
     "dragHint": "Arraste linhas para reordenar"
   },
   "topology": {

@@ -15,7 +15,8 @@
     "add": "Platform ekle",
     "name": "Ad",
     "accounts": "Hesaplar",
-    "empty": "Yapılandırılmış platform yok."
+    "empty": "Yapılandırılmış platform yok.",
+    "addOk": "Platform eklendi"
   },
   "account": {
     "id": "Hesap kimliği",
@@ -46,7 +47,7 @@
     "imported": "{{lanes}} şeride {{count}} düğüm içe aktarıldı",
     "name": "Abonelik adı",
     "description": "Bu içe aktarılan abonelik için isteğe bağlı etiket",
-    "importSuccess": "Abonelik içe aktarıldı",
+    "importSuccess": "Abonelik içe aktarıldı — {{total}} düğüm",
     "dragHint": "Yeniden sıralamak için satırları sürükleyin"
   },
   "topology": {

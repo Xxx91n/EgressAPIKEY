@@ -15,7 +15,8 @@
     "add": "Aggiungi piattaforma",
     "name": "Nome",
     "accounts": "Account",
-    "empty": "Nessuna piattaforma configurata."
+    "empty": "Nessuna piattaforma configurata.",
+    "addOk": "Piattaforma aggiunta"
   },
   "account": {
     "id": "ID account",
@@ -46,7 +47,7 @@
     "imported": "Importati {{count}} nodi in {{lanes}} corsie",
     "name": "Nome abbonamento",
     "description": "Etichetta opzionale per questo abbonamento importato",
-    "importSuccess": "Abbonamento importato",
+    "importSuccess": "Abbonamento importato — {{total}} nodi",
     "dragHint": "Trascina le righe per riordinare"
   },
   "topology": {

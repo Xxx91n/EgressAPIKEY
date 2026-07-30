@@ -15,7 +15,8 @@
     "add": "Platform toevoegen",
     "name": "Naam",
     "accounts": "Accounts",
-    "empty": "Geen platforms geconfigureerd."
+    "empty": "Geen platforms geconfigureerd.",
+    "addOk": "Platform toegevoegd"
   },
   "account": {
     "id": "Account-id",
@@ -46,7 +47,7 @@
     "imported": "{{count}} knopen geïmporteerd in {{lanes}} banen",
     "name": "Abonnementsnaam",
     "description": "Optioneel label voor dit geïmporteerde abonnement",
-    "importSuccess": "Abonnement geïmporteerd",
+    "importSuccess": "Abonnement geïmporteerd — {{total}} knooppunten",
     "dragHint": "Sleep rijen om te herschikken"
   },
   "topology": {

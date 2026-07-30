@@ -15,7 +15,8 @@
     "add": "Add platform",
     "name": "Name",
     "accounts": "Accounts",
-    "empty": "No platforms configured."
+    "empty": "No platforms configured.",
+    "addOk": "Platform added"
   },
   "account": {
     "id": "Account id",
@@ -46,7 +47,7 @@
     "imported": "Imported {{count}} nodes into {{lanes}} lanes",
     "name": "Subscription name",
     "description": "Optional label for this imported subscription",
-    "importSuccess": "Subscription imported",
+    "importSuccess": "Subscription imported — {{total}} nodes",
     "dragHint": "Drag rows to reorder"
   },
   "topology": {

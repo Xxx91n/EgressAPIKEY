@@ -58,8 +58,14 @@ export type Theme = "light" | "dark" | "system";
 
 export type View = "topology" | "platforms" | "settings" | "processRoute" | "subscriptions";
 
+export interface SubFormDraft {
+  name: string;
+  url: string;
+}
+
 export interface AppState {
   view: View;
+  subFormDraft: SubFormDraft;
   lanes: LaneState[];
   platforms: Platform[];
   processRoutes: ProcessRoute[];
@@ -69,6 +75,7 @@ export interface AppState {
   theme: Theme;
 
   setView: (v: View) => void;
+  setSubFormDraft: (d: SubFormDraft) => void;
   setLanes: (l: LaneState[]) => void;
   setPlatforms: (p: Platform[]) => void;
   addPlatform: (name: string) => void;
@@ -88,6 +95,7 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 
 export const useAppStore = create<AppState>((set) => ({
   view: "topology",
+  subFormDraft: { name: "", url: "" },
   lanes: [
     { index: 0, exitIp: null, busy: false, account: null, authority: null, platform: null, keyHash: null, sseLocked: false },
     { index: 1, exitIp: null, busy: false, account: null, authority: null, platform: null, keyHash: null, sseLocked: false },
@@ -100,6 +108,7 @@ export const useAppStore = create<AppState>((set) => ({
   theme: "system",
 
   setView: (view) => { set({ view }); void saveView(view); },
+  setSubFormDraft: (subFormDraft) => set({ subFormDraft }),
   setLanes: (lanes) => set({ lanes }),
   setPlatforms: (platforms) => set({ platforms }),
   addPlatform: (name) =>

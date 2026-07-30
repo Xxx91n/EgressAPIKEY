@@ -15,7 +15,8 @@
     "add": "Ajouter une plateforme",
     "name": "Nom",
     "accounts": "Comptes",
-    "empty": "Aucune plateforme configurée."
+    "empty": "Aucune plateforme configurée.",
+    "addOk": "Plateforme ajoutée"
   },
   "account": {
     "id": "ID du compte",
@@ -46,7 +47,7 @@
     "imported": "{{count}} nœuds importés dans {{lanes}} voies",
     "name": "Nom de l'abonnement",
     "description": "Étiquette facultative pour cet abonnement importé",
-    "importSuccess": "Abonnement importé",
+    "importSuccess": "Abonnement importé — {{total}} nœuds",
     "dragHint": "Glisser les lignes pour réorganiser"
   },
   "topology": {
