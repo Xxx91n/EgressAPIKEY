@@ -398,11 +398,15 @@ pub async fn subscription_add(sidecar: State<'_, SidecarHandle>, name: String, u
     // 30s update_interval so Resin's scheduler parses the local content on the
     // first tick (seconds, not the default 5m). Resin does not expose a
     // force-refresh endpoint.
+    // P13 B4: Resin rejects `url` when source_type == "local"
+    // (INVALID_ARGUMENT "url is not allowed for local subscription").
+    // The user-visible origin is preserved in the Resin subscription name;
+    // we do NOT pass url in the local-body. (Handoff summary was wrong here;
+    // live probe caught it.)
     let body = serde_json::json!({
         "name": name,
         "source_type": "local",
         "content": block,
-        "url": url,
         "update_interval": "30s",
     });
     match client.create_subscription(body).await {
