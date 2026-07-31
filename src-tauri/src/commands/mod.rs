@@ -339,7 +339,7 @@ pub async fn process_route_add(app: AppHandle, process: String, target_lane: usi
     } else {
         rules.push(ProcessRouteRule { process: process.trim().to_string(), target_lane });
     }
-    store.set("processRoutes", serde_json::to_value(&rules).unwrap());
+    store.set("processRoutes", serde_json::to_value(&rules).map_err(|e| format!("serialize: {e}"))?);
     store.save().map_err(|e| format!("store save: {e:?}"))?;
     Ok(())
 }
@@ -354,7 +354,7 @@ pub async fn process_route_remove(app: AppHandle, process: String) -> Result<boo
     let before = rules.len();
     rules.retain(|r| r.process.trim() != process.trim());
     if rules.len() != before {
-        store.set("processRoutes", serde_json::to_value(&rules).unwrap());
+        store.set("processRoutes", serde_json::to_value(&rules).map_err(|e| format!("serialize: {e}"))?);
         store.save().map_err(|e| format!("store save: {e:?}"))?;
         Ok(true)
     } else {
@@ -507,8 +507,32 @@ pub async fn backup_create(app: AppHandle) -> Result<String, String> {
     let settings_path = app_data.join("settings.json");
     let resin_state = app_data.join("resin-state");
     let now = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
-    let zip_name = format!("ai-api-route-backup-{}.zip", now);
-    let zip_path = std::env::temp_dir().join(&zip_name);
+    let backups_dir = app_data.join("backups");
+    std::fs::create_dir_all(&backups_dir).map_err(|e| e.to_string())?;
+    // Crypto-random suffix: prevents path-guessing on shared hosts and keeps
+    // the backup inside the per-user app_data dir (not world-writable /tmp).
+    let mut rand_bytes = [0u8; 8];
+    use std::io::Read;
+    match std::fs::File::open("/dev/urandom").and_then(|mut f| f.read_exact(&mut rand_bytes)) {
+        Ok(()) => {}
+        Err(_) => {
+            // Windows: no /dev/urandom. Fall back to time+pid mixing (best-effort
+            // entropy; the threat model here is path-guessing, not crypto).
+            let seed = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos() as u64)
+                .unwrap_or(0)
+                .wrapping_mul(std::process::id() as u64);
+            let mut s = seed;
+            for b in rand_bytes.iter_mut() {
+                s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                *b = (s >> 56) as u8;
+            }
+        }
+    }
+    let suffix: String = rand_bytes.iter().map(|b| format!("{:02x}", b)).collect();
+    let zip_name = format!("ai-api-route-backup-{}-{}.zip", now, suffix);
+    let zip_path = backups_dir.join(&zip_name);
 
     let zip_file = std::fs::File::create(&zip_path).map_err(|e| e.to_string())?;
     let mut zip = zip::ZipWriter::new(zip_file);
@@ -541,18 +565,37 @@ pub async fn backup_create(app: AppHandle) -> Result<String, String> {
 /// Upload a backup zip to a WebDAV server.
 /// url/username/password come from tauri-plugin-store (server-trust, never webview raw).
 #[tauri::command]
-pub async fn backup_upload(url: String, username: String, password: String, zip_path: String) -> Result<(), String> {
+pub async fn backup_upload(app: AppHandle, url: String, username: String, password: String, zip_path: String) -> Result<(), String> {
     if url.trim().is_empty() { return Err("webdav url must not be empty".to_string()); }
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err("webdav url must start with http:// or https://".to_string());
     }
     if url.len() > 2048 { return Err("webdav url too long".to_string()); }
 
-    let data = std::fs::read(&zip_path).map_err(|e| e.to_string())?;
-    let zip_name = std::path::Path::new(&zip_path)
+    // Security: confine zip_path to the per-user app_data/backups dir.
+    // Canonicalize both and require backups_dir to be a prefix; reject ../
+    // escapes and absolute paths outside app data. Prevents a compromised
+    // webview from exfiltrating arbitrary files (e.g. the Resin admin token,
+    // settings.json, or system files) to an attacker-controlled WebDAV URL.
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let backups_dir = app_data.join("backups");
+    std::fs::create_dir_all(&backups_dir).map_err(|e| e.to_string())?;
+    let canon_backup = std::fs::canonicalize(&backups_dir)
+        .map_err(|e| format!("backups dir not accessible: {e}"))?;
+    let canon_zip = std::fs::canonicalize(&zip_path)
+        .map_err(|e| format!("zip path not accessible: {e}"))?;
+    if !canon_zip.starts_with(&canon_backup) {
+        return Err("zip path must be inside the app backups directory".to_string());
+    }
+    if !canon_zip.is_file() {
+        return Err("zip path is not a file".to_string());
+    }
+
+    let data = std::fs::read(&canon_zip).map_err(|e| e.to_string())?;
+    let zip_name = canon_zip
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or("backup.zip".to_string());
+        .unwrap_or_else(|| "backup.zip".to_string());
     let webdav_url = format!("{}/{}", url.trim_end_matches('/'), zip_name);
 
     let client = reqwest::Client::builder()

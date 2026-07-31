@@ -19,6 +19,7 @@ pnpm tauri dev
 - **Per-request TCP** — `pool_max_idle_per_host(0)` guarantees fresh connections
 - **SSE session stickiness** — stream locks node until completion, auto-switches on failure
 - **Zero adaptation** — OmniRoute users change one proxy address; client code unchanged
+- **Backup safety** — backups write into the per-user app data dir (not the shared system temp), with a path-confinement guard so a compromised webview cannot exfiltrate arbitrary files via the WebDAV upload path
 
 ## Docs
 
