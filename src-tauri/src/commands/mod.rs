@@ -450,6 +450,90 @@ pub async fn node_pool_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<ser
     client.node_pool_snapshot().await.map_err(|e| e.to_string())
 }
 
+// Phase R1: the topology canvas hot-switch and the node-pool tab need the
+// full platform schema (not just names) and the node list. These forward to
+// Resin with the same input-validation discipline as the other commands.
+
+/// The allocation_policy values Resin v1.1.2 actually accepts (probed
+/// 2026-07-31). The IPC layer rejects anything else before reaching Resin.
+const ALLOWED_ALLOCATION_POLICIES: &[&str] =
+    &["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"];
+
+/// PATCH a platform's fields (allocation_policy, regex_filters, sticky_ttl).
+/// The webview identifies the platform by NAME; we resolve name->id then
+/// PATCH. Only the provided fields are sent; null/absent fields are omitted
+/// so Resin keeps its current value.
+#[tauri::command]
+pub async fn platform_update(
+    sidecar: State<'_, SidecarHandle>,
+    name: String,
+    allocation_policy: Option<String>,
+    regex_filters: Option<Vec<String>>,
+    sticky_ttl: Option<String>,
+) -> Result<serde_json::Value, String> {
+    validate_short_name(&name, "platform")?;
+    let client = resin_client(&sidecar)?;
+    // Resolve name -> id (same pattern as platform_remove).
+    let list = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let id = platform_id_for_name(&list, &name)
+        .ok_or_else(|| format!("platform not found: {name}"))?;
+
+    // Build the PATCH body with only the fields the caller provided. Validate
+    // each at the IPC boundary (AGENTS 7.5) so a hostile webview cannot send
+    // an unsupported policy or an oversized filter to Resin.
+    let mut body = serde_json::Map::new();
+    if let Some(ref policy) = allocation_policy {
+        if !ALLOWED_ALLOCATION_POLICIES.contains(&policy.as_str()) {
+            return Err(format!(
+                "allocation_policy must be one of {:?}",
+                ALLOWED_ALLOCATION_POLICIES
+            ));
+        }
+        body.insert("allocation_policy".to_string(), serde_json::Value::String(policy.clone()));
+    }
+    if let Some(ref filters) = regex_filters {
+        if filters.len() > 64 {
+            return Err("regex_filters: too many entries (max 64)".to_string());
+        }
+        let arr: Vec<serde_json::Value> = filters
+            .iter()
+            .map(|f| {
+                // Cap each filter at 253 chars (DNS-host scale) and reject
+               // control chars / NUL.
+                if f.len() > 253 || f.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+                   serde_json::Value::Null
+                } else {
+                    serde_json::Value::String(f.clone())
+                }
+            })
+            .filter(|v| !v.is_null())
+            .collect();
+        body.insert("regex_filters".to_string(), serde_json::Value::Array(arr));
+    }
+    if let Some(ref ttl) = sticky_ttl {
+       // Go duration string; cap length to prevent abuse.
+        if ttl.len() > 32 || ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err("sticky_ttl: invalid (max 32 chars, no control)".to_string());
+        }
+        body.insert("sticky_ttl".to_string(), serde_json::Value::String(ttl.clone()));
+    }
+    if body.is_empty() {
+        return Err("platform_update: no fields to update".to_string());
+    }
+    client
+        .update_platform(&id, serde_json::Value::Object(body))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// GET /api/v1/nodes - return the full node list (the "C category" ip/ip
+/// channels) as raw JSON. The frontend renders egress IPs, health, protocol.
+#[tauri::command]
+pub async fn node_list(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
+    let client = resin_client(&sidecar)?;
+    client.list_nodes().await.map_err(|e| e.to_string())
+}
+
 fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotEntry> {
     items_arr(v)
         .iter()

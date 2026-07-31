@@ -201,8 +201,25 @@ impl ResinClient {
 
     /// DELETE /subscriptions/{id} - remove a subscription (204 -> Null).
     pub async fn delete_subscription(&self, id: &str) -> Result<Value> {
-        let path = format!("/subscriptions/{}", urlencoding(id));
+    let path = format!("/subscriptions/{}", urlencoding(id));
         self.send(reqwest::Method::DELETE, &path, None).await
+    }
+
+    /// PATCH /api/v1/platforms/{id} - update platform fields (allocation_policy,
+    /// regex_filters, region_filters, sticky_ttl, etc). Resin validates the
+    /// body and returns 400 with a descriptive error for invalid enum values.
+    /// Used by the topology canvas hot-switch (Phase R1/R2).
+    pub async fn update_platform(&self, id: &str, body: Value) -> Result<Value> {
+        let path = format!("/platforms/{}", urlencoding(id));
+        self.send(reqwest::Method::PATCH, &path, Some(body)).await
+    }
+
+    /// GET /api/v1/nodes - list all proxy nodes (the "C category" ip channels).
+    /// Returns {items:[...], total, limit, offset, unique_egress_ips,
+    /// unique_healthy_egress_ips}. Each item carries the node's egress IP,
+    /// protocol, and health.
+    pub async fn list_nodes(&self) -> Result<Value> {
+        self.send(reqwest::Method::GET, "/nodes", None).await
     }
 }
 
@@ -571,5 +588,52 @@ mod tests {
         assert_eq!(fields.len(), 2);
         assert!(fields[0].contains("a,b,c"), "quoted comma preserved: {fields:?}");
         assert_eq!(fields[1], "port: 443");
+    }
+
+    #[tokio::test]
+    async fn mockito_update_platform_patches_allocation_policy() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"id":"11111111-1111-1111-1111-111111111111","name":"OpenAI","allocation_policy":"PREFER_LOW_LATENCY"}"#;
+        let m = server
+            .mock("PATCH", "/api/v1/platforms/11111111-1111-1111-1111-111111111111")
+            .match_header("authorization", "Bearer testtok")
+            .match_header("content-type", "application/json")
+            .match_body(mockito::Matcher::PartialJson(serde_json::json!({"allocation_policy":"PREFER_LOW_LATENCY"})))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .update_platform("11111111-1111-1111-1111-111111111111", serde_json::json!({"allocation_policy":"PREFER_LOW_LATENCY"}))
+            .await
+            .expect("update_platform should succeed against mockito");
+        assert_eq!(out["allocation_policy"], "PREFER_LOW_LATENCY");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_list_nodes_returns_items_wrapper() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"items":[{"name":"sg-01","type":"trojan","egress_ip":"1.2.3.4"}],"total":1,"limit":50,"offset":0,"unique_egress_ips":1,"unique_healthy_egress_ips":1}"#;
+        let m = server
+            .mock("GET", "/api/v1/nodes")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .list_nodes()
+            .await
+            .expect("list_nodes should succeed against mockito");
+        assert_eq!(out["total"], 1);
+        assert_eq!(out["items"][0]["egress_ip"], "1.2.3.4");
+        m.assert_async().await;
     }
 }

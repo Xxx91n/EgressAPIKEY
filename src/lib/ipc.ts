@@ -68,6 +68,48 @@ export async function ipcPlatformSnapshot(name: string): Promise<Account[]> {
   return invoke<Account[]>("platform_snapshot", { name });
 }
 
+/// The allocation policies Resin v1.1.2 actually accepts (must match the Rust
+/// ALLOWED_ALLOCATION_POLICIES in commands/mod.rs).
+export const ALLOCATION_POLICIES = ["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"] as const;
+export type AllocationPolicy = (typeof ALLOCATION_POLICIES)[number];
+
+/// Phase R1: PATCH a platform's allocation_policy / regex_filters / sticky_ttl.
+/// TS-boundary validation mirrors the Rust side (AGENTS s7.6): policy enum,
+/// filter count + length, ttl length + control chars. Only provided fields
+/// are sent; the Rust side rebuilds the body.
+export async function ipcPlatformUpdate(
+  name: string,
+  allocationPolicy?: AllocationPolicy,
+  regexFilters?: string[],
+  stickyTtl?: string,
+): Promise<unknown> {
+  assertShortName(name, "platform");
+  if (allocationPolicy !== undefined && !ALLOCATION_POLICIES.includes(allocationPolicy)) {
+    throw new Error(`allocation_policy must be one of ${ALLOCATION_POLICIES.join(", ")}`);
+  }
+  if (regexFilters !== undefined) {
+    if (regexFilters.length > 64) throw new Error("regex_filters: too many (max 64)");
+    for (const f of regexFilters) {
+      if (f.length > 253 || /[\x00-\x1f\x7f]/.test(f)) throw new Error("regex_filter invalid (max 253, no control)");
+    }
+  }
+  if (stickyTtl !== undefined) {
+    if (stickyTtl.length > 32 || /[\x00-\x1f\x7f]/.test(stickyTtl)) throw new Error("sticky_ttl invalid (max 32, no control)");
+  }
+  return invoke("platform_update", {
+    name,
+    allocationPolicy: allocationPolicy ?? null,
+    regexFilters: regexFilters ?? null,
+    stickyTtl: stickyTtl ?? null,
+  });
+}
+
+/// Phase R1: GET /api/v1/nodes - the full node list (ip/ip channels) with
+/// egress IPs, protocol, health. Returned as raw JSON; the frontend renders it.
+export async function ipcNodeList(): Promise<unknown> {
+  return invoke("node_list");
+}
+
 export async function ipcAccountAdd(platform: string, id: string, lane: number): Promise<void> {
   assertShortName(platform, "platform");
   assertShortName(id, "account");

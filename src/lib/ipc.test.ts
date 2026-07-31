@@ -21,6 +21,7 @@ import {
   ipcSubscriptionAdd, ipcSubscriptionRemove, ipcSubscriptionList,
   ipcProcessRouteAdd, ipcProcessRouteRemove, ipcProcessRouteList,
   ipcAccountAdd,
+  ipcPlatformUpdate, ipcNodeList,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -98,5 +99,35 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockResolvedValue([{ process: "ollama", target_lane: 3 }]);
     const r = await ipcProcessRouteList();
     expect(r).toEqual([{ process: "ollama", target_lane: 3 }]);
+  });
+
+  // Phase R1: platform_update + node_list closed-loop guards.
+  it("platform_update rejects invalid allocation_policy before invoke", async () => {
+    await expect(ipcPlatformUpdate("OpenAI", "RANDOM" as any)).rejects.toThrow(/allocation_policy must be one of/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("platform_update rejects too many regex_filters before invoke", async () => {
+    const tooMany = Array(65).fill("api.openai.com");
+    await expect(ipcPlatformUpdate("OpenAI", undefined, tooMany)).rejects.toThrow(/too many/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("platform_update forwards valid fields with null for omitted ones", async () => {
+    invokeMock.mockResolvedValue({ ok: true });
+    await ipcPlatformUpdate("OpenAI", "PREFER_LOW_LATENCY");
+    expect(invokeMock).toHaveBeenCalledWith("platform_update", {
+      name: "OpenAI",
+      allocationPolicy: "PREFER_LOW_LATENCY",
+      regexFilters: null,
+      stickyTtl: null,
+    });
+  });
+
+  it("node_list forwards no args", async () => {
+    invokeMock.mockResolvedValue({ items: [] });
+    const r = await ipcNodeList();
+    expect(r).toEqual({ items: [] });
+    expect(invokeMock).toHaveBeenCalledWith("node_list");
   });
 });

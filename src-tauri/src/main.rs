@@ -105,6 +105,8 @@ fn main() {
             commands::subscription_remove,
             commands::subscription_list,
             commands::node_pool_snapshot,
+            commands::platform_update,
+            commands::node_list,
             commands::backup_create,
             commands::backup_upload,
             commands::backup_list,
