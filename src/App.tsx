@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigation, Network, Settings as SettingsIcon, Route, FolderTree, RadioTower } from "lucide-react";
 import { useAppStore, type Locale, type Theme } from "./store/appStore";
@@ -62,6 +62,11 @@ export default function App() {
   const setView = useAppStore((s) => s.setView);
   const setProcessRoutes = useAppStore((s) => s.setProcessRoutes);
   useTheme();
+  // Bug #1 fix: the store defaults view="topology". Without a gate, the first
+  // paint renders the topology (or its lazy fallback) before loadView() resolves
+  // the persisted view and setView() swaps it — the user sees a topology flash.
+  // Hold a minimal loader until the persisted view has been read.
+  const [bootstrapped, setBootstrapped] = useState(false);
 
   // Bootstrap persisted prefs once on mount (no-op outside Tauri/vitest).
   useEffect(() => {
@@ -88,10 +93,18 @@ export default function App() {
       if (savedRoutes && !cancelled) {
         setProcessRoutes(savedRoutes as any);
       }
+      if (!cancelled) setBootstrapped(true);
     })();
     return () => { cancelled = true; };
   }, [setLocale, setTheme, setLaneCount, setView, setProcessRoutes, i18n]);
 
+  if (!bootstrapped) {
+    return (
+      <div className="h-full flex items-center justify-center bg-white dark:bg-zinc-950">
+        <span className="text-sm text-zinc-400">Loading…</span>
+      </div>
+    );
+  }
   return (
     <div className="h-full flex bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       <SideRail />

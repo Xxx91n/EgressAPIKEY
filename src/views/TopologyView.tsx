@@ -81,6 +81,9 @@ export function TopologyView() {
       try {
         const snap = await ipcGatewaySnapshot();
         if (cancelled) return;
+        // Bug #2 fix: only update when we have real data. Never overwrite the
+        // canvas with empty lanes — a throttled/background poll that returns
+        // transiently empty data was blanking the canvas on refocus.
         setLaneTotal(snap.lane_count);
         setBusyTotal(snap.busy);
         const count = Math.max(1, Math.min(50, snap.lane_count));
@@ -125,7 +128,12 @@ export function TopologyView() {
     };
     void sync();
     const id = setInterval(() => void sync(), 5000);
-    return () => { cancelled = true; clearInterval(id); };
+    // Bug #2 fix: when the window is hidden (user switched away) the 5s poll
+    // may be throttled or race; on refocus, immediately re-sync instead of
+    // waiting up to 5s for the next tick with possibly-stale state.
+    const onVis = () => { if (!document.hidden) void sync(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { cancelled = true; clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
   }, [setLanes]);
 
   const colorMode: ColorMode = theme;
