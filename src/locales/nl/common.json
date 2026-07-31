@@ -8,7 +8,8 @@
     "settings": "Instellingen",
     "platforms": "Platforms",
     "processRoute": "Procesroute",
-    "subscriptions": "Abonnementen"
+    "subscriptions": "Abonnementen",
+    "nodes": "Nodes"
   },
   "platform": {
     "title": "Platforms",
@@ -122,5 +123,21 @@
     "success": "Back-up voltooid",
     "failed": "Back-up mislukt",
     "noConfig": "WebDAV niet geconfigureerd"
+  },
+  "nodes": {
+    "title": "Nodepool",
+    "refresh": "Vernieuwen",
+    "total": "Totaal nodes",
+    "healthy": "Gezond",
+    "unhealthy": "ongezond",
+    "egressIps": "Uitgangs-IPs",
+    "healthyEgress": "Gezonde uitgang",
+    "loading": "Laden…",
+    "empty": "Geen nodes. Importeer een abonnement.",
+    "colTag": "Node",
+    "colRegion": "Regio",
+    "colHealth": "Status",
+    "colSub": "Abonnement",
+    "lastRefresh": "Laatst vernieuwd: {{time}}"
   }
 }

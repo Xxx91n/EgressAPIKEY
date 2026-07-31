@@ -1,12 +1,13 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigation, Network, Settings as SettingsIcon, Route, FolderTree, RadioTower } from "lucide-react";
+import { Navigation, Network, Settings as SettingsIcon, Route, FolderTree, RadioTower, Server } from "lucide-react";
 import { useAppStore, type Locale, type Theme } from "./store/appStore";
 const TopologyView = lazy(() => import("./views/TopologyView").then(m => ({ default: m.TopologyView })));
 import { SettingsView } from "./views/SettingsView";
 import { ProcessRouteView } from "./views/ProcessRouteView";
 import { SubscriptionsView } from "./views/SubscriptionsView";
 import { PlatformsView } from "./views/PlatformsView";
+import { NodesView } from "./views/NodesView";
 import { useTheme } from "./lib/useTheme";
 import { LogPanel } from "./components/LogPanel";
 import { loadLocale, loadTheme, loadLaneCount, loadView, loadProcessRoutes } from "./lib/settings";
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { key: "platforms", icon: FolderTree },
   { key: "processRoute", icon: Route },
   { key: "subscriptions", icon: RadioTower },
+  { key: "nodes", icon: Server },
   { key: "settings", icon: SettingsIcon },
 ] as const;
 
@@ -120,6 +122,7 @@ export default function App() {
           {view === "settings" && <SettingsView />}
           {view === "processRoute" && <ProcessRouteView />}
           {view === "subscriptions" && <SubscriptionsView />}
+          {view === "nodes" && <NodesView />}
         </main>
         <LogPanel />
       </div>

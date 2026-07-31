@@ -8,7 +8,8 @@
     "settings": "设置",
     "processRoute": "进程路由",
     "subscriptions": "订阅",
-    "platforms": "平台"
+    "platforms": "平台",
+    "nodes": "节点"
   },
   "platform": {
     "title": "平台",
@@ -122,5 +123,21 @@
     "success": "备份完成",
     "failed": "备份失败",
     "noConfig": "WebDAV 未配置"
+  },
+  "nodes": {
+    "title": "节点池",
+    "refresh": "刷新",
+    "total": "总节点数",
+    "healthy": "健康",
+    "unhealthy": "异常",
+    "egressIps": "出口 IP 数",
+    "healthyEgress": "健康出口",
+    "loading": "加载中…",
+    "empty": "暂无节点，请先导入订阅。",
+    "colTag": "节点",
+    "colRegion": "地区",
+    "colHealth": "健康状态",
+    "colSub": "订阅",
+    "lastRefresh": "最后刷新：{{time}}"
   }
 }

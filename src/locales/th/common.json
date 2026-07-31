@@ -8,7 +8,8 @@
     "settings": "การตั้งค่า",
     "platforms": "แพลตฟอร์ม",
     "processRoute": "เส้นทางโปรเซส",
-    "subscriptions": "การสมัครรับข้อมูล"
+    "subscriptions": "การสมัครรับข้อมูล",
+    "nodes": "โหนด"
   },
   "platform": {
     "title": "แพลตฟอร์ม",
@@ -122,5 +123,21 @@
     "success": "สำรองสำเร็จ",
     "failed": "สำรองล้มเหลว",
     "noConfig": "WebDAV ยังไม่ได้ตั้ง"
+  },
+  "nodes": {
+    "title": "พูลโหนด",
+    "refresh": "รีเฟรช",
+    "total": "โหนดทั้งหมด",
+    "healthy": "ปกติ",
+    "unhealthy": "ผิดปกติ",
+    "egressIps": "IP ออก",
+    "healthyEgress": "ออกปกติ",
+    "loading": "กำลังโหลด…",
+    "empty": "ไม่มีโหนด นำเข้าการสมัครรับข้อมูลก่อน",
+    "colTag": "โหนด",
+    "colRegion": "ภูมิภาค",
+    "colHealth": "สุขภาพ",
+    "colSub": "การสมัครรับข้อมูล",
+    "lastRefresh": "รีเฟรชล่าสุด: {{time}}"
   }
 }

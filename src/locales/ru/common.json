@@ -8,7 +8,8 @@
     "settings": "Настройки",
     "processRoute": "Маршрут процесса",
     "subscriptions": "Подписки",
-    "platforms": "Платформы"
+    "platforms": "Платформы",
+    "nodes": "Узлы"
   },
   "platform": {
     "title": "Платформы",
@@ -122,5 +123,21 @@
     "success": "Резервная копия создана",
     "failed": "Ошибка резервного копирования",
     "noConfig": "WebDAV не настроен"
+  },
+  "nodes": {
+    "title": "Пул узлов",
+    "refresh": "Обновить",
+    "total": "Всего узлов",
+    "healthy": "Здоров",
+    "unhealthy": "нездоров",
+    "egressIps": "IP выхода",
+    "healthyEgress": "Здоровый выход",
+    "loading": "Загрузка…",
+    "empty": "Нет узлов. Сначала импортируйте подписку.",
+    "colTag": "Узел",
+    "colRegion": "Регион",
+    "colHealth": "Статус",
+    "colSub": "Подписка",
+    "lastRefresh": "Обновлено: {{time}}"
   }
 }

@@ -8,7 +8,8 @@
     "settings": "設定",
     "processRoute": "プロセスルート",
     "subscriptions": "サブスクリプション",
-    "platforms": "プラットフォーム"
+    "platforms": "プラットフォーム",
+    "nodes": "ノード"
   },
   "platform": {
     "title": "プラットフォーム",
@@ -122,5 +123,21 @@
     "success": "バックアップ完了",
     "failed": "バックアップ失敗",
     "noConfig": "WebDAV未設定"
+  },
+  "nodes": {
+    "title": "ノードプール",
+    "refresh": "更新",
+    "total": "総ノード数",
+    "healthy": "正常",
+    "unhealthy": "異常",
+    "egressIps": "出口IP数",
+    "healthyEgress": "正常出口",
+    "loading": "読み込み中…",
+    "empty": "ノードがありません。先にサブスクリプションをインポートしてください。",
+    "colTag": "ノード",
+    "colRegion": "地域",
+    "colHealth": "ヘルス",
+    "colSub": "サブスクリプション",
+    "lastRefresh": "最終更新: {{time}}"
   }
 }

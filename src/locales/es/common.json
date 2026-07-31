@@ -8,7 +8,8 @@
     "settings": "Ajustes",
     "processRoute": "Ruta de proceso",
     "subscriptions": "Suscripciones",
-    "platforms": "Plataformas"
+    "platforms": "Plataformas",
+    "nodes": "Nodos"
   },
   "platform": {
     "title": "Plataformas",
@@ -122,5 +123,21 @@
     "success": "Copia completada",
     "failed": "Copia fallida",
     "noConfig": "WebDAV no configurado"
+  },
+  "nodes": {
+    "title": "Grupo de nodos",
+    "refresh": "Actualizar",
+    "total": "Nodos totales",
+    "healthy": "Saludable",
+    "unhealthy": "no saludable",
+    "egressIps": "IPs de salida",
+    "healthyEgress": "Salida saludable",
+    "loading": "Cargando nodos…",
+    "empty": "Sin nodos. Importa una suscripción primero.",
+    "colTag": "Nodo",
+    "colRegion": "Región",
+    "colHealth": "Salud",
+    "colSub": "Suscripción",
+    "lastRefresh": "Última actualización: {{time}}"
   }
 }

@@ -8,7 +8,8 @@
     "settings": "Einstellungen",
     "processRoute": "Prozessroute",
     "subscriptions": "Abonnements",
-    "platforms": "Plattformen"
+    "platforms": "Plattformen",
+    "nodes": "Knoten"
   },
   "platform": {
     "title": "Plattformen",
@@ -122,5 +123,21 @@
     "success": "Backup fertig",
     "failed": "Backup fehlgeschlagen",
     "noConfig": "WebDAV nicht konfiguriert"
+  },
+  "nodes": {
+    "title": "Knotenpool",
+    "refresh": "Aktualisieren",
+    "total": "Knoten gesamt",
+    "healthy": "Gesund",
+    "unhealthy": "fehlerhaft",
+    "egressIps": "Ausgangs-IPs",
+    "healthyEgress": "Gesunde Ausgänge",
+    "loading": "Laden…",
+    "empty": "Keine Knoten. Abonnement importieren.",
+    "colTag": "Knoten",
+    "colRegion": "Region",
+    "colHealth": "Status",
+    "colSub": "Abonnement",
+    "lastRefresh": "Aktualisiert: {{time}}"
   }
 }

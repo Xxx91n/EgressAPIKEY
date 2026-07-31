@@ -8,7 +8,8 @@
     "settings": "Cài đặt",
     "platforms": "Nền tảng",
     "processRoute": "Tuyến tiến trình",
-    "subscriptions": "Đăng ký"
+    "subscriptions": "Đăng ký",
+    "nodes": "Nút"
   },
   "platform": {
     "title": "Nền tảng",
@@ -122,5 +123,21 @@
     "success": "Sao lưu hoàn tất",
     "failed": "Sao lưu thất bại",
     "noConfig": "WebDAV chưa cấu hình"
+  },
+  "nodes": {
+    "title": "Nhóm nút",
+    "refresh": "Làm mới",
+    "total": "Tổng nút",
+    "healthy": "Khỏe",
+    "unhealthy": "không khỏe",
+    "egressIps": "IP đầu ra",
+    "healthyEgress": "Đầu ra khỏe",
+    "loading": "Đang tải…",
+    "empty": "Không có nút. Nhập gói đăng ký trước.",
+    "colTag": "Nút",
+    "colRegion": "Khu vực",
+    "colHealth": "Trạng thái",
+    "colSub": "Đăng ký",
+    "lastRefresh": "Cập nhật lúc: {{time}}"
   }
 }

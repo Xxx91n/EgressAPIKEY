@@ -8,7 +8,8 @@
     "settings": "설정",
     "processRoute": "프로세스 경로",
     "subscriptions": "구독",
-    "platforms": "플랫폼"
+    "platforms": "플랫폼",
+    "nodes": "노드"
   },
   "platform": {
     "title": "플랫폼",
@@ -122,5 +123,21 @@
     "success": "백업 완료",
     "failed": "백업 실패",
     "noConfig": "WebDAV 미설정"
+  },
+  "nodes": {
+    "title": "노드 풀",
+    "refresh": "새로고침",
+    "total": "전체 노드",
+    "healthy": "정상",
+    "unhealthy": "비정상",
+    "egressIps": "출구 IP",
+    "healthyEgress": "정상 출구",
+    "loading": "로딩 중…",
+    "empty": "노드 없음. 구독을 먼저 가져오세요.",
+    "colTag": "노드",
+    "colRegion": "지역",
+    "colHealth": "상태",
+    "colSub": "구독",
+    "lastRefresh": "최근 새로고침: {{time}}"
   }
 }

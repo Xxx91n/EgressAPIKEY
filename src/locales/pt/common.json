@@ -8,7 +8,8 @@
     "settings": "Configurações",
     "processRoute": "Rota de processo",
     "subscriptions": "Assinaturas",
-    "platforms": "Plataformas"
+    "platforms": "Plataformas",
+    "nodes": "Nós"
   },
   "platform": {
     "title": "Plataformas",
@@ -122,5 +123,21 @@
     "success": "Backup concluído",
     "failed": "Backup falhou",
     "noConfig": "WebDAV não configurado"
+  },
+  "nodes": {
+    "title": "Pool de nós",
+    "refresh": "Atualizar",
+    "total": "Total de nós",
+    "healthy": "Saudável",
+    "unhealthy": "não saudável",
+    "egressIps": "IPs de saída",
+    "healthyEgress": "Saída saudável",
+    "loading": "Carregando…",
+    "empty": "Sem nós. Importe uma assinatura.",
+    "colTag": "Nó",
+    "colRegion": "Região",
+    "colHealth": "Saúde",
+    "colSub": "Assinatura",
+    "lastRefresh": "Última atualização: {{time}}"
   }
 }

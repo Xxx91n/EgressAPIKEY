@@ -8,7 +8,8 @@
     "settings": "Impostazioni",
     "platforms": "Piattaforme",
     "processRoute": "Instradamento processi",
-    "subscriptions": "Sottoscrizioni"
+    "subscriptions": "Sottoscrizioni",
+    "nodes": "Nodi"
   },
   "platform": {
     "title": "Piattaforme",
@@ -122,5 +123,21 @@
     "success": "Backup completato",
     "failed": "Backup fallito",
     "noConfig": "WebDAV non configurato"
+  },
+  "nodes": {
+    "title": "Pool nodi",
+    "refresh": "Aggiorna",
+    "total": "Nodi totali",
+    "healthy": "Sano",
+    "unhealthy": "non sano",
+    "egressIps": "IP di uscita",
+    "healthyEgress": "Uscita sana",
+    "loading": "Caricamento…",
+    "empty": "Nessun nodo. Importa un abbonamento.",
+    "colTag": "Nodo",
+    "colRegion": "Regione",
+    "colHealth": "Salute",
+    "colSub": "Abbonamento",
+    "lastRefresh": "Ultimo aggiornamento: {{time}}"
   }
 }

@@ -8,7 +8,8 @@
     "settings": "Pengaturan",
     "platforms": "Platform",
     "processRoute": "Rute proses",
-    "subscriptions": "Langganan"
+    "subscriptions": "Langganan",
+    "nodes": "Node"
   },
   "platform": {
     "title": "Platform",
@@ -122,5 +123,21 @@
     "success": "Cadangan selesai",
     "failed": "Cadangan gagal",
     "noConfig": "WebDAV belum diatur"
+  },
+  "nodes": {
+    "title": "Pool node",
+    "refresh": "Segarkan",
+    "total": "Total node",
+    "healthy": "Sehat",
+    "unhealthy": "tidak sehat",
+    "egressIps": "IP keluar",
+    "healthyEgress": "Keluar sehat",
+    "loading": "Memuat…",
+    "empty": "Tidak ada node. Impor langganan dulu.",
+    "colTag": "Node",
+    "colRegion": "Wilayah",
+    "colHealth": "Kesehatan",
+    "colSub": "Langganan",
+    "lastRefresh": "Terakhir diperbarui: {{time}}"
   }
 }

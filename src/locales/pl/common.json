@@ -8,7 +8,8 @@
     "settings": "Ustawienia",
     "platforms": "Platformy",
     "processRoute": "Trasa procesu",
-    "subscriptions": "Subskrypcje"
+    "subscriptions": "Subskrypcje",
+    "nodes": "Węzły"
   },
   "platform": {
     "title": "Platformy",
@@ -122,5 +123,21 @@
     "success": "Kopia utworzona",
     "failed": "Kopia nieudana",
     "noConfig": "WebDAV nie skonfigurowany"
+  },
+  "nodes": {
+    "title": "Pula węzłów",
+    "refresh": "Odśwież",
+    "total": "Wszystkie węzły",
+    "healthy": "Zdrowy",
+    "unhealthy": "niezdrowy",
+    "egressIps": "IP wyjścia",
+    "healthyEgress": "Zdrowe wyjście",
+    "loading": "Ładowanie…",
+    "empty": "Brak węzłów. Importuj subskrypcję.",
+    "colTag": "Węzeł",
+    "colRegion": "Region",
+    "colHealth": "Status",
+    "colSub": "Subskrypcja",
+    "lastRefresh": "Ostatnia aktualizacja: {{time}}"
   }
 }

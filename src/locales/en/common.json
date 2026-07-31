@@ -8,7 +8,8 @@
     "settings": "Settings",
     "platforms": "Platforms",
     "processRoute": "Process Route",
-    "subscriptions": "Subscriptions"
+    "subscriptions": "Subscriptions",
+    "nodes": "Nodes"
   },
   "platform": {
     "title": "Platforms",
@@ -122,5 +123,21 @@
     "success": "Backup completed",
     "failed": "Backup failed",
     "noConfig": "WebDAV not configured"
+  },
+  "nodes": {
+    "title": "Node Pool",
+    "refresh": "Refresh",
+    "total": "Total nodes",
+    "healthy": "Healthy",
+    "unhealthy": "unhealthy",
+    "egressIps": "Egress IPs",
+    "healthyEgress": "Healthy egress",
+    "loading": "Loading nodes…",
+    "empty": "No nodes loaded. Import a subscription first.",
+    "colTag": "Node",
+    "colRegion": "Region",
+    "colHealth": "Health",
+    "colSub": "Subscription",
+    "lastRefresh": "Last refresh: {{time}}"
   }
 }

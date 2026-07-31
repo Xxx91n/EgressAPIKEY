@@ -8,7 +8,8 @@
     "settings": "Ayarlar",
     "platforms": "Platformlar",
     "processRoute": "Süreç rotası",
-    "subscriptions": "Abonelikler"
+    "subscriptions": "Abonelikler",
+    "nodes": "Düğümler"
   },
   "platform": {
     "title": "Platformlar",
@@ -122,5 +123,21 @@
     "success": "Yedek tamamlandı",
     "failed": "Yedek başarısız",
     "noConfig": "WebDAV yapılandırılmadı"
+  },
+  "nodes": {
+    "title": "Düğüm havuzu",
+    "refresh": "Yenile",
+    "total": "Toplam düğüm",
+    "healthy": "Sağlıklı",
+    "unhealthy": "sağlıksız",
+    "egressIps": "Çıkış IP'leri",
+    "healthyEgress": "Sağlıklı çıkış",
+    "loading": "Yükleniyor…",
+    "empty": "Düğüm yok. Abonelik içe aktarın.",
+    "colTag": "Düğüm",
+    "colRegion": "Bölge",
+    "colHealth": "Sağlık",
+    "colSub": "Abonelik",
+    "lastRefresh": "Son güncelleme: {{time}}"
   }
 }

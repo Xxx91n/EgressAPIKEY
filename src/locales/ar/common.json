@@ -8,7 +8,8 @@
     "settings": "الإعدادات",
     "processRoute": "مسار العملية",
     "subscriptions": "الاشتراكات",
-    "platforms": "المنصات"
+    "platforms": "المنصات",
+    "nodes": "العقد"
   },
   "platform": {
     "title": "المنصات",
@@ -122,5 +123,21 @@
     "success": "تم النسخ",
     "failed": "فشل النسخ",
     "noConfig": "WebDAV غير مُعد"
+  },
+  "nodes": {
+    "title": "تجمع العقد",
+    "refresh": "تحديث",
+    "total": "إجمالي العقد",
+    "healthy": "سليم",
+    "unhealthy": "غير سليم",
+    "egressIps": "عناوين الخروج",
+    "healthyEgress": "خروج سليم",
+    "loading": "جارٍ التحميل…",
+    "empty": "لا توجد عقد. استورد اشتراكًا أولاً.",
+    "colTag": "عقدة",
+    "colRegion": "المنطقة",
+    "colHealth": "الصحة",
+    "colSub": "الاشتراك",
+    "lastRefresh": "آخر تحديث: {{time}}"
   }
 }

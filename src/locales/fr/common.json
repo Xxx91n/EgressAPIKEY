@@ -8,7 +8,8 @@
     "settings": "Réglages",
     "processRoute": "Routage des processus",
     "subscriptions": "Abonnements",
-    "platforms": "Plateformes"
+    "platforms": "Plateformes",
+    "nodes": "Nœuds"
   },
   "platform": {
     "title": "Plateformes",
@@ -122,5 +123,21 @@
     "success": "Sauvegarde terminée",
     "failed": "Sauvegarde échouée",
     "noConfig": "WebDAV non configuré"
+  },
+  "nodes": {
+    "title": "Pool de nœuds",
+    "refresh": "Actualiser",
+    "total": "Nœuds totaux",
+    "healthy": "Sain",
+    "unhealthy": "non sain",
+    "egressIps": "IPs de sortie",
+    "healthyEgress": "Sortie saine",
+    "loading": "Chargement…",
+    "empty": "Aucun nœud. Importez un abonnement d'abord.",
+    "colTag": "Nœud",
+    "colRegion": "Région",
+    "colHealth": "Santé",
+    "colSub": "Abonnement",
+    "lastRefresh": "Dernière MAJ: {{time}}"
   }
 }
