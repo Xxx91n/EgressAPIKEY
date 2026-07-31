@@ -903,10 +903,22 @@ pub async fn config_import(
                     }
                 }
                 if let Some(filters) = plat.get("regex_filters").and_then(|v| v.as_array()) {
-                    body.insert("regex_filters".to_string(), serde_json::Value::Array(filters.clone()));
+                    if filters.len() <= 64 {
+                        let valid: Vec<serde_json::Value> = filters.iter()
+                            .filter(|f| f.as_str().map_or(false, |s| s.len() <= 253 && !s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f)))
+                            .cloned()
+                            .collect();
+                        body.insert("regex_filters".to_string(), serde_json::Value::Array(valid));
+                    }
                 }
                 if let Some(filters) = plat.get("region_filters").and_then(|v| v.as_array()) {
-                    body.insert("region_filters".to_string(), serde_json::Value::Array(filters.clone()));
+                    if filters.len() <= 64 {
+                        let valid: Vec<serde_json::Value> = filters.iter()
+                            .filter(|f| f.as_str().map_or(false, |s| s.len() <= 16 && !s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')))
+                            .cloned()
+                            .collect();
+                        body.insert("region_filters".to_string(), serde_json::Value::Array(valid));
+                    }
                 }
                 if let Some(ttl) = plat.get("sticky_ttl").and_then(|v| v.as_str()) {
                     if ttl.len() <= 32 && !ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
