@@ -62,7 +62,19 @@
     "entry": "Giriş: {{platform}}",
     "keyHash": "Anahtar hash: {{hash}}",
     "sseLocked": "SSE kilitli",
-    "leasesActive": "Aktif kiralamalar: {{count}}"
+    "leasesActive": "Aktif kiralamalar: {{count}}",
+    "entryPort": "Giriş proxy portu",
+    "platformsCol": "Platformlar",
+    "nodesCol": "IP kanalları",
+    "dragHint": "Yönlendirmeyi bağlamak için bir platformdan düğüm bölgesine sürükleyin",
+    "region": "Bölge: {{region}}",
+    "healthy": "sağlıklı",
+    "unhealthy": "sağlıksız",
+    "noNodes": "Düğüm yüklenmedi. Önce bir abonelik içe aktarın.",
+    "noPlatforms": "Platform yok. Platformlar sekmesinde bir tane ekleyin.",
+    "policy": "Politika: {{policy}}",
+    "routable": "Yönlendirilebilir: {{count}}",
+    "filters": "Yukarı akış: {{filters}}"
   },
   "processRoute": {
     "title": "Süreç rotası",

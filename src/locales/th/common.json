@@ -62,7 +62,19 @@
     "entry": "ทางเข้า: {{platform}}",
     "keyHash": "แฮชคีย์: {{hash}}",
     "sseLocked": "SSE ถูกล็อก",
-    "leasesActive": "สัญญาเช่าที่ใช้งานอยู่: {{count}}"
+    "leasesActive": "สัญญาเช่าที่ใช้งานอยู่: {{count}}",
+    "entryPort": "พอร์ตพร็อกซีทางเข้า",
+    "platformsCol": "แพลตฟอร์ม",
+    "nodesCol": "ช่อง IP",
+    "dragHint": "ลากจากแพลตฟอร์มไปยังภูมิภาคโหนดเพื่อผูกเส้นทาง",
+    "region": "ภูมิภาค: {{region}}",
+    "healthy": "ปกติ",
+    "unhealthy": "ผิดปกติ",
+    "noNodes": "ไม่มีโหนดที่โหลด นำเข้าการสมัครรับข้อมูลก่อน",
+    "noPlatforms": "ไม่มีแพลตฟอร์ม เพิ่มในแท็บแพลตฟอร์ม",
+    "policy": "นโยบาย: {{policy}}",
+    "routable": "กำหนดเส้นทางได้: {{count}}",
+    "filters": "อัปสตรีม: {{filters}}"
   },
   "processRoute": {
     "title": "เส้นทางโปรเซส",

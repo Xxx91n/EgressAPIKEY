@@ -62,7 +62,19 @@
     "entry": "Ingang: {{platform}}",
     "keyHash": "Sleutel-hash: {{hash}}",
     "sseLocked": "SSE vergrendeld",
-    "leasesActive": "Actieve leases: {{count}}"
+    "leasesActive": "Actieve leases: {{count}}",
+    "entryPort": "Inkomend proxy-poort",
+    "platformsCol": "Platforms",
+    "nodesCol": "IP-kanalen",
+    "dragHint": "Sleep van een platform naar een knoop-regio om routing te binden",
+    "region": "Regio: {{region}}",
+    "healthy": "gezond",
+    "unhealthy": "ongezond",
+    "noNodes": "Geen knopen geladen. Importeer eerst een abonnement.",
+    "noPlatforms": "Geen platforms. Voeg er een toe in het Platforms-tabblad.",
+    "policy": "Beleid: {{policy}}",
+    "routable": "Routeerbaar: {{count}}",
+    "filters": "Upstream: {{filters}}"
   },
   "processRoute": {
     "title": "Procesroute",

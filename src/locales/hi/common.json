@@ -62,7 +62,19 @@
     "entry": "प्रवेश: {{platform}}",
     "keyHash": "कुंजी हैश: {{hash}}",
     "sseLocked": "SSE लॉक किया गया",
-    "leasesActive": "सक्रिय लीज़: {{count}}"
+    "leasesActive": "सक्रिय लीज़: {{count}}",
+    "entryPort": "एंट्री प्रॉक्सी पोर्ट",
+    "platformsCol": "प्लेटफ़ॉर्म",
+    "nodesCol": "IP चैनल",
+    "dragHint": "रूटिंग बाइंड करने के लिए प्लेटफ़ॉर्म से नोड क्षेत्र में खींचें",
+    "region": "क्षेत्र: {{region}}",
+    "healthy": "स्वस्थ",
+    "unhealthy": "अस्वस्थ",
+    "noNodes": "कोई नोड लोड नहीं हुआ। पहले सब्सक्रिप्शन आयात करें।",
+    "noPlatforms": "कोई प्लेटफ़ॉर्म नहीं। प्लेटफ़ॉर्म टैब में जोड़ें।",
+    "policy": "नीति: {{policy}}",
+    "routable": "रूट करने योग्य: {{count}}",
+    "filters": "अपस्ट्रीम: {{filters}}"
   },
   "processRoute": {
     "title": "प्रक्रिया मार्ग",

@@ -2,6 +2,14 @@ import { vi, beforeEach, beforeAll } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import i18next from "i18next";
 import { initReactI18next } from "react-i18next";
+// ReactFlow needs ResizeObserver; jsdom does not provide it.
+class ResizeObserverPolyfill {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+(globalThis as unknown as { ResizeObserver: typeof ResizeObserverPolyfill }).ResizeObserver = ResizeObserverPolyfill;
+
 
 /// Shared vitest setup (loaded via vitest.config.ts setupFiles).
 /// Mocks the Tauri runtime so any view that uses ipc.ts runs in jsdom.
@@ -62,6 +70,18 @@ beforeAll(async () => {
         "topology.entry": "Entry: {{platform}}",
         "topology.leasesActive": "Active leases: {{count}}",
         "topology.lane": "Lane {{index}}",
+        "topology.entryPort": "Entry proxy port",
+        "topology.platformsCol": "Platforms",
+        "topology.nodesCol": "IP channels",
+        "topology.dragHint": "Drag from a platform to a node region to bind routing",
+        "topology.region": "Region: {{region}}",
+        "topology.healthy": "healthy",
+        "topology.unhealthy": "unhealthy",
+        "topology.noNodes": "No nodes loaded. Import a subscription first.",
+        "topology.noPlatforms": "No platforms. Add one in the Platforms tab.",
+        "topology.policy": "Policy: {{policy}}",
+        "topology.routable": "Routable: {{count}}",
+        "topology.filters": "Upstream: {{filters}}",
         "settings.general": "General",
         "settings.language": "Language",
         "settings.lanes": "Lanes",

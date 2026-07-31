@@ -248,6 +248,15 @@ pub async fn platform_list(sidecar: State<'_, SidecarHandle>) -> Result<Vec<Stri
     Ok(platform_names(&list))
 }
 
+/// Phase R2: return the full platform objects (not just names) so the topology
+/// canvas can render regex_filters, region_filters, allocation_policy,
+/// routable_node_count. Returns raw JSON; the frontend parses it.
+#[tauri::command]
+pub async fn platform_list_full(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
+    let client = resin_client(&sidecar)?;
+    client.list_platforms().await.map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn platform_snapshot(sidecar: State<'_, SidecarHandle>, name: String) -> Result<Vec<Account>, String> {
     validate_short_name(&name, "platform")?;
@@ -459,7 +468,7 @@ pub async fn node_pool_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<ser
 const ALLOWED_ALLOCATION_POLICIES: &[&str] =
     &["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"];
 
-/// PATCH a platform's fields (allocation_policy, regex_filters, sticky_ttl).
+/// PATCH a platform's fields (allocation_policy, regex_filters, region_filters, sticky_ttl).
 /// The webview identifies the platform by NAME; we resolve name->id then
 /// PATCH. Only the provided fields are sent; null/absent fields are omitted
 /// so Resin keeps its current value.
@@ -469,6 +478,7 @@ pub async fn platform_update(
     name: String,
     allocation_policy: Option<String>,
     regex_filters: Option<Vec<String>>,
+    region_filters: Option<Vec<String>>,
     sticky_ttl: Option<String>,
 ) -> Result<serde_json::Value, String> {
     validate_short_name(&name, "platform")?;
@@ -509,6 +519,26 @@ pub async fn platform_update(
             .filter(|v| !v.is_null())
             .collect();
         body.insert("regex_filters".to_string(), serde_json::Value::Array(arr));
+    }
+    // region_filters: lowercase ISO 3166-1 alpha-2 codes ("hk","us","jp") or
+    // negation ("!hk"). These select which node regions the platform routes to
+    // — this is the B->C binding mechanism for the topology canvas.
+    if let Some(ref filters) = region_filters {
+        if filters.len() > 64 {
+            return Err("region_filters: too many entries (max 64)".to_string());
+        }
+        let arr: Vec<serde_json::Value> = filters
+            .iter()
+            .map(|f| {
+                if f.len() > 16 || f.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ') {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::Value::String(f.clone())
+                }
+            })
+            .filter(|v| !v.is_null())
+            .collect();
+        body.insert("region_filters".to_string(), serde_json::Value::Array(arr));
     }
     if let Some(ref ttl) = sticky_ttl {
        // Go duration string; cap length to prevent abuse.

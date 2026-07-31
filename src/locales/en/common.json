@@ -62,7 +62,19 @@
     "entry": "Entry: {{platform}}",
     "keyHash": "Key hash: {{hash}}",
     "sseLocked": "SSE locked",
-    "leasesActive": "Active leases: {{count}}"
+    "leasesActive": "Active leases: {{count}}",
+    "entryPort": "Entry proxy port",
+    "platformsCol": "Platforms",
+    "nodesCol": "IP channels",
+    "dragHint": "Drag from a platform to a node region to bind routing",
+    "region": "Region: {{region}}",
+    "healthy": "healthy",
+    "unhealthy": "unhealthy",
+    "noNodes": "No nodes loaded. Import a subscription first.",
+    "noPlatforms": "No platforms. Add one in the Platforms tab.",
+    "policy": "Policy: {{policy}}",
+    "routable": "Routable: {{count}}",
+    "filters": "Upstream: {{filters}}"
   },
   "processRoute": {
     "title": "Process route",

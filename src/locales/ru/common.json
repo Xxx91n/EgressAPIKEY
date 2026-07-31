@@ -62,7 +62,19 @@
     "entry": "Вход: {{platform}}",
     "keyHash": "Хеш ключа: {{hash}}",
     "sseLocked": "SSE заблокирован",
-    "leasesActive": "Активные аренды: {{count}}"
+    "leasesActive": "Активные аренды: {{count}}",
+    "entryPort": "Порт прокси-входа",
+    "platformsCol": "Платформы",
+    "nodesCol": "IP-каналы",
+    "dragHint": "Перетащите от платформы к региону узлов для привязки маршрутизации",
+    "region": "Регион: {{region}}",
+    "healthy": "здоров",
+    "unhealthy": "нездоров",
+    "noNodes": "Узлы не загружены. Сначала импортируйте подписку.",
+    "noPlatforms": "Нет платформ. Добавьте на вкладке Платформы.",
+    "policy": "Политика: {{policy}}",
+    "routable": "Маршрутизируемых: {{count}}",
+    "filters": "Апстрим: {{filters}}"
   },
   "processRoute": {
     "title": "Маршрут процесса",

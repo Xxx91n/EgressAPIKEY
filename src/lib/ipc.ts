@@ -63,6 +63,13 @@ export async function ipcPlatformList(): Promise<string[]> {
   return invoke<string[]>("platform_list");
 }
 
+/// Phase R2: full platform objects for the topology canvas. Returns raw JSON
+/// (the Resin items-wrapper); the caller parses name/regex_filters/region_filters/
+/// allocation_policy/routable_node_count.
+export async function ipcPlatformListFull(): Promise<unknown> {
+  return invoke("platform_list_full");
+}
+
 export async function ipcPlatformSnapshot(name: string): Promise<Account[]> {
   assertShortName(name, "platform");
   return invoke<Account[]>("platform_snapshot", { name });
@@ -81,6 +88,7 @@ export async function ipcPlatformUpdate(
   name: string,
   allocationPolicy?: AllocationPolicy,
   regexFilters?: string[],
+  regionFilters?: string[],
   stickyTtl?: string,
 ): Promise<unknown> {
   assertShortName(name, "platform");
@@ -93,6 +101,13 @@ export async function ipcPlatformUpdate(
       if (f.length > 253 || /[\x00-\x1f\x7f]/.test(f)) throw new Error("regex_filter invalid (max 253, no control)");
     }
   }
+  if (regionFilters !== undefined) {
+    if (regionFilters.length > 64) throw new Error("region_filters: too many (max 64)");
+    for (const r of regionFilters) {
+      // lowercase ISO 3166-1 alpha-2 or !negation, max 16 chars
+      if (r.length > 16 || /[\x00-\x1f\x7f\s]/.test(r)) throw new Error("region_filter invalid (max 16, no control/space)");
+    }
+  }
   if (stickyTtl !== undefined) {
     if (stickyTtl.length > 32 || /[\x00-\x1f\x7f]/.test(stickyTtl)) throw new Error("sticky_ttl invalid (max 32, no control)");
   }
@@ -100,6 +115,7 @@ export async function ipcPlatformUpdate(
     name,
     allocationPolicy: allocationPolicy ?? null,
     regexFilters: regexFilters ?? null,
+    regionFilters: regionFilters ?? null,
     stickyTtl: stickyTtl ?? null,
   });
 }

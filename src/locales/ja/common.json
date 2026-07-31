@@ -62,7 +62,19 @@
     "entry": "エントリー: {{platform}}",
     "keyHash": "キーハッシュ: {{hash}}",
     "sseLocked": "SSE ロック中",
-    "leasesActive": "アクティブリース: {{count}}"
+    "leasesActive": "アクティブリース: {{count}}",
+    "entryPort": "エントリプロキシポート",
+    "platformsCol": "プラットフォーム",
+    "nodesCol": "IPチャネル",
+    "dragHint": "プラットフォームからノードリージョンへドラッグしてルーティングをバインド",
+    "region": "リージョン: {{region}}",
+    "healthy": "正常",
+    "unhealthy": "異常",
+    "noNodes": "ノードが読み込まれていません。先にサブスクリプションをインポートしてください。",
+    "noPlatforms": "プラットフォームがありません。プラットフォームタブで追加してください。",
+    "policy": "ポリシー: {{policy}}",
+    "routable": "ルーティング可能: {{count}}",
+    "filters": "上流: {{filters}}"
   },
   "processRoute": {
     "title": "プロセスルート",

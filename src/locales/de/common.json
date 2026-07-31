@@ -62,7 +62,19 @@
     "entry": "Eingang: {{platform}}",
     "keyHash": "Schlüssel-Hash: {{hash}}",
     "sseLocked": "SSE gesperrt",
-    "leasesActive": "Aktive Leases: {{count}}"
+    "leasesActive": "Aktive Leases: {{count}}",
+    "entryPort": "Eingangs-Proxy-Port",
+    "platformsCol": "Plattformen",
+    "nodesCol": "IP-Kanäle",
+    "dragHint": "Von einer Plattform zu einer Knoten-Region ziehen, um Routing zu binden",
+    "region": "Region: {{region}}",
+    "healthy": "gesund",
+    "unhealthy": "fehlerhaft",
+    "noNodes": "Keine Knoten geladen. Importieren Sie zuerst ein Abonnement.",
+    "noPlatforms": "Keine Plattformen. Fügen Sie eine im Plattformen-Tab hinzu.",
+    "policy": "Richtlinie: {{policy}}",
+    "routable": "Routbar: {{count}}",
+    "filters": "Upstream: {{filters}}"
   },
   "processRoute": {
     "title": "Prozessroute",

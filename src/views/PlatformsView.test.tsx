@@ -33,7 +33,7 @@ describe("PlatformsView (closed-loop, IPC-mocked)", () => {
   });
 
   it("removes a platform: dispatches platform_remove IPC and reducer trims it", async () => {
-    useAppStore.setState({ platforms: [{ name: "anthropic", accounts: [] }] });
+    useAppStore.setState({ platforms: [{ name: "anthropic", accounts: [], regexFilters: null, regionFilters: null, allocationPolicy: "BALANCED", routableNodeCount: 0, stickyTtl: "168h0m0s" }] });
     render(<PlatformsView />);
     expect(screen.getByText("anthropic")).toBeInTheDocument();
     const drop =

@@ -62,7 +62,19 @@
     "entry": "Ingresso: {{platform}}",
     "keyHash": "Hash chiave: {{hash}}",
     "sseLocked": "SSE bloccato",
-    "leasesActive": "Lease attivi: {{count}}"
+    "leasesActive": "Lease attivi: {{count}}",
+    "entryPort": "Porta proxy di ingresso",
+    "platformsCol": "Piattaforme",
+    "nodesCol": "Canali IP",
+    "dragHint": "Trascina da una piattaforma a una regione di nodi per collegare il routing",
+    "region": "Regione: {{region}}",
+    "healthy": "sano",
+    "unhealthy": "malfunzionante",
+    "noNodes": "Nessun nodo caricato. Importa prima un abbonamento.",
+    "noPlatforms": "Nessuna piattaforma. Aggiungine una nella scheda Piattaforme.",
+    "policy": "Politica: {{policy}}",
+    "routable": "Instradabile: {{count}}",
+    "filters": "Upstream: {{filters}}"
   },
   "processRoute": {
     "title": "Instradamento processi",

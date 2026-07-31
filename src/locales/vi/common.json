@@ -62,7 +62,19 @@
     "entry": "Lối vào: {{platform}}",
     "keyHash": "Băm khóa: {{hash}}",
     "sseLocked": "SSE đã khóa",
-    "leasesActive": "Bản thuê hoạt động: {{count}}"
+    "leasesActive": "Bản thuê hoạt động: {{count}}",
+    "entryPort": "Cổng proxy đầu vào",
+    "platformsCol": "Nền tảng",
+    "nodesCol": "Kênh IP",
+    "dragHint": "Kéo từ nền tảng đến vùng nút để liên kết định tuyến",
+    "region": "Vùng: {{region}}",
+    "healthy": "khỏe",
+    "unhealthy": "không khỏe",
+    "noNodes": "Không có nút nào được tải. Nhập gói đăng ký trước.",
+    "noPlatforms": "Không có nền tảng. Thêm trong tab Nền tảng.",
+    "policy": "Chính sách: {{policy}}",
+    "routable": "Có thể định tuyến: {{count}}",
+    "filters": "Upstream: {{filters}}"
   },
   "processRoute": {
     "title": "Tuyến tiến trình",

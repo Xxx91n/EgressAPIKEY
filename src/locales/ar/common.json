@@ -62,7 +62,19 @@
     "entry": "دخول: {{platform}}",
     "keyHash": "هاش المفتاح: {{hash}}",
     "sseLocked": "SSE مقفل",
-    "leasesActive": "الإيجارات النشطة: {{count}}"
+    "leasesActive": "الإيجارات النشطة: {{count}}",
+    "entryPort": "منفذ البروكسي للدخول",
+    "platformsCol": "المنصات",
+    "nodesCol": "قنوات IP",
+    "dragHint": "اسحب من منصة إلى منطقة عقدة لربط التوجيه",
+    "region": "المنطقة: {{region}}",
+    "healthy": "سليم",
+    "unhealthy": "غير سليم",
+    "noNodes": "لا توجد عقد محمّلة. استورد اشتراكًا أولاً.",
+    "noPlatforms": "لا توجد منصات. أضف واحدة في علامة تبويب المنصات.",
+    "policy": "السياسة: {{policy}}",
+    "routable": "قابل للتوجيه: {{count}}",
+    "filters": "المنبع: {{filters}}"
   },
   "processRoute": {
     "title": "مسار العملية",

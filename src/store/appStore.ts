@@ -23,6 +23,12 @@ export interface LaneState {
 export interface Platform {
   name: string;
   accounts: Account[];
+  // Phase R2: full Resin platform schema for the topology canvas.
+  regexFilters: string[] | null;
+  regionFilters: string[] | null;
+  allocationPolicy: string;
+  routableNodeCount: number;
+  stickyTtl: string;
 }
 
 export interface Account {
@@ -31,6 +37,17 @@ export interface Account {
   lane: number;
   exitIp: string | null;
   active: boolean;
+}
+
+/// Phase R2: a proxy node from Resin GET /api/v1/nodes (the "C category").
+export interface NodeInfo {
+  nodeHash: string;
+  displayTag: string;
+  enabled: boolean;
+  hasOutbound: boolean;
+  failureCount: number;
+  region: string | null;
+  tags: { subscriptionName: string; tag: string }[];
 }
 
 /// A per-process routing rule (process-route entry).
@@ -68,6 +85,7 @@ export interface AppState {
   subFormDraft: SubFormDraft;
   lanes: LaneState[];
   platforms: Platform[];
+  nodes: NodeInfo[];
   processRoutes: ProcessRoute[];
   subscriptions: Subscription[];
   laneCount: number;
@@ -78,6 +96,7 @@ export interface AppState {
   setSubFormDraft: (d: SubFormDraft) => void;
   setLanes: (l: LaneState[]) => void;
   setPlatforms: (p: Platform[]) => void;
+  setNodes: (n: NodeInfo[]) => void;
   addPlatform: (name: string) => void;
   removePlatform: (name: string) => void;
   addAccount: (platform: string, id: string, lane: number) => void;
@@ -101,6 +120,7 @@ export const useAppStore = create<AppState>((set) => ({
     { index: 1, exitIp: null, busy: false, account: null, authority: null, platform: null, keyHash: null, sseLocked: false },
   ],
   platforms: [],
+  nodes: [],
   processRoutes: [],
   subscriptions: [],
   laneCount: 10,
@@ -111,11 +131,12 @@ export const useAppStore = create<AppState>((set) => ({
   setSubFormDraft: (subFormDraft) => set({ subFormDraft }),
   setLanes: (lanes) => set({ lanes }),
   setPlatforms: (platforms) => set({ platforms }),
+  setNodes: (nodes) => set({ nodes }),
   addPlatform: (name) =>
     set((s) =>
       s.platforms.some((p) => p.name === name)
         ? s
-        : { platforms: [...s.platforms, { name, accounts: [] }] }
+        : { platforms: [...s.platforms, { name, accounts: [], regexFilters: null, regionFilters: null, allocationPolicy: "BALANCED", routableNodeCount: 0, stickyTtl: "168h0m0s" }] }
     ),
   removePlatform: (name) =>
     set((s) => ({ platforms: s.platforms.filter((p) => p.name !== name) })),

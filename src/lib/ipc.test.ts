@@ -120,8 +120,27 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
       name: "OpenAI",
       allocationPolicy: "PREFER_LOW_LATENCY",
       regexFilters: null,
+      regionFilters: null,
       stickyTtl: null,
     });
+  });
+
+  it("platform_update forwards regionFilters for B->C binding", async () => {
+    invokeMock.mockResolvedValue({ ok: true });
+    await ipcPlatformUpdate("OpenAI", undefined, undefined, ["hk", "us"]);
+    expect(invokeMock).toHaveBeenCalledWith("platform_update", {
+      name: "OpenAI",
+      allocationPolicy: null,
+      regexFilters: null,
+      regionFilters: ["hk", "us"],
+      stickyTtl: null,
+    });
+  });
+
+  it("platform_update rejects too many region_filters before invoke", async () => {
+    const tooMany = Array(65).fill("hk");
+    await expect(ipcPlatformUpdate("OpenAI", undefined, undefined, tooMany)).rejects.toThrow(/too many/);
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it("node_list forwards no args", async () => {

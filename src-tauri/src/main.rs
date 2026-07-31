@@ -94,6 +94,7 @@ fn main() {
             commands::platform_add,
             commands::platform_remove,
             commands::platform_list,
+            commands::platform_list_full,
             commands::platform_snapshot,
             commands::account_add,
             commands::account_bind_ip,

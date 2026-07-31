@@ -62,7 +62,19 @@
     "entry": "入口: {{platform}}",
     "keyHash": "密钥哈希: {{hash}}",
     "sseLocked": "SSE 锁定",
-    "leasesActive": "活跃租约: {{count}}"
+    "leasesActive": "活跃租约: {{count}}",
+    "entryPort": "入口代理端口",
+    "platformsCol": "平台",
+    "nodesCol": "IP通道",
+    "dragHint": "从平台拖拽到节点区域以绑定路由",
+    "region": "区域: {{region}}",
+    "healthy": "健康",
+    "unhealthy": "异常",
+    "noNodes": "没有加载节点，请先导入订阅。",
+    "noPlatforms": "没有平台，请在平台页签添加。",
+    "policy": "策略: {{policy}}",
+    "routable": "可路由: {{count}}",
+    "filters": "上游: {{filters}}"
   },
   "processRoute": {
     "title": "进程路由",

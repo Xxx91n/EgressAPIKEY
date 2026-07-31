@@ -1,6 +1,6 @@
 # ai-api-route Refactor Plan - Topology-driven Key-to-Egress Routing
 
-Status: PLANNING. Authored from live Resin v1.1.2 sidecar probes
+Status: R1 DONE (1fe2ce7) + R2 DONE (this commit). R3-R4 pending. Authored from live Resin v1.1.2 sidecar probes
 (2026-07-31), not assumption. All API shapes below were verified against
 the actual binary.
 
@@ -95,9 +95,47 @@ aggregate health.
 - Topology edge changes = config changes = hot PATCH + config file write.
 
 ## Open questions before Phase R2 code
-1. Does Resin support explicit platform-to-node binding, or is it always all eligible nodes + allocation_policy picks? Probe with loaded nodes.
-2. Can regex_filters target node names/egress IPs, or only upstream hosts?
-3. Do random/sequential/bandwidth policies require a Resin fork or can the shell pre-filter the node pool to simulate them?
+## RESOLVED open questions (live-probed 2026-07-31 with 33 real nodes loaded)
+
+1. **Platform-to-node binding is via region_filters, NOT per-node.** Probed:
+   - Default platform (no filters): routable_node_count = 12 (all healthy nodes).
+   - Platform with region_filters:["hk"]: routable_node_count = 3 (HK nodes only).
+   - Platform with regex_filters:["api.openai.com"] but no region_filters: routable_node_count = 0.
+   So region_filters (lowercase ISO 3166-1 alpha-2, e.g. "hk","us","jp", or negation "!hk") selects
+   which nodes are eligible. The Default platform is special: no filters = all healthy nodes.
+   A non-Default platform with no region_filters gets 0 routable nodes (it must specify a region).
+
+2. **regex_filters matches upstream REQUEST hosts, NOT nodes.** regex_filters:["api.openai.com"]
+   means "this platform handles requests to api.openai.com" — it is the key+endpoint identification
+   mechanism (req #1), not a node filter. It does NOT affect routable_node_count.
+
+3. **Node schema has NO per-node egress_ip field.** GET /api/v1/nodes returns node_hash,
+   display_tag, has_outbound, circuit_open_since, failure_count, latency probe timestamps, tags.
+   The egress IP is only exposed as an aggregate count in the node-pool snapshot
+   (egress_ip_count, unique_egress_ips). The topology canvas CANNOT show per-node exit IPs
+   because Resin does not expose them. The canvas shows node display_tag + health instead.
+
+4. **allocation_policy is the ONLY egress selection knob.** Resin v1.1.2 does not expose
+   random/sequential/bandwidth. The canvas exposes the 3 native policies; random/sequential
+   are documented as "not supported by Resin v1.1.2" in the UI.
+
+## Topology canvas design (revised from findings)
+
+The user's "drag line from B (platform) to C (specific node)" model maps to Resin's actual
+behavior as follows:
+- A (entry proxy port): single node, always-connected to all platforms. This is the Resin
+  forward-proxy listen port.
+- B (platforms): one box per platform. Each platform shows: name, regex_filters (which upstream
+  hosts it handles), region_filters (which node regions it routes to), allocation_policy.
+- C (nodes): one box per node, grouped by region. Each node shows: display_tag, health
+  (failure_count, has_outbound), latency.
+- B->C edges: NOT per-node. A platform's edges go to all nodes matching its region_filters.
+  The canvas draws edges from a platform to the node-group whose region matches. Dragging a
+  new edge from B to a C node-group = PATCH the platform's region_filters to include that region.
+  This is the closest faithful mapping of the user's drag-to-connect intent to Resin's API.
+
+Alternative considered: per-node binding (drag to a single node) would require a Resin fork
+to add a platform->node_id filter. Out of scope for v1; documented as a limitation.
 
 ## Constraints (AGENTS.md alignment)
 - All IPC validates input (7.5), no panics (P14), loopback-only ResinClient.

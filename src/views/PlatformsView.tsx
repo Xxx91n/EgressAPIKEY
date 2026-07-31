@@ -42,7 +42,7 @@ export function PlatformsView() {
     try {
       const names = await ipcPlatformList();
       const snaps = await Promise.all(names.map((n) => ipcPlatformSnapshot(n).catch(() => [] as Account[])));
-      localSetPlatforms(names.map((n, i) => ({ name: n, accounts: snaps[i] as any })));
+      localSetPlatforms(names.map((n, i) => ({ name: n, accounts: snaps[i] as any, regexFilters: null, regionFilters: null, allocationPolicy: "BALANCED", routableNodeCount: 0, stickyTtl: "168h0m0s" })));
     } catch {
       // outside Tauri or registry uninstantiated — keep local store state
     }

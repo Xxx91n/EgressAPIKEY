@@ -62,7 +62,19 @@
     "entry": "Masuk: {{platform}}",
     "keyHash": "Hash kunci: {{hash}}",
     "sseLocked": "SSE terkunci",
-    "leasesActive": "Sewa aktif: {{count}}"
+    "leasesActive": "Sewa aktif: {{count}}",
+    "entryPort": "Porta proxy masuk",
+    "platformsCol": "Platform",
+    "nodesCol": "Kanal IP",
+    "dragHint": "Seret dari platform ke region node untuk mengikat routing",
+    "region": "Wilayah: {{region}}",
+    "healthy": "sehat",
+    "unhealthy": "tidak sehat",
+    "noNodes": "Tidak ada node dimuat. Impor langganan dulu.",
+    "noPlatforms": "Tidak ada platform. Tambahkan di tab Platform.",
+    "policy": "Kebijakan: {{policy}}",
+    "routable": "Dapat dirutekan: {{count}}",
+    "filters": "Upstream: {{filters}}"
   },
   "processRoute": {
     "title": "Rute proses",
