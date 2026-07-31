@@ -139,5 +139,16 @@
     "colHealth": "Kesehatan",
     "colSub": "Langganan",
     "lastRefresh": "Terakhir diperbarui: {{time}}"
+  },
+  "config": {
+    "title": "Konfigurasi",
+    "export": "Ekspor",
+    "import": "Impor",
+    "importBtn": "Impor",
+    "exportBtn": "Ekspor",
+    "exported": "Konfigurasi diekspor",
+    "imported": "Diimpor: {{platforms}} platform, {{subscriptions}} langganan",
+    "importError": "Kesalahan impor",
+    "backupCreated": "Backup dibuat: {{path}}"
   }
 }

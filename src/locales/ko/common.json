@@ -139,5 +139,16 @@
     "colHealth": "상태",
     "colSub": "구독",
     "lastRefresh": "최근 새로고침: {{time}}"
+  },
+  "config": {
+    "title": "구성",
+    "export": "구성 내보내기",
+    "import": "구성 가져오기",
+    "importBtn": "가져오기",
+    "exportBtn": "내보내기",
+    "exported": "구성 내보냄",
+    "imported": "구성 가져옴: 플랫폼 {{platforms}}, 구독 {{subscriptions}}",
+    "importError": "가져오기 오류",
+    "backupCreated": "백업 생성: {{path}}"
   }
 }

@@ -139,5 +139,16 @@
     "colHealth": "Status",
     "colSub": "Abonnement",
     "lastRefresh": "Laatst vernieuwd: {{time}}"
+  },
+  "config": {
+    "title": "Configuratie",
+    "export": "Exporteren",
+    "import": "Importeren",
+    "importBtn": "Importeren",
+    "exportBtn": "Exporteren",
+    "exported": "Geëxporteerd",
+    "imported": "Geïmporteerd: {{platforms}} platforms, {{subscriptions}} abonnementen",
+    "importError": "Importfout",
+    "backupCreated": "Backup gemaakt: {{path}}"
   }
 }

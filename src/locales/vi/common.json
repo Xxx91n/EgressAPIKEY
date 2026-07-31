@@ -139,5 +139,16 @@
     "colHealth": "Trạng thái",
     "colSub": "Đăng ký",
     "lastRefresh": "Cập nhật lúc: {{time}}"
+  },
+  "config": {
+    "title": "Cấu hình",
+    "export": "Xuất",
+    "import": "Nhập",
+    "importBtn": "Nhập",
+    "exportBtn": "Xuất",
+    "exported": "Đã xuất cấu hình",
+    "imported": "Đã nhập: {{platforms}} nền tảng, {{subscriptions}} đăng ký",
+    "importError": "Lỗi nhập",
+    "backupCreated": "Đã sao lưu: {{path}}"
   }
 }

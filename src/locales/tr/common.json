@@ -139,5 +139,16 @@
     "colHealth": "Sağlık",
     "colSub": "Abonelik",
     "lastRefresh": "Son güncelleme: {{time}}"
+  },
+  "config": {
+    "title": "Yapılandırma",
+    "export": "Dışa aktar",
+    "import": "İçe aktar",
+    "importBtn": "İçe aktar",
+    "exportBtn": "Dışa aktar",
+    "exported": "Dışa aktarıldı",
+    "imported": "İçe aktarıldı: {{platforms}} platform, {{subscriptions}} abonelik",
+    "importError": "İçe aktarma hatası",
+    "backupCreated": "Yedek oluşturuldu: {{path}}"
   }
 }

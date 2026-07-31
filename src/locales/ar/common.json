@@ -139,5 +139,16 @@
     "colHealth": "الصحة",
     "colSub": "الاشتراك",
     "lastRefresh": "آخر تحديث: {{time}}"
+  },
+  "config": {
+    "title": "التكوين",
+    "export": "تصدير",
+    "import": "استيراد",
+    "importBtn": "استيراد",
+    "exportBtn": "تصدير",
+    "exported": "تم التصدير",
+    "imported": "تم الاستيراد: {{platforms}} منصات، {{subscriptions}} اشتراكات",
+    "importError": "خطأ الاستيراد",
+    "backupCreated": "تم النسخ: {{path}}"
   }
 }

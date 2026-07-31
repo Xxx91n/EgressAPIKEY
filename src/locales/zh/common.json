@@ -139,5 +139,16 @@
     "colHealth": "健康状态",
     "colSub": "订阅",
     "lastRefresh": "最后刷新：{{time}}"
+  },
+  "config": {
+    "title": "配置",
+    "export": "导出配置",
+    "import": "导入配置",
+    "importBtn": "导入",
+    "exportBtn": "导出",
+    "exported": "配置已导出",
+    "imported": "配置已导入：{{platforms}} 个平台，{{subscriptions}} 个订阅",
+    "importError": "导入错误",
+    "backupCreated": "备份已创建：{{path}}"
   }
 }

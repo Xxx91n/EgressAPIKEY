@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2 } from "lucide-react";
+import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload } from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload } from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport } from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import {
   saveLocale,
@@ -96,6 +96,8 @@ export function SettingsView() {
   const [backupPass, setBackupPass] = useState("");
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMsg, setBackupMsg] = useState("");
+  const [configBusy, setConfigBusy] = useState(false);
+  const [configMsg, setConfigMsg] = useState("");
 
   // Hydrate persisted network settings on mount (webview only; no-op in vitest).
   useEffect(() => {
@@ -162,6 +164,51 @@ export function SettingsView() {
       setBackupBusy(false);
       setTimeout(() => setBackupMsg(""), 3000);
     }
+  };
+
+  const doConfigExport = async () => {
+    setConfigBusy(true);
+    setConfigMsg("");
+    try {
+      const config = await ipcConfigExport();
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ai-api-route-config.json";
+      a.click();
+      URL.revokeObjectURL(url);
+      setConfigMsg(t("config.exported"));
+    } catch (e) {
+      setConfigMsg(String(e));
+    } finally {
+      setConfigBusy(false);
+      setTimeout(() => setConfigMsg(""), 3000);
+    }
+  };
+
+  const doConfigImport = async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setConfigBusy(true);
+      setConfigMsg("");
+      try {
+        const text = await file.text();
+        const config = JSON.parse(text);
+        const result = await ipcConfigImport(config);
+        setConfigMsg(t("config.imported", { platforms: result.platforms_created, subscriptions: result.subscriptions_created }));
+      } catch (e) {
+        setConfigMsg(t("config.importError") + ": " + String(e));
+      } finally {
+        setConfigBusy(false);
+        setTimeout(() => setConfigMsg(""), 5000);
+      }
+    };
+    input.click();
   };
 
   const saveAll = async () => {
@@ -331,6 +378,20 @@ export function SettingsView() {
           </button>
           {backupMsg ? <Check size={14} className="text-green-500" /> : null}
           {backupMsg ? <span className="text-xs text-zinc-500">{backupMsg}</span> : null}
+        </div>
+      </SectionCard>
+          <SectionCard icon={<Download size={16} strokeWidth={1.75} />} title={t("config.title")}>
+        <div className="flex items-center gap-2">
+          <button onClick={() => void doConfigExport()} disabled={configBusy} className={btnCls}>
+            <Download size={14} strokeWidth={1.75} />
+            {t("config.exportBtn")}
+          </button>
+          <button onClick={() => void doConfigImport()} disabled={configBusy} className={btnCls}>
+            <Upload size={14} strokeWidth={1.75} />
+            {t("config.importBtn")}
+          </button>
+          {configBusy ? <Loader2 size={14} className="animate-spin text-zinc-400" /> : null}
+          {configMsg ? <span className="text-xs text-zinc-500">{configMsg}</span> : null}
         </div>
       </SectionCard>
       <div className="sticky bottom-0 left-0 right-0 mt-4 px-4 py-3 bg-white/85 dark:bg-zinc-900/80 backdrop-blur border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2">

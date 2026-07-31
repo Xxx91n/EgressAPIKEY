@@ -111,6 +111,8 @@ fn main() {
             commands::backup_create,
             commands::backup_upload,
             commands::backup_list,
+            commands::config_export,
+            commands::config_import,
         ])
         .setup(|app| {
             // #2/#6: read persisted network settings so the user

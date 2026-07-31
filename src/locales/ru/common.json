@@ -139,5 +139,16 @@
     "colHealth": "Статус",
     "colSub": "Подписка",
     "lastRefresh": "Обновлено: {{time}}"
+  },
+  "config": {
+    "title": "Конфигурация",
+    "export": "Экспорт",
+    "import": "Импорт",
+    "importBtn": "Импорт",
+    "exportBtn": "Экспорт",
+    "exported": "Конфигурация экспортирована",
+    "imported": "Импортировано: {{platforms}} платформ, {{subscriptions}} подписок",
+    "importError": "Ошибка импорта",
+    "backupCreated": "Резервная копия: {{path}}"
   }
 }

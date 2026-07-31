@@ -139,5 +139,16 @@
     "colHealth": "स्वास्थ्य",
     "colSub": "सदस्यता",
     "lastRefresh": "अंतिम ताज़ा: {{time}}"
+  },
+  "config": {
+    "title": "कॉन्फ़िग",
+    "export": "निर्यात",
+    "import": "आयात",
+    "importBtn": "आयात",
+    "exportBtn": "निर्यात",
+    "exported": "कॉन्फ़िग निर्यातित",
+    "imported": "आयातित: {{platforms}} प्लेटफ़ॉर्म, {{subscriptions}} सदस्यताएँ",
+    "importError": "आयात त्रुटि",
+    "backupCreated": "बैकअप बनाया गया: {{path}}"
   }
 }

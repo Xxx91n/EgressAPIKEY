@@ -785,6 +785,202 @@ pub fn process_route_conflict_check(
     Ok(())
 }
 
+
+/// Phase R4: export the current platform + subscription config as JSON.
+/// This is the whitebox config layer — the user can save this file, edit it,
+/// and re-import it to restore or migrate their routing setup. The exported
+/// JSON contains the full platform schema (name, regex_filters, region_filters,
+/// allocation_policy, sticky_ttl) and subscription references (name, url).
+/// It does NOT contain node data (nodes are derived from subscriptions and
+/// fetched live by the Resin sidecar).
+#[tauri::command]
+pub async fn config_export(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
+    let client = resin_client(&sidecar)?;
+    let platforms = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let subscriptions = client.list_subscriptions().await.map_err(|e| e.to_string())?;
+
+    let plat_items: Vec<serde_json::Value> = items_arr(&platforms)
+        .iter()
+        .filter_map(|p| {
+            let name = p.get("name").and_then(|n| n.as_str())?;
+            if name.is_empty() { return None; }
+            Some(serde_json::json!({
+                "name": name,
+                "regex_filters": p.get("regex_filters").cloned().unwrap_or(serde_json::Value::Null),
+                "region_filters": p.get("region_filters").cloned().unwrap_or(serde_json::Value::Null),
+                "allocation_policy": p.get("allocation_policy").and_then(|v| v.as_str()).unwrap_or("BALANCED"),
+                "sticky_ttl": p.get("sticky_ttl").and_then(|v| v.as_str()).unwrap_or("168h0m0s"),
+            }))
+        })
+        .collect();
+
+    let sub_items: Vec<serde_json::Value> = items_arr(&subscriptions)
+        .iter()
+        .filter_map(|s| {
+            let name = s.get("name").and_then(|n| n.as_str())?;
+            if name.is_empty() { return None; }
+            let url = s.get("url").and_then(|u| u.as_str()).unwrap_or("");
+            Some(serde_json::json!({ "name": name, "url": url }))
+        })
+        .collect();
+
+    Ok(serde_json::json!({
+        "version": 1,
+        "exported_at": chrono::Local::now().to_rfc3339(),
+        "platforms": plat_items,
+        "subscriptions": sub_items,
+    }))
+}
+
+/// Phase R4: import a config JSON (from config_export or hand-edited).
+/// Validates the structure, auto-creates a backup via backup_create, then
+/// re-creates platforms and subscriptions via the Resin API. Existing
+/// platforms/subscriptions with the same name are skipped (idempotent).
+/// Returns a summary of what was created.
+#[tauri::command]
+pub async fn config_import(
+    app: AppHandle,
+    sidecar: State<'_, SidecarHandle>,
+    config: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    // Validate top-level structure
+    let platforms = config.get("platforms")
+        .and_then(|v| v.as_array())
+        .ok_or("config_import: missing 'platforms' array")?;
+    let subscriptions = config.get("subscriptions")
+        .and_then(|v| v.as_array())
+        .ok_or("config_import: missing 'subscriptions' array")?;
+
+    // Cap input size to prevent abuse (AGENTS s7.5: 256KB max)
+    let config_str = serde_json::to_string(&config).map_err(|e| e.to_string())?;
+    if config_str.len() > 262_144 {
+        return Err("config_import: config too large (max 256KB)".to_string());
+    }
+
+    // Auto-backup before applying (防呆: always backup before destructive change)
+    let backup_path = backup_create(app.clone()).await?;
+
+    let client = resin_client(&sidecar)?;
+
+    // Get existing names to skip duplicates (idempotent import)
+    let existing_plats = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let existing_plat_names: std::collections::HashSet<String> = items_arr(&existing_plats)
+        .iter()
+        .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+        .collect();
+
+    let existing_subs = client.list_subscriptions().await.map_err(|e| e.to_string())?;
+    let existing_sub_names: std::collections::HashSet<String> = items_arr(&existing_subs)
+        .iter()
+        .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+        .collect();
+
+    let mut platforms_created = 0u32;
+    let mut platforms_skipped = 0u32;
+    let mut subscriptions_created = 0u32;
+    let mut subscriptions_skipped = 0u32;
+    let mut errors: Vec<String> = Vec::new();
+
+    // Create platforms
+    for plat in platforms {
+        let name = plat.get("name").and_then(|n| n.as_str()).unwrap_or("");
+        if name.is_empty() || name.len() > 128 {
+            errors.push(format!("platform name invalid: {name}"));
+            continue;
+        }
+        if existing_plat_names.contains(name) {
+            platforms_skipped += 1;
+            continue;
+        }
+        match client.create_platform_from_name(name).await {
+            Ok(_) => {
+                platforms_created += 1;
+                // PATCH the platform with imported fields if any
+                let mut body = serde_json::Map::new();
+                if let Some(policy) = plat.get("allocation_policy").and_then(|v| v.as_str()) {
+                    if ALLOWED_ALLOCATION_POLICIES.contains(&policy) {
+                        body.insert("allocation_policy".to_string(), serde_json::Value::String(policy.to_string()));
+                    }
+                }
+                if let Some(filters) = plat.get("regex_filters").and_then(|v| v.as_array()) {
+                    body.insert("regex_filters".to_string(), serde_json::Value::Array(filters.clone()));
+                }
+                if let Some(filters) = plat.get("region_filters").and_then(|v| v.as_array()) {
+                    body.insert("region_filters".to_string(), serde_json::Value::Array(filters.clone()));
+                }
+                if let Some(ttl) = plat.get("sticky_ttl").and_then(|v| v.as_str()) {
+                    if ttl.len() <= 32 && !ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+                        body.insert("sticky_ttl".to_string(), serde_json::Value::String(ttl.to_string()));
+                    }
+                }
+                if !body.is_empty() {
+                    // Resolve name->id and PATCH
+                    let list = client.list_platforms().await.map_err(|e| e.to_string())?;
+                    if let Some(id) = platform_id_for_name(&list, name) {
+                        let _ = client.update_platform(&id, serde_json::Value::Object(body)).await;
+                    }
+                }
+            }
+            Err(e) => errors.push(format!("platform {name}: {e}")),
+        }
+    }
+
+    // Create subscriptions (by URL — the Resin sidecar fetches nodes)
+    for sub in subscriptions {
+        let name = sub.get("name").and_then(|n| n.as_str()).unwrap_or("");
+        let url = sub.get("url").and_then(|u| u.as_str()).unwrap_or("");
+        if name.is_empty() || name.len() > 128 {
+            errors.push(format!("subscription name invalid: {name}"));
+            continue;
+        }
+        if existing_sub_names.contains(name) {
+            subscriptions_skipped += 1;
+            continue;
+        }
+        if !url.starts_with("http://") && !url.starts_with("https://") {
+            errors.push(format!("subscription {name}: url must start with http(s)://"));
+            continue;
+        }
+        // Use the same local-fetch path as subscription_add
+        match fetch_clash_subscription(url).await {
+            Ok(yaml) => {
+                match clash_yaml_to_proxies_block(&yaml) {
+                    Ok(block) => {
+                        let body = serde_json::json!({
+                            "name": name,
+                            "source_type": "local",
+                            "content": block,
+                            "url": url,
+                            "update_interval": "30s",
+                        });
+                        match client.create_subscription(body).await {
+                            Ok(_) => subscriptions_created += 1,
+                            Err(e) => errors.push(format!("subscription {name}: {e}")),
+                        }
+                    }
+                    Err(e) => errors.push(format!("subscription {name} convert: {e}")),
+                }
+            }
+            Err(e) => errors.push(format!("subscription {name} fetch: {e}")),
+        }
+    }
+
+    tracing::info!(
+        platforms_created, platforms_skipped, subscriptions_created, subscriptions_skipped,
+        error_count = errors.len(),
+        "config_import complete; backup at {}", backup_path
+    );
+
+    Ok(serde_json::json!({
+        "backup_path": backup_path,
+        "platforms_created": platforms_created,
+        "platforms_skipped": platforms_skipped,
+        "subscriptions_created": subscriptions_created,
+        "subscriptions_skipped": subscriptions_skipped,
+        "errors": errors,
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

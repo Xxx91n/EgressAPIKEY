@@ -139,5 +139,16 @@
     "colHealth": "ヘルス",
     "colSub": "サブスクリプション",
     "lastRefresh": "最終更新: {{time}}"
+  },
+  "config": {
+    "title": "設定",
+    "export": "設定エクスポート",
+    "import": "設定インポート",
+    "importBtn": "インポート",
+    "exportBtn": "エクスポート",
+    "exported": "設定をエクスポートしました",
+    "imported": "設定をインポート: プラットフォーム {{platforms}}、サブスクリプション {{subscriptions}}",
+    "importError": "インポートエラー",
+    "backupCreated": "バックアップ作成: {{path}}"
   }
 }

@@ -139,5 +139,16 @@
     "colHealth": "สุขภาพ",
     "colSub": "การสมัครรับข้อมูล",
     "lastRefresh": "รีเฟรชล่าสุด: {{time}}"
+  },
+  "config": {
+    "title": "การกำหนดค่า",
+    "export": "ส่งออก",
+    "import": "นำเข้า",
+    "importBtn": "นำเข้า",
+    "exportBtn": "ส่งออก",
+    "exported": "ส่งออกแล้ว",
+    "imported": "นำเข้าแล้ว: {{platforms}} แพลตฟอร์ม, {{subscriptions}} การสมัคร",
+    "importError": "ข้อผิดพลาดการนำเข้า",
+    "backupCreated": "สำรองข้อมูลแล้ว: {{path}}"
   }
 }

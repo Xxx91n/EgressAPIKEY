@@ -139,5 +139,16 @@
     "colHealth": "Status",
     "colSub": "Subskrypcja",
     "lastRefresh": "Ostatnia aktualizacja: {{time}}"
+  },
+  "config": {
+    "title": "Konfiguracja",
+    "export": "Eksportuj",
+    "import": "Importuj",
+    "importBtn": "Importuj",
+    "exportBtn": "Eksportuj",
+    "exported": "Wyeksportowano",
+    "imported": "Zaimportowano: {{platforms}} platform, {{subscriptions}} subskrypcji",
+    "importError": "Błąd importu",
+    "backupCreated": "Utworzono kopię: {{path}}"
   }
 }

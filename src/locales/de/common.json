@@ -139,5 +139,16 @@
     "colHealth": "Status",
     "colSub": "Abonnement",
     "lastRefresh": "Aktualisiert: {{time}}"
+  },
+  "config": {
+    "title": "Konfiguration",
+    "export": "Exportieren",
+    "import": "Importieren",
+    "importBtn": "Importieren",
+    "exportBtn": "Exportieren",
+    "exported": "Konfiguration exportiert",
+    "imported": "Config importiert: {{platforms}} Plattformen, {{subscriptions}} Abonnements",
+    "importError": "Importfehler",
+    "backupCreated": "Backup erstellt: {{path}}"
   }
 }

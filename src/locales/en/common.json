@@ -139,5 +139,16 @@
     "colHealth": "Health",
     "colSub": "Subscription",
     "lastRefresh": "Last refresh: {{time}}"
+  },
+  "config": {
+    "title": "Config",
+    "export": "Export config",
+    "import": "Import config",
+    "importBtn": "Import",
+    "exportBtn": "Export",
+    "exported": "Config exported",
+    "imported": "Config imported: {{platforms}} platforms, {{subscriptions}} subscriptions",
+    "importError": "Import error",
+    "backupCreated": "Backup created: {{path}}"
   }
 }

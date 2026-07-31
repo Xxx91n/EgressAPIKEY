@@ -249,3 +249,21 @@ export async function ipcProcessRouteRemove(process: string): Promise<boolean> {
 export async function ipcProcessRouteList(): Promise<ProcessRouteRule[]> {
   return invoke<ProcessRouteRule[]>("process_route_list");
 }
+
+/// Phase R4: export current platform + subscription config as JSON.
+export async function ipcConfigExport(): Promise<unknown> {
+  return invoke("config_export");
+}
+
+/// Phase R4: import a config JSON. Auto-backs up before applying.
+/// Returns a summary { backup_path, platforms_created, platforms_skipped, subscriptions_created, subscriptions_skipped, errors }.
+export async function ipcConfigImport(config: unknown): Promise<{
+  backup_path: string;
+  platforms_created: number;
+  platforms_skipped: number;
+  subscriptions_created: number;
+  subscriptions_skipped: number;
+  errors: string[];
+}> {
+  return invoke("config_import", { config });
+}
