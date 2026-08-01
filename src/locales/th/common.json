@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "รหัสบัญชี",
+    "lane": "เลน",
+    "exitIp": "IP ออก",
+    "active": "ใช้งาน",
+    "bindIp": "ผูก IP ออก",
+    "add": "เพิ่มบัญชี"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "พูลพร็อกซีเฉพาะสำหรับคีย์ API AI พร้อมผืนผ้าทอพอโลยี"
+  },
+  "backup": {
+    "title": "สำรองข้อมูล",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "ชื่อผู้ใช้",
+    "webdavPass": "รหัสผ่าน",
+    "save": "บันทึก WebDAV",
+    "create": "สร้างสำรอง",
+    "upload": "อัปโหลด",
+    "list": "รายการสำรอง",
+    "restore": "กู้คืน",
+    "success": "สำรองสำเร็จ",
+    "failed": "สำรองล้มเหลว",
+    "noConfig": "WebDAV ยังไม่ได้ตั้ง"
+  },
+  "common": {
+    "cancel": "ยกเลิก",
+    "confirm": "ยืนยัน",
+    "delete": "ลบ",
+    "edit": "แก้ไข"
+  },
+  "config": {
+    "title": "การกำหนดค่า",
+    "export": "ส่งออก",
+    "import": "นำเข้า",
+    "importBtn": "นำเข้า",
+    "exportBtn": "ส่งออก",
+    "exported": "ส่งออกแล้ว",
+    "imported": "นำเข้าแล้ว: {{platforms}} แพลตฟอร์ม, {{subscriptions}} การสมัคร",
+    "importError": "ข้อผิดพลาดการนำเข้า",
+    "backupCreated": "สำรองข้อมูลแล้ว: {{path}}"
+  },
+  "log": {
+    "title": "บันทึก",
+    "clear": "ล้าง",
+    "collapse": "ยุบ",
+    "empty": "ยังไม่มีบันทึก"
   },
   "nav": {
     "topology": "ทอพอโลยี",
@@ -11,6 +56,23 @@
     "subscriptions": "การสมัครรับข้อมูล",
     "nodes": "โหนด"
   },
+  "nodes": {
+    "title": "พูลโหนด",
+    "refresh": "รีเฟรช",
+    "total": "โหนดทั้งหมด",
+    "healthy": "ปกติ",
+    "unhealthy": "ผิดปกติ",
+    "egressIps": "IP ออก",
+    "healthyEgress": "ออกปกติ",
+    "loading": "กำลังโหลด…",
+    "empty": "ไม่มีโหนด นำเข้าการสมัครรับข้อมูลก่อน",
+    "colTag": "โหนด",
+    "colRegion": "ภูมิภาค",
+    "colHealth": "สุขภาพ",
+    "colSub": "การสมัครรับข้อมูล",
+    "lastRefresh": "รีเฟรชล่าสุด: {{time}}",
+    "egressPolicyNote": "นโยบายทางออกตามภูมิภาคตั้งค่าบนผืนผ้าใบ Topology: ลากแพลตฟอร์มไปยังภูมิภาคช่อง IP แล้วตั้ง Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) บนแพลตฟอร์ม Resin v1.1.2 ไม่มีตัวเลือกรายโหนด"
+  },
   "platform": {
     "title": "แพลตฟอร์ม",
     "add": "เพิ่มแพลตฟอร์ม",
@@ -19,13 +81,15 @@
     "empty": "ยังไม่ได้กำหนดค่าแพลตฟอร์ม",
     "addOk": "เพิ่มแพลตฟอร์มแล้ว"
   },
-  "account": {
-    "id": "รหัสบัญชี",
-    "lane": "เลน",
-    "exitIp": "IP ออก",
-    "active": "ใช้งาน",
-    "bindIp": "ผูก IP ออก",
-    "add": "เพิ่มบัญชี"
+  "processRoute": {
+    "title": "เส้นทางโปรเซส",
+    "add": "เพิ่มกฎ",
+    "process": "ชื่อโปรเซส",
+    "target": "เลนปลายทาง",
+    "empty": "ไม่มีกฎกำหนดเส้นทางตามโปรเซส",
+    "conflict": "เลน {{lane}} ถูกผูกกับ '{{process}}' แล้ว",
+    "backendSaved": "บันทึกกฎการกำหนดเส้นทางแล้ว",
+    "proxyNote": "กฎเราต์ทิงใช้เฉพาะเมื่อการรับส่งข้อมูลของไคลเอนต์ไหลผ่านพร็อกซี Resin ไซด์คาร์บังคับการยืนยันตัวตนต่อคำขอ นี่คือรีจิสตรีกฎในเครื่อง"
   },
   "settings": {
     "general": "ทั่วไป",
@@ -49,7 +113,19 @@
     "name": "ชื่อการสมัครรับข้อมูล",
     "description": "ป้ายกำกับทางเลือกสำหรับการสมัครรับข้อมูลที่นำเข้านี้",
     "importSuccess": "นำเข้าการสมัครสมาชิก — {{total}} โหนด",
-    "dragHint": "ลากแถวเพื่อจัดลำดับใหม่"
+    "dragHint": "ลากแถวเพื่อจัดลำดับใหม่",
+    "rename": "เปลี่ยนชื่อการสมัครรับข้อมูล",
+    "renamePrompt": "ชื่อใหม่สำหรับ \"{{name}}\"",
+    "renameOk": "เปลี่ยนชื่อเป็น \"{{name}}\"",
+    "renameMissing": "ไม่พบการสมัครรับข้อมูลบนเกตเวย์ รีเฟรชรายการแล้วลองอีกครั้ง",
+    "renameUrlMissing": "เปลี่ยนชื่อไม่ได้: URL เดิมไม่ถูกแคช นำเข้าการสมัครรับข้อมูลอีกครั้งด้วยชื่อใหม่",
+    "resetOrder": "รีเซ็ตการจัดเรียง"
+  },
+  "theme": {
+    "label": "ธีม",
+    "light": "สว่าง",
+    "dark": "มืด",
+    "system": "ระบบ"
   },
   "topology": {
     "title": "ผืนผ้าทอพอโลยี",
@@ -77,78 +153,9 @@
     "routable": "กำหนดเส้นทางได้: {{count}}",
     "filters": "อัปสตรีม: {{filters}}"
   },
-  "processRoute": {
-    "title": "เส้นทางโปรเซส",
-    "add": "เพิ่มกฎ",
-    "process": "ชื่อโปรเซส",
-    "target": "เลนปลายทาง",
-    "empty": "ไม่มีกฎกำหนดเส้นทางตามโปรเซส",
-    "conflict": "เลน {{lane}} ถูกผูกกับ '{{process}}' แล้ว",
-    "backendSaved": "บันทึกกฎการกำหนดเส้นทางแล้ว",
-    "proxyNote": "กฎเราต์ทิงใช้เฉพาะเมื่อการรับส่งข้อมูลของไคลเอนต์ไหลผ่านพร็อกซี Resin ไซด์คาร์บังคับการยืนยันตัวตนต่อคำขอ นี่คือรีจิสตรีกฎในเครื่อง"
-  },
-  "common": {
-    "cancel": "ยกเลิก",
-    "confirm": "ยืนยัน",
-    "delete": "ลบ",
-    "edit": "แก้ไข"
-  },
   "tray": {
     "show": "แสดงหน้าต่าง",
     "quit": "ออก",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "ธีม",
-    "light": "สว่าง",
-    "dark": "มืด",
-    "system": "ระบบ"
-  },
-  "log": {
-    "title": "บันทึก",
-    "clear": "ล้าง",
-    "collapse": "ยุบ",
-    "empty": "ยังไม่มีบันทึก"
-  },
-  "backup": {
-    "title": "สำรองข้อมูล",
-    "webdavUrl": "WebDAV URL",
-    "webdavUser": "ชื่อผู้ใช้",
-    "webdavPass": "รหัสผ่าน",
-    "save": "บันทึก WebDAV",
-    "create": "สร้างสำรอง",
-    "upload": "อัปโหลด",
-    "list": "รายการสำรอง",
-    "restore": "กู้คืน",
-    "success": "สำรองสำเร็จ",
-    "failed": "สำรองล้มเหลว",
-    "noConfig": "WebDAV ยังไม่ได้ตั้ง"
-  },
-  "nodes": {
-    "title": "พูลโหนด",
-    "refresh": "รีเฟรช",
-    "total": "โหนดทั้งหมด",
-    "healthy": "ปกติ",
-    "unhealthy": "ผิดปกติ",
-    "egressIps": "IP ออก",
-    "healthyEgress": "ออกปกติ",
-    "loading": "กำลังโหลด…",
-    "empty": "ไม่มีโหนด นำเข้าการสมัครรับข้อมูลก่อน",
-    "colTag": "โหนด",
-    "colRegion": "ภูมิภาค",
-    "colHealth": "สุขภาพ",
-    "colSub": "การสมัครรับข้อมูล",
-    "lastRefresh": "รีเฟรชล่าสุด: {{time}}"
-  },
-  "config": {
-    "title": "การกำหนดค่า",
-    "export": "ส่งออก",
-    "import": "นำเข้า",
-    "importBtn": "นำเข้า",
-    "exportBtn": "ส่งออก",
-    "exported": "ส่งออกแล้ว",
-    "imported": "นำเข้าแล้ว: {{platforms}} แพลตฟอร์ม, {{subscriptions}} การสมัคร",
-    "importError": "ข้อผิดพลาดการนำเข้า",
-    "backupCreated": "สำรองข้อมูลแล้ว: {{path}}"
   }
 }

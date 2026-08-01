@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "ID konta",
+    "lane": "Tor",
+    "exitIp": "IP wyjściowe",
+    "active": "Aktywne",
+    "bindIp": "Powiąż IP wyjściowe",
+    "add": "Dodaj konto"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "Specjalistyczna pula proxy dla kluczy API AI z kanwą topologii"
+  },
+  "backup": {
+    "title": "Kopia zapasowa",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Nazwa użytkownika",
+    "webdavPass": "Hasło",
+    "save": "Zapisz WebDAV",
+    "create": "Utwórz kopię",
+    "upload": "Wyślij kopię",
+    "list": "Lista kopii",
+    "restore": "Przywróć",
+    "success": "Kopia utworzona",
+    "failed": "Kopia nieudana",
+    "noConfig": "WebDAV nie skonfigurowany"
+  },
+  "common": {
+    "cancel": "Anuluj",
+    "confirm": "Potwierdź",
+    "delete": "Usuń",
+    "edit": "Edytuj"
+  },
+  "config": {
+    "title": "Konfiguracja",
+    "export": "Eksportuj",
+    "import": "Importuj",
+    "importBtn": "Importuj",
+    "exportBtn": "Eksportuj",
+    "exported": "Wyeksportowano",
+    "imported": "Zaimportowano: {{platforms}} platform, {{subscriptions}} subskrypcji",
+    "importError": "Błąd importu",
+    "backupCreated": "Utworzono kopię: {{path}}"
+  },
+  "log": {
+    "title": "Logi",
+    "clear": "Wyczyść",
+    "collapse": "Zwiń",
+    "empty": "Brak logów."
   },
   "nav": {
     "topology": "Topologia",
@@ -11,6 +56,23 @@
     "subscriptions": "Subskrypcje",
     "nodes": "Węzły"
   },
+  "nodes": {
+    "title": "Pula węzłów",
+    "refresh": "Odśwież",
+    "total": "Wszystkie węzły",
+    "healthy": "Zdrowy",
+    "unhealthy": "niezdrowy",
+    "egressIps": "IP wyjścia",
+    "healthyEgress": "Zdrowe wyjście",
+    "loading": "Ładowanie…",
+    "empty": "Brak węzłów. Importuj subskrypcję.",
+    "colTag": "Węzeł",
+    "colRegion": "Region",
+    "colHealth": "Status",
+    "colSub": "Subskrypcja",
+    "lastRefresh": "Ostatnia aktualizacja: {{time}}",
+    "egressPolicyNote": "Polityka wyjścia per-region ustalana jest na płótnie Topology: przeciągnij Platformę na region kanału IP, a następnie ustaw Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) na platformie. Resin v1.1.2 nie ma selektora per-węzeł."
+  },
   "platform": {
     "title": "Platformy",
     "add": "Dodaj platformę",
@@ -19,13 +81,15 @@
     "empty": "Brak skonfigurowanych platform.",
     "addOk": "Platforma dodana"
   },
-  "account": {
-    "id": "ID konta",
-    "lane": "Tor",
-    "exitIp": "IP wyjściowe",
-    "active": "Aktywne",
-    "bindIp": "Powiąż IP wyjściowe",
-    "add": "Dodaj konto"
+  "processRoute": {
+    "title": "Trasa procesu",
+    "add": "Dodaj regułę",
+    "process": "Nazwa procesu",
+    "target": "Tor docelowy",
+    "empty": "Brak reguł routingu per proces.",
+    "conflict": "Linia {{lane}} już powiązana z '{{process}}'",
+    "backendSaved": "Reguła routingu zapisana",
+    "proxyNote": "Reguły routingu mają zastosowanie tylko, gdy ruch klienta przepływa przez proxy Resin. Sidecar wymusza autoryzację per żądanie; jest to lokalny rejestr reguł."
   },
   "settings": {
     "general": "Ogólne",
@@ -49,7 +113,19 @@
     "name": "Nazwa subskrypcji",
     "description": "Opcjonalna etykieta dla tej zaimportowanej subskrypcji",
     "importSuccess": "Subskrypcja zaimportowana — {{total}} węzłów",
-    "dragHint": "Przeciągnij wiersze, aby zmienić kolejność"
+    "dragHint": "Przeciągnij wiersze, aby zmienić kolejność",
+    "rename": "Zmień nazwę subskrypcji",
+    "renamePrompt": "Nowa nazwa dla „{{name}}”",
+    "renameOk": "Zmieniono nazwę na „{{name}}”",
+    "renameMissing": "Nie znaleziono subskrypcji na bramce. Odśwież listę i spróbuj ponownie.",
+    "renameUrlMissing": "Nie można zmienić nazwy: oryginalny URL nie jest w pamięci podręcznej. Zaimportuj ponownie subskrypcję pod nową nazwą.",
+    "resetOrder": "Resetuj sortowanie"
+  },
+  "theme": {
+    "label": "Motyw",
+    "light": "Jasny",
+    "dark": "Ciemny",
+    "system": "System"
   },
   "topology": {
     "title": "Kanwa topologii",
@@ -77,78 +153,9 @@
     "routable": "Routowalne: {{count}}",
     "filters": "Upstream: {{filters}}"
   },
-  "processRoute": {
-    "title": "Trasa procesu",
-    "add": "Dodaj regułę",
-    "process": "Nazwa procesu",
-    "target": "Tor docelowy",
-    "empty": "Brak reguł routingu per proces.",
-    "conflict": "Linia {{lane}} już powiązana z '{{process}}'",
-    "backendSaved": "Reguła routingu zapisana",
-    "proxyNote": "Reguły routingu mają zastosowanie tylko, gdy ruch klienta przepływa przez proxy Resin. Sidecar wymusza autoryzację per żądanie; jest to lokalny rejestr reguł."
-  },
-  "common": {
-    "cancel": "Anuluj",
-    "confirm": "Potwierdź",
-    "delete": "Usuń",
-    "edit": "Edytuj"
-  },
   "tray": {
     "show": "Pokaż okno",
     "quit": "Zakończ",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "Motyw",
-    "light": "Jasny",
-    "dark": "Ciemny",
-    "system": "System"
-  },
-  "log": {
-    "title": "Logi",
-    "clear": "Wyczyść",
-    "collapse": "Zwiń",
-    "empty": "Brak logów."
-  },
-  "backup": {
-    "title": "Kopia zapasowa",
-    "webdavUrl": "URL WebDAV",
-    "webdavUser": "Nazwa użytkownika",
-    "webdavPass": "Hasło",
-    "save": "Zapisz WebDAV",
-    "create": "Utwórz kopię",
-    "upload": "Wyślij kopię",
-    "list": "Lista kopii",
-    "restore": "Przywróć",
-    "success": "Kopia utworzona",
-    "failed": "Kopia nieudana",
-    "noConfig": "WebDAV nie skonfigurowany"
-  },
-  "nodes": {
-    "title": "Pula węzłów",
-    "refresh": "Odśwież",
-    "total": "Wszystkie węzły",
-    "healthy": "Zdrowy",
-    "unhealthy": "niezdrowy",
-    "egressIps": "IP wyjścia",
-    "healthyEgress": "Zdrowe wyjście",
-    "loading": "Ładowanie…",
-    "empty": "Brak węzłów. Importuj subskrypcję.",
-    "colTag": "Węzeł",
-    "colRegion": "Region",
-    "colHealth": "Status",
-    "colSub": "Subskrypcja",
-    "lastRefresh": "Ostatnia aktualizacja: {{time}}"
-  },
-  "config": {
-    "title": "Konfiguracja",
-    "export": "Eksportuj",
-    "import": "Importuj",
-    "importBtn": "Importuj",
-    "exportBtn": "Eksportuj",
-    "exported": "Wyeksportowano",
-    "imported": "Zaimportowano: {{platforms}} platform, {{subscriptions}} subskrypcji",
-    "importError": "Błąd importu",
-    "backupCreated": "Utworzono kopię: {{path}}"
   }
 }

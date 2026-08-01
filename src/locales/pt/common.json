@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "ID da conta",
+    "lane": "Linha",
+    "exitIp": "IP de saída",
+    "active": "Ativo",
+    "bindIp": "Vincular IP de saída",
+    "add": "Adicionar conta"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "Pool de proxy especializado para chaves de API com tela de topologia"
+  },
+  "backup": {
+    "title": "Backup",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Utilizador",
+    "webdavPass": "Senha",
+    "save": "Salvar WebDAV",
+    "create": "Criar backup",
+    "upload": "Enviar backup",
+    "list": "Listar backups",
+    "restore": "Restaurar",
+    "success": "Backup concluído",
+    "failed": "Backup falhou",
+    "noConfig": "WebDAV não configurado"
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Excluir",
+    "edit": "Editar"
+  },
+  "config": {
+    "title": "Configuração",
+    "export": "Exportar",
+    "import": "Importar",
+    "importBtn": "Importar",
+    "exportBtn": "Exportar",
+    "exported": "Configuração exportada",
+    "imported": "Importado: {{platforms}} plataformas, {{subscriptions}} assinaturas",
+    "importError": "Erro de importação",
+    "backupCreated": "Backup criado: {{path}}"
+  },
+  "log": {
+    "title": "Registros",
+    "clear": "Limpar",
+    "collapse": "Recolher",
+    "empty": "Nenhuma entrada de registro ainda."
   },
   "nav": {
     "topology": "Topologia",
@@ -11,6 +56,23 @@
     "platforms": "Plataformas",
     "nodes": "Nós"
   },
+  "nodes": {
+    "title": "Pool de nós",
+    "refresh": "Atualizar",
+    "total": "Total de nós",
+    "healthy": "Saudável",
+    "unhealthy": "não saudável",
+    "egressIps": "IPs de saída",
+    "healthyEgress": "Saída saudável",
+    "loading": "Carregando…",
+    "empty": "Sem nós. Importe uma assinatura.",
+    "colTag": "Nó",
+    "colRegion": "Região",
+    "colHealth": "Saúde",
+    "colSub": "Assinatura",
+    "lastRefresh": "Última atualização: {{time}}",
+    "egressPolicyNote": "A política de egress por região é configurada na tela Topology: arraste uma Plataforma para uma região de canal IP e defina Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) na plataforma. Resin v1.1.2 não tem seletor por nó."
+  },
   "platform": {
     "title": "Plataformas",
     "add": "Adicionar plataforma",
@@ -19,13 +81,15 @@
     "empty": "Nenhuma plataforma configurada.",
     "addOk": "Plataforma adicionada"
   },
-  "account": {
-    "id": "ID da conta",
-    "lane": "Linha",
-    "exitIp": "IP de saída",
-    "active": "Ativo",
-    "bindIp": "Vincular IP de saída",
-    "add": "Adicionar conta"
+  "processRoute": {
+    "title": "Rota de processo",
+    "add": "Adicionar regra de roteamento",
+    "process": "Nome do processo",
+    "target": "Linha de destino",
+    "empty": "Nenhuma regra de roteamento por processo.",
+    "conflict": "Faixa {{lane}} já vinculada a '{{process}}'",
+    "backendSaved": "Regra de roteamento salva",
+    "proxyNote": "As regras de roteamento só se aplicam quando o tráfego do cliente passa pelo proxy Resin. O sidecar impõe autenticação por requisição; isto é um registro local de regras."
   },
   "settings": {
     "general": "Geral",
@@ -49,7 +113,19 @@
     "name": "Nome da assinatura",
     "description": "Rótulo opcional para esta assinatura importada",
     "importSuccess": "Assinatura importada — {{total}} nós",
-    "dragHint": "Arraste linhas para reordenar"
+    "dragHint": "Arraste linhas para reordenar",
+    "rename": "Renomear assinatura",
+    "renamePrompt": "Novo nome para \"{{name}}\"",
+    "renameOk": "Renomeado para \"{{name}}\"",
+    "renameMissing": "Assinatura não encontrada no gateway. Atualize a lista e tente novamente.",
+    "renameUrlMissing": "Não é possível renomear: URL original não está em cache. Reimporte a assinatura com o novo nome.",
+    "resetOrder": "Redefinir ordem"
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Sistema"
   },
   "topology": {
     "title": "Tela de topologia",
@@ -77,78 +153,9 @@
     "routable": "Roteável: {{count}}",
     "filters": "Upstream: {{filters}}"
   },
-  "processRoute": {
-    "title": "Rota de processo",
-    "add": "Adicionar regra de roteamento",
-    "process": "Nome do processo",
-    "target": "Linha de destino",
-    "empty": "Nenhuma regra de roteamento por processo.",
-    "conflict": "Faixa {{lane}} já vinculada a '{{process}}'",
-    "backendSaved": "Regra de roteamento salva",
-    "proxyNote": "As regras de roteamento só se aplicam quando o tráfego do cliente passa pelo proxy Resin. O sidecar impõe autenticação por requisição; isto é um registro local de regras."
-  },
-  "common": {
-    "cancel": "Cancelar",
-    "confirm": "Confirmar",
-    "delete": "Excluir",
-    "edit": "Editar"
-  },
   "tray": {
     "show": "Mostrar Janela",
     "quit": "Sair",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "Tema",
-    "light": "Claro",
-    "dark": "Escuro",
-    "system": "Sistema"
-  },
-  "log": {
-    "title": "Registros",
-    "clear": "Limpar",
-    "collapse": "Recolher",
-    "empty": "Nenhuma entrada de registro ainda."
-  },
-  "backup": {
-    "title": "Backup",
-    "webdavUrl": "URL WebDAV",
-    "webdavUser": "Utilizador",
-    "webdavPass": "Senha",
-    "save": "Salvar WebDAV",
-    "create": "Criar backup",
-    "upload": "Enviar backup",
-    "list": "Listar backups",
-    "restore": "Restaurar",
-    "success": "Backup concluído",
-    "failed": "Backup falhou",
-    "noConfig": "WebDAV não configurado"
-  },
-  "nodes": {
-    "title": "Pool de nós",
-    "refresh": "Atualizar",
-    "total": "Total de nós",
-    "healthy": "Saudável",
-    "unhealthy": "não saudável",
-    "egressIps": "IPs de saída",
-    "healthyEgress": "Saída saudável",
-    "loading": "Carregando…",
-    "empty": "Sem nós. Importe uma assinatura.",
-    "colTag": "Nó",
-    "colRegion": "Região",
-    "colHealth": "Saúde",
-    "colSub": "Assinatura",
-    "lastRefresh": "Última atualização: {{time}}"
-  },
-  "config": {
-    "title": "Configuração",
-    "export": "Exportar",
-    "import": "Importar",
-    "importBtn": "Importar",
-    "exportBtn": "Exportar",
-    "exported": "Configuração exportada",
-    "imported": "Importado: {{platforms}} plataformas, {{subscriptions}} assinaturas",
-    "importError": "Erro de importação",
-    "backupCreated": "Backup criado: {{path}}"
   }
 }

@@ -8,7 +8,9 @@
  *
  * Persisted keys (all in settings.json, single source of truth): "lang" (Locale),
  * "theme" (Theme), "laneCount" (number 1..50), "gatewayBind" (loopback addr),
- * "mihomoApi" (http(s):// URL). The Rust tray reads "lang" directly via
+ * "mihomoApi" (http(s):// URL).
+ * P19: "topologyViewport" ({x,y,zoom} canvas pan/zoom memory),
+ * P19: "localSubOrder" (string[]) - user's drag-reorder override for subscriptions. The Rust tray reads "lang" directly via
  * tauri-plugin-store (see src-tauri/src/tray.rs::current_lang) so the tray is
  * localised even before the webview mounts. gatewayBind/mihomoApi are read
  * server-side by the Rust shell into CoreConfig; mihomoApi ONLY feeds
@@ -185,6 +187,55 @@ export async function saveWebdavConfig(url: string, username: string, password: 
     await store().set("webdavUrl", url);
     await store().set("webdavUsername", username);
     await store().set("webdavPassword", password);
+    await store().save();
+  } catch (e) { console.warn("[settings] save failed:", e); }
+}
+
+
+// --- P19 item 1: Topology canvas viewport memory ({x, y, zoom}) ---
+// ReactFlow onMoveEnd fires after every pan/zoom completes; we persist the
+// resulting viewport so reopening the topology view lands the user back at
+// the exact spot they left. Ponytail: persisted as a single small object,
+// re-applied on mount via useReactFlow().setViewport before data lands so the
+// fitView() call (now gated behind "no saved viewport") doesn't fight it.
+export interface TopologyViewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+export async function loadTopologyViewport(): Promise<TopologyViewport | null> {
+  try {
+    const v = await store().get<TopologyViewport>("topologyViewport");
+    return v && typeof v.x === "number" && typeof v.y === "number" && typeof v.zoom === "number"
+      ? { x: v.x, y: v.y, zoom: v.zoom }
+      : null;
+  } catch { return null; }
+}
+
+export async function saveTopologyViewport(vp: TopologyViewport): Promise<void> {
+  try {
+    await store().set("topologyViewport", vp);
+    await store().save();
+  } catch (e) { console.warn("[settings] save failed:", e); }
+}
+
+// --- P19 item 6: Subscription list drag-order override ---
+// Resin /api/v1/subscriptions returns the list sorted by updated_at (server-
+// defined). The user's drag-reorder would be lost on every 10s refresh.
+// We persist a string[] of subscription names in the user's chosen order; the
+// refresh sorts server results by this override first, and new subs append
+// to the end so the override stays the single source of layout truth.
+export async function loadSubOrder(): Promise<string[] | null> {
+  try {
+    const v = await store().get<string[]>("localSubOrder");
+    return Array.isArray(v) ? v : null;
+  } catch { return null; }
+}
+
+export async function saveSubOrder(order: string[]): Promise<void> {
+  try {
+    await store().set("localSubOrder", order);
     await store().save();
   } catch (e) { console.warn("[settings] save failed:", e); }
 }

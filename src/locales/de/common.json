@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "Konto-ID",
+    "lane": "Lane",
+    "exitIp": "Exit-IP",
+    "active": "Aktiv",
+    "bindIp": "Exit-IP binden",
+    "add": "Konto hinzufügen"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "Spezialisierter Proxy-Pool für API-Schlüssel mit Topologie-Canvas"
+  },
+  "backup": {
+    "title": "Backup",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "Benutzername",
+    "webdavPass": "Passwort",
+    "save": "WebDAV speichern",
+    "create": "Backup erstellen",
+    "upload": "Hochladen",
+    "list": "Backups auflisten",
+    "restore": "Wiederherstellen",
+    "success": "Backup fertig",
+    "failed": "Backup fehlgeschlagen",
+    "noConfig": "WebDAV nicht konfiguriert"
+  },
+  "common": {
+    "cancel": "Abbrechen",
+    "confirm": "Bestätigen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten"
+  },
+  "config": {
+    "title": "Konfiguration",
+    "export": "Exportieren",
+    "import": "Importieren",
+    "importBtn": "Importieren",
+    "exportBtn": "Exportieren",
+    "exported": "Konfiguration exportiert",
+    "imported": "Config importiert: {{platforms}} Plattformen, {{subscriptions}} Abonnements",
+    "importError": "Importfehler",
+    "backupCreated": "Backup erstellt: {{path}}"
+  },
+  "log": {
+    "title": "Protokolle",
+    "clear": "Leeren",
+    "collapse": "Einklappen",
+    "empty": "Noch keine Protokolleinträge."
   },
   "nav": {
     "topology": "Topologie",
@@ -11,6 +56,23 @@
     "platforms": "Plattformen",
     "nodes": "Knoten"
   },
+  "nodes": {
+    "title": "Knotenpool",
+    "refresh": "Aktualisieren",
+    "total": "Knoten gesamt",
+    "healthy": "Gesund",
+    "unhealthy": "fehlerhaft",
+    "egressIps": "Ausgangs-IPs",
+    "healthyEgress": "Gesunde Ausgänge",
+    "loading": "Laden…",
+    "empty": "Keine Knoten. Abonnement importieren.",
+    "colTag": "Knoten",
+    "colRegion": "Region",
+    "colHealth": "Status",
+    "colSub": "Abonnement",
+    "lastRefresh": "Aktualisiert: {{time}}",
+    "egressPolicyNote": "Die Egress-Richtlinie pro Region wird auf der Topology-Leinwand gesetzt: Plattform auf eine IP-Kanal-Region ziehen und Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) auf der Plattform setzen. Resin v1.1.2 hat keinen Per-Node-Selektor."
+  },
   "platform": {
     "title": "Plattformen",
     "add": "Plattform hinzufügen",
@@ -19,13 +81,15 @@
     "empty": "Keine Plattformen konfiguriert.",
     "addOk": "Plattform hinzugefügt"
   },
-  "account": {
-    "id": "Konto-ID",
-    "lane": "Lane",
-    "exitIp": "Exit-IP",
-    "active": "Aktiv",
-    "bindIp": "Exit-IP binden",
-    "add": "Konto hinzufügen"
+  "processRoute": {
+    "title": "Prozessroute",
+    "add": "Routing-Regel hinzufügen",
+    "process": "Prozessname",
+    "target": "Ziel-Lane",
+    "empty": "Keine prozessspezifischen Routing-Regeln.",
+    "conflict": "Lane {{lane}} bereits an '{{process}}' gebunden",
+    "backendSaved": "Routing-Regel gespeichert",
+    "proxyNote": "Routingregeln gelten nur, wenn Client-Datenverkehr über den Resin-Proxy läuft. Der Sidecar erzwingt Auth pro Anfrage; dies ist eine lokale Regel-Registry."
   },
   "settings": {
     "general": "Allgemein",
@@ -49,7 +113,19 @@
     "name": "Abonnementname",
     "description": "Optionale Bezeichnung für dieses importierte Abonnement",
     "importSuccess": "Abonnement importiert — {{total}} Knoten",
-    "dragHint": "Zeilen ziehen zum Sortieren"
+    "dragHint": "Zeilen ziehen zum Sortieren",
+    "rename": "Abonnement umbenennen",
+    "renamePrompt": "Neuer Name für „{{name}}“",
+    "renameOk": "Umbenannt zu „{{name}}“",
+    "renameMissing": "Abonnement auf dem Gateway nicht gefunden. Liste aktualisieren und erneut versuchen.",
+    "renameUrlMissing": "Umbenennen nicht möglich: Original-URL nicht zwischengespeichert. Abonnement mit neuem Namen erneut importieren.",
+    "resetOrder": "Sortierung zurücksetzen"
+  },
+  "theme": {
+    "label": "Design",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
   },
   "topology": {
     "title": "Topologie-Canvas",
@@ -77,78 +153,9 @@
     "routable": "Routbar: {{count}}",
     "filters": "Upstream: {{filters}}"
   },
-  "processRoute": {
-    "title": "Prozessroute",
-    "add": "Routing-Regel hinzufügen",
-    "process": "Prozessname",
-    "target": "Ziel-Lane",
-    "empty": "Keine prozessspezifischen Routing-Regeln.",
-    "conflict": "Lane {{lane}} bereits an '{{process}}' gebunden",
-    "backendSaved": "Routing-Regel gespeichert",
-    "proxyNote": "Routingregeln gelten nur, wenn Client-Datenverkehr über den Resin-Proxy läuft. Der Sidecar erzwingt Auth pro Anfrage; dies ist eine lokale Regel-Registry."
-  },
-  "common": {
-    "cancel": "Abbrechen",
-    "confirm": "Bestätigen",
-    "delete": "Löschen",
-    "edit": "Bearbeiten"
-  },
   "tray": {
     "show": "Fenster anzeigen",
     "quit": "Beenden",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "Design",
-    "light": "Hell",
-    "dark": "Dunkel",
-    "system": "System"
-  },
-  "log": {
-    "title": "Protokolle",
-    "clear": "Leeren",
-    "collapse": "Einklappen",
-    "empty": "Noch keine Protokolleinträge."
-  },
-  "backup": {
-    "title": "Backup",
-    "webdavUrl": "WebDAV URL",
-    "webdavUser": "Benutzername",
-    "webdavPass": "Passwort",
-    "save": "WebDAV speichern",
-    "create": "Backup erstellen",
-    "upload": "Hochladen",
-    "list": "Backups auflisten",
-    "restore": "Wiederherstellen",
-    "success": "Backup fertig",
-    "failed": "Backup fehlgeschlagen",
-    "noConfig": "WebDAV nicht konfiguriert"
-  },
-  "nodes": {
-    "title": "Knotenpool",
-    "refresh": "Aktualisieren",
-    "total": "Knoten gesamt",
-    "healthy": "Gesund",
-    "unhealthy": "fehlerhaft",
-    "egressIps": "Ausgangs-IPs",
-    "healthyEgress": "Gesunde Ausgänge",
-    "loading": "Laden…",
-    "empty": "Keine Knoten. Abonnement importieren.",
-    "colTag": "Knoten",
-    "colRegion": "Region",
-    "colHealth": "Status",
-    "colSub": "Abonnement",
-    "lastRefresh": "Aktualisiert: {{time}}"
-  },
-  "config": {
-    "title": "Konfiguration",
-    "export": "Exportieren",
-    "import": "Importieren",
-    "importBtn": "Importieren",
-    "exportBtn": "Exportieren",
-    "exported": "Konfiguration exportiert",
-    "imported": "Config importiert: {{platforms}} Plattformen, {{subscriptions}} Abonnements",
-    "importError": "Importfehler",
-    "backupCreated": "Backup erstellt: {{path}}"
   }
 }

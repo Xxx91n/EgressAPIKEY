@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "ID du compte",
+    "lane": "Voie",
+    "exitIp": "IP de sortie",
+    "active": "Actif",
+    "bindIp": "Assigner l'IP de sortie",
+    "add": "Ajouter un compte"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "Pool de proxies spécialisé en clés d'IA avec canevas de topologie"
+  },
+  "backup": {
+    "title": "Sauvegarde",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Utilisateur",
+    "webdavPass": "Mot de passe",
+    "save": "Enregistrer WebDAV",
+    "create": "Créer sauvegarde",
+    "upload": "Téléverser",
+    "list": "Lister sauvegardes",
+    "restore": "Restaurer",
+    "success": "Sauvegarde terminée",
+    "failed": "Sauvegarde échouée",
+    "noConfig": "WebDAV non configuré"
+  },
+  "common": {
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "delete": "Supprimer",
+    "edit": "Modifier"
+  },
+  "config": {
+    "title": "Configuration",
+    "export": "Exporter",
+    "import": "Importer",
+    "importBtn": "Importer",
+    "exportBtn": "Exporter",
+    "exported": "Configuration exportée",
+    "imported": "Config importée: {{platforms}} plateformes, {{subscriptions}} abonnements",
+    "importError": "Erreur d'importation",
+    "backupCreated": "Sauvegarde créée: {{path}}"
+  },
+  "log": {
+    "title": "Journaux",
+    "clear": "Effacer",
+    "collapse": "Réduire",
+    "empty": "Aucune entrée de journal pour le moment."
   },
   "nav": {
     "topology": "Topologie",
@@ -11,6 +56,23 @@
     "platforms": "Plateformes",
     "nodes": "Nœuds"
   },
+  "nodes": {
+    "title": "Pool de nœuds",
+    "refresh": "Actualiser",
+    "total": "Nœuds totaux",
+    "healthy": "Sain",
+    "unhealthy": "non sain",
+    "egressIps": "IPs de sortie",
+    "healthyEgress": "Sortie saine",
+    "loading": "Chargement…",
+    "empty": "Aucun nœud. Importez un abonnement d'abord.",
+    "colTag": "Nœud",
+    "colRegion": "Région",
+    "colHealth": "Santé",
+    "colSub": "Abonnement",
+    "lastRefresh": "Dernière MAJ: {{time}}",
+    "egressPolicyNote": "La politique degress par région se règle sur le canevas Topologie : glissez une Plateforme sur une région de canal IP puis définissez Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) sur la plateforme. Resin v1.1.2 na pas de sélecteur par nœud."
+  },
   "platform": {
     "title": "Plateformes",
     "add": "Ajouter une plateforme",
@@ -19,13 +81,15 @@
     "empty": "Aucune plateforme configurée.",
     "addOk": "Plateforme ajoutée"
   },
-  "account": {
-    "id": "ID du compte",
-    "lane": "Voie",
-    "exitIp": "IP de sortie",
-    "active": "Actif",
-    "bindIp": "Assigner l'IP de sortie",
-    "add": "Ajouter un compte"
+  "processRoute": {
+    "title": "Routage des processus",
+    "add": "Ajouter une règle de routage",
+    "process": "Nom du processus",
+    "target": "Voie cible",
+    "empty": "Aucune règle de routage par processus.",
+    "conflict": "Lane {{lane}} déjà liée à '{{process}}'",
+    "backendSaved": "Règle de routage enregistrée",
+    "proxyNote": "Les règles de routage ne s'appliquent que lorsque le trafic client passe par le proxy Resin. Le sidecar applique une auth par requête ; ceci est un registre local de règles."
   },
   "settings": {
     "general": "Général",
@@ -49,7 +113,19 @@
     "name": "Nom de l'abonnement",
     "description": "Étiquette facultative pour cet abonnement importé",
     "importSuccess": "Abonnement importé — {{total}} nœuds",
-    "dragHint": "Glisser les lignes pour réorganiser"
+    "dragHint": "Glisser les lignes pour réorganiser",
+    "rename": "Renommer labonnement",
+    "renamePrompt": "Nouveau nom pour «{{name}}»",
+    "renameOk": "Renommé en «{{name}}»",
+    "renameMissing": "Abonnement introuvable sur la passerelle. Rafraîchissez la liste et réessayez.",
+    "renameUrlMissing": "Impossible de renommer : lURL dorigine nest pas en cache. Réimportez labonnement avec le nouveau nom.",
+    "resetOrder": "Réinitialiser le tri"
+  },
+  "theme": {
+    "label": "Thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système"
   },
   "topology": {
     "title": "Canevas de topologie",
@@ -77,78 +153,9 @@
     "routable": "Routable: {{count}}",
     "filters": "Upstream: {{filters}}"
   },
-  "processRoute": {
-    "title": "Routage des processus",
-    "add": "Ajouter une règle de routage",
-    "process": "Nom du processus",
-    "target": "Voie cible",
-    "empty": "Aucune règle de routage par processus.",
-    "conflict": "Lane {{lane}} déjà liée à '{{process}}'",
-    "backendSaved": "Règle de routage enregistrée",
-    "proxyNote": "Les règles de routage ne s'appliquent que lorsque le trafic client passe par le proxy Resin. Le sidecar applique une auth par requête ; ceci est un registre local de règles."
-  },
-  "common": {
-    "cancel": "Annuler",
-    "confirm": "Confirmer",
-    "delete": "Supprimer",
-    "edit": "Modifier"
-  },
   "tray": {
     "show": "Afficher la Fenêtre",
     "quit": "Quitter",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "Thème",
-    "light": "Clair",
-    "dark": "Sombre",
-    "system": "Système"
-  },
-  "log": {
-    "title": "Journaux",
-    "clear": "Effacer",
-    "collapse": "Réduire",
-    "empty": "Aucune entrée de journal pour le moment."
-  },
-  "backup": {
-    "title": "Sauvegarde",
-    "webdavUrl": "URL WebDAV",
-    "webdavUser": "Utilisateur",
-    "webdavPass": "Mot de passe",
-    "save": "Enregistrer WebDAV",
-    "create": "Créer sauvegarde",
-    "upload": "Téléverser",
-    "list": "Lister sauvegardes",
-    "restore": "Restaurer",
-    "success": "Sauvegarde terminée",
-    "failed": "Sauvegarde échouée",
-    "noConfig": "WebDAV non configuré"
-  },
-  "nodes": {
-    "title": "Pool de nœuds",
-    "refresh": "Actualiser",
-    "total": "Nœuds totaux",
-    "healthy": "Sain",
-    "unhealthy": "non sain",
-    "egressIps": "IPs de sortie",
-    "healthyEgress": "Sortie saine",
-    "loading": "Chargement…",
-    "empty": "Aucun nœud. Importez un abonnement d'abord.",
-    "colTag": "Nœud",
-    "colRegion": "Région",
-    "colHealth": "Santé",
-    "colSub": "Abonnement",
-    "lastRefresh": "Dernière MAJ: {{time}}"
-  },
-  "config": {
-    "title": "Configuration",
-    "export": "Exporter",
-    "import": "Importer",
-    "importBtn": "Importer",
-    "exportBtn": "Exporter",
-    "exported": "Configuration exportée",
-    "imported": "Config importée: {{platforms}} plateformes, {{subscriptions}} abonnements",
-    "importError": "Erreur d'importation",
-    "backupCreated": "Sauvegarde créée: {{path}}"
   }
 }

@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "Account-id",
+    "lane": "Baan",
+    "exitIp": "Exit-IP",
+    "active": "Actief",
+    "bindIp": "Exit-IP binden",
+    "add": "Account toevoegen"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "Gespecialiseerde proxypool voor AI API-sleutels met een topologie-canvas"
+  },
+  "backup": {
+    "title": "Back-up",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "Gebruikersnaam",
+    "webdavPass": "Wachtwoord",
+    "save": "WebDAV opslaan",
+    "create": "Back-up maken",
+    "upload": "Back-up uploaden",
+    "list": "Back-ups lijst",
+    "restore": "Herstellen",
+    "success": "Back-up voltooid",
+    "failed": "Back-up mislukt",
+    "noConfig": "WebDAV niet geconfigureerd"
+  },
+  "common": {
+    "cancel": "Annuleren",
+    "confirm": "Bevestigen",
+    "delete": "Verwijderen",
+    "edit": "Bewerken"
+  },
+  "config": {
+    "title": "Configuratie",
+    "export": "Exporteren",
+    "import": "Importeren",
+    "importBtn": "Importeren",
+    "exportBtn": "Exporteren",
+    "exported": "Geëxporteerd",
+    "imported": "Geïmporteerd: {{platforms}} platforms, {{subscriptions}} abonnementen",
+    "importError": "Importfout",
+    "backupCreated": "Backup gemaakt: {{path}}"
+  },
+  "log": {
+    "title": "Logs",
+    "clear": "Wissen",
+    "collapse": "Samenvouwen",
+    "empty": "Nog geen logs."
   },
   "nav": {
     "topology": "Topologie",
@@ -11,6 +56,23 @@
     "subscriptions": "Abonnementen",
     "nodes": "Nodes"
   },
+  "nodes": {
+    "title": "Nodepool",
+    "refresh": "Vernieuwen",
+    "total": "Totaal nodes",
+    "healthy": "Gezond",
+    "unhealthy": "ongezond",
+    "egressIps": "Uitgangs-IPs",
+    "healthyEgress": "Gezonde uitgang",
+    "loading": "Laden…",
+    "empty": "Geen nodes. Importeer een abonnement.",
+    "colTag": "Node",
+    "colRegion": "Regio",
+    "colHealth": "Status",
+    "colSub": "Abonnement",
+    "lastRefresh": "Laatst vernieuwd: {{time}}",
+    "egressPolicyNote": "Per-regio egress-beleid wordt op het Topology-canvas ingesteld: sleep een Platform naar een IP-kanaalregio en zet er Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) op. Resin v1.1.2 heeft geen per-node selector."
+  },
   "platform": {
     "title": "Platforms",
     "add": "Platform toevoegen",
@@ -19,13 +81,15 @@
     "empty": "Geen platforms geconfigureerd.",
     "addOk": "Platform toegevoegd"
   },
-  "account": {
-    "id": "Account-id",
-    "lane": "Baan",
-    "exitIp": "Exit-IP",
-    "active": "Actief",
-    "bindIp": "Exit-IP binden",
-    "add": "Account toevoegen"
+  "processRoute": {
+    "title": "Procesroute",
+    "add": "Regel toevoegen",
+    "process": "Procesnaam",
+    "target": "Doelbaan",
+    "empty": "Geen per-proces routeringsregels.",
+    "conflict": "Lane {{lane}} al gebonden aan '{{process}}'",
+    "backendSaved": "Routeringsregel opgeslagen",
+    "proxyNote": "Routeringsregels zijn alleen van toepassing wanneer clientverkeer via de Resin-proxy loopt. De sidecar dwingt authenticatie per verzoek af; dit is een lokaal regelregister."
   },
   "settings": {
     "general": "Algemeen",
@@ -49,7 +113,19 @@
     "name": "Abonnementsnaam",
     "description": "Optioneel label voor dit geïmporteerde abonnement",
     "importSuccess": "Abonnement geïmporteerd — {{total}} knooppunten",
-    "dragHint": "Sleep rijen om te herschikken"
+    "dragHint": "Sleep rijen om te herschikken",
+    "rename": "Abonnement hernoemen",
+    "renamePrompt": "Nieuwe naam voor \"{{name}}\"",
+    "renameOk": "Hernoemd naar \"{{name}}\"",
+    "renameMissing": "Abonnement niet gevonden op de gateway. Ververs de lijst en probeer opnieuw.",
+    "renameUrlMissing": "Kan niet hernoemen: originele URL niet gecached. Importeer het abonnement opnieuw met de nieuwe naam.",
+    "resetOrder": "Sortering resetten"
+  },
+  "theme": {
+    "label": "Thema",
+    "light": "Licht",
+    "dark": "Donker",
+    "system": "Systeem"
   },
   "topology": {
     "title": "Topologie-canvas",
@@ -77,78 +153,9 @@
     "routable": "Routeerbaar: {{count}}",
     "filters": "Upstream: {{filters}}"
   },
-  "processRoute": {
-    "title": "Procesroute",
-    "add": "Regel toevoegen",
-    "process": "Procesnaam",
-    "target": "Doelbaan",
-    "empty": "Geen per-proces routeringsregels.",
-    "conflict": "Lane {{lane}} al gebonden aan '{{process}}'",
-    "backendSaved": "Routeringsregel opgeslagen",
-    "proxyNote": "Routeringsregels zijn alleen van toepassing wanneer clientverkeer via de Resin-proxy loopt. De sidecar dwingt authenticatie per verzoek af; dit is een lokaal regelregister."
-  },
-  "common": {
-    "cancel": "Annuleren",
-    "confirm": "Bevestigen",
-    "delete": "Verwijderen",
-    "edit": "Bewerken"
-  },
   "tray": {
     "show": "Venster tonen",
     "quit": "Afsluiten",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "Thema",
-    "light": "Licht",
-    "dark": "Donker",
-    "system": "Systeem"
-  },
-  "log": {
-    "title": "Logs",
-    "clear": "Wissen",
-    "collapse": "Samenvouwen",
-    "empty": "Nog geen logs."
-  },
-  "backup": {
-    "title": "Back-up",
-    "webdavUrl": "WebDAV URL",
-    "webdavUser": "Gebruikersnaam",
-    "webdavPass": "Wachtwoord",
-    "save": "WebDAV opslaan",
-    "create": "Back-up maken",
-    "upload": "Back-up uploaden",
-    "list": "Back-ups lijst",
-    "restore": "Herstellen",
-    "success": "Back-up voltooid",
-    "failed": "Back-up mislukt",
-    "noConfig": "WebDAV niet geconfigureerd"
-  },
-  "nodes": {
-    "title": "Nodepool",
-    "refresh": "Vernieuwen",
-    "total": "Totaal nodes",
-    "healthy": "Gezond",
-    "unhealthy": "ongezond",
-    "egressIps": "Uitgangs-IPs",
-    "healthyEgress": "Gezonde uitgang",
-    "loading": "Laden…",
-    "empty": "Geen nodes. Importeer een abonnement.",
-    "colTag": "Node",
-    "colRegion": "Regio",
-    "colHealth": "Status",
-    "colSub": "Abonnement",
-    "lastRefresh": "Laatst vernieuwd: {{time}}"
-  },
-  "config": {
-    "title": "Configuratie",
-    "export": "Exporteren",
-    "import": "Importeren",
-    "importBtn": "Importeren",
-    "exportBtn": "Exporteren",
-    "exported": "Geëxporteerd",
-    "imported": "Geïmporteerd: {{platforms}} platforms, {{subscriptions}} abonnementen",
-    "importError": "Importfout",
-    "backupCreated": "Backup gemaakt: {{path}}"
   }
 }

@@ -2,20 +2,22 @@ import { useTranslation } from "react-i18next";
 import {
   ReactFlow, Background, BackgroundVariant, Controls, MiniMap,
   Handle, Position, type Node, type Edge, type Connection, type NodeProps,
+  useReactFlow, ReactFlowProvider, type OnMoveEnd,
 } from "@xyflow/react";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import "@xyflow/react/dist/style.css";
 import { useAppStore } from "../store/appStore";
 import {
-  ipcPlatformListFull, ipcNodeList, ipcPlatformUpdate,
+  ipcPlatformListFull, ipcNodeList, ipcPlatformUpdate, ipcBackupCreate,
 } from "../lib/ipc";
+import { loadTopologyViewport, saveTopologyViewport } from "../lib/settings";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
 import { AlertTriangle } from "lucide-react";
 
-/// TopologyView — Phase R2 three-column key-to-egress canvas.
+/// TopologyView - Phase R2 three-column key-to-egress canvas.
 ///
-///   A (Entry proxy port)  ──always──>  B (Platforms)  ──region match──>  C (IP channels / nodes)
+///   A (Entry proxy port) --> B (Platforms) --region match--> C (IP channels / nodes)
 ///
 /// - A: single node, the Resin forward-proxy listen port (from settings gatewayBind).
 /// - B: one node per platform (from platform_list_full). Shows name, upstream
@@ -27,6 +29,13 @@ import { AlertTriangle } from "lucide-react";
 ///   region. Dragging a new edge from B to a C group = PATCH the platform's
 ///   region_filters to include that region (live hot-switch). Deleting an edge
 ///   = PATCH region_filters to remove that region.
+/// - P19 item 4: every drag edit (onConnect / onEdgesDelete) auto-creates a
+///   Resin config backup BEFORE the PATCH. If the user breaks the routing,
+///   they can Settings > Config > Import to roll back. Best-effort: backup_create
+///   is wrapped (catch -> ignore) so a backup failure never blocks the edit.
+/// - P19 item 1: viewport (x, y, zoom) persists to settings.json
+///   topologyViewport on every onMoveEnd; on mount we setViewport back so the
+///   user lands at the exact pan/zoom they left.
 ///
 /// The Resin sidecar owns the actual key->lane->exit-IP mapping; the canvas
 /// only MIRRORS the platform/region binding and lets the user hot-edit it.
@@ -140,9 +149,19 @@ function NodeGroupNode({ data }: NodeProps) {
 
 const nodeTypes = { entry: EntryNode, platform: PlatformNode, nodeGroup: NodeGroupNode };
 
-export function TopologyView() {
+/// Best-effort auto-backup before a topology edit (P19 item 4). Failures are
+/// swallowed: a broken backup should never block a user's routing change.
+async function backupBeforeEdit(): Promise<void> {
+  try { await ipcBackupCreate(); } catch { /* best-effort, ignored */ }
+}
+
+/// Inner canvas owns the actual <ReactFlow> and needs useReactFlow(), which
+/// requires a <ReactFlowProvider> ancestor. TopologyView is the exported shell
+/// that wires the provider so callers can mount <TopologyView /> directly.
+function TopologyCanvas() {
   const { t, i18n } = useTranslation();
   const theme = useAppStore((s) => s.theme);
+  const reactFlow = useReactFlow();
   // The entry port is the Resin forward-proxy listen port (owned by the
   // sidecar). We render it as a conceptual entry point; the exact port is
   // in settings.json gatewayBind but the canvas does not need it to draw.
@@ -150,6 +169,11 @@ export function TopologyView() {
   const [nodeGroups, setNodeGroups] = useState<NodeGroup[]>([]);
   const [sidecarStatus, setSidecarStatus] = useState<"healthy" | "unhealthy" | null>(null);
   const [patching, setPatching] = useState(false);
+  // P19 item 1: tracks whether we have already restored the saved viewport so
+  // the conditional fitView() only runs on first paint when no previous
+  // viewport was persisted. Without this gate, ReactFlow fitView() would snap
+  // back to a framed view on every refresh.
+  const [viewportRestored, setViewportRestored] = useState(false);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -168,22 +192,35 @@ export function TopologyView() {
       setPlatforms(parsePlatforms(plRaw));
       setNodeGroups(parseNodeGroups(nRaw));
     } catch {
-      // Outside Tauri (vitest) or sidecar down — keep last state.
+      // Outside Tauri (vitest) or sidecar down - keep last state.
     }
   }, []);
 
   useEffect(() => {
     void sync();
+    // P19 item 1: restore the saved viewport before the first data sync lands,
+    // so the user opens the topology back at their last pan/zoom. If no
+    // viewport was saved, ReactFlow's fitView (gated below) handles framing.
+    void (async () => {
+      try {
+        const vp = await loadTopologyViewport();
+        if (vp && typeof vp.x === "number" && typeof vp.y === "number" && typeof vp.zoom === "number") {
+          reactFlow.setViewport({ x: vp.x, y: vp.y, zoom: vp.zoom });
+        }
+      } catch { /* vitest, no reactflow */ }
+      setViewportRestored(true);
+    })();
     const id = setInterval(() => void sync(), 5000);
     // Bug #2 fix: re-sync on refocus so the canvas never stays blank.
     const onVis = () => { if (!document.hidden) void sync(); };
     document.addEventListener("visibilitychange", onVis);
     return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
-  }, [sync]);
+  }, [sync, reactFlow]);
 
   /// Drag-to-connect: when the user draws an edge from a platform to a node-group,
   /// PATCH the platform's region_filters to include that region. This is the
-  /// hot-switch — the canvas edge appears immediately, and Resin picks it up.
+  /// hot-switch - the canvas edge appears immediately, and Resin picks it up.
+  /// P19 item 4: best-effort backup BEFORE the PATCH so the change is reversible.
   const onConnect = useCallback(async (conn: Connection) => {
     // source = platform-<name>, target = nodegroup-<region>
     if (!conn.source || !conn.target) return;
@@ -197,6 +234,7 @@ export function TopologyView() {
     const next = [...current, region];
     setPatching(true);
     try {
+      await backupBeforeEdit(); // P19 item 4: snapshot before routing change
       await ipcPlatformUpdate(platName, undefined, undefined, next);
       // Optimistic local update so the edge appears instantly.
       setPlatforms((prev) => prev.map((p) =>
@@ -211,6 +249,7 @@ export function TopologyView() {
   }, [platforms, sync]);
 
   /// Delete edge = remove the region from the platform's region_filters.
+  /// P19 item 4: best-effort backup BEFORE the PATCH so the change is reversible.
   const onEdgesDelete = useCallback(async (edges: Edge[]) => {
     for (const e of edges) {
       if (!e.source.startsWith("platform-") || !e.target.startsWith("nodegroup-")) continue;
@@ -221,6 +260,7 @@ export function TopologyView() {
       const next = plat.region_filters.filter((r) => r !== region);
       setPatching(true);
       try {
+        await backupBeforeEdit(); // P19 item 4
         await ipcPlatformUpdate(platName, undefined, undefined, next.length > 0 ? next : []);
         setPlatforms((prev) => prev.map((p) =>
           p.name === platName ? { ...p, region_filters: next.length > 0 ? next : null } : p
@@ -233,6 +273,18 @@ export function TopologyView() {
     }
   }, [platforms, sync]);
 
+  /// P19 item 1: save the viewport after the user finishes panning/zooming so
+  /// the next mount can restore it. Skipped until the initial restore completes
+  /// so the setViewport-from-storage call does not trigger an immediate
+  /// onMoveEnd that overwrites the value we just read.
+  const onMoveEnd: OnMoveEnd = useCallback((_evt, viewport) => {
+    if (!viewportRestored) return;
+    if (!viewport || typeof viewport.x !== "number" || typeof viewport.y !== "number" || typeof viewport.zoom !== "number") return;
+    try {
+      void saveTopologyViewport({ x: viewport.x, y: viewport.y, zoom: viewport.zoom });
+    } catch { /* vitest, ignore */ }
+  }, [viewportRestored]);
+
   const colorMode: ColorMode = theme;
 
   // Build the three columns.
@@ -244,7 +296,7 @@ export function TopologyView() {
       id: "entry-port",
       type: "entry",
       position: { x: 0, y: 200 },
-      data: { label: `${t("topology.entryPort")}:\n${port}` },
+      data: { label: t("topology.entryPort") + ":\n" + port },
     });
     // B: platforms.
     platforms.forEach((p, i) => {
@@ -255,7 +307,7 @@ export function TopologyView() {
       const routable = t("topology.routable", { count: p.routable_node_count });
       const sub = [filters, policy, routable].filter(Boolean).join("\n");
       list.push({
-        id: `platform-${p.name}`,
+        id: "platform-" + p.name,
         type: "platform",
         position: { x: 300, y: 60 + i * 130 },
         data: { label: p.name, sub },
@@ -265,9 +317,9 @@ export function TopologyView() {
     nodeGroups.forEach((g, i) => {
       const healthLabel = g.healthy === g.total
         ? t("topology.healthy")
-        : `${g.healthy}/${g.total} ${t("topology.healthy")}`;
+        : g.healthy + "/" + g.total + " " + t("topology.healthy");
       list.push({
-        id: `nodegroup-${g.region}`,
+        id: "nodegroup-" + g.region,
         type: "nodeGroup",
         position: { x: 640, y: 60 + i * 100 },
         data: { label: t("topology.region", { region: g.region }), sub: healthLabel },
@@ -282,9 +334,9 @@ export function TopologyView() {
     // A->B: entry port connects to every platform.
     for (const p of platforms) {
       list.push({
-        id: `e-entry-${p.name}`,
+        id: "e-entry-" + p.name,
         source: "entry-port",
-        target: `platform-${p.name}`,
+        target: "platform-" + p.name,
         animated: true,
       });
     }
@@ -294,9 +346,9 @@ export function TopologyView() {
       for (const g of nodeGroups) {
         if (regions.includes(g.region)) {
           list.push({
-            id: `e-${p.name}-${g.region}`,
-            source: `platform-${p.name}`,
-            target: `nodegroup-${g.region}`,
+            id: "e-" + p.name + "-" + g.region,
+            source: "platform-" + p.name,
+            target: "nodegroup-" + g.region,
           });
         }
       }
@@ -315,7 +367,7 @@ export function TopologyView() {
       <div className="flex items-center justify-between px-1 pb-2">
         <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("topology.dragHint")}</span>
         {patching && (
-          <span className="text-xs font-mono text-amber-500">PATCH…</span>
+          <span className="text-xs font-mono text-amber-500">PATCH...</span>
         )}
       </div>
       {platforms.length === 0 && (
@@ -331,7 +383,8 @@ export function TopologyView() {
           nodeTypes={nodeTypes}
           onConnect={onConnect}
           onEdgesDelete={onEdgesDelete}
-          fitView
+          onMoveEnd={onMoveEnd}
+          fitView={!viewportRestored}
           colorMode={colorMode}
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
@@ -340,5 +393,16 @@ export function TopologyView() {
         </ReactFlow>
       </div>
     </section>
+  );
+}
+
+/// Exported shell: wraps TopologyCanvas in ReactFlowProvider so useReactFlow()
+/// (P19 item 1: viewport get/set) is in scope. The App.tsx call site
+/// (<TopologyView />) stays unchanged.
+export function TopologyView() {
+  return (
+    <ReactFlowProvider>
+      <TopologyCanvas />
+    </ReactFlowProvider>
   );
 }

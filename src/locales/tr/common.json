@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "Hesap kimliği",
+    "lane": "Şerit",
+    "exitIp": "Çıkış IP",
+    "active": "Aktif",
+    "bindIp": "Çıkış IP bağla",
+    "add": "Hesap ekle"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "AI API anahtarları için uzmanlaşmış proxy havuzu, topoloji tuvali ile"
+  },
+  "backup": {
+    "title": "Yedek",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "Kullanıcı adı",
+    "webdavPass": "Şifre",
+    "save": "WebDAV kaydet",
+    "create": "Yedek oluştur",
+    "upload": "Yedek yükle",
+    "list": "Yedekleri listele",
+    "restore": "Geri yükle",
+    "success": "Yedek tamamlandı",
+    "failed": "Yedek başarısız",
+    "noConfig": "WebDAV yapılandırılmadı"
+  },
+  "common": {
+    "cancel": "İptal",
+    "confirm": "Onayla",
+    "delete": "Sil",
+    "edit": "Düzenle"
+  },
+  "config": {
+    "title": "Yapılandırma",
+    "export": "Dışa aktar",
+    "import": "İçe aktar",
+    "importBtn": "İçe aktar",
+    "exportBtn": "Dışa aktar",
+    "exported": "Dışa aktarıldı",
+    "imported": "İçe aktarıldı: {{platforms}} platform, {{subscriptions}} abonelik",
+    "importError": "İçe aktarma hatası",
+    "backupCreated": "Yedek oluşturuldu: {{path}}"
+  },
+  "log": {
+    "title": "Günlükler",
+    "clear": "Temizle",
+    "collapse": "Daralt",
+    "empty": "Henüz günlük yok."
   },
   "nav": {
     "topology": "Topoloji",
@@ -11,6 +56,23 @@
     "subscriptions": "Abonelikler",
     "nodes": "Düğümler"
   },
+  "nodes": {
+    "title": "Düğüm havuzu",
+    "refresh": "Yenile",
+    "total": "Toplam düğüm",
+    "healthy": "Sağlıklı",
+    "unhealthy": "sağlıksız",
+    "egressIps": "Çıkış IP'leri",
+    "healthyEgress": "Sağlıklı çıkış",
+    "loading": "Yükleniyor…",
+    "empty": "Düğüm yok. Abonelik içe aktarın.",
+    "colTag": "Düğüm",
+    "colRegion": "Bölge",
+    "colHealth": "Sağlık",
+    "colSub": "Abonelik",
+    "lastRefresh": "Son güncelleme: {{time}}",
+    "egressPolicyNote": "Bölge başına çıkış politikası Topology tuvalinde ayarlanır: bir Platformu bir IP kanalı bölgesine sürükleyin ardından platformda Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) ayarlayın. Resin v1.1.2nin düğüm başına seçicisi yoktur."
+  },
   "platform": {
     "title": "Platformlar",
     "add": "Platform ekle",
@@ -19,13 +81,15 @@
     "empty": "Yapılandırılmış platform yok.",
     "addOk": "Platform eklendi"
   },
-  "account": {
-    "id": "Hesap kimliği",
-    "lane": "Şerit",
-    "exitIp": "Çıkış IP",
-    "active": "Aktif",
-    "bindIp": "Çıkış IP bağla",
-    "add": "Hesap ekle"
+  "processRoute": {
+    "title": "Süreç rotası",
+    "add": "Kural ekle",
+    "process": "Süreç adı",
+    "target": "Hedef şerit",
+    "empty": "Süreç başına yönlendirme kuralı yok.",
+    "conflict": "Lane {{lane}} zaten '{{process}}' ile bağlı",
+    "backendSaved": "Yönlendirme kuralı kaydedildi",
+    "proxyNote": "Yönlendirme kuralları yalnızca istemci trafiği Resin proxy üzerinden geçtiğinde uygulanır. Sidecar istek başına kimlik doğrulamasını zorlar; bu yerel bir kural kayıt defteridir."
   },
   "settings": {
     "general": "Genel",
@@ -49,7 +113,19 @@
     "name": "Abonelik adı",
     "description": "Bu içe aktarılan abonelik için isteğe bağlı etiket",
     "importSuccess": "Abonelik içe aktarıldı — {{total}} düğüm",
-    "dragHint": "Yeniden sıralamak için satırları sürükleyin"
+    "dragHint": "Yeniden sıralamak için satırları sürükleyin",
+    "rename": "Aboneliği yeniden adlandır",
+    "renamePrompt": "\"{{name}}\" için yeni ad",
+    "renameOk": "\"{{name}}\" olarak yeniden adlandırıldı",
+    "renameMissing": "Abonelik ağ geçidinde bulunamadı. Listeyi yenileyip tekrar deneyin.",
+    "renameUrlMissing": "Yeniden adlandırılamıyor: orijinal URL önbellekte değil. Aboneliği yeni adla yeniden içe aktarın.",
+    "resetOrder": "Sıralamayı sıfırla"
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Açık",
+    "dark": "Koyu",
+    "system": "Sistem"
   },
   "topology": {
     "title": "Topoloji tuvali",
@@ -77,78 +153,9 @@
     "routable": "Yönlendirilebilir: {{count}}",
     "filters": "Yukarı akış: {{filters}}"
   },
-  "processRoute": {
-    "title": "Süreç rotası",
-    "add": "Kural ekle",
-    "process": "Süreç adı",
-    "target": "Hedef şerit",
-    "empty": "Süreç başına yönlendirme kuralı yok.",
-    "conflict": "Lane {{lane}} zaten '{{process}}' ile bağlı",
-    "backendSaved": "Yönlendirme kuralı kaydedildi",
-    "proxyNote": "Yönlendirme kuralları yalnızca istemci trafiği Resin proxy üzerinden geçtiğinde uygulanır. Sidecar istek başına kimlik doğrulamasını zorlar; bu yerel bir kural kayıt defteridir."
-  },
-  "common": {
-    "cancel": "İptal",
-    "confirm": "Onayla",
-    "delete": "Sil",
-    "edit": "Düzenle"
-  },
   "tray": {
     "show": "Pencereyi göster",
     "quit": "Çık",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "Tema",
-    "light": "Açık",
-    "dark": "Koyu",
-    "system": "Sistem"
-  },
-  "log": {
-    "title": "Günlükler",
-    "clear": "Temizle",
-    "collapse": "Daralt",
-    "empty": "Henüz günlük yok."
-  },
-  "backup": {
-    "title": "Yedek",
-    "webdavUrl": "WebDAV URL",
-    "webdavUser": "Kullanıcı adı",
-    "webdavPass": "Şifre",
-    "save": "WebDAV kaydet",
-    "create": "Yedek oluştur",
-    "upload": "Yedek yükle",
-    "list": "Yedekleri listele",
-    "restore": "Geri yükle",
-    "success": "Yedek tamamlandı",
-    "failed": "Yedek başarısız",
-    "noConfig": "WebDAV yapılandırılmadı"
-  },
-  "nodes": {
-    "title": "Düğüm havuzu",
-    "refresh": "Yenile",
-    "total": "Toplam düğüm",
-    "healthy": "Sağlıklı",
-    "unhealthy": "sağlıksız",
-    "egressIps": "Çıkış IP'leri",
-    "healthyEgress": "Sağlıklı çıkış",
-    "loading": "Yükleniyor…",
-    "empty": "Düğüm yok. Abonelik içe aktarın.",
-    "colTag": "Düğüm",
-    "colRegion": "Bölge",
-    "colHealth": "Sağlık",
-    "colSub": "Abonelik",
-    "lastRefresh": "Son güncelleme: {{time}}"
-  },
-  "config": {
-    "title": "Yapılandırma",
-    "export": "Dışa aktar",
-    "import": "İçe aktar",
-    "importBtn": "İçe aktar",
-    "exportBtn": "Dışa aktar",
-    "exported": "Dışa aktarıldı",
-    "imported": "İçe aktarıldı: {{platforms}} platform, {{subscriptions}} abonelik",
-    "importError": "İçe aktarma hatası",
-    "backupCreated": "Yedek oluşturuldu: {{path}}"
   }
 }

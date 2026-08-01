@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "ID tài khoản",
+    "lane": "Làn",
+    "exitIp": "IP đầu ra",
+    "active": "Hoạt động",
+    "bindIp": "Gắn IP đầu ra",
+    "add": "Thêm tài khoản"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "Pool proxy chuyên dụng cho khóa API AI với canvas tô pô"
+  },
+  "backup": {
+    "title": "Sao lưu",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Tên người dùng",
+    "webdavPass": "Mật khẩu",
+    "save": "Lưu WebDAV",
+    "create": "Tạo bản sao",
+    "upload": "Tải lên",
+    "list": "Danh sách sao lưu",
+    "restore": "Khôi phục",
+    "success": "Sao lưu hoàn tất",
+    "failed": "Sao lưu thất bại",
+    "noConfig": "WebDAV chưa cấu hình"
+  },
+  "common": {
+    "cancel": "Hủy",
+    "confirm": "Xác nhận",
+    "delete": "Xóa",
+    "edit": "Sửa"
+  },
+  "config": {
+    "title": "Cấu hình",
+    "export": "Xuất",
+    "import": "Nhập",
+    "importBtn": "Nhập",
+    "exportBtn": "Xuất",
+    "exported": "Đã xuất cấu hình",
+    "imported": "Đã nhập: {{platforms}} nền tảng, {{subscriptions}} đăng ký",
+    "importError": "Lỗi nhập",
+    "backupCreated": "Đã sao lưu: {{path}}"
+  },
+  "log": {
+    "title": "Nhật ký",
+    "clear": "Xóa",
+    "collapse": "Thu gọn",
+    "empty": "Chưa có nhật ký."
   },
   "nav": {
     "topology": "Tô pô",
@@ -11,6 +56,23 @@
     "subscriptions": "Đăng ký",
     "nodes": "Nút"
   },
+  "nodes": {
+    "title": "Nhóm nút",
+    "refresh": "Làm mới",
+    "total": "Tổng nút",
+    "healthy": "Khỏe",
+    "unhealthy": "không khỏe",
+    "egressIps": "IP đầu ra",
+    "healthyEgress": "Đầu ra khỏe",
+    "loading": "Đang tải…",
+    "empty": "Không có nút. Nhập gói đăng ký trước.",
+    "colTag": "Nút",
+    "colRegion": "Khu vực",
+    "colHealth": "Trạng thái",
+    "colSub": "Đăng ký",
+    "lastRefresh": "Cập nhật lúc: {{time}}",
+    "egressPolicyNote": "Chính sách egress theo vùng được đặt trên canvas Topology: kéo một Platform vào vùng kênh IP rồi đặt Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) trên platform. Resin v1.1.2 không có bộ chọn theo node."
+  },
   "platform": {
     "title": "Nền tảng",
     "add": "Thêm nền tảng",
@@ -19,13 +81,15 @@
     "empty": "Chưa cấu hình nền tảng.",
     "addOk": "Đã thêm nền tảng"
   },
-  "account": {
-    "id": "ID tài khoản",
-    "lane": "Làn",
-    "exitIp": "IP đầu ra",
-    "active": "Hoạt động",
-    "bindIp": "Gắn IP đầu ra",
-    "add": "Thêm tài khoản"
+  "processRoute": {
+    "title": "Tuyến tiến trình",
+    "add": "Thêm quy tắc",
+    "process": "Tên tiến trình",
+    "target": "Làn đích",
+    "empty": "Không có quy tắc định tuyến theo tiến trình.",
+    "conflict": "Lane {{lane}} đã liên kết với '{{process}}'",
+    "backendSaved": "Đã lưu quy tắc định tuyến",
+    "proxyNote": "Quy tắc định tuyến chỉ áp dụng khi lưu lượng khách đi qua proxy Resin. Sidecar thực thi xác thực mỗi yêu cầu; đây là sổ đăng ký quy tắc cục bộ."
   },
   "settings": {
     "general": "Chung",
@@ -49,7 +113,19 @@
     "name": "Tên đăng ký",
     "description": "Nhãn tùy chọn cho mục đăng ký đã nhập này",
     "importSuccess": "Đã nhập đăng ký — {{total}} nút",
-    "dragHint": "Kéo các hàng để sắp xếp lại"
+    "dragHint": "Kéo các hàng để sắp xếp lại",
+    "rename": "Đổi tên đăng ký",
+    "renamePrompt": "Tên mới cho \"{{name}}\"",
+    "renameOk": "Đã đổi tên thành \"{{name}}\"",
+    "renameMissing": "Không tìm thấy đăng ký trên gateway. Làm mới danh sách và thử lại.",
+    "renameUrlMissing": "Không thể đổi tên: URL gốc không được lưu tạm. Hãy nhập lại đăng ký bằng tên mới.",
+    "resetOrder": "Đặt lại sắp xếp"
+  },
+  "theme": {
+    "label": "Giao diện",
+    "light": "Sáng",
+    "dark": "Tối",
+    "system": "Hệ thống"
   },
   "topology": {
     "title": "Canvas tô pô",
@@ -77,78 +153,9 @@
     "routable": "Có thể định tuyến: {{count}}",
     "filters": "Upstream: {{filters}}"
   },
-  "processRoute": {
-    "title": "Tuyến tiến trình",
-    "add": "Thêm quy tắc",
-    "process": "Tên tiến trình",
-    "target": "Làn đích",
-    "empty": "Không có quy tắc định tuyến theo tiến trình.",
-    "conflict": "Lane {{lane}} đã liên kết với '{{process}}'",
-    "backendSaved": "Đã lưu quy tắc định tuyến",
-    "proxyNote": "Quy tắc định tuyến chỉ áp dụng khi lưu lượng khách đi qua proxy Resin. Sidecar thực thi xác thực mỗi yêu cầu; đây là sổ đăng ký quy tắc cục bộ."
-  },
-  "common": {
-    "cancel": "Hủy",
-    "confirm": "Xác nhận",
-    "delete": "Xóa",
-    "edit": "Sửa"
-  },
   "tray": {
     "show": "Hiện cửa sổ",
     "quit": "Thoát",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "Giao diện",
-    "light": "Sáng",
-    "dark": "Tối",
-    "system": "Hệ thống"
-  },
-  "log": {
-    "title": "Nhật ký",
-    "clear": "Xóa",
-    "collapse": "Thu gọn",
-    "empty": "Chưa có nhật ký."
-  },
-  "backup": {
-    "title": "Sao lưu",
-    "webdavUrl": "URL WebDAV",
-    "webdavUser": "Tên người dùng",
-    "webdavPass": "Mật khẩu",
-    "save": "Lưu WebDAV",
-    "create": "Tạo bản sao",
-    "upload": "Tải lên",
-    "list": "Danh sách sao lưu",
-    "restore": "Khôi phục",
-    "success": "Sao lưu hoàn tất",
-    "failed": "Sao lưu thất bại",
-    "noConfig": "WebDAV chưa cấu hình"
-  },
-  "nodes": {
-    "title": "Nhóm nút",
-    "refresh": "Làm mới",
-    "total": "Tổng nút",
-    "healthy": "Khỏe",
-    "unhealthy": "không khỏe",
-    "egressIps": "IP đầu ra",
-    "healthyEgress": "Đầu ra khỏe",
-    "loading": "Đang tải…",
-    "empty": "Không có nút. Nhập gói đăng ký trước.",
-    "colTag": "Nút",
-    "colRegion": "Khu vực",
-    "colHealth": "Trạng thái",
-    "colSub": "Đăng ký",
-    "lastRefresh": "Cập nhật lúc: {{time}}"
-  },
-  "config": {
-    "title": "Cấu hình",
-    "export": "Xuất",
-    "import": "Nhập",
-    "importBtn": "Nhập",
-    "exportBtn": "Xuất",
-    "exported": "Đã xuất cấu hình",
-    "imported": "Đã nhập: {{platforms}} nền tảng, {{subscriptions}} đăng ký",
-    "importError": "Lỗi nhập",
-    "backupCreated": "Đã sao lưu: {{path}}"
   }
 }

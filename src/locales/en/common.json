@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "Account id",
+    "lane": "Lane",
+    "exitIp": "Exit IP",
+    "active": "Active",
+    "bindIp": "Bind exit IP",
+    "add": "Add account"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "AI API key specialized proxy pool with a topology canvas"
+  },
+  "backup": {
+    "title": "Backup",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "Username",
+    "webdavPass": "Password",
+    "save": "Save WebDAV config",
+    "create": "Create backup",
+    "upload": "Upload backup",
+    "list": "List backups",
+    "restore": "Restore",
+    "success": "Backup completed",
+    "failed": "Backup failed",
+    "noConfig": "WebDAV not configured"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit"
+  },
+  "config": {
+    "title": "Config",
+    "export": "Export config",
+    "import": "Import config",
+    "importBtn": "Import",
+    "exportBtn": "Export",
+    "exported": "Config exported",
+    "imported": "Config imported: {{platforms}} platforms, {{subscriptions}} subscriptions",
+    "importError": "Import error",
+    "backupCreated": "Backup created: {{path}}"
+  },
+  "log": {
+    "title": "Logs",
+    "clear": "Clear",
+    "collapse": "Collapse",
+    "empty": "No log entries yet."
   },
   "nav": {
     "topology": "Topology",
@@ -11,6 +56,23 @@
     "subscriptions": "Subscriptions",
     "nodes": "Nodes"
   },
+  "nodes": {
+    "title": "Node Pool",
+    "refresh": "Refresh",
+    "total": "Total nodes",
+    "healthy": "Healthy",
+    "unhealthy": "unhealthy",
+    "egressIps": "Egress IPs",
+    "healthyEgress": "Healthy egress",
+    "loading": "Loading nodes…",
+    "empty": "No nodes loaded. Import a subscription first.",
+    "colTag": "Node",
+    "colRegion": "Region",
+    "colHealth": "Health",
+    "colSub": "Subscription",
+    "lastRefresh": "Last refresh: {{time}}",
+    "egressPolicyNote": "Per-region egress policy is bound on the Topology canvas: drag a Platform to an IP channel region then set Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) on the platform. Resin v1.1.2 has no per-node strategy selector."
+  },
   "platform": {
     "title": "Platforms",
     "add": "Add platform",
@@ -19,13 +81,15 @@
     "empty": "No platforms configured.",
     "addOk": "Platform added"
   },
-  "account": {
-    "id": "Account id",
-    "lane": "Lane",
-    "exitIp": "Exit IP",
-    "active": "Active",
-    "bindIp": "Bind exit IP",
-    "add": "Add account"
+  "processRoute": {
+    "title": "Process route",
+    "add": "Add routing rule",
+    "process": "Process name",
+    "target": "Target lane",
+    "empty": "No per-process routing rules.",
+    "conflict": "Lane {{lane}} already bound to '{{process}}'",
+    "backendSaved": "Routing rule saved",
+    "proxyNote": "Routing rules apply only when client traffic flows through the Resin proxy. The sidecar enforces per-request auth; rules here are a local registry."
   },
   "settings": {
     "general": "General",
@@ -49,7 +113,19 @@
     "name": "Subscription name",
     "description": "Optional label for this imported subscription",
     "importSuccess": "Subscription imported — {{total}} nodes",
-    "dragHint": "Drag rows to reorder"
+    "dragHint": "Drag rows to reorder",
+    "rename": "Rename subscription",
+    "renamePrompt": "New name for \"{{name}}\"",
+    "renameOk": "Renamed to \"{{name}}\"",
+    "renameMissing": "Subscription not found on the gateway. Refresh the list and try again.",
+    "renameUrlMissing": "Cannot rename: original URL not cached. Re-import the subscription with the new name instead.",
+    "resetOrder": "Reset sort"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   },
   "topology": {
     "title": "Topology canvas",
@@ -77,78 +153,9 @@
     "routable": "Routable: {{count}}",
     "filters": "Upstream: {{filters}}"
   },
-  "processRoute": {
-    "title": "Process route",
-    "add": "Add routing rule",
-    "process": "Process name",
-    "target": "Target lane",
-    "empty": "No per-process routing rules.",
-    "conflict": "Lane {{lane}} already bound to '{{process}}'",
-    "backendSaved": "Routing rule saved",
-    "proxyNote": "Routing rules apply only when client traffic flows through the Resin proxy. The sidecar enforces per-request auth; rules here are a local registry."
-  },
-  "common": {
-    "cancel": "Cancel",
-    "confirm": "Confirm",
-    "delete": "Delete",
-    "edit": "Edit"
-  },
   "tray": {
     "show": "Show Window",
     "quit": "Quit",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "Theme",
-    "light": "Light",
-    "dark": "Dark",
-    "system": "System"
-  },
-  "log": {
-    "title": "Logs",
-    "clear": "Clear",
-    "collapse": "Collapse",
-    "empty": "No log entries yet."
-  },
-  "backup": {
-    "title": "Backup",
-    "webdavUrl": "WebDAV URL",
-    "webdavUser": "Username",
-    "webdavPass": "Password",
-    "save": "Save WebDAV config",
-    "create": "Create backup",
-    "upload": "Upload backup",
-    "list": "List backups",
-    "restore": "Restore",
-    "success": "Backup completed",
-    "failed": "Backup failed",
-    "noConfig": "WebDAV not configured"
-  },
-  "nodes": {
-    "title": "Node Pool",
-    "refresh": "Refresh",
-    "total": "Total nodes",
-    "healthy": "Healthy",
-    "unhealthy": "unhealthy",
-    "egressIps": "Egress IPs",
-    "healthyEgress": "Healthy egress",
-    "loading": "Loading nodes…",
-    "empty": "No nodes loaded. Import a subscription first.",
-    "colTag": "Node",
-    "colRegion": "Region",
-    "colHealth": "Health",
-    "colSub": "Subscription",
-    "lastRefresh": "Last refresh: {{time}}"
-  },
-  "config": {
-    "title": "Config",
-    "export": "Export config",
-    "import": "Import config",
-    "importBtn": "Import",
-    "exportBtn": "Export",
-    "exported": "Config exported",
-    "imported": "Config imported: {{platforms}} platforms, {{subscriptions}} subscriptions",
-    "importError": "Import error",
-    "backupCreated": "Backup created: {{path}}"
   }
 }

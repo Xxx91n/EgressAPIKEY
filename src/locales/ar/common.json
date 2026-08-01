@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "معرف الحساب",
+    "lane": "المسار",
+    "exitIp": "IP الخروج",
+    "active": "نشط",
+    "bindIp": "ربط IP الخروج",
+    "add": "إضافة حساب"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "تجمع بروكسي متخصص لمفاتيح API مع لوحة طوبولوجيا"
+  },
+  "backup": {
+    "title": "نسخة احتياطية",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "المستخدم",
+    "webdavPass": "كلمة المرور",
+    "save": "حفظ WebDAV",
+    "create": "إنشاء نسخة",
+    "upload": "رفع",
+    "list": "قائمة النسخ",
+    "restore": "استعادة",
+    "success": "تم النسخ",
+    "failed": "فشل النسخ",
+    "noConfig": "WebDAV غير مُعد"
+  },
+  "common": {
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "delete": "حذف",
+    "edit": "تحرير"
+  },
+  "config": {
+    "title": "التكوين",
+    "export": "تصدير",
+    "import": "استيراد",
+    "importBtn": "استيراد",
+    "exportBtn": "تصدير",
+    "exported": "تم التصدير",
+    "imported": "تم الاستيراد: {{platforms}} منصات، {{subscriptions}} اشتراكات",
+    "importError": "خطأ الاستيراد",
+    "backupCreated": "تم النسخ: {{path}}"
+  },
+  "log": {
+    "title": "السجلات",
+    "clear": "مسح",
+    "collapse": "طي",
+    "empty": "لا توجد إدخالات سجل بعد."
   },
   "nav": {
     "topology": "الطوبولوجيا",
@@ -11,6 +56,23 @@
     "platforms": "المنصات",
     "nodes": "العقد"
   },
+  "nodes": {
+    "title": "تجمع العقد",
+    "refresh": "تحديث",
+    "total": "إجمالي العقد",
+    "healthy": "سليم",
+    "unhealthy": "غير سليم",
+    "egressIps": "عناوين الخروج",
+    "healthyEgress": "خروج سليم",
+    "loading": "جارٍ التحميل…",
+    "empty": "لا توجد عقد. استورد اشتراكًا أولاً.",
+    "colTag": "عقدة",
+    "colRegion": "المنطقة",
+    "colHealth": "الصحة",
+    "colSub": "الاشتراك",
+    "lastRefresh": "آخر تحديث: {{time}}",
+    "egressPolicyNote": "يتم ضبط سياسة الخروج لكل منطقة على لوحة Topology: اسحب منصة إلى منطقة قناة IP ثم اضبط سياسة التخصيص (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) على المنصة. لا يحتوي Resin v1.1.2 على محدد لكل عقدة."
+  },
   "platform": {
     "title": "المنصات",
     "add": "إضافة منصة",
@@ -19,13 +81,15 @@
     "empty": "لا توجد منصات مُعدة.",
     "addOk": "تمت إضافة المنصة"
   },
-  "account": {
-    "id": "معرف الحساب",
-    "lane": "المسار",
-    "exitIp": "IP الخروج",
-    "active": "نشط",
-    "bindIp": "ربط IP الخروج",
-    "add": "إضافة حساب"
+  "processRoute": {
+    "title": "مسار العملية",
+    "add": "إضافة قاعدة توجيه",
+    "process": "اسم العملية",
+    "target": "المسار المستهدف",
+    "empty": "لا توجد قواعد توجيه لكل عملية.",
+    "conflict": "الممر {{lane}} مرتبط بالفعل بـ \"{{process}}\"",
+    "backendSaved": "تم حفظ قاعدة التوجيه",
+    "proxyNote": "تنطبق قواعد التوجيه فقط عند مرور حركة العميل عبر وكيل Resin. يقوم الـ sidecar بالمصادقة لكل طلب؛ هذا سجل قواعد محلي."
   },
   "settings": {
     "general": "عام",
@@ -49,7 +113,19 @@
     "name": "اسم الاشتراك",
     "description": "تسمية اختيارية للاشتراك المستورد",
     "importSuccess": "تم استيراد الاشتراك — {{total}} عقدة",
-    "dragHint": "اسحب الصفوف لإعادة الترتيب"
+    "dragHint": "اسحب الصفوف لإعادة الترتيب",
+    "rename": "إعادة تسمية الاشتراك",
+    "renamePrompt": "اسم جديد لـ \"{{name}}\"",
+    "renameOk": "تمت إعادة التسمية إلى \"{{name}}\"",
+    "renameMissing": "لم يتم العثور على الاشتراك في البوابة. حدّث القائمة وحاول مرة أخرى.",
+    "renameUrlMissing": "لا يمكن إعادة التسمية: لم يتم تخزين عنوان URL الأصلي مؤقتًا. أعد استيراد الاشتراك بالاسم الجديد.",
+    "resetOrder": "إعادة تعيين الترتيب"
+  },
+  "theme": {
+    "label": "السمة",
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "النظام"
   },
   "topology": {
     "title": "لوحة الطوبولوجيا",
@@ -77,78 +153,9 @@
     "routable": "قابل للتوجيه: {{count}}",
     "filters": "المنبع: {{filters}}"
   },
-  "processRoute": {
-    "title": "مسار العملية",
-    "add": "إضافة قاعدة توجيه",
-    "process": "اسم العملية",
-    "target": "المسار المستهدف",
-    "empty": "لا توجد قواعد توجيه لكل عملية.",
-    "conflict": "الممر {{lane}} مرتبط بالفعل بـ \"{{process}}\"",
-    "backendSaved": "تم حفظ قاعدة التوجيه",
-    "proxyNote": "تنطبق قواعد التوجيه فقط عند مرور حركة العميل عبر وكيل Resin. يقوم الـ sidecar بالمصادقة لكل طلب؛ هذا سجل قواعد محلي."
-  },
-  "common": {
-    "cancel": "إلغاء",
-    "confirm": "تأكيد",
-    "delete": "حذف",
-    "edit": "تحرير"
-  },
   "tray": {
     "show": "إظهار النافذة",
     "quit": "إنهاء",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "السمة",
-    "light": "فاتح",
-    "dark": "داكن",
-    "system": "النظام"
-  },
-  "log": {
-    "title": "السجلات",
-    "clear": "مسح",
-    "collapse": "طي",
-    "empty": "لا توجد إدخالات سجل بعد."
-  },
-  "backup": {
-    "title": "نسخة احتياطية",
-    "webdavUrl": "WebDAV URL",
-    "webdavUser": "المستخدم",
-    "webdavPass": "كلمة المرور",
-    "save": "حفظ WebDAV",
-    "create": "إنشاء نسخة",
-    "upload": "رفع",
-    "list": "قائمة النسخ",
-    "restore": "استعادة",
-    "success": "تم النسخ",
-    "failed": "فشل النسخ",
-    "noConfig": "WebDAV غير مُعد"
-  },
-  "nodes": {
-    "title": "تجمع العقد",
-    "refresh": "تحديث",
-    "total": "إجمالي العقد",
-    "healthy": "سليم",
-    "unhealthy": "غير سليم",
-    "egressIps": "عناوين الخروج",
-    "healthyEgress": "خروج سليم",
-    "loading": "جارٍ التحميل…",
-    "empty": "لا توجد عقد. استورد اشتراكًا أولاً.",
-    "colTag": "عقدة",
-    "colRegion": "المنطقة",
-    "colHealth": "الصحة",
-    "colSub": "الاشتراك",
-    "lastRefresh": "آخر تحديث: {{time}}"
-  },
-  "config": {
-    "title": "التكوين",
-    "export": "تصدير",
-    "import": "استيراد",
-    "importBtn": "استيراد",
-    "exportBtn": "تصدير",
-    "exported": "تم التصدير",
-    "imported": "تم الاستيراد: {{platforms}} منصات، {{subscriptions}} اشتراكات",
-    "importError": "خطأ الاستيراد",
-    "backupCreated": "تم النسخ: {{path}}"
   }
 }

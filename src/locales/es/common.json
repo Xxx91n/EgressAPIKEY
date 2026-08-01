@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "ID de cuenta",
+    "lane": "Carril",
+    "exitIp": "IP de salida",
+    "active": "Activo",
+    "bindIp": "Asignar IP de salida",
+    "add": "Añadir cuenta"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "Pool de proxies especializado en claves de IA con lienzo de topología"
+  },
+  "backup": {
+    "title": "Copia de seguridad",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Usuario",
+    "webdavPass": "Contraseña",
+    "save": "Guardar config WebDAV",
+    "create": "Crear copia",
+    "upload": "Subir copia",
+    "list": "Listar copias",
+    "restore": "Restaurar",
+    "success": "Copia completada",
+    "failed": "Copia fallida",
+    "noConfig": "WebDAV no configurado"
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar"
+  },
+  "config": {
+    "title": "Configuración",
+    "export": "Exportar config",
+    "import": "Importar config",
+    "importBtn": "Importar",
+    "exportBtn": "Exportar",
+    "exported": "Configuración exportada",
+    "imported": "Config importada: {{platforms}} plataformas, {{subscriptions}} suscripciones",
+    "importError": "Error de importación",
+    "backupCreated": "Copia creada: {{path}}"
+  },
+  "log": {
+    "title": "Registros",
+    "clear": "Limpiar",
+    "collapse": "Contraer",
+    "empty": "Aún no hay entradas de registro."
   },
   "nav": {
     "topology": "Topología",
@@ -11,6 +56,23 @@
     "platforms": "Plataformas",
     "nodes": "Nodos"
   },
+  "nodes": {
+    "title": "Grupo de nodos",
+    "refresh": "Actualizar",
+    "total": "Nodos totales",
+    "healthy": "Saludable",
+    "unhealthy": "no saludable",
+    "egressIps": "IPs de salida",
+    "healthyEgress": "Salida saludable",
+    "loading": "Cargando nodos…",
+    "empty": "Sin nodos. Importa una suscripción primero.",
+    "colTag": "Nodo",
+    "colRegion": "Región",
+    "colHealth": "Salud",
+    "colSub": "Suscripción",
+    "lastRefresh": "Última actualización: {{time}}",
+    "egressPolicyNote": "La política de egreso por región se configura en el lienzo Topology: arrastra una Plataforma a una región de canal IP y establece su Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP). Resin v1.1.2 no tiene selector por nodo."
+  },
   "platform": {
     "title": "Plataformas",
     "add": "Añadir plataforma",
@@ -19,13 +81,15 @@
     "empty": "No hay plataformas configuradas.",
     "addOk": "Plataforma añadida"
   },
-  "account": {
-    "id": "ID de cuenta",
-    "lane": "Carril",
-    "exitIp": "IP de salida",
-    "active": "Activo",
-    "bindIp": "Asignar IP de salida",
-    "add": "Añadir cuenta"
+  "processRoute": {
+    "title": "Ruta de proceso",
+    "add": "Añadir regla de enrutamiento",
+    "process": "Nombre del proceso",
+    "target": "Carril destino",
+    "empty": "No hay reglas de enrutamiento por proceso.",
+    "conflict": "Carril {{lane}} ya enlazado a '{{process}}'",
+    "backendSaved": "Regla de enrutamiento guardada",
+    "proxyNote": "Las reglas de enrutamiento solo se aplican cuando el tráfico del cliente pasa por el proxy Resin. El sidecar aplica autenticación por solicitud; esto es un registro local de reglas."
   },
   "settings": {
     "general": "General",
@@ -49,7 +113,19 @@
     "name": "Nombre de la suscripción",
     "description": "Etiqueta opcional para esta suscripción importada",
     "importSuccess": "Suscripción importada — {{total}} nodos",
-    "dragHint": "Arrastra filas para reordenar"
+    "dragHint": "Arrastra filas para reordenar",
+    "rename": "Renombrar suscripción",
+    "renamePrompt": "Nuevo nombre para \"{{name}}\"",
+    "renameOk": "Renombrado a \"{{name}}\"",
+    "renameMissing": "Suscripción no encontrada en el gateway. Actualiza la lista e inténtalo de nuevo.",
+    "renameUrlMissing": "No se puede renombrar: la URL original no está en caché. Reimporta la suscripción con el nuevo nombre.",
+    "resetOrder": "Restablecer orden"
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "system": "Sistema"
   },
   "topology": {
     "title": "Lienzo de topología",
@@ -77,78 +153,9 @@
     "routable": "Enrutable: {{count}}",
     "filters": "Upstream: {{filters}}"
   },
-  "processRoute": {
-    "title": "Ruta de proceso",
-    "add": "Añadir regla de enrutamiento",
-    "process": "Nombre del proceso",
-    "target": "Carril destino",
-    "empty": "No hay reglas de enrutamiento por proceso.",
-    "conflict": "Carril {{lane}} ya enlazado a '{{process}}'",
-    "backendSaved": "Regla de enrutamiento guardada",
-    "proxyNote": "Las reglas de enrutamiento solo se aplican cuando el tráfico del cliente pasa por el proxy Resin. El sidecar aplica autenticación por solicitud; esto es un registro local de reglas."
-  },
-  "common": {
-    "cancel": "Cancelar",
-    "confirm": "Confirmar",
-    "delete": "Eliminar",
-    "edit": "Editar"
-  },
   "tray": {
     "show": "Mostrar Ventana",
     "quit": "Salir",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "Tema",
-    "light": "Claro",
-    "dark": "Oscuro",
-    "system": "Sistema"
-  },
-  "log": {
-    "title": "Registros",
-    "clear": "Limpiar",
-    "collapse": "Contraer",
-    "empty": "Aún no hay entradas de registro."
-  },
-  "backup": {
-    "title": "Copia de seguridad",
-    "webdavUrl": "URL WebDAV",
-    "webdavUser": "Usuario",
-    "webdavPass": "Contraseña",
-    "save": "Guardar config WebDAV",
-    "create": "Crear copia",
-    "upload": "Subir copia",
-    "list": "Listar copias",
-    "restore": "Restaurar",
-    "success": "Copia completada",
-    "failed": "Copia fallida",
-    "noConfig": "WebDAV no configurado"
-  },
-  "nodes": {
-    "title": "Grupo de nodos",
-    "refresh": "Actualizar",
-    "total": "Nodos totales",
-    "healthy": "Saludable",
-    "unhealthy": "no saludable",
-    "egressIps": "IPs de salida",
-    "healthyEgress": "Salida saludable",
-    "loading": "Cargando nodos…",
-    "empty": "Sin nodos. Importa una suscripción primero.",
-    "colTag": "Nodo",
-    "colRegion": "Región",
-    "colHealth": "Salud",
-    "colSub": "Suscripción",
-    "lastRefresh": "Última actualización: {{time}}"
-  },
-  "config": {
-    "title": "Configuración",
-    "export": "Exportar config",
-    "import": "Importar config",
-    "importBtn": "Importar",
-    "exportBtn": "Exportar",
-    "exported": "Configuración exportada",
-    "imported": "Config importada: {{platforms}} plataformas, {{subscriptions}} suscripciones",
-    "importError": "Error de importación",
-    "backupCreated": "Copia creada: {{path}}"
   }
 }

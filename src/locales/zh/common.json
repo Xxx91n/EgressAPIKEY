@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "账号 ID",
+    "lane": "出口通道",
+    "exitIp": "出口 IP",
+    "active": "启用",
+    "bindIp": "绑定出口 IP",
+    "add": "添加账号"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "带拓扑画布的 AI API key 专用代理池"
+  },
+  "backup": {
+    "title": "备份",
+    "webdavUrl": "WebDAV 地址",
+    "webdavUser": "用户名",
+    "webdavPass": "密码",
+    "save": "保存 WebDAV 配置",
+    "create": "创建备份",
+    "upload": "上传备份",
+    "list": "列出备份",
+    "restore": "恢复",
+    "success": "备份完成",
+    "failed": "备份失败",
+    "noConfig": "WebDAV 未配置"
+  },
+  "common": {
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑"
+  },
+  "config": {
+    "title": "配置",
+    "export": "导出配置",
+    "import": "导入配置",
+    "importBtn": "导入",
+    "exportBtn": "导出",
+    "exported": "配置已导出",
+    "imported": "配置已导入：{{platforms}} 个平台，{{subscriptions}} 个订阅",
+    "importError": "导入错误",
+    "backupCreated": "备份已创建：{{path}}"
+  },
+  "log": {
+    "title": "日志",
+    "clear": "清空",
+    "collapse": "收起",
+    "empty": "暂无日志条目。"
   },
   "nav": {
     "topology": "拓扑",
@@ -11,6 +56,23 @@
     "platforms": "平台",
     "nodes": "节点"
   },
+  "nodes": {
+    "title": "节点池",
+    "refresh": "刷新",
+    "total": "总节点数",
+    "healthy": "健康",
+    "unhealthy": "异常",
+    "egressIps": "出口 IP 数",
+    "healthyEgress": "健康出口",
+    "loading": "加载中…",
+    "empty": "暂无节点，请先导入订阅。",
+    "colTag": "节点",
+    "colRegion": "地区",
+    "colHealth": "健康状态",
+    "colSub": "订阅",
+    "lastRefresh": "最后刷新：{{time}}",
+    "egressPolicyNote": "按区域设置出口策略请在拓扑画布上操作：把“平台”拖到某个 IP 通道区域，并在该平台上设置分配策略（BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP）。Resin v1.1.2 不支持逐节点策略。"
+  },
   "platform": {
     "title": "平台",
     "add": "添加平台",
@@ -19,13 +81,15 @@
     "empty": "尚未配置任何平台。",
     "addOk": "平台添加成功"
   },
-  "account": {
-    "id": "账号 ID",
-    "lane": "出口通道",
-    "exitIp": "出口 IP",
-    "active": "启用",
-    "bindIp": "绑定出口 IP",
-    "add": "添加账号"
+  "processRoute": {
+    "title": "进程路由",
+    "add": "添加路由规则",
+    "process": "进程名",
+    "target": "目标通道",
+    "empty": "暂无进程路由规则。",
+    "conflict": "通道 {{lane}} 已绑定到 '{{process}}'",
+    "backendSaved": "路由规则已保存",
+    "proxyNote": "路由规则仅当客户端流量经由 Resin 代理转发时生效。Resin 边车按请求鉴权；此处为本地规则注册表。"
   },
   "settings": {
     "general": "通用",
@@ -49,7 +113,19 @@
     "name": "订阅名称",
     "description": "此导入订阅的可选标签",
     "importSuccess": "订阅导入成功 — 共 {{total}} 个节点",
-    "dragHint": "拖动行以重新排序"
+    "dragHint": "拖动行以重新排序",
+    "rename": "重命名订阅",
+    "renamePrompt": "为“{{name}}”输入新名称",
+    "renameOk": "已重命名为“{{name}}”",
+    "renameMissing": "网关上找不到该订阅，请刷新列表后重试。",
+    "renameUrlMissing": "无法重命名：未缓存原始订阅 URL。请用新名称重新导入该订阅。",
+    "resetOrder": "重置排序"
+  },
+  "theme": {
+    "label": "主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统"
   },
   "topology": {
     "title": "拓扑画布",
@@ -77,78 +153,9 @@
     "routable": "可路由: {{count}}",
     "filters": "上游: {{filters}}"
   },
-  "processRoute": {
-    "title": "进程路由",
-    "add": "添加路由规则",
-    "process": "进程名",
-    "target": "目标通道",
-    "empty": "暂无进程路由规则。",
-    "conflict": "通道 {{lane}} 已绑定到 '{{process}}'",
-    "backendSaved": "路由规则已保存",
-    "proxyNote": "路由规则仅当客户端流量经由 Resin 代理转发时生效。Resin 边车按请求鉴权；此处为本地规则注册表。"
-  },
-  "common": {
-    "cancel": "取消",
-    "confirm": "确认",
-    "delete": "删除",
-    "edit": "编辑"
-  },
   "tray": {
     "show": "显示窗口",
     "quit": "退出",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "主题",
-    "light": "浅色",
-    "dark": "深色",
-    "system": "跟随系统"
-  },
-  "log": {
-    "title": "日志",
-    "clear": "清空",
-    "collapse": "收起",
-    "empty": "暂无日志条目。"
-  },
-  "backup": {
-    "title": "备份",
-    "webdavUrl": "WebDAV 地址",
-    "webdavUser": "用户名",
-    "webdavPass": "密码",
-    "save": "保存 WebDAV 配置",
-    "create": "创建备份",
-    "upload": "上传备份",
-    "list": "列出备份",
-    "restore": "恢复",
-    "success": "备份完成",
-    "failed": "备份失败",
-    "noConfig": "WebDAV 未配置"
-  },
-  "nodes": {
-    "title": "节点池",
-    "refresh": "刷新",
-    "total": "总节点数",
-    "healthy": "健康",
-    "unhealthy": "异常",
-    "egressIps": "出口 IP 数",
-    "healthyEgress": "健康出口",
-    "loading": "加载中…",
-    "empty": "暂无节点，请先导入订阅。",
-    "colTag": "节点",
-    "colRegion": "地区",
-    "colHealth": "健康状态",
-    "colSub": "订阅",
-    "lastRefresh": "最后刷新：{{time}}"
-  },
-  "config": {
-    "title": "配置",
-    "export": "导出配置",
-    "import": "导入配置",
-    "importBtn": "导入",
-    "exportBtn": "导出",
-    "exported": "配置已导出",
-    "imported": "配置已导入：{{platforms}} 个平台，{{subscriptions}} 个订阅",
-    "importError": "导入错误",
-    "backupCreated": "备份已创建：{{path}}"
   }
 }

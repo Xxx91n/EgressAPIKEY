@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "アカウントID",
+    "lane": "レーン",
+    "exitIp": "出口IP",
+    "active": "有効",
+    "bindIp": "出口IPをバインド",
+    "add": "アカウントを追加"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "AI APIキー専用プロキシプール（トポロジーキャンバス付き）"
+  },
+  "backup": {
+    "title": "バックアップ",
+    "webdavUrl": "WebDAV URL",
+    "webdavUser": "ユーザー名",
+    "webdavPass": "パスワード",
+    "save": "WebDAV設定を保存",
+    "create": "バックアップ作成",
+    "upload": "バックアップ送信",
+    "list": "バックアップ一覧",
+    "restore": "復元",
+    "success": "バックアップ完了",
+    "failed": "バックアップ失敗",
+    "noConfig": "WebDAV未設定"
+  },
+  "common": {
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "delete": "削除",
+    "edit": "編集"
+  },
+  "config": {
+    "title": "設定",
+    "export": "設定エクスポート",
+    "import": "設定インポート",
+    "importBtn": "インポート",
+    "exportBtn": "エクスポート",
+    "exported": "設定をエクスポートしました",
+    "imported": "設定をインポート: プラットフォーム {{platforms}}、サブスクリプション {{subscriptions}}",
+    "importError": "インポートエラー",
+    "backupCreated": "バックアップ作成: {{path}}"
+  },
+  "log": {
+    "title": "ログ",
+    "clear": "クリア",
+    "collapse": "折りたたむ",
+    "empty": "ログエントリはまだありません。"
   },
   "nav": {
     "topology": "トポロジー",
@@ -11,6 +56,23 @@
     "platforms": "プラットフォーム",
     "nodes": "ノード"
   },
+  "nodes": {
+    "title": "ノードプール",
+    "refresh": "更新",
+    "total": "総ノード数",
+    "healthy": "正常",
+    "unhealthy": "異常",
+    "egressIps": "出口IP数",
+    "healthyEgress": "正常出口",
+    "loading": "読み込み中…",
+    "empty": "ノードがありません。先にサブスクリプションをインポートしてください。",
+    "colTag": "ノード",
+    "colRegion": "地域",
+    "colHealth": "ヘルス",
+    "colSub": "サブスクリプション",
+    "lastRefresh": "最終更新: {{time}}",
+    "egressPolicyNote": "リージョンごとの出口ポリシーはトポロジーキャンバスで設定します：プラットフォームをIPチャネル領域にドラッグし、プラットフォームで割り当てポリシー（BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP）を設定してください。Resin v1.1.2にはノード単位のポリシー選択はありません。"
+  },
   "platform": {
     "title": "プラットフォーム",
     "add": "プラットフォームを追加",
@@ -19,13 +81,15 @@
     "empty": "プラットフォームが設定されていません。",
     "addOk": "プラットフォームを追加しました"
   },
-  "account": {
-    "id": "アカウントID",
-    "lane": "レーン",
-    "exitIp": "出口IP",
-    "active": "有効",
-    "bindIp": "出口IPをバインド",
-    "add": "アカウントを追加"
+  "processRoute": {
+    "title": "プロセスルート",
+    "add": "ルーティングルールを追加",
+    "process": "プロセス名",
+    "target": "対象レーン",
+    "empty": "プロセスルーティングルールがありません。",
+    "conflict": "レーン {{lane}} はすでに '{{process}}' にバインドされています",
+    "backendSaved": "ルーティングルールを保存しました",
+    "proxyNote": "ルーティングルールは、クライアントトラフィックがResinプロキシ経由のときのみ適用されます。サイドカーはリクエストごとに認証を行い、ここはローカルルールレジストリです。"
   },
   "settings": {
     "general": "一般",
@@ -49,7 +113,19 @@
     "name": "サブスクリプション名",
     "description": "このインポート済みサブスクリプションのオプションラベル",
     "importSuccess": "サブスクリプションをインポート — {{total}} ノード",
-    "dragHint": "行をドラッグして並べ替え"
+    "dragHint": "行をドラッグして並べ替え",
+    "rename": "サブスクリプションの名前変更",
+    "renamePrompt": "「{{name}}」の新しい名前",
+    "renameOk": "「{{name}}」に変更しました",
+    "renameMissing": "ゲートウェイにサブスクリプションが見つかりません。リストを更新して再試行してください。",
+    "renameUrlMissing": "名前変更できません：元の URL がキャッシュされていません。新しい名前で再インポートしてください。",
+    "resetOrder": "並び替えをリセット"
+  },
+  "theme": {
+    "label": "テーマ",
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システムに従う"
   },
   "topology": {
     "title": "トポロジーキャンバス",
@@ -77,78 +153,9 @@
     "routable": "ルーティング可能: {{count}}",
     "filters": "上流: {{filters}}"
   },
-  "processRoute": {
-    "title": "プロセスルート",
-    "add": "ルーティングルールを追加",
-    "process": "プロセス名",
-    "target": "対象レーン",
-    "empty": "プロセスルーティングルールがありません。",
-    "conflict": "レーン {{lane}} はすでに '{{process}}' にバインドされています",
-    "backendSaved": "ルーティングルールを保存しました",
-    "proxyNote": "ルーティングルールは、クライアントトラフィックがResinプロキシ経由のときのみ適用されます。サイドカーはリクエストごとに認証を行い、ここはローカルルールレジストリです。"
-  },
-  "common": {
-    "cancel": "キャンセル",
-    "confirm": "確認",
-    "delete": "削除",
-    "edit": "編集"
-  },
   "tray": {
     "show": "ウィンドウを表示",
     "quit": "終了",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "テーマ",
-    "light": "ライト",
-    "dark": "ダーク",
-    "system": "システムに従う"
-  },
-  "log": {
-    "title": "ログ",
-    "clear": "クリア",
-    "collapse": "折りたたむ",
-    "empty": "ログエントリはまだありません。"
-  },
-  "backup": {
-    "title": "バックアップ",
-    "webdavUrl": "WebDAV URL",
-    "webdavUser": "ユーザー名",
-    "webdavPass": "パスワード",
-    "save": "WebDAV設定を保存",
-    "create": "バックアップ作成",
-    "upload": "バックアップ送信",
-    "list": "バックアップ一覧",
-    "restore": "復元",
-    "success": "バックアップ完了",
-    "failed": "バックアップ失敗",
-    "noConfig": "WebDAV未設定"
-  },
-  "nodes": {
-    "title": "ノードプール",
-    "refresh": "更新",
-    "total": "総ノード数",
-    "healthy": "正常",
-    "unhealthy": "異常",
-    "egressIps": "出口IP数",
-    "healthyEgress": "正常出口",
-    "loading": "読み込み中…",
-    "empty": "ノードがありません。先にサブスクリプションをインポートしてください。",
-    "colTag": "ノード",
-    "colRegion": "地域",
-    "colHealth": "ヘルス",
-    "colSub": "サブスクリプション",
-    "lastRefresh": "最終更新: {{time}}"
-  },
-  "config": {
-    "title": "設定",
-    "export": "設定エクスポート",
-    "import": "設定インポート",
-    "importBtn": "インポート",
-    "exportBtn": "エクスポート",
-    "exported": "設定をエクスポートしました",
-    "imported": "設定をインポート: プラットフォーム {{platforms}}、サブスクリプション {{subscriptions}}",
-    "importError": "インポートエラー",
-    "backupCreated": "バックアップ作成: {{path}}"
   }
 }

@@ -1,11 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useCallback } from "react";
-import { Rss, Download, Inbox, Trash2, Loader2, GripVertical, CheckCircle2, AlertCircle } from "lucide-react";
+import { Rss, Download, Inbox, Trash2, Loader2, GripVertical, CheckCircle2, AlertCircle, Pencil, ArrowDownUp } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import {
   ipcSubscriptionAdd, ipcSubscriptionList, ipcSubscriptionRemove, ipcNodePoolSnapshot,
   type SubscriptionSnapshotEntry,
 } from "../lib/ipc";
+import { loadSubOrder, saveSubOrder } from "../lib/settings";
 import { createDragState, beginDrag, enterTarget, finishDrag } from "../lib/subDrag";
 
 /// SubscriptionsView is the Resin subscription import surface. Under Path
@@ -22,6 +23,17 @@ import { createDragState, beginDrag, enterTarget, finishDrag } from "../lib/subD
 /// B3: rows support drag-to-reorder (env-manager profileDrag pattern, zero
 ///   extra deps) with a window-level mouseup listener so releasing outside
 ///   the row still commits the drag.
+/// P19 item 6: drag reorder actually flips rows now. Root cause was the 10s
+///   auto-refresh overwriting the user's hand-sorted order with the Resin
+///   server order. Fix: we persist a local-sub-order override in
+///   settings.json (localSubOrder: string[]); on every refresh we re-sort the
+///   server list by the local order (new entries the user has not seen yet
+///   are appended at the end so the reorder stays the layout truth).
+/// P19 item 6: rename via delete+recreate. Resin v1.1.2 has no PATCH
+///   /api/v1/subscriptions/{id}, so we leave the user a Rename button that
+///   deletes the old sub and recreates a new one with the new name pointing
+///   at the same URL (the Resin-side node parse will re-run on the new
+///   subscription's 30s tick).
 /// Outside Tauri (Vite dev preview), every IPC call throws gracefully and
 /// we keep the local appStore as a fallback list so the screen never blanks.
 export function SubscriptionsView() {
@@ -37,14 +49,65 @@ export function SubscriptionsView() {
   const [live, setLive] = useState<SubscriptionSnapshotEntry[]>([]);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
   const [drag] = useState(createDragState);
+  // P19 item 6: local order override. Loaded once on mount, persisted on
+  // every reorder. Non-blocking - if settings fail, we keep the in-memory
+  // order for this session so the user always sees the rearrange work.
+  const [localOrder, setLocalOrder] = useState<string[]>([]);
 
   // B2: persist form draft so navigating away+back keeps input contents.
   useEffect(() => { setSubFormDraft({ name, url }); }, [name, url, setSubFormDraft]);
 
+  // P19 item 6: load the persisted local order once on mount.
+  useEffect(() => {
+    void (async () => {
+      const saved = await loadSubOrder().catch(() => null);
+      if (saved && saved.length > 0) setLocalOrder(saved);
+    })();
+  }, []);
+
+  /// Re-sort a fresh list by the user's local order. Items in the server
+  /// list that the user has never reordered (new subs, or order cleared)
+  /// fall through to the end, keeping the server-defined order.
+  const applyOrder = useCallback((lst: SubscriptionSnapshotEntry[], order: string[]): SubscriptionSnapshotEntry[] => {
+    if (order.length === 0) return lst;
+    const indexed = new Map<string, SubscriptionSnapshotEntry>();
+    for (const x of lst) { try { const k = (x.name || "").trim(); if (k) indexed.set(k, x); } catch {} }
+    const out: SubscriptionSnapshotEntry[] = [];
+    for (const name of order) {
+      const k = (name || "").trim();
+      const item = indexed.get(k);
+      if (item) { out.push(item); indexed.delete(k); }
+    }
+    // Append remaining server entries (new subs the user has not ordered yet)
+    // in their original order so the new sub is visible below the layout.
+    for (const x of indexed.values()) out.push(x);
+    return out;
+  }, []);
+
   // B3: window-level mouseup so releasing outside the row still commits the drag.
   useEffect(() => {
     if (!drag.isDragging) return;
-    const onUp = () => setLive((lst) => finishDrag(drag, lst));
+    const onUp = () => {
+      let shouldSave: boolean = false;
+      let newOrder: string[] = [];
+      setLive((lst) => {
+        const reordered = finishDrag(drag, lst);
+        // If the list actually changed shape, persist the order so a refresh
+        // does not flip it back. Ponytail: lean check - compare name orders.
+        const before = lst.map((x) => x.name).join("\u0001");
+        const after = reordered.map((x) => x.name).join("\u0001");
+        if (before !== after) {
+          shouldSave = true;
+          newOrder = reordered.map((x) => x.name);
+        }
+        return reordered;
+      });
+      // Schedule the save outside the lazy updater.
+      if (shouldSave) {
+        setLocalOrder(newOrder);
+        void saveSubOrder(newOrder).catch(() => {});
+      }
+    };
     window.addEventListener("mouseup", onUp, { once: true });
     return () => window.removeEventListener("mouseup", onUp);
   }, [drag, drag.isDragging, drag.dragIndex, drag.dragOverIndex]);
@@ -53,8 +116,11 @@ export function SubscriptionsView() {
     "flex-1 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40";
 
   const refresh = useCallback(async () => {
-    try { setLive(await ipcSubscriptionList()); } catch { /* keep last */ }
-  }, []);
+    try {
+      const lst = await ipcSubscriptionList();
+      setLive(applyOrder(lst, localOrder));
+    } catch { /* keep last */ }
+  }, [applyOrder, localOrder]);
   useEffect(() => { void refresh(); }, [refresh]);
 
   // P13 B4: Resin parses local subscription content on its 30s
@@ -64,14 +130,15 @@ export function SubscriptionsView() {
     for (let i = 0; i < 5; i++) {
       try {
         const lst = await ipcSubscriptionList();
-        setLive(lst);
-        const total = lst.reduce((s: number, x: SubscriptionSnapshotEntry) => s + x.node_count, 0);
+        const ordered = applyOrder(lst, localOrder);
+        setLive(ordered);
+        const total = ordered.reduce((s: number, x: SubscriptionSnapshotEntry) => s + x.node_count, 0);
         if (total > 0) return;
       } catch { return; }
       await new Promise((r) => setTimeout(r, 3000));
     }
-    try { setLive(await ipcSubscriptionList()); } catch {}
-  }, []);
+    try { setLive(applyOrder(await ipcSubscriptionList(), localOrder)); } catch {}
+  }, [applyOrder, localOrder]);
 
   const handleAdd = async () => {
     const n = name.trim() || url.trim().replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 48);
@@ -81,6 +148,11 @@ export function SubscriptionsView() {
     localAdd(u, 0, lanes);
     try {
       await ipcSubscriptionAdd(n, u);
+      // Push the new sub name into the local order so it stays at the tail
+      // of the hand-sorted list on subsequent refreshes.
+      const newOrder = [...localOrder, n];
+      setLocalOrder(newOrder);
+      void saveSubOrder(newOrder).catch(() => {});
       // B4: retry-refresh catches the async Resin subscription parse.
       await new Promise((r) => setTimeout(r, 1500));
       await refreshWithRetry();
@@ -99,8 +171,75 @@ export function SubscriptionsView() {
 
   const handleRemove = async (subName: string) => {
     setBusy(true); setToast(null);
-    try { await ipcSubscriptionRemove(subName); await refresh(); } catch { /* local */ }
+    try {
+      await ipcSubscriptionRemove(subName);
+      // Drop the deleted sub from the local order so a new sub with the same
+      // name later does not inherit an old slot.
+      const newOrder = localOrder.filter((n) => n !== subName);
+      setLocalOrder(newOrder);
+      void saveSubOrder(newOrder).catch(() => {});
+      await refresh();
+    } catch { /* local */ }
     setBusy(false);
+  };
+
+  /// P19 item 6: rename via delete + recreate. Resin has no PATCH
+  /// /api/v1/subscriptions, so we delete the old sub and create a new one
+  /// with the new name. The new sub is added at the same local-order slot
+  /// so the list position does not jump.
+  const handleRename = async (oldName: string) => {
+    let renamed = "";
+    try {
+      renamed = window.prompt(t("subscription.renamePrompt", { name: oldName }), oldName) || "";
+    } catch { return; } // vitest / no prompt
+    renamed = (renamed || "").trim();
+    if (!renamed || renamed === oldName) return;
+    setBusy(true); setToast(null);
+    // Find the current live entry so we can re-post the same URL. If we
+    // cannot find it, abort (the user should re-import).
+    const existing = live.find((x) => x.name === oldName);
+    if (!existing) {
+      setToast({ kind: "err", msg: t("subscription.renameMissing") });
+      setBusy(false);
+      return;
+    }
+    // The URL is not returned by subscription_list (server schema does not
+    // expose it after creation). We need the user to re-enter the URL only
+    // if the localSubs copy has aged out; otherwise we reuse it.
+    const cached = localSubs.find((s) => s.url && s.url.length > 0);
+    const sourceUrl = cached?.url ?? "";
+    if (!sourceUrl) {
+      setToast({ kind: "err", msg: t("subscription.renameUrlMissing") });
+      setBusy(false);
+      return;
+    }
+    try {
+      await ipcSubscriptionRemove(oldName);
+      await ipcSubscriptionAdd(renamed, sourceUrl);
+      // Replace in local order at the same slot.
+      const idx = localOrder.indexOf(oldName);
+      const newOrder = idx >= 0
+        ? localOrder.map((n) => (n === oldName ? renamed : n))
+        : [...localOrder, renamed];
+      setLocalOrder(newOrder);
+      void saveSubOrder(newOrder).catch(() => {});
+      await refreshWithRetry();
+      setToast({ kind: "ok", msg: t("subscription.renameOk", { name: renamed }) });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setToast({ kind: "err", msg });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /// P19 item 6: clear the persisted order so the list reverts to the server
+  /// sort (updated_at). Kept a tiny button on the toolbar so the user can
+  /// "reset to default sort" once they experiment with reordering.
+  const handleResetOrder = async () => {
+    setLocalOrder([]);
+    void saveSubOrder([]).catch(() => {});
+    await refresh();
   };
 
   return (
@@ -160,7 +299,21 @@ export function SubscriptionsView() {
         </div>
       ) : (
         <ul className="space-y-2">
-          <li className="text-xs text-zinc-400 dark:text-zinc-500 px-1">{t("subscription.dragHint")}</li>
+          <li className="text-xs text-zinc-400 dark:text-zinc-500 px-1 flex items-center justify-between">
+            <span>{t("subscription.dragHint")}</span>
+            {localOrder.length > 0 && (
+              <button
+                onClick={handleResetOrder}
+                disabled={busy}
+                aria-label={t("subscription.resetOrder")}
+                title={t("subscription.resetOrder")}
+                className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 disabled:opacity-40"
+              >
+                <ArrowDownUp size={12} />
+                {t("subscription.resetOrder")}
+              </button>
+            )}
+          </li>
           {live.map((s, i) => (
             <li
               key={s.name}
@@ -174,6 +327,15 @@ export function SubscriptionsView() {
               </span>
               <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
                 {t("subscription.imported", { count: s.node_count, lanes })}
+                <button
+                  onClick={() => handleRename(s.name)}
+                  disabled={busy}
+                  aria-label={t("subscription.rename")}
+                  title={t("subscription.rename")}
+                  className="text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 p-1 disabled:opacity-40"
+                >
+                  <Pencil size={13} />
+                </button>
                 <button
                   onClick={() => handleRemove(s.name)}
                   disabled={busy}

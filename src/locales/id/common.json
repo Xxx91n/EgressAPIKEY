@@ -1,7 +1,52 @@
 {
+  "account": {
+    "id": "ID akun",
+    "lane": "Jalur",
+    "exitIp": "IP keluar",
+    "active": "Aktif",
+    "bindIp": "Ikat IP keluar",
+    "add": "Tambah akun"
+  },
   "app": {
     "title": "AI API Route",
     "tagline": "Kumpulan proxy khusus untuk kunci API AI dengan kanvas topologi"
+  },
+  "backup": {
+    "title": "Cadangan",
+    "webdavUrl": "URL WebDAV",
+    "webdavUser": "Nama pengguna",
+    "webdavPass": "Kata sandi",
+    "save": "Simpan WebDAV",
+    "create": "Buat cadangan",
+    "upload": "Unggah cadangan",
+    "list": "Daftar cadangan",
+    "restore": "Pulihkan",
+    "success": "Cadangan selesai",
+    "failed": "Cadangan gagal",
+    "noConfig": "WebDAV belum diatur"
+  },
+  "common": {
+    "cancel": "Batal",
+    "confirm": "Konfirmasi",
+    "delete": "Hapus",
+    "edit": "Edit"
+  },
+  "config": {
+    "title": "Konfigurasi",
+    "export": "Ekspor",
+    "import": "Impor",
+    "importBtn": "Impor",
+    "exportBtn": "Ekspor",
+    "exported": "Konfigurasi diekspor",
+    "imported": "Diimpor: {{platforms}} platform, {{subscriptions}} langganan",
+    "importError": "Kesalahan impor",
+    "backupCreated": "Backup dibuat: {{path}}"
+  },
+  "log": {
+    "title": "Log",
+    "clear": "Bersihkan",
+    "collapse": "Lipat",
+    "empty": "Belum ada log."
   },
   "nav": {
     "topology": "Topologi",
@@ -11,6 +56,23 @@
     "subscriptions": "Langganan",
     "nodes": "Node"
   },
+  "nodes": {
+    "title": "Pool node",
+    "refresh": "Segarkan",
+    "total": "Total node",
+    "healthy": "Sehat",
+    "unhealthy": "tidak sehat",
+    "egressIps": "IP keluar",
+    "healthyEgress": "Keluar sehat",
+    "loading": "Memuat…",
+    "empty": "Tidak ada node. Impor langganan dulu.",
+    "colTag": "Node",
+    "colRegion": "Wilayah",
+    "colHealth": "Kesehatan",
+    "colSub": "Langganan",
+    "lastRefresh": "Terakhir diperbarui: {{time}}",
+    "egressPolicyNote": "Kebijakan egress per-region diatur di kanvas Topology: seret Platform ke region kanal IP lalu set Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) di platform. Resin v1.1.2 tidak punya seletor per-node."
+  },
   "platform": {
     "title": "Platform",
     "add": "Tambah platform",
@@ -19,13 +81,15 @@
     "empty": "Belum ada platform dikonfigurasi.",
     "addOk": "Platform ditambahkan"
   },
-  "account": {
-    "id": "ID akun",
-    "lane": "Jalur",
-    "exitIp": "IP keluar",
-    "active": "Aktif",
-    "bindIp": "Ikat IP keluar",
-    "add": "Tambah akun"
+  "processRoute": {
+    "title": "Rute proses",
+    "add": "Tambah aturan",
+    "process": "Nama proses",
+    "target": "Jalur tujuan",
+    "empty": "Tidak ada aturan routing per proses.",
+    "conflict": "Lane {{lane}} sudah mengikat ke '{{process}}'",
+    "backendSaved": "Aturan routing disimpan",
+    "proxyNote": "Aturan routing hanya berlaku saat lalu lintas klien mengalir melalui proxy Resin. Sidecar menegaskan autentikasi per permintaan; ini adalah registri aturan lokal."
   },
   "settings": {
     "general": "Umum",
@@ -49,7 +113,19 @@
     "name": "Nama langganan",
     "description": "Label opsional untuk langganan yang diimpor ini",
     "importSuccess": "Langganan diimpor — {{total}} node",
-    "dragHint": "Seret baris untuk menyusun ulang"
+    "dragHint": "Seret baris untuk menyusun ulang",
+    "rename": "Ganti nama langganan",
+    "renamePrompt": "Nama baru untuk \"{{name}}\"",
+    "renameOk": "Diubah namanya menjadi \"{{name}}\"",
+    "renameMissing": "Langganan tidak ditemukan di gateway. Muat ulang daftar dan coba lagi.",
+    "renameUrlMissing": "Tidak dapat mengubah nama: URL asli tidak di-cache. Impor ulang langganan dengan nama baru.",
+    "resetOrder": "Atur ulang urutan"
+  },
+  "theme": {
+    "label": "Tema",
+    "light": "Terang",
+    "dark": "Gelap",
+    "system": "Sistem"
   },
   "topology": {
     "title": "Kanvas topologi",
@@ -77,78 +153,9 @@
     "routable": "Dapat dirutekan: {{count}}",
     "filters": "Upstream: {{filters}}"
   },
-  "processRoute": {
-    "title": "Rute proses",
-    "add": "Tambah aturan",
-    "process": "Nama proses",
-    "target": "Jalur tujuan",
-    "empty": "Tidak ada aturan routing per proses.",
-    "conflict": "Lane {{lane}} sudah mengikat ke '{{process}}'",
-    "backendSaved": "Aturan routing disimpan",
-    "proxyNote": "Aturan routing hanya berlaku saat lalu lintas klien mengalir melalui proxy Resin. Sidecar menegaskan autentikasi per permintaan; ini adalah registri aturan lokal."
-  },
-  "common": {
-    "cancel": "Batal",
-    "confirm": "Konfirmasi",
-    "delete": "Hapus",
-    "edit": "Edit"
-  },
   "tray": {
     "show": "Tampilkan jendela",
     "quit": "Keluar",
     "tooltip": "ai-api-route"
-  },
-  "theme": {
-    "label": "Tema",
-    "light": "Terang",
-    "dark": "Gelap",
-    "system": "Sistem"
-  },
-  "log": {
-    "title": "Log",
-    "clear": "Bersihkan",
-    "collapse": "Lipat",
-    "empty": "Belum ada log."
-  },
-  "backup": {
-    "title": "Cadangan",
-    "webdavUrl": "URL WebDAV",
-    "webdavUser": "Nama pengguna",
-    "webdavPass": "Kata sandi",
-    "save": "Simpan WebDAV",
-    "create": "Buat cadangan",
-    "upload": "Unggah cadangan",
-    "list": "Daftar cadangan",
-    "restore": "Pulihkan",
-    "success": "Cadangan selesai",
-    "failed": "Cadangan gagal",
-    "noConfig": "WebDAV belum diatur"
-  },
-  "nodes": {
-    "title": "Pool node",
-    "refresh": "Segarkan",
-    "total": "Total node",
-    "healthy": "Sehat",
-    "unhealthy": "tidak sehat",
-    "egressIps": "IP keluar",
-    "healthyEgress": "Keluar sehat",
-    "loading": "Memuat…",
-    "empty": "Tidak ada node. Impor langganan dulu.",
-    "colTag": "Node",
-    "colRegion": "Wilayah",
-    "colHealth": "Kesehatan",
-    "colSub": "Langganan",
-    "lastRefresh": "Terakhir diperbarui: {{time}}"
-  },
-  "config": {
-    "title": "Konfigurasi",
-    "export": "Ekspor",
-    "import": "Impor",
-    "importBtn": "Impor",
-    "exportBtn": "Ekspor",
-    "exported": "Konfigurasi diekspor",
-    "imported": "Diimpor: {{platforms}} platform, {{subscriptions}} langganan",
-    "importError": "Kesalahan impor",
-    "backupCreated": "Backup dibuat: {{path}}"
   }
 }
