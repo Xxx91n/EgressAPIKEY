@@ -564,6 +564,85 @@ pub async fn node_list(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::
     client.list_nodes().await.map_err(|e| e.to_string())
 }
 
+/// POST /api/v1/platforms with the full create schema (P21 Milestone B).
+/// The webview identifies the platform by a fully-formed body; we validate the
+/// name (required) and any obviously-hostile fields at the IPC boundary per
+/// AGENTS s7.5. allocation_policy is validated against the live-probed enum.
+/// The Rust side never guesses missing fields - Resin applies defaults per
+/// RESIN_DEFAULT_PLATFORM_* env when a field is omitted.
+#[tauri::command]
+pub async fn platform_create_with_fields(
+    sidecar: State<'_, SidecarHandle>,
+    body: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    // body must be a JSON object with a non-empty "name".
+    let obj = body.as_object()
+        .ok_or("platform_create_with_fields: body must be a JSON object")?;
+    let name = obj.get("name").and_then(|v| v.as_str())
+        .ok_or("platform_create_with_fields: missing 'name' field")?;
+    validate_short_name(name, "platform")?;
+    // If allocation_policy is present, must be one of the allowed enum.
+    if let Some(policy) = obj.get("allocation_policy").and_then(|v| v.as_str()) {
+        if !ALLOWED_ALLOCATION_POLICIES.contains(&policy) {
+            return Err(format!(
+                "allocation_policy must be one of {:?}",
+                ALLOWED_ALLOCATION_POLICIES
+            ));
+        }
+    }
+    // If regex_filters present, cap count + per-entry length (mirrors platform_update).
+    if let Some(arr) = obj.get("regex_filters").and_then(|v| v.as_array()) {
+        if arr.len() > 64 {
+            return Err("regex_filters: too many entries (max 64)".to_string());
+        }
+        for f in arr {
+            if let Some(s) = f.as_str() {
+                if s.len() > 253 || s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+                    return Err("regex_filters: entry invalid (max 253 chars, no control)".to_string());
+                }
+            }
+        }
+    }
+    // If region_filters present, cap each at 16 chars (ISO 3166-1 alpha-2 + negation).
+    if let Some(arr) = obj.get("region_filters").and_then(|v| v.as_array()) {
+        if arr.len() > 64 {
+            return Err("region_filters: too many entries (max 64)".to_string());
+        }
+        for r in arr {
+            if let Some(s) = r.as_str() {
+                if s.len() > 16 || s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ') {
+                    return Err("region_filter invalid (max 16, no control/space)".to_string());
+                }
+            }
+        }
+    }
+    // If sticky_ttl present, cap at 32 chars + no control (mirrors platform_update).
+    if let Some(ttl) = obj.get("sticky_ttl").and_then(|v| v.as_str()) {
+        if ttl.len() > 32 || ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err("sticky_ttl: invalid (max 32 chars, no control)".to_string());
+        }
+    }
+    let client = resin_client(&sidecar)?;
+    client.create_platform_with_fields(body).await.map_err(|e| e.to_string())
+}
+
+/// GET /api/v1/platforms/{id}/leases - the live leases on a platform, used by
+/// the Milestone B right pane to show which accounts are already bound to an
+/// exit IP on each platform. We resolve the platform name -> id (the webview
+/// only knows the user-visible name) and forward to ResinClient.
+#[tauri::command]
+pub async fn platform_leases(
+    sidecar: State<'_, SidecarHandle>,
+    name: String,
+) -> Result<serde_json::Value, String> {
+    validate_short_name(&name, "platform")?;
+    let client = resin_client(&sidecar)?;
+    let list = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let id = platform_id_for_name(&list, &name)
+        .ok_or_else(|| format!("platform not found: {name}"))?;
+    client.platform_leases(&id).await.map_err(|e| e.to_string())
+}
+
 fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotEntry> {
     items_arr(v)
         .iter()

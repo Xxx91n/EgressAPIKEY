@@ -79,7 +79,21 @@
     "name": "Name",
     "accounts": "Konten",
     "empty": "Keine Plattformen konfiguriert.",
-    "addOk": "Plattform hinzugefügt"
+    "addOk": "Plattform hinzugefügt",
+    "candidates": "Kandidatische Schlüsselkombinationen",
+    "dragToActivate": "Auf Plattform ziehen um Ausgangs-IP zu aktivieren",
+    "independent": "Unabhängig",
+    "duplicateKey": "Doppelte Schlüsselkombination",
+    "splitHint": "Ziehen zum Ändern der Größe",
+    "endpoint": "V1-Endpunkt",
+    "apiKey": "API-Schlüssel",
+    "addKey": "Schlüsselkombination hinzufügen",
+    "leases": "Aktive Leases",
+    "noLeases": "Keine aktiven Leases",
+    "activated": "Durch Traffic-Sonde aktiviert",
+    "probeFailed": "Probe-Anfrage fehlgeschlagen",
+    "deleteConfirm": "Diese Plattform löschen?",
+    "egressPolicy": "Ausgangs-Policy"
   },
   "processRoute": {
     "title": "Prozessroute",

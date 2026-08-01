@@ -222,6 +222,29 @@ impl ResinClient {
     pub async fn list_nodes(&self) -> Result<Value> {
         self.send(reqwest::Method::GET, "/nodes?limit=500", None).await
     }
+
+    /// POST /api/v1/platforms with the full create schema (P21 Milestone B).
+    /// Accepts a free-form body (serde_json::Value) so the GUI form can pass
+    /// exactly the fields Resin DESIGN.md lists for platform creation:
+    ///   name (required), sticky_ttl, regex_filters, region_filters,
+    ///   reverse_proxy_miss_action, reverse_proxy_empty_account_behavior,
+    ///   reverse_proxy_fixed_account_header, allocation_policy,
+    ///   passive_circuit_breaker_disabled.
+    /// This is the "create platform with fields" verb: Milestone B uses it to
+    /// create auto-{uid} independent platforms when a candidate key is dropped
+    /// on the right pane's empty space, with a custom allocation_policy.
+    pub async fn create_platform_with_fields(&self, body: Value) -> Result<Value> {
+        self.send(reqwest::Method::POST, "/platforms", Some(body)).await
+    }
+
+    /// GET /api/v1/platforms/{id}/leases — list live leases on a platform (P21).
+    /// Resin returns an items-wrapper; the caller parses (account, egress_ip,
+    /// node_hash, expiry) to surface the keys already bound to an exit IP on
+    /// this platform. This is the "right pane already-active accounts" view.
+    pub async fn platform_leases(&self, platform_id: &str) -> Result<Value> {
+        let path = format!("/platforms/{}/leases", urlencoding(platform_id));
+        self.send(reqwest::Method::GET, &path, None).await
+    }
 }
 
 /// Fetch a Clash/ClashMeta subscription URL with a clash-family User-Agent.
@@ -635,6 +658,57 @@ mod tests {
             .expect("list_nodes should succeed against mockito");
         assert_eq!(out["total"], 1);
         assert_eq!(out["items"][0]["egress_ip"], "1.2.3.4");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_create_platform_with_fields_full_schema() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"id":"44444444-4444-4444-4444-444444444444","name":"auto-ab12cd34","allocation_policy":"BALANCED","routable_node_count":0}"#;
+        let m = server
+            .mock("POST", "/api/v1/platforms")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .create_platform_with_fields(serde_json::json!({
+                "name": "auto-ab12cd34",
+                "allocation_policy": "BALANCED",
+                "region_filters": ["hk"],
+            }))
+            .await
+            .expect("create_platform_with_fields should succeed against mockito");
+        assert_eq!(out["name"], "auto-ab12cd34");
+        assert_eq!(out["allocation_policy"], "BALANCED");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_platform_leases_items_wrapper() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"items":[{"platform_id":"abc","account":"f00dface","node_hash":"9f2c0b1a6d3e4f5c8a9b0c1d2e3f4a5b","egress_ip":"5.6.7.8","expiry":"2026-02-10T13:00:00Z","last_accessed":"2026-02-10T12:59:50Z"}],"total":1,"limit":50,"offset":0}"#;
+        let m = server
+            .mock("GET", "/api/v1/platforms/abc/leases")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .platform_leases("abc")
+            .await
+            .expect("platform_leases should succeed against mockito");
+        assert_eq!(out["total"], 1);
+        assert_eq!(out["items"][0]["account"], "f00dface");
+        assert_eq!(out["items"][0]["egress_ip"], "5.6.7.8");
         m.assert_async().await;
     }
 }

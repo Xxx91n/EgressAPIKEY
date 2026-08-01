@@ -79,7 +79,21 @@
     "name": "Nome",
     "accounts": "Contas",
     "empty": "Nenhuma plataforma configurada.",
-    "addOk": "Plataforma adicionada"
+    "addOk": "Plataforma adicionada",
+    "candidates": "Combinações de chaves candidatas",
+    "dragToActivate": "Arraste para uma plataforma para ativar IP de saída",
+    "independent": "Independente",
+    "duplicateKey": "Combinação de chaves duplicada",
+    "splitHint": "Arraste para redimensionar",
+    "endpoint": "Endpoint V1",
+    "apiKey": "Chave API",
+    "addKey": "Adicionar combinação de chaves",
+    "leases": "Leases ativos",
+    "noLeases": "Sem leases ativos",
+    "activated": "Ativado via sonda de tráfego",
+    "probeFailed": "Sonda falhou",
+    "deleteConfirm": "Excluir esta plataforma?",
+    "egressPolicy": "Política de saída"
   },
   "processRoute": {
     "title": "Rota de processo",

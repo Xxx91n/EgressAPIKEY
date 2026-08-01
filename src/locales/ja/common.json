@@ -79,7 +79,21 @@
     "name": "名前",
     "accounts": "アカウント",
     "empty": "プラットフォームが設定されていません。",
-    "addOk": "プラットフォームを追加しました"
+    "addOk": "プラットフォームを追加しました",
+    "candidates": "候補キー組み合わせ",
+    "dragToActivate": "プラットフォームにドラッグして出口IPを有効化",
+    "independent": "独立",
+    "duplicateKey": "重複キー組み合わせ",
+    "splitHint": "ドラッグしてサイズ変更",
+    "endpoint": "V1エンドポイント",
+    "apiKey": "APIキー",
+    "addKey": "キー組み合わせを追加",
+    "leases": "アクティブリース",
+    "noLeases": "アクティブリースなし",
+    "activated": "トラフィックプローブで有効化",
+    "probeFailed": "プローブリクエスト失敗",
+    "deleteConfirm": "このプラットフォームを削除しますか？",
+    "egressPolicy": "出口ポリシー"
   },
   "processRoute": {
     "title": "プロセスルート",

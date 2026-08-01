@@ -22,6 +22,7 @@ import {
   ipcProcessRouteAdd, ipcProcessRouteRemove, ipcProcessRouteList,
   ipcAccountAdd,
   ipcPlatformUpdate, ipcNodeList,
+  ipcPlatformCreateWithFields, ipcPlatformLeases,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -148,5 +149,42 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     const r = await ipcNodeList();
     expect(r).toEqual({ items: [] });
     expect(invokeMock).toHaveBeenCalledWith("node_list");
+  });
+
+  // P21-B: platform_create_with_fields closed-loop guards
+  it("platform_create_with_fields rejects non-object body", async () => {
+    await expect(ipcPlatformCreateWithFields("not an object")).rejects.toThrow(/JSON object/);
+    await expect(ipcPlatformCreateWithFields(null)).rejects.toThrow(/JSON object/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("platform_create_with_fields rejects missing name", async () => {
+    await expect(ipcPlatformCreateWithFields({ allocation_policy: "BALANCED" })).rejects.toThrow(/missing 'name'/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("platform_create_with_fields rejects empty name", async () => {
+    await expect(ipcPlatformCreateWithFields({ name: "" })).rejects.toThrow(/platform invalid/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("platform_create_with_fields forwards valid body", async () => {
+    invokeMock.mockResolvedValue({ id: "abc-123" });
+    const body = { name: "auto-deadbeef", allocation_policy: "BALANCED", regex_filters: [], region_filters: [] };
+    await ipcPlatformCreateWithFields(body);
+    expect(invokeMock).toHaveBeenCalledWith("platform_create_with_fields", { body });
+  });
+
+  // P21-B: platform_leases closed-loop guards
+  it("platform_leases forwards name and returns value", async () => {
+    invokeMock.mockResolvedValue({ items: [{ account: "acct1", egress_ip: "1.2.3.4" }] });
+    const r = await ipcPlatformLeases("my-platform");
+    expect(r).toEqual({ items: [{ account: "acct1", egress_ip: "1.2.3.4" }] });
+    expect(invokeMock).toHaveBeenCalledWith("platform_leases", { name: "my-platform" });
+  });
+
+  it("platform_leases rejects empty name", async () => {
+    await expect(ipcPlatformLeases("")).rejects.toThrow(/platform invalid/);
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });

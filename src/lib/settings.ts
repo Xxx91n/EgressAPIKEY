@@ -239,3 +239,56 @@ export async function saveSubOrder(order: string[]): Promise<void> {
     await store().save();
   } catch (e) { console.warn("[settings] save failed:", e); }
 }
+
+// --- P21-B: Key candidates (left pane of PlatformsView dual-pane) ---
+// Each candidate = { uid, endpoint, apiKey } where uid = sha1(endpoint+"::"+apiKey)[:8].
+// Persisted in settings.json#keyCandidates; this is shell-local, never sent to Resin.
+export interface KeyCandidate {
+  uid: string;
+  endpoint: string;
+  apiKey: string;
+}
+
+export async function loadKeyCandidates(): Promise<KeyCandidate[] | null> {
+  try {
+    const v = await store().get<KeyCandidate[]>("keyCandidates");
+    return Array.isArray(v) ? v : null;
+  } catch { return null; }
+}
+
+export async function saveKeyCandidates(candidates: KeyCandidate[]): Promise<void> {
+  try {
+    await store().set("keyCandidates", candidates);
+    await store().save();
+  } catch (e) { console.warn("[settings] save failed:", e); }
+}
+
+// --- P21-B: Splitter ratio for dual-pane PlatformsView ---
+export async function loadSplitRatio(): Promise<number | null> {
+  try {
+    const v = await store().get<number>("splitRatio");
+    return typeof v === "number" ? v : null;
+  } catch { return null; }
+}
+
+export async function saveSplitRatio(ratio: number): Promise<void> {
+  try {
+    await store().set("splitRatio", ratio);
+    await store().save();
+  } catch (e) { console.warn("[settings] save failed:", e); }
+}
+
+// --- P21-C: IP channel policy map (GUI label -> Resin allocation_policy) ---
+export async function loadIpChannelPolicyMap(): Promise<Record<string, string> | null> {
+  try {
+    const v = await store().get<Record<string, string>>("ipChannelPolicyMap");
+    return v && typeof v === "object" ? v : null;
+  } catch { return null; }
+}
+
+export async function saveIpChannelPolicyMap(m: Record<string, string>): Promise<void> {
+  try {
+    await store().set("ipChannelPolicyMap", m);
+    await store().save();
+  } catch (e) { console.warn("[settings] save failed:", e); }
+}

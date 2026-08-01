@@ -79,7 +79,21 @@
     "name": "Tên",
     "accounts": "Tài khoản",
     "empty": "Chưa cấu hình nền tảng.",
-    "addOk": "Đã thêm nền tảng"
+    "addOk": "Đã thêm nền tảng",
+    "candidates": "Tổ hợp khóa ứng viên",
+    "dragToActivate": "Kéo vào nền tảng để kích hoạt IP thoát",
+    "independent": "Độc lập",
+    "duplicateKey": "Tổ hợp khóa trùng lặp",
+    "splitHint": "Kéo để thay đổi kích thước",
+    "endpoint": "Điểm cuối V1",
+    "apiKey": "Khóa API",
+    "addKey": "Thêm tổ hợp khóa",
+    "leases": "Bản thuê hoạt động",
+    "noLeases": "Chưa có bản thuê hoạt động",
+    "activated": "Đã kích hoạt qua thăm dò lưu lượng",
+    "probeFailed": "Yêu cầu thăm dò thất bại",
+    "deleteConfirm": "Xóa nền tảng này?",
+    "egressPolicy": "Chính sách thoát"
   },
   "processRoute": {
     "title": "Tuyến tiến trình",

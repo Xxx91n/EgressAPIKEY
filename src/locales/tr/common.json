@@ -79,7 +79,21 @@
     "name": "Ad",
     "accounts": "Hesaplar",
     "empty": "Yapılandırılmış platform yok.",
-    "addOk": "Platform eklendi"
+    "addOk": "Platform eklendi",
+    "candidates": "Aday anahtar kombinasyonları",
+    "dragToActivate": "Çıkış IP'sini etkinleştirmek için platforma sürükleyin",
+    "independent": "Bağımsız",
+    "duplicateKey": "Yinelenen anahtar kombinasyonu",
+    "splitHint": "Yeniden boyutlandırmak için sürükleyin",
+    "endpoint": "V1 uç noktası",
+    "apiKey": "API anahtarı",
+    "addKey": "Anahtar kombinasyonu ekle",
+    "leases": "Aktif kiralamalar",
+    "noLeases": "Henüz aktif kiralama yok",
+    "activated": "Trafik probuyla etkinleştirildi",
+    "probeFailed": "Prob isteği başarısız",
+    "deleteConfirm": "Bu platform silinsin mi?",
+    "egressPolicy": "Çıkış politikası"
   },
   "processRoute": {
     "title": "Süreç rotası",

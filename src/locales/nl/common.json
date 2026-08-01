@@ -79,7 +79,21 @@
     "name": "Naam",
     "accounts": "Accounts",
     "empty": "Geen platforms geconfigureerd.",
-    "addOk": "Platform toegevoegd"
+    "addOk": "Platform toegevoegd",
+    "candidates": "Kandidaat sleutelcombinaties",
+    "dragToActivate": "Sleep naar platform om uitgaande IP te activeren",
+    "independent": "Onafhankelijk",
+    "duplicateKey": "Dubbele sleutelcombinatie",
+    "splitHint": "Slepen om formaat te wijzigen",
+    "endpoint": "V1-eindpunt",
+    "apiKey": "API-sleutel",
+    "addKey": "Sleutelcombinatie toevoegen",
+    "leases": "Actieve leases",
+    "noLeases": "Geen actieve leases",
+    "activated": "Geactiveerd via verkeersonderzoek",
+    "probeFailed": "Probe-aanvraag mislukt",
+    "deleteConfirm": "Dit platform verwijderen?",
+    "egressPolicy": "Uitgaand beleid"
   },
   "processRoute": {
     "title": "Procesroute",

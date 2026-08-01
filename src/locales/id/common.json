@@ -79,7 +79,21 @@
     "name": "Nama",
     "accounts": "Akun",
     "empty": "Belum ada platform dikonfigurasi.",
-    "addOk": "Platform ditambahkan"
+    "addOk": "Platform ditambahkan",
+    "candidates": "Kombinasi kunci kandidat",
+    "dragToActivate": "Seret ke platform untuk mengaktifkan IP keluar",
+    "independent": "Independen",
+    "duplicateKey": "Kombinasi kunci duplikat",
+    "splitHint": "Seret untuk mengubah ukuran",
+    "endpoint": "Endpoint V1",
+    "apiKey": "Kunci API",
+    "addKey": "Tambah kombinasi kunci",
+    "leases": "Lease aktif",
+    "noLeases": "Belum ada lease aktif",
+    "activated": "Diaktifkan via probe lalu lintas",
+    "probeFailed": "Permintaan probe gagal",
+    "deleteConfirm": "Hapus platform ini?",
+    "egressPolicy": "Kebijakan keluar"
   },
   "processRoute": {
     "title": "Rute proses",

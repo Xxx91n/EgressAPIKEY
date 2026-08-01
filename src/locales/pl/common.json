@@ -79,7 +79,21 @@
     "name": "Nazwa",
     "accounts": "Konta",
     "empty": "Brak skonfigurowanych platform.",
-    "addOk": "Platforma dodana"
+    "addOk": "Platforma dodana",
+    "candidates": "Kandydujące kombinacje kluczy",
+    "dragToActivate": "Przeciągnij na platformę aby aktywować IP wyjścia",
+    "independent": "Niezależny",
+    "duplicateKey": "Duplikat kombinacji kluczy",
+    "splitHint": "Przeciągnij aby zmienić rozmiar",
+    "endpoint": "Punkt końcowy V1",
+    "apiKey": "Klucz API",
+    "addKey": "Dodaj kombinację kluczy",
+    "leases": "Aktywne dzierżawy",
+    "noLeases": "Brak aktywnych dzierżaw",
+    "activated": "Aktywowany przez sondę ruchu",
+    "probeFailed": "Żądanie sondy nie powiodło się",
+    "deleteConfirm": "Usunąć tę platformę?",
+    "egressPolicy": "Polityka wyjścia"
   },
   "processRoute": {
     "title": "Trasa procesu",

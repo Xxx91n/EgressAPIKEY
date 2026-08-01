@@ -189,4 +189,49 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
     // This is a closed-loop contract: server list is the source of truth.
     expect(calls).toBeGreaterThanOrEqual(1);
   });
+
+  it("P21-A: Pointer-Events drag reorders rows live and persists order", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") {
+        return [
+          { name: "first", node_count: 1 },
+          { name: "second", node_count: 2 },
+          { name: "third", node_count: 3 },
+        ];
+      }
+      if (cmd === "node_pool_snapshot") {
+        return { total_nodes: 6, healthy_nodes: 6, egress_ip_count: 3, healthy_egress_ip_count: 3 };
+      }
+      return undefined;
+    });
+
+    render(<SubscriptionsView />);
+    await waitFor(() => expect(screen.getByText(/first/i)).toBeInTheDocument());
+    expect(screen.getByText(/second/i)).toBeInTheDocument();
+    expect(screen.getByText(/third/i)).toBeInTheDocument();
+
+    // Simulate dragging the 3rd row ("third") onto the 1st row ("first").
+    // The rows are <li> descendants in the list region with the dragHint.
+// Pick the row descendants by structural order.
+    const allRows = Array.from(document.querySelectorAll("ul li")).filter((li) =>
+      /first|second|third/i.test(li.textContent || "")
+    );
+    expect(allRows.length).toBe(3);
+    const thirdRow = allRows[2];
+    const firstRow = allRows[0];
+    // pointerdown on the source row (left button), pointerenter on the target,
+    // pointerup to finish. The live-swap on pointerenter must reorder immediately.
+    fireEvent.pointerDown(thirdRow, { button: 0, pointerId: 1 });
+    fireEvent.pointerEnter(firstRow);
+    fireEvent.pointerUp(firstRow);
+
+    // After the drag the row order should now be: third, first, second.
+    await waitFor(() => {
+      const reordered = Array.from(document.querySelectorAll("ul li"))
+        .filter((li) => /first|second|third/i.test(li.textContent || ""))
+        .map((li) => li.textContent);
+      expect(reordered[0]).toMatch(/third/i);
+      expect(reordered[1]).toMatch(/first/i);
+    });
+  });
 });

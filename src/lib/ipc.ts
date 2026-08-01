@@ -126,6 +126,24 @@ export async function ipcNodeList(): Promise<unknown> {
   return invoke("node_list");
 }
 
+/// P21-B: POST /api/v1/platforms with full field schema (name, allocation_policy,
+/// regex_filters, region_filters, sticky_ttl, etc). The body is a JSON object;
+/// name is validated at the TS boundary. Resin re-validates server-side.
+export async function ipcPlatformCreateWithFields(body: unknown): Promise<unknown> {
+  if (!body || typeof body !== "object") throw new Error("platform body must be a JSON object");
+  const b = body as Record<string, unknown>;
+  if (typeof b.name !== "string") throw new Error("platform body missing 'name' string");
+  assertShortName(b.name, "platform");
+  return invoke("platform_create_with_fields", { body });
+}
+
+/// P21-B: GET /api/v1/platforms/{id}/leases - live leases for a platform,
+/// used by the right pane to show which keys already have an exit IP bound.
+export async function ipcPlatformLeases(name: string): Promise<unknown> {
+  assertShortName(name, "platform");
+  return invoke("platform_leases", { name });
+}
+
 export async function ipcAccountAdd(platform: string, id: string, lane: number): Promise<void> {
   assertShortName(platform, "platform");
   assertShortName(id, "account");

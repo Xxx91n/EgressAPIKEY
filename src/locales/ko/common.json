@@ -79,7 +79,21 @@
     "name": "이름",
     "accounts": "계정",
     "empty": "구성된 플랫폼이 없습니다.",
-    "addOk": "플랫폼 추가됨"
+    "addOk": "플랫폼 추가됨",
+    "candidates": "후보 키 조합",
+    "dragToActivate": "플랫폼으로 드래그하여 송출 IP 활성화",
+    "independent": "독립",
+    "duplicateKey": "중복 키 조합",
+    "splitHint": "드래그하여 크기 조정",
+    "endpoint": "V1 엔드포인트",
+    "apiKey": "API 키",
+    "addKey": "키 조합 추가",
+    "leases": "활성 리스",
+    "noLeases": "활성 리스 없음",
+    "activated": "트래픽 프로브로 활성화됨",
+    "probeFailed": "프로브 요청 실패",
+    "deleteConfirm": "이 플랫폼을 삭제하시겠습니까?",
+    "egressPolicy": "송출 정책"
   },
   "processRoute": {
     "title": "프로세스 경로",

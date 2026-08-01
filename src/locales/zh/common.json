@@ -79,7 +79,21 @@
     "name": "名称",
     "accounts": "账号",
     "empty": "尚未配置任何平台。",
-    "addOk": "平台添加成功"
+    "addOk": "平台添加成功",
+    "candidates": "候选密钥组合",
+    "dragToActivate": "拖动到平台以激活出口 IP",
+    "independent": "独立平台",
+    "duplicateKey": "重复的密钥组合",
+    "splitHint": "拖动以调整宽度",
+    "endpoint": "V1 端点",
+    "apiKey": "API 密钥",
+    "addKey": "添加密钥组合",
+    "leases": "活跃租约",
+    "noLeases": "尚无活跃租约",
+    "activated": "已通过流量探测激活",
+    "probeFailed": "探测请求失败",
+    "deleteConfirm": "删除此平台？",
+    "egressPolicy": "出口策略"
   },
   "processRoute": {
     "title": "进程路由",

@@ -44,7 +44,6 @@ export function SubscriptionsView() {
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
   // P20 item 6: HTML5 drag tracks the dragged index in a ref so re-renders do
   // not lose the in-flight drag; the browser owns the drag session lifetime.
-  const dragIndex = useRef<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   // P20 item 6: local order override. Loaded once on mount, persisted on every
   // reorder. Reset (item 4) clears this to [] and re-renders from server only.
@@ -230,34 +229,74 @@ export function SubscriptionsView() {
     } catch { /* keep */ }
   };
 
-  // ---- P20 item 6: native HTML5 drag handlers ----
-  // The browser owns the drag session: dragstart fires once on the source row,
-  // dragover fires continuously on whatever row the pointer is above (we
-  // preventDefault to allow drop), and drop fires on the target when the user
-  // releases. We track the source index in a ref (survives re-renders) and the
-  // over-index in state (so the visual indicator follows the pointer).
-  const onDragStart = (i: number) => { dragIndex.current = i; };
-  const onDragOver = (e: React.DragEvent, i: number) => {
-    e.preventDefault(); // allow drop
-    if (dragIndex.current !== null && dragIndex.current !== i) setDragOverIndex(i);
+  // ---- P21 item 1: Pointer Events drag (WebView2-stable; HTML5 DnD showed
+  // a "禁止符号" because onDragStart never set e.dataTransfer.effectAllowed/
+  // setData — WebView2 suppresses the drag session entirely without them, and
+  // Tauri's webview intercepts text/plain drags for native window drag.
+  // Pointer Events are the same model env-manager's ProfilePage.svelte uses
+  // (onpointerdown / onpointerenter / onpointerup) — it works everywhere with
+  // zero deps and no image/dataTransfer ceremony.
+  // We stash the source index + drag ref in refs (survive re-renders), a
+  // hasDragged flag distinguishes a real drag from a click, and a window
+  // pointerup listener is registered once via useEffect so releasing the
+  // mouse outside any row still finishes the drag cleanly.
+  const dragSrc = useRef<number | null>(null);
+  const dragMoved = useRef(false);
+
+  useEffect(() => {
+    const onUp = () => {
+      if (dragSrc.current !== null && dragMoved.current) {
+        // released outside a valid drop target — cancel, keep original order
+        dragSrc.current = null;
+        dragMoved.current = false;
+        setDragOverIndex(null);
+      }
+    };
+    window.addEventListener("pointerup", onUp);
+    return () => window.removeEventListener("pointerup", onUp);
+  }, []);
+
+  const onPointerDownRow = (e: React.PointerEvent, i: number) => {
+    // Only left button starts a drag; right/middle are clicks.
+    if (e.button !== 0) return;
+    dragSrc.current = i;
+    dragMoved.current = false;
+    // Capture pointer events so onPointerEnter continues to fire while moving
+    // fast even if the pointer leaves the row briefly.
+    try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* noop */ }
   };
-  const onDrop = (e: React.DragEvent, dropI: number) => {
-    e.preventDefault();
-    const from = dragIndex.current;
-    dragIndex.current = null;
+
+  const onPointerEnterRow = (i: number) => {
+    if (dragSrc.current === null) return;
+    if (dragSrc.current !== i) {
+      dragMoved.current = true;
+      setDragOverIndex(i);
+      // Instant swap (env-manager style): move the dragged item to the hovered
+      // position on every enter, so the list reorders live under the cursor
+      // and the result is the same whether the user drops or just keeps going.
+      setLive((lst) => {
+        const from = dragSrc.current ?? -1;
+        if (from < 0 || from === i || from >= lst.length) return lst;
+        const next = [...lst];
+        const [moved] = next.splice(from, 1);
+        next.splice(i, 0, moved);
+        dragSrc.current = i;
+        const newOrder = next.map((x) => x.name);
+        setLocalOrder(newOrder);
+        void saveSubOrder(newOrder).catch(() => {});
+        return next;
+      });
+    }
+  };
+
+  const onPointerUpRow = (_i: number) => {
+    // The live-swap already committed the new order on enter; this just clears
+    // state. If the user never moved (click without drag), dragMoved is false
+    // and the order is unchanged.
+    dragSrc.current = null;
+    dragMoved.current = false;
     setDragOverIndex(null);
-    if (from === null || from === dropI) return;
-    setLive((lst) => {
-      const next = [...lst];
-      const [moved] = next.splice(from, 1);
-      next.splice(dropI, 0, moved);
-      const newOrder = next.map((x) => x.name);
-      setLocalOrder(newOrder);
-      void saveSubOrder(newOrder).catch(() => {});
-      return next;
-    });
   };
-  const onDragEnd = () => { dragIndex.current = null; setDragOverIndex(null); };
 
   return (
     <section className="w-full max-w-none px-6 space-y-4">
@@ -334,12 +373,10 @@ export function SubscriptionsView() {
           {live.map((s, i) => (
             <li
               key={s.name}
-              draggable
-              onDragStart={() => onDragStart(i)}
-              onDragOver={(e) => onDragOver(e, i)}
-              onDrop={(e) => onDrop(e, i)}
-              onDragEnd={onDragEnd}
-              className={"rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-4 py-3 text-sm flex items-center justify-between cursor-move transition-opacity " + (dragOverIndex === i ? "ring-2 ring-blue-400/50 " : "") + (dragIndex.current === i ? "opacity-50" : "")}
+              onPointerDown={(e) => onPointerDownRow(e, i)}
+              onPointerEnter={() => onPointerEnterRow(i)}
+              onPointerUp={() => onPointerUpRow(i)}
+              className={"rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-4 py-3 text-sm flex items-center justify-between cursor-grab active:cursor-grabbing select-none touch-none transition-opacity " + (dragOverIndex === i ? "ring-2 ring-blue-400/50 " : "") + (dragSrc.current === i && dragMoved.current ? "opacity-60 " : "")}
             >
               <span className="flex items-center gap-2 min-w-0 flex-1">
                 <GripVertical size={14} className="text-zinc-400 dark:text-zinc-600 shrink-0" />

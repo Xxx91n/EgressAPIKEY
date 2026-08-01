@@ -108,6 +108,8 @@ fn main() {
             commands::node_pool_snapshot,
             commands::platform_update,
             commands::node_list,
+            commands::platform_create_with_fields,
+            commands::platform_leases,
             commands::backup_create,
             commands::backup_upload,
             commands::backup_list,

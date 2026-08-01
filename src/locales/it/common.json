@@ -79,7 +79,21 @@
     "name": "Nome",
     "accounts": "Account",
     "empty": "Nessuna piattaforma configurata.",
-    "addOk": "Piattaforma aggiunta"
+    "addOk": "Piattaforma aggiunta",
+    "candidates": "Combinazioni di chiavi candidate",
+    "dragToActivate": "Trascina su una piattaforma per attivare IP di uscita",
+    "independent": "Indipendente",
+    "duplicateKey": "Combinazione di chiavi duplicata",
+    "splitHint": "Trascina per ridimensionare",
+    "endpoint": "Endpoint V1",
+    "apiKey": "Chiave API",
+    "addKey": "Aggiungi combinazione di chiavi",
+    "leases": "Lease attivi",
+    "noLeases": "Nessun lease attivo",
+    "activated": "Attivato tramite probe traffico",
+    "probeFailed": "Richiesta probe fallita",
+    "deleteConfirm": "Eliminare questa piattaforma?",
+    "egressPolicy": "Policy di uscita"
   },
   "processRoute": {
     "title": "Instradamento processi",

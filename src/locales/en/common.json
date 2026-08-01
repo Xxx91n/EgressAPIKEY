@@ -79,7 +79,21 @@
     "name": "Name",
     "accounts": "Accounts",
     "empty": "No platforms configured.",
-    "addOk": "Platform added"
+    "addOk": "Platform added",
+    "candidates": "Candidate key combinations",
+    "dragToActivate": "Drag to a platform to activate egress IP",
+    "independent": "Independent",
+    "duplicateKey": "Duplicate key combination",
+    "splitHint": "Drag to resize",
+    "endpoint": "V1 endpoint",
+    "apiKey": "API key",
+    "addKey": "Add key combination",
+    "leases": "Active leases",
+    "noLeases": "No active leases yet",
+    "activated": "Activated via traffic probe",
+    "probeFailed": "Probe request failed",
+    "deleteConfirm": "Delete this platform?",
+    "egressPolicy": "Egress policy"
   },
   "processRoute": {
     "title": "Process route",
