@@ -62,7 +62,7 @@ export function ProcessRouteView() {
   };
 
   return (
-    <section className="max-w-2xl space-y-4">
+    <section className="w-full max-w-none px-6 space-y-4">
       <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
           <Route size={16} className="text-zinc-500 dark:text-zinc-400" strokeWidth={1.75} />

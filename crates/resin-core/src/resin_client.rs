@@ -215,11 +215,12 @@ impl ResinClient {
     }
 
     /// GET /api/v1/nodes - list all proxy nodes (the "C category" ip channels).
-    /// Returns {items:[...], total, limit, offset, unique_egress_ips,
-    /// unique_healthy_egress_ips}. Each item carries the node's egress IP,
-    /// protocol, and health.
+    /// Resin paginates this endpoint (default limit < total); without an
+    /// explicit limit the frontend gets a stale partial view while the node-pool
+    /// snapshot grows. We pass an explicit limit (and optional offset) so the
+    /// per-node table reflects the same count as the stats card.
     pub async fn list_nodes(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/nodes", None).await
+        self.send(reqwest::Method::GET, "/nodes?limit=500", None).await
     }
 }
 
@@ -619,7 +620,7 @@ mod tests {
         let mut server = mockito::Server::new_async().await;
         let body = r#"{"items":[{"name":"sg-01","type":"trojan","egress_ip":"1.2.3.4"}],"total":1,"limit":50,"offset":0,"unique_egress_ips":1,"unique_healthy_egress_ips":1}"#;
         let m = server
-            .mock("GET", "/api/v1/nodes")
+            .mock("GET", "/api/v1/nodes?limit=500")
             .match_header("authorization", "Bearer testtok")
             .with_status(200)
             .with_header("content-type", "application/json")

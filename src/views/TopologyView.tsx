@@ -173,7 +173,11 @@ function TopologyCanvas() {
   // the conditional fitView() only runs on first paint when no previous
   // viewport was persisted. Without this gate, ReactFlow fitView() would snap
   // back to a framed view on every refresh.
-  const [viewportRestored, setViewportRestored] = useState(false);
+  // P20 item 1: gate canvas visibility until viewport is either restored
+  // from settings or fitView'd. Hides the initial-position flash that the
+  // old fitView={!viewportRestored} prop caused - ReactFlow rendered a
+  // framed view then setViewport() snapped to the saved spot, visible to the user.
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -198,18 +202,11 @@ function TopologyCanvas() {
 
   useEffect(() => {
     void sync();
-    // P19 item 1: restore the saved viewport before the first data sync lands,
-    // so the user opens the topology back at their last pan/zoom. If no
-    // viewport was saved, ReactFlow's fitView (gated below) handles framing.
-    void (async () => {
-      try {
-        const vp = await loadTopologyViewport();
-        if (vp && typeof vp.x === "number" && typeof vp.y === "number" && typeof vp.zoom === "number") {
-          reactFlow.setViewport({ x: vp.x, y: vp.y, zoom: vp.zoom });
-        }
-      } catch { /* vitest, no reactflow */ }
-      setViewportRestored(true);
-    })();
+    // P20 item 1: viewport restore is now done in onInit (below) so it runs
+    // after the ReactFlow instance has mounted. The old code called
+    // reactFlow.setViewport() in a useEffect that fired BEFORE ReactFlow's
+    // internal init - the setViewport was a no-op and the fitView prop
+    // rendered a framed view, causing the flash. onInit fires once RF is up.
     const id = setInterval(() => void sync(), 5000);
     // Bug #2 fix: re-sync on refocus so the canvas never stays blank.
     const onVis = () => { if (!document.hidden) void sync(); };
@@ -278,12 +275,37 @@ function TopologyCanvas() {
   /// so the setViewport-from-storage call does not trigger an immediate
   /// onMoveEnd that overwrites the value we just read.
   const onMoveEnd: OnMoveEnd = useCallback((_evt, viewport) => {
-    if (!viewportRestored) return;
+    if (!ready) return;
     if (!viewport || typeof viewport.x !== "number" || typeof viewport.y !== "number" || typeof viewport.zoom !== "number") return;
     try {
       void saveTopologyViewport({ x: viewport.x, y: viewport.y, zoom: viewport.zoom });
     } catch { /* vitest, ignore */ }
-  }, [viewportRestored]);
+  }, [ready]);
+
+  /// P20 item 1: onInit fires once ReactFlow is mounted and ready to accept
+  /// setViewport / fitView. We either restore the saved viewport (no flash) or
+  /// fitView({ maxZoom: 1 }) to frame all content (the new default initial view
+  /// that covers every node). Either way, after it runs we flip `ready` so the
+  /// opacity gate lifts and onMoveEnd starts persisting.
+  const onInit = useCallback((_instance: unknown) => {
+    void (async () => {
+      try {
+        const vp = await loadTopologyViewport();
+        if (vp && typeof vp.x === "number" && typeof vp.y === "number" && typeof vp.zoom === "number") {
+          reactFlow.setViewport({ x: vp.x, y: vp.y, zoom: vp.zoom });
+        } else {
+          // No saved viewport: default to fitView covering ALL content.
+          // maxZoom: 1 prevents zoom-in on small graphs (P20 item 1).
+          requestAnimationFrame(() => {
+            try { reactFlow.fitView({ maxZoom: 1 }); } catch { /* vitest */ }
+          });
+        }
+      } catch { /* vitest, no reactflow */ }
+      // Lift the visibility gate on the next frame so the user never sees the
+      // pre-restore layout. rAF waits one paint, hiding the flash.
+      requestAnimationFrame(() => setReady(true));
+    })();
+  }, [reactFlow]);
 
   const colorMode: ColorMode = theme;
 
@@ -376,7 +398,7 @@ function TopologyCanvas() {
       {nodeGroups.length === 0 && (
         <div className="px-1 pb-2 text-xs text-zinc-400">{t("topology.noNodes")}</div>
       )}
-      <div className="flex-1 border border-zinc-200 dark:border-zinc-800 rounded">
+      <div className={"flex-1 border border-zinc-200 dark:border-zinc-800 rounded transition-opacity duration-150 " + (ready ? "opacity-100" : "opacity-0")}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -384,7 +406,7 @@ function TopologyCanvas() {
           onConnect={onConnect}
           onEdgesDelete={onEdgesDelete}
           onMoveEnd={onMoveEnd}
-          fitView={!viewportRestored}
+          onInit={onInit}
           colorMode={colorMode}
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />

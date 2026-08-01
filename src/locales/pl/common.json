@@ -119,7 +119,8 @@
     "renameOk": "Zmieniono nazwę na „{{name}}”",
     "renameMissing": "Nie znaleziono subskrypcji na bramce. Odśwież listę i spróbuj ponownie.",
     "renameUrlMissing": "Nie można zmienić nazwy: oryginalny URL nie jest w pamięci podręcznej. Zaimportuj ponownie subskrypcję pod nową nazwą.",
-    "resetOrder": "Resetuj sortowanie"
+    "resetOrder": "Resetuj sortowanie",
+    "duplicate": "Subskrypcja \"{{name}}\" już istnieje. Wybierz inną nazwę."
   },
   "theme": {
     "label": "Motyw",

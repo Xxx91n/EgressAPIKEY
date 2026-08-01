@@ -119,7 +119,8 @@
     "renameOk": "已重命名为“{{name}}”",
     "renameMissing": "网关上找不到该订阅，请刷新列表后重试。",
     "renameUrlMissing": "无法重命名：未缓存原始订阅 URL。请用新名称重新导入该订阅。",
-    "resetOrder": "重置排序"
+    "resetOrder": "重置排序",
+    "duplicate": "订阅 \"{{name}}\" 已存在，请换一个名称。"
   },
   "theme": {
     "label": "主题",

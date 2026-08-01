@@ -64,6 +64,7 @@ beforeAll(async () => {
         "subscription.renameMissing": "Subscription not found on the gateway. Refresh the list and try again.",
         "subscription.renameUrlMissing": "Cannot rename: original URL not cached. Re-import the subscription with the new name instead.",
         "subscription.resetOrder": "Reset sort",
+        "subscription.duplicate": "Subscription already exists. Choose a different name.",
         "nodes.egressPolicyNote": "Per-region egress policy is bound on the Topology canvas.",
         "processRoute.title": "Process route",
         "processRoute.add": "Add routing rule",

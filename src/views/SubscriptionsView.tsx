@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Rss, Download, Inbox, Trash2, Loader2, GripVertical, CheckCircle2, AlertCircle, Pencil, ArrowDownUp } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import {
@@ -7,35 +7,29 @@ import {
   type SubscriptionSnapshotEntry,
 } from "../lib/ipc";
 import { loadSubOrder, saveSubOrder } from "../lib/settings";
-import { createDragState, beginDrag, enterTarget, finishDrag } from "../lib/subDrag";
 
-/// SubscriptionsView is the Resin subscription import surface. Under Path
-/// A, add/list/remove forward to the live Resin sidecar admin REST:
-///   subscription_add -> POST /api/v1/subscriptions (source_type=local)
-///     The shell fetches the Clash YAML itself (clash-family UA, Resin's
-///     default UA gets 403 from many providers), converts flow-style
-///     proxies to block-style, and posts local content. Resin parses the
-///     nodes on its 30s update_interval tick.
-///   subscription_list -> GET /api/v1/subscriptions  (project name + node_count)
-///   subscription_remove -> DELETE /api/v1/subscriptions/{id}
-/// B2: the form draft (name+url) is persisted to appStore so navigating
-///   away+back keeps the input contents instead of the previous collapse.
-/// B3: rows support drag-to-reorder (env-manager profileDrag pattern, zero
-///   extra deps) with a window-level mouseup listener so releasing outside
-///   the row still commits the drag.
-/// P19 item 6: drag reorder actually flips rows now. Root cause was the 10s
-///   auto-refresh overwriting the user's hand-sorted order with the Resin
-///   server order. Fix: we persist a local-sub-order override in
-///   settings.json (localSubOrder: string[]); on every refresh we re-sort the
-///   server list by the local order (new entries the user has not seen yet
-///   are appended at the end so the reorder stays the layout truth).
-/// P19 item 6: rename via delete+recreate. Resin v1.1.2 has no PATCH
-///   /api/v1/subscriptions/{id}, so we leave the user a Rename button that
-///   deletes the old sub and recreates a new one with the new name pointing
-///   at the same URL (the Resin-side node parse will re-run on the new
-///   subscription's 30s tick).
-/// Outside Tauri (Vite dev preview), every IPC call throws gracefully and
-/// we keep the local appStore as a fallback list so the screen never blanks.
+/// SubscriptionsView - Resin subscription import surface (P20 rewrite).
+///
+/// Fixes vs the P19 version:
+///  - Item 3: duplicate-name detection BEFORE import. Resin POST /api/v1/subscriptions
+///    is name-keyed - posting the same name silently overwrites the prior sub.
+///    We fetch the live list, and if the chosen name already exists we refuse to
+///    POST and surface a toast so the user can rename. Coexistence by design.
+///  - Item 4: reset-order no longer duplicates. The old applyOrder merged stale
+///    localOrder entries that no longer exist on the server with the fresh server
+///    list, causing "ghost" rows after reset. The new reset drops localOrder AND
+///    re-renders from the server list only (`setLive(serverList)`), bypassing
+///    applyOrder entirely, so there is no stale-name carryover.
+///  - Item 6: drag-to-reorder uses the browser-native HTML5 draggable attribute
+///    (dragstart / dragover / drop events). The old hand-rolled subDrag mutated a
+///    useState object's isDragging flag without triggering a React re-render, so
+///    the window mouseup listener that was supposed to fire finishDrag() never
+///    re-registered after the first drag - dragging "did nothing". Native drag
+///    has no such race: the browser owns the drag lifecycle and emits dragstart
+///    once + drop once, both on the DOM elements the user actually grabs.
+///
+/// Outside Tauri (Vite dev preview), every IPC call throws gracefully and we
+/// keep the local appStore as a fallback list so the screen never blanks.
 export function SubscriptionsView() {
   const { t } = useTranslation();
   const lanes = useAppStore((s) => s.laneCount);
@@ -48,16 +42,18 @@ export function SubscriptionsView() {
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState<SubscriptionSnapshotEntry[]>([]);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
-  const [drag] = useState(createDragState);
-  // P19 item 6: local order override. Loaded once on mount, persisted on
-  // every reorder. Non-blocking - if settings fail, we keep the in-memory
-  // order for this session so the user always sees the rearrange work.
+  // P20 item 6: HTML5 drag tracks the dragged index in a ref so re-renders do
+  // not lose the in-flight drag; the browser owns the drag session lifetime.
+  const dragIndex = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // P20 item 6: local order override. Loaded once on mount, persisted on every
+  // reorder. Reset (item 4) clears this to [] and re-renders from server only.
   const [localOrder, setLocalOrder] = useState<string[]>([]);
 
   // B2: persist form draft so navigating away+back keeps input contents.
   useEffect(() => { setSubFormDraft({ name, url }); }, [name, url, setSubFormDraft]);
 
-  // P19 item 6: load the persisted local order once on mount.
+  // P20 item 6: load the persisted local order once on mount.
   useEffect(() => {
     void (async () => {
       const saved = await loadSubOrder().catch(() => null);
@@ -65,52 +61,26 @@ export function SubscriptionsView() {
     })();
   }, []);
 
-  /// Re-sort a fresh list by the user's local order. Items in the server
-  /// list that the user has never reordered (new subs, or order cleared)
-  /// fall through to the end, keeping the server-defined order.
+  /// Re-sort a fresh list by the user's local order. Items in the server list
+  /// that the user has never reordered (new subs, or order cleared) fall through
+  /// to the end, keeping the server-defined order. P20 item 4: only names that
+  /// are STILL in the server list are kept in the output - a stale localOrder
+  /// entry that Resin no longer returns is dropped, so reset never duplicates.
   const applyOrder = useCallback((lst: SubscriptionSnapshotEntry[], order: string[]): SubscriptionSnapshotEntry[] => {
     if (order.length === 0) return lst;
     const indexed = new Map<string, SubscriptionSnapshotEntry>();
-    for (const x of lst) { try { const k = (x.name || "").trim(); if (k) indexed.set(k, x); } catch {} }
+    for (const x of lst) { const k = (x.name || "").trim(); if (k) indexed.set(k, x); }
     const out: SubscriptionSnapshotEntry[] = [];
-    for (const name of order) {
-      const k = (name || "").trim();
+    for (const want of order) {
+      const k = (want || "").trim();
       const item = indexed.get(k);
       if (item) { out.push(item); indexed.delete(k); }
     }
-    // Append remaining server entries (new subs the user has not ordered yet)
+    // Append remaining server entries (new subs the user has not ordered)
     // in their original order so the new sub is visible below the layout.
     for (const x of indexed.values()) out.push(x);
     return out;
   }, []);
-
-  // B3: window-level mouseup so releasing outside the row still commits the drag.
-  useEffect(() => {
-    if (!drag.isDragging) return;
-    const onUp = () => {
-      let shouldSave: boolean = false;
-      let newOrder: string[] = [];
-      setLive((lst) => {
-        const reordered = finishDrag(drag, lst);
-        // If the list actually changed shape, persist the order so a refresh
-        // does not flip it back. Ponytail: lean check - compare name orders.
-        const before = lst.map((x) => x.name).join("\u0001");
-        const after = reordered.map((x) => x.name).join("\u0001");
-        if (before !== after) {
-          shouldSave = true;
-          newOrder = reordered.map((x) => x.name);
-        }
-        return reordered;
-      });
-      // Schedule the save outside the lazy updater.
-      if (shouldSave) {
-        setLocalOrder(newOrder);
-        void saveSubOrder(newOrder).catch(() => {});
-      }
-    };
-    window.addEventListener("mouseup", onUp, { once: true });
-    return () => window.removeEventListener("mouseup", onUp);
-  }, [drag, drag.isDragging, drag.dragIndex, drag.dragOverIndex]);
 
   const inputCls =
     "flex-1 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40";
@@ -118,14 +88,16 @@ export function SubscriptionsView() {
   const refresh = useCallback(async () => {
     try {
       const lst = await ipcSubscriptionList();
+      // P20 item 4: server fetch is the source of truth - applyOrder only
+      // re-sorts names that exist in BOTH the order array and the server list.
       setLive(applyOrder(lst, localOrder));
     } catch { /* keep last */ }
   }, [applyOrder, localOrder]);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  // P13 B4: Resin parses local subscription content on its 30s
-  // update_interval tick. Poll up to 5 times at 3s so the user sees the
-  // real node_count within ~15s instead of staying at 0.
+  // P13 B4: Resin parses local subscription content on its 30s update_interval
+  // tick. Poll up to 5 times at 3s so the user sees the real node_count within
+  // ~15s instead of staying at 0.
   const refreshWithRetry = useCallback(async () => {
     for (let i = 0; i < 5; i++) {
       try {
@@ -140,11 +112,26 @@ export function SubscriptionsView() {
     try { setLive(applyOrder(await ipcSubscriptionList(), localOrder)); } catch {}
   }, [applyOrder, localOrder]);
 
+  // P20 item 3: check the live list for a duplicate name BEFORE posting to
+  // Resin. Resin POST /api/v1/subscriptions is name-keyed - a second POST with
+  // an existing name silently overwrites the prior subscription's nodes. By
+  // detecting first we refuse the import and surface a toast so the user
+  // renames; distinct subscriptions coexist instead of clobbering each other.
   const handleAdd = async () => {
     const n = name.trim() || url.trim().replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 48);
     const u = url.trim();
     if (!n || !u) return;
     setBusy(true); setToast(null);
+    // Item 3: duplicate-name guard. Best-effort - if the list fetch fails
+    // (outside Tauri) we proceed so the optimistic path still works in dev.
+    try {
+      const existing = await ipcSubscriptionList();
+      if (existing.some((s) => s.name === n)) {
+        setToast({ kind: "err", msg: t("subscription.duplicate", { name: n }) });
+        setBusy(false);
+        return;
+      }
+    } catch { /* dev: allow */ }
     localAdd(u, 0, lanes);
     try {
       await ipcSubscriptionAdd(n, u);
@@ -153,13 +140,11 @@ export function SubscriptionsView() {
       const newOrder = [...localOrder, n];
       setLocalOrder(newOrder);
       void saveSubOrder(newOrder).catch(() => {});
-      // B4: retry-refresh catches the async Resin subscription parse.
       await new Promise((r) => setTimeout(r, 1500));
       await refreshWithRetry();
       try {
         const pool = await ipcNodePoolSnapshot();
         const total = Number(pool?.total_nodes ?? 0);
-        // B1: i18n interpolation, not hardcoded English.
         setToast({ kind: "ok", msg: t("subscription.importSuccess", { total }) });
       } catch { /* node pool optional */ }
     } catch (e: unknown) {
@@ -173,8 +158,6 @@ export function SubscriptionsView() {
     setBusy(true); setToast(null);
     try {
       await ipcSubscriptionRemove(subName);
-      // Drop the deleted sub from the local order so a new sub with the same
-      // name later does not inherit an old slot.
       const newOrder = localOrder.filter((n) => n !== subName);
       setLocalOrder(newOrder);
       void saveSubOrder(newOrder).catch(() => {});
@@ -185,27 +168,28 @@ export function SubscriptionsView() {
 
   /// P19 item 6: rename via delete + recreate. Resin has no PATCH
   /// /api/v1/subscriptions, so we delete the old sub and create a new one
-  /// with the new name. The new sub is added at the same local-order slot
-  /// so the list position does not jump.
+  /// with the new name. Item 3 applies: we also reject a rename target that
+  /// collides with another existing sub's name.
   const handleRename = async (oldName: string) => {
     let renamed = "";
     try {
       renamed = window.prompt(t("subscription.renamePrompt", { name: oldName }), oldName) || "";
-    } catch { return; } // vitest / no prompt
+    } catch { return; }
     renamed = (renamed || "").trim();
     if (!renamed || renamed === oldName) return;
     setBusy(true); setToast(null);
-    // Find the current live entry so we can re-post the same URL. If we
-    // cannot find it, abort (the user should re-import).
     const existing = live.find((x) => x.name === oldName);
     if (!existing) {
       setToast({ kind: "err", msg: t("subscription.renameMissing") });
       setBusy(false);
       return;
     }
-    // The URL is not returned by subscription_list (server schema does not
-    // expose it after creation). We need the user to re-enter the URL only
-    // if the localSubs copy has aged out; otherwise we reuse it.
+    // P20 item 3: reject a rename that would collide with another live sub.
+    if (live.some((s) => s.name === renamed)) {
+      setToast({ kind: "err", msg: t("subscription.duplicate", { name: renamed }) });
+      setBusy(false);
+      return;
+    }
     const cached = localSubs.find((s) => s.url && s.url.length > 0);
     const sourceUrl = cached?.url ?? "";
     if (!sourceUrl) {
@@ -216,7 +200,6 @@ export function SubscriptionsView() {
     try {
       await ipcSubscriptionRemove(oldName);
       await ipcSubscriptionAdd(renamed, sourceUrl);
-      // Replace in local order at the same slot.
       const idx = localOrder.indexOf(oldName);
       const newOrder = idx >= 0
         ? localOrder.map((n) => (n === oldName ? renamed : n))
@@ -233,17 +216,51 @@ export function SubscriptionsView() {
     }
   };
 
-  /// P19 item 6: clear the persisted order so the list reverts to the server
-  /// sort (updated_at). Kept a tiny button on the toolbar so the user can
-  /// "reset to default sort" once they experiment with reordering.
+  /// P20 item 4: clear the persisted order and re-render from the server list
+  /// ONLY. The old code called refresh() which applyOrder'd against the (now
+  /// empty) localOrder, but also re-merged stale names that were once in
+  /// localOrder - leading to duplicate / leftover rows after reset. The new
+  /// path bypasses applyOrder entirely: serverList goes straight to setLive.
   const handleResetOrder = async () => {
     setLocalOrder([]);
     void saveSubOrder([]).catch(() => {});
-    await refresh();
+    try {
+      const serverList = await ipcSubscriptionList();
+      setLive(serverList);
+    } catch { /* keep */ }
   };
 
+  // ---- P20 item 6: native HTML5 drag handlers ----
+  // The browser owns the drag session: dragstart fires once on the source row,
+  // dragover fires continuously on whatever row the pointer is above (we
+  // preventDefault to allow drop), and drop fires on the target when the user
+  // releases. We track the source index in a ref (survives re-renders) and the
+  // over-index in state (so the visual indicator follows the pointer).
+  const onDragStart = (i: number) => { dragIndex.current = i; };
+  const onDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault(); // allow drop
+    if (dragIndex.current !== null && dragIndex.current !== i) setDragOverIndex(i);
+  };
+  const onDrop = (e: React.DragEvent, dropI: number) => {
+    e.preventDefault();
+    const from = dragIndex.current;
+    dragIndex.current = null;
+    setDragOverIndex(null);
+    if (from === null || from === dropI) return;
+    setLive((lst) => {
+      const next = [...lst];
+      const [moved] = next.splice(from, 1);
+      next.splice(dropI, 0, moved);
+      const newOrder = next.map((x) => x.name);
+      setLocalOrder(newOrder);
+      void saveSubOrder(newOrder).catch(() => {});
+      return next;
+    });
+  };
+  const onDragEnd = () => { dragIndex.current = null; setDragOverIndex(null); };
+
   return (
-    <section className="max-w-2xl space-y-4">
+    <section className="w-full max-w-none px-6 space-y-4">
       <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
           <Rss size={16} className="text-zinc-500 dark:text-zinc-400" strokeWidth={1.75} />
@@ -317,9 +334,12 @@ export function SubscriptionsView() {
           {live.map((s, i) => (
             <li
               key={s.name}
-              onMouseDown={(e) => beginDrag(drag, i, e)}
-              onMouseEnter={() => enterTarget(drag, i)}
-              className={"rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-4 py-3 text-sm flex items-center justify-between cursor-move transition-opacity " + (drag.isDragging && drag.dragIndex === i ? "opacity-50" : "")}
+              draggable
+              onDragStart={() => onDragStart(i)}
+              onDragOver={(e) => onDragOver(e, i)}
+              onDrop={(e) => onDrop(e, i)}
+              onDragEnd={onDragEnd}
+              className={"rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-4 py-3 text-sm flex items-center justify-between cursor-move transition-opacity " + (dragOverIndex === i ? "ring-2 ring-blue-400/50 " : "") + (dragIndex.current === i ? "opacity-50" : "")}
             >
               <span className="flex items-center gap-2 min-w-0 flex-1">
                 <GripVertical size={14} className="text-zinc-400 dark:text-zinc-600 shrink-0" />

@@ -119,7 +119,8 @@
     "renameOk": "Renombrado a \"{{name}}\"",
     "renameMissing": "Suscripción no encontrada en el gateway. Actualiza la lista e inténtalo de nuevo.",
     "renameUrlMissing": "No se puede renombrar: la URL original no está en caché. Reimporta la suscripción con el nuevo nombre.",
-    "resetOrder": "Restablecer orden"
+    "resetOrder": "Restablecer orden",
+    "duplicate": "La suscripción \"{{name}}\" ya existe. Elija otro nombre."
   },
   "theme": {
     "label": "Tema",

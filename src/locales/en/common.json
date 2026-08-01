@@ -119,7 +119,8 @@
     "renameOk": "Renamed to \"{{name}}\"",
     "renameMissing": "Subscription not found on the gateway. Refresh the list and try again.",
     "renameUrlMissing": "Cannot rename: original URL not cached. Re-import the subscription with the new name instead.",
-    "resetOrder": "Reset sort"
+    "resetOrder": "Reset sort",
+    "duplicate": "Subscription \"{{name}}\" already exists. Choose a different name."
   },
   "theme": {
     "label": "Theme",

@@ -119,7 +119,8 @@
     "renameOk": "Hernoemd naar \"{{name}}\"",
     "renameMissing": "Abonnement niet gevonden op de gateway. Ververs de lijst en probeer opnieuw.",
     "renameUrlMissing": "Kan niet hernoemen: originele URL niet gecached. Importeer het abonnement opnieuw met de nieuwe naam.",
-    "resetOrder": "Sortering resetten"
+    "resetOrder": "Sortering resetten",
+    "duplicate": "Abonnement \"{{name}}\" bestaat al. Kies een andere naam."
   },
   "theme": {
     "label": "Thema",

@@ -119,7 +119,8 @@
     "renameOk": "Rinominato in \"{{name}}\"",
     "renameMissing": "Abbonamento non trovato sul gateway. Aggiorna lelenco e riprova.",
     "renameUrlMissing": "Impossibile rinominare: URL originale non in cache. Reimporta labbonamento con il nuovo nome.",
-    "resetOrder": "Ripristina ordine"
+    "resetOrder": "Ripristina ordine",
+    "duplicate": "L'abbonamento \"{{name}}\" esiste già. Scegli un altro nome."
   },
   "theme": {
     "label": "Tema",

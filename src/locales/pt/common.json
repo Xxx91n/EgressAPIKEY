@@ -119,7 +119,8 @@
     "renameOk": "Renomeado para \"{{name}}\"",
     "renameMissing": "Assinatura não encontrada no gateway. Atualize a lista e tente novamente.",
     "renameUrlMissing": "Não é possível renomear: URL original não está em cache. Reimporte a assinatura com o novo nome.",
-    "resetOrder": "Redefinir ordem"
+    "resetOrder": "Redefinir ordem",
+    "duplicate": "A assinatura \"{{name}}\" já existe. Escolha outro nome."
   },
   "theme": {
     "label": "Tema",

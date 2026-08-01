@@ -252,7 +252,7 @@ export function SettingsView() {
     "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm";
 
   return (
-    <section className="max-w-2xl space-y-5">
+    <section className="w-full max-w-none px-6 space-y-5">
       <SectionCard icon={<Globe size={16} strokeWidth={1.75} />} title={t("settings.general")}>
         <Field label={t("settings.language")}>
           <select

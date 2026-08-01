@@ -119,7 +119,8 @@
     "renameOk": "Renommé en «{{name}}»",
     "renameMissing": "Abonnement introuvable sur la passerelle. Rafraîchissez la liste et réessayez.",
     "renameUrlMissing": "Impossible de renommer : lURL dorigine nest pas en cache. Réimportez labonnement avec le nouveau nom.",
-    "resetOrder": "Réinitialiser le tri"
+    "resetOrder": "Réinitialiser le tri",
+    "duplicate": "L'abonnement \"{{name}}\" existe déjà. Choisissez un autre nom."
   },
   "theme": {
     "label": "Thème",
