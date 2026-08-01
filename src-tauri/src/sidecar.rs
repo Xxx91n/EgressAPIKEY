@@ -19,6 +19,7 @@
 
 use std::net::TcpListener;
 use std::time::{Duration, Instant};
+use std::sync::Mutex;
 
 use anyhow::{anyhow, Context, Result};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -29,7 +30,13 @@ use tauri_plugin_shell::ShellExt;
 /// Lives in Tauri managed state as `State<SidecarHandle>` so IPC commands
 /// (G2 ResinClient) can reach it without piping admin tokens anywhere else.
 pub struct SidecarHandle {
-    pub child: CommandChild,
+    /// Owned in a Mutex<Option<_>> so the app exit hook can take() the
+    /// child once and call .kill(). CommandChild::kill takes self
+    /// (consumes the receiver); State<SidecarHandle> only hands out
+    /// borrows, so without the Option<take()> you cannot move the child
+    /// out of SysState. None after kill() means a second Exit callback
+    /// (if Tauri ever re-emits one) is a no-op.
+    pub child: Mutex<Option<CommandChild>>,
     /// Resin's single consolidated port (control-plane API + proxy + webui).
     pub api_port: u16,
     /// Resin admin token. Used to authenticate Rust-side REST calls to the
@@ -164,7 +171,7 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
                     Instant::now().elapsed().as_millis()
                 );
                 return Ok(SidecarHandle {
-                    child,
+                    child: Mutex::new(Some(child)),
                     api_port,
                     admin_token,
                     proxy_token,

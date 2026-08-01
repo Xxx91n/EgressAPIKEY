@@ -178,6 +178,27 @@ fn main() {
             spawn_health_poll(app.handle().clone());
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running ai-api-route Tauri shell");
+        .build(tauri::generate_context!())
+        .expect("error while building ai-api-route Tauri shell")
+        .run(|app_handle, event| {
+            // P22 audit fix: the Resin Go sidecar is a child process spawned
+            // via tauri_plugin_shell::CommandChild. Its Drop impl in plugin
+            // version 2.3.5 does NOT kill the child (you must call .kill()
+            // explicitly). Without this hook, app.exit(0) from the tray Quit
+            // item leaves resin.exe running as an orphan after the GUI
+            // process exits, leaking the port and the SQLite state lock.
+            // Tauri 2.11 Builder::run(context) hardcodes an empty closure;
+            // we use .build()?.run(closure) instead so we can hook RunEvent::Exit.
+            if let tauri::RunEvent::Exit = event {
+                if let Some(sidecar) = app_handle.try_state::<SidecarHandle>() {
+                    // CommandChild::kill takes self (consumes); wrap child in
+                    // Mutex<Option<_>> so we can take() once here. A second
+                    // Exit (if ever re-emitted) finds None and no-ops.
+                    if let Some(child) = sidecar.child.lock().ok().and_then(|mut g| g.take()) {
+                        let _ = child.kill();
+                        tracing::info!("sidecar child killed on app exit");
+                    }
+                }
+            }
+        });
 }
