@@ -71,7 +71,9 @@
     "colHealth": "ヘルス",
     "colSub": "サブスクリプション",
     "lastRefresh": "最終更新: {{time}}",
-    "egressPolicyNote": "リージョンごとの出口ポリシーはトポロジーキャンバスで設定します：プラットフォームをIPチャネル領域にドラッグし、プラットフォームで割り当てポリシー（BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP）を設定してください。Resin v1.1.2にはノード単位のポリシー選択はありません。"
+    "egressPolicyNote": "リージョンごとの出口ポリシーはトポロジーキャンバスで設定します：プラットフォームをIPチャネル領域にドラッグし、プラットフォームで割り当てポリシー（BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP）を設定してください。Resin v1.1.2にはノード単位のポリシー選択はありません。",
+    "protocolWeights": "AI SSE プロトコル重み",
+    "protocolWeightDesc": "最適 (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp。中程度 (0.7): shadowsocks。避けるべき (0.1): hysteria2, tuic, wireguard (QUICベース, SSEストリームを壊す)。"
   },
   "platform": {
     "title": "プラットフォーム",

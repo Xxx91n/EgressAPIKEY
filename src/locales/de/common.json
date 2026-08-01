@@ -71,7 +71,9 @@
     "colHealth": "Status",
     "colSub": "Abonnement",
     "lastRefresh": "Aktualisiert: {{time}}",
-    "egressPolicyNote": "Die Egress-Richtlinie pro Region wird auf der Topology-Leinwand gesetzt: Plattform auf eine IP-Kanal-Region ziehen und Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) auf der Plattform setzen. Resin v1.1.2 hat keinen Per-Node-Selektor."
+    "egressPolicyNote": "Die Egress-Richtlinie pro Region wird auf der Topology-Leinwand gesetzt: Plattform auf eine IP-Kanal-Region ziehen und Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) auf der Plattform setzen. Resin v1.1.2 hat keinen Per-Node-Selektor.",
+    "protocolWeights": "Protokollgewichte für KI-SSE",
+    "protocolWeightDesc": "Beste (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Moderat (0.7): shadowsocks. Vermeiden (0.1): hysteria2, tuic, wireguard (QUIC-basiert, bricht SSE-Streams)."
   },
   "platform": {
     "title": "Plattformen",

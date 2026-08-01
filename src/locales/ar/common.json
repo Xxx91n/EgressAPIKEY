@@ -71,7 +71,9 @@
     "colHealth": "الصحة",
     "colSub": "الاشتراك",
     "lastRefresh": "آخر تحديث: {{time}}",
-    "egressPolicyNote": "يتم ضبط سياسة الخروج لكل منطقة على لوحة Topology: اسحب منصة إلى منطقة قناة IP ثم اضبط سياسة التخصيص (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) على المنصة. لا يحتوي Resin v1.1.2 على محدد لكل عقدة."
+    "egressPolicyNote": "يتم ضبط سياسة الخروج لكل منطقة على لوحة Topology: اسحب منصة إلى منطقة قناة IP ثم اضبط سياسة التخصيص (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) على المنصة. لا يحتوي Resin v1.1.2 على محدد لكل عقدة.",
+    "protocolWeights": "أوزان البروتوكول لـ SSE الذكاء الاصطناعي",
+    "protocolWeightDesc": "الأفضل (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. متوسط (0.7): shadowsocks. تجنب (0.1): hysteria2, tuic, wireguard (قائم على QUIC، يكسر تدفقات SSE)."
   },
   "platform": {
     "title": "المنصات",

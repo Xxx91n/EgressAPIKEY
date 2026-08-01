@@ -71,7 +71,9 @@
     "colHealth": "Status",
     "colSub": "Subskrypcja",
     "lastRefresh": "Ostatnia aktualizacja: {{time}}",
-    "egressPolicyNote": "Polityka wyjścia per-region ustalana jest na płótnie Topology: przeciągnij Platformę na region kanału IP, a następnie ustaw Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) na platformie. Resin v1.1.2 nie ma selektora per-węzeł."
+    "egressPolicyNote": "Polityka wyjścia per-region ustalana jest na płótnie Topology: przeciągnij Platformę na region kanału IP, a następnie ustaw Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) na platformie. Resin v1.1.2 nie ma selektora per-węzeł.",
+    "protocolWeights": "Wagi protokołu dla AI SSE",
+    "protocolWeightDesc": "Najlepsze (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Umiarkowane (0.7): shadowsocks. Unikać (0.1): hysteria2, tuic, wireguard (na bazie QUIC, łamie strumienie SSE)."
   },
   "platform": {
     "title": "Platformy",

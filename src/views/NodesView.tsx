@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Server, RefreshCw, Activity, Globe, AlertCircle } from "lucide-react";
+import { Server, RefreshCw, Activity, Globe, AlertCircle, Info } from "lucide-react";
 import { ipcNodeList, ipcNodePoolSnapshot } from "../lib/ipc";
 
 /// NodesView — Phase R3 node/IP-channel management tab.
@@ -103,6 +103,18 @@ export function NodesView() {
           {error}
         </div>
       )}
+
+      {/* P21-C: Egress policy guidance + protocol weight display */}
+      <div className="space-y-2">
+        <div className="flex items-start gap-2 p-3 rounded-md bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 text-xs text-blue-700 dark:text-blue-300">
+          <Info size={14} className="shrink-0 mt-0.5" />
+          <span>{t("nodes.egressPolicyNote")}</span>
+        </div>
+        <div className="p-3 rounded-md bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800">
+          <h3 className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{t("nodes.protocolWeights")}</h3>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("nodes.protocolWeightDesc")}</p>
+        </div>
+      </div>
 
       {loading ? (
         <div className="text-sm text-zinc-400 py-8 text-center">{t("nodes.loading")}</div>

@@ -71,7 +71,9 @@
     "colHealth": "상태",
     "colSub": "구독",
     "lastRefresh": "최근 새로고침: {{time}}",
-    "egressPolicyNote": "리전별 출구 정책은 Topology 캔버스에서 설정합니다: 플랫폼을 IP 채널 리전으로 드래그한 뒤 플랫폼의 Allocation policy(BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP)를 설정하세요. Resin v1.1.2는 노드별 정책 선택 기능이 없습니다."
+    "egressPolicyNote": "리전별 출구 정책은 Topology 캔버스에서 설정합니다: 플랫폼을 IP 채널 리전으로 드래그한 뒤 플랫폼의 Allocation policy(BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP)를 설정하세요. Resin v1.1.2는 노드별 정책 선택 기능이 없습니다.",
+    "protocolWeights": "AI SSE 프로토콜 가중치",
+    "protocolWeightDesc": "최적 (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. 보통 (0.7): shadowsocks. 피해야 함 (0.1): hysteria2, tuic, wireguard (QUIC 기반, SSE 스트림 중단)."
   },
   "platform": {
     "title": "플랫폼",

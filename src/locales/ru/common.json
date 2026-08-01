@@ -71,7 +71,9 @@
     "colHealth": "Статус",
     "colSub": "Подписка",
     "lastRefresh": "Обновлено: {{time}}",
-    "egressPolicyNote": "Политика выхода по региону настраивается на холсте Topology: перетащите Платформу на регион IP-канала и задайте Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) для платформы. В Resin v1.1.2 нет селектора по узлам."
+    "egressPolicyNote": "Политика выхода по региону настраивается на холсте Topology: перетащите Платформу на регион IP-канала и задайте Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) для платформы. В Resin v1.1.2 нет селектора по узлам.",
+    "protocolWeights": "Веса протоколов для AI SSE",
+    "protocolWeightDesc": "Лучшие (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Средние (0.7): shadowsocks. Избегать (0.1): hysteria2, tuic, wireguard (на базе QUIC, ломают SSE-потоки)."
   },
   "platform": {
     "title": "Платформы",
