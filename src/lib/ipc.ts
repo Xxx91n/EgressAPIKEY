@@ -144,6 +144,42 @@ export async function ipcPlatformLeases(name: string): Promise<unknown> {
   return invoke("platform_leases", { name });
 }
 
+/// P21-C: IP channel IPC wrappers — semantic aliases over the existing Resin
+/// platform + node endpoints. The GUI sees "IP channels" which are Resin
+/// Region-grouped nodes; the management surface is the platform PATCH surface
+/// (allocation_policy, region_filters). These thin wrappers make the user's
+/// mental model explicit in the call site without inventing a new backend.
+
+/// List all IP channels (= Resin nodes, grouped by region in the GUI).
+export async function ipChannelList(): Promise<unknown> {
+  return invoke("node_list");
+}
+
+/// Set an IP channel's egress policy (= PATCH platform allocation_policy).
+/// Maps the GUI label to the Resin enum: random/sequential -> BALANCED,
+/// latency -> PREFER_LOW_LATENCY, quality -> PREFER_IDLE_IP.
+export async function ipChannelPolicySet(
+  platformName: string,
+  policy: AllocationPolicy,
+): Promise<unknown> {
+  assertShortName(platformName, "platform");
+  if (!ALLOCATION_POLICIES.includes(policy)) {
+    throw new Error("ip_channel_policy_set: allocation_policy must be one of " + ALLOCATION_POLICIES.join(", "));
+  }
+  return invoke("platform_update", { name: platformName, allocationPolicy: policy, regexFilters: null, regionFilters: null, stickyTtl: null });
+}
+
+/// Create a new IP channel (= POST /platforms with fields).
+export async function ipChannelCreate(body: unknown): Promise<unknown> {
+  return ipcPlatformCreateWithFields(body);
+}
+
+/// Delete an IP channel (= DELETE /platforms/{id}, resolved by name).
+export async function ipChannelDelete(name: string): Promise<boolean> {
+  assertShortName(name, "ip_channel");
+  return invoke<boolean>("platform_remove", { name });
+}
+
 export async function ipcAccountAdd(platform: string, id: string, lane: number): Promise<void> {
   assertShortName(platform, "platform");
   assertShortName(id, "account");

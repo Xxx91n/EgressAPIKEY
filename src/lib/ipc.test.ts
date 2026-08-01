@@ -23,6 +23,7 @@ import {
   ipcAccountAdd,
   ipcPlatformUpdate, ipcNodeList,
   ipcPlatformCreateWithFields, ipcPlatformLeases,
+  ipChannelList, ipChannelPolicySet, ipChannelCreate, ipChannelDelete,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -185,6 +186,75 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
 
   it("platform_leases rejects empty name", async () => {
     await expect(ipcPlatformLeases("")).rejects.toThrow(/platform invalid/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  // P21-C: ip_channel_* wrapper tests — verify the semantic aliases forward
+  // to the correct Resin-backed IPC commands.
+  it("ip_channel_list forwards to node_list", async () => {
+    invokeMock.mockResolvedValue({ items: [] });
+    const r = await ipChannelList();
+    expect(r).toEqual({ items: [] });
+    expect(invokeMock).toHaveBeenCalledWith("node_list");
+  });
+
+  it("ip_channel_policy_set maps BALANCED → platform_update", async () => {
+    invokeMock.mockResolvedValue({ ok: true });
+    await ipChannelPolicySet("my-egress", "BALANCED");
+    expect(invokeMock).toHaveBeenCalledWith("platform_update", {
+      name: "my-egress",
+      allocationPolicy: "BALANCED",
+      regexFilters: null,
+      regionFilters: null,
+      stickyTtl: null,
+    });
+  });
+
+  it("ip_channel_policy_set maps PREFER_LOW_LATENCY → platform_update", async () => {
+    invokeMock.mockResolvedValue({ ok: true });
+    await ipChannelPolicySet("fast-egress", "PREFER_LOW_LATENCY");
+    expect(invokeMock).toHaveBeenCalledWith("platform_update", {
+      name: "fast-egress",
+      allocationPolicy: "PREFER_LOW_LATENCY",
+      regexFilters: null,
+      regionFilters: null,
+      stickyTtl: null,
+    });
+  });
+
+  it("ip_channel_policy_set maps PREFER_IDLE_IP → platform_update", async () => {
+    invokeMock.mockResolvedValue({ ok: true });
+    await ipChannelPolicySet("idle-egress", "PREFER_IDLE_IP");
+    expect(invokeMock).toHaveBeenCalledWith("platform_update", {
+      name: "idle-egress",
+      allocationPolicy: "PREFER_IDLE_IP",
+      regexFilters: null,
+      regionFilters: null,
+      stickyTtl: null,
+    });
+  });
+
+  it("ip_channel_policy_set rejects invalid policy before invoke", async () => {
+    await expect(ipChannelPolicySet("x", "INVALID" as any)).rejects.toThrow(/allocation_policy must be one of/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ip_channel_create forwards to platform_create_with_fields", async () => {
+    invokeMock.mockResolvedValue({ id: "new-id" });
+    const body = { name: "auto-newuid1", allocation_policy: "BALANCED" };
+    await ipChannelCreate(body);
+    expect(invokeMock).toHaveBeenCalledWith("platform_create_with_fields", { body });
+  });
+
+  it("ip_channel_delete forwards to platform_remove", async () => {
+    invokeMock.mockResolvedValue(true);
+    const r = await ipChannelDelete("auto-newuid1");
+    expect(r).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("platform_remove", { name: "auto-newuid1" });
+  });
+
+  it("ip_channel_delete rejects empty name", async () => {
+    await expect(ipChannelDelete("")).rejects.toThrow(/ip_channel invalid/);
     expect(invokeMock).not.toHaveBeenCalled();
   });
 });

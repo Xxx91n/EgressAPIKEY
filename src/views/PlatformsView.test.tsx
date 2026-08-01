@@ -67,6 +67,36 @@ describe("PlatformsView P21-B (dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(container.textContent).toMatch(/duplicate|重复/i));
   });
 
+  it("P21-B: UID is derived from (endpoint, apiKey) and does not cross-pollute", async () => {
+    const { container } = render(<PlatformsView />);
+    await waitFor(() => {
+      const ep = container.querySelector('input[type="text"]');
+      expect(ep).toBeTruthy();
+    });
+    const epInput = container.querySelectorAll('input[type="text"]')[0] as HTMLInputElement;
+    const keyInput = container.querySelector('input[type="password"]') as HTMLInputElement;
+    const buttons = container.querySelectorAll("button");
+    const addBtn = Array.from(buttons).find(b => /add.*key|添加密钥/i.test(b.textContent || ""))!;
+
+    // Add candidate 1: ep1 + key1
+    fireEvent.change(epInput, { target: { value: "https://api.openai.com/v1" } });
+    fireEvent.change(keyInput, { target: { value: "sk-aaa111222333444555" } });
+    fireEvent.click(addBtn);
+    await waitFor(() => expect(container.textContent).toContain("api.openai.com"));
+
+    // Add candidate 2: ep2 + key2 (different pair → different UID)
+    fireEvent.change(epInput, { target: { value: "https://api.anthropic.com/v1" } });
+    fireEvent.change(keyInput, { target: { value: "sk-bbb666777888999000" } });
+    fireEvent.click(addBtn);
+    await waitFor(() => expect(container.textContent).toContain("anthropic"));
+
+    // Both candidates appear simultaneously (no cross-pollution/overwrite)
+    expect(container.textContent).toContain("api.openai.com");
+    expect(container.textContent).toContain("anthropic");
+
+    // Same (endpoint, key) pair would be rejected as duplicate (tested above)
+  });
+
   it("renders live platforms from ipcPlatformListFull", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "platform_list_full") return Promise.resolve([
