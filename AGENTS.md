@@ -83,6 +83,16 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 - Evaluator for the whole repo: `bash scripts/verify-build.sh` - runs cargo build, cargo test, pnpm build, pnpm test; exits non-zero if any fail. CI calls this; so should pre-push hooks.
 
 ### 5. CI/CD - multi-platform packaging to release/
+
+> **Hard close-loop (verified P23): every source commit MUST yield a freshly-staged exe.** This is non-negotiable. After ANY edit to `src/`, `src-tauri/`, `crates/`, `scripts/`, `tauri.conf.json`, or locale catalogs, you MUST, in the same turn:
+> 1. Rebuild the bundle: `pnpm build` (Vite writes a NEW chunk hash to `dist/assets/*.js`).
+> 2. Rebuild the exe: `cargo build --release -p ai-api-route-app --features custom-protocol` (or `bash scripts/build-all.sh` which runs the two steps in order).
+> 3. Stage it: copy `target/<host-triple>/release/ai-api-route.exe` and the sidecar to `release/<os>-gui/`.
+> 4. Prove the bundle is fresh, not just the shell: grep the new Vite chunk hash (from step 1) inside the staged exe bytes.` MainWindowTitle` alone is NOT sufficient - it proves the Tauri shell boots, not that the webview reflects your edits. A stale `dist/` embeds an old frontend and your UI fixes stay invisible to the user (this exact bug bit P22; the exe ran but showed pre-fix UI).
+> 5. Only THEN claim complete. Claiming complete with a stale exe is a false claim.
+>
+> **Forbidden shortcut**: `cargo build --release` alone does NOT invoke `beforeBuildCommand` (only `tauri build` does). It reuses the on-disk `dist/`; shipping the resulting exe is shipping a stale-bundle binary.
+
 - GitHub Actions matrix builds five artifact groups into `release/`:
   1. windows-gui - Tauri MSI + NSIS `-setup.exe` installer (x86_64 msvc)
   2. linux-gui - Tauri `.deb` (Debian) + `.AppImage` (x86_64)
@@ -103,6 +113,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 - Every phase/feature commit MUST be pushed (`git push`) so the project is always traceable. Do not accumulate local-only work across phases.
 - `.gitattributes` LF policy is authoritative; `git diff --check` must be clean before each commit. Never commit with CRLF outside the allow set (`.bat`, `.ps1`, `.cmd`).
 - `git config core.autocrlf false` at repo level (set at init). Do not re-enable autocrlf.
+- **Build is part of the commit (verified P23)**: a code commit is unfinished until the freshly-built `release/<os>-gui/ai-api-route.exe` exists, embeds the latest Vite chunk hash (see section 5 hard close-loop), and has been smoke-launched. A pushed source-only commit is traceable but the user cannot test the change. The `target/` dir and `release/` are gitignored so the exe itself is NOT committed - what you commit is the SOURCE; the freshly staged exe is the deliverable that lives outside git. Treat `release/windows-gui/ai-api-route.exe` as the user-facing artifact; do not deliver a stale exe even if AGENTS.md was already updated.
 
 ### 7. File integrity (host protocol)
 - New source files: UTF-8 no BOM, LF line endings unless extension is in the CRLF allow set.
