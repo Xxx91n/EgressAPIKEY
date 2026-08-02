@@ -1,100 +1,93 @@
-# ADR-0003: key+endpoint identification = three-tuple (auth + body.model + path)
+# ADR-0003: identity = (platform, account, targetHost) in Resin; shell injects account from (auth, body.model, path)
 
-Date: 2026-08-02 (revised 2026-08-02 after 1mcp web research)
-Status: ACCEPTED (supersedes the original PROPOSED which assumed Resin-native was sufficient)
-Decision Type: Domain contract + shell-side identification helper
+Date: 2026-08-02 (revised twice: first PROPOSED wrong, then ACCEPTED three-tuple, now corrected again after source-level Resin research)
+Status: ACCEPTED (corrected)
+Decision Type: Domain contract + shell-side identification + shell-side account injection
 
 ## Context
 
-User requirement: identify each stream's (api_key + upstream v1 endpoint)
-combination uniquely, millisecond-level, exact, no false positives. The user
-flagged the existing implementation as a black box with no closed-loop test,
-and asked for web research into the literal request-header formats used by
-real upstream providers (NVIDIA build GLM-5.2, OmniRoute, OpenAI, Anthropic,
-Azure) before committing to an identification mechanism.
+User flagged the Q3 identification work as black-box / toy: the route_id
+helper in crates/resin-core/src/lane.rs had NO caller wired into the GUI or
+into the Resin IPC surface, and there was no closed loop showing the
+identification actually drives egress selection. User also asked for a source-
+level trade study for A4 (modify Resin vs shell-side decoupled decision layer).
 
-## Research findings (1mcp perplexity + exa, 2026-08-02)
+## Source-level research findings (Resin master, 2026-08-02)
 
-Surveyed literal request headers across providers + the OmniRoute gateway
-source (docs/architecture/AUTHZ_GUIDE.md, src/sse/handlers/chat.ts):
+Read at source: DESIGN.md, internal/proxy/forward.go, internal/proxy/reverse.go,
+internal/routing/router.go.
 
-- OpenAI: `Authorization: Bearer sk-xxx` (OpenAI compatible).
-- NVIDIA build.nvidia.com GLM-5.2: OpenAI SDK with
-  `base_url=https://integrate.api.nvidia.com/v1` + `Authorization: Bearer $NVIDIA_API_KEY`.
-  So NVIDIA is OpenAI-compatible and uses the standard Bearer scheme.
-- Anthropic: `x-api-key: <key>` + `anthropic-version: 2023-06-01` (NOT Bearer,
-  though some hybrid proxies also send a Bearer at the same time).
-- Azure OpenAI: `api-key: <key>` (custom header, not Bearer).
-- OmniRoute: client calls OmniRoute at `/v1/chat/completions` with a Bearer;
-  OmniRoute extracts the key via `extractApiKey()`, then resolves the upstream
-  `(provider, model)` from the JSON body `model` field (e.g.
-  `openai/gpt-5.6`), then emits trusted internal headers
-  `x-omniroute-auth-{kind,id,label,scopes}` to downstream. The Authorization
-  value is the **gateway-side** key; the upstream target is **not** in that
-  header, it is in the body.
-
-Key conclusion: the Authorization header value is the **client** identity, not
-the **upstream endpoint** identity. A single gateway-side key legitimately
-reaches many upstream endpoints (OmniRoute: one client key -> 290+ providers).
-Relying on Authorization alone aliases distinct (key, endpoint) pairs into one
-Account, breaking the per-(key,endpoint) IP isolation the project is built for.
+1. Resin routing input is `(platformName, account, targetHost)`. The upstream
+   `Authorization: Bearer <sk-xxx>` is an end-to-end header Resin copies
+   through and does NOT inspect for routing. The earlier PROPOSED premise
+   ("reverse_proxy_fixed_account_header: Authorization makes Resin use the
+   OpenAI key as the Account") is WRONG. The fixed_account_header is a fallback
+   extractor used only when the reverse-proxy URL has no account segment and
+   no X-Resin-Account header; the extracted value is treated as an opaque
+   business account string.
+2. `account` is a business identity (Tom / user_1), not the upstream API key.
+   Source priority: X-Resin-Account header > URL identity segment > fixed_header
+   / account_header_rule.
+3. allocation_policy (BALANCED | PREFER_LOW_LATENCY | PREFER_IDLE_IP) is an
+   if-branch inside the P2C composite score, NOT a Go strategy interface. There
+   is no NodePicker/Strategy interface to implement against.
+4. Resin v1.1.2 has NO per-node override API. The shell cannot tell Resin
+   "route this specific request to node hash X". Resin picks the node inside
+   the platform pool via P2C.
 
 ## Decision (corrected)
 
-The unique identity for a (api_key + upstream v1 endpoint) combination is the
-**three-tuple**:
+The shell is the identification layer; Resin stays the egress-IP-sticky layer.
+The unique identity the shell tracks per request is:
 
 ```
-route_id = hash( normalize_auth(authorization_value), body.model, request.path )
+route_id = hash(normalize_auth(authorization_value), body.model, request.path)
 ```
 
-- `normalize_auth` strips the auth scheme prefix (Bearer/bearer/x-api-key/
-  api-key/Ocp-Apim-Subscription-Key) and ASCII-lowercases it, so the same key
-  presented under different schemes by different SDKs collapses to one
-  identity.
-- `body.model` is the OpenAI-compatible JSON body `model` field (the routing
-  target, e.g. `openai/gpt-5.6`, `claude-sonnet-5`). This is what OmniRoute
-  and litellm actually use to pick the upstream provider.
-- `request.path` is the upstream path tail (`/v1/chat/completions` vs
-  `/v1/responses` vs `/v1/messages`).
+This helper already exists in crates/resin-core/src/lane.rs (P24-Q3) with 8
+unit tests. The fix for the toy/black-box gap is to WIRE it: the shell sits in
+the client path and rewrites each request to inject
+`X-Resin-Account: <route_id-derived-id>` (or the URL identity segment), so
+Resin anchors egress IP per (unique client key + upstream endpoint) pair. The
+GUI then reads back the live lease map from
+`GET /api/v1/metrics/realtime/leases` (platform, account, egress_ip, target)
+and renders it on the topology canvas, so the user SEES the mapping is real.
 
-Implementation: `crates/resin-core/src/lane.rs` exports
-`pub fn route_id(auth_value, body_model, request_path) -> u64` and
-`pub fn normalize_auth(raw) -> String`. FxHash, stable for the same triple,
-distinct for any differing component. Sub-millisecond (single hash over three
-short strings). The shell uses this as the display identity; Resin's own
-Account string stays auth-value-only internally.
+This is A4-3 in the trade matrix (see docs/RESIN_ROUTING_ARCHITECTURE_RESEARCH.md
+section 5). It needs NO Resin source modification.
 
 ## What this is NOT
 
-- It does NOT replace Resin's sticky-session machinery. Resin still owns the
-  in-process token->account->IP mapping; `route_id` is the shell-side
-  composition that keeps the (key, model, path) three-tuple honest so the GUI
-  canvas can show distinct route identities per (key, endpoint) even when
-  Resin's auth-only Account would alias them.
-- It does NOT require packet deep inspection. All three inputs (Authorization
-  header, JSON body, request path) are available at the HTTP boundary without
-  TLS termination of the upstream.
-- It is NOT crypto-secure. FxHash is a non-cryptographic hash chosen for
-  speed; the threat is collision-induced misrouting inside one host, not a
-  preimage attack across hosts.
+- It does NOT rely on Resin parsing body.model. Resin never sees body.model;
+  the shell does, before the rewrite.
+- It does NOT require a per-node override API. Resin's existing sticky routing
+  on the injected account is the mechanism; per-node selection inside a
+  platform stays Resin's P2C job.
+- It is NOT a shell-side node picker. A4-2 (pure shell decision layer) is a
+  dead end on v1.1.2 because the chosen node has nowhere to land.
 
-## Closed-loop tests
+## Closed-loop tests already in place
 
-`cargo test -p resin-core --lib lane` = 27 pass, including:
-- route_id_is_idempotent_for_same_triple
-- route_id_distinct_for_different_key_same_endpoint
-- route_id_distinct_for_same_key_different_model   (the Resin-native gap)
-- route_id_distinct_for_same_key_same_model_different_path
-- normalize_auth_makes_route_id_scheme_invariant  (Bearer vs bare collapse)
+- crates/resin-core/src/lane.rs: route_id + normalize_auth (8 tests,
+  `cargo test -p resin-core --lib` green).
 
-## Consequences
+## Still-to-build closed loop (the work this ADR authorizes next)
 
-- PlatformsView key candidates and the Topology canvas B-column should display
-  the composite (auth, model, path) identity, not auth alone. A later phase
-  wires route_id into the canvas node id so dragging a (key+model) to an IP
-  channel is a distinct binding from dragging (key, different-model) to the
-  same channel.
-- Key Candidates (P21) are now grounded: the int32 display hash of
-  (endpoint, apiKey) the GUI uses is the public face of this same tuple; the
-  real identity used for routing is route_id(auth, model, path).
+- A local HTTP interceptor (axum) between omniroute/litellm and Resin that:
+  1. parses Authorization + JSON body.model + path,
+  2. calls route_id + normalize_auth,
+  3. injects X-Resin-Account: <stable id derived from route_id>,
+  4. forwards to Resin reverse-proxy.
+- A GUI view that reads /api/v1/metrics/realtime/leases and shows the live
+  (platform, account, egress_ip, target) tuple so the mapping is observable.
+- A vitest + cargo integration test that asserts: send a request with (sk-A,
+  gpt-5.6) vs (sk-A, claude-sonnet-5) -> two distinct X-Resin-Account values ->
+  two distinct lease entries -> two distinct egress IPs (when pool allows).
+
+## A4 follow-up
+
+Per-node bandwidth / protocol weighting on the hot path requires modifying
+Resin's Go source (refactor allocation_policy into a strategy interface). This
+is A4-1 and is a real Go fork. Defer until A4-3 proves insufficient in
+practice; the trade matrix in docs/RESIN_ROUTING_ARCHITECTURE_RESEARCH.md
+section 5 is the decision record.
