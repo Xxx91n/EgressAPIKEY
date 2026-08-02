@@ -235,3 +235,77 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
     });
   });
 });
+/// Item 2 / Option B: ADR-0006 item 2 closed-loop - the row hint must
+/// surface Resin last_error/last_checked/healthy_node_count so a fetch
+/// 403 is not a mute zero. The hint reads the i18n raw key fallback
+/// (jsdom does not eager-load the resources-to-backend chunks), so the
+/// matcher allows the raw key OR the en-locale text.
+describe("SubscriptionsView item 2 row hint (ADR-0006 item 2)", () => {
+  afterEach(() => cleanup());
+  beforeEach(() => {
+    useAppStore.setState({ subscriptions: [], laneCount: 10 });
+    invokeMock.mockReset();
+  });
+
+ it("shows last_error in red when Resin fetch fails (e.g. 403)", async () => {
+   invokeMock.mockImplementation(async (cmd: string) => {
+     if (cmd === "subscription_list") return [{
+       name: "probe-bad",
+       node_count: 0,
+       healthy_node_count: 0,
+       last_error: "downloader: unexpected status 403 from https://example.invalid/x",
+       last_checked: "2026-08-02T10:54:41.0883134Z",
+     }];
+     return undefined;
+   });
+   render(<SubscriptionsView />);
+   await waitFor(() => expect(screen.getByText(/probe-bad/)).toBeInTheDocument());
+    // The hint span carries the last_error text either as a native i18n
+    // interpolation ( LoadedState ) OR the raw-key fallback (jsdom does
+    // not eager-load the resources-to-backend chunks). Both shapes embed the
+    // last_error substring, so we match the substring at the row level.
+    await waitFor(() => {
+      const row = Array.from(document.querySelectorAll("ul li"))
+        .find((li) => /probe-bad/.test(li.textContent || ""));
+      expect(row && /unexpected status 403 from https:\/\/example\.invalid\/x/.test(row.textContent || "")).toBe(true);
+      // The row must also carry a rose-tinted hint element (its classList
+      // contains the Tailwind text-rose-* token; we assert by classList
+      // membership, not the CSS-selector which fails on the `dark:` prefix
+      // in jsdom).
+      const roseEl = Array.from(row?.querySelectorAll("span") || [])
+        .find((sp) => Array.from(sp.classList).some((c) => c.startsWith("text-rose")));
+      expect(roseEl).toBeTruthy();
+    });
+  });
+
+  it("shows healthy count when >0 and trims last_checked sub-seconds", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") return [{
+        name: "probe-good",
+        node_count: 102,
+        healthy_node_count: 8,
+        last_error: "",
+        last_checked: "2026-08-02T11:00:00.123456Z",
+      }];
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    await waitFor(() => expect(screen.getByText(/probe-good/)).toBeInTheDocument());
+    await waitFor(() => {
+      const row = Array.from(document.querySelectorAll("ul li"))
+        .find((li) => /probe-good/.test(li.textContent || ""));
+      // The trimmed timestamp "2026-08-02 11:00:00" must appear in the row.
+      expect(row && /2026-08-02 11:00:00/.test(row.textContent || "")).toBe(true);
+      // The healthy count "8" appears in the emerald-tinted span when
+      // healthy_node_count > 0; assert by classList to dodge the dark: prefix.
+      const emEl = Array.from(row?.querySelectorAll("span") || [])
+        .find((sp) => Array.from(sp.classList).some((c) => c.startsWith("text-emerald")));
+      expect(emEl && /\b8\b/.test(emEl.textContent || "")).toBe(true);
+    });
+    // No rose-tinted error span should appear when last_error is empty.
+    const roseEls = Array.from(document.querySelectorAll("ul li"))
+      .flatMap((li) => Array.from(li.querySelectorAll("span")))
+      .filter((sp) => Array.from(sp.classList).some((c) => c.startsWith("text-rose")));
+    expect(roseEls.length).toBe(0);
+  });
+});

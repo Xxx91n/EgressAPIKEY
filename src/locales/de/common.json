@@ -139,7 +139,8 @@
     "renameMissing": "Abonnement auf dem Gateway nicht gefunden. Liste aktualisieren und erneut versuchen.",
     "renameUrlMissing": "Umbenennen nicht möglich: Original-URL nicht zwischengespeichert. Abonnement mit neuem Namen erneut importieren.",
     "resetOrder": "Sortierung zurücksetzen",
-    "duplicate": "Abonnement \"{{name}}\" existiert bereits. Wählen Sie einen anderen Namen."
+    "duplicate": "Abonnement \"{{name}}\" existiert bereits. Wählen Sie einen anderen Namen.",
+    "healthy": "gesund"
   },
   "theme": {
     "label": "Design",

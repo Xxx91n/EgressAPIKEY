@@ -449,6 +449,12 @@ pub async fn subscription_remove(sidecar: State<'_, SidecarHandle>, name: String
 pub struct SubscriptionSnapshotEntry {
     pub name: String,
     pub node_count: u64,
+    pub healthy_node_count: u64,
+    /// Resin `last_error` (empty string when fetch succeeded). Surfaced so
+    /// the GUI can show WHY node_count is 0 instead of a mute zero.
+    pub last_error: String,
+    /// Resin `last_checked` RFC3339 timestamp (empty when never checked).
+    pub last_checked: String,
 }
 
 #[tauri::command]
@@ -654,7 +660,12 @@ fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotEntry
         .filter_map(|p| {
             let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
             let node_count = p.get("node_count").and_then(|n| n.as_u64()).unwrap_or(0);
-            if name.is_empty() { None } else { Some(SubscriptionSnapshotEntry { name: name.to_string(), node_count }) }
+            if name.is_empty() { None } else {
+                let healthy_node_count = p.get("healthy_node_count").and_then(|n| n.as_u64()).unwrap_or(0);
+                let last_error = p.get("last_error").and_then(|n| n.as_str()).unwrap_or("").to_string();
+                let last_checked = p.get("last_checked").and_then(|n| n.as_str()).unwrap_or("").to_string();
+                Some(SubscriptionSnapshotEntry { name: name.to_string(), node_count, healthy_node_count, last_error, last_checked })
+            }
         })
         .collect()
 }
@@ -1308,7 +1319,7 @@ mod tests {
         let v = json!({
             "items": [
                 { "id": "s1", "name": "sub-a", "node_count": 33 },
-                { "id": "s2", "name": "sub-b", "node_count": 0 },
+                { "id": "s2", "name": "sub-b", "node_count": 0, "healthy_node_count": 0, "last_error": "downloader: unexpected status 403", "last_checked": "2026-08-02T10:54:41.0883134Z" },
             ],
             "total": 2, "limit": 50, "offset": 0,
         });
@@ -1316,7 +1327,42 @@ mod tests {
         assert_eq!(snap.len(), 2);
         assert_eq!(snap[0].name, "sub-a");
         assert_eq!(snap[0].node_count, 33);
+        // Item 2 / Option B: default fields when Resin omits them.
+        assert_eq!(snap[0].healthy_node_count, 0);
+        assert_eq!(snap[0].last_error, "");
+        assert_eq!(snap[0].last_checked, "");
         assert_eq!(snap[1].node_count, 0);
+        // Item 2 / Option B: surface last_error/last_checked/healthy so a
+        // fetch 403 is not a mute zero in the GUI.
+        assert_eq!(snap[1].healthy_node_count, 0);
+        assert_eq!(snap[1].last_error, "downloader: unexpected status 403");
+        assert_eq!(snap[1].last_checked, "2026-08-02T10:54:41.0883134Z");
+    }
+
+    /// Item 2 / Option B: ensure the projection does not panic when Resin
+    /// returns last_error as a null (some Go encoders emit null instead of
+    /// empty for an unset string pointer). unwrap_or("") must handle both.
+    #[test]
+    fn subscription_snapshot_handles_null_last_error_and_missing_healthy() {
+        let v = json!({
+            "items": [
+                { "id": "s3", "name": "sub-c", "node_count": 12, "healthy_node_count": 8, "last_error": null, "last_checked": "2026-08-02T11:00:00Z" },
+                { "id": "s4", "name": "sub-d", "node_count": 5 },
+            ],
+            "total": 2,
+        });
+        let snap = subscription_snapshot(&v);
+        assert_eq!(snap.len(), 2);
+        assert_eq!(snap[0].name, "sub-c");
+        assert_eq!(snap[0].node_count, 12);
+        assert_eq!(snap[0].healthy_node_count, 8);
+        assert_eq!(snap[0].last_error, ""); // null collapses to empty string
+        assert_eq!(snap[0].last_checked, "2026-08-02T11:00:00Z");
+        assert_eq!(snap[1].name, "sub-d");
+        assert_eq!(snap[1].node_count, 5);
+        assert_eq!(snap[1].healthy_node_count, 0);
+        assert_eq!(snap[1].last_error, "");
+        assert_eq!(snap[1].last_checked, "");
     }
 
     #[test]

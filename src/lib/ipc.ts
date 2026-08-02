@@ -241,6 +241,9 @@ export async function ipcEvictLane(lane: number): Promise<void> {
 export interface SubscriptionSnapshotEntry {
   name: string;
   node_count: number;
+  healthy_node_count: number;
+  last_error: string;
+  last_checked: string;
 }
 
 export async function ipcSubscriptionAdd(name: string, url: string): Promise<void> {

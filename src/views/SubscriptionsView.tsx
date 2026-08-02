@@ -376,32 +376,35 @@ export function SubscriptionsView() {
               onPointerDown={(e) => onPointerDownRow(e, i)}
               onPointerEnter={() => onPointerEnterRow(i)}
               onPointerUp={() => onPointerUpRow(i)}
-              className={"rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-4 py-3 text-sm flex items-center justify-between cursor-grab active:cursor-grabbing select-none touch-none transition-opacity " + (dragOverIndex === i ? "ring-2 ring-blue-400/50 " : "") + (dragSrc.current === i && dragMoved.current ? "opacity-60 " : "")}
+              className={"rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-4 py-3 text-sm cursor-grab active:cursor-grabbing select-none touch-none transition-opacity " + (dragOverIndex === i ? "ring-2 ring-blue-400/50 " : "") + (dragSrc.current === i && dragMoved.current ? "opacity-60 " : "")}
             >
-              <span className="flex items-center gap-2 min-w-0 flex-1">
-                <GripVertical size={14} className="text-zinc-400 dark:text-zinc-600 shrink-0" />
-                <span className="font-mono text-xs text-zinc-600 dark:text-zinc-300 truncate max-w-[60%]">{s.name}</span>
-              </span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
-                {t("subscription.imported", { count: s.node_count, lanes })}
-                <button
-                  onClick={() => handleRename(s.name)}
-                  disabled={busy}
-                  aria-label={t("subscription.rename")}
-                  title={t("subscription.rename")}
-                  className="text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 p-1 disabled:opacity-40"
-                >
-                  <Pencil size={13} />
-                </button>
-                <button
-                  onClick={() => handleRemove(s.name)}
-                  disabled={busy}
-                  aria-label={t("common.delete")}
-                  className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400 p-1 disabled:opacity-40"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 min-w-0 flex-1">
+                  <GripVertical size={14} className="text-zinc-400 dark:text-zinc-600 shrink-0" />
+                  <span className="font-mono text-xs text-zinc-600 dark:text-zinc-300 truncate max-w-[60%]">{s.name}</span>
+                </span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                  {t("subscription.imported", { count: s.node_count, lanes })}
+                  <button
+                    onClick={() => handleRename(s.name)}
+                    disabled={busy}
+                    aria-label={t("subscription.rename")}
+                    title={t("subscription.rename")}
+                    className="text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 p-1 disabled:opacity-40"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    onClick={() => handleRemove(s.name)}
+                    disabled={busy}
+                    aria-label={t("common.delete")}
+                    className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400 p-1 disabled:opacity-40"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </span>
+              </div>
+              <SubscriptionRowHint s={s} t={t} />
             </li>
           ))}
           {live.length === 0 && localSubs.map((s) => (
@@ -418,5 +421,28 @@ export function SubscriptionsView() {
         </ul>
       )}
     </section>
+  );
+}
+/// Item 2 / Option B: surface Resin last_error / last_checked / healthy
+/// so "imported ok but 0 nodes" is no longer a mute zero. The line below
+/// the row shows healthy count + an error hint in red when last_error is
+/// non-empty; last_checked in a tiny muted span when present.
+function SubscriptionRowHint({ s, t }: { s: SubscriptionSnapshotEntry; t: ReturnType<typeof useTranslation>["t"] }) {
+  const lc = (s.last_checked || "").replace(/\.\d+Z$/, "Z");
+  const lcShort = lc ? lc.replace("T", " ").slice(0, 19) : "";
+  return (
+    <div className="mt-1 px-1 text-[11px] flex flex-wrap items-center gap-x-3 gap-y-0.5 leading-tight">
+      <span className={"shrink-0 " + (s.healthy_node_count > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-400 dark:text-zinc-500")}>
+        {t("subscription.healthy")} {s.healthy_node_count}
+      </span>
+      {lcShort && (
+        <span className="text-zinc-400 dark:text-zinc-500 font-mono">{lcShort}</span>
+      )}
+      {s.last_error && (
+        <span className="text-rose-600 dark:text-rose-400 break-all">
+          {s.last_error}
+        </span>
+      )}
+    </div>
   );
 }

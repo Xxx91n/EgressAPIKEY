@@ -139,7 +139,8 @@
     "renameMissing": "Abonelik ağ geçidinde bulunamadı. Listeyi yenileyip tekrar deneyin.",
     "renameUrlMissing": "Yeniden adlandırılamıyor: orijinal URL önbellekte değil. Aboneliği yeni adla yeniden içe aktarın.",
     "resetOrder": "Sıralamayı sıfırla",
-    "duplicate": "Abonelik \"{{name}}\" zaten mevcut. Farklı bir ad seçin."
+    "duplicate": "Abonelik \"{{name}}\" zaten mevcut. Farklı bir ad seçin.",
+    "healthy": "sağlıklı"
   },
   "theme": {
     "label": "Tema",

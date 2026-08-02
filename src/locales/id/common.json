@@ -139,7 +139,8 @@
     "renameMissing": "Langganan tidak ditemukan di gateway. Muat ulang daftar dan coba lagi.",
     "renameUrlMissing": "Tidak dapat mengubah nama: URL asli tidak di-cache. Impor ulang langganan dengan nama baru.",
     "resetOrder": "Atur ulang urutan",
-    "duplicate": "Langganan \"{{name}}\" sudah ada. Pilih nama lain."
+    "duplicate": "Langganan \"{{name}}\" sudah ada. Pilih nama lain.",
+    "healthy": "sehat"
   },
   "theme": {
     "label": "Tema",

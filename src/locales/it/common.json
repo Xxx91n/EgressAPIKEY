@@ -139,7 +139,8 @@
     "renameMissing": "Abbonamento non trovato sul gateway. Aggiorna lelenco e riprova.",
     "renameUrlMissing": "Impossibile rinominare: URL originale non in cache. Reimporta labbonamento con il nuovo nome.",
     "resetOrder": "Ripristina ordine",
-    "duplicate": "L'abbonamento \"{{name}}\" esiste già. Scegli un altro nome."
+    "duplicate": "L'abbonamento \"{{name}}\" esiste già. Scegli un altro nome.",
+    "healthy": "sano"
   },
   "theme": {
     "label": "Tema",

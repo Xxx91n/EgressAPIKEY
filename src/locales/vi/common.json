@@ -139,7 +139,8 @@
     "renameMissing": "Không tìm thấy đăng ký trên gateway. Làm mới danh sách và thử lại.",
     "renameUrlMissing": "Không thể đổi tên: URL gốc không được lưu tạm. Hãy nhập lại đăng ký bằng tên mới.",
     "resetOrder": "Đặt lại sắp xếp",
-    "duplicate": "Đăng ký \"{{name}}\" đã tồn tại. Chọn tên khác."
+    "duplicate": "Đăng ký \"{{name}}\" đã tồn tại. Chọn tên khác.",
+    "healthy": "khỏe"
   },
   "theme": {
     "label": "Giao diện",
