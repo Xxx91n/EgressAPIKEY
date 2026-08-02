@@ -153,3 +153,26 @@ policy biasing proves insufficient in practice.
   display_tag, has_outbound, failure_count, region, tags. No per-node
   bandwidth field. No per-node protocol field beyond what the subscription
   tags encode.
+
+
+## 7. ADR-0006 item 3 live-sidecar e2e findings (new)
+
+- **Reverse-proxy path format requires the identity segment.** The Resin
+  reverse-proxy surface path is `/<token>/<identity>/<protocol>/<host>/<path>`.
+  Omitting the identity segment (e.g. `/<token>/https/<host>/<path>`) yields
+  `400 Protocol must be http or https` because the parser walks the segment
+  that should be the identity as if it were the protocol. The interceptor
+  lands `Default` in the identity slot so the URL parses; the injected
+  `X-Resin-Account` header takes precedence over the URL identity segment
+  per DESIGN.md, so route_id still drives Account selection.
+- **Leases endpoint surfaces aggregates, not per-key rows.** The live Resin
+  v1.1.2 `GET /api/v1/metrics/realtime/leases` returns an items-wrapper
+  where each row is `{active_leases, ts, platform_id, step_seconds}` (an
+  aggregate per platform per step) and does NOT expose the per-key
+  `{account, node_hash, egress_ip, target_domain}` row the GUI lease chip
+  relies on. The per-key binding is an internal Go sidecar invariant by
+  design; the shell's `lease_map` IPC projects account/egress_ip only when
+  the upstream field is present, otherwise renders the aggregate count.
+  A future Resin API change that adds per-key fields to the leases
+  endpoint would let the GUI show real per-key egress chips; until then
+  the chip displays the injected X-Resin-Account id's first 12 chars.

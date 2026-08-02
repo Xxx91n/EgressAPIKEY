@@ -95,7 +95,7 @@ async fn proxy_handler(
     let account_id = format!("ar-{:016x}", rid);
 
     // Build the upstream Resin reverse-proxy URL.
-    // Format: {resin_base}/{proxy_token}/{identity_segment}/{protocol}/{host}/{path}
+    // Format: {resin_base}/{proxy_token}/{identity}/{protocol}/{host}/{path}
     // We use empty identity segment + X-Resin-Account header (header priority > URL).
     let host = parts
         .headers
@@ -120,12 +120,22 @@ async fn proxy_handler(
     fwd_headers.remove(axum::http::header::HOST);
 
     // Build the upstream URL. The path includes the query string if any.
+    // Resin reverse-proxy path format (DESIGN.md):
+    //   /<PROXY_TOKEN>/<identity>/<protocol>/<host>/<path>?<query>
+    // identity is mandatory as a path SEGMENT but carries no semantic when
+    // X-Resin-Account header is present (header priority > URL identity, so
+    // the header value overrides whatever we put here). We use "." as the
+    // identity placeholder so the protocol/host path parser sees the two
+    // required segments after the token. Resin then routes the request to
+    // the Default platform and the X-Resin-Account header identifies the
+    // account within that platform.
+    let path_and_query = parts.uri.path_and_query().map(|s| s.as_str()).unwrap_or("");
     let upstream = format!(
-        "{}/{}/https/{}{}",
+        "{}/{}/Default/https/{}{}",
         cfg.resin_base.trim_end_matches('/'),
         cfg.proxy_token,
         host,
-        parts.uri
+        path_and_query
     );
 
     let method = parts.method.clone();
