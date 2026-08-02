@@ -98,6 +98,15 @@ pub fn current_lang(app: &AppHandle) -> TrayLang {
 pub fn apply_labels(app: &AppHandle) -> tauri::Result<()> {
     let lc = current_lang(app);
     let l = labels(lc);
+    // P25-item4: observable diagnostics. The user reported the tray right-click
+    // menu shows the PREVIOUS locale after a language switch in Settings. The
+    // SettingsView awaits saveLocale then invokes this cmd, so by the time we
+    // run current_lang the persisted "lang" SHOULD already be the new value.
+    // Without this log we cannot tell whether (a) the invoke never reached
+    // here, (b) current_lang read a stale cached value, or (c) tray_by_id
+    // returned None so the menu was never rebuilt. All three produce the same
+    // user-visible symptom, so we record all three inputs here.
+    tracing::info!(target: "tray", lang=?lc, tooltip=l.tooltip, "apply_labels: refreshing tray menu");
     if let Some(tray) = app.tray_by_id("main") {
         let _ = tray.set_tooltip(Some(l.tooltip));
         let show = MenuItem::with_id(app, "show", l.show, true, None::<&str>)?;
@@ -105,6 +114,9 @@ pub fn apply_labels(app: &AppHandle) -> tauri::Result<()> {
         let quit = MenuItem::with_id(app, "quit", l.quit, true, None::<&str>)?;
         let menu = Menu::with_items(app, &[&show, &sep, &quit])?;
         tray.set_menu(Some(menu))?;
+        tracing::info!(target: "tray", show=l.show, quit=l.quit, "apply_labels: menu rebuilt ok");
+    } else {
+        tracing::warn!(target: "tray", "apply_labels: tray_by_id(\"main\") returned None; menu not rebuilt");
     }
     Ok(())
 }
