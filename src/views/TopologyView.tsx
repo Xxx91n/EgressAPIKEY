@@ -4,7 +4,7 @@ import {
   Handle, Position, type Node, type Edge, type Connection, type NodeProps,
   useReactFlow, ReactFlowProvider, type OnMoveEnd,
 } from "@xyflow/react";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import { useAppStore } from "../store/appStore";
 import {
@@ -158,6 +158,24 @@ async function backupBeforeEdit(): Promise<void> {
 /// Inner canvas owns the actual <ReactFlow> and needs useReactFlow(), which
 /// requires a <ReactFlowProvider> ancestor. TopologyView is the exported shell
 /// that wires the provider so callers can mount <TopologyView /> directly.
+
+
+/// Q2-Bug1 closed-loop: pure helpers for region_filters add/remove so the
+/// dedup + idempotency contract is unit-tested without a live ReactFlow drag.
+/// - addRegion: returns next array (or null-safe empty) with the region exactly
+///   once. Already-present -> returns the same reference (idempotent, no PATCH).
+/// - removeRegion: returns the array without the region; empty -> [] (never null,
+///   so the PATCH always sends an array the server accepts).
+export function addRegionFilter(current: string[] | null, region: string): string[] {
+  const cur = current ?? [];
+  if (cur.includes(region)) return cur; // idempotent: no-op, caller should skip PATCH
+  return [...cur, region];
+}
+export function removeRegionFilter(current: string[] | null, region: string): string[] {
+  const cur = current ?? [];
+  return cur.filter((r) => r !== region);
+}
+
 function TopologyCanvas() {
   const { t, i18n } = useTranslation();
   const theme = useAppStore((s) => s.theme);
@@ -169,6 +187,10 @@ function TopologyCanvas() {
   const [nodeGroups, setNodeGroups] = useState<NodeGroup[]>([]);
   const [sidecarStatus, setSidecarStatus] = useState<"healthy" | "unhealthy" | null>(null);
   const [patching, setPatching] = useState(false);
+  // Q2-Bug1: ref-based reentry lock so two rapid drags cannot both read a stale
+  // region_filters snapshot and race the PATCH (the state update is async; the
+  // state flag is not a reliable guard inside the same handler invocation).
+  const patchingRef = useRef(false);
   // P19 item 1: tracks whether we have already restored the saved viewport so
   // the conditional fitView() only runs on first paint when no previous
   // viewport was persisted. Without this gate, ReactFlow fitView() would snap
@@ -222,25 +244,30 @@ function TopologyCanvas() {
     // source = platform-<name>, target = nodegroup-<region>
     if (!conn.source || !conn.target) return;
     if (!conn.source.startsWith("platform-") || !conn.target.startsWith("nodegroup-")) return;
+    // Q2-Bug1: reentry guard via ref (state flag is async, unreliable in-handler)
+    if (patchingRef.current) return;
     const platName = conn.source.slice("platform-".length);
     const region = conn.target.slice("nodegroup-".length);
     const plat = platforms.find((p) => p.name === platName);
     if (!plat) return;
     const current = plat.region_filters ?? [];
-    if (current.includes(region)) return; // already bound
-    const next = [...current, region];
+    if (current.includes(region)) return; // already bound (idempotent)
+    const next = addRegionFilter(plat.region_filters, region);
+    patchingRef.current = true;
     setPatching(true);
     try {
       await backupBeforeEdit(); // P19 item 4: snapshot before routing change
       await ipcPlatformUpdate(platName, undefined, undefined, next);
-      // Optimistic local update so the edge appears instantly.
-      setPlatforms((prev) => prev.map((p) =>
-        p.name === platName ? { ...p, region_filters: next } : p
-      ));
+      // Q2-Bug1+Bug2: do NOT optimistically mutate region_filters locally.
+      // Always re-GET from the server so the canvas reflects the authoritative
+      // post-PATCH state (region_filters AND routable_node_count the server
+      // recalculated). This makes the PATCH effectively transactional from the
+      // user's perspective: the canvas only shows what the server confirmed.
+      await sync();
     } catch {
-      // Revert on failure.
-      void sync();
+      await sync(); // server rejected -> resync to drop the stale optimistic edge
     } finally {
+      patchingRef.current = false;
       setPatching(false);
     }
   }, [platforms, sync]);
@@ -248,25 +275,28 @@ function TopologyCanvas() {
   /// Delete edge = remove the region from the platform's region_filters.
   /// P19 item 4: best-effort backup BEFORE the PATCH so the change is reversible.
   const onEdgesDelete = useCallback(async (edges: Edge[]) => {
-    for (const e of edges) {
-      if (!e.source.startsWith("platform-") || !e.target.startsWith("nodegroup-")) continue;
-      const platName = e.source.slice("platform-".length);
-      const region = e.target.slice("nodegroup-".length);
-      const plat = platforms.find((p) => p.name === platName);
-      if (!plat || !plat.region_filters) continue;
-      const next = plat.region_filters.filter((r) => r !== region);
-      setPatching(true);
-      try {
+    if (patchingRef.current) return; // Q2-Bug1: reentry guard
+    patchingRef.current = true;
+    setPatching(true);
+    try {
+      for (const e of edges) {
+        if (!e.source.startsWith("platform-") || !e.target.startsWith("nodegroup-")) continue;
+        const platName = e.source.slice("platform-".length);
+        const region = e.target.slice("nodegroup-".length);
+        const plat = platforms.find((p) => p.name === platName);
+        if (!plat || !plat.region_filters) continue;
+        const next = removeRegionFilter(plat.region_filters, region);
         await backupBeforeEdit(); // P19 item 4
         await ipcPlatformUpdate(platName, undefined, undefined, next.length > 0 ? next : []);
-        setPlatforms((prev) => prev.map((p) =>
-          p.name === platName ? { ...p, region_filters: next.length > 0 ? next : null } : p
-        ));
-      } catch {
-        void sync();
-      } finally {
-        setPatching(false);
+        // Q2-Bug2: do NOT optimistically mutate; resync after each PATCH so the
+        // canvas reflects the server-truthy region_filters + routable_node_count.
+        await sync();
       }
+    } catch {
+      await sync();
+    } finally {
+      patchingRef.current = false;
+      setPatching(false);
     }
   }, [platforms, sync]);
 
@@ -398,7 +428,7 @@ function TopologyCanvas() {
       {nodeGroups.length === 0 && (
         <div className="px-1 pb-2 text-xs text-zinc-400">{t("topology.noNodes")}</div>
       )}
-      <div className={"flex-1 border border-zinc-200 dark:border-zinc-800 rounded transition-opacity duration-150 " + (ready ? "opacity-100" : "opacity-0")}>
+      <div className={"flex-1 min-h-[400px] border border-zinc-200 dark:border-zinc-800 rounded transition-opacity duration-150 " + (ready ? "opacity-100" : "opacity-0")}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -408,6 +438,9 @@ function TopologyCanvas() {
           onMoveEnd={onMoveEnd}
           onInit={onInit}
           colorMode={colorMode}
+          nodesConnectable
+          nodesDraggable
+          defaultEdgeOptions={{ type: "smoothstep", animated: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
           <Controls />

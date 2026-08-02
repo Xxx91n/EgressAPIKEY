@@ -39,3 +39,11 @@
 ### 约束
 
 以上所有新增内容全都要有闭环的 test，能够测试修改是否生效，不要自欺欺人、自我安慰、自我满足。
+
+
+## 2026-08-02 — grill-with-docs 用户原始提示
+
+用户调用 [$grill-with-docs] + [$ponytail:ponytail] (full mode)
+背景: ai-api-route 项目已历经 P0-P23 阶段, G1-G5 全部完成 (Resin Go sidecar + Tauri shell).
+用户要求: 对整个计划/设计进行严厉质询 (grilling), 同时构建领域模型 (CONTEXT.md + ADR).
+约束: 始终遵循 AGENTS.md, 使用 ctx_*, 必要时用 1mcp 的 exa/perplexity 联网搜索, Ponytail full 模式, 禁用子代理.
