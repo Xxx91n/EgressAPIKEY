@@ -39,6 +39,50 @@ pub fn lane_index(key: &str, cfg: &LaneConfig) -> usize {
     (v as usize) % cfg.lanes.max(1)
 }
 
+/// Stable identifier for a single (api_key + upstream_endpoint) combination.
+///
+/// Q3 closed-loop: a request's identity is NOT just the Authorization value.
+/// Research (OmniRoute AUTHZ_GUIDE, NVIDIA build GLM-5.2, Anthropic/Azure)
+/// proves that the same gateway-side Bearer can legitimately reach multiple
+/// upstream endpoints (OmniRoute routes one client key to 290+ providers;
+/// litellm routes one virtual key across many models). So the unique key for
+/// sticky-session / lane-binding / egress-IP-locking must be the THREE-TUPLE:
+///
+///   (auth_value, body_model, request_path)
+///
+/// - auth_value: the stripped Bearer/x-api-key/api-key value (caller MUST
+///   strip the "Bearer " prefix + lowercase the scheme so "bearer" and
+///   "Bearer" are the same identity).
+/// - body_model: the OpenAI-compatible JSON body `model` field (e.g.
+///   "openai/gpt-5.6", "claude-sonnet-5"). Empty/None -> "".
+/// - request_path: the upstream path tail (e.g. "/v1/chat/completions" or
+///   "/v1/messages"). Empty/None -> "".
+///
+/// Returns a u64 route id (FxHash, stable for the same triple, distinct for
+/// any differing component). This is the shell-side display identity Resin
+/// does not expose; Resin's Account string = auth_value only, so the shell
+/// MUST compose the triple itself to keep per-model IP isolation honest.
+pub fn route_id(auth_value: &str, body_model: Option<&str>, request_path: Option<&str>) -> u64 {
+    let mut h = FxHasher::default();
+    auth_value.hash(&mut h);
+    body_model.unwrap_or("").hash(&mut h);
+    request_path.unwrap_or("").hash(&mut h);
+    h.finish()
+}
+
+/// Convenience: strip the common auth scheme prefix + ASCII-lowercase it so
+/// "Bearer sk-abc", "bearer sk-abc", "sk-abc" all hash to the same identity.
+pub fn normalize_auth(raw: &str) -> String {
+    let trimmed = raw.trim();
+    let lower = trimmed.to_ascii_lowercase();
+    for scheme in ["bearer ", "x-api-key ", "api-key ", "ocp-apim-subscription-key "] {
+        if let Some(rest) = lower.strip_prefix(scheme) {
+            return rest.trim().to_string();
+        }
+    }
+    lower
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,4 +161,71 @@ mod tests {
         // Not asserting inequality (could collide) but check both in-range.
         assert!(a < 10 && b < 50);
     }
+
+    // --- Q3 closed-loop: three-tuple route identification ---
+    #[test]
+    fn route_id_is_idempotent_for_same_triple() {
+        let a = route_id("sk-abc", Some("openai/gpt-5.6"), Some("/v1/chat/completions"));
+        let b = route_id("sk-abc", Some("openai/gpt-5.6"), Some("/v1/chat/completions"));
+        assert_eq!(a, b, "same triple must hash to same route id");
+    }
+
+    #[test]
+    fn route_id_distinct_for_different_key_same_endpoint() {
+        let a = route_id("sk-abc", Some("openai/gpt-5.6"), Some("/v1/chat/completions"));
+        let b = route_id("sk-xyz", Some("openai/gpt-5.6"), Some("/v1/chat/completions"));
+        assert_ne!(a, b, "different api key must yield distinct route id");
+    }
+
+    #[test]
+    fn route_id_distinct_for_same_key_different_model() {
+        // This is the core Resin-native gap: same Authorization value across
+        // two models MUST be distinct routes or IP isolation per (key+endpoint)
+        // collapses. Resin's Account=auth-only would alias these; route_id
+        // keeps them distinct so the shell can drive per-model egress binding.
+        let a = route_id("sk-abc", Some("openai/gpt-5.6"), Some("/v1/chat/completions"));
+        let b = route_id("sk-abc", Some("claude-sonnet-5"), Some("/v1/chat/completions"));
+        assert_ne!(a, b, "same key different model must be distinct route");
+    }
+
+    #[test]
+    fn route_id_distinct_for_same_key_same_model_different_path() {
+        let a = route_id("sk-abc", Some("openai/gpt-5.6"), Some("/v1/chat/completions"));
+        let b = route_id("sk-abc", Some("openai/gpt-5.6"), Some("/v1/responses"));
+        assert_ne!(a, b, "same key+model different path must be distinct");
+    }
+
+    #[test]
+    fn route_id_handles_none_as_empty_string() {
+        let a = route_id("sk-abc", None, None);
+        let b = route_id("sk-abc", Some(""), Some(""));
+        assert_eq!(a, b, "None and empty string must hash identically");
+    }
+
+    #[test]
+    fn normalize_auth_strips_bearer_prefix_case_insensitive() {
+        assert_eq!(normalize_auth("Bearer sk-abc"), "sk-abc");
+        assert_eq!(normalize_auth("bearer sk-abc"), "sk-abc");
+        assert_eq!(normalize_auth("BEARER sk-abc"), "sk-abc");
+        assert_eq!(normalize_auth("  Bearer   sk-abc  "), "sk-abc");
+    }
+
+    #[test]
+    fn normalize_auth_handles_other_schemes_and_bare_keys() {
+        assert_eq!(normalize_auth("x-api-key sk-xyz"), "sk-xyz");
+        assert_eq!(normalize_auth("api-key sk-azure"), "sk-azure");
+        assert_eq!(normalize_auth("sk-plain"), "sk-plain");
+        assert_eq!(normalize_auth("Ocp-Apim-Subscription-Key abc123"), "abc123");
+    }
+
+    #[test]
+    fn normalize_auth_makes_route_id_scheme_invariant() {
+        // The contract: "Bearer sk-abc" and bare "sk-abc" must route to the
+        // same (key+endpoint) identity. This is what makes the identification
+        // idempotent across auth header forms from different client SDKs.
+        let a = route_id(&normalize_auth("Bearer sk-abc"), Some("m"), Some("/p"));
+        let b = route_id(&normalize_auth("sk-abc"), Some("m"), Some("/p"));
+        assert_eq!(a, b, "scheme-variant auth must collapse to same route id");
+    }
+
 }
