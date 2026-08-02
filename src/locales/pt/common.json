@@ -119,7 +119,9 @@
     "storage": "Armazenamento",
     "openConfigDir": "Abrir diretório de configuração",
     "openLogDir": "Abrir diretório de logs",
-    "unifiedHelp": "Salvar todas as alterações"
+    "unifiedHelp": "Salvar todas as alterações",
+    "interceptPort": "Porta de interceptação (base_url do omniroute)",
+    "interceptPortHint": "Defina isto como base_url no omniroute / litellm para que todas as chaves de API passem pelo interceptador. Ele injeta X-Resin-Account por (chave, modelo) para que cada par (chave, endpoint) obtenha um IP de saída distinto."
   },
   "subscription": {
     "title": "Assinaturas",
@@ -168,7 +170,10 @@
     "noPlatforms": "Sem plataformas. Adicione uma na aba Plataformas.",
     "policy": "Política: {{policy}}",
     "routable": "Roteável: {{count}}",
-    "filters": "Upstream: {{filters}}"
+    "filters": "Upstream: {{filters}}",
+    "activeLease": "concessão {{account}} → {{egress}}",
+    "activeLeases": "Concessões ativas",
+    "noLeases": "Sem concessões ativas"
   },
   "tray": {
     "show": "Mostrar Janela",

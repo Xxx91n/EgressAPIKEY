@@ -119,7 +119,9 @@
     "storage": "저장소",
     "openConfigDir": "설정 디렉터리 열기",
     "openLogDir": "로그 디렉터리 열기",
-    "unifiedHelp": "모든 변경 사항 저장"
+    "unifiedHelp": "모든 변경 사항 저장",
+    "interceptPort": "인터셉트 포트 (omniroute base_url)",
+    "interceptPortHint": "omniroute / litellm에서 이 값을 base_url로 설정하면 모든 API 키가 인터셉터를 경유합니다. 인터셉터는 (key, model)마다 X-Resin-Account를 주입하여 각 (key, 엔드포인트) 조합이 서로 다른 출구 IP를 갖도록 합니다."
   },
   "subscription": {
     "title": "구독",
@@ -168,7 +170,10 @@
     "noPlatforms": "플랫폼이 없습니다. 플랫폼 탭에서 추가하세요.",
     "policy": "정책: {{policy}}",
     "routable": "라우팅 가능: {{count}}",
-    "filters": "업스트림: {{filters}}"
+    "filters": "업스트림: {{filters}}",
+    "activeLease": "리스 {{account}} → {{egress}}",
+    "activeLeases": "활성 리스",
+    "noLeases": "활성 리스 없음"
   },
   "tray": {
     "show": "창 표시",

@@ -119,7 +119,9 @@
     "storage": "Opslag",
     "openConfigDir": "Configuratiemap openen",
     "openLogDir": "Logmap openen",
-    "unifiedHelp": "Alle wijzigingen opslaan"
+    "unifiedHelp": "Alle wijzigingen opslaan",
+    "interceptPort": "Onderscheppingspoort (omniroute base_url)",
+    "interceptPortHint": "Stel dit in als base_url in omniroute / litellm zodat alle API-sleutels via de onderschepper lopen. Deze injecteert X-Resin-Account per (sleutel, model) zodat elk (sleutel, endpoint)-paar een eigen uitgaande IP krijgt."
   },
   "subscription": {
     "title": "Abonnementen",
@@ -168,7 +170,10 @@
     "noPlatforms": "Geen platforms. Voeg er een toe in het Platforms-tabblad.",
     "policy": "Beleid: {{policy}}",
     "routable": "Routeerbaar: {{count}}",
-    "filters": "Upstream: {{filters}}"
+    "filters": "Upstream: {{filters}}",
+    "activeLease": "lease {{account}} → {{egress}}",
+    "activeLeases": "Actieve leases",
+    "noLeases": "Geen actieve leases"
   },
   "tray": {
     "show": "Venster tonen",

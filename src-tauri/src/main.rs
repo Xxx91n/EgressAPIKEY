@@ -4,8 +4,8 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use ai_api_route_app::{build_shared_gateway, build_shared_registry, commands, sidecar::{boot_resin, spawn_health_poll, SidecarHandle}, tray::build_tray};
-use resin_core::{CoreConfig, DEFAULT_LANES};
+use ai_api_route_app::{build_shared_gateway, build_shared_registry, commands, sidecar::{boot_resin, spawn_health_poll, SidecarHandle, InterceptorPort}, tray::build_tray};
+use resin_core::{CoreConfig, DEFAULT_LANES, interceptor_serve, InterceptorConfig};
 use tauri::{Manager, Emitter, WindowEvent};
 use tauri_plugin_store::StoreExt;
 
@@ -115,6 +115,8 @@ fn main() {
             commands::backup_list,
             commands::config_export,
             commands::config_import,
+            commands::interceptor_port,
+            commands::lease_map,
         ])
         .setup(|app| {
             // #2/#6: read persisted network settings so the user
@@ -163,6 +165,11 @@ fn main() {
                 "resin sidecar booted: api_base={}",
                 sidecar.api_base()
             );
+            // A4-3: capture the interceptor-feeding values BEFORE the move into
+            // SidecarHandle (which consumes proxy_token/admin_token/child).
+            let api_port_val = sidecar.api_port;
+            let resin_base_for_interceptor = format!("http://127.0.0.1:{}", api_port_val);
+            let proxy_token_for_interceptor = sidecar.proxy_token.clone();
             app.manage(SidecarHandle {
                 child: sidecar.child,
                 api_port: sidecar.api_port,
@@ -176,6 +183,50 @@ fn main() {
             // is emitted. Spawn AFTER app.manage so the poll can resolve
             // State<SidecarHandle> immediately on its first iteration.
             spawn_health_poll(app.handle().clone());
+
+            // A4-3: Spawn the local axum interceptor that injects
+            // X-Resin-Account (route_id derived from auth+model+path) into
+            // every request before forwarding it to the Resin reverse-proxy.
+            // setup is sync, so we use tauri::async_runtime::block_on to
+            // await the bind (which must complete so we can surface the port).
+            // The serve() spawn then runs in the background until app exit.
+            // Loopback only; the port is exposed via interceptor_port IPC.
+            // proxy_token stays Rust-side (AGENTS §7.6).
+            let resin_base = resin_base_for_interceptor;
+            let proxy_token_val = proxy_token_for_interceptor;
+            let interceptor_port_val = tauri::async_runtime::block_on(async move {
+                let make_cfg = || InterceptorConfig {
+                    resin_base: resin_base.clone(),
+                    proxy_token: proxy_token_val.clone(),
+                    http: reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_secs(60))
+                        .build()
+                        .expect("interceptor: reqwest client"),
+                };
+                // Bind 127.0.0.1:2261 first; fall back to ephemeral if taken.
+                // Ponytail ceiling: 3 candidate bind addresses.
+                match interceptor_serve(make_cfg(), "127.0.0.1:2261").await {
+                    Ok(p) => p,
+                    Err(e1) => {
+                        tracing::warn!("interceptor: 2261 unavailable ({e1}), trying 2262");
+                        match interceptor_serve(make_cfg(), "127.0.0.1:2262").await {
+                            Ok(p) => p,
+                            Err(e2) => {
+                                tracing::warn!("interceptor: 2262 unavailable ({e2}), ephemeral");
+                                match interceptor_serve(make_cfg(), "127.0.0.1:0").await {
+                                    Ok(p) => p,
+                                    Err(e3) => {
+                                        tracing::error!("interceptor: bind failed ({e3}); port=0");
+                                        0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            tracing::info!("interceptor bound on 127.0.0.1:{}", interceptor_port_val);
+            app.manage(InterceptorPort(interceptor_port_val));
             Ok(())
         })
         .build(tauri::generate_context!())

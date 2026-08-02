@@ -10,7 +10,7 @@
 use serde::{Serialize, Deserialize};
 use tauri::{AppHandle, Manager, State};
 
-use crate::sidecar::SidecarHandle;
+use crate::sidecar::{SidecarHandle, InterceptorPort};
 use resin_core::{ResinClient, MAX_LANES, fetch_clash_subscription, clash_yaml_to_proxies_block};
 use resin_core::platform::Account;
 
@@ -1071,6 +1071,81 @@ pub async fn config_import(
         "errors": errors,
     }))
 }
+
+/// One active lease row from Resin /api/v1/metrics/realtime/leases, projected
+/// for the GUI Topology lease panel. Mirrors the items-wrapper Resin returns.
+#[derive(Debug, Clone, Serialize)]
+pub struct LeaseEntry {
+    /// Platform UUID (Resin's internal id). Empty = Default platform.
+    pub platform_id: String,
+    /// The X-Resin-Account the interceptor injected (the A4-3 identity).
+    pub account: String,
+    /// Brand fields Resin surfaces per-lease when it has them.
+    pub egress_ip: String,
+    pub node_tag: String,
+    pub target_domain: String,
+    pub ts: String,
+}
+
+/// Return the port the A4-3 axum interceptor bound to on 127.0.0.1. The GUI
+/// surfaces this in Settings so the user knows what to set as omniroute/litellm
+/// base_url. Returns 0 if the interceptor failed to bind (Sets InterceptorPort
+/// is always Some, but value 0 = bind failure logged at boot).
+#[tauri::command]
+pub async fn interceptor_port(port: State<'_, InterceptorPort>) -> Result<u16, String> {
+    Ok(port.0)
+}
+
+/// Live active lease map from the Resin sidecar. The GUI polls this alongside
+/// platform_list + node_list in the Topology sync loop and renders a per-platform
+/// lease chip showing "(account short): egress_ip". Used by A4-3 to prove the
+/// (key, endpoint) -> distinct egress IP contract is live in the GUI, not just
+/// prose.
+#[tauri::command]
+pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEntry>, String> {
+    let client = resin_client(&sidecar)?;
+    let raw = client.active_leases().await.map_err(|e| e.to_string())?;
+    // Resin returns {"items":[{active_leases:N,"ts":"...","platform_id":""}]}
+    // or a bare array. We use the shared items_arr helper to be robust.
+    let items = items_arr(&raw);
+    let mut out = Vec::with_capacity(items.len());
+    for it in items {
+        let platform_id = it.get("platform_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let account = it.get("account")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let egress_ip = it.get("egress_ip")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let node_tag = it.get("node_tag")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let target_domain = it.get("target_domain")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let ts = it.get("ts")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        out.push(LeaseEntry {
+            platform_id,
+            account,
+            egress_ip,
+            node_tag,
+            target_domain,
+            ts,
+        });
+    }
+    Ok(out)
+}
+
 
 #[cfg(test)]
 mod tests {

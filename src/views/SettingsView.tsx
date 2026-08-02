@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload } from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport } from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcInterceptorPort } from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import {
   saveLocale,
@@ -96,7 +96,25 @@ export function SettingsView() {
   const [backupPass, setBackupPass] = useState("");
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMsg, setBackupMsg] = useState("");
+  // A4-3: interceptor port — bind-then-bind state. Displayed so the user
+  // knows what to fill in omniroute/litellm as base_url. Read-only here; the
+  // Rust side owns the port and rebinds only on app restart.
+  const [interceptPort, setInterceptPort] = useState<number>(0);
   const [configBusy, setConfigBusy] = useState(false);
+  // A4-3: request the interceptor port once on mount so the Settings page can
+  // surface it. Swallow errors (vitest, sidecar not running, IPC not registered).
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const p = await ipcInterceptorPort();
+        if (p > 0 && !cancelled) setInterceptPort(p);
+      } catch {
+        // Outside Tauri / sidecar down: keep 0.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [configMsg, setConfigMsg] = useState("");
 
   // Hydrate persisted network settings on mount (webview only; no-op in vitest).
@@ -320,6 +338,16 @@ export function SettingsView() {
         </Field>
         {/* Issue 6: per-card Save removed; the unified sticky bottom bar
             calls saveAll() so there is one obvious commit action. */}
+      </SectionCard>
+      <SectionCard icon={<Server size={16} strokeWidth={1.75} />} title={t("settings.interceptPort")}>
+        <div className="text-sm">
+          <div className="font-mono text-blue-600 dark:text-blue-400">
+            {interceptPort > 0 ? "http://127.0.0.1:" + interceptPort : "—"}
+          </div>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 max-w-md">
+            {t("settings.interceptPortHint")}
+          </p>
+        </div>
       </SectionCard>
       <SectionCard icon={<FolderOpen size={16} strokeWidth={1.75} />} title={t("settings.storage")}>
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-3">

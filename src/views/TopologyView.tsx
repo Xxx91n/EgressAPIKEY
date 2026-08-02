@@ -9,6 +9,7 @@ import "@xyflow/react/dist/style.css";
 import { useAppStore } from "../store/appStore";
 import {
   ipcPlatformListFull, ipcNodeList, ipcPlatformUpdate, ipcBackupCreate,
+  ipcLeaseMap, type LeaseEntry,
 } from "../lib/ipc";
 import { loadTopologyViewport, saveTopologyViewport } from "../lib/settings";
 import { listen } from "@tauri-apps/api/event";
@@ -124,14 +125,32 @@ function EntryNode({ data }: NodeProps) {
   );
 }
 
+/// A4-3: PlatformNode now renders a small chip list of the platform's active
+/// leases (account short + egress_ip + target domain). Each lease is one
+/// X-Resin-Account the interceptor injected; an independent egress IP proves
+/// the (key, endpoint) -> distinct IP contract is live, not prose.
 function PlatformNode({ data }: NodeProps) {
   const d = data as Record<string, unknown>;
+  const leases = (Array.isArray(d.leases) ? d.leases : []) as Array<{
+    account: string; egress_ip: string; target_domain: string;
+  }>;
   return (
-    <div className="rounded-lg border border-zinc-400 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-xs min-w-[160px] max-w-[220px]">
+    <div className="rounded-lg border border-zinc-400 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-xs min-w-[160px] max-w-[240px]">
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
       <div className="font-semibold text-zinc-800 dark:text-zinc-100">{String(d.label)}</div>
       {typeof d.sub === "string" && d.sub && <div className="text-zinc-500 dark:text-zinc-400 mt-1 text-[10px]">{d.sub}</div>}
+      <div className="mt-2 flex flex-col gap-1">
+        {leases.length > 0 ? leases.map((l, i) => (
+          <div key={"lease-" + i} className="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-1 text-[10px] text-zinc-600 dark:text-zinc-300 font-mono">
+            {l.account.slice(0, 12)}{l.account.length > 12 ? "…" : ""}
+            {" → "}
+            <span title={l.target_domain}>{(l.egress_ip || "").slice(0, 22) || "—"}</span>
+          </div>
+        )) : (
+          <div className="text-[10px] text-zinc-400 dark:text-zinc-500">{typeof d.noLeases === "string" ? String(d.noLeases) : ""}</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -185,6 +204,7 @@ function TopologyCanvas() {
   // in settings.json gatewayBind but the canvas does not need it to draw.
   const [platforms, setPlatforms] = useState<PlatformFull[]>([]);
   const [nodeGroups, setNodeGroups] = useState<NodeGroup[]>([]);
+  const [leases, setLeases] = useState<LeaseEntry[]>([]);
   const [sidecarStatus, setSidecarStatus] = useState<"healthy" | "unhealthy" | null>(null);
   const [patching, setPatching] = useState(false);
   // Q2-Bug1: ref-based reentry lock so two rapid drags cannot both read a stale
@@ -211,12 +231,14 @@ function TopologyCanvas() {
 
   const sync = useCallback(async () => {
     try {
-      const [plRaw, nRaw] = await Promise.all([
+      const [plRaw, nRaw, lRaw] = await Promise.all([
         ipcPlatformListFull(),
         ipcNodeList(),
+        ipcLeaseMap(),
       ]);
       setPlatforms(parsePlatforms(plRaw));
       setNodeGroups(parseNodeGroups(nRaw));
+      setLeases(Array.isArray(lRaw) ? lRaw : []);
     } catch {
       // Outside Tauri (vitest) or sidecar down - keep last state.
     }
@@ -350,7 +372,16 @@ function TopologyCanvas() {
       position: { x: 0, y: 200 },
       data: { label: t("topology.entryPort") + ":\n" + port },
     });
-    // B: platforms.
+    // B: platforms. A4-3: attach the platform's active leases (matched on
+    // platform_id) so the chip list under each card proves the
+    // (key, endpoint) -> egress-IP contract the interceptor enables.
+    const leasesByPid = new Map<string, typeof leases>();
+    for (const l of leases) {
+      const pid = (l.platform_id || "").trim();
+      const arr = leasesByPid.get(pid) ?? [];
+      arr.push(l);
+      leasesByPid.set(pid, arr);
+    }
     platforms.forEach((p, i) => {
       const filters = p.regex_filters?.length
         ? t("topology.filters", { filters: p.regex_filters.join(", ") })
@@ -358,11 +389,12 @@ function TopologyCanvas() {
       const policy = t("topology.policy", { policy: p.allocation_policy });
       const routable = t("topology.routable", { count: p.routable_node_count });
       const sub = [filters, policy, routable].filter(Boolean).join("\n");
+      const pidLeases = leasesByPid.get(p.id) ?? [];
       list.push({
         id: "platform-" + p.name,
         type: "platform",
         position: { x: 300, y: 60 + i * 130 },
-        data: { label: p.name, sub },
+        data: { label: p.name, sub, leases: pidLeases, noLeases: t("topology.noLeases") },
       });
     });
     // C: node groups by region.
@@ -378,7 +410,7 @@ function TopologyCanvas() {
       });
     });
     return list;
-  }, [platforms, nodeGroups, t, i18n.language]);
+  }, [platforms, nodeGroups, leases, t, i18n.language]);
 
   // Edges: A->B always connected; B->C when region_filters matches.
   const edges: Edge[] = useMemo(() => {

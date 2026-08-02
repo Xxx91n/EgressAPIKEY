@@ -119,7 +119,9 @@
     "storage": "Penyimpanan",
     "openConfigDir": "Buka direktori konfigurasi",
     "openLogDir": "Buka direktori log",
-    "unifiedHelp": "Simpan semua perubahan"
+    "unifiedHelp": "Simpan semua perubahan",
+    "interceptPort": "Port intersepsi (base_url omniroute)",
+    "interceptPortHint": "Setel ini sebagai base_url di omniroute / litellm agar semua kunci API melewati interseptor. Interseptor menyuntik X-Resin-Account per (kunci, model) supaya tiap pasangan (kunci, endpoint) mendapat IP keluar yang berbeda."
   },
   "subscription": {
     "title": "Langganan",
@@ -168,7 +170,10 @@
     "noPlatforms": "Tidak ada platform. Tambahkan di tab Platform.",
     "policy": "Kebijakan: {{policy}}",
     "routable": "Dapat dirutekan: {{count}}",
-    "filters": "Upstream: {{filters}}"
+    "filters": "Upstream: {{filters}}",
+    "activeLease": "sewa {{account}} → {{egress}}",
+    "activeLeases": "Sewa aktif",
+    "noLeases": "Tidak ada sewa aktif"
   },
   "tray": {
     "show": "Tampilkan jendela",

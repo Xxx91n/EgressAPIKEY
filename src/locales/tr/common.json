@@ -119,7 +119,9 @@
     "storage": "Depolama",
     "openConfigDir": "Yapılandırma dizinini aç",
     "openLogDir": "Günlük dizinini aç",
-    "unifiedHelp": "Tüm değişiklikleri kaydet"
+    "unifiedHelp": "Tüm değişiklikleri kaydet",
+    "interceptPort": "Araya girme bağlantı noktası (omniroute base_url)",
+    "interceptPortHint": "Bunu omniroute / litellm içinde base_url olarak ayarlayın; tüm API anahtarları araya giriciden geçsin. Araya girici her (anahtar, model) için X-Resin-Account enjekte eder; her (anahtar, uç nokta) çifti farklı bir çıkış IP'si alır."
   },
   "subscription": {
     "title": "Abonelikler",
@@ -168,7 +170,10 @@
     "noPlatforms": "Platform yok. Platformlar sekmesinde bir tane ekleyin.",
     "policy": "Politika: {{policy}}",
     "routable": "Yönlendirilebilir: {{count}}",
-    "filters": "Yukarı akış: {{filters}}"
+    "filters": "Yukarı akış: {{filters}}",
+    "activeLease": "kira {{account}} → {{egress}}",
+    "activeLeases": "Aktif kiralar",
+    "noLeases": "Aktif kira yok"
   },
   "tray": {
     "show": "Pencereyi göster",

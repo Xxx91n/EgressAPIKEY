@@ -16,7 +16,6 @@
 //!
 //! Ponytail: do NOT add a retry/restart loop here — that is Ghost safety net
 //! (G3), separate file, separate concerns.
-
 use std::net::TcpListener;
 use std::time::{Duration, Instant};
 use std::sync::Mutex;
@@ -412,3 +411,12 @@ async fn clear_os_proxy() -> anyhow::Result<()> {
     tracing::info!("ghost: OS system proxy cleared (platform best-effort)");
     Ok(())
 }
+
+
+/// Tauri managed state holding the interceptor's bound port. Set once during
+/// app.setup() after the axum interceptor binds 127.0.0.1:<port>. The webview
+/// reads it via the `interceptor_port` IPC command so the user knows what to
+/// paste into omniroute/litellm's base_url. The interceptor itself holds the
+/// proxy_token (never exposed via IPC); only the port crosses the boundary.
+#[derive(Debug, Clone, Copy)]
+pub struct InterceptorPort(pub u16);

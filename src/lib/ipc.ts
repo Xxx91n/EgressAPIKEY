@@ -321,3 +321,41 @@ export async function ipcConfigImport(config: unknown): Promise<{
 }> {
   return invoke("config_import", { config });
 }
+
+/// A4-3: live lease row from Resin /api/v1/metrics/realtime/leases.
+export interface LeaseEntry {
+  platform_id: string;
+  account: string;
+  egress_ip: string;
+  node_tag: string;
+  target_domain: string;
+  ts: string;
+}
+
+/// A4-3: Return the port the axum interceptor bound to on 127.0.0.1.
+export async function ipcInterceptorPort(): Promise<number> {
+  const raw = await invoke<number>("interceptor_port");
+  if (typeof raw !== "number" || raw < 0 || raw > 65535) {
+    throw new Error("interceptor_port: invalid port value " + raw);
+  }
+  return raw;
+}
+
+/// A4-3: Live active lease map. Polled in the Topology canvas together with
+/// platform_list + node_list so each platform card can show its active leases.
+export async function ipcLeaseMap(): Promise<LeaseEntry[]> {
+  const raw = await invoke<LeaseEntry[]>("lease_map");
+  // Tolerate undefined/null (vitest with no IPC mock / sidecar down): empty array.
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const cap = (s: unknown): string => (typeof s === "string" ? s.slice(0, 253) : "");
+  return raw.map((e) => ({
+    platform_id: cap(e?.platform_id),
+    account: cap(e?.account),
+    egress_ip: cap(e?.egress_ip),
+    node_tag: cap(e?.node_tag),
+    target_domain: cap(e?.target_domain),
+    ts: cap(e?.ts),
+  }));
+}

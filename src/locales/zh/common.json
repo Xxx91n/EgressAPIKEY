@@ -119,7 +119,9 @@
     "storage": "存储",
     "openConfigDir": "打开配置目录",
     "openLogDir": "打开日志目录",
-    "unifiedHelp": "保存所有更改"
+    "unifiedHelp": "保存所有更改",
+    "interceptPort": "拦截端口 (omniroute base_url)",
+    "interceptPortHint": "在 omniroute / litellm 中将此填为 base_url，所有 API key 将经由拦截器路由。拦截器按 (key, model) 注入 X-Resin-Account，使每个 (key, 端点) 组合获得不同的出口 IP。"
   },
   "subscription": {
     "title": "订阅",
@@ -168,7 +170,10 @@
     "noPlatforms": "没有平台，请在平台页签添加。",
     "policy": "策略: {{policy}}",
     "routable": "可路由: {{count}}",
-    "filters": "上游: {{filters}}"
+    "filters": "上游: {{filters}}",
+    "activeLease": "租约 {{account}} → {{egress}}",
+    "activeLeases": "活跃租约",
+    "noLeases": "无活跃租约"
   },
   "tray": {
     "show": "显示窗口",

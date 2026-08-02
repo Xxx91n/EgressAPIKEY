@@ -119,7 +119,9 @@
     "storage": "ที่เก็บข้อมูล",
     "openConfigDir": "เปิดไดเรกทอรีการตั้งค่า",
     "openLogDir": "เปิดไดเรกทอรีบันทึก",
-    "unifiedHelp": "บันทึกการเปลี่ยนแปลงทั้งหมด"
+    "unifiedHelp": "บันทึกการเปลี่ยนแปลงทั้งหมด",
+    "interceptPort": "พอร์ตสกัดกั้น (base_url ของ omniroute)",
+    "interceptPortHint": "ตั้งค่านี้เป็น base_url ใน omniroute / litellm เพื่อให้คีย์ API ทั้งหมดผ่านตัวสกัดกั้น ตัวสกัดกั้นจะแทรก X-Resin-Account ตาม (คีย์, โมเดล) เพื่อให้คู่ (คีย์, endpoint) แต่ละคู่ ได้ IP ขาออกที่ต่างกัน"
   },
   "subscription": {
     "title": "การสมัครรับข้อมูล",
@@ -168,7 +170,10 @@
     "noPlatforms": "ไม่มีแพลตฟอร์ม เพิ่มในแท็บแพลตฟอร์ม",
     "policy": "นโยบาย: {{policy}}",
     "routable": "กำหนดเส้นทางได้: {{count}}",
-    "filters": "อัปสตรีม: {{filters}}"
+    "filters": "อัปสตรีม: {{filters}}",
+    "activeLease": "สัญญาเช่า {{account}} → {{egress}}",
+    "activeLeases": "สัญญาเช่าที่ใช้งานอยู่",
+    "noLeases": "ไม่มีสัญญาเช่าที่ใช้งาน"
   },
   "tray": {
     "show": "แสดงหน้าต่าง",

@@ -119,7 +119,9 @@
     "storage": "ストレージ",
     "openConfigDir": "設定ディレクトリを開く",
     "openLogDir": "ログディレクトリを開く",
-    "unifiedHelp": "すべての変更を保存"
+    "unifiedHelp": "すべての変更を保存",
+    "interceptPort": "インターセプトポート (omniroute base_url)",
+    "interceptPortHint": "これを omniroute / litellm の base_url に設定すると、すべての API キーがインターセプタ経由でルーティングされます。インターセプタは (key, model) ごとに X-Resin-Account を注入し、(key, エンドポイント) の組み合わせごとに異なる出口 IP を割り当てます。"
   },
   "subscription": {
     "title": "サブスクリプション",
@@ -168,7 +170,10 @@
     "noPlatforms": "プラットフォームがありません。プラットフォームタブで追加してください。",
     "policy": "ポリシー: {{policy}}",
     "routable": "ルーティング可能: {{count}}",
-    "filters": "上流: {{filters}}"
+    "filters": "上流: {{filters}}",
+    "activeLease": "リース {{account}} → {{egress}}",
+    "activeLeases": "アクティブリース",
+    "noLeases": "アクティブリースなし"
   },
   "tray": {
     "show": "ウィンドウを表示",

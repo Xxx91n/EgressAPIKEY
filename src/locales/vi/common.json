@@ -119,7 +119,9 @@
     "storage": "Lưu trữ",
     "openConfigDir": "Mở thư mục cấu hình",
     "openLogDir": "Mở thư mục nhật ký",
-    "unifiedHelp": "Lưu tất cả thay đổi"
+    "unifiedHelp": "Lưu tất cả thay đổi",
+    "interceptPort": "Cổng chặn (base_url của omniroute)",
+    "interceptPortHint": "Đặt đây làm base_url trong omniroute / litellm để mọi khóa API đều đi qua bộ chặn. Bộ chặn chèn X-Resin-Account theo từng (khóa, mô hình) để mỗi cặp (khóa, endpoint) có IP đầu ra khác nhau."
   },
   "subscription": {
     "title": "Đăng ký",
@@ -168,7 +170,10 @@
     "noPlatforms": "Không có nền tảng. Thêm trong tab Nền tảng.",
     "policy": "Chính sách: {{policy}}",
     "routable": "Có thể định tuyến: {{count}}",
-    "filters": "Upstream: {{filters}}"
+    "filters": "Upstream: {{filters}}",
+    "activeLease": "thuê {{account}} → {{egress}}",
+    "activeLeases": "Các thuê đang hoạt động",
+    "noLeases": "Không có lượt thuê hoạt động"
   },
   "tray": {
     "show": "Hiện cửa sổ",
