@@ -12,7 +12,6 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::sidecar::{SidecarHandle, InterceptorPort};
 use resin_core::{ResinClient, MAX_LANES, fetch_clash_subscription, clash_yaml_to_proxies_block};
-use resin_core::platform::Account;
 
 const AUTHORITY_MAX_LEN: usize = 253;
 const LATENCY_CAP_MS: u64 = 24 * 60 * 60 * 1000;
@@ -258,10 +257,16 @@ pub async fn platform_list_full(sidecar: State<'_, SidecarHandle>) -> Result<ser
 }
 
 #[tauri::command]
-pub async fn platform_snapshot(sidecar: State<'_, SidecarHandle>, name: String) -> Result<Vec<Account>, String> {
+pub async fn platform_snapshot(sidecar: State<'_, SidecarHandle>, name: String) -> Result<serde_json::Value, String> {
     validate_short_name(&name, "platform")?;
-    let _client = resin_client(&sidecar)?;
-    Ok(Vec::new())
+    let client = resin_client(&sidecar)?;
+    // Resolve platform name -> id, then fetch that platform is routable node list
+    // (Resin DESIGN.md: GET /nodes?platform_id=<id> filters to the platform routable set).
+    let list = client.list_platforms().await.map_err(|e| e.to_string())?;
+    match platform_id_for_name(&list, &name) {
+        Some(id) => client.list_nodes_for_platform(&id).await.map_err(|e| e.to_string()),
+        None => Ok(serde_json::json!({"items":[], "total":0, "limit":500, "offset":0})),
+    }
 }
 
 #[tauri::command]

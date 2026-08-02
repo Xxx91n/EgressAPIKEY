@@ -95,7 +95,8 @@
     "activated": "트래픽 프로브로 활성화됨",
     "probeFailed": "프로브 요청 실패",
     "deleteConfirm": "이 플랫폼을 삭제하시겠습니까?",
-    "egressPolicy": "송출 정책"
+    "egressPolicy": "송출 정책",
+    "routableNodes": "라우팅 가능 노드"
   },
   "processRoute": {
     "title": "프로세스 경로",

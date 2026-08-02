@@ -114,4 +114,21 @@ describe("PlatformsView P21-B (dual-pane, IPC-mocked)", () => {
     expect(screen.getByDisplayValue("BALANCED")).toBeInTheDocument();
     expect(screen.getByDisplayValue("PREFER_LOW_LATENCY")).toBeInTheDocument();
   });
+
+  it("ADR-0006 item 1 closed-loop: renders routable nodes for a platform after platform_snapshot resolves", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "platform_list_full") return Promise.resolve([
+        { name: "P1", allocationPolicy: "BALANCED", regionFilters: [], routableNodeCount: 1, regexFilters: [], stickyTtl: "30m" },
+      ]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "platform_snapshot") return Promise.resolve({
+        items: [{ display_tag: "hk-01", region: "hk" }],
+        total: 1, limit: 500, offset: 0,
+      });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    // The collapsible summary shows "routableNodes" i18n label + 1
+    await waitFor(() => expect(screen.getByText(/platform\.routableNodes|Routable nodes|可路由节点|Nodos enrutables/i)).toBeInTheDocument());
+  });
 });

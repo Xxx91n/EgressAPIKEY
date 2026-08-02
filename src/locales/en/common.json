@@ -95,7 +95,8 @@
     "activated": "Activated via traffic probe",
     "probeFailed": "Probe request failed",
     "deleteConfirm": "Delete this platform?",
-    "egressPolicy": "Egress policy"
+    "egressPolicy": "Egress policy",
+    "routableNodes": "Routable nodes"
   },
   "processRoute": {
     "title": "Process route",

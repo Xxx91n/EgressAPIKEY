@@ -70,9 +70,10 @@ export async function ipcPlatformListFull(): Promise<unknown> {
   return invoke("platform_list_full");
 }
 
-export async function ipcPlatformSnapshot(name: string): Promise<Account[]> {
+export async function ipcPlatformSnapshot(name: string): Promise<unknown> {
   assertShortName(name, "platform");
-  return invoke<Account[]>("platform_snapshot", { name });
+  // Returns the Resin items-wrapper: { items: NodeSummary[], total, limit, offset }.
+  return invoke("platform_snapshot", { name });
 }
 
 /// The allocation policies Resin v1.1.2 actually accepts (must match the Rust

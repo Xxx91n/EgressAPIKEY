@@ -95,7 +95,8 @@
     "activated": "已通过流量探测激活",
     "probeFailed": "探测请求失败",
     "deleteConfirm": "删除此平台？",
-    "egressPolicy": "出口策略"
+    "egressPolicy": "出口策略",
+    "routableNodes": "可路由节点"
   },
   "processRoute": {
     "title": "进程路由",

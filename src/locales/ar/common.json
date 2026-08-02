@@ -95,7 +95,8 @@
     "activated": "تم التنشيط عبر probing للبيانات",
     "probeFailed": "فشل طلب الفحص",
     "deleteConfirm": "حذف هذه المنصة؟",
-    "egressPolicy": "سياسة الخروج"
+    "egressPolicy": "سياسة الخروج",
+    "routableNodes": "عُقد قابلة للتوجيه"
   },
   "processRoute": {
     "title": "مسار العملية",

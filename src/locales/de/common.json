@@ -95,7 +95,8 @@
     "activated": "Durch Traffic-Sonde aktiviert",
     "probeFailed": "Probe-Anfrage fehlgeschlagen",
     "deleteConfirm": "Diese Plattform löschen?",
-    "egressPolicy": "Ausgangs-Policy"
+    "egressPolicy": "Ausgangs-Policy",
+    "routableNodes": "Routbare Knoten"
   },
   "processRoute": {
     "title": "Prozessroute",

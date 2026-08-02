@@ -95,7 +95,8 @@
     "activated": "Aktywowany przez sondę ruchu",
     "probeFailed": "Żądanie sondy nie powiodło się",
     "deleteConfirm": "Usunąć tę platformę?",
-    "egressPolicy": "Polityka wyjścia"
+    "egressPolicy": "Polityka wyjścia",
+    "routableNodes": "Węzły routowalne"
   },
   "processRoute": {
     "title": "Trasa procesu",

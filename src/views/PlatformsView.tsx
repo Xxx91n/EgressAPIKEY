@@ -6,6 +6,7 @@ import {
   ipcPlatformRemove,
   ipcPlatformListFull,
   ipcPlatformLeases,
+  ipcPlatformSnapshot,
   ipcPlatformCreateWithFields,
   ipcPlatformUpdate,
   ALLOCATION_POLICIES,
@@ -57,6 +58,7 @@ export function PlatformsView() {
   const [newApiKey, setNewApiKey] = useState("");
   const [platforms, setPlatforms] = useState<PlatformInfoFull[]>([]);
   const [leasesPerPlatform, setLeasesPerPlatform] = useState<Record<string, unknown[]>>({});
+  const [routableByPlatform, setRoutableByPlatform] = useState<Record<string, unknown[]>>({});
   const [draggingUid, setDraggingUid] = useState<string | null>(null);
   const [dragOverPlatform, setDragOverPlatform] = useState<string | null>(null);
   const [splitRatio, setSplitRatio] = useState(0.4);
@@ -82,14 +84,21 @@ export function PlatformsView() {
       setPlatforms(mapped);
       // Fetch leases per platform
       const leaseMap: Record<string, unknown[]> = {};
+      const routableMap: Record<string, unknown[]> = {};
       await Promise.all(mapped.map(async (p) => {
         try {
           const leases = await ipcPlatformLeases(p.name);
           const lv = leases as unknown;
       leaseMap[p.name] = Array.isArray(lv) ? lv : ((lv as Record<string, unknown[]>)?.items ?? []);
         } catch { leaseMap[p.name] = []; }
+        try {
+          const snap = await ipcPlatformSnapshot(p.name);
+          const items = (snap as Record<string, unknown> | null)?.items;
+          routableMap[p.name] = Array.isArray(items) ? items : [];
+        } catch { routableMap[p.name] = []; }
       }));
       setLeasesPerPlatform(leaseMap);
+      setRoutableByPlatform(routableMap);
     } catch { /* outside Tauri — keep local */ }
   }, []);
 
@@ -378,6 +387,18 @@ export function PlatformsView() {
                   )}
                   {leases.length === 0 && auto && (
                     <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">{t("platform.noLeases")}</p>
+                  )}
+                  {(routableByPlatform[p.name] ?? []).length > 0 && (
+                    <details className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      <summary className="cursor-pointer select-none">{t("platform.routableNodes")}: {(routableByPlatform[p.name] ?? []).length}</summary>
+                      <div className="pl-2 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5 mt-0.5">
+                        {(routableByPlatform[p.name] ?? []).slice(0, 8).map((nd, i) => (
+                          <span key={i} className="block font-mono truncate">
+                            {String((nd as Record<string, unknown>)?.display_tag ?? "?")} · {String((nd as Record<string, unknown>)?.region ?? "")}
+                          </span>
+                        ))}
+                      </div>
+                    </details>
                   )}
                 </div>
               );

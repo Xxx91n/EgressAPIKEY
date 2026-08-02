@@ -95,7 +95,8 @@
     "activated": "เปิดใช้งานผ่านการตรวจสอบการรับส่งข้อมูล",
     "probeFailed": "คำขอตรวจสอบล้มเหลว",
     "deleteConfirm": "ลบแพลตฟอร์มนี้หรือไม่?",
-    "egressPolicy": "นโยบายการออก"
+    "egressPolicy": "นโยบายการออก",
+    "routableNodes": "โหนดที่กำหนดเส้นทางได้"
   },
   "processRoute": {
     "title": "เส้นทางโปรเซส",

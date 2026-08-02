@@ -223,6 +223,13 @@ impl ResinClient {
         self.send(reqwest::Method::GET, "/nodes?limit=500", None).await
     }
 
+    /// GET /api/v1/nodes?platform_id=<id>&limit=500 - the routable node list
+    /// for a single platform (Resin DESIGN.md "list nodes" with platform_id filter).
+    pub async fn list_nodes_for_platform(&self, platform_id: &str) -> Result<Value> {
+        let path = format!("/nodes?limit=500&platform_id={}", platform_id);
+        self.send(reqwest::Method::GET, &path, None).await
+    }
+
     /// POST /api/v1/platforms with the full create schema (P21 Milestone B).
     /// Accepts a free-form body (serde_json::Value) so the GUI form can pass
     /// exactly the fields Resin DESIGN.md lists for platform creation:
@@ -658,6 +665,30 @@ mod tests {
             .expect("list_nodes should succeed against mockito");
         assert_eq!(out["total"], 1);
         assert_eq!(out["items"][0]["egress_ip"], "1.2.3.4");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_list_nodes_for_platform_passes_platform_id_query() {
+        let mut server = mockito::Server::new_async().await;
+        let pid = "22222222-2222-2222-2222-222222222222";
+        let body = r#"{"items":[{"node_hash":"a","display_tag":"hk-01","has_outbound":true,"failure_count":0,"region":"hk","tags":[]}],"total":1,"limit":500,"offset":0}"#;
+        let m = server
+            .mock("GET", mockito::Matcher::Any)
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .list_nodes_for_platform(pid)
+            .await
+            .expect("list_nodes_for_platform should succeed against mockito");
+        assert_eq!(out["total"], 1);
+        assert_eq!(out["items"][0]["display_tag"], "hk-01");
         m.assert_async().await;
     }
 

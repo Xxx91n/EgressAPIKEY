@@ -95,7 +95,8 @@
     "activated": "Đã kích hoạt qua thăm dò lưu lượng",
     "probeFailed": "Yêu cầu thăm dò thất bại",
     "deleteConfirm": "Xóa nền tảng này?",
-    "egressPolicy": "Chính sách thoát"
+    "egressPolicy": "Chính sách thoát",
+    "routableNodes": "Nút có thể định tuyến"
   },
   "processRoute": {
     "title": "Tuyến tiến trình",

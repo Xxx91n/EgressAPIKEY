@@ -95,7 +95,8 @@
     "activated": "Geactiveerd via verkeersonderzoek",
     "probeFailed": "Probe-aanvraag mislukt",
     "deleteConfirm": "Dit platform verwijderen?",
-    "egressPolicy": "Uitgaand beleid"
+    "egressPolicy": "Uitgaand beleid",
+    "routableNodes": "Routeerbare knooppunten"
   },
   "processRoute": {
     "title": "Procesroute",

@@ -95,7 +95,8 @@
     "activated": "Trafik probuyla etkinleştirildi",
     "probeFailed": "Prob isteği başarısız",
     "deleteConfirm": "Bu platform silinsin mi?",
-    "egressPolicy": "Çıkış politikası"
+    "egressPolicy": "Çıkış politikası",
+    "routableNodes": "Yönlendirilebilir düğümler"
   },
   "processRoute": {
     "title": "Süreç rotası",

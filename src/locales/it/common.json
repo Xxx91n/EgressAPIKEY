@@ -95,7 +95,8 @@
     "activated": "Attivato tramite probe traffico",
     "probeFailed": "Richiesta probe fallita",
     "deleteConfirm": "Eliminare questa piattaforma?",
-    "egressPolicy": "Policy di uscita"
+    "egressPolicy": "Policy di uscita",
+    "routableNodes": "Nodi instradabili"
   },
   "processRoute": {
     "title": "Instradamento processi",

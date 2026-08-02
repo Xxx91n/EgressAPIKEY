@@ -95,7 +95,8 @@
     "activated": "ट्रैफ़िक प्रोब द्वारा सक्रिय",
     "probeFailed": "प्रोब अनुरोध विफल",
     "deleteConfirm": "इस प्लेटफ़ॉर्म को हटाएं?",
-    "egressPolicy": "निकास नीति"
+    "egressPolicy": "निकास नीति",
+    "routableNodes": "रूट करने योग्य नोड्स"
   },
   "processRoute": {
     "title": "प्रक्रिया मार्ग",

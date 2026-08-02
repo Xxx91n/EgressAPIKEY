@@ -95,7 +95,8 @@
     "activated": "トラフィックプローブで有効化",
     "probeFailed": "プローブリクエスト失敗",
     "deleteConfirm": "このプラットフォームを削除しますか？",
-    "egressPolicy": "出口ポリシー"
+    "egressPolicy": "出口ポリシー",
+    "routableNodes": "ルーティング可能ノード"
   },
   "processRoute": {
     "title": "プロセスルート",

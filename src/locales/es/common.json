@@ -95,7 +95,8 @@
     "activated": "Activado vía sonda de tráfico",
     "probeFailed": "Solicitud de sonda fallida",
     "deleteConfirm": "¿Eliminar esta plataforma?",
-    "egressPolicy": "Política de salida"
+    "egressPolicy": "Política de salida",
+    "routableNodes": "Nodos enrutables"
   },
   "processRoute": {
     "title": "Ruta de proceso",

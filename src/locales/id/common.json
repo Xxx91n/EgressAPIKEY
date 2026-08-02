@@ -95,7 +95,8 @@
     "activated": "Diaktifkan via probe lalu lintas",
     "probeFailed": "Permintaan probe gagal",
     "deleteConfirm": "Hapus platform ini?",
-    "egressPolicy": "Kebijakan keluar"
+    "egressPolicy": "Kebijakan keluar",
+    "routableNodes": "Node yang dapat dirutekan"
   },
   "processRoute": {
     "title": "Rute proses",

@@ -95,7 +95,8 @@
     "activated": "Активирован через трафик-зонд",
     "probeFailed": "Зонд-запрос не удался",
     "deleteConfirm": "Удалить эту платформу?",
-    "egressPolicy": "Политика выхода"
+    "egressPolicy": "Политика выхода",
+    "routableNodes": "Маршрутизируемые узлы"
   },
   "processRoute": {
     "title": "Маршрут процесса",
