@@ -8,12 +8,20 @@
 
 ## C1 — Topology canvas / 路由语义
 
-### C1-1 [confirmed] A/B/C 三列语义对齐用户心智
-- **现状**：TopologyView 产 P24-R2 重写后三列已是 Entry / Platforms(by region) / NodeGroup(by region)，但用户原话向是 "入口代理端口 / api-key 组合 / ip 通道"，且 B 列目前展示的是 Resin Platform 对象，未显式显示 (api_key, upstream_endpoint) tuple；route_id (FxHash three-tuple) 已存在于 `crates/resin-core/src/lane.rs` 但未在 GUI 任何处展示。
-- **打磨目标**：B 列每个 box 明示 "platform 上的 key count + 上游 host 标识"（route_id 派生 hash 作显示 UID）；A 列保留单点入口；C 列保持 region 归组但 expand 行可点击展开看具体 node + 健康状态。
-- **关联 ADR**：ADR-0002 (canvas three-column), ADR-0003 (key+endpoint route_id), ADR-0008 (live sidecar e2e 已证明 X-Resin-Account 注入后接近两个不同 egress IP)。
-- **关联 commits**：1aaab6b, f93707c, dfd84b2, 47e54ba.
-- **打磨输入**：用户 A4 之前给出的参考：https://build.nvidia.com/z-ai/glm-5.2 请求头实例、diegosouzapw/OmniRoute 源码。
+### C1-1 [confirmed=A10=B-B-3] A/B/C 三列语义对齐用户心智（route_id-derived key identity 在 GUI 显式）
+- **用户答复 (Q10/A10=B-B-3 原教旨派)**：B 列 box 全改为 route_id-derived UID，直接连接 shell 拦截器 (P24-A4-3 axum interceptor 在 crates/resin-core/src/interceptor.rs 已注入 X-Resin-Account = ar-<16hex>，算子来自 crates/resin-core/src/lane.rs pub fn route_id)。这是把 P24-A4-3 的拦截器 dogfooded 进 GUI；最贴近用户毫秒级唯一性诉求；也是最重实施路径。
+- **现状**：TopologyView 产 P24-R2 重写后三列已是 Entry / Platforms(by region) / NodeGroup(by region)。但 B 列目前渲染 Resin Platform 对象（name + region_filters + routable_node_count），未显式显示 (api_key mask, upstream_endpoint) tuple；route_id FxHash three-tuple + normalize_auth 已 8 个 cargo 测试绿 (lane.rs line 65, 75)，但 route_id-derived UID **没有任何 GUI 渲染点**。interceptor.rs line 95 注入 ar-<16hex> 后，LeaseEntry.account 字段承载此 hash，但 GUI 对用户只显示 hash 而非原 tuple — 不可读。
+- **打磨目标 (A10=B-B-3 spec 细化)**：
+  1. **B 列每个 box 显式标识一个 (api_key, upstream_endpoint) 元组**，box UID = route_id(normalize_auth(key), body.model, path) -> ar-<16hex> (与拦截器注入的 X-Resin-Account 同源算子)；显示形式 = key[首4位]...key[末4位] endpoint:api.openai.com/v1/chat/completions (key mask + endpoint 全显)。
+  2. **平台绑定语义** = box 出现在该 platform 内（沿用 P21-B 双栏拖拽语义：拖 key candidate 到 platform card = attach）。同一 route_id 出现在多个 platform = pipelined lease。
+  3. **shell 侧维护已观测 key pool** — 一个 route_id -> (apiKeyMask, endpoint, first_seen_ts) 的反查表。拦截器记录新 route_id 到此 pool，GUI 通过新 IPC observed_keys() 拉取并渲染。pool 初始为空，append-only；拦截器每次见到新 (key, endpoint) 组合 OR 新 body.model 时再 insert。
+  4. **GUI 5s sync 已调 ipcLeaseMap() (P24-A4-3)**，把 lease.account (= ar-<16hex>) 与 pool.get(route_id) join，platform card 内 chip 列表显示 apiKeyMask + endpoint + egress_ip (替代当前只显示 hash)。
+  5. **No-platform 的孤儿 key pool**：未拖入任何 platform 的 route_id 仍存在 observed pool 里，渲染在 B 列底部一个 Unassigned 区域，用户可拖到 platform 绑定。
+  6. **闭环测试**：vitest 构造 mock observed_pool + mock lease_map -> 渲染 box 显示 mask+endpoint 而非 hash；cargo test 加 route_id_idempotent_across_normalize (normalize_auth(Bearer sk-A) == normalize_auth(sk-A) -> 同 route_id)。
+- **关联 ADR**：ADR-0002 (canvas three-column), ADR-0003 (key+endpoint route_id, 已在 P24-Q3 corrected 为 ACCEPTED), ADR-0008 (拦截器 e2e 已证明两不同 egress IP)。A10 决策沉淀后需创建 ADR-0011 documenting B-B-3 selection (originalist 派) 及 trade-off。
+- **关联 commits**：1aaab6b, f93707c, dfd84b2, 47e54ba, 54b6e64 (P25-Q9), cfc0619 (P21-B platform_create_with_fields IPC, A10 复用此入口).
+- **打磨输入**：用户 A4 之前给 build.nvidia.com GLM-5.2 请求头实例 + diegosouzapw/OmniRoute 源码；P24-A3/A4 源码级研究 (docs/RESIN_ROUTING_ARCHITECTURE_RESEARCH.md)。
+- **状态**：confirmed (grill Q10 已答 B-B-3), spec 已细化；待 backlog 饱和后统一执行打磨。打磨启动前需先 grill Q11（已观测 key pool 的存储选型 — 见下方 Open Questions）。
 
 ### C1-2 [confirmed] 热联线 = 原子事务性 PATCH + 状态刷新闭环
 - **现状**：P24-Q2 修了 3 个竞态（patchingRef 重入锁、await sync after PATCH、transparent handle surface），但 ADR-0006 item1 `routable_view` 之后 canvans 状态刷新策略一度单跑 5s 轮询 + visibilitychange refocus；拖拽 PATCH 后的 server-side `routable_node_count` 重算值是否在下次 sync 实际反映，尚未有断言把它写成闭环测试。
@@ -185,3 +193,31 @@ backlog ID = cluster letter（C1/C2/C3）+ 序号 或 P25burst-N。grill 答复�
 ### 证伪检查完发现的额外 issue（不是 P25burst 原 4 条）
 - **P25-Q8-extra-1 [pending]**：用户原测试 URL token 已失效（403）。建议在 `fetch_clash_subscription` 错误消息里将 403 上的"UA 重试用尽" 与"端点可能已下线/token 失效" 进 layer 分级，toast 用户可看到 `the subscription URL may have expired (HTTP 403 from all UAs)` 而非当前的统一 "0 nodes imported"。这对打磨期 + 发布期都是用户友好性提升。
 
+---
+
+## Open Questions (pending grill)
+
+### Q11 — 已观测 key pool 的存储选型（A10=B-B-3 spec 阻塞前置决策）
+A10 决议 shell 侧维护一个 route_id -> (apiKeyMask, endpoint, first_seen_ts) 的 append-only 反查表；route_id 是确定性 FxHash (lane.rs pub fn route_id, 8 个 cargo tests 已证明 idempotent+distinct)，意味着同一 (key, endpoint, model, path) 元组永远算出同一 ar-<16hex>，拦截器见的同一 tuple 不增条目。
+但反向映射 (route_id -> readable tuple) 必须持久在某处，重启后才能立刻渲染历史观测；否则拦截器要等一次新请求流过才能重建 pool，GUI 首次打开拓扑会显示空白 B 列。
+
+> **Q11 答复决定 C1-1 的依赖存储实施方式，且影响 IPC 表面与跨会话连续性。三种选型已用 pwm ask 调研 (Perplexity pro 184/300):**
+
+1. **拦截器 in-memory HashMap + Tauri event push** (轻)
+   - 优：零持久化代码；拦截器每次新 tuple 直接 emit `tauri::Emitter::emit("observed-key", {route_id, mask, endpoint})`，前端 listen 后直接 setState。
+   - 劣：重启 app 进程则 pool 丢失，必须等一次流过才重建 — 用户开 GUI 的瞬间拓扑 B 列 空白，需要重新走流量才能看到 box。Ponytail 最小 diff 符合但 UX 不是最贴近"毫秒级唯一性"诉求。
+   - 已知论点反驳：route_id 确定性意味着条目可在拦截器每次请求时校验 HashMap.entry().or_insert() 重建，所以"空"的窗口极短 (单请求后即有)；但首屏空白不可避免。
+2. **settings.json#observedKeys 持久化数组** via tauri-plugin-store (中)
+   - 优：复用现成 store infra (P21-B 的 keyCandidates 已用此模式)，重启保留；IPC observed_keys() 读 store 即可。
+   - 劣：append 场景下每次新条目都要读写整个 JSON；无 query index；pool 膨胀需 cap (建议 max 1024 entries LRU)；serde_json round-trip 开销随条目数线性升。
+   - 推荐用法：和 keyCandidates 同模式，settings.json 顶层 `observedKeys` 数组，每条 `{route_id, apiKeyMask, endpoint, first_seen_ts, last_seen_ts, request_count}`。
+3. **新建 SQLite 表 observed_keys(route_id PRIMARY KEY, apiKeyMask, endpoint, first_seen, last_seen, request_count)** via rusqlite (重)
+   - 优：canonical 存储路径 (pwm 调研明确推荐)，WAL mode 并发；query 反查高效；append-mostly 表现佳；restart safe。
+   - 劣：AGENTS §Storage locations 当前写 "Database: none yet. rusqlite is a Cargo dependency but is NOT instantiated"，选 c 意味着项目**第一次落地真正 SQLite 实例**，需要 migration boilerplate + Connection lifecycle 在 main.rs setup 管理。
+   - 重点 Ponialtail 推论：这是项目第一次开 DB，所以工作量是"首次落地 rusqlite migration 流程" + "Connection 池在 Tauri State" + "schema versioning" — 不是 c 个人选项的 cost，是首次落地 DB 这件事的 cost。
+
+**Q11 问题**：A10=B-B-3 选定了 B 列 box 语义，但已观测 key pool 该存哪？(a) 纯内存 HashMap + event push (重启丢失，首屏空白) / (b) settings.json#observedKeys 数组 (中量，但 JSON round-trip 膨胀) / (c) 新建 SQLite observed_keys 表 (重，但项目首次落地 DB，注释 AGENTS 现有 storage 节)
+理由应该是 (1) 未来会不会上 VPS headless parity，c 的 SQLite 也直接复用；(2) pool 膨胀到 1024+ 之后 b 的 JSON 读写成本 — Ponytail 应否把"最小可工作"放第一位；
+答 Q11 决定 C1-1 在执行打磨期是用 in-memory 模式 + 用户自认首屏空白，还是 settings.json 模式 + 简化但需 cap，还是 SQLite 模式 + 首次落地的工程化成本。
+
+--- (grill 状态：Q11 已抛出，等用户回归答；A8 规划期禁止边答边改)
