@@ -115,7 +115,47 @@ describe("PlatformsView P21-B (dual-pane, IPC-mocked)", () => {
     expect(screen.getByDisplayValue("PREFER_LOW_LATENCY")).toBeInTheDocument();
   });
 
-  it("ADR-0006 item 1 closed-loop: renders routable nodes for a platform after platform_snapshot resolves", async () => {
+  it("C2-4: auto-platform cards render SOLID; manual platforms render DASHED (visual distinction per ADR-0006)", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "platform_list_full") return Promise.resolve([
+        { name: "auto-abc12345", allocation_policy: "BALANCED", regex_filters: [], region_filters: [], routable_node_count: 5, sticky_ttl: "" },
+        { name: "my-manual-plat", allocation_policy: "PREFER_LOW_LATENCY", regex_filters: [], region_filters: ["US"], routable_node_count: 10, sticky_ttl: "" },
+      ]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    // Wait for both platform cards to mount.
+    await waitFor(() => expect(screen.getByText("auto-abc12345")).toBeInTheDocument());
+    expect(screen.getByText("my-manual-plat")).toBeInTheDocument();
+
+    // Locate the two platform cards by matching their rendered platform name text, then walk up
+    // to the ancestor card div whose className carries border-dashed or border-solid. We cannot
+    // use data-testid, so we inspect the DOM shape produced by PlatformsView.tsx: each platform
+    // card is a <div> whose immediate child contains the platform name <span>; walk up two
+    // parents to reach the card wrapper that owns the className.
+    const autoNameEl = screen.getByText("auto-abc12345");
+    const manualNameEl = screen.getByText("my-manual-plat");
+    function cardClassFor(nameEl: HTMLElement): string | null {
+      let cur: HTMLElement | null = nameEl;
+      for (let depth = 0; depth < 5 && cur; depth++) {
+        const cls = cur.getAttribute && cur.getAttribute("class");
+        if (cls && (cls.includes("border-dashed") || cls.includes("border-solid"))) return cls;
+        cur = cur.parentElement;
+      }
+      return null;
+    }
+    const autoCls = cardClassFor(autoNameEl);
+    const manualCls = cardClassFor(manualNameEl);
+    expect(autoCls).not.toBeNull();
+    expect(manualCls).not.toBeNull();
+    // C2-4 contract: auto -> solid border (no 'border-dashed'); manual -> dashed.
+    expect(autoCls && autoCls.includes("border-dashed")).toBe(false);
+    expect(autoCls && autoCls.includes("border-solid")).toBe(true);
+    expect(manualCls && manualCls.includes("border-dashed")).toBe(true);
+  });
+
+    it("ADR-0006 item 1 closed-loop: renders routable nodes for a platform after platform_snapshot resolves", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "platform_list_full") return Promise.resolve([
         { name: "P1", allocationPolicy: "BALANCED", regionFilters: [], routableNodeCount: 1, regexFilters: [], stickyTtl: "30m" },
