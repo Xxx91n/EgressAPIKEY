@@ -8,7 +8,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 
-import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce } from "./TopologyView";
+import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges } from "./TopologyView";
 
 describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
   beforeEach(() => { invokeMock.mockReset(); });
@@ -239,6 +239,31 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
       expect(b.patched).toBe(false);
       expect(ipcUpdate).toHaveBeenCalledTimes(1);
       expect(sync).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // --- C1-3 closed-loop: buildEdges + remove-region edge deletion ---
+  describe("C1-3: buildEdges B->C edge disappears after region removed from region_filters", () => {
+    const groups = [{ region: "hk" }, { region: "us" }];
+    it("renders a B->C edge for each region in region_filters", () => {
+      const edges = buildEdges([{ name: "OpenAI", region_filters: ["hk", "us"] }], groups);
+      expect(edges.find((e) => e.id === "e-OpenAI-hk")).toBeTruthy();
+      expect(edges.find((e) => e.id === "e-OpenAI-us")).toBeTruthy();
+    });
+    it("drops the B->C edge for a region after it is removed from region_filters (delete-edge semantics)", () => {
+      const before = buildEdges([{ name: "OpenAI", region_filters: ["hk"] }], groups);
+      expect(before.find((e) => e.id === "e-OpenAI-hk")).toBeTruthy();
+      // Simulate onEdgesDelete -> removeRegion -> server-truthy region_filters=[]
+      const after = buildEdges([{ name: "OpenAI", region_filters: [] }], groups);
+      expect(after.find((e) => e.id === "e-OpenAI-hk")).toBeFalsy();
+    });
+    it("always emits the A->B entry edge regardless of region_filters", () => {
+      const edges = buildEdges([{ name: "OpenAI", region_filters: null }], groups);
+      expect(edges.find((e) => e.id === "e-entry-OpenAI" && e.source === "entry-port" && e.target === "platform-OpenAI")).toBeTruthy();
+    });
+    it("does not leak edges for node-groups the platform is not bound to", () => {
+      const edges = buildEdges([{ name: "OpenAI", region_filters: ["hk"] }], groups);
+      expect(edges.find((e) => e.id === "e-OpenAI-us")).toBeFalsy();
     });
   });
 

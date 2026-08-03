@@ -230,6 +230,30 @@ export async function patchAndSyncOnce(args: {
   return { patched: true, next };
 }
 
+// C1-3: pure edge builder. Edge list = A->B entry edges (one per platform)
+// + B->C platform->nodeGroup edge when the platform region_filters
+// includes the node group region. Extracted from the useMemo so vitest
+// can assert that removing a region from region_filters deletes the edge
+// without mounting a live ReactFlow.
+export function buildEdges(
+  platforms: { name: string; region_filters: string[] | null }[],
+  nodeGroups: { region: string }[],
+): { id: string; source: string; target: string; animated?: boolean }[] {
+  const list: { id: string; source: string; target: string; animated?: boolean }[] = [];
+  for (const p of platforms) {
+    list.push({ id: "e-entry-" + p.name, source: "entry-port", target: "platform-" + p.name, animated: true });
+  }
+  for (const p of platforms) {
+    const regions = p.region_filters ?? [];
+    for (const g of nodeGroups) {
+      if (regions.includes(g.region)) {
+        list.push({ id: "e-" + p.name + "-" + g.region, source: "platform-" + p.name, target: "nodegroup-" + g.region });
+      }
+    }
+  }
+  return list;
+}
+
 function TopologyCanvas() {
   const { t, i18n } = useTranslation();
   const theme = useAppStore((s) => s.theme);
@@ -443,32 +467,7 @@ function TopologyCanvas() {
   }, [platforms, nodeGroups, leases, t, i18n.language]);
 
   // Edges: A->B always connected; B->C when region_filters matches.
-  const edges: Edge[] = useMemo(() => {
-    const list: Edge[] = [];
-    // A->B: entry port connects to every platform.
-    for (const p of platforms) {
-      list.push({
-        id: "e-entry-" + p.name,
-        source: "entry-port",
-        target: "platform-" + p.name,
-        animated: true,
-      });
-    }
-    // B->C: platform -> node-group when region_filters includes the group region.
-    for (const p of platforms) {
-      const regions = p.region_filters ?? [];
-      for (const g of nodeGroups) {
-        if (regions.includes(g.region)) {
-          list.push({
-            id: "e-" + p.name + "-" + g.region,
-            source: "platform-" + p.name,
-            target: "nodegroup-" + g.region,
-          });
-        }
-      }
-    }
-    return list;
-  }, [platforms, nodeGroups]);
+  const edges: Edge[] = useMemo(() => buildEdges(platforms, nodeGroups) as Edge[], [platforms, nodeGroups]);
 
   return (
     <section className="h-full flex flex-col">
