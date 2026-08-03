@@ -330,3 +330,35 @@ AGENTS.md: §Storage locations "Database: none yet" 改为 "Database: observed_k
 Q12 三问 (connection / migration / WAL+backup) 全部答完，C1-1 实施路径锁死，打磨启动时无 blocker。
 
 --- (grill 状态：Q12 闭环；Q13 已抛出，等用户答；A8 规划期禁止边答边改)
+---
+
+## Open Questions (pending grill) — 更新
+
+### Q13 — 打磨期执行调度顺序 (A8 规划期最后阻塞决策)
+A8 用户约束"先 grill 所有问题再统一打磨"，现在 Q5–Q12 闭环、C1-1..C1-3 + C2-1..C2-8 + C2-14 共 11 项 confirmed 待打磨；C1-4 + C2-9..C2-13 + P25burst-1..4 + P25-Q8-extra-1 共 10 项 pending 待 grill 确认 或 release exe 复测。
+
+问题: **打磨期启动顺序怎么排?**
+
+> **Q13 三个子决策可一次答：**
+
+1. **Confirmed 11 项的执行顺序 (关键路径 + 并行性)**:
+   - (α) C1-1 单独先做（最长路径，阻塞 P21-B 双栏 + P24-R2 三列画布的最终语义。做完后续 C1-2 / C1-3 / C2-4 / C2-7 都能在新画布上闭环）。
+   - (β) 分两条并行 lane: Lane-A = C1-1 (核心路径: db.rs + interceptor + GUI chip + i18n + test); Lane-B = C2-5/C2-8/C2-1/C2-2/C2-14 (小修补, 各自独立, 不依赖 C1-1 落地)。
+   - (γ) 按 backlog ID 顺序 (C1-1 → C1-2 → C1-3 → C2-1 → C2-2 → ... → C2-14) 串行。
+
+2. **Pending 10 项的处理方式**:
+   - (a) 全部在打磨启动前再开一轮 grill 把 C2-9..C2-13 + C1-4 全部 confirmed 后再统一执行（最严格"等饱和"）。
+   - (b) 三条 pending track 分批: (i) C1-4 + C2-5 + C2-13 用当前 release exe 实测证伪或确认 (技术验证类); (ii) C2-9 / C2-10 / C2-11 / C2-12 等 grill 设计确认 (UX 决策类); (iii) P25burst-1/2/3/4 + P25-Q8-extra-1 是现场 release exe 复测，证伪即 done。
+   - (c) 接受现状直接打磨 confirmed 11 项, pending 项打磨期遇到再 grill (Ponytail 最小延迟)。
+
+3. **打磨期开窗 of 推进 vs 单次 commit-pass**:
+   - (i) 一个一个 confirmed 项目做完一个 commit 一个 (Ponytail 小步快跑)。
+   - (j) 按 lane 批量做, lane-A 完成后单独大 commit、lane-B 完成后单独大 commit; 每个 lane 内单 commit 不分小。
+
+**Q13 问题**：请答 (1) 执行顺序 α/β/γ; (2) pending 处理 a/b/c; (3) commit 粒度 i/j。
+理由应该是：
+- (1) C1-1 是核心路径单做 (α) 最稳但延长 release exe 时间；分 lane (β) 可加快但 Lane-A 和 Lane-B 可能并发改重叠文件 (TopologyView.tsx, PlatformsView.tsx) 引起冲突。
+- (2) (b) 分批合理的 grill 节奏；但 (c) Ponytail 角度"打磨启动比 grill 饱和更重要"。
+- (3) (i) 小步快跑符合 Ponytail 但 commit churn 大；(j) lane 大 commit 符合"功能闭环"心智但 push 时间晚。
+
+--- (grill 状态：Q13 已抛出，等用户回归答；A8 规划期禁止边答边改)
