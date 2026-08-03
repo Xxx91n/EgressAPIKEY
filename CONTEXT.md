@@ -115,3 +115,16 @@ tracing file. Resin's README advertises it as a dashboard query surface;
 the shell-desktop port does NOT yet expose it (ADR-0005 Q6). Likely lives
 behind an admin endpoint that must be live-probed (DESIGN.md mentions the
 log table but no public URL was confirmed).
+
+### Observed Key Pool
+A shell-side SQLite table (observed_keys, ADR-0011) keyed by route_id
+(ar-<16hex>) that reverse-maps the interceptor-injected X-Resin-Account
+back to a readable `(apiKeyMask, endpoint, first_seen, last_seen,
+request_count)` tuple. Append-only; INSERT OR IGNORE on every new
+tuple routed through the interceptor. Survives app restart in
+`app_config_dir()/ai-api-route.db` (WAL mode). The GUI joins LeaseEntry.
+account (ar-<16hex>) back to this table so each Topology B-column box
+shows `key[0..4]...key[-4..] · endpoint` instead of an opaque hash.
+_Avoid_: key pool, key registry (both noun-collision with keyCandidates
+and Resin-internal cache names).
+

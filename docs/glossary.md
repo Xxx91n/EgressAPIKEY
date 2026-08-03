@@ -49,3 +49,17 @@ removed before the route_id-derived value is injected.
 ADR-0006. Mainline A = function closure (make the software not a toy).
 Mainline B = release standardization (fill release/ + tag v0.1.0).
 Sequential: B starts only after A is closed-loop verified.
+## observed_keys
+
+The shell-side SQLite table (ADR-0011) storing the reverse map from
+route_id (ar-<16hex>) to readable (apiKeyMask, endpoint, first_seen,
+last_seen, request_count). Append-only. Backed up inside the P14 zip
+alongside settings.json. Lives at app_config_dir()/ai-api-route.db (WAL).
+
+## DbPool
+
+The Arc<r2d2::Pool<SqliteConnectionManager>> wrapper managed into Tauri
+State from main.rs .setup(). Shared by the axum interceptor (writes
+observed_keys on new route_id) and the observed_keys() IPC handler
+(services the GUI 5s sync). r2d2_rusqlite per AGENTS ADR-0011 — pool
+size 4, WAL enabled, hand-written PRAGMA user_version migration.

@@ -1,3 +1,57 @@
+<!-- A13 final schedule (single-lane serial, commit i = Ponytail small-step; generated 2026-08-03 after Q5-Q13 grill closure) -->
+
+## PLAN SCHEDULE (executed by ultragoal-driven polishing phase)
+
+> **A13 = (3)(i) 小步快跑**: serial single-lane; one confirmed item per commit; each commit = code + cargo test + vitest + tsc + i18n:check + build --release + stage release/windows-gui/ai-api-route.exe with embedded Vite chunk + smoke launch + codegraph sync + AGENTS.md section追加 + commit + push (local — remote token expired).
+> **A8 严格律**: pending items stay pending until grill confirms; mainline B (release v0.1.0) stays on-hold per ADR-0006.
+
+### Spec scope (what each item delivers)
+| # | ID | scope | tests | i18n keys new | source files touched |
+| --- | --- | --- | --- | --- | --- |
+| 1 | **C1-1** | route_id-derived B-column + DbPool + observed_keys SQLite + IPC + GUI chip join + Unassigned area | cargo: r2d2 pool + user_version migration + upsert idempotent + restart-safe; vitest: TopologyView renders mask+endpoint | 0 new (use existing topology i18n keys) | crates/resin-core/src/db.rs (new), src-tauri/src/main.rs, src-tauri/src/commands/mod.rs, crates/resin-core/src/interceptor.rs, src/lib/ipc.ts, src/views/TopologyView.tsx, src/store/appStore.ts, AGENTS.md §Storage locations |
+| 2 | **C1-2** | onConnect -> PATCH fired -> fit ipcPlatformListFull re-fetched -> new routable_node_count propagated -> assert; consecutive PATCH not stale-snapshot race | vitest: patchAndSync helper + racy double-PATCH | 0 | src/views/TopologyView.tsx, src/lib/ipc.test.ts |
+| 3 | **C1-3** | onEdgesDelete -> remove-region-> residents -> assert edge gone after sync back | vitest: removeAndSync helper + idempotency | 0 | src/views/TopologyView.tsx, src/lib/ipc.test.ts |
+| 4 | **C1-4** | audit current release exe for viewport flash; if repro -> fix onInit opacity gate; else -> done with evidence | vitest: expects skip unless repro | 0 | maybe src/views/TopologyView.tsx |
+| 5 | **C2-1** | sub drag reorder persists after remount; manual release-exe check | vitest: drag reorder + saveSubOrder + remount preserves order | 0 | src/views/SubscriptionsView.tsx, src/lib/subDrag.test.ts |
+| 6 | **C2-2** | sub rename name-conflict guard + delete list refresh | vitest: rename collision + delete re-fetch | 0 | src/views/SubscriptionsView.tsx |
+| 7 | **C2-3** | keyCandidates survive app restart via settings.json#keyCandidates | vitest: loadKeyCandidates round-trip | 0 | src/lib/settings.ts, src/views/PlatformsView.test.tsx |
+| 8 | **C2-4** | review platform dual-pane auto vs manual card visual (solid vs dashed); confirm or polish | manual release-exe + maybe CSS | 0 | maybe src/views/PlatformsView.tsx |
+| 9 | **C2-5** | tray i18n sync (current release exe manual test) | manual + maybe vitest retry | 0 | src-tauri/src/tray.rs (if repro) |
+| 10 | **C2-14** | PlatformsView "新建平台" dialog button + name+policy+regex form + ipcPlatformCreateWithFields IPC bridge + toast + refresh | vitest: valid submit + empty name rejected | 8 platform.create* keys ×18 locales = 144 | src/views/PlatformsView.tsx, src/locales/*/platform.json, scripts/i18n-check.cjs |
+| 11 | **C2-7** | TopologyView i18n.ready gate before building node box text; locale switch re-renders | vitest: locale=en box text, change to zh re-render | 0 | src/views/TopologyView.tsx |
+| 12 | **C2-8** | Settings dirty-state sticky save bar (clean hidden, dirty visible+enabled, saving spinner); existing saveAll body unchanged | vitest: dirty tracking + save bar visibility | 0 | src/views/SettingsView.tsx |
+
+### Dependency graph (serial execution order)
+
+```
+C1-1 (DbPool + observed_keys foundation)
+  -> C1-2 (topology sync assertion uses post-C1-1 chip)
+  -> C1-3 (delete-edge assertion uses post-C1-1 patching)
+  -> C1-4 (viewport flash audit; float, lower priority)
+  -> C2-7 (i18n ready gate for box text — runs against new chip)
+  || C2-1 / C2-2 (subscription view side; independent of C1-1)
+  || C2-3 / C2-4 (platform dual-pane side; independent of C1-1)
+  -> C2-14 (新建平台 dialog; must come after C2-4 if visual polish still changes)
+  -> C2-5 (tray sync; can run anywhere in the queue)
+  -> C2-8 (Settings save bar reform; independent of C1-1)
+```
+
+### Pending track (not executed until grill confirms)
+- **C2-9 log system成熟化** — needs Q14: which enterprise tracing crate (tracing-loki / tracing-opentelemetry / tracing-gelf)
+- **C2-10 path/authority audit** — completeness review
+- **C2-11 env var audit** — doc implant, not new code
+- **C2-12 single-instance + tray left-click focus** — needs grill confirmation of "click second .exe focus window instead of exit"
+- **C2-13 close-to-tray survive** — release-exe manual verification
+- **C1-4 viewport flash** — deferred pending release-exe repro
+- **P25burst-1/2/3/4** — already证伪 in Q8 evidence audit; remove on next release-exe cross-check
+- **P25-Q8-extra-1 subscription 403 error layer分级** — UX polish, optional
+
+### Out of scope (deferred)
+- C3-1 mainline B release v0.1.0 (ADR-0006 / ADR-0010: A8 on-hold)
+- C3-2 VPS headless parity (ADR-0009: defer)
+
+--- (grill 状态：Q5-Q13 全部闭环；PLAN SCHEDULE is the handoff table for the polishing phase. Below the line: original grill issues backlog as written during the Q5-Q13 grill — kept for audit trail.)
+
 # GRILL ISSUES BACKLOG (Polishing phase — planning only, execute after all grill questions resolved)
 
 > 状态约定：每条 issue = `[ID] [C-scope] [state] title — 1-line spec`, state ∈ pending(待 grill 确认) / confirmed(grill 已答, 待打磨) / done(已闭环, 引用 commit)。
@@ -362,3 +416,4 @@ A8 用户约束"先 grill 所有问题再统一打磨"，现在 Q5–Q12 闭环�
 - (3) (i) 小步快跑符合 Ponytail 但 commit churn 大；(j) lane 大 commit 符合"功能闭环"心智但 push 时间晚。
 
 --- (grill 状态：Q13 已抛出，等用户回归答；A8 规划期禁止边答边改)
+
