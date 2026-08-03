@@ -58,13 +58,23 @@
 - **打磨目标**：toast 旁加 "查看冲突源" 按钮 -> 跳转到 lane 占用 view（可视化 lane 0 已被哪些进程占用）。或者 lane conflict 时改 dropdown 只显示 available lanes。
 - **交付需求**：高质量 UX，不是再加个 toast。
 
-### C2-14 [confirmed] PlatformsView "Add Platform" 实际语义 = 添加 key 候选
-- **现状**：P21-B 双栏后，按钮 label `t("platform.addKey")` 但显示文案仍含 "Add Platform" 风格导致用户误解为添加 Resin 平台；加了之后只会出现在 left pane，不会调用 `POST /api/v1/platforms`。
-- **打磨目标**：两种 UX 选择之一 —
-  (a) 按钮文案改为`platform.addKeyCandidate`，说明 "添加 key 候选；之后拖到右侧空位建独立平台"; 或
-  (b) 同屏补一个手动 Resin 平台创建入口（对话框填 name + allocation_policy + regex_filters），并按对应的 IPC `platform_create_with_fields` 已有通往。
-- **关联 commits**：4625b4a (P21-B 双栏), cfc0619 (platform_create_with_fields IPC).
-- **状态**：confirmed — 需 grill Q9 回答走 (a) 还是 (b)。
+### C2-14 [confirmed=b] PlatformsView 右栏补 "新建平台" 手动创建入口（Q9 A9 选定 b 方案）
+- **现状**：P21-B 双栏重构后右栏顶端没有显式 "新建 Resin 平台" 按钮，用户只能通过拖拽 key candidate 到右栏空白处来隐式创建 `auto-{uid}` platform；显式创建带定制 name/allocation_policy/regex_filters 的手动平台没有 GUI 入口。IPC `ipcPlatformCreateWithFields(body)` 已在 P21-B commit `cfc0619` 落地但目前前端未桥接。
+- **打磨目标（A9 确认 b 方案）**：
+  1. 右栏顶端 + 右栏上下文 toolbar 加 `t("platform.create")` 按钮。
+  2. 点击 → 弹 `<dialog>` (Tauri webview 不用 native modal，用 inline dialog div 满足可 inspectability)，表单字段：
+     - `name` text input (1..128 chars, assertShortName 校验)
+     - `allocation_policy` `<select>` 三个OPTION: `BALANCED` / `PREFER_LOW_LATENCY` / `PREFER_IDLE_IP` (与 IPC `ALLOWED_ALLOCATION_POLICIES` 同源)
+     - `regex_filters` `<textarea>` 每行一个正则 (max 64 行，每行 ≤253 chars — 与 `platform_update` IPC 校验同源)
+     - 重置按钮 + 提交按钮；提交按钮 disabled 状态由 dirty + 表单校验结果驱动。
+  3. 提交 → `await ipcPlatformCreateWithFields(body)` → `await refreshPlatforms()` → dialog 关闭 + toast `platform.addOk` (已有 i18n key)。
+  4. 失败路径：`ResinClient::create_platform_with_fields` 已有 unit test `cfc0619`；IPC 失败时 toast 显示 Resin 返回的错误 body excerpt；dialog 不关，让用户改了再提交。
+  5. **闭环 vitest**: `PlatformsView.test.tsx` 新加 "user opens dialog → fills valid name 'OpenAI-Prod', POLICY=PREFER_LOW_LATENCY, 2 regex filters → submit → asserts `ipcPlatformCreateWithFields` 被调一次 with the right body → asserts `refreshPlatforms` 被调用 → resolves → dialog closes";另加一例 "submit with empty name → dialog stays open, `ipcPlatformCreateWithFields` NOT called"。
+  6. **i18n**: 新 keys `platform.create` / `platform.createDialog.nameLabel` / `platform.createDialog.allocationPolicy` / `platform.createDialog.regexFilters` / `platform.createDialog.reset` / `platform.createDialog.submit` / `platform.createDialog.invalidName` / `platform.createDialog.invalidRegex` 加入18 个 base locales (按 AGENTS §3 lockstep)。
+  7. **Keyboard accessibility**: dialog 按 Esc 关闭、焦点 trap 在 dialog 内、提交成功后焦点返回 "新建平台" 按钮 (AGENTS frontend guidance "feature-complete controls, states, and views").
+- **验收准则**: 在当前 release exe 手工实测：(a) 打开 PlatformsView 右栏顶端看到 "新建平台" 按钮。(b) 提交一个 `name=OpenAI-Prod` `POLICY=BALANCED` 无 filters → toast addOk → 右栏列表多一行 OpenAI-Prod → Resin 后端 GET /platforms 看见此平台。(c) 提交空名 → dialog 不关，无 IPC 调用。(d) Resin 返回 400 时 dialog 不关，错误内容显示 toast。
+- **关联 commits**: 4625b4a (P21-B 双栏), cfc0619 (platform_create_with_fields IPC), 10a7776/d459de0 (toast i18n 在 SettingsView / tray)。
+- **状态**: confirmed（grill Q9 已答 b），待 backlog 饱和后统一执行打磨。
 
 ### C2-7 [confirmed] Settings 切换 locale 后整页节点框文案 i18n（画布节点盒子 en→zh）
 - **现状**：P13 B7 filed 后修了；但用户后来反馈 "刚打开 GUI 是 zh，画布内节点框还是 en，切换界面再回来才刷新"。怀疑 TopologyView mount 时 i18n.ready 状态未等就 build 节点 box。
