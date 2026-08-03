@@ -1,10 +1,16 @@
 name: ci
 
+# Manual dispatch only (ADR-0010): the user triggers the 5-job release matrix
+# from the Actions tab with a tag input. Pushes and PRs do NOT auto-run — the
+# local scripts/build-all.sh covers the per-commit release-exe requirement
+# (AGENTS.md section 5), and CI minutes are spent only on intentional releases.
 on:
-  push:
-    branches: [main, master, codex/*]
-  pull_request:
-    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git tag for the release (e.g. v0.1.0). The user runs: git tag <tag> && git push origin <tag> first, then triggers this workflow with the same tag.'
+        required: true
+        type: string
 
 jobs:
   # 1. Lint + typecheck + build + unit tests + i18n coverage gate.
@@ -13,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -33,6 +41,8 @@ jobs:
     needs: verify
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -72,6 +82,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -126,6 +138,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
 
       - name: install Linux native deps
         if: matrix.ubuntuDeps
@@ -157,8 +171,8 @@ jobs:
           # ERR_CONNECTION_REFUSED on the user's machine (no Vite dev server).
           # See AGENTS.md section 5 + src-tauri/Cargo.toml [features].
           args: --target ${{ matrix.target }} --features custom-protocol
-          tagName: ${{ github.ref_name }}
-          releaseName: "ai-api-route ${{ github.ref_name }}"
+          tagName: ${{ inputs.tag }}
+          releaseName: "ai-api-route ${{ inputs.tag }}"
           releaseBody: "Windows MSI+NSIS setup, Linux deb+AppImage, macOS dmg (arm64 + x86_64), plus per-OS headless backend tarballs."
           releaseDraft: true
           prerelease: false
@@ -211,6 +225,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
 
       - name: install Linux native deps
         if: matrix.ubuntuDeps
