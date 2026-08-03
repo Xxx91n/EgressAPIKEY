@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, act } from "@testing-library/react";
 import { invokeMock } from "../test/setup";
 import { SettingsView } from "./SettingsView";
 import { useAppStore } from "../store/appStore";
@@ -62,5 +62,51 @@ describe("SettingsView P25-item4 tray i18n refresh closed-loop", () => {
       const calls = invokeMock.mock.calls.filter(([cmd]) => cmd === "tray_refresh_labels");
       expect(calls.length).toBe(1);
     });
+  });
+});
+
+// C2-8 (PLAN SCHEDULE item #12): Settings dirty-state sticky save bar closed-loop.
+// The save bar must be hidden when clean, visible when dirty, show a spinner while
+// saving, and hide again after baseline resets on save success. This is the
+// enterprise-pattern dirty-tracking gate (minimal baseline + JSON.stringify diff).
+describe("SettingsView C2-8 dirty-state save bar visibility", () => {
+  beforeEach(() => {
+    useAppStore.setState({ laneCount: 10 });
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(undefined);
+  });
+
+  it("save bar is hidden when form is clean (default state)", async () => {
+    await act(async () => { render(<SettingsView />); });
+    await waitFor(() => { expect(invokeMock).toHaveBeenCalled(); });
+    expect(screen.queryByText("Save")).toBeNull();
+    cleanup();
+  });
+
+  it("save bar appears after editing lanes (dirty state visible)", async () => {
+    await act(async () => { render(<SettingsView />); });
+    await waitFor(() => { expect(invokeMock).toHaveBeenCalled(); });
+    const numInput = screen.getByRole("spinbutton") as HTMLInputElement;
+    expect(numInput.value).toBe("10");
+    await act(async () => { fireEvent.change(numInput, { target: { value: "20" } }); });
+    await waitFor(() => { expect(screen.getByText("Save")).toBeTruthy(); });
+    expect(numInput.value).toBe("20");
+    cleanup();
+  });
+
+  it("save click resets baseline and hides bar after saved timeout", async () => {
+    // Real timers: waitFor() polls via setTimeout internally, so fake timers
+    // would deadlock. We wait 1700ms for the 1500ms setSaved(false) to fire.
+    await act(async () => { render(<SettingsView />); });
+    await waitFor(() => { expect(invokeMock).toHaveBeenCalled(); });
+    const numInput = screen.getByRole("spinbutton") as HTMLInputElement;
+    await act(async () => { fireEvent.change(numInput, { target: { value: "30" } }); });
+    await waitFor(() => { expect(screen.getByText("Save")).toBeTruthy(); });
+    const saveBtn = screen.getByText("Save");
+    await act(async () => { fireEvent.click(saveBtn); });
+    await new Promise((r) => setTimeout(r, 1700));
+    expect(screen.queryByText("Save")).toBeNull();
+    expect(useAppStore.getState().laneCount).toBe(30);
+    cleanup();
   });
 });

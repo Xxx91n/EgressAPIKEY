@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload } from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcInterceptorPort } from "../lib/ipc";
@@ -90,6 +90,9 @@ export function SettingsView() {
   // MihomoController::new which refuses non-loopback URLs (§7.6).
   const [gatewayBind, setGatewayBind] = useState("127.0.0.1:7897");
   const [mihomoApi, setMihomoApi] = useState("http://127.0.0.1:9090");
+  // C2-8: dirty-state tracking — baseline snapshot vs current form values.
+  // idiomatic enterprise pattern (minimal baseline+JSON.stringify diff, no RHF dep).
+  const [baseline, setBaseline] = useState({ lanes: laneCount, gatewayBind, mihomoApi });
   // WebDAV backup config (clash-verge-rev pattern)
   const [backupUrl, setBackupUrl] = useState("");
   const [backupUser, setBackupUser] = useState("");
@@ -125,6 +128,7 @@ export function SettingsView() {
       if (cancelled) return;
       if (b) setGatewayBind(b);
       if (m) setMihomoApi(m);
+      setBaseline({ lanes: laneCount, gatewayBind: b ?? gatewayBind, mihomoApi: m ?? mihomoApi });
     })();
     return () => { cancelled = true; };
   }, []);
@@ -226,11 +230,15 @@ export function SettingsView() {
         setTimeout(() => setConfigMsg(""), 5000);
       }
     };
-    input.click();
-  };
+   input.click();
+ };
 
-  const saveAll = async () => {
-    setBusy(true);
+ // C2-8: isDirty = baseline vs current form snapshot. showSaveBar gates the sticky bar.
+ const isDirty = useMemo(() => JSON.stringify({ lanes, gatewayBind, mihomoApi }) !== JSON.stringify(baseline), [lanes, gatewayBind, mihomoApi, baseline]);
+ const showSaveBar = isDirty || busy || saved;
+
+ const saveAll = async () => {
+   setBusy(true);
     try {
     const n = Math.max(1, Math.min(50, Math.trunc(lanes)));
     setLanes(n);
@@ -248,6 +256,7 @@ export function SettingsView() {
     setGatewayBind(bind);
     setMihomoApi(api);
     await Promise.all([saveGatewayBind(bind), saveMihomoApi(api)]);
+    setBaseline({ lanes: n, gatewayBind: bind, mihomoApi: api });
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
     } finally { setBusy(false); }
@@ -422,17 +431,19 @@ export function SettingsView() {
           {configMsg ? <span className="text-xs text-zinc-500">{configMsg}</span> : null}
         </div>
       </SectionCard>
+      {showSaveBar && (
       <div className="sticky bottom-0 left-0 right-0 mt-4 px-4 py-3 bg-white/85 dark:bg-zinc-900/80 backdrop-blur border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2">
         <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("settings.unifiedHelp")}</span>
         <button
           onClick={() => void saveAll()}
-          disabled={busy}
+          disabled={busy || (!isDirty && !saved)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-40"
         >
-          {saved ? <Check size={14} strokeWidth={2.5} /> : <Save size={14} strokeWidth={2} />}
+          {busy ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} strokeWidth={2.5} /> : <Save size={14} strokeWidth={2} />}
           {t("settings.save")}
         </button>
       </div>
+      )}
     </section>
 
       
