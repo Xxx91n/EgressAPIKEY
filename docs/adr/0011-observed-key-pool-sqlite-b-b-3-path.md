@@ -35,6 +35,13 @@ the Resin Go sidecar owns the egress-IP-sticky lease layer.
      pool-size tuning + WAL play together. Mutex<Connection> rejected —
      serialization is unnecessary at this concurrency level and the pool
      path is more evolvable (write queue, monitoring).
+   - **Implementation revision (2026-08-03)**: r2d2-rusqlite is no
+     longer published on crates.io (404 for both "r2d2-rusqlite" and
+     "r2d2_rusqlite"). The landed implementation falls back to
+     parking_lot::Mutex<rusqlite::Connection> (the originally-rejected
+     (a) alternative). The Decision text below retains the original
+     Q12 answer for audit trail; the "Implementation Revision" section
+     at the end of this ADR is the current source of truth.
    - Schema migration: **hand-written `PRAGMA user_version`** + `CREATE
      TABLE IF NOT EXISTS` idempotent startup check. pwm pro research
      rejected `rusqlite_migration` and `refinery` for *this* scale: one
@@ -79,6 +86,9 @@ Tauri State; `open_db()` does WAL pragma + user_version match migration
 + pool init in one shot, called once from `main.rs .setup()` before
 `manage(DbPool)`. The axum interceptor cfg holds an `Arc<DbPool>`
 clone for `observed_key_upsert` calls inside `proxy_handler`.
+   **Note**: the actual DbPool in crates/resin-core/src/db.rs is
+   Arc<parking_lot::Mutex<Connection>>, not Arc<Pool<...>> -- see
+   "Implementation Revision" at the end of this document.
 
 ## Consequences
 
@@ -114,3 +124,56 @@ clone for `observed_key_upsert` calls inside `proxy_handler`.
 - The existing `route_id` + `normalize_auth` cargo tests (lane.rs)
   remain the alg side of the contract; this ADR adds the *storage*
   side closure.
+
+## Implementation Revision (2026-08-03)
+
+**Status**: supersedes the connection-lifecycle portion of the Q12/A12
+decision above. The r2d2-rusqlite pool was the *planned* path; the
+*landed* path is parking_lot::Mutex<rusqlite::Connection>.
+
+**Root cause**: during C1-1 execution the r2d2-rusqlite crate was
+found to be no longer published on crates.io (verified 2026-08-03:
+crates.io returns 404 for both "r2d2-rusqlite" and "r2d2_rusqlite").
+The crate was removed from the registry, so adding it as a dependency
+would break the build. The fallback is the stdlib-adjacent path that
+ADR-0011 originally listed as the rejected (a) alternative.
+
+**Landed implementation** (crates/resin-core/src/db.rs):
+- pub struct DbPool(Arc<parking_lot::Mutex<Connection>>) keyed off
+  parking_lot::Mutex (not std::sync::Mutex -- parking_lot is a
+  no-dependency fast mutex already in the workspace via
+  crates/resin-core/Cargo.toml).
+- Every async call site wraps the lock acquisition in
+  tokio::task::spawn_blocking so the axum event loop is never
+  blocked on the SQLite lock. The lock is held only for the duration
+  of the SQL statement.
+- open_db(path) does WAL pragma + PRAGMA user_version match
+  migration + Connection init in one shot, called once from
+  main.rs .setup() before app.manage(DbPool).
+- The axum interceptor cfg holds an Arc<DbPool> clone for
+  observed_key_upsert calls inside proxy_handler.
+
+**Why the downgrade is safe at this concurrency level**:
+- One interceptor write per *new* (key, endpoint, model, path) tuple
+  -- route_id is deterministic FxHash, so INSERT OR IGNORE is a
+  no-op on repeats. Write rate is bounded by distinct-tuple arrival,
+  not request rate.
+- One GUI SELECT * FROM observed_keys every 5s.
+- SQLite serialised write throughput >> this arrival rate.
+- The Mutex serialisation cost is invisible; a pool would only matter
+  at >100 concurrent writers, which this single-user desktop shell
+  will never see.
+
+**Ponytail rationale**: the stdlib-adjacent path (zero new crates,
+rusqlite 0.32 already in Cargo.toml) is the ladder rung-3 "stdlib
+does it" path. The originally-rejected (a) alternative turned out
+to be the only viable path once r2d2-rusqlite disappeared from
+crates.io. The Q12/A12 (1)=b answer is preserved above for audit
+trail; this section is the current source of truth for what the
+code does.
+
+**Future migration hook**: if r2d2-rusqlite is ever re-published or
+a maintained fork appears, or if concurrency rises (multi-window,
+VPS headless parity per ADR-0009), the swap from Mutex<Connection>
+to Pool<SqliteConnectionManager> is local to db.rs -- the DbPool
+public API (open_db, list, upsert) is unchanged.
