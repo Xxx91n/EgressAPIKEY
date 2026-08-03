@@ -64,6 +64,12 @@ export function PlatformsView() {
   const [splitRatio, setSplitRatio] = useState(0.4);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createPolicy, setCreatePolicy] = useState<AllocationPolicy>("BALANCED");
+  const [createRegex, setCreateRegex] = useState("");
+  const [createRegions, setCreateRegions] = useState("");
+  const [createFormError, setCreateFormError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
 
@@ -230,6 +236,37 @@ export function PlatformsView() {
     setDragOverPlatform(null);
   };
 
+  // C2-14 (Q9 A9): manual platform create via dialog -> ipcPlatformCreateWithFields.
+  // Validates name non-empty, policy membership, then POSTs to Resin.
+  const handleCreatePlatform = async () => {
+    const trimmed = createName.trim();
+    if (!trimmed) {
+      setCreateFormError(t("platform.createEmptyName"));
+      return;
+    }
+    setCreateFormError(null);
+    setBusy(true);
+    try {
+      // Parse comma/space-separated upstream regex filters and region filters.
+      const regex = createRegex.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean).slice(0, 64);
+      const regions = createRegions.split(/[\s,]+/).map((x) => x.trim().toLowerCase()).filter(Boolean).slice(0, 64);
+      await ipcPlatformCreateWithFields({
+        name: trimmed,
+        allocation_policy: createPolicy,
+        regex_filters: regex,
+        region_filters: regions,
+      });
+      setToast({ kind: "ok", msg: t("platform.addOk") });
+      setCreateDialogOpen(false);
+      setCreateName(""); setCreateRegex(""); setCreateRegions(""); setCreatePolicy("BALANCED");
+      await refreshPlatforms();
+    } catch (e) {
+      setToast({ kind: "err", msg: String(e instanceof Error ? e.message : e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section className="h-full overflow-hidden flex flex-col">
       <header className="px-5 pt-5 pb-2">
@@ -326,6 +363,7 @@ export function PlatformsView() {
           <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 bg-zinc-50 dark:bg-zinc-900/80 backdrop-blur flex items-center justify-between">
             <h3 className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">{t("platform.title")}</h3>
             {busy && <Loader2 size={12} className="animate-spin text-zinc-400" />}
+            <button type="button" onClick={() => setCreateDialogOpen(true)} disabled={busy} className="text-xs px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"><Plus size={12} /> {t("platform.createTitle")}</button>
           </div>
           <div className="p-3 space-y-2">
             {platforms.length === 0 && (
@@ -406,6 +444,37 @@ export function PlatformsView() {
           </div>
         </div>
       </div>
+      {/* C2-14: manual create platform dialog */}
+      {createDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setCreateDialogOpen(false)}>
+          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-800 w-full max-w-md mx-4 p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold">{t("platform.createTitle")}</h3>
+            <div className="space-y-1">
+              <label className="text-xs text-zinc-600 dark:text-zinc-400">{t("platform.name")}</label>
+              <input type="text" data-testid="create-platform-name" value={createName} onChange={(e) => setCreateName(e.target.value)} className="w-full text-xs px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+              {createFormError && <p className="text-xs text-red-500">{createFormError}</p>}
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-zinc-600 dark:text-zinc-400">{t("platform.egressPolicy")}</label>
+              <select value={createPolicy} onChange={(e) => setCreatePolicy(e.target.value as AllocationPolicy)} className="w-full text-xs px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-400">
+                {ALLOCATION_POLICIES.map((pol) => (<option key={pol} value={pol}>{pol}</option>))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-zinc-600 dark:text-zinc-400">{t("platform.createRegex")}</label>
+              <input type="text" value={createRegex} onChange={(e) => setCreateRegex(e.target.value)} placeholder="api.openai.com, api.anthropic.com" className="w-full text-xs px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-zinc-600 dark:text-zinc-400">{t("platform.createRegions")}</label>
+              <input type="text" value={createRegions} onChange={(e) => setCreateRegions(e.target.value)} placeholder="US, HK, JP" className="w-full text-xs px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setCreateDialogOpen(false)} className="text-xs px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800">{t("common.cancel")}</button>
+              <button type="button" data-testid="create-platform-submit" onClick={() => void handleCreatePlatform()} disabled={busy} className="text-xs px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">{busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} {t("platform.createSubmit")}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

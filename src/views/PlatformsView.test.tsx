@@ -155,7 +155,74 @@ describe("PlatformsView P21-B (dual-pane, IPC-mocked)", () => {
     expect(manualCls && manualCls.includes("border-dashed")).toBe(true);
   });
 
-    it("ADR-0006 item 1 closed-loop: renders routable nodes for a platform after platform_snapshot resolves", async () => {
+    it("C2-14: opening the +New platform dialog and submitting a valid name forwards ipcPlatformCreateWithFields + refreshes platforms", async () => {
+    let createdBody: unknown = null;
+    let listCalls = 0;
+    invokeMock.mockImplementation((cmd: string, args?: unknown) => {
+      if (cmd === "platform_list_full") {
+        listCalls++;
+        // Batch 1: no platforms; after create + refresh batch 2 returns the new one.
+        return Promise.resolve(listCalls === 1
+          ? []
+          : [{ name: "manual-test", allocation_policy: "PREFER_LOW_LATENCY", regex_filters: ["api.openai.com"], region_filters: ["US"], routable_node_count: 0, sticky_ttl: "" }]);
+      }
+      if (cmd === "platform_create_with_fields") { createdBody = args; return Promise.resolve(undefined); }
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    // Find the "+New platform" button (right-pane header). Use getAllByRole since the left-pane
+    // 'Add key combination' button may also match /new|新建/i in some locales; we match createTitle.
+    await waitFor(() => {
+      const createBtns = screen.getAllByRole("button", { name: /New platform|新建平台|platform.createTitle/i });
+      expect(createBtns.length).toBeGreaterThanOrEqual(1);
+    });
+    const createBtn = screen.getAllByRole("button", { name: /New platform|新建平台|platform.createTitle/i })[0];
+    fireEvent.click(createBtn);
+    // Dialog opens: name input has data-testid="create-platform-name", submit has data-testid="create-platform-submit".
+    const nameInput = await screen.findByTestId("create-platform-name");
+    fireEvent.change(nameInput, { target: { value: "manual-test" } });
+    const submitBtn = screen.getByTestId("create-platform-submit");
+    fireEvent.click(submitBtn);
+    // ipcPlatformCreateWithFields received the body.
+    await waitFor(() => { expect(createdBody).not.toBeNull(); });
+    // Tauri invoke passes { body: {...} } as the command args; verify the inner body.
+    expect(createdBody).toMatchObject({
+      body: {
+        name: "manual-test",
+        allocation_policy: "BALANCED",
+        regex_filters: [],
+        region_filters: [],
+      },
+    });
+    // After create: refresh fires list again and the new platform renders.
+    await waitFor(() => expect(screen.getByText("manual-test")).toBeInTheDocument());
+  });
+
+  it("C2-14: submitting the dialog with an empty name shows the createEmptyName error and never calls ipcPlatformCreateWithFields", async () => {
+    let createCalled = false;
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "platform_list_full") return Promise.resolve([]);
+      if (cmd === "platform_create_with_fields") { createCalled = true; return Promise.resolve(undefined); }
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    // Open dialog.
+    const createBtn = (await waitFor(() => screen.getAllByRole("button", { name: /New platform|新建平台|platform.createTitle/i })))[0];
+    fireEvent.click(createBtn);
+    const nameInput = await screen.findByTestId("create-platform-name");
+    // Leave name empty; submit.
+    fireEvent.change(nameInput, { target: { value: "   " } });
+    const submitBtn = screen.getByTestId("create-platform-submit");
+    fireEvent.click(submitBtn);
+    // Within a moment, the empty-name error surfaces and create was NOT called.
+    await waitFor(() => {
+      expect(screen.getByText(/cannot be empty|不能为空|platform.createEmptyName/i)).toBeInTheDocument();
+    });
+    expect(createCalled).toBe(false);
+  });
+
+  it("ADR-0006 item 1 closed-loop: renders routable nodes for a platform after platform_snapshot resolves", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "platform_list_full") return Promise.resolve([
         { name: "P1", allocationPolicy: "BALANCED", regionFilters: [], routableNodeCount: 1, regexFilters: [], stickyTtl: "30m" },
