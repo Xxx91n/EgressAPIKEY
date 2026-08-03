@@ -264,3 +264,43 @@ A11=C 选定新建 SQLite observed_keys 表。但项目首次落地 SQLite 有�
 答 Q12 后 C1-1 的打磨实施成本就能精确估算，可启动打磨期。
 
 --- (grill 状态：Q12 已抛出，等用户回归答；A8 规划期禁止边答边改)
+---
+
+## Q12 答复与决策 (A8 规划期沉淀，含 pwm 调研内部审核)
+
+### A12 (1) = (b) r2d2 + r2d2-rusqlite 池
+- **用户答复**：(1) b，"需要支持工程化的场景"。
+- **pwm 调研结论 (auto / pro healthy 183/300)**：r2d2 + r2d2-rusqlite 在 2025 是 Tauri 2 + axum + rusqlite 同进程多线程场景的工程级首选。
+  - r2d2-rusqlite 提供：池化连接复用、可控并发读、写操作串行化、阻塞成本封装在连接内部不污染 axum/IPC 处理逻辑。
+  - 维护状态：rusqlite 与 r2d2 生态 2024-2025 活跃维护，适合企业级长期。
+- **内部审核结论**：通过。本场景并发强度低但工程化角度"阻塞成本封装在连接内部 + 可扩展到写队列 + 运维监控"是合理工程升级路径。
+- **实施约束**：pool 大小 4（match CPU 核上限），WAL 开启，写操作显式事务包装，pool 在 Tauri State 注入供 axum interceptor + IPC handler 共享。
+
+### A12 (2) = 待用户复核（b vs pwm 推荐的 a）
+- **用户原始答复**：(2) b，"需要支持工程化的场景，pwm 联网调研，内部审核一下"。
+- **pwm 调研结论 (同上 pro 183/300)**：结论推翻 b。pwm 明确说在"单 app、couple of tables、low-churn schema"场景中，rusqlite_migration 与 refinery 的收益有限、额外依赖 + 版本锁定 + 学习成本风险大于收益。canonical 答案 = 手写 PRAGMA user_version + CREATE TABLE IF NOT EXISTS 启动幂等检查。
+- **内部审核判断**：pwm 推翻有道理。本项目 observed_keys 单表 append-only，low-churn schema。两个路径都合理：
+  - A12(2)(b) rusqlite_migration: 工程化强、M 枚举写法可读、未来加表可控；加单 crate (~30KB) 代价小。
+  - A12(2)(a) 手写 user_version: 最小 dep、零额外维护锁定；启动时一段 match 代码；未来 schema 演进需要手动追加分支。
+- **决策待用户复核**：pwm 推翻 b 选 a。Ponytail 角度推荐 a，工程化扩展性角度可争 b。抛回 Q12-revision 让用户决定。
+
+### A12 (3) = 复用 backup 流程
+- **用户答复**：(3) "复用 backup 流程不要二次造轮子"。
+- **决策**：observed_keys SQLite 文件跟随 settings.json 的 backup 流程，打包进同一 backup zip（P14 backup schema 增列为 source = app_data + db 文件）。Settings > Storage 现有 "Open config directory" 按钮已覆盖 db 路径访问；backup/restore 不增加新目录。
+- **WAL mode**: 启用 (PRAGMA journal_mode=WAL)，几乎零代价提升并发读，WAL 文件 (-wal, -shm) 跟 .db 一起进 backup zip。
+- **位置**: app_config_dir()/ai-api-route.db（settings.json 同目录，与 AGENTS §Storage locations 一致）。
+- **vacuum**: observed_keys append-only 单表不会爆发增长，非刚需；可加 PRAGMA auto_vacuum = INCREMENTAL zero-cost guard。
+
+### 整个落地影响（待 C1-1 打磨期执行）
+1. Cargo.toml 加 r2d2, r2d2-rusqlite 依赖 (optional: rusqlite_migration 待 Q12-revision 确认)。
+2. crates/resin-core/src/ 新建 db.rs: pub struct DbPool(Arc<Pool<SqliteConnectionManager>>); pub fn open_db(path); pub fn migrate(&self); pub fn observed_key_upsert(...); pub fn observed_keys_list(...) -> Vec<...>.
+3. main.rs setup: open_db(app_config_dir()/ai-api-route.db) -> migrate() -> manage DbPool 进 Tauri State。axum interceptor cfg 持有 Arc<DbPool> clone。
+4. 新 IPC observed_keys() in commands/mod.rs: select * from observed_keys 返 Vec 给 GUI。
+5. interceptor.rs proxy_handler 新 tuple 调 db.observed_key_upsert(route_id, mask, endpoint, now)。
+6. TopologyView 5s sync 拉 observed_keys，用 route_id 反查得到 mask+endpoint 显示。
+7. AGENTS §Storage locations 节改 "Database: observed_keys SQLite..."
+8. cargo test: INSERT OR IGNORE 幂等、SELECT 命中、migration 幂等、重启后 pool 仍可读 (tempfile + reopen)。
+9. vitest mock observed_keys IPC 返回值，渲染 box 显示 mask+endpoint 验证。
+10. backup 流程把 .db + .db-wal + .db-shm 一起打 zip (复用 P14 backup_upload schema)。
+
+--- (grill 状态：Q12(1)(3) 已沉淀，Q12(2) 待用户复核 pwm 推翻)
