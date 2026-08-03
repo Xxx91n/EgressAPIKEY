@@ -309,3 +309,70 @@ describe("SubscriptionsView item 2 row hint (ADR-0006 item 2)", () => {
     expect(roseEls.length).toBe(0);
   });
 });
+
+  // --- C2-2 closed-loop: rename collision guard + delete list refresh ---
+  describe("C2-2: rename collision guard + delete refreshes live list", () => {
+    beforeEach(() => {
+      useAppStore.setState({ subscriptions: [], laneCount: 10 });
+      invokeMock.mockReset();
+    });
+
+    it("rename to a name that already exists on the live list refuses with a duplicate toast and never calls subscription_remove", async () => {
+      invokeMock.mockImplementation(async (cmd: string) => {
+        if (cmd === "subscription_list") return [
+          { name: "alpha", node_count: 1 },
+          { name: "bravo", node_count: 2 },
+        ];
+        if (cmd === "subscription_remove") throw new Error("must not call remove for a colliding rename");
+        if (cmd === "subscription_add") throw new Error("must not call add for a colliding rename");
+        if (cmd === "node_pool_snapshot") return { total_nodes: 3, healthy_nodes: 3, egress_ip_count: 2, healthy_egress_ip_count: 2 };
+        return undefined;
+      });
+      // The duplicate-rename guard reads the live list; we need both rows present first.
+      const promptSpy = vi.spyOn(window, "prompt").mockReturnValue("bravo");
+      render(<SubscriptionsView />);
+      // Wait for the live list to render so rename can find the row.
+      const renameBtns = await screen.findAllByRole("button", { name: /Rename subscription|\u91cd\u547d\u540d\u8ba2\u9605/i });
+      expect(renameBtns.length).toBe(2); // one per row (alpha + bravo)
+      // Sanity: rename applies to whichever row has the button; testing the first row.
+      // Click it; handleRename pops "renamed = bravo" and the duplicate guard fires BEFORE any remove/add.
+      fireEvent.click(renameBtns[0]);
+      await waitFor(() => {
+        expect(screen.getByText(/already exists|subscription\.duplicate|\u5df2\u5b58\u5728/i)).toBeInTheDocument();
+      });
+      promptSpy.mockRestore();
+    });
+
+    it("delete a subscription fires subscription_remove then re-fetches subscription_list so the row disappears next render", async () => {
+      const calls: string[] = [];
+      let listBatch = 0;
+      invokeMock.mockImplementation(async (cmd: string, args?: unknown) => {
+        const a = args as Record<string, unknown> | undefined;
+        calls.push(cmd);
+        if (cmd === "subscription_list") {
+          listBatch++;
+          // Batch 1: two subs. After remove, batch 2 must show one less row.
+          return listBatch === 1
+            ? [{ name: "alpha", node_count: 1 }, { name: "bravo", node_count: 2 }]
+            : [{ name: "bravo", node_count: 2 }];
+        }
+        if (cmd === "subscription_remove") { const n = a && String(a.name); if (n === "alpha") return true; throw new Error("unexpected remove name " + n); }
+        if (cmd === "node_pool_snapshot") return { total_nodes: 3, healthy_nodes: 3, egress_ip_count: 2, healthy_egress_ip_count: 2 };
+        return undefined;
+      });
+      render(<SubscriptionsView />);
+      await waitFor(() => expect(screen.getByText(/alpha/i)).toBeInTheDocument());
+      // Find and click a delete("×"/"删" /no button) . Locate the delete control per row.
+      // The delete control has aria-label = t("subscription.delete", name) or the icon button text ✕.
+      const deleteButtons = await screen.findAllByRole("button");
+      // First delete control sits next to the first row.
+      const del = deleteButtons.find((b) => /delete|Remove|\u5220|\u2715/i.test(b.textContent || "") || (b.getAttribute && /delete/i.test(b.getAttribute("aria-label") || "")));
+      if (!del) { throw new Error("delete button not found in the rendered toolbar"); }
+      fireEvent.click(del);
+      await waitFor(() => {
+        expect(calls.filter((c) => c === "subscription_remove").length).toBe(1);
+        // second subscription_list fetch after remove keeps the row count + state consistent
+        expect(calls.filter((c) => c === "subscription_list").length).toBeGreaterThanOrEqual(2);
+      });
+    });
+  });
