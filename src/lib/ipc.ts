@@ -363,3 +363,34 @@ export async function ipcLeaseMap(): Promise<LeaseEntry[]> {
     ts: cap(e?.ts),
   }));
 }
+
+// C1-1: Observed key pool entry. The route_id is the shell-side identity
+// (FxHash of normalized auth + body.model + request path); api_key_mask
+// is first4..last4; endpoint is the upstream host. The Topology canvas
+// joins this against the lease map so each platform chip shows the mask
+// + endpoint instead of the raw ar-<16hex> account id.
+export interface ObservedKey {
+  route_id: string;
+  api_key_mask: string;
+  endpoint: string;
+  first_seen: number;
+  last_seen: number;
+  request_count: number;
+}
+
+// C1-1: Read the observed_keys pool from the shell SQLite db. No user input.
+// Tolerates non-array (vitest with no IPC mock / sidecar down) as empty.
+export async function ipcObservedKeys(): Promise<ObservedKey[]> {
+  const raw = await invoke<ObservedKey[]>("observed_keys");
+  if (!Array.isArray(raw)) return [];
+  const cap = (s: unknown): string => (typeof s === "string" ? s.slice(0, 253) : "");
+  const num = (n: unknown): number => (typeof n === "number" && Number.isFinite(n) ? n : 0);
+  return raw.map((e) => ({
+    route_id: cap(e?.route_id),
+    api_key_mask: cap(e?.api_key_mask),
+    endpoint: cap(e?.endpoint),
+    first_seen: num(e?.first_seen),
+    last_seen: num(e?.last_seen),
+    request_count: num(e?.request_count),
+  }));
+}

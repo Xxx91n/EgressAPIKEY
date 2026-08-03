@@ -11,7 +11,8 @@ use serde::{Serialize, Deserialize};
 use tauri::{AppHandle, Manager, State};
 
 use crate::sidecar::{SidecarHandle, InterceptorPort};
-use resin_core::{ResinClient, MAX_LANES, fetch_clash_subscription, clash_yaml_to_proxies_block};
+use resin_core::DbPool;
+use resin_core::{ResinClient, MAX_LANES, fetch_clash_subscription, clash_yaml_to_proxies_block, ObservedKey};
 
 const AUTHORITY_MAX_LEN: usize = 253;
 const LATENCY_CAP_MS: u64 = 24 * 60 * 60 * 1000;
@@ -1162,6 +1163,16 @@ pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEnt
     Ok(out)
 }
 
+
+#[tauri::command]
+pub async fn observed_keys(db: State<'_, DbPool>) -> Result<Vec<ObservedKey>, String> {
+    // C1-1: surface the observed key pool to the webview. The pool is
+    // populated by the interceptor (route_id upsert on every proxied
+    // request); the GUI joins this against the lease map to display
+    // the masked api key + upstream endpoint for each platform chip.
+    // No user-supplied input; pure read of rust-side state.
+    db.list()
+}
 
 #[cfg(test)]
 mod tests {

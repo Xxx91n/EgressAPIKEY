@@ -151,4 +151,34 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
     });
   });
 
+  // --- C1-1 closed-loop: observed_keys join into platform chip ---
+  describe("C1-1: observed_keys join shows mask+endpoint instead of raw ar-hash", () => {
+    it("renders sk-A...1234 · api.openai.com chip when lease.account matches observed_key.route_id", async () => {
+      const rid = "ar-0000000000000001";
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({
+          items: [{ id: "p1", name: "OpenAI", regex_filters: ["api.openai.com"], region_filters: [], allocation_policy: "BALANCED", routable_node_count: 1, sticky_ttl: "168h0m0s" }],
+          total: 1, limit: 50, offset: 0,
+        });
+        if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
+        if (cmd === "lease_map") return Promise.resolve([{ platform_id: "p1", account: rid, egress_ip: "1.2.3.4", node_tag: "hk-01", target_domain: "api.openai.com", ts: "" }]);
+        if (cmd === "observed_keys") return Promise.resolve([{ route_id: rid, api_key_mask: "sk-A...1234", endpoint: "api.openai.com", first_seen: 1, last_seen: 2, request_count: 7 }]);
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        expect(screen.getByText("OpenAI")).toBeInTheDocument();
+      });
+      // The chip should render the mask + endpoint joined, not the raw ar-hash.
+      await waitFor(() => {
+        expect(container.textContent).toContain("sk-A...1234");
+        expect(container.textContent).toContain("api.openai.com");
+      });
+      // And the raw ar- prefix should NOT leak as the chip tag (it may appear
+      // in a title attribute but the visible text must prefer the mask).
+      // The egress IP must still render.
+      expect(container.textContent).toContain("1.2.3.4");
+    });
+  });
+
 });

@@ -37,6 +37,7 @@ use serde_json::Value;
 use tokio::net::TcpListener;
 
 use crate::lane::{normalize_auth, route_id};
+use crate::db::DbPool;
 
 /// Config the interceptor needs to do its job. Cloneable so we can spawn tasks.
 #[derive(Clone)]
@@ -48,6 +49,11 @@ pub struct InterceptorConfig {
     /// Forwarding HTTP client. Built by the caller; we keep it to avoid
     /// creating one per request.
     pub http: reqwest::Client,
+    /// Optional observed_keys pool handle. When Some, proxy_handler upserts
+    /// the route_id->(mask,endpoint) reverse-map into SQLite on every request.
+    /// None means the interceptor is running in a unit-test context with no
+    /// persistent store (ADR-0011).
+    pub db: Option<DbPool>,
 }
 
 /// Build the interceptor axum Router. Exposed for in-process unit tests via
@@ -94,6 +100,7 @@ async fn proxy_handler(
     let rid = route_id(&identity, model.as_deref(), Some(path_tail));
     let account_id = format!("ar-{:016x}", rid);
 
+
     // Build the upstream Resin reverse-proxy URL.
     // Format: {resin_base}/{proxy_token}/{identity}/{protocol}/{host}/{path}
     // We use empty identity segment + X-Resin-Account header (header priority > URL).
@@ -102,6 +109,33 @@ async fn proxy_handler(
         .get(axum::http::header::HOST)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
+
+    // ADR-0011 / C1-1: if the interceptor has a DbPool wired, record the
+    // (route_id -> apiKeyMask, endpoint) reverse-map into SQLite on every
+    // request. Mask = first4...last4 of identity; endpoint = host + path.
+    // Best-effort: a SQLite error never blocks the forward.
+    if let Some(db) = &cfg.db {
+        let mask = mask_identity(&identity);
+        let endpoint = format!("{}{}", host, path_tail);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        // SQLite calls are blocking — spawn_blocking off-loads from the
+        // axum async runtime. Ponytail: r2d2_rusqlite is no longer
+        // published on crates.io (verified 2026-08-03), so we fall back
+        // to stdlib Mutex<Connection> + spawn_blocking per ADR-0011 (1)=a.
+        let db_clone = db.clone();
+        let rid_str = account_id.clone();
+        let mask_clone = mask;
+        let endpoint_clone = endpoint.clone();
+        tokio::task::spawn_blocking(move || {
+            if let Err(e) = db_clone.upsert(&rid_str, &mask_clone, &endpoint_clone, now) {
+                tracing::warn!(target: "interceptor", error = %e, route_id = %rid_str, "observed_key upsert failed");
+            }
+        });
+        tracing::debug!(target: "interceptor", route_id = %account_id, "observed_key upsert scheduled");
+    }
 
     tracing::info!(
         rid, account = %account_id, host = %host, path = %path_tail,
@@ -212,6 +246,21 @@ fn pick_auth(h: &HeaderMap) -> String {
     String::new()
 }
 
+/// Mask the normalized auth identity to `first4...last4` for display. The
+/// full upstream key never lands in SQLite — only this masked form, which
+/// the GUI renders in Topology B-column chips. If the identity is shorter
+/// than 8 chars we mask to the full string + "..." (still unique enough for
+/// route_id join since the ar-<16hex> is the real primary key).
+fn mask_identity(identity: &str) -> String {
+    let chars: Vec<char> = identity.chars().collect();
+    if chars.len() <= 8 {
+        return format!("{}...", identity);
+    }
+    let first4: String = chars.iter().take(4).collect();
+    let last4: String = chars.iter().rev().take(4).collect::<Vec<_>>().into_iter().rev().collect();
+    format!("{}...{}", first4, last4)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -297,12 +346,13 @@ mod tests {
             resin_base: "http://127.0.0.1:1".to_string(),
             proxy_token: "x".to_string(),
             http: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_millis(500))
-                .build()
-                .unwrap(),
-        };
-        let resp = send_request(
-            app(cfg),
+            .timeout(std::time::Duration::from_millis(500))
+            .build()
+            .unwrap(),
+        db: None,
+    };
+    let resp = send_request(
+        app(cfg),
             Method::POST,
             "/v1/chat/completions",
             Some("Bearer sk-A"),
@@ -405,13 +455,14 @@ mod tests {
             resin_base: base.clone(),
             proxy_token: "proxy-tok".to_string(),
             http: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(5))
-                .build()
-                .unwrap(),
-        };
-        let port = serve(cfg, "127.0.0.1:0").await.expect("bind ephemeral");
-        // Give the spawned axum task a moment to start listening.
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .unwrap(),
+        db: None,
+    };
+    let port = serve(cfg, "127.0.0.1:0").await.expect("bind ephemeral");
+    // Give the spawned axum task a moment to start listening.
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         let interceptor = format!("http://127.0.0.1:{}", port);
 
         // 4) Send request A: sk-A + gpt-5.6 + /v1/chat/completions.

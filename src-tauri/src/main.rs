@@ -6,6 +6,7 @@
 
 use ai_api_route_app::{build_shared_gateway, build_shared_registry, commands, sidecar::{boot_resin, spawn_health_poll, SidecarHandle, InterceptorPort}, tray::build_tray};
 use resin_core::{CoreConfig, DEFAULT_LANES, interceptor_serve, InterceptorConfig};
+use resin_core::DbPool;
 use tauri::{Manager, Emitter, WindowEvent};
 use tauri_plugin_store::StoreExt;
 
@@ -117,6 +118,7 @@ fn main() {
             commands::config_import,
             commands::interceptor_port,
             commands::lease_map,
+            commands::observed_keys,
         ])
         .setup(|app| {
             // #2/#6: read persisted network settings so the user
@@ -176,6 +178,27 @@ fn main() {
                 admin_token: sidecar.admin_token,
                 proxy_token: sidecar.proxy_token,
             });
+            // C1-1: open the observed_keys SQLite pool at
+            // app_config_dir()/ai-api-route.db (WAL). The Resin sidecar
+            // owns its own state.db/cache.db; this is the shell's key
+            // observation log driving the Topology chips. app_config_dir
+            // is the same path tauri-plugin-store uses for settings.json
+            // so the db sits beside user config.
+            let cfg_dir = app.path().app_config_dir().unwrap_or_else(|_| {
+                std::env::temp_dir().join("com.ai-api-route.desktop")
+            });
+            let db_path = cfg_dir.join("ai-api-route.db");
+            let db = match DbPool::open(&db_path) {
+                Ok(p) => {
+                    tracing::info!(path = %db_path.display(), "observed_keys db opened");
+                    p
+                }
+                Err(e) => {
+                    tracing::error!(error = %e, path = %db_path.display(), "observed_keys db open failed; falling back to in-memory");
+                    DbPool::open_in_memory().expect("in-memory sqlite unavailable")
+                }
+            };
+            app.manage(db.clone());
             // G3: Ghost safety-net - /healthz poll every 3s, 3 consecutive
             // failures flip the tray red, clear OS system proxy if any, and
             // emit a sidecar-status "unhealthy" event to the webview. When
@@ -194,7 +217,9 @@ fn main() {
             // proxy_token stays Rust-side (AGENTS §7.6).
             let resin_base = resin_base_for_interceptor;
             let proxy_token_val = proxy_token_for_interceptor;
+            let db_for_interceptor = db.clone();
             let interceptor_port_val = tauri::async_runtime::block_on(async move {
+                let db_clone = db_for_interceptor.clone();
                 let make_cfg = || InterceptorConfig {
                     resin_base: resin_base.clone(),
                     proxy_token: proxy_token_val.clone(),
@@ -202,6 +227,7 @@ fn main() {
                         .timeout(std::time::Duration::from_secs(60))
                         .build()
                         .expect("interceptor: reqwest client"),
+                    db: Some(db_clone.clone()),
                 };
                 // Bind 127.0.0.1:2261 first; fall back to ephemeral if taken.
                 // Ponytail ceiling: 3 candidate bind addresses.
