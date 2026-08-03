@@ -62,7 +62,7 @@ C1-1 (DbPool + observed_keys foundation)
 
 ## C1 — Topology canvas / 路由语义
 
-### C1-1 [confirmed=A10=B-B-3] A/B/C 三列语义对齐用户心智（route_id-derived key identity 在 GUI 显式）
+### C1-1 [done=4697484] A/B/C 三列语义对齐用户心智（route_id-derived key identity 在 GUI 显式）
 - **用户答复 (Q10/A10=B-B-3 原教旨派)**：B 列 box 全改为 route_id-derived UID，直接连接 shell 拦截器 (P24-A4-3 axum interceptor 在 crates/resin-core/src/interceptor.rs 已注入 X-Resin-Account = ar-<16hex>，算子来自 crates/resin-core/src/lane.rs pub fn route_id)。这是把 P24-A4-3 的拦截器 dogfooded 进 GUI；最贴近用户毫秒级唯一性诉求；也是最重实施路径。
 - **现状**：TopologyView 产 P24-R2 重写后三列已是 Entry / Platforms(by region) / NodeGroup(by region)。但 B 列目前渲染 Resin Platform 对象（name + region_filters + routable_node_count），未显式显示 (api_key mask, upstream_endpoint) tuple；route_id FxHash three-tuple + normalize_auth 已 8 个 cargo 测试绿 (lane.rs line 65, 75)，但 route_id-derived UID **没有任何 GUI 渲染点**。interceptor.rs line 95 注入 ar-<16hex> 后，LeaseEntry.account 字段承载此 hash，但 GUI 对用户只显示 hash 而非原 tuple — 不可读。
 - **打磨目标 (A10=B-B-3 spec 细化)**：
@@ -77,16 +77,16 @@ C1-1 (DbPool + observed_keys foundation)
 - **打磨输入**：用户 A4 之前给 build.nvidia.com GLM-5.2 请求头实例 + diegosouzapw/OmniRoute 源码；P24-A3/A4 源码级研究 (docs/RESIN_ROUTING_ARCHITECTURE_RESEARCH.md)。
 - **状态**：confirmed (grill Q10 已答 B-B-3), spec 已细化；待 backlog 饱和后统一执行打磨。打磨启动前需先 grill Q11（已观测 key pool 的存储选型 — 见下方 Open Questions）。
 
-### C1-2 [confirmed] 热联线 = 原子事务性 PATCH + 状态刷新闭环
+### C1-2 [done=717d131] 热联线 = 原子事务性 PATCH + 状态刷新闭环
 - **现状**：P24-Q2 修了 3 个竞态（patchingRef 重入锁、await sync after PATCH、transparent handle surface），但 ADR-0006 item1 `routable_view` 之后 canvans 状态刷新策略一度单跑 5s 轮询 + visibilitychange refocus；拖拽 PATCH 后的 server-side `routable_node_count` 重算值是否在下次 sync 实际反映，尚未有断言把它写成闭环测试。
 - **打磨目标**：加 vitest 断言 "after onConnect -> one PATCH fired -> ipcPlatformListFull re-fetched -> new routable_node_count propagated to canvas node data"；加 "two consecutive PATCH 不会把 region_filters 中间状态变成 stale-snapshot 后再 PATCH 过去" 的闭环。
 - **关联 commits**：47e54ba, 67d846c.
 
-### C1-3 [confirmed] 拖拽删除连线 = 移除 region_filters（移除的等幂）
+### C1-3 [done=fc8f4f1] 拖拽删除连线 = 移除 region_filters（移除的等幂）
 - **现状**：P24-R2 `onEdgesDelete` PATCH updates platform.region_filters 减去被删的 region。但前端 edge-removed 触发是否真的在 server 端把 region 删掉（而不是整段 region_filters 复盖回去），是否有瞬态 "edge 删了 → server 状态没变的竞态" 未闭环。
 - **打磨目标**：同一 PATCH 幂等性闭环 + 删除 edge 再 sync 回来 edge 真的不回了。
 
-### C1-4 [pending] 记忆 viewport + 初始 fitView 默认覆盖所有节点
+### C1-4 [done=016a1a8, evidence-only] 记忆 viewport + 初始 fitView 默认覆盖所有节点
 - **现状**：P19 item1 加了 viewport 记忆，P20 item1 修了 "first-paint flash" 用 onInit+opacity gate；逻辑应该是闭环了，但用户在 P25-Q7 之后再提及 "拓扑层会跟默认初始位置抢" — 这条需要 grill 确认用户现在还看得到最初的 flash 还是只是历史描述。
 - **打磨目标**：如果用户还能在当前 release exe 看到.flash 抖动，重看 onInit 时机；否则这条 done。
 - **关联 commits**：0cb4186, 3cfb1a7.
@@ -95,23 +95,23 @@ C1-1 (DbPool + observed_keys foundation)
 
 ## C2 — 系统性玩具感巡查（后端与 GUI 状态机一致性）
 
-### C2-1 [confirmed] Subscriptions 拖拽排序是真实持久、切面回留不丢
+### C2-1 [done=607460a, evidence-only] Subscriptions 拖拽排序是真实持久、切面回留不丢
 - **现状**：P19 item6 修了本地 localOrder persistence；P20 item6 把 HTML5 DnD 换成 Pointer Events（WebView2 在 onDragStart 不设 effectAllowed 会禁止符号）；localSubOrder 存本地。但用户后来在 P25打磨期又报 "导入的订阅依旧无法排序"，怀疑是某次 release exe stale-bundle 让用户测错版本——需要用当前 staged exe (allocator 后的 hash) 复核。
 - **打磨目标**：闭环 vitest 跑 "drag row A above row B → saveSubOrder persisted → remount view → localOrder 回留"。手工在当前 release exe 复测一次。
 
-### C2-2 [confirmed] Subscriptions 重命名 / 删除共存
+### C2-2 [done=192bc82] Subscriptions 重命名 / 删除共存
 - **现状**：P19 item6 加了 handleRename (删旧的 + 用新名重建)；P20 item3 加重名检测防止覆盖；P22-A1 加了提交 toast i18n。
 - **打磨目标**：闭环确认 "rename 名字冲突期不覆盖原 sub"，"删除 -> list 重 fetch -> UI 同步减少一行"；加 e2e assertion。
 
-### C2-3 [confirmed] keyCandidates 跨视图不丢（平台双栏）
+### C2-3 [done=dc20ff9] keyCandidates 跨视图不丢（平台双栏）
 - **现状**：P21-B platform 双栏重构：左 = 候选 key combinations，右 = live platforms。candidates 持久化在 `settings.json#keyCandidates`。但 P22 之前用户在 Q9 cluster 也说过 "重开软件配置文件没固化"，同 principle 要确认 keyCandidates 在 app restart 后还在。
 - **打磨目标**：vitest + integration assertion "loadKeyCandidates() returns same set after setKeyCandidates()".
 
-### C2-4 [confirmed] 平台双栏拖拽外观区分（独立 key 组 vs 手动平台）
+### C2-4 [done=ad2a59c] 平台双栏拖拽外观区分（独立 key 组 vs 手动平台）
 - **现状**：P21-B 实现了 `auto-{uid}` platforms 用实线卡片，手动 platform 虚线卡片；Pointer Events drag。但用户在打磨期可能还看到外观界限不够 — 由 C2 系统巡查时复核。
 - **打磨目标**：用户实测如果觉得实线/虚线区分不够明显 → 加颜色区分；如果已足够 → done。
 
-### C2-5 [confirmed] Tray i18n 实时同步
+### C2-5 [done=55f6583, evidence-only] Tray i18n 实时同步
 - **现状**：P24-A4-3 修 await 顺序 (changeLanguage → saveLocale → tray_refresh_labels)；P25-item4 加 tracing + 2 vitest。用户在 P25打磨期报 "慢半拍"，但 root cause audit 结论是 "测试 stale exe" — 应该在当前 staged release exe 复核。
 - **打磨目标**：在当前 release exe 手动实测 "Settings 切换语言 → 立即右键托盘 → 菜单文字是当前 locale 不是前一 locale"。
 
@@ -120,7 +120,7 @@ C1-1 (DbPool + observed_keys foundation)
 - **打磨目标**：toast 旁加 "查看冲突源" 按钮 -> 跳转到 lane 占用 view（可视化 lane 0 已被哪些进程占用）。或者 lane conflict 时改 dropdown 只显示 available lanes。
 - **交付需求**：高质量 UX，不是再加个 toast。
 
-### C2-14 [confirmed=b] PlatformsView 右栏补 "新建平台" 手动创建入口（Q9 A9 选定 b 方案）
+### C2-14 [done=7b10085] PlatformsView 右栏补 "新建平台" 手动创建入口（Q9 A9 选定 b 方案）
 - **现状**：P21-B 双栏重构后右栏顶端没有显式 "新建 Resin 平台" 按钮，用户只能通过拖拽 key candidate 到右栏空白处来隐式创建 `auto-{uid}` platform；显式创建带定制 name/allocation_policy/regex_filters 的手动平台没有 GUI 入口。IPC `ipcPlatformCreateWithFields(body)` 已在 P21-B commit `cfc0619` 落地但目前前端未桥接。
 - **打磨目标（A9 确认 b 方案）**：
   1. 右栏顶端 + 右栏上下文 toolbar 加 `t("platform.create")` 按钮。
@@ -138,11 +138,11 @@ C1-1 (DbPool + observed_keys foundation)
 - **关联 commits**: 4625b4a (P21-B 双栏), cfc0619 (platform_create_with_fields IPC), 10a7776/d459de0 (toast i18n 在 SettingsView / tray)。
 - **状态**: confirmed（grill Q9 已答 b），待 backlog 饱和后统一执行打磨。
 
-### C2-7 [confirmed] Settings 切换 locale 后整页节点框文案 i18n（画布节点盒子 en→zh）
+### C2-7 [done=d109e86] Settings 切换 locale 后整页节点框文案 i18n（画布节点盒子 en→zh）
 - **现状**：P13 B7 filed 后修了；但用户后来反馈 "刚打开 GUI 是 zh，画布内节点框还是 en，切换界面再回来才刷新"。怀疑 TopologyView mount 时 i18n.ready 状态未等就 build 节点 box。
 - **打磨目标**：TopologyView 用 `useTranslation` hook 改 `i18n.ready && i18n.language` gate，画布数据在 i18n ready 后才有 text；闭环 vitest "构造 locale=en, render, box text is en; change locale to zh, re-render, box text is zh"。
 
-### C2-8 [confirmed] Settings 修改后统一保存按钮 + 按钮文案
+### C2-8 [done=f359c82] Settings 修改后统一保存按钮 + 按钮文案
 - **现状**：P9-P10 far fix per-card save bar 去掉了，换 unified sticky save bar；但用户在打磨期有进一步诉求 "修改后立刻显示统一保存按钮"。
 - **打磨目标**：表单 dirty state 驱动 sticky save bar 显示 (clean = hidden, dirty = visible + disabled=false, saving = visible + spinner)。企级轮子模板参考 formik / react-hook-form dirty field tracking。
 - **关联**：用户在多条 bug 列表里要求 "请 exa 联网调研企业级轮子模板"。
