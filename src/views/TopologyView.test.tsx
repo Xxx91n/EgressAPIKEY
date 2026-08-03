@@ -8,7 +8,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 
-import { TopologyView, addRegionFilter, removeRegionFilter } from "./TopologyView";
+import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce } from "./TopologyView";
 
 describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
   beforeEach(() => { invokeMock.mockReset(); });
@@ -178,6 +178,67 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
       // in a title attribute but the visible text must prefer the mask).
       // The egress IP must still render.
       expect(container.textContent).toContain("1.2.3.4");
+    });
+  });
+
+  // --- C1-2 closed-loop: patchAndSyncOnce helper + racy double-PATCH guard ---
+  describe("C1-2: patchAndSyncOnce backup->PATCH->sync ordering + idempotent skip", () => {
+    it("add mode with already-bound region skips PATCH and sync entirely", async () => {
+      const sync = vi.fn(async () => {});
+      const ipcUpdate = vi.fn(async () => {});
+      const backup = vi.fn(async () => {});
+      const res = await patchAndSyncOnce({ platName: "OpenAI", current: ["hk"], region: "hk", mode: "add", sync, ipcUpdate, backup });
+      expect(res.patched).toBe(false);
+      expect(ipcUpdate).not.toHaveBeenCalled();
+      expect(sync).not.toHaveBeenCalled();
+      expect(backup).not.toHaveBeenCalled();
+    });
+
+    it("add mode with new region calls backup THEN ipcUpdate THEN sync (ordering)", async () => {
+      const order: string[] = [];
+      const sync = vi.fn(async () => { order.push("sync"); });
+      const ipcUpdate = vi.fn(async () => { order.push("patch"); });
+      const backup = vi.fn(async () => { order.push("backup"); });
+      const res = await patchAndSyncOnce({ platName: "OpenAI", current: [], region: "jp", mode: "add", sync, ipcUpdate, backup });
+      expect(res.patched).toBe(true);
+      expect(res.next).toEqual(["jp"]);
+      expect(order).toEqual(["backup", "patch", "sync"]);
+      expect(ipcUpdate).toHaveBeenCalledWith("OpenAI", undefined, undefined, ["jp"]);
+    });
+
+    it("remove mode always PATCHes (even when already absent) and sends [] not null", async () => {
+      const sync = vi.fn(async () => {});
+      const ipcUpdate = vi.fn(async () => {});
+      const res = await patchAndSyncOnce({ platName: "P", current: [], region: "tw", mode: "remove", sync, ipcUpdate, backup: undefined });
+      expect(res.patched).toBe(true);
+      expect(res.next).toEqual([]);
+      expect(ipcUpdate).toHaveBeenCalledWith("P", undefined, undefined, []);
+    });
+
+    it("backup swallows failure so a broken backup never blocks the routing PATCH", async () => {
+      const sync = vi.fn(async () => {});
+      const ipcUpdate = vi.fn(async () => {});
+      const backup = vi.fn(async () => { throw new Error("webdav down"); });
+      const res = await patchAndSyncOnce({ platName: "OpenAI", current: [], region: "kr", mode: "add", sync, ipcUpdate, backup });
+      expect(res.patched).toBe(true);
+      expect(ipcUpdate).toHaveBeenCalled();
+      expect(sync).toHaveBeenCalled();
+    });
+
+    it("racy double-PATCH (add same region twice in a row): second call is idempotent skip", async () => {
+      // This pins the race guard: helper short-circuits on already-bound so a
+      // second rapid drag of the same region before the first sync landed still
+      // produces exactly ONE PATCH. The full topology-level race guard is the
+      // patchingRef in TopologyView; this helper owns the idempotent skip.
+      const sync = vi.fn(async () => {});
+      const ipcUpdate = vi.fn(async () => {});
+      const a = await patchAndSyncOnce({ platName: "OpenAI", current: [], region: "hk", mode: "add", sync, ipcUpdate, backup: undefined });
+      // Pretend the first PATCH synced into `current` already (post-PATCH state).
+      const b = await patchAndSyncOnce({ platName: "OpenAI", current: a.next /* ["hk"] */, region: "hk", mode: "add", sync, ipcUpdate, backup: undefined });
+      expect(a.patched).toBe(true);
+      expect(b.patched).toBe(false);
+      expect(ipcUpdate).toHaveBeenCalledTimes(1);
+      expect(sync).toHaveBeenCalledTimes(1);
     });
   });
 

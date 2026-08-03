@@ -201,6 +201,35 @@ export function removeRegionFilter(current: string[] | null, region: string): st
   return cur.filter((r) => r !== region);
 }
 
+// C1-2: pure async helper that does backup -> PATCH region_filters -> sync.
+// Extracted from onConnect/onEdgesDelete so vitest can mock the deps and
+// assert the PATCH+sync ordering + the already-bound skip without a live
+// ReactFlow. The `alreadyBound` short-circuit lives at the call site
+// (onConnect checks `current.includes(region)`) so the racy double-PATCH
+// guard is the idempotent addRegionFilter returning the same ref BEFORE we
+// reach this helper.|| P24-Q2 patchingRef guards the second concurrent drag.
+export async function patchAndSyncOnce(args: {
+  platName: string;
+  current: string[] | null;
+  region: string;
+  mode: "add" | "remove";
+  sync: () => Promise<void>;
+  ipcUpdate: (name: string, _a: undefined, _b: undefined, filters: string[]) => Promise<unknown>;
+  backup?: () => Promise<void>;
+}): Promise<{ patched: boolean; next: string[] }> {
+  const { platName, current, region, mode, sync, ipcUpdate, backup } = args;
+  const cur = current ?? [];
+  const next = mode === "add" ? addRegionFilter(cur, region) : removeRegionFilter(cur, region);
+  if (mode === "add" && cur.includes(region)) {
+    // already bound -> idempotent skip; no PATCH, no sync.
+    return { patched: false, next: cur };
+  }
+  if (backup) { try { await backup(); } catch { /* swallow: backup failure never blocks the routing change */ } }
+  await ipcUpdate(platName, undefined, undefined, next.length > 0 ? next : []);
+  await sync(); // always re-GET from the server so the canvas reflects the authoritative post-PATCH state.
+  return { patched: true, next };
+}
+
 function TopologyCanvas() {
   const { t, i18n } = useTranslation();
   const theme = useAppStore((s) => s.theme);
@@ -282,18 +311,10 @@ function TopologyCanvas() {
     if (!plat) return;
     const current = plat.region_filters ?? [];
     if (current.includes(region)) return; // already bound (idempotent)
-    const next = addRegionFilter(plat.region_filters, region);
     patchingRef.current = true;
     setPatching(true);
     try {
-      await backupBeforeEdit(); // P19 item 4: snapshot before routing change
-      await ipcPlatformUpdate(platName, undefined, undefined, next);
-      // Q2-Bug1+Bug2: do NOT optimistically mutate region_filters locally.
-      // Always re-GET from the server so the canvas reflects the authoritative
-      // post-PATCH state (region_filters AND routable_node_count the server
-      // recalculated). This makes the PATCH effectively transactional from the
-      // user's perspective: the canvas only shows what the server confirmed.
-      await sync();
+      await patchAndSyncOnce({ platName, current: plat.region_filters, region, mode: "add", sync, ipcUpdate: ipcPlatformUpdate, backup: backupBeforeEdit });
     } catch {
       await sync(); // server rejected -> resync to drop the stale optimistic edge
     } finally {
@@ -315,12 +336,7 @@ function TopologyCanvas() {
         const region = e.target.slice("nodegroup-".length);
         const plat = platforms.find((p) => p.name === platName);
         if (!plat || !plat.region_filters) continue;
-        const next = removeRegionFilter(plat.region_filters, region);
-        await backupBeforeEdit(); // P19 item 4
-        await ipcPlatformUpdate(platName, undefined, undefined, next.length > 0 ? next : []);
-        // Q2-Bug2: do NOT optimistically mutate; resync after each PATCH so the
-        // canvas reflects the server-truthy region_filters + routable_node_count.
-        await sync();
+        await patchAndSyncOnce({ platName, current: plat.region_filters, region, mode: "remove", sync, ipcUpdate: ipcPlatformUpdate, backup: backupBeforeEdit });
       }
     } catch {
       await sync();
