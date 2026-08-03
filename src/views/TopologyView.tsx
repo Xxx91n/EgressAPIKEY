@@ -409,8 +409,14 @@ function TopologyCanvas() {
 
   const colorMode: ColorMode = theme;
 
-  // Build the three columns.
+  // C2-7: i18n.isInitialized gate. Until i18n has finished init/changeLanguage, return an
+  // empty node list so we never paint a box with the fallback-locale text (the
+  // "刚打开 GUI 是 zh, 画布内节点框还是 en" symptom from P13 B7 followup). Mirrors the
+  // useTranslation() ready pattern documented at https://react.i18next.com/latest/usetranslation-hook
+  // (i18n.language alone does not block the initial paint when lazy-loaded chunks
+  // resolve after first mount).
   const nodes: Node[] = useMemo(() => {
+    if (!i18n.isInitialized || !i18n.language) return [];
     const list: Node[] = [];
     // A: entry port (single node).
     const port = "forward proxy";
@@ -464,7 +470,7 @@ function TopologyCanvas() {
       });
     });
     return list;
-  }, [platforms, nodeGroups, leases, t, i18n.language]);
+  }, [platforms, nodeGroups, leases, t, i18n.isInitialized, i18n.language]);
 
   // Edges: A->B always connected; B->C when region_filters matches.
   const edges: Edge[] = useMemo(() => buildEdges(platforms, nodeGroups) as Edge[], [platforms, nodeGroups]);

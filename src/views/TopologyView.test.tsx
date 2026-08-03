@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import i18next from "i18next";
 
 // Mock the IPC module so we control the platform/node data the canvas sees.
 const invokeMock = vi.fn<(cmd: string, args?: Record<string, unknown>) => Promise<unknown>>();
@@ -264,6 +265,64 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
     it("does not leak edges for node-groups the platform is not bound to", () => {
       const edges = buildEdges([{ name: "OpenAI", region_filters: ["hk"] }], groups);
       expect(edges.find((e) => e.id === "e-OpenAI-us")).toBeFalsy();
+    });
+  });
+
+
+  // C2-7: i18n.isInitialized gate re-renders the node-group label after a locale switch.
+  // The gate at TopologyView line ~438 short-circuits the nodes useMemo to [] until
+  // i18n.isInitialized is truthy, then re-enters with the freshly-loaded catalog when a
+  // lazy chunk resolves or changeLanguage completes. The user's "刚打开 GUI 是 zh, 画布内
+  // 节点框还是 en, 切换别的页面再回来才刷新" symptom happened because the initial useMemo
+  // build raced ahead of the zh chunk resolving, falling back to English text — the gate
+  // prevents that first-paint mismatch.
+  describe("C2-7: i18n.isInitialized gate re-renders canvas boxes after locale switch", () => {
+    beforeAll(() => {
+      i18next.addResourceBundle("zh", "translation", {
+        topology: {
+          entryPort: "入口代理端口",
+          region: "区域: {{region}}",
+          healthy: "健康",
+          filters: "上游: {{filters}}",
+          policy: "策略: {{policy}}",
+          routable: "可路由: {{count}}",
+          noNodes: "未加载节点。",
+          noPlatforms: "没有平台。",
+          noLeases: "无活跃租约",
+          sidecarUnhealthy: "副作用作车不安全.",
+          dragHint: "从平台拖至节点区域绑定路由",
+        },
+      });
+    });
+    afterAll(async () => { await i18next.changeLanguage("en"); });
+
+    it("locale=en renders the entry-port label in English, then zh text after changeLanguage('zh')", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({
+          items: [{ id: "u1", name: "OpenAI", regex_filters: [], region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" }],
+          total: 1, limit: 50, offset: 0,
+        });
+        if (cmd === "node_list") return Promise.resolve({
+          items: [{ name: "hk-01", display_tag: "HK-01", has_outbound: true, failure_count: 0, tags: [{ tag: "HK" }] }],
+          total: 1, limit: 500, offset: 0,
+        });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "observed_keys") return Promise.resolve([]);
+        return Promise.resolve(undefined);
+      });
+      // pin locale=en before first render.
+      await i18next.changeLanguage("en");
+      render(<TopologyView />);
+      // Initial render at en: entry-port box shows "Entry proxy port".
+      await waitFor(() => {
+        expect(screen.getByText(/Entry proxy port:/i)).toBeInTheDocument();
+      });
+      // Switch to zh; the gate ensures the canvas re-renders with the zh catalog rather
+      // than caching the English-painted node from the prior paint.
+      await i18next.changeLanguage("zh");
+      await waitFor(() => {
+        expect(screen.getByText(/入口代理端口:/i)).toBeInTheDocument();
+      });
     });
   });
 
