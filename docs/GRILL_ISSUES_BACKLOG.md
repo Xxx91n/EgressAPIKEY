@@ -221,3 +221,46 @@ A10 决议 shell 侧维护一个 route_id -> (apiKeyMask, endpoint, first_seen_t
 答 Q11 决定 C1-1 在执行打磨期是用 in-memory 模式 + 用户自认首屏空白，还是 settings.json 模式 + 简化但需 cap，还是 SQLite 模式 + 首次落地的工程化成本。
 
 --- (grill 状态：Q11 已抛出，等用户回归答；A8 规划期禁止边答边改)
+---
+
+## Q11 答复与决策 (A8 规划期沉淀)
+
+### A11 = (c) 新建 SQLite observed_keys 表
+- **用户答复 (Q11/A11)**：(c)，"需要工程化，所以必须选最佳工程化的方案"。
+- **决策**：C1-1 打磨期实施 "已观测 key pool" 使用新建 SQLite 表 `observed_keys(route_id PRIMARY KEY, apiKeyMask, endpoint, first_seen, last_seen, request_count)` via rusqlite。这是项目**首次落地真正 SQLite 实例**。
+- **连锁影响（落入 backlog 待执行）**：
+  1. **C1-1 spec 补充**：route_id -> readable tuple 反查 JOIN 走 SQLite SELECT；拦截器每次新 tuple 走 INSERT OR IGNORE；GUI 5s sync 拉 SELECT * 然后与 ipcLeaseMap() join。
+  2. **AGENTS §Storage locations 更新**（打磨期落地时同步改）：将 "Database: none yet. rusqlite is a Cargo dependency but is NOT instantiated" 改为 "Database: observed_keys SQLite table at app_config_dir()/ai-api-route.db (WAL mode)。rusqlite 现已通过 DbPool 在 main.rs setup 实例化。Schema migration via <TBD>。"
+  3. **依赖与 lifecycle**：rusqlite 已在 Cargo.toml（resin-core），但首次需要：DbPool 抽象（r2d2-rusqlite 或手写 Mutex<Connection>）、schema migration 流程（refinery / rusqlite_migration / 手写 user_version PRAGMA）、Connection 在 Tauri State 注入。
+  4. **跨进程边界**：拦截器 (axum task in tauri::async_runtime) 与 Tauri IPC handler 同进程多线程访问 SQLite — 需要 Mutex 或 r2d2 池；Resin Go sidecar 自己有 state.db 不与此 DB 冲突（不同文件）。
+  5. **闭环测试要求**：cargo test 覆盖 (a) INSERT OR IGNORE 幂等 (b) route_id 反查命中 (c) schema migration 幂等 (d) рестарт app 进程后 pool 仍可读。vitest mock observed_keys IPC 返回值，渲染 box 显示 mask+endpoint 而非 hash。
+  6. **回滚预案**：若 c 方案工程化时意外卡死，回退到 (b) settings.json 模式 — 所以实施前先在分支验证 DbPool + migration boilerplate 端到端跑通再 merge。
+- **状态**：confirmed (grill Q11 已答 c)，spec 已落地；待 backlog 饱和后统一执行打磨。打磨启动前需先 grill Q12（SQLite 实例所有权与 schema migration 方案 — 见下方 Open Questions Q12）。
+
+---
+
+## Open Questions (pending grill) — 更新
+
+### Q12 — SQLite 实例所有权 + schema migration 方案（A11=C 阻塞前置决策）
+A11=C 选定新建 SQLite observed_keys 表。但项目首次落地 SQLite 有三个工程化决策点必须 grill 才能进 C1-1 打磨:
+
+> **Q12 是复合问题，三个子决策可一次答复也可分次。**
+
+1. **Connection lifecycle 方案** — 单进程多线程 (拦截器 axum task + Tauri IPC handler + GUI 5s sync polling) 都要访问同一 SQLite。选型:
+   - (a) `Mutex<Connection>` 单连接 + tokio::task::spawn_blocking 包装（最简，但所有 DB 操作串行化 — Ponytail 最小可工作）。
+   - (b) `r2d2` + `r2d2_rusqlite` 池（多连接并发，但加一个新 crate dep）。
+   - (c) 每次 IPC 打开短期 Connection（无池，但频繁 open/close overhead）。
+2. **Schema migration 方案** — 首次落地 DB 后表结构演进怎么办:
+   - (a) 手写 `PRAGMA user_version` + 启动时 `if user_version < N { exec migration_N; user_version = N }`（最简，无新 dep）。
+   - (b) `rusqlite_migration` crate（轻量，专为 rusqlite 设计，[creator维护](https://github.com/cljoly/rusqlite_migration)）。
+   - (c) `refinery` crate（重量，跨多 DB backend,对 rusqlite 映射较弱）。
+3. **DB 文件位置 + WAL mode** — AGENTS §Storage locations 当前写 "db should use app_config_dir() as parent so it sits beside settings.json"。
+   - 是否启用 WAL (`PRAGMA journal_mode=WAL`) 以提升并发读？
+   - 是否定期 vacuum 限制 db 文件膨胀？
+   - 备份策略（与 settings.json backup 复用还是单独 db backup 入 backup/）？
+
+**Q12 问题**：A11=C 已锁定 SQLite，请答 (1) Connection lifecycle (Mutex/r2d2/per-call) (2) migration 方案 (user_version/rusqlite_migration/refinery) (3) WAL + 位置 (启用 WAL/AppData/复用 backup 流程)。
+理由应该是：(1) 实际并发强度 — 拦截器每个新 tuple 一条 INSERT，GUI 5s sync 一条 SELECT，并发极低，Mutex 大概率够用；(2) Ponytail 最小加 dep 倾向 user_version 手写；(3) WAL 几乎零代价就该启用。
+答 Q12 后 C1-1 的打磨实施成本就能精确估算，可启动打磨期。
+
+--- (grill 状态：Q12 已抛出，等用户回归答；A8 规划期禁止边答边改)
