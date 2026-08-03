@@ -304,3 +304,29 @@ A11=C 选定新建 SQLite observed_keys 表。但项目首次落地 SQLite 有�
 10. backup 流程把 .db + .db-wal + .db-shm 一起打 zip (复用 P14 backup_upload schema)。
 
 --- (grill 状态：Q12(1)(3) 已沉淀，Q12(2) 待用户复核 pwm 推翻)
+---
+
+## Q12-revision 答复与最终决策 (A8 规划期沉淀)
+
+### A12-revision (2) = (a) 手写 PRAGMA user_version
+- **用户答复**：(a)，"Ponytail 推荐，本项目 observed_keys 单表 append-only、low-churn schema 启动时一段 match code，零额外 crate，未来 schema 演进手动追加分支"。
+- **最终决策 (Q12 三问全闭环)**：
+  - (1) Connection lifecycle = **r2d2 + r2d2-rusqlite 池** (A12=b)
+  - (2) Schema migration = **手写 PRAGMA user_version** (A12-revision=a，pwm 推翻原选后用户复核)
+  - (3) WAL + 位置 + 备份 = **WAL 启用、app_config_dir()/ai-api-route.db、复用 P14 backup 流程把 .db + .db-wal + .db-shm 一起打 zip** (A12=复用 backup)
+- **实现要点**：
+  - `pub fn open_db(path: &Path) -> Result<DbPool>`: 打开 Connection -> `PRAGMA journal_mode=WAL` -> `PRAGMA user_version` 读当前版本 -> match 升级 -> 创建 r2d2 池。
+  - Migration v1: `CREATE TABLE IF NOT EXISTS observed_keys (route_id TEXT PRIMARY KEY, apiKeyMask TEXT NOT NULL, endpoint TEXT NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, request_count INTEGER DEFAULT 1)`，`PRAGMA user_version = 1`。
+  - v2+ 演进时在此 match 追加分支，每次 +1 user_version。
+- **Cargo.toml 依赖 (最终)**：rusqlite (已有) + r2d2 + r2d2-rusqlite。**不加** rusqlite_migration / refinery。
+
+### C1-1 实施成本估算 (打磨期启动后落地)
+后端: db.rs (~150 行) - DbPool + open_db + migrate + observed_key_upsert + observed_keys_list; main.rs setup wiring (~20 行); interceptor.rs 加一行 db.upsert (~5 行); commands/mod.rs 加 observed_keys IPC (~30 行); 4 个 cargo test (~80 行)。
+前端: src/lib/ipc.ts 加 ipcObservedKeys() wrapper (~10 行); TopologyView 5s sync 调 + join + chip 渲染 (~30 行); vitest mock 1 例 (~40 行)。
+i18n: 0 新 key (ObservedKey 暂用后端反查，不展示新文案；如加 "Unassigned" 区域再加 i18n key)。
+AGENTS.md: §Storage locations "Database: none yet" 改为 "Database: observed_keys SQLite at app_config_dir()/ai-api-route.db (WAL)。rusqlite 通过 DbPool 在 main.rs setup 实例化。Schema migration 手写 PRAGMA user_version。" (打磨期一起改)。
+
+### grill Q12 闭环
+Q12 三问 (connection / migration / WAL+backup) 全部答完，C1-1 实施路径锁死，打磨启动时无 blocker。
+
+--- (grill 状态：Q12 闭环；Q13 已抛出，等用户答；A8 规划期禁止边答边改)
