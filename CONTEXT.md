@@ -1,4 +1,4 @@
-# ai-api-route Domain Glossary
+# EgressAPIKEY Domain Glossary
 
 > This file defines domain terms only. No implementation details, no specs,
 > no decisions (those live in docs/adr/). Updated inline as terms resolve.
@@ -6,125 +6,143 @@
 
 ## Glossary
 
+### Entry Port
+A local socks5/http/https listening port that the software exposes to
+upstream AI gateways (omniroute, litellm, etc). Each port IS a key identity:
+the gateway configures per-key (or per-key-group) proxy ports, and the
+shell maps each port to a Resin (Platform, Account) pair. No header
+parsing needed — the port number is the identity.
+_Avoid_: listener, endpoint, interceptor
+
 ### Platform
-An isolated node pool with routing filters (region/regex) and an egress
-allocation policy. Maps to Resin's Platform concept: each platform
-maintains its own lease table and egress IP lease stats. The Default
-platform contains all available nodes.
+A Resin concept: a named grouping of nodes with egress-IP-sticky leases.
+In EgressAPIKEY, a platform is bound to one or more Entry Ports. Traffic
+arriving on a port is forwarded to the platform's Resin account, which
+guarantees a distinct exit IP per (platform, account) pair.
+_Avoid_: group, pool, channel
 
 ### Account
-A unique business identity (e.g. an API key hash) bound to a platform.
-Resin anchors traffic for each (Platform, Account) pair to a dedicated
-egress IP via a sticky lease. If the bound node fails, Resin falls back
-to another node with the same egress IP.
+A Resin concept: a business identity string (e.g. "port-17990") that
+Resin uses to anchor a sticky egress IP lease. In EgressAPIKEY, the
+account string is derived from the Entry Port number, NOT from the
+upstream API key. The same port always maps to the same account, so
+the same exit IP is reused for that port's traffic (until lease expiry).
+_Avoid_: user, key holder, identity
 
 ### Lease
-A binding from (Platform, Account) to a specific (NodeHash, EgressIP)
-with an expiry time (UnixNano, fixed - no renewal). Tracked per-platform
-in xsync.Map<Account, Lease>. When expired, a new node is selected
-for that (Platform, Account). Resin maintains IPLoadStats per
-platform to count leases per egress IP.
+A Resin concept: a time-bounded binding of (Platform, Account) to a
+specific egress IP on a specific Node. Resin's P2C + TD-EWMA algorithm
+selects the node; the lease guarantees IP stickiness for the duration
+(typically 1h-168h). SSE streams lock the lease until completion to
+prevent mid-stream IP rotation.
+_Avoid_: session, connection, binding
 
 ### Subscription
-A source of proxy node configurations (remote URL or local content).
-Resin parses each subscription into a set of nodes (ManagedNodes),
-updates them on an interval (min 30s), and marks nodes as
-ephemeral/permanent. Cross-subscription dedup merges identical nodes
-and shares health state.
+A Clash-format proxy subscription URL or local file. EgressAPIKEY
+fetches it (with clash-family User-Agent), converts flow-style YAML to
+block-style, and POSTs it as a local subscription to the Resin sidecar.
+Resin's scheduler parses the proxies and adds them to the global node
+pool. Update interval is configurable (default 30s for local subs).
+_Avoid_: feed, source, provider
 
 ### Node
 A proxy endpoint (hash, display_tag, region, egress_ip, health, failure
 count). Resin groups identical nodes across subscriptions via
 GlobalNodePool and tracks per-node circuit-breaker state and
 per-(node,domain) latency EWMA.
-
-### Lane
-Shell-side concept: a hash slot (0..MAX_LANES-1) that an (api_key,
-upstream endpoint) pair maps to. In the Resin sidecar architecture,
-this is implicit - Resin's Platform/Account/Lease mechanism replaces
-the explicit lane-slot model. The term survives only in the Tauri
-shell's IPC contract for backward compatibility (gateway_reserve,
-lane_count).
+_Avoid_: server, proxy, relay
 
 ### Ghost Safety Net
-The 3-second /healthz poll that detects Resin sidecar death. After 3
-consecutive failures, the tray turns red, the OS system proxy is
-cleared, and an unhealthy event is emitted to the webview. Observation-
-only; never restarts the sidecar.
+The Tauri shell's observation-only health monitor. Polls the Resin
+sidecar /healthz every 3s; after 3 consecutive failures it flips the
+tray red, clears the OS system HTTP/HTTPS proxy, and emits a
+"sidecar-status: unhealthy" event to the webview. Never auto-restarts
+the sidecar — restart policy is owned by the shell lifecycle.
+_Avoid_: watchdog, monitor, guardian
 
 ### Sidecar
-The Resin Go binary (resin-<triple>.exe) spawned as a Tauri shell
-child process via tauri_plugin_shell::ShellExt::sidecar. Owns the
-entire Platform/Account/Lease/Node runtime; the Rust shell only does
-lifecycle, IPC forwarding, and the Ghost safety net.
+The Resin Go binary (resin-x86_64-pc-<abi>.exe) spawned by the Tauri
+shell as a child process. Owns the P2C scheduler, TD-EWMA latency
+tracking, sticky-IP lease table, and mihomo node runtime. The shell
+communicates with it via loopback REST (admin token never crosses to
+the webview).
+_Avoid_: kernel, engine, daemon
 
 ### Egress IP Policy
-The algorithm Resin uses to select which node an Account's lease binds
-to. Resin v1.1.2 supports: BALANCED (round-robin quality weight),
-PREFER_LOW_LATENCY (lowest EWMA latency first), PREFER_IDLE_IP
-(fewest active leases per egress IP).
+Resin's native allocation_policy enum: BALANCED, PREFER_LOW_LATENCY,
+PREFER_IDLE_IP. These are the ONLY egress selection knobs in Resin v1.1.2.
+Random/sequential/bandwidth/protocol-weight strategies are shell-side
+modular extensions that bias the platform configuration, not Resin
+internals.
+_Avoid_: exit strategy, routing mode, selection algorithm
 
 ### Topology Canvas
-The three-column A/B/C ReactFlow canvas in the desktop shell:
-A (entry proxy port) - B (platforms) - C (node-region groups). Dragging
-a B-to-C edge PATCHes the platform's region_filters live.
+The three-column ReactFlow canvas in the desktop GUI. A column = Entry
+Ports (left), B column = Platforms (center), C column = Node Groups by
+region (right). A->B edges are always-connected (every port routes to
+its platform). B->C edges = region_filters binding (drag to connect a
+platform to a node region). Dragging an edge = live PATCH to Resin.
+_Avoid_: graph, diagram, map
 
-### Key Candidate
-Shell-side display concept: a (v1_endpoint, apiKey) pair detected from
-upstream AI gateway traffic, stored in settings.json#keyCandidates.
-UID is an int32 hash of endpoint::apiKey for display uniqueness.
+### Strategy Layer
+A modular, pluggable decision layer in the shell that biases platform
+configuration and node selection. Each strategy is independent:
+liveness probing, latency weighting, bandwidth weighting, IP quality
+scoring, protocol weight (SSE/WS suitability), IP reputation (external
+API). Users pick which strategies to enable per platform.
+_Avoid_: optimizer, scheduler, balancer
 
-### Reverse-proxy Header Rule
-The Resin platform field reverse_proxy_fixed_account_header (default
-"Authorization") tells Resin which request header to parse for the Account
-identity when the request has no explicit X-Resin-Account header. Combined
-with reverse_proxy_empty_account_behavior, this is the zero-intrusion
-Account extraction mechanism. The platform can also be configured with
-reverse_proxy_miss_action to control what happens when no platform matches.
+### AI Stream Sensor
+An independent module that detects AI API traffic characteristics
+(SSE streaming, WebSocket, chunked transfer) and applies per-stream
+policies: lease locking during SSE, connection keepalive tuning,
+mid-stream failover prevention. Pluggable and independent from the
+Strategy Layer.
+_Avoid_: traffic analyzer, stream handler
 
-### Egress Policy
-Shell-side alias for Resin's allocation_policy enum (BALANCED |
-PREFER_LOW_LATENCY | PREFER_IDLE_IP). The shell exposes five UI labels
-(random, sequential, latency, quality, bandwidth) that collapse to the
-three Resin values; random/sequential/bandwidth map to BALANCED (documented
-limitation).
+### IP Reputation Provider
+An external API that scores an egress IP's trustworthiness.
+Pluggable providers: IPQualityScore (fraud_score 0-100), AbuseIPDB
+(abuse confidence score), ip-api.com (proxy/hosting/mobile flags),
+ipinfo.io (geo+ASN). The Strategy Layer queries these on boundary
+scores; local sliding-window cache avoids burning API quotas.
+_Avoid_: IP checker, fraud detector, blacklist
 
 ### Protocol Weight
-An advisory SSE-suitability ranking of node protocols (documented in
-docs/PROTOCOL_WEIGHT_RESEARCH.md, NOT runtime-injected): http/socks5/
-vmess-vless-tcp/trojan-tls-tcp = 1.0; shadowsocks = 0.7; hysteria2/tuic/
-wireguard = 0.1. Resin v1.1.2 has no protocol-weighted selection endpoint;
-this is reference for manual node choice, not a runtime selector.
+A documented (not runtime-injected) suitability ranking of outbound
+node protocols for AI API SSE/WebSocket streams: http/socks5/vmess/
+vless-tcp/trojan-tls-tcp = 1.0; shadowsocks = 0.7; hysteria2/tuic/
+wireguard = 0.1. Used by the Strategy Layer's protocol-weight strategy
+to bias node selection toward protocols that maintain SSE connections
+without interruption.
+_Avoid_: protocol score, transport rating
 
 ### Backup
-A JSON snapshot of the live Resin config (platforms + subscriptions +
-account header rules) saved to app_data/backups with a crypto-random
-suffix, BEFORE a topology drag PATCH or a config import. Best-effort:
-backup failure never blocks the user routing change.
+A zip archive of settings.json + Resin state directory, created before
+any topology drag-edit (防呆) and manually via Settings. Stored in
+app_data/backups with a crypto-random suffix. Uploadable to WebDAV
+(Koofr-compatible). Path-traversal guarded (P14 fix: canonicalize +
+starts_with confinement).
+_Avoid_: snapshot, checkpoint, save
 
-### Ghost
-The 3-second /healthz poller in src-tauri/src/sidecar.rs. Detection-only.
-After 3 consecutive failures (9s) it flips the tray red, clears the OS
-system HTTP/HTTPS proxy, and emits a sidecar-status "unhealthy" event to
-the webview. Recovery flips the tray green and emits "healthy".
+### Entry Port Mapping
+The SQLite table (reuses DbPool infra) that maps each Entry Port number
+to a (platform_name, account_string) pair. Written by the shell when the
+user creates a port in the GUI; read by the forwarder on every inbound
+connection to inject the correct X-Resin-Account header before forwarding
+to Resin. Schema migration = hand-written PRAGMA user_version (A12-revision).
+_Avoid_: port table, route map, binding table
+
+### hotswap-config
+The whitebox configuration layer that lets users edit the port->platform
+mapping and strategy settings via a config file (YAML/TOML), with atomic
+backup before apply and hot-reload without restarting the sidecar. GUI
+edits and file edits are kept in atomic transaction sync (A4 decision).
+_Avoid_: live config, dynamic config, reload
 
 ### Request Log
-Resin's per-request structured log entry (the audit trail by platform,
-account, target site, and egress IP), separate from the Rust-shell
-tracing file. Resin's README advertises it as a dashboard query surface;
-the shell-desktop port does NOT yet expose it (ADR-0005 Q6). Likely lives
-behind an admin endpoint that must be live-probed (DESIGN.md mentions the
-log table but no public URL was confirmed).
-
-### Observed Key Pool
-A shell-side SQLite table (observed_keys, ADR-0011) keyed by route_id
-(ar-<16hex>) that reverse-maps the interceptor-injected X-Resin-Account
-back to a readable `(apiKeyMask, endpoint, first_seen, last_seen,
-request_count)` tuple. Append-only; INSERT OR IGNORE on every new
-tuple routed through the interceptor. Survives app restart in
-`app_config_dir()/ai-api-route.db` (WAL mode). The GUI joins LeaseEntry.
-account (ar-<16hex>) back to this table so each Topology B-column box
-shows `key[0..4]...key[-4..] · endpoint` instead of an opaque hash.
-_Avoid_: key pool, key registry (both noun-collision with keyCandidates
-and Resin-internal cache names).
-
+The tauri-plugin-tracing daily-rotating file appender (10MB max, 7 files
+kept) that captures every Rust-side tracing::info/warn/error. The user
+can open the log directory from Settings > Storage. Used for debugging
+topology drag edits, subscription imports, and sidecar lifecycle events.
+_Avoid_: audit trail, access log, debug log

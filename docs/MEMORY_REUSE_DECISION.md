@@ -118,3 +118,56 @@
 ### 与原任务指令的对齐
 
 原任务 #2 字面「复用 Resin 的 webui 代码：把 Resin/webui/ 整个搬进 Tauri src/」，被 exa 抓取证据证实：`Resin/webui/` 确实是现成 React+TS+Vite 项目。该任务前提成立，第一窗口误判为「前提不成立」并走偏到 C；本次复审修正回 A。
+
+
+---
+
+## 路线纠正结论 (2026-08-05, ADR-0012)
+
+### 前提交翻
+
+原 P24-A4-3 interceptor 架构假设：shell 能从 HTTPS 代理流中读取 Authorization
+header 来识别 (api_key, upstream v1 endpoint) 组合。
+
+**事实**：HTTPS 上游加密后，代理层只看到 CONNECT 隧道字节，Authorization header
+在 TLS 信封内，永远不可见。此前提被推翻。
+
+### 正确路线
+
+软件定位：agent -> AI 网关 (omniroute/litellm) -> **本软件 (代理网络层)** -> 上游 v1
+
+唯一可行的身份机制是 **port-based**：AI 网关在本软件配置 per-key (或 per-key-group)
+socks5/http 代理端口。每个端口 = 一个身份。shell 根据入站端口号注入
+X-Resin-Account，不需要任何 header 解析。
+
+### 架构 (Path A — 薄壳，不 fork Resin)
+
+1. 多端口 socks5/http listener (tokio TcpListener + 协议检测)
+2. Port -> (platform, account) 映射表 (SQLite, 复用 DbPool)
+3. X-Resin-Account 注入 (port-based, 非 header-based)
+4. Resin sidecar 不变 (P2C + TD-EWMA + sticky exit IP + SSE lease)
+5. 模块化策略决策层 (可插拔: 测活/延时/带宽/质量/协议权重/IP信誉)
+6. AI 流感知模块 (SSE/WebSocket, 独立板块)
+7. hotswap-config (白盒配置层, 原子备份, 热重载)
+
+### 删除的死代码 (ADR-0014)
+
+- interceptor.rs (axum proxy_handler + route_id 注入)
+- lane.rs route_id + normalize_auth (8 cargo tests)
+- db.rs observed_keys 表 (DbPool 基础设施保留)
+- ADR-0003, ADR-0011 SUPERSEDED
+
+### 保留的
+
+- Resin sidecar lifecycle, Ghost safety net, Subscriptions CRUD, Node pool,
+  Backup/config, i18n/tray/settings — 全部不变
+
+### 项目改名
+
+ai-api-route -> **EgressAPIKEY** (ADR-0013, 无撞名, 5 源审计)
+
+### 一句话结论 (更新)
+
+"Process/Account/订阅管理直接拥抱 Resin...保留 mihomo 订阅编译 + Tauri 壳 +
+进程路由三大差异化" — 此结论不变。新增：薄壳多端口转发器 (port=identity) 作为
+核心差异化，策略层 + AI 流感知 + IP 信誉作为模块化扩展。
