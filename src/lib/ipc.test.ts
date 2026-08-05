@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /// Issue 1: closed-loop coverage for the IPC boundary. We mock
 /// @tauri-apps/api/core's invoke and verify:
-///   - IPC wrappers validate inputs (lane range, name length, URL shape)
+///   - IPC wrappers validate inputs (port range, name length, URL shape)
 ///   - Forwards the args to the right command name
 ///   - Surfaces errors verbatim from the backend
 /// Vitest runs WITHOUT a real Tauri runtime, so invoke would reject anyway;
@@ -84,15 +84,15 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(r).toEqual([{ name: "n", node_count: 7 }]);
   });
 
-  it("process_route_add rejects lane 50 (out of range)", async () => {
+  it("process_route_add rejects port 50 (out of range: below 1024)", async () => {
     await expect(ipcProcessRouteAdd("ollama", 50)).rejects.toThrow(/out of range/);
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  it("process_route_add forwards process + targetLane", async () => {
+  it("process_route_add forwards process + targetPort", async () => {
     invokeMock.mockResolvedValue(undefined);
-    await ipcProcessRouteAdd("ollama", 3);
-    expect(invokeMock).toHaveBeenCalledWith("process_route_add", { process: "ollama", targetLane: 3 });
+    await ipcProcessRouteAdd("ollama", 17990);
+    expect(invokeMock).toHaveBeenCalledWith("process_route_add", { process: "ollama", targetPort: 17990 });
   });
 
   it("process_route_remove rejects empty process name", async () => {
@@ -101,9 +101,9 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
   });
 
   it("process_route_list forwards no args and returns typed array", async () => {
-    invokeMock.mockResolvedValue([{ process: "ollama", target_lane: 3 }]);
+    invokeMock.mockResolvedValue([{ process: "ollama", target_port: 17990 }]);
     const r = await ipcProcessRouteList();
-    expect(r).toEqual([{ process: "ollama", target_lane: 3 }]);
+    expect(r).toEqual([{ process: "ollama", target_port: 17990 }]);
   });
 
   // Phase R1: platform_update + node_list closed-loop guards.

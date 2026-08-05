@@ -315,13 +315,15 @@ export async function ipcBackupList(url: string, username: string, password: str
 // ---- Process routing (issue 3+10) ----
 export interface ProcessRouteRule {
   process: string;
-  target_lane: number;
+  target_port: number;
 }
 
-export async function ipcProcessRouteAdd(process: string, targetLane: number): Promise<void> {
+export async function ipcProcessRouteAdd(process: string, targetPort: number): Promise<void> {
   assertShortName(process, "process");
-  if (targetLane < 0 || targetLane >= 50) throw new Error(`lane ${targetLane} out of range (0..49)`);
-  await invoke("process_route_add", { process, targetLane });
+  if (!Number.isInteger(targetPort) || targetPort < 1024 || targetPort > 65535) {
+    throw new Error(`port ${targetPort} out of range (1024..65535)`);
+  }
+  await invoke("process_route_add", { process, targetPort });
 }
 
 export async function ipcProcessRouteRemove(process: string): Promise<boolean> {

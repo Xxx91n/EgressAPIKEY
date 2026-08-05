@@ -122,11 +122,12 @@
     "title": "Instradamento processi",
     "add": "Aggiungi regola",
     "process": "Nome processo",
-    "target": "Corsia di destinazione",
+    "target": "Porta di destinazione",
     "empty": "Nessuna regola di instradamento per processo.",
-    "conflict": "Linea {{lane}} già collegata a '{{process}}'",
+    "conflict": "Porta {{port}} già associata a '{{process}}'",
     "backendSaved": "Regola di instradamento salvata",
-    "proxyNote": "Le regole di routing si applicano solo quando il traffico del client attraversa il proxy Resin. Il sidecar applica l'autenticazione per richiesta; questo è un registro locale di regole."
+    "proxyNote": "Le regole di routing si applicano solo quando il traffico del client attraversa il proxy Resin. Il sidecar applica l'autenticazione per richiesta; questo è un registro locale di regole.",
+    "targetPort": "Porta di destinazione"
   },
   "settings": {
     "general": "Generale",

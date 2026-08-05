@@ -122,11 +122,12 @@
     "title": "Rota de processo",
     "add": "Adicionar regra de roteamento",
     "process": "Nome do processo",
-    "target": "Linha de destino",
+    "target": "Porta de destino",
     "empty": "Nenhuma regra de roteamento por processo.",
-    "conflict": "Faixa {{lane}} já vinculada a '{{process}}'",
+    "conflict": "Porta {{port}} já vinculada a '{{process}}'",
     "backendSaved": "Regra de roteamento salva",
-    "proxyNote": "As regras de roteamento só se aplicam quando o tráfego do cliente passa pelo proxy Resin. O sidecar impõe autenticação por requisição; isto é um registro local de regras."
+    "proxyNote": "As regras de roteamento só se aplicam quando o tráfego do cliente passa pelo proxy Resin. O sidecar impõe autenticação por requisição; isto é um registro local de regras.",
+    "targetPort": "Porta de destino"
   },
   "settings": {
     "general": "Geral",

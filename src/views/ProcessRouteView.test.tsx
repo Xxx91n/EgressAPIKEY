@@ -24,10 +24,10 @@ describe("ProcessRouteView (closed-loop, IPC-mocked)", () => {
     );
   });
 
-  it("adds a rule: dispatches process_route_add with process + targetLane", async () => {
+  it("adds a rule: dispatches process_route_add with process + targetPort", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "process_route_add") return undefined;
-      if (cmd === "process_route_list") return [{ process: "ollama", target_lane: 3 }];
+      if (cmd === "process_route_list") return [{ process: "ollama", target_port: 17990 }];
       return undefined;
     });
 
@@ -35,21 +35,21 @@ describe("ProcessRouteView (closed-loop, IPC-mocked)", () => {
     const procInput = await screen.findByPlaceholderText(/Process name|\u8fdb\u7a0b\u540d/i);
     fireEvent.change(procInput, { target: { value: "ollama" } });
     const targetInput = screen.getByRole("spinbutton") as HTMLInputElement;
-    fireEvent.change(targetInput, { target: { value: "3" } });
+    fireEvent.change(targetInput, { target: { value: "17990" } });
     const addBtn = screen.getByRole("button", { name: /add|processRoute\.add|\u6dfb\u52a0/i });
     fireEvent.click(addBtn);
 
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("process_route_add", { process: "ollama", targetLane: 3 });
+      expect(invokeMock).toHaveBeenCalledWith("process_route_add", { process: "ollama", targetPort: 17990 });
     });
     // After refresh-from-backend the rule shows up in the list.
     await waitFor(() => expect(screen.getByText("ollama")).toBeInTheDocument(), { timeout: 3000 });
   });
 
-  it("surfaces a conflict toast when backend rejects the lane", async () => {
+  it("surfaces a conflict toast when backend rejects the port", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "process_route_add")
-        throw new Error("conflict: lane 3 already bound to process 'ollama'");
+        throw new Error("conflict: port 17990 already bound to process 'ollama'");
       if (cmd === "process_route_list") return [];
       return undefined;
     });

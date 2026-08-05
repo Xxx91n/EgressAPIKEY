@@ -122,11 +122,12 @@
     "title": "Süreç rotası",
     "add": "Kural ekle",
     "process": "Süreç adı",
-    "target": "Hedef şerit",
+    "target": "Hedef port",
     "empty": "Süreç başına yönlendirme kuralı yok.",
-    "conflict": "Lane {{lane}} zaten '{{process}}' ile bağlı",
+    "conflict": "Port {{port}} zaten '{{process}}' e bağlı",
     "backendSaved": "Yönlendirme kuralı kaydedildi",
-    "proxyNote": "Yönlendirme kuralları yalnızca istemci trafiği Resin proxy üzerinden geçtiğinde uygulanır. Sidecar istek başına kimlik doğrulamasını zorlar; bu yerel bir kural kayıt defteridir."
+    "proxyNote": "Yönlendirme kuralları yalnızca istemci trafiği Resin proxy üzerinden geçtiğinde uygulanır. Sidecar istek başına kimlik doğrulamasını zorlar; bu yerel bir kural kayıt defteridir.",
+    "targetPort": "Hedef port"
   },
   "settings": {
     "general": "Genel",

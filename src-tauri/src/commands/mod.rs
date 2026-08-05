@@ -399,20 +399,19 @@ fn platform_id_for_name(v: &serde_json::Value, want: &str) -> Option<String> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessRouteRule {
     pub process: String,
-    pub target_lane: usize,
+    pub target_port: u16,
 }
 
 #[tauri::command]
 pub async fn process_route_add(
     app: AppHandle,
     process: String,
-    target_lane: usize,
+    target_port: u16,
 ) -> Result<(), String> {
     validate_short_name(&process, "process")?;
-    if target_lane >= MAX_LANES {
+    if target_port < 1024 {
         return Err(format!(
-            "process_route_add: lane {target_lane} out of range (max {})",
-            MAX_LANES - 1
+            "process_route_add: port {target_port} out of range (must be >= 1024, got {target_port})"
         ));
     }
     let store = tauri_plugin_store::StoreExt::store(&app, "settings.json")
@@ -422,16 +421,16 @@ pub async fn process_route_add(
         .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
         .unwrap_or_default();
     // conflict detect via the extracted helper (unit-testable)
-    process_route_conflict_check(&rules, &process, target_lane)?;
+    process_route_conflict_check(&rules, &process, target_port)?;
     if let Some(slot) = rules
         .iter_mut()
         .find(|r| r.process.trim() == process.trim())
     {
-        slot.target_lane = target_lane;
+        slot.target_port = target_port;
     } else {
         rules.push(ProcessRouteRule {
             process: process.trim().to_string(),
-            target_lane,
+            target_port,
         });
     }
     store.set(
@@ -1055,18 +1054,18 @@ pub async fn backup_list(
     Ok(names)
 }
 
-// Pure helper: returns Err(msg) if adding {process, target_lane} would
+// Pure helper: returns Err(msg) if adding {process, target_port} would
 // conflict with an existing rule (same target lane, different process).
 // Extracted for unit testing without an AppHandle.
 pub fn process_route_conflict_check(
     existing: &[ProcessRouteRule],
     new_process: &str,
-    new_lane: usize,
+    new_port: u16,
 ) -> Result<(), String> {
     for r in existing {
-        if r.target_lane == new_lane && new_process.trim() != r.process.trim() {
+        if r.target_port == new_port && new_process.trim() != r.process.trim() {
             return Err(format!(
-                "conflict: lane {new_lane} already bound to process '{}'",
+                "conflict: port {new_port} already bound to process '{}'",
                 r.process
             ));
         }
@@ -1678,14 +1677,14 @@ mod tests {
     fn process_route_conflict_rejects_same_lane_different_process() {
         let existing = vec![ProcessRouteRule {
             process: "ollama".to_string(),
-            target_lane: 3,
+            target_port: 17990,
         }];
         // same process + same lane -> ok (update path)
-        assert!(process_route_conflict_check(&existing, "ollama", 3).is_ok());
+        assert!(process_route_conflict_check(&existing, "ollama", 17990).is_ok());
         // different process, same lane -> conflict
-        assert!(process_route_conflict_check(&existing, "openai", 3).is_err());
+        assert!(process_route_conflict_check(&existing, "openai", 17990).is_err());
         // different process, different lane -> ok
-        assert!(process_route_conflict_check(&existing, "openai", 4).is_ok());
+        assert!(process_route_conflict_check(&existing, "openai", 17991).is_ok());
     }
 
     #[test]

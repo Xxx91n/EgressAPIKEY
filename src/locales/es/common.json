@@ -122,11 +122,12 @@
     "title": "Ruta de proceso",
     "add": "Añadir regla de enrutamiento",
     "process": "Nombre del proceso",
-    "target": "Carril destino",
+    "target": "Puerto de destino",
     "empty": "No hay reglas de enrutamiento por proceso.",
-    "conflict": "Carril {{lane}} ya enlazado a '{{process}}'",
+    "conflict": "Puerto {{port}} ya vinculado a '{{process}}'",
     "backendSaved": "Regla de enrutamiento guardada",
-    "proxyNote": "Las reglas de enrutamiento solo se aplican cuando el tráfico del cliente pasa por el proxy Resin. El sidecar aplica autenticación por solicitud; esto es un registro local de reglas."
+    "proxyNote": "Las reglas de enrutamiento solo se aplican cuando el tráfico del cliente pasa por el proxy Resin. El sidecar aplica autenticación por solicitud; esto es un registro local de reglas.",
+    "targetPort": "Puerto de destino"
   },
   "settings": {
     "general": "General",

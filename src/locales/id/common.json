@@ -122,11 +122,12 @@
     "title": "Rute proses",
     "add": "Tambah aturan",
     "process": "Nama proses",
-    "target": "Jalur tujuan",
+    "target": "Port target",
     "empty": "Tidak ada aturan routing per proses.",
-    "conflict": "Lane {{lane}} sudah mengikat ke '{{process}}'",
+    "conflict": "Port {{port}} sudah terikat ke '{{process}}'",
     "backendSaved": "Aturan routing disimpan",
-    "proxyNote": "Aturan routing hanya berlaku saat lalu lintas klien mengalir melalui proxy Resin. Sidecar menegaskan autentikasi per permintaan; ini adalah registri aturan lokal."
+    "proxyNote": "Aturan routing hanya berlaku saat lalu lintas klien mengalir melalui proxy Resin. Sidecar menegaskan autentikasi per permintaan; ini adalah registri aturan lokal.",
+    "targetPort": "Port target"
   },
   "settings": {
     "general": "Umum",

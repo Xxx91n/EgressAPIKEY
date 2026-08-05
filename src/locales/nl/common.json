@@ -122,11 +122,12 @@
     "title": "Procesroute",
     "add": "Regel toevoegen",
     "process": "Procesnaam",
-    "target": "Doelbaan",
+    "target": "Doelpoort",
     "empty": "Geen per-proces routeringsregels.",
-    "conflict": "Lane {{lane}} al gebonden aan '{{process}}'",
+    "conflict": "Poort {{port}} al gebonden aan '{{process}}'",
     "backendSaved": "Routeringsregel opgeslagen",
-    "proxyNote": "Routeringsregels zijn alleen van toepassing wanneer clientverkeer via de Resin-proxy loopt. De sidecar dwingt authenticatie per verzoek af; dit is een lokaal regelregister."
+    "proxyNote": "Routeringsregels zijn alleen van toepassing wanneer clientverkeer via de Resin-proxy loopt. De sidecar dwingt authenticatie per verzoek af; dit is een lokaal regelregister.",
+    "targetPort": "Doelpoort"
   },
   "settings": {
     "general": "Algemeen",

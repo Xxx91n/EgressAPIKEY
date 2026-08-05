@@ -54,7 +54,7 @@ export interface NodeInfo {
 export interface ProcessRoute {
   id: string;
   process: string;
-  targetLane: number;
+  targetPort: number;
 }
 
 /// A subscription import.
@@ -101,7 +101,7 @@ export interface AppState {
   removePlatform: (name: string) => void;
   addAccount: (platform: string, id: string, lane: number) => void;
   bindExitIp: (platform: string, account: string, ip: string) => void;
-  addProcessRoute: (process: string, targetLane: number) => void;
+  addProcessRoute: (process: string, targetPort: number) => void;
   removeProcessRoute: (id: string) => void;
   setProcessRoutes: (routes: ProcessRoute[]) => void;
   addSubscription: (url: string, nodeCount: number, lanes: number) => void;
@@ -164,9 +164,9 @@ export const useAppStore = create<AppState>((set) => ({
           : p
       ),
     })),
-  addProcessRoute: (process, targetLane) =>
+  addProcessRoute: (process, targetPort) =>
     set((s) => ({
-      processRoutes: [...s.processRoutes, { id: uid(), process, targetLane }],
+      processRoutes: [...s.processRoutes, { id: uid(), process, targetPort }],
     })),
   removeProcessRoute: (id) => {
     const next = useAppStore.getState().processRoutes.filter((r) => r.id !== id);

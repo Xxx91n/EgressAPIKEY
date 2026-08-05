@@ -122,11 +122,12 @@
     "title": "Prozessroute",
     "add": "Routing-Regel hinzufügen",
     "process": "Prozessname",
-    "target": "Ziel-Lane",
+    "target": "Ziel-Port",
     "empty": "Keine prozessspezifischen Routing-Regeln.",
-    "conflict": "Lane {{lane}} bereits an '{{process}}' gebunden",
+    "conflict": "Port {{port}} bereits an '{{process}}' gebunden",
     "backendSaved": "Routing-Regel gespeichert",
-    "proxyNote": "Routingregeln gelten nur, wenn Client-Datenverkehr über den Resin-Proxy läuft. Der Sidecar erzwingt Auth pro Anfrage; dies ist eine lokale Regel-Registry."
+    "proxyNote": "Routingregeln gelten nur, wenn Client-Datenverkehr über den Resin-Proxy läuft. Der Sidecar erzwingt Auth pro Anfrage; dies ist eine lokale Regel-Registry.",
+    "targetPort": "Ziel-Port"
   },
   "settings": {
     "general": "Allgemein",

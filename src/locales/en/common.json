@@ -122,11 +122,12 @@
     "title": "Process route",
     "add": "Add routing rule",
     "process": "Process name",
-    "target": "Target lane",
+    "target": "Target port",
     "empty": "No per-process routing rules.",
-    "conflict": "Lane {{lane}} already bound to '{{process}}'",
+    "conflict": "Port {{port}} already bound to '{{process}}'",
     "backendSaved": "Routing rule saved",
-    "proxyNote": "Routing rules apply only when client traffic flows through the Resin proxy. The sidecar enforces per-request auth; rules here are a local registry."
+    "proxyNote": "Routing rules apply only when client traffic flows through the Resin proxy. The sidecar enforces per-request auth; rules here are a local registry.",
+    "targetPort": "Target port"
   },
   "settings": {
     "general": "General",

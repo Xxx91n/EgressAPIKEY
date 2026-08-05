@@ -13,11 +13,10 @@ import { ipcProcessRouteAdd, ipcProcessRouteRemove, ipcProcessRouteList } from "
 /// separately; here we only own the routing-rule registry.
 export function ProcessRouteView() {
   const { t } = useTranslation();
-  const laneCount = useAppStore((s) => s.laneCount);
   const localRoutes = useAppStore((s) => s.processRoutes);
+  const [targetPort, setTargetPort] = useState(17990);
   const setRoutes = useAppStore((s) => s.setProcessRoutes);
   const [process, setProcess] = useState("");
-  const [target, setTarget] = useState(0);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
 
@@ -27,7 +26,7 @@ export function ProcessRouteView() {
   const refreshFromBackend = useCallback(async () => {
     try {
       const rules = await ipcProcessRouteList();
-      setRoutes(rules.map((r) => ({ id: r.process, process: r.process, targetLane: r.target_lane })));
+      setRoutes(rules.map((r) => ({ id: r.process, process: r.process, targetPort: r.target_port })));
     } catch {
       // outside Tauri or backend not started — keep existing local routes
     }
@@ -38,7 +37,7 @@ export function ProcessRouteView() {
   const handleAdd = async () => {
     const p = process.trim();
     if (!p) return;
-    const tgt = Math.max(0, Math.min(laneCount - 1, Math.trunc(target)));
+    const tgt = Math.max(1024, Math.min(65535, Math.trunc(targetPort)));
     setBusy(true); setToast(null);
     try {
       await ipcProcessRouteAdd(p, tgt);
@@ -46,9 +45,9 @@ export function ProcessRouteView() {
       await refreshFromBackend();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setToast({ kind: "err", msg: t("processRoute.conflict", { lane: tgt, process: extractBoundProcess(msg) ?? "?" }) });
+      setToast({ kind: "err", msg: t("processRoute.conflict", { port: tgt, process: extractBoundProcess(msg) ?? "?" }) });
     } finally {
-      setProcess(""); setTarget(0); setBusy(false);
+      setProcess(""); setTargetPort(17990); setBusy(false);
     }
   };
 
@@ -80,14 +79,14 @@ export function ProcessRouteView() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">{t("processRoute.target")}</label>
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">{t("processRoute.targetPort")}</label>
               <input
                 type="number"
-                min={0}
-                max={Math.max(0, laneCount - 1)}
-                value={target}
-                onChange={(e) => setTarget(Number(e.target.value))}
-                aria-label={t("processRoute.target")}
+                min={1024}
+                max={65535}
+                value={targetPort}
+                onChange={(e) => setTargetPort(Number(e.target.value))}
+                aria-label={t("processRoute.targetPort")}
                 className={inputCls + " w-24"}
               />
             </div>
@@ -133,7 +132,7 @@ export function ProcessRouteView() {
               <span className="font-mono text-xs text-zinc-600 dark:text-zinc-300 truncate max-w-[60%]">{r.process}</span>
               <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
                 <ArrowRight size={12} />
-                <span className="font-mono">{t("topology.lane", { index: r.targetLane })}</span>
+                <span className="font-mono">:{r.targetPort}</span>
                 <button
                   onClick={() => handleRemove(r.process)}
                   disabled={busy}

@@ -150,12 +150,18 @@ function PlatformNode({ data }: NodeProps) {
   const leases = (Array.isArray(d.leases) ? d.leases : []) as Array<{
     account: string; egress_ip: string; target_domain: string;
   }>;
+  const portChips = Array.isArray(d.ports) ? d.ports as number[] : [];
   return (
     <div className="rounded-lg border border-zinc-400 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-xs min-w-[160px] max-w-[240px]">
       <Handle type="target" position={Position.Left} />
       <Handle type="source" position={Position.Right} />
       <div className="font-semibold text-zinc-800 dark:text-zinc-100">{String(d.label)}</div>
       {typeof d.sub === "string" && d.sub && <div className="text-zinc-500 dark:text-zinc-400 mt-1 text-[10px]">{d.sub}</div>}
+      {portChips.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1">{portChips.map((p) => (
+          <span key={"port-" + p} className="rounded bg-blue-100 dark:bg-blue-900/40 px-1 py-0.5 text-[9px] text-blue-600 dark:text-blue-400 font-mono">:{p}</span>
+        ))}</div>
+      )}
       <div className="mt-2 flex flex-col gap-1">
         {leases.length > 0 ? leases.map((l, i) => (
           <div key={"lease-" + i} className="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-1 text-[10px] text-zinc-600 dark:text-zinc-300 font-mono">
@@ -487,7 +493,7 @@ function TopologyCanvas() {
         id: "platform-" + p.name,
         type: "platform",
         position: { x: 300, y: 60 + i * 130 },
-        data: { label: p.name, sub, leases: pidLeases, noLeases: t("topology.noLeases") },
+        data: { label: p.name, sub, leases: pidLeases, ports: ports.filter((x) => x.platform_name === p.name).map((x) => x.port), noLeases: t("topology.noLeases") },
       });
     });
     // C: node groups by region.

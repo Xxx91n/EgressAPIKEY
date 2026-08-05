@@ -122,11 +122,12 @@
     "title": "Tuyến tiến trình",
     "add": "Thêm quy tắc",
     "process": "Tên tiến trình",
-    "target": "Làn đích",
+    "target": "Cổng đích",
     "empty": "Không có quy tắc định tuyến theo tiến trình.",
-    "conflict": "Lane {{lane}} đã liên kết với '{{process}}'",
+    "conflict": "Cổng {{port}} đã gắn với '{{process}}'",
     "backendSaved": "Đã lưu quy tắc định tuyến",
-    "proxyNote": "Quy tắc định tuyến chỉ áp dụng khi lưu lượng khách đi qua proxy Resin. Sidecar thực thi xác thực mỗi yêu cầu; đây là sổ đăng ký quy tắc cục bộ."
+    "proxyNote": "Quy tắc định tuyến chỉ áp dụng khi lưu lượng khách đi qua proxy Resin. Sidecar thực thi xác thực mỗi yêu cầu; đây là sổ đăng ký quy tắc cục bộ.",
+    "targetPort": "Cổng đích"
   },
   "settings": {
     "general": "Chung",

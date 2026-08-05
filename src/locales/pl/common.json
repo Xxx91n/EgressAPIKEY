@@ -122,11 +122,12 @@
     "title": "Trasa procesu",
     "add": "Dodaj regułę",
     "process": "Nazwa procesu",
-    "target": "Tor docelowy",
+    "target": "Port docelowy",
     "empty": "Brak reguł routingu per proces.",
-    "conflict": "Linia {{lane}} już powiązana z '{{process}}'",
+    "conflict": "Port {{port}} już powiązany z '{{process}}'",
     "backendSaved": "Reguła routingu zapisana",
-    "proxyNote": "Reguły routingu mają zastosowanie tylko, gdy ruch klienta przepływa przez proxy Resin. Sidecar wymusza autoryzację per żądanie; jest to lokalny rejestr reguł."
+    "proxyNote": "Reguły routingu mają zastosowanie tylko, gdy ruch klienta przepływa przez proxy Resin. Sidecar wymusza autoryzację per żądanie; jest to lokalny rejestr reguł.",
+    "targetPort": "Port docelowy"
   },
   "settings": {
     "general": "Ogólne",
