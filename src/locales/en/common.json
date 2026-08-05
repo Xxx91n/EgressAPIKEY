@@ -100,8 +100,18 @@
     "noLeases": "No active leases yet",
     "probeFailed": "Probe request failed",
     "routableNodes": "Routable nodes",
-    "splitHint": "Drag to resize",
-    "title": "Platforms"
+    "splitHint": "Left: entry ports (identity). Drag a port onto a platform to bind. Right: platforms + leases.",
+    "title": "Platforms",
+    "entryPorts": "Entry ports",
+    "addPort": "Add entry port",
+    "port": "Port",
+    "portLabel": "Label",
+    "noPorts": "No entry ports yet",
+    "portAddOk": "Entry port added",
+    "portRemoved": "Entry port removed",
+    "portInvalid": "Port must be 1024–65535",
+    "portDuplicate": "Port already exists",
+    "portBound": "Bound :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "Process route",

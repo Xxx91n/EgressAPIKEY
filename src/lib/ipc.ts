@@ -336,15 +336,6 @@ export interface LeaseEntry {
   ts: string;
 }
 
-/// A4-3: Return the port the axum interceptor bound to on 127.0.0.1.
-export async function ipcInterceptorPort(): Promise<number> {
-  const raw = await invoke<number>("interceptor_port");
-  if (typeof raw !== "number" || raw < 0 || raw > 65535) {
-    throw new Error("interceptor_port: invalid port value " + raw);
-  }
-  return raw;
-}
-
 /// A4-3: Live active lease map. Polled in the Topology canvas together with
 /// platform_list + node_list so each platform card can show its active leases.
 export async function ipcLeaseMap(): Promise<LeaseEntry[]> {
@@ -365,32 +356,67 @@ export async function ipcLeaseMap(): Promise<LeaseEntry[]> {
 }
 
 // C1-1: Observed key pool entry. The route_id is the shell-side identity
-// (FxHash of normalized auth + body.model + request path); api_key_mask
-// is first4..last4; endpoint is the upstream host. The Topology canvas
-// joins this against the lease map so each platform chip shows the mask
-// + endpoint instead of the raw ar-<16hex> account id.
-export interface ObservedKey {
-  route_id: string;
-  api_key_mask: string;
-  endpoint: string;
-  first_seen: number;
-  last_seen: number;
-  request_count: number;
+
+// Phase 2 / ADR-0012: Entry Port = identity. Shell multi-port forwarder.
+export interface PortMapping {
+  port: number;
+  protocol: string;
+  platform_name: string;
+  account: string;
+  label: string;
+  enabled: boolean;
 }
 
-// C1-1: Read the observed_keys pool from the shell SQLite db. No user input.
-// Tolerates non-array (vitest with no IPC mock / sidecar down) as empty.
-export async function ipcObservedKeys(): Promise<ObservedKey[]> {
-  const raw = await invoke<ObservedKey[]>("observed_keys");
-  if (!Array.isArray(raw)) return [];
-  const cap = (s: unknown): string => (typeof s === "string" ? s.slice(0, 253) : "");
-  const num = (n: unknown): number => (typeof n === "number" && Number.isFinite(n) ? n : 0);
-  return raw.map((e) => ({
-    route_id: cap(e?.route_id),
-    api_key_mask: cap(e?.api_key_mask),
-    endpoint: cap(e?.endpoint),
-    first_seen: num(e?.first_seen),
-    last_seen: num(e?.last_seen),
-    request_count: num(e?.request_count),
-  }));
+function assertPort(port: number): void {
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+    throw new Error(`port out of range (1024..65535): ${port}`);
+  }
 }
+
+export async function ipcPortList(): Promise<PortMapping[]> {
+  const raw = await invoke<PortMapping[]>("port_list");
+  return Array.isArray(raw) ? raw : [];
+}
+
+export async function ipcPortUpsert(m: {
+  port: number;
+  protocol: string;
+  platform_name: string;
+  account?: string;
+  label?: string;
+  enabled?: boolean;
+}): Promise<PortMapping> {
+  assertPort(m.port);
+  const protocol = (m.protocol || "socks5").toLowerCase();
+  if (protocol !== "socks5" && protocol !== "http") {
+    throw new Error("protocol must be socks5 or http");
+  }
+  assertShortName(m.platform_name, "platform_name");
+  const account = m.account ?? "";
+  const label = m.label ?? "";
+  if (account.length > 128 || /[\x00-\x1f\x7f]/.test(account)) throw new Error("account invalid");
+  if (label.length > 128 || /[\x00-\x1f\x7f]/.test(label)) throw new Error("label invalid");
+  return invoke<PortMapping>("port_upsert", {
+    port: m.port,
+    protocol,
+    platformName: m.platform_name,
+    account,
+    label,
+    enabled: m.enabled !== false,
+  });
+}
+
+export async function ipcPortRemove(port: number): Promise<boolean> {
+  assertPort(port);
+  return invoke<boolean>("port_remove", { port });
+}
+
+export async function ipcPortRunning(): Promise<number[]> {
+  const raw = await invoke<number[]>("port_running");
+  return Array.isArray(raw) ? raw : [];
+}
+
+export async function ipcPortReload(): Promise<number> {
+  return invoke<number>("port_reload");
+}
+

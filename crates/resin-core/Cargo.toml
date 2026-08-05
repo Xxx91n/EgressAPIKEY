@@ -47,6 +47,3 @@ http-body-util = "0.1"
 name = "integration"
 path = "tests/integration.rs"
 
-[[test]]
-name = "a4_3_live"
-path = "tests/a4_3_live.rs"

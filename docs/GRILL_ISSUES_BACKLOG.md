@@ -76,9 +76,9 @@
 
 | Item | Description | Priority |
 |---|---|---|
-| NEW-1 | Multi-port socks5/http listener core (tokio TcpListener + protocol detection) | blocking — the core of the new architecture |
-| NEW-2 | Port -> (platform, account) mapping table (SQLite, reuses DbPool) | blocking — identity layer |
-| NEW-3 | X-Resin-Account injection on forward (port-based, not header-based) | blocking — replaces interceptor |
+| NEW-1 | Multi-port socks5/http listener core (tokio TcpListener + protocol detection) | **done (P2)** — `port_forwarder.rs` + reload tests |
+| NEW-2 | Port -> (platform, account) mapping table (SQLite, reuses DbPool) | **done (P2)** — `db.rs` user_version=2 `port_mappings` |
+| NEW-3 | Port-identity injection on forward (Resin V1 Platform.Account via SOCKS5/HTTP auth) | **done (P2)** — `resin_identity` + proxy auth rewrite |
 | NEW-4 | Modular strategy layer (pluggable: liveness, latency, bandwidth, quality, protocol weight) | high — Q7 decision |
 | NEW-5 | AI stream sensor module (SSE/WS awareness, independent board) | high — Q7 decision |
 | NEW-6 | IP reputation integration (IPQualityScore + AbuseIPDB + ip-api, pluggable) | medium — Q8 decision |

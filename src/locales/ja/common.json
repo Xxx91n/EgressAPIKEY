@@ -100,8 +100,18 @@
     "noLeases": "アクティブリースなし",
     "probeFailed": "プローブリクエスト失敗",
     "routableNodes": "ルーティング可能ノード",
-    "splitHint": "ドラッグしてサイズ変更",
-    "title": "プラットフォーム"
+    "splitHint": "左：エントリポート（識別子）。ポートをプラットフォームへドラッグしてバインド。右：プラットフォームとリース。",
+    "title": "プラットフォーム",
+    "entryPorts": "エントリポート",
+    "addPort": "エントリポートを追加",
+    "port": "ポート",
+    "portLabel": "ラベル",
+    "noPorts": "エントリポートがありません",
+    "portAddOk": "エントリポートを追加しました",
+    "portRemoved": "エントリポートを削除しました",
+    "portInvalid": "ポートは 1024–65535",
+    "portDuplicate": "ポートは既に存在します",
+    "portBound": ":{{port}} を {{platform}} にバインド"
   },
   "processRoute": {
     "title": "プロセスルート",

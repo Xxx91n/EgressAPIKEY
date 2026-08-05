@@ -100,8 +100,18 @@
     "noLeases": "활성 리스 없음",
     "probeFailed": "프로브 요청 실패",
     "routableNodes": "라우팅 가능 노드",
-    "splitHint": "드래그하여 크기 조정",
-    "title": "플랫폼"
+    "splitHint": "왼쪽: 엔트리 포트(식별자). 포트를 플랫폼으로 드래그. 오른쪽: 플랫폼과 리스.",
+    "title": "플랫폼",
+    "entryPorts": "엔트리 포트",
+    "addPort": "포트 추가",
+    "port": "포트",
+    "portLabel": "라벨",
+    "noPorts": "엔트리 포트 없음",
+    "portAddOk": "포트 추가됨",
+    "portRemoved": "포트 삭제됨",
+    "portInvalid": "포트는 1024–65535",
+    "portDuplicate": "포트가 이미 있음",
+    "portBound": "바인딩 :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "프로세스 경로",

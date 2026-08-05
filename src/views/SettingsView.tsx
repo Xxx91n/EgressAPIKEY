@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload } from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcInterceptorPort } from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport } from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import {
   saveLocale,
@@ -99,25 +99,8 @@ export function SettingsView() {
   const [backupPass, setBackupPass] = useState("");
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMsg, setBackupMsg] = useState("");
-  // A4-3: interceptor port — bind-then-bind state. Displayed so the user
-  // knows what to fill in omniroute/litellm as base_url. Read-only here; the
-  // Rust side owns the port and rebinds only on app restart.
-  const [interceptPort, setInterceptPort] = useState<number>(0);
   const [configBusy, setConfigBusy] = useState(false);
-  // A4-3: request the interceptor port once on mount so the Settings page can
   // surface it. Swallow errors (vitest, sidecar not running, IPC not registered).
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const p = await ipcInterceptorPort();
-        if (p > 0 && !cancelled) setInterceptPort(p);
-      } catch {
-        // Outside Tauri / sidecar down: keep 0.
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
   const [configMsg, setConfigMsg] = useState("");
 
   // Hydrate persisted network settings on mount (webview only; no-op in vitest).
@@ -348,16 +331,6 @@ export function SettingsView() {
         {/* Issue 6: per-card Save removed; the unified sticky bottom bar
             calls saveAll() so there is one obvious commit action. */}
       </SectionCard>
-      <SectionCard icon={<Server size={16} strokeWidth={1.75} />} title={t("settings.interceptPort")}>
-        <div className="text-sm">
-          <div className="font-mono text-blue-600 dark:text-blue-400">
-            {interceptPort > 0 ? "http://127.0.0.1:" + interceptPort : "—"}
-          </div>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 max-w-md">
-            {t("settings.interceptPortHint")}
-          </p>
-        </div>
-      </SectionCard>
       <SectionCard icon={<FolderOpen size={16} strokeWidth={1.75} />} title={t("settings.storage")}>
         <div className="flex flex-col gap-3 sm:flex-row sm:gap-3">
           <button
@@ -376,7 +349,7 @@ export function SettingsView() {
           </button>
         </div>
       </SectionCard>
-          <SectionCard icon={<CloudUpload size={16} strokeWidth={1.75} />} title={t("backup.title")}>
+      <SectionCard icon={<CloudUpload size={16} strokeWidth={1.75} />} title={t("backup.title")}>
         <Field label={t("backup.webdavUrl")}>
           <input
             type="text"
@@ -417,7 +390,7 @@ export function SettingsView() {
           {backupMsg ? <span className="text-xs text-zinc-500">{backupMsg}</span> : null}
         </div>
       </SectionCard>
-          <SectionCard icon={<Download size={16} strokeWidth={1.75} />} title={t("config.title")}>
+      <SectionCard icon={<Download size={16} strokeWidth={1.75} />} title={t("config.title")}>
         <div className="flex items-center gap-2">
           <button onClick={() => void doConfigExport()} disabled={configBusy} className={btnCls}>
             <Download size={14} strokeWidth={1.75} />
@@ -432,10 +405,10 @@ export function SettingsView() {
         </div>
       </SectionCard>
       {showSaveBar && (
-      <div className="sticky bottom-0 left-0 right-0 mt-4 px-4 py-3 bg-white/85 dark:bg-zinc-900/80 backdrop-blur border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2">
+      <div className="sticky bottom-0 left-0 right-0 mt-4 px-4 py-3 bg-white/85 dark:bg-zinc-900/80 backdrop-blur border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2" data-testid="settings-save-bar">
         <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("settings.unifiedHelp")}</span>
         <button
-          onClick={() => void saveAll()}
+          data-testid="settings-save-button" onClick={() => void saveAll()}
           disabled={busy || (!isDirty && !saved)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-40"
         >

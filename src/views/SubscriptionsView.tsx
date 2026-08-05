@@ -139,7 +139,7 @@ export function SubscriptionsView() {
       const newOrder = [...localOrder, n];
       setLocalOrder(newOrder);
       void saveSubOrder(newOrder).catch(() => {});
-      await new Promise((r) => setTimeout(r, 1500));
+      await new Promise((r) => setTimeout(r, 50));
       await refreshWithRetry();
       try {
         const pool = await ipcNodePoolSnapshot();
@@ -149,8 +149,9 @@ export function SubscriptionsView() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setToast({ kind: "err", msg });
+    } finally {
+      try { setName(""); setUrl(""); setBusy(false); } catch { /* unmounted */ }
     }
-    setName(""); setUrl(""); setBusy(false);
   };
 
   const handleRemove = async (subName: string) => {

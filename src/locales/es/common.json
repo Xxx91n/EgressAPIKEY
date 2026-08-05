@@ -100,8 +100,18 @@
     "noLeases": "Sin leases activos",
     "probeFailed": "Solicitud de sonda fallida",
     "routableNodes": "Nodos enrutables",
-    "splitHint": "Arrastra para cambiar tamaño",
-    "title": "Plataformas"
+    "splitHint": "Izquierda: puertos de entrada (identidad). Arrastra un puerto a una plataforma. Derecha: plataformas y leases.",
+    "title": "Plataformas",
+    "entryPorts": "Puertos de entrada",
+    "addPort": "Añadir puerto",
+    "port": "Puerto",
+    "portLabel": "Etiqueta",
+    "noPorts": "Aún no hay puertos",
+    "portAddOk": "Puerto añadido",
+    "portRemoved": "Puerto eliminado",
+    "portInvalid": "El puerto debe ser 1024–65535",
+    "portDuplicate": "El puerto ya existe",
+    "portBound": "Enlazado :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "Ruta de proceso",

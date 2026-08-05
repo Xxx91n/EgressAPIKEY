@@ -100,8 +100,18 @@
     "noLeases": "Aucun bail actif",
     "probeFailed": "Échec de la sonde",
     "routableNodes": "Nœuds routables",
-    "splitHint": "Glisser pour redimensionner",
-    "title": "Plateformes"
+    "splitHint": "Gauche : ports d’entrée (identité). Glissez un port sur une plateforme. Droite : plateformes et baux.",
+    "title": "Plateformes",
+    "entryPorts": "Ports d’entrée",
+    "addPort": "Ajouter un port",
+    "port": "Port",
+    "portLabel": "Libellé",
+    "noPorts": "Aucun port pour l’instant",
+    "portAddOk": "Port ajouté",
+    "portRemoved": "Port supprimé",
+    "portInvalid": "Le port doit être 1024–65535",
+    "portDuplicate": "Le port existe déjà",
+    "portBound": "Lié :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "Routage des processus",

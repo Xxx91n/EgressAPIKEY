@@ -1155,6 +1155,96 @@ pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEnt
 }
 
 
+/// Validate an entry-port mapping before touching DB / listeners.
+fn validate_port_mapping(port: u16, protocol: &str, platform_name: &str, account: &str, label: &str) -> Result<(), String> {
+    use resin_core::{MAX_ENTRY_PORTS, MIN_USER_PORT};
+    if port < MIN_USER_PORT {
+        return Err(format!("port {port} is privileged (< {MIN_USER_PORT})"));
+    }
+    let proto = protocol.trim().to_ascii_lowercase();
+    if proto != "socks5" && proto != "http" {
+        return Err("protocol must be socks5 or http".into());
+    }
+    validate_short_name(platform_name, "platform_name")?;
+    // account + label optional but length/control capped
+    if account.len() > NAME_MAX_LEN || account.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+        return Err("account invalid".into());
+    }
+    if label.len() > NAME_MAX_LEN || label.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+        return Err("label invalid".into());
+    }
+    // Resin Platform.Account forbids these chars in either side
+    let forbidden = |s: &str| s.chars().any(|ch| ".:/\\@?#%~ ".contains(ch));
+    if forbidden(platform_name) {
+        return Err("platform_name contains Resin-forbidden chars".into());
+    }
+    if !account.is_empty() && forbidden(account) {
+        return Err("account contains Resin-forbidden chars".into());
+    }
+    let _ = MAX_ENTRY_PORTS; // capacity enforced at reload
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapping>, String> {
+    db.list_ports()
+}
+
+#[tauri::command]
+pub async fn port_upsert(
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    port: u16,
+    protocol: String,
+    platform_name: String,
+    account: String,
+    label: String,
+    enabled: bool,
+) -> Result<resin_core::PortMapping, String> {
+    validate_port_mapping(port, &protocol, &platform_name, &account, &label)?;
+    let acct = if account.trim().is_empty() {
+        format!("port-{port}")
+    } else {
+        account
+    };
+    let m = resin_core::PortMapping {
+        port,
+        protocol: protocol.trim().to_ascii_lowercase(),
+        platform_name,
+        account: acct,
+        label,
+        enabled,
+    };
+    db.upsert_port(&m)?;
+    // Hot-apply listeners (ADR-0012). Failure surfaces to GUI.
+    forwarder.reload().await?;
+    Ok(m)
+}
+
+#[tauri::command]
+pub async fn port_remove(
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    port: u16,
+) -> Result<bool, String> {
+    if port < resin_core::MIN_USER_PORT {
+        return Err(format!("port {port} is privileged"));
+    }
+    db.delete_port(port)?;
+    forwarder.reload().await?;
+    Ok(true)
+}
+
+#[tauri::command]
+pub async fn port_running(forwarder: State<'_, resin_core::PortForwarder>) -> Result<Vec<u16>, String> {
+    Ok(forwarder.running_ports())
+}
+
+#[tauri::command]
+pub async fn port_reload(forwarder: State<'_, resin_core::PortForwarder>) -> Result<usize, String> {
+    forwarder.reload().await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1366,4 +1456,17 @@ mod tests {
         assert_eq!(subscription_id_for_name(&v, "main"), Some("sub-uuid-1".to_string()));
         assert_eq!(subscription_id_for_name(&v, "nope"), None);
     }
+    #[test]
+    fn validate_port_mapping_rejects_privileged_and_bad_proto() {
+        assert!(validate_port_mapping(80, "socks5", "OpenAI", "a", "").is_err());
+        assert!(validate_port_mapping(17990, "ftp", "OpenAI", "a", "").is_err());
+        assert!(validate_port_mapping(17990, "socks5", "Open.AI", "a", "").is_err());
+        assert!(validate_port_mapping(17990, "http", "OpenAI", "port-17990", "k").is_ok());
+    }
+
+    #[test]
+    fn validate_port_mapping_rejects_control_in_label() {
+        assert!(validate_port_mapping(17990, "socks5", "OpenAI", "a", "bad\n").is_err());
+    }
+
 }

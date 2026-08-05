@@ -18,13 +18,15 @@ pub mod mihomo;
 pub mod gateway;
 pub mod resin_client;
 pub mod db;
+pub mod port_forwarder;
 
 pub use lane::{lane_index, LaneConfig};
 pub use lease::{LeaseTable, LeaseId};
 pub use tdewma::TdEwma;
 pub use platform::{Platform, Account, PlatformRegistry};
 pub use resin_client::{ResinClient, fetch_clash_subscription, clash_yaml_to_proxies_block};
-pub use db::DbPool;
+pub use db::{DbPool, PortMapping};
+pub use port_forwarder::{PortForwarder, resin_identity, detect_protocol, MAX_ENTRY_PORTS, MIN_USER_PORT};
 
 /// Re-export canonical config for the whole core.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]

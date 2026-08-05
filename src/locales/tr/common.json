@@ -100,8 +100,18 @@
     "noLeases": "Henüz aktif kiralama yok",
     "probeFailed": "Prob isteği başarısız",
     "routableNodes": "Yönlendirilebilir düğümler",
-    "splitHint": "Yeniden boyutlandırmak için sürükleyin",
-    "title": "Platformlar"
+    "splitHint": "Sol: giriş portları (kimlik). Portu platforma sürükleyin. Sağ: platformlar ve lease.",
+    "title": "Platformlar",
+    "entryPorts": "Giriş portları",
+    "addPort": "Port ekle",
+    "port": "Port",
+    "portLabel": "Etiket",
+    "noPorts": "Henüz port yok",
+    "portAddOk": "Port eklendi",
+    "portRemoved": "Port kaldırıldı",
+    "portInvalid": "Port 1024–65535 olmalı",
+    "portDuplicate": "Port zaten var",
+    "portBound": "Bağlandı :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "Süreç rotası",

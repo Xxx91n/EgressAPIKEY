@@ -1,29 +1,23 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Key } from "lucide-react";
+import { Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Plug } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import {
   ipcPlatformRemove,
   ipcPlatformListFull,
   ipcPlatformLeases,
-  ipcPlatformSnapshot,
   ipcPlatformCreateWithFields,
   ipcPlatformUpdate,
+  ipcPortList,
+  ipcPortUpsert,
+  ipcPortRemove,
   ALLOCATION_POLICIES,
   type AllocationPolicy,
+  type PortMapping,
 } from "../lib/ipc";
-import {
-  loadKeyCandidates,
-  saveKeyCandidates,
-  loadSplitRatio,
-  saveSplitRatio,
-  type KeyCandidate,
-} from "../lib/settings";
+import { loadSplitRatio, saveSplitRatio } from "../lib/settings";
 
-/// P21-B: PlatformsView dual-pane refactor.
-/// Left pane: candidate key combinations (endpoint + apiKey, stored
-/// locally in settings.json#keyCandidates). Right pane: live Resin
-/// platforms + per-platform leases. Pointer Events drag (WebView2-stable).
+/** Phase 5 / ADR-0012: left = Entry Ports, right = Platforms. Port = identity. */
 interface PlatformInfoFull {
   name: string;
   allocationPolicy: string;
@@ -33,33 +27,17 @@ interface PlatformInfoFull {
   stickyTtl: string;
 }
 
-function makeUid(endpoint: string, apiKey: string): string {
-  const s = endpoint + "::" + apiKey;
-  let h = 0;
-  for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
-  return (h >>> 0).toString(16).padStart(8, "0").slice(0, 8);
-}
-
-function maskKey(key: string): string {
-  if (key.length <= 12) return key;
-  return key.slice(0, 4) + "..." + key.slice(-4);
-}
-
-function isAutoPlatform(name: string): boolean {
-  return name.startsWith("auto-");
-}
-
 export function PlatformsView() {
   const { t } = useTranslation();
   const removePlatform = useAppStore((s) => s.removePlatform);
-
-  const [candidates, setCandidates] = useState<KeyCandidate[]>([]);
-  const [newEndpoint, setNewEndpoint] = useState("");
-  const [newApiKey, setNewApiKey] = useState("");
+  const [ports, setPorts] = useState<PortMapping[]>([]);
+  const [newPort, setNewPort] = useState("17990");
+  const [newProto, setNewProto] = useState<"socks5" | "http">("socks5");
+  const [newLabel, setNewLabel] = useState("");
+  const [newPlatformName, setNewPlatformName] = useState("Default");
   const [platforms, setPlatforms] = useState<PlatformInfoFull[]>([]);
   const [leasesPerPlatform, setLeasesPerPlatform] = useState<Record<string, unknown[]>>({});
-  const [routableByPlatform, setRoutableByPlatform] = useState<Record<string, unknown[]>>({});
-  const [draggingUid, setDraggingUid] = useState<string | null>(null);
+  const [draggingPort, setDraggingPort] = useState<number | null>(null);
   const [dragOverPlatform, setDragOverPlatform] = useState<string | null>(null);
   const [splitRatio, setSplitRatio] = useState(0.4);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
@@ -67,410 +45,246 @@ export function PlatformsView() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createPolicy, setCreatePolicy] = useState<AllocationPolicy>("BALANCED");
-  const [createRegex, setCreateRegex] = useState("");
-  const [createRegions, setCreateRegions] = useState("");
   const [createFormError, setCreateFormError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
 
-  // --- Load persisted state on mount + refresh platforms ---
+  const refreshPorts = useCallback(async () => {
+    try { setPorts(await ipcPortList()); } catch { /* outside Tauri */ }
+  }, []);
+
   const refreshPlatforms = useCallback(async () => {
     try {
       const raw = await ipcPlatformListFull();
       const items = Array.isArray(raw) ? raw : ((raw as Record<string, unknown>)?.items ?? []);
-      const arr = items as Record<string, unknown>[];
-      const mapped = arr.map((p) => ({
+      const mapped = (items as Record<string, unknown>[]).map((p) => ({
         name: String(p.name ?? ""),
         allocationPolicy: String(p.allocation_policy ?? "BALANCED"),
-        regexFilters: Array.isArray(p.regex_filters) ? p.regex_filters as string[] : [],
-        regionFilters: Array.isArray(p.region_filters) ? p.region_filters as string[] : [],
+        regexFilters: Array.isArray(p.regex_filters) ? (p.regex_filters as string[]) : [],
+        regionFilters: Array.isArray(p.region_filters) ? (p.region_filters as string[]) : [],
         routableNodeCount: Number(p.routable_node_count ?? 0),
         stickyTtl: String(p.sticky_ttl ?? ""),
-      }));
+      })).filter((p) => p.name);
       setPlatforms(mapped);
-      // Fetch leases per platform
       const leaseMap: Record<string, unknown[]> = {};
-      const routableMap: Record<string, unknown[]> = {};
       await Promise.all(mapped.map(async (p) => {
         try {
           const leases = await ipcPlatformLeases(p.name);
           const lv = leases as unknown;
-      leaseMap[p.name] = Array.isArray(lv) ? lv : ((lv as Record<string, unknown[]>)?.items ?? []);
+          leaseMap[p.name] = (Array.isArray(lv) ? lv : ((lv as Record<string, unknown>)?.items ?? [])) as unknown[];
         } catch { leaseMap[p.name] = []; }
-        try {
-          const snap = await ipcPlatformSnapshot(p.name);
-          const items = (snap as Record<string, unknown> | null)?.items;
-          routableMap[p.name] = Array.isArray(items) ? items : [];
-        } catch { routableMap[p.name] = []; }
       }));
       setLeasesPerPlatform(leaseMap);
-      setRoutableByPlatform(routableMap);
-    } catch { /* outside Tauri — keep local */ }
+    } catch { /* outside Tauri */ }
   }, []);
 
   useEffect(() => {
-    (async () => {
-      const saved = await loadKeyCandidates();
-      if (saved) setCandidates(saved);
-      const ratio = await loadSplitRatio();
-      if (ratio !== null && ratio > 0.1 && ratio < 0.9) setSplitRatio(ratio);
-    })();
+    loadSplitRatio().then((r) => { if (typeof r === "number" && r > 0.15 && r < 0.85) setSplitRatio(r); }).catch(() => {});
+    void refreshPorts();
     void refreshPlatforms();
-  }, [refreshPlatforms]);
+  }, [refreshPorts, refreshPlatforms]);
 
-  // --- Add key candidate (dedup check) ---
-  const handleAddCandidate = async () => {
-    const ep = newEndpoint.trim();
-    const key = newApiKey.trim();
-    if (!ep || !key) return;
-    const uid = makeUid(ep, key);
-    if (candidates.some((c) => c.uid === uid)) {
-      setToast({ kind: "err", msg: t("platform.duplicateKey") });
-      return;
-    }
-    const next = [...candidates, { uid, endpoint: ep, apiKey: key }];
-    setCandidates(next);
-    await saveKeyCandidates(next);
-    setNewEndpoint("");
-    setNewApiKey("");
-    setToast({ kind: "ok", msg: t("platform.addKey") });
+  const showToast = (kind: "ok" | "err", msg: string) => {
+    setToast({ kind, msg });
+    window.setTimeout(() => setToast(null), 3500);
   };
 
-  const handleRemoveCandidate = async (uid: string) => {
-    const next = candidates.filter((c) => c.uid !== uid);
-    setCandidates(next);
-    await saveKeyCandidates(next);
-  };
-
-  // --- Drag key to right pane (create independent platform) ---
-  const handleDropOnEmpty = async () => {
-    if (!draggingUid) return;
-    const cand = candidates.find((c) => c.uid === draggingUid);
-    if (!cand) { setDraggingUid(null); return; }
-    const platName = "auto-" + cand.uid;
-    setBusy(true); setToast(null);
-    try {
-      if (platforms.some((p) => p.name === platName)) {
-        setToast({ kind: "err", msg: t("platform.duplicateKey") });
-      } else {
-        await ipcPlatformCreateWithFields({ name: platName, allocation_policy: "BALANCED" });
-        await refreshPlatforms();
-        setToast({ kind: "ok", msg: t("platform.activated") });
-      }
-    } catch (e: unknown) {
-      setToast({ kind: "err", msg: e instanceof Error ? e.message : String(e) });
-    }
-    setDraggingUid(null);
-    setBusy(false);
-  };
-
-  // --- Drag key onto existing platform (attach) ---
-  const handleDropOnPlatform = async (platName: string) => {
-    if (!draggingUid) return;
-    const cand = candidates.find((c) => c.uid === draggingUid);
-    if (!cand) { setDraggingUid(null); return; }
-    setBusy(true); setToast(null);
-    try {
-      // The platform exists and the key is registered locally; Resin creates
-      // the lease on the next real proxy request through this platform.
-      // platName is the target platform name (used by future probe wiring).
-      void platName;
-      setToast({ kind: "ok", msg: t("platform.activated") });
-    } catch (e: unknown) {
-      setToast({ kind: "err", msg: e instanceof Error ? e.message : String(e) });
-    }
-    setDraggingUid(null);
-    setBusy(false);
-  };
-
-  // --- Delete platform ---
-  const handleRemove = async (name: string) => {
-    setBusy(true);
-    removePlatform(name);
-    try { await ipcPlatformRemove(name); await refreshPlatforms(); }
-    catch { /* local reducer already updated */ }
-    setBusy(false);
-  };
-
-  // --- Change egress policy (PATCH allocation_policy) ---
-  const handlePolicyChange = async (name: string, policy: AllocationPolicy) => {
+  const handleAddPort = async () => {
+    const port = Number(newPort);
+    if (!Number.isInteger(port) || port < 1024 || port > 65535) { showToast("err", t("platform.portInvalid")); return; }
+    if (ports.some((p) => p.port === port)) { showToast("err", t("platform.portDuplicate")); return; }
     setBusy(true);
     try {
-      await ipcPlatformUpdate(name, policy);
+      await ipcPortUpsert({
+        port,
+        protocol: newProto,
+        platform_name: newPlatformName.trim() || "Default",
+        account: "port-" + port,
+        label: newLabel.trim() || ("entry-" + port),
+        enabled: true,
+      });
+      setNewLabel("");
+      showToast("ok", t("platform.portAddOk"));
+      await refreshPorts();
+    } catch (e) { showToast("err", e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  };
+
+  const handleRemovePort = async (port: number) => {
+    setBusy(true);
+    try { await ipcPortRemove(port); showToast("ok", t("platform.portRemoved")); await refreshPorts(); }
+    catch (e) { showToast("err", e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  };
+
+  const bindPortToPlatform = async (port: number, platformName: string) => {
+    const row = ports.find((p) => p.port === port);
+    if (!row) return;
+    setBusy(true);
+    try {
+      await ipcPortUpsert({
+        port: row.port,
+        protocol: row.protocol,
+        platform_name: platformName,
+        account: row.account || ("port-" + row.port),
+        label: row.label,
+        enabled: row.enabled,
+      });
+      showToast("ok", t("platform.portBound", { port, platform: platformName }));
+      await refreshPorts();
+    } catch (e) { showToast("err", e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); setDraggingPort(null); setDragOverPlatform(null); }
+  };
+
+  const handleCreatePlatform = async () => {
+    const name = createName.trim();
+    if (!name) { setCreateFormError(t("platform.createEmptyName")); return; }
+    setBusy(true); setCreateFormError(null);
+    try {
+      await ipcPlatformCreateWithFields({ name, allocation_policy: createPolicy });
+      setCreateDialogOpen(false); setCreateName("");
+      showToast("ok", t("platform.addOk"));
       await refreshPlatforms();
-    } catch (e: unknown) {
-      setToast({ kind: "err", msg: e instanceof Error ? e.message : String(e) });
-    }
-    setBusy(false);
+    } catch (e) { setCreateFormError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
   };
 
-  // --- Splitter drag (Pointer Events) ---
-  const onSplitterDown = (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    resizingRef.current = true;
-    try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* */ }
+  const handleDeletePlatform = async (name: string) => {
+    setBusy(true);
+    try { await ipcPlatformRemove(name); removePlatform(name); showToast("ok", t("platform.deleteConfirm")); await refreshPlatforms(); }
+    catch (e) { showToast("err", e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
   };
-  const onSplitterMove = (e: React.PointerEvent) => {
+
+  const onSplitterPointerDown = (e: React.PointerEvent) => {
+    resizingRef.current = true;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+  const onSplitterPointerMove = (e: React.PointerEvent) => {
     if (!resizingRef.current || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const ratio = (e.clientX - rect.left) / rect.width;
-    if (ratio > 0.15 && ratio < 0.85) setSplitRatio(ratio);
+    setSplitRatio(Math.min(0.75, Math.max(0.25, ratio)));
   };
-  const onSplitterUp = async () => {
+  const onSplitterPointerUp = () => {
     if (!resizingRef.current) return;
     resizingRef.current = false;
-    await saveSplitRatio(splitRatio);
-  };
-
-  // --- Key drag (Pointer Events) ---
-  const onKeyDown = (e: React.PointerEvent, uid: string) => {
-    if (e.button !== 0) return;
-    setDraggingUid(uid);
-    try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* */ }
-  };
-  const onKeyUp = () => {
-    // Drop destination handled by onPointerEnter of right pane targets
-    if (draggingUid && dragOverPlatform === null) {
-      void handleDropOnEmpty();
-    }
-    setDragOverPlatform(null);
-  };
-
-  // C2-14 (Q9 A9): manual platform create via dialog -> ipcPlatformCreateWithFields.
-  // Validates name non-empty, policy membership, then POSTs to Resin.
-  const handleCreatePlatform = async () => {
-    const trimmed = createName.trim();
-    if (!trimmed) {
-      setCreateFormError(t("platform.createEmptyName"));
-      return;
-    }
-    setCreateFormError(null);
-    setBusy(true);
-    try {
-      // Parse comma/space-separated upstream regex filters and region filters.
-      const regex = createRegex.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean).slice(0, 64);
-      const regions = createRegions.split(/[\s,]+/).map((x) => x.trim().toLowerCase()).filter(Boolean).slice(0, 64);
-      await ipcPlatformCreateWithFields({
-        name: trimmed,
-        allocation_policy: createPolicy,
-        regex_filters: regex,
-        region_filters: regions,
-      });
-      setToast({ kind: "ok", msg: t("platform.addOk") });
-      setCreateDialogOpen(false);
-      setCreateName(""); setCreateRegex(""); setCreateRegions(""); setCreatePolicy("BALANCED");
-      await refreshPlatforms();
-    } catch (e) {
-      setToast({ kind: "err", msg: String(e instanceof Error ? e.message : e) });
-    } finally {
-      setBusy(false);
-    }
+    void saveSplitRatio(splitRatio);
   };
 
   return (
-    <section className="h-full overflow-hidden flex flex-col">
-      <header className="px-5 pt-5 pb-2">
-        <h2 className="text-sm font-semibold tracking-tight">{t("platform.title")}</h2>
+    <section className="flex h-full w-full flex-col gap-3 p-4" data-testid="platforms-view">
+      <header className="flex items-center justify-between gap-2">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">{t("platform.title")}</h1>
+          <p className="text-xs text-muted-foreground">{t("platform.splitHint")}</p>
+        </div>
+        <button type="button" className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm" onClick={() => setCreateDialogOpen(true)} data-testid="platform-create-open">
+          <Plus className="h-4 w-4" />
+          {t("platform.createTitle")}
+        </button>
       </header>
+
       {toast && (
-        <div className={"mx-5 mb-2 flex items-center gap-2 text-xs px-3 py-2 rounded-md " + (toast.kind === "ok"
-            ? "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-900"
-            : "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900")}>
-          {toast.kind === "ok" ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+        <div className={"flex items-center gap-2 rounded-md border px-3 py-2 text-sm " + (toast.kind === "ok" ? "border-emerald-500/40 bg-emerald-500/10" : "border-red-500/40 bg-red-500/10")} data-testid="platforms-toast">
+          {toast.kind === "ok" ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
           <span>{toast.msg}</span>
         </div>
       )}
-      <div ref={containerRef} className="flex-1 flex overflow-hidden px-5 pb-5 gap-0">
-        {/* Left pane: key candidates */}
-        <div
-          className="overflow-auto border border-zinc-200 dark:border-zinc-800 rounded-lg"
-          style={{ width: 'calc(' + (splitRatio * 100) + '% - 4px)' }}
-        >
-          <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 bg-zinc-50 dark:bg-zinc-900/80 backdrop-blur">
-            <h3 className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">{t("platform.candidates")}</h3>
-          </div>
-          <div className="p-3 space-y-2">
-            {candidates.length === 0 && (
-              <p className="text-xs text-zinc-400 dark:text-zinc-600 py-4 text-center">{t("platform.dragToActivate")}</p>
-            )}
-            {candidates.map((c) => (
-              <div
-                key={c.uid}
-                onPointerDown={(e) => onKeyDown(e, c.uid)}
-                onPointerUp={onKeyUp}
-                className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-3 py-2 text-xs flex items-center justify-between cursor-grab active:cursor-grabbing select-none touch-none"
-                style={draggingUid === c.uid ? { opacity: 0.5 } : undefined}
-              >
-                <span className="flex items-center gap-2 min-w-0 flex-1">
-                  <Key size={12} className="text-zinc-400 dark:text-zinc-600 shrink-0" />
-                  <span className="font-mono text-zinc-500 dark:text-zinc-400 shrink-0">{c.uid}</span>
-                  <span className="text-zinc-600 dark:text-zinc-300 truncate">{c.endpoint}</span>
-                  <span className="font-mono text-zinc-400 dark:text-zinc-500 shrink-0">{maskKey(c.apiKey)}</span>
-                </span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); void handleRemoveCandidate(c.uid); }}
-                  className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-          {/* Add key form */}
-          <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 space-y-2">
-            <input
-              type="text"
-              placeholder={t("platform.endpoint")}
-              value={newEndpoint}
-              onChange={(e) => setNewEndpoint(e.target.value)}
-              className="w-full text-xs px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-            />
-            <input
-              type="password"
-              placeholder={t("platform.apiKey")}
-              value={newApiKey}
-              onChange={(e) => setNewApiKey(e.target.value)}
-              className="w-full text-xs px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-            />
-            <button
-              onClick={handleAddCandidate}
-              disabled={!newEndpoint.trim() || !newApiKey.trim() || busy}
-              className="w-full flex items-center justify-center gap-1 text-xs px-2 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-              {t("platform.addKey")}
+
+      <div ref={containerRef} className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
+        <div className="flex min-h-0 flex-col overflow-hidden" style={{ width: (splitRatio * 100) + "%" }} data-testid="ports-pane">
+          <div className="border-b px-3 py-2 text-sm font-medium">{t("platform.entryPorts")}</div>
+          <div className="space-y-2 border-b p-3">
+            <div className="grid grid-cols-2 gap-2">
+              <input className="rounded border bg-background px-2 py-1.5 text-sm" value={newPort} onChange={(e) => setNewPort(e.target.value)} placeholder={t("platform.port")} data-testid="port-input" />
+              <select className="rounded border bg-background px-2 py-1.5 text-sm" value={newProto} onChange={(e) => setNewProto(e.target.value as "socks5" | "http")} data-testid="port-protocol">
+                <option value="socks5">SOCKS5</option>
+                <option value="http">HTTP</option>
+              </select>
+              <input className="rounded border bg-background px-2 py-1.5 text-sm" value={newPlatformName} onChange={(e) => setNewPlatformName(e.target.value)} placeholder={t("platform.name")} data-testid="port-platform" />
+              <input className="rounded border bg-background px-2 py-1.5 text-sm" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder={t("platform.portLabel")} data-testid="port-label" />
+            </div>
+            <button type="button" disabled={busy} onClick={() => void handleAddPort()} className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50" data-testid="port-add">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {t("platform.addPort")}
             </button>
           </div>
+          <ul className="min-h-0 flex-1 space-y-2 overflow-auto p-3">
+            {ports.length === 0 && <li className="text-xs text-muted-foreground">{t("platform.noPorts")}</li>}
+            {ports.map((p) => (
+              <li key={p.port} className={"cursor-grab rounded-md border bg-card p-3 text-sm " + (draggingPort === p.port ? "opacity-60" : "")} onPointerDown={() => setDraggingPort(p.port)} data-testid={"port-row-" + p.port}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 font-medium">
+                      <Plug className="h-3.5 w-3.5" />
+                      <span>{":" + p.port}</span>
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase">{p.protocol}</span>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">{(p.label || t("platform.entryPorts")) + " · " + p.platform_name + "." + p.account}</div>
+                  </div>
+                  <button type="button" className="rounded p-1 text-muted-foreground hover:text-red-500" onClick={() => void handleRemovePort(p.port)} aria-label={t("common.delete")}>
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {/* Splitter */}
-        <div
-          onPointerDown={onSplitterDown}
-          onPointerMove={onSplitterMove}
-          onPointerUp={onSplitterUp}
-          className="w-2 cursor-col-resize flex items-center justify-center shrink-0 group"
-          title={t("platform.splitHint")}
-        >
-          <div className="w-px h-full bg-zinc-200 dark:bg-zinc-800 group-hover:w-0.5 group-hover:bg-blue-400 transition-all" />
-        </div>
+        <div className="w-1.5 cursor-col-resize bg-border hover:bg-primary/40" onPointerDown={onSplitterPointerDown} onPointerMove={onSplitterPointerMove} onPointerUp={onSplitterPointerUp} data-testid="platforms-splitter" />
 
-        {/* Right pane: live platforms */}
-        <div
-          className="flex-1 overflow-auto border border-zinc-200 dark:border-zinc-800 rounded-lg"
-          onPointerEnter={() => { if (draggingUid) setDragOverPlatform(null); }}
-          onPointerUp={() => { if (draggingUid) void handleDropOnEmpty(); }}
-        >
-          <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 bg-zinc-50 dark:bg-zinc-900/80 backdrop-blur flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">{t("platform.title")}</h3>
-            {busy && <Loader2 size={12} className="animate-spin text-zinc-400" />}
-            <button type="button" onClick={() => setCreateDialogOpen(true)} disabled={busy} className="text-xs px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"><Plus size={12} /> {t("platform.createTitle")}</button>
-          </div>
-          <div className="p-3 space-y-2">
-            {platforms.length === 0 && (
-              <p className="text-xs text-zinc-400 dark:text-zinc-600 py-4 text-center">{t("platform.empty")}</p>
-            )}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-testid="platforms-pane" onPointerUp={() => { if (draggingPort != null && !dragOverPlatform) setDraggingPort(null); }}>
+          <div className="border-b px-3 py-2 text-sm font-medium">{t("platform.activated")}</div>
+          <ul className="min-h-0 flex-1 space-y-2 overflow-auto p-3">
+            {platforms.length === 0 && <li className="text-xs text-muted-foreground">{t("platform.empty")}</li>}
             {platforms.map((p) => {
-              const auto = isAutoPlatform(p.name);
+              const bound = ports.filter((x) => x.platform_name === p.name);
               const leases = leasesPerPlatform[p.name] ?? [];
               return (
-                <div
-                  key={p.name}
-                  onPointerEnter={() => { if (draggingUid) setDragOverPlatform(p.name); }}
-                  onPointerUp={() => { if (draggingUid) void handleDropOnPlatform(p.name); }}
-                  className={dragOverPlatform === p.name
-                    ? "rounded-lg border-2 border-blue-400/60 bg-blue-50/30 dark:bg-blue-950/20 px-3 py-2"
-                    : auto
-                      ? "rounded-lg border border-solid border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/60 px-3 py-2"
-                      : "rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/30 px-3 py-2"}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-xs text-zinc-600 dark:text-zinc-300 truncate">{p.name}</span>
-                      {auto && <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-400">{t("platform.independent")}</span>}
-                    </span>
+                <li key={p.name} className={"rounded-md border bg-card p-3 " + (dragOverPlatform === p.name ? "ring-2 ring-primary" : "")} onPointerEnter={() => { if (draggingPort != null) setDragOverPlatform(p.name); }} onPointerLeave={() => { if (dragOverPlatform === p.name) setDragOverPlatform(null); }} onPointerUp={() => { if (draggingPort != null) void bindPortToPlatform(draggingPort, p.name); }} data-testid={"platform-card-" + p.name}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-medium">{p.name}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{p.allocationPolicy + " · " + t("platform.leases") + ": " + leases.length + " · " + t("platform.routableNodes") + ": " + p.routableNodeCount}</div>
+                      {bound.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {bound.map((b) => (
+                            <span key={b.port} className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{":" + b.port + "/" + b.protocol}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1">
-                      <select
-                        value={p.allocationPolicy}
-                        onChange={(e) => void handlePolicyChange(p.name, e.target.value as AllocationPolicy)}
-                        disabled={busy}
-                        className="text-xs px-1.5 py-1 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      >
-                        {ALLOCATION_POLICIES.map((pol) => (
-                          <option key={pol} value={pol}>{pol}</option>
-                        ))}
+                      <select className="rounded border bg-background px-1 py-0.5 text-[11px]" value={p.allocationPolicy} onChange={(e) => { const policy = e.target.value as AllocationPolicy; void ipcPlatformUpdate(p.name, policy).then(() => refreshPlatforms()).catch((err) => showToast("err", err instanceof Error ? err.message : String(err))); }}>
+                        {ALLOCATION_POLICIES.map((pol) => (<option key={pol} value={pol}>{pol}</option>))}
                       </select>
-                      <button
-                        onClick={() => { if (confirm(t("platform.deleteConfirm"))) void handleRemove(p.name); }}
-                        disabled={busy}
-                        className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 size={12} />
+                      <button type="button" className="rounded p-1 text-muted-foreground hover:text-red-500" onClick={() => void handleDeletePlatform(p.name)}>
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-3">
-                    <span>{t("platform.leases")}: {leases.length}</span>
-                    {p.routableNodeCount > 0 && <span>nodes: {p.routableNodeCount}</span>}
-                    {p.regionFilters.length > 0 && <span>regions: {p.regionFilters.join(", ")}</span>}
-                  </div>
-                  {leases.length > 0 && (
-                    <div className="mt-1 pl-2 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5">
-                      {leases.slice(0, 5).map((lease, i) => (
-                        <span key={i} className="block text-xs font-mono text-zinc-400 dark:text-zinc-600 truncate">
-                          {String((lease as Record<string, unknown>)?.account ?? "")} → {String((lease as Record<string, unknown>)?.egress_ip ?? "?")}
-                        </span>
-                      ))}
-                      {leases.length > 5 && <span className="text-xs text-zinc-400">+{leases.length - 5}</span>}
-                    </div>
-                  )}
-                  {leases.length === 0 && auto && (
-                    <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">{t("platform.noLeases")}</p>
-                  )}
-                  {(routableByPlatform[p.name] ?? []).length > 0 && (
-                    <details className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      <summary className="cursor-pointer select-none">{t("platform.routableNodes")}: {(routableByPlatform[p.name] ?? []).length}</summary>
-                      <div className="pl-2 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5 mt-0.5">
-                        {(routableByPlatform[p.name] ?? []).slice(0, 8).map((nd, i) => (
-                          <span key={i} className="block font-mono truncate">
-                            {String((nd as Record<string, unknown>)?.display_tag ?? "?")} · {String((nd as Record<string, unknown>)?.region ?? "")}
-                          </span>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </div>
       </div>
-      {/* C2-14: manual create platform dialog */}
+
       {createDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setCreateDialogOpen(false)}>
-          <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-xl border border-zinc-200 dark:border-zinc-800 w-full max-w-md mx-4 p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold">{t("platform.createTitle")}</h3>
-            <div className="space-y-1">
-              <label className="text-xs text-zinc-600 dark:text-zinc-400">{t("platform.name")}</label>
-              <input type="text" data-testid="create-platform-name" value={createName} onChange={(e) => setCreateName(e.target.value)} className="w-full text-xs px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-400" />
-              {createFormError && <p className="text-xs text-red-500">{createFormError}</p>}
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-zinc-600 dark:text-zinc-400">{t("platform.egressPolicy")}</label>
-              <select value={createPolicy} onChange={(e) => setCreatePolicy(e.target.value as AllocationPolicy)} className="w-full text-xs px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-400">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg border bg-background p-4 shadow-xl" data-testid="platform-create-dialog">
+            <h2 className="text-base font-semibold">{t("platform.createTitle")}</h2>
+            <div className="mt-3 space-y-2">
+              <input className="w-full rounded border bg-background px-2 py-1.5 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={t("platform.name")} data-testid="platform-create-name" />
+              <select className="w-full rounded border bg-background px-2 py-1.5 text-sm" value={createPolicy} onChange={(e) => setCreatePolicy(e.target.value as AllocationPolicy)}>
                 {ALLOCATION_POLICIES.map((pol) => (<option key={pol} value={pol}>{pol}</option>))}
               </select>
+              {createFormError && <p className="text-xs text-red-500">{createFormError}</p>}
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-zinc-600 dark:text-zinc-400">{t("platform.createRegex")}</label>
-              <input type="text" value={createRegex} onChange={(e) => setCreateRegex(e.target.value)} placeholder="api.openai.com, api.anthropic.com" className="w-full text-xs px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-400" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-zinc-600 dark:text-zinc-400">{t("platform.createRegions")}</label>
-              <input type="text" value={createRegions} onChange={(e) => setCreateRegions(e.target.value)} placeholder="US, HK, JP" className="w-full text-xs px-2 py-1.5 rounded border border-zinc-200 dark:border-zinc-700 bg-transparent dark:text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-400" />
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setCreateDialogOpen(false)} className="text-xs px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800">{t("common.cancel")}</button>
-              <button type="button" data-testid="create-platform-submit" onClick={() => void handleCreatePlatform()} disabled={busy} className="text-xs px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1">{busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} {t("platform.createSubmit")}</button>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" className="rounded border px-3 py-1.5 text-sm" onClick={() => setCreateDialogOpen(false)}>{t("common.cancel")}</button>
+              <button type="button" className="rounded bg-primary px-3 py-1.5 text-sm text-primary-foreground" disabled={busy} onClick={() => void handleCreatePlatform()} data-testid="platform-create-submit">{t("platform.createSubmit")}</button>
             </div>
           </div>
         </div>

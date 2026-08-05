@@ -100,8 +100,18 @@
     "noLeases": "Chưa có bản thuê hoạt động",
     "probeFailed": "Yêu cầu thăm dò thất bại",
     "routableNodes": "Nút có thể định tuyến",
-    "splitHint": "Kéo để thay đổi kích thước",
-    "title": "Nền tảng"
+    "splitHint": "Trái: cổng vào (định danh). Kéo cổng vào platform. Phải: platform và lease.",
+    "title": "Nền tảng",
+    "entryPorts": "Cổng vào",
+    "addPort": "Thêm cổng",
+    "port": "Cổng",
+    "portLabel": "Nhãn",
+    "noPorts": "Chưa có cổng",
+    "portAddOk": "Đã thêm cổng",
+    "portRemoved": "Đã xóa cổng",
+    "portInvalid": "Cổng phải là 1024–65535",
+    "portDuplicate": "Cổng đã tồn tại",
+    "portBound": "Đã gắn :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "Tuyến tiến trình",

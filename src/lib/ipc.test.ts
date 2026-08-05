@@ -24,6 +24,7 @@ import {
   ipcPlatformUpdate, ipcNodeList,
   ipcPlatformCreateWithFields, ipcPlatformLeases,
   ipChannelList, ipChannelPolicySet, ipChannelCreate, ipChannelDelete,
+  ipcPortList, ipcPortUpsert, ipcPortRemove, ipcPortRunning, ipcPortReload,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -258,3 +259,58 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 });
+
+
+describe("port IPC (P2 multi-port thin forwarder)", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
+  it("ipcPortList forwards to port_list and normalizes non-array", async () => {
+    invokeMock.mockResolvedValueOnce([{ port: 17990, protocol: "socks5", platform_name: "Default", account: "port-17990", label: "a", enabled: true }]);
+    const rows = await ipcPortList();
+    expect(rows).toHaveLength(1);
+    expect(invokeMock).toHaveBeenCalledWith("port_list");
+    invokeMock.mockResolvedValueOnce(null);
+    expect(await ipcPortList()).toEqual([]);
+  });
+
+  it("ipcPortUpsert validates range/protocol and forwards camelCase args", async () => {
+    invokeMock.mockResolvedValue({ port: 17990, protocol: "socks5", platform_name: "OpenAI", account: "port-17990", label: "k", enabled: true });
+    await ipcPortUpsert({ port: 17990, protocol: "SOCKS5", platform_name: "OpenAI", account: "port-17990", label: "k", enabled: true });
+    expect(invokeMock).toHaveBeenCalledWith("port_upsert", {
+      port: 17990,
+      protocol: "socks5",
+      platformName: "OpenAI",
+      account: "port-17990",
+      label: "k",
+      enabled: true,
+    });
+  });
+
+  it("ipcPortUpsert rejects privileged port and bad protocol before invoke", async () => {
+    await expect(ipcPortUpsert({ port: 80, protocol: "socks5", platform_name: "OpenAI" })).rejects.toThrow(/port out of range/);
+    await expect(ipcPortUpsert({ port: 17990, protocol: "ftp", platform_name: "OpenAI" })).rejects.toThrow(/protocol must be socks5 or http/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ipcPortRemove / ipcPortRunning / ipcPortReload forward", async () => {
+    invokeMock.mockResolvedValueOnce(true);
+    await expect(ipcPortRemove(17990)).resolves.toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("port_remove", { port: 17990 });
+
+    invokeMock.mockResolvedValueOnce([17990, 17991]);
+    await expect(ipcPortRunning()).resolves.toEqual([17990, 17991]);
+    expect(invokeMock).toHaveBeenCalledWith("port_running");
+
+    invokeMock.mockResolvedValueOnce(2);
+    await expect(ipcPortReload()).resolves.toBe(2);
+    expect(invokeMock).toHaveBeenCalledWith("port_reload");
+  });
+
+  it("ipcPortRemove rejects privileged port before invoke", async () => {
+    await expect(ipcPortRemove(443)).rejects.toThrow(/port out of range/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+});
+

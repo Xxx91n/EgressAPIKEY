@@ -3,7 +3,7 @@
 #   - backend headless (resin-core): compile-guard only, NOT staged (P0 stub,
 #     see crates/resin-core/src/bin/resin_core.rs - logs + exits, no listener)
 #   - GUI installer bundles (msi/nsis setup, deb, AppImage, dmg) -> release/${NAME}-gui/
-#   - GUI portable binary -> release/${NAME}-gui/egressapikey(.exe)
+#   - GUI portable binary -> release/${NAME}-gui/EgressAPIKEY(.exe)
 # Both GUI paths MUST pass --features custom-protocol (AGENTS.md section 5):
 # without it tauri::generate_context! compiles dev:true and the webview loads
 # devUrl (http://localhost:1420), giving ERR_CONNECTION_REFUSED on any
@@ -43,7 +43,7 @@ fi
 # so both the installer step and the portable finder see it.
 TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
 if [ -n "$TRIPLE" ] && [ -d "target/$TRIPLE/release" ]; then
-  for f in target/$TRIPLE/release/egressapikey*; do
+  for f in target/$TRIPLE/release/EgressAPIKEY*; do
     [ -f "$f" ] && cp "$f" "target/release/" 2>/dev/null || true
   done
 fi
@@ -63,10 +63,10 @@ rm -rf "$GUI_STAGE"
 mkdir -p "$GUI_STAGE"
 BUNDLES="$(find src-tauri/target target -maxdepth 6 -type f \( -name '*.msi' -o -name '*-setup.exe' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' \) 2>/dev/null || true)"
 for f in $BUNDLES; do cp "$f" "$GUI_STAGE/" 2>/dev/null || true; done
-PORT_BIN="$(find src-tauri/target target -maxdepth 5 -type f \( -name 'egressapikey' -o -name 'egressapikey.exe' \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | head -n1 || true)"
+PORT_BIN="$(find src-tauri/target target -maxdepth 5 -type f \( -name 'EgressAPIKEY' -o -name 'EgressAPIKEY.exe' -o -name 'egressapikey' -o -name 'egressapikey.exe' \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | head -n1 || true)"
 if [ -z "$PORT_BIN" ]; then echo "[build-all] ERROR: portable GUI binary not found (searched src-tauri/target and target)"; exit 1; fi
-PORT_NAME=egressapikey
-case $NAME in windows) PORT_NAME=egressapikey.exe ;; esac
+PORT_NAME=EgressAPIKEY
+case $NAME in windows) PORT_NAME=EgressAPIKEY.exe ;; esac
 cp "$PORT_BIN" "$GUI_STAGE/$PORT_NAME"
 
 # Ponytail: portable exe needs the sidecar binary (resin) in the SAME

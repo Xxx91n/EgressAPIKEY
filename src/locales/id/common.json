@@ -100,8 +100,18 @@
     "noLeases": "Belum ada lease aktif",
     "probeFailed": "Permintaan probe gagal",
     "routableNodes": "Node yang dapat dirutekan",
-    "splitHint": "Seret untuk mengubah ukuran",
-    "title": "Platform"
+    "splitHint": "Kiri: port entri (identitas). Seret port ke platform. Kanan: platform dan lease.",
+    "title": "Platform",
+    "entryPorts": "Port entri",
+    "addPort": "Tambah port",
+    "port": "Port",
+    "portLabel": "Label",
+    "noPorts": "Belum ada port",
+    "portAddOk": "Port ditambahkan",
+    "portRemoved": "Port dihapus",
+    "portInvalid": "Port harus 1024–65535",
+    "portDuplicate": "Port sudah ada",
+    "portBound": "Terikat :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "Rute proses",

@@ -33,10 +33,10 @@
 2. NEW-8: Rename project to EgressAPIKEY (Cargo.toml, tauri.conf, package.json, README, AGENTS)
 3. Verify: cargo build + pnpm build + pnpm test + tsc green after deletion+rename
 
-### Phase 2: Core architecture (blocking, serial)
-4. NEW-1: Multi-port socks5/http listener (tokio TcpListener + protocol detection)
-5. NEW-2: Port -> (platform, account) mapping table (SQLite, reuses DbPool)
-6. NEW-3: X-Resin-Account injection on forward (port-based)
+### Phase 2: Core architecture (blocking, serial) — **DONE (P2)**
+4. NEW-1: Multi-port socks5/http listener (tokio TcpListener + protocol detection) ✅
+5. NEW-2: Port -> (platform, account) mapping table (SQLite, reuses DbPool) ✅
+6. NEW-3: Port-identity injection on forward (Resin V1 Platform.Account via SOCKS5 RFC1929 / HTTP Basic) ✅
 7. Verify: closed-loop test — two ports -> two accounts -> two distinct egress IPs
 
 ### Phase 3: Strategy + config (parallel after Phase 2)

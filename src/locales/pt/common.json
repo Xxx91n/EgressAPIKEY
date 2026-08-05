@@ -100,8 +100,18 @@
     "noLeases": "Sem leases ativos",
     "probeFailed": "Sonda falhou",
     "routableNodes": "Nós roteáveis",
-    "splitHint": "Arraste para redimensionar",
-    "title": "Plataformas"
+    "splitHint": "Esquerda: portas de entrada (identidade). Arraste uma porta para a plataforma. Direita: plataformas e leases.",
+    "title": "Plataformas",
+    "entryPorts": "Portas de entrada",
+    "addPort": "Adicionar porta",
+    "port": "Porta",
+    "portLabel": "Rótulo",
+    "noPorts": "Ainda sem portas",
+    "portAddOk": "Porta adicionada",
+    "portRemoved": "Porta removida",
+    "portInvalid": "A porta deve ser 1024–65535",
+    "portDuplicate": "A porta já existe",
+    "portBound": "Ligado :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "Rota de processo",

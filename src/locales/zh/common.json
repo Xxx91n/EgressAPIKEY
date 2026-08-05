@@ -100,8 +100,18 @@
     "noLeases": "尚无活跃租约",
     "probeFailed": "探测请求失败",
     "routableNodes": "可路由节点",
-    "splitHint": "拖动以调整宽度",
-    "title": "平台"
+    "splitHint": "左侧：入口端口（身份）。把端口拖到平台即可绑定。右侧：平台与租约。",
+    "title": "平台",
+    "entryPorts": "入口端口",
+    "addPort": "添加入口端口",
+    "port": "端口",
+    "portLabel": "标签",
+    "noPorts": "暂无入口端口",
+    "portAddOk": "入口端口已添加",
+    "portRemoved": "入口端口已删除",
+    "portInvalid": "端口必须在 1024–65535",
+    "portDuplicate": "端口已存在",
+    "portBound": "已绑定 :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "进程路由",

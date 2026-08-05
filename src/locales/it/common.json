@@ -100,8 +100,18 @@
     "noLeases": "Nessun lease attivo",
     "probeFailed": "Richiesta probe fallita",
     "routableNodes": "Nodi instradabili",
-    "splitHint": "Trascina per ridimensionare",
-    "title": "Piattaforme"
+    "splitHint": "Sinistra: porte di ingresso (identità). Trascina una porta su una piattaforma. Destra: piattaforme e lease.",
+    "title": "Piattaforme",
+    "entryPorts": "Porte di ingresso",
+    "addPort": "Aggiungi porta",
+    "port": "Porta",
+    "portLabel": "Etichetta",
+    "noPorts": "Nessuna porta ancora",
+    "portAddOk": "Porta aggiunta",
+    "portRemoved": "Porta rimossa",
+    "portInvalid": "La porta deve essere 1024–65535",
+    "portDuplicate": "La porta esiste già",
+    "portBound": "Collegato :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "Instradamento processi",

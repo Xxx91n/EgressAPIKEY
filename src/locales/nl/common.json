@@ -100,8 +100,18 @@
     "noLeases": "Geen actieve leases",
     "probeFailed": "Probe-aanvraag mislukt",
     "routableNodes": "Routeerbare knooppunten",
-    "splitHint": "Slepen om formaat te wijzigen",
-    "title": "Platforms"
+    "splitHint": "Links: invoerpoorten (identiteit). Sleep een poort naar een platform. Rechts: platforms en leases.",
+    "title": "Platforms",
+    "entryPorts": "Invoerpoorten",
+    "addPort": "Poort toevoegen",
+    "port": "Poort",
+    "portLabel": "Label",
+    "noPorts": "Nog geen poorten",
+    "portAddOk": "Poort toegevoegd",
+    "portRemoved": "Poort verwijderd",
+    "portInvalid": "Poort moet 1024–65535 zijn",
+    "portDuplicate": "Poort bestaat al",
+    "portBound": "Gebonden :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "Procesroute",

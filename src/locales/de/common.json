@@ -100,8 +100,18 @@
     "noLeases": "Keine aktiven Leases",
     "probeFailed": "Probe-Anfrage fehlgeschlagen",
     "routableNodes": "Routbare Knoten",
-    "splitHint": "Ziehen zum Ändern der Größe",
-    "title": "Plattformen"
+    "splitHint": "Links: Einstiegsporte (Identität). Port auf Plattform ziehen. Rechts: Plattformen und Leases.",
+    "title": "Plattformen",
+    "entryPorts": "Einstiegsporte",
+    "addPort": "Port hinzufügen",
+    "port": "Port",
+    "portLabel": "Bezeichnung",
+    "noPorts": "Noch keine Ports",
+    "portAddOk": "Port hinzugefügt",
+    "portRemoved": "Port entfernt",
+    "portInvalid": "Port muss 1024–65535 sein",
+    "portDuplicate": "Port existiert bereits",
+    "portBound": "Gebunden :{{port}} → {{platform}}"
   },
   "processRoute": {
     "title": "Prozessroute",

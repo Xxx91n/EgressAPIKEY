@@ -10,7 +10,6 @@ import { useAppStore } from "../store/appStore";
 import {
   ipcPlatformListFull, ipcNodeList, ipcPlatformUpdate, ipcBackupCreate,
   ipcLeaseMap, type LeaseEntry,
-  ipcObservedKeys, type ObservedKey,
 } from "../lib/ipc";
 import { loadTopologyViewport, saveTopologyViewport } from "../lib/settings";
 import { listen } from "@tauri-apps/api/event";
@@ -128,14 +127,13 @@ function EntryNode({ data }: NodeProps) {
 
 /// A4-3: PlatformNode now renders a small chip list of the platform's active
 /// leases (account short + egress_ip + target domain). Each lease is one
-/// X-Resin-Account the interceptor injected; an independent egress IP proves
+/// Resin V1 Platform.Account identity on the lease; an independent egress IP proves
 /// the (key, endpoint) -> distinct IP contract is live, not prose.
 function PlatformNode({ data }: NodeProps) {
   const d = data as Record<string, unknown>;
   const leases = (Array.isArray(d.leases) ? d.leases : []) as Array<{
     account: string; egress_ip: string; target_domain: string;
   }>;
-  const observedMap = (d.observedMap as Map<string, ObservedKey> | undefined) ?? new Map<string, ObservedKey>();
   return (
     <div className="rounded-lg border border-zinc-400 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-4 py-3 text-xs min-w-[160px] max-w-[240px]">
       <Handle type="target" position={Position.Left} />
@@ -145,11 +143,7 @@ function PlatformNode({ data }: NodeProps) {
       <div className="mt-2 flex flex-col gap-1">
         {leases.length > 0 ? leases.map((l, i) => (
           <div key={"lease-" + i} className="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-1 text-[10px] text-zinc-600 dark:text-zinc-300 font-mono">
-            {(() => {
-              const obs = observedMap.get(l.account);
-              const tag = obs ? `${obs.api_key_mask} · ${obs.endpoint}` : (l.account.slice(0, 12) + (l.account.length > 12 ? "…" : ""));
-              return <span title={obs ? `${obs.api_key_mask} | ${obs.endpoint} | reqs=${obs.request_count}` : l.account}>{tag}</span>;
-            })()}
+            <span title={l.account}>{l.account.slice(0, 18) + (l.account.length > 18 ? "…" : "")}</span>
             {" → "}
             <span title={l.target_domain}>{(l.egress_ip || "").slice(0, 22) || "—"}</span>
           </div>
@@ -264,7 +258,6 @@ function TopologyCanvas() {
   const [platforms, setPlatforms] = useState<PlatformFull[]>([]);
   const [nodeGroups, setNodeGroups] = useState<NodeGroup[]>([]);
   const [leases, setLeases] = useState<LeaseEntry[]>([]);
-  const [observedKeys, setObservedKeys] = useState<ObservedKey[]>([]);
   const [sidecarStatus, setSidecarStatus] = useState<"healthy" | "unhealthy" | null>(null);
   const [patching, setPatching] = useState(false);
   // Q2-Bug1: ref-based reentry lock so two rapid drags cannot both read a stale
@@ -299,7 +292,6 @@ function TopologyCanvas() {
       setPlatforms(parsePlatforms(plRaw));
       setNodeGroups(parseNodeGroups(nRaw));
       setLeases(Array.isArray(lRaw) ? lRaw : []);
-      try { const obs = await ipcObservedKeys(); setObservedKeys(Array.isArray(obs) ? obs : []); } catch { /* sidecar down */ }
     } catch {
       // Outside Tauri (vitest) or sidecar down - keep last state.
     }
@@ -428,13 +420,7 @@ function TopologyCanvas() {
     });
     // B: platforms. A4-3: attach the platform's active leases (matched on
     // platform_id) so the chip list under each card proves the
-    // (key, endpoint) -> egress-IP contract the interceptor enables.
-    // C1-1: route_id -> ObservedKey map so PlatformNode can show the
-    // masked api key + upstream endpoint instead of the raw ar-<16hex>.
-    const observedMap = new Map<string, ObservedKey>();
-    for (const o of observedKeys) {
-      observedMap.set(o.route_id, o);
-    }
+    // port-identity -> platform -> egress-IP contract (ADR-0012).
     const leasesByPid = new Map<string, typeof leases>();
     for (const l of leases) {
       const pid = (l.platform_id || "").trim();
@@ -454,7 +440,7 @@ function TopologyCanvas() {
         id: "platform-" + p.name,
         type: "platform",
         position: { x: 300, y: 60 + i * 130 },
-        data: { label: p.name, sub, leases: pidLeases, observedMap, noLeases: t("topology.noLeases") },
+        data: { label: p.name, sub, leases: pidLeases, noLeases: t("topology.noLeases") },
       });
     });
     // C: node groups by region.

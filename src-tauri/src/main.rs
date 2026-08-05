@@ -6,7 +6,7 @@
 
 use egressapikey_app::{build_shared_gateway, build_shared_registry, commands, sidecar::{boot_resin, spawn_health_poll, SidecarHandle}, tray::build_tray};
 use resin_core::{CoreConfig, DEFAULT_LANES};
-use resin_core::DbPool;
+use resin_core::{DbPool, PortForwarder};
 use tauri::{Manager, Emitter, WindowEvent};
 use tauri_plugin_store::StoreExt;
 
@@ -117,6 +117,11 @@ fn main() {
             commands::config_export,
             commands::config_import,
             commands::lease_map,
+            commands::port_list,
+            commands::port_upsert,
+            commands::port_remove,
+            commands::port_running,
+            commands::port_reload,
         ])
         .setup(|app| {
             // #2/#6: read persisted network settings so the user
@@ -165,11 +170,13 @@ fn main() {
                 "resin sidecar booted: api_base={}",
                 sidecar.api_base()
             );
+            let api_port = sidecar.api_port;
+            let proxy_token = sidecar.proxy_token;
             app.manage(SidecarHandle {
                 child: sidecar.child,
-                api_port: sidecar.api_port,
+                api_port,
                 admin_token: sidecar.admin_token,
-                proxy_token: sidecar.proxy_token,
+                proxy_token: proxy_token.clone(),
             });
             // Port->platform mapping SQLite store (ADR-0012)
             // The multi-port listener reads this to inject X-Resin-Account
@@ -189,6 +196,23 @@ fn main() {
                 }
             };
             app.manage(db.clone());
+            // Phase 2: multi-port thin forwarder (ADR-0012). Port = identity.
+            // Listens on each enabled port_mappings row and rewrites proxy-auth
+            // to Platform.Account:proxy_token before tunneling to Resin.
+            let forwarder = PortForwarder::new(
+                db.clone(),
+                "127.0.0.1",
+                api_port,
+                proxy_token,
+            );
+            // Hot-apply current port_mappings so previously saved ports resume on boot.
+            let fwd = forwarder.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = fwd.reload().await {
+                    tracing::warn!(error = %e, "port_forwarder: initial reload failed");
+                }
+            });
+            app.manage(forwarder);
             // G3: Ghost safety-net - /healthz poll every 3s, 3 consecutive
             // failures flip the tray red, clear OS system proxy if any, and
             // emit a sidecar-status "unhealthy" event to the webview. When
