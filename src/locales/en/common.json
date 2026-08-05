@@ -73,7 +73,12 @@
     "lastRefresh": "Last refresh: {{time}}",
     "egressPolicyNote": "Per-region egress policy is bound on the Topology canvas: drag a Platform to an IP channel region then set Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) on the platform. Resin v1.1.2 has no per-node strategy selector.",
     "protocolWeights": "Protocol weights for AI SSE",
-    "protocolWeightDesc": "Best (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Moderate (0.7): shadowsocks. Avoid (0.1): hysteria2, tuic, wireguard (QUIC-based, breaks SSE streams)."
+    "protocolWeightDesc": "Best (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Moderate (0.7): shadowsocks. Avoid (0.1): hysteria2, tuic, wireguard (QUIC-based, breaks SSE streams).",
+    "reputationTitle": "IP reputation",
+    "reputationSummary": "{{count}} live egress IPs checked",
+    "reputationCached": "cached",
+    "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
+    "reputationDisabled": "IP reputation checks are disabled."
   },
   "platform": {
     "accounts": "Accounts",
@@ -140,7 +145,16 @@
     "interceptPortHint": "Set this as the base_url in omniroute / litellm so all API keys route through the interceptor. The interceptor injects X-Resin-Account per (key, model) so each (key, endpoint) pair gets a distinct egress IP.",
     "whiteboxReload": "Reload entry-port config",
     "whiteboxPath": "Entry-port config file",
-    "whiteboxReloaded": "Entry-port config reloaded — {{count}} listeners"
+    "whiteboxReloaded": "Entry-port config reloaded — {{count}} listeners",
+    "ipReputation": "IP reputation",
+    "ipReputationProvider": "Provider",
+    "ipReputationDisabled": "Disabled",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "Provider API key",
+    "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
   },
   "subscription": {
     "title": "Subscriptions",

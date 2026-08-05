@@ -124,7 +124,10 @@ mod tests {
 
     #[test]
     fn parse_accepts_aliases() {
-        assert_eq!(StrategyId::parse("prefer_low_latency").unwrap(), StrategyId::Latency);
+        assert_eq!(
+            StrategyId::parse("prefer_low_latency").unwrap(),
+            StrategyId::Latency
+        );
         assert_eq!(StrategyId::parse("idle").unwrap(), StrategyId::Quality);
         assert!(StrategyId::parse("nope").is_err());
     }
@@ -140,6 +143,8 @@ mod tests {
     fn catalog_lists_six_strategies() {
         let c = strategy_catalog();
         assert_eq!(c.len(), 6);
-        assert!(c.iter().any(|s| s.id == "protocol_weight" && s.protocol_aware));
+        assert!(c
+            .iter()
+            .any(|s| s.id == "protocol_weight" && s.protocol_aware));
     }
 }

@@ -73,7 +73,12 @@
     "lastRefresh": "Ultimo aggiornamento: {{time}}",
     "egressPolicyNote": "La policy di egress per region si imposta sul canvas Topology: trascina una Piattaforma su una regione canale IP poi imposta Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) sulla piattaforma. Resin v1.1.2 non ha selettore per nodo.",
     "protocolWeights": "Pesi del protocollo per SSE IA",
-    "protocolWeightDesc": "Migliore (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Moderato (0.7): shadowsocks. Evitare (0.1): hysteria2, tuic, wireguard (basato su QUIC, interrompe stream SSE)."
+    "protocolWeightDesc": "Migliore (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Moderato (0.7): shadowsocks. Evitare (0.1): hysteria2, tuic, wireguard (basato su QUIC, interrompe stream SSE).",
+    "reputationTitle": "IP reputation",
+    "reputationSummary": "{{count}} live egress IPs checked",
+    "reputationCached": "cached",
+    "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
+    "reputationDisabled": "IP reputation checks are disabled."
   },
   "platform": {
     "accounts": "Account",
@@ -140,7 +145,16 @@
     "interceptPortHint": "Imposta questo come base_url in omniroute / litellm in modo che tutte le chiavi API passino dall'intercettore. Questo inietta X-Resin-Account per ogni (chiave, modello) così ogni coppia (chiave, endpoint) ottiene un IP di uscita diverso.",
     "whiteboxReload": "Ricarica config porte",
     "whiteboxPath": "File config porte",
-    "whiteboxReloaded": "Config porte ricaricata — {{count}} listener"
+    "whiteboxReloaded": "Config porte ricaricata — {{count}} listener",
+    "ipReputation": "IP reputation",
+    "ipReputationProvider": "Provider",
+    "ipReputationDisabled": "Disabled",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "Provider API key",
+    "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
   },
   "subscription": {
     "title": "Sottoscrizioni",

@@ -56,7 +56,9 @@ mod tests {
     #[test]
     fn reservation_keeps_lane() {
         let g = build_shared_gateway(resin_core::DEFAULT_LANES);
-        let r = g.lock().reserve("sk-test", "acct", "api.openai.com", Some("1.2.3.4"));
+        let r = g
+            .lock()
+            .reserve("sk-test", "acct", "api.openai.com", Some("1.2.3.4"));
         assert!(r.lease.is_some());
     }
 }

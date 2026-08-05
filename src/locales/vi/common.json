@@ -73,7 +73,12 @@
     "lastRefresh": "Cập nhật lúc: {{time}}",
     "egressPolicyNote": "Chính sách egress theo vùng được đặt trên canvas Topology: kéo một Platform vào vùng kênh IP rồi đặt Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) trên platform. Resin v1.1.2 không có bộ chọn theo node.",
     "protocolWeights": "Trọng số giao thức cho AI SSE",
-    "protocolWeightDesc": "Tốt nhất (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Vừa (0.7): shadowsocks. Tránh (0.1): hysteria2, tuic, wireguard (dựa trên QUIC, phá vỡ luồng SSE)."
+    "protocolWeightDesc": "Tốt nhất (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Vừa (0.7): shadowsocks. Tránh (0.1): hysteria2, tuic, wireguard (dựa trên QUIC, phá vỡ luồng SSE).",
+    "reputationTitle": "IP reputation",
+    "reputationSummary": "{{count}} live egress IPs checked",
+    "reputationCached": "cached",
+    "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
+    "reputationDisabled": "IP reputation checks are disabled."
   },
   "platform": {
     "accounts": "Tài khoản",
@@ -140,7 +145,16 @@
     "interceptPortHint": "Đặt đây làm base_url trong omniroute / litellm để mọi khóa API đều đi qua bộ chặn. Bộ chặn chèn X-Resin-Account theo từng (khóa, mô hình) để mỗi cặp (khóa, endpoint) có IP đầu ra khác nhau.",
     "whiteboxReload": "Tải lại cấu hình cổng",
     "whiteboxPath": "Tệp cấu hình cổng",
-    "whiteboxReloaded": "Đã tải lại cấu hình cổng — {{count}} listener"
+    "whiteboxReloaded": "Đã tải lại cấu hình cổng — {{count}} listener",
+    "ipReputation": "IP reputation",
+    "ipReputationProvider": "Provider",
+    "ipReputationDisabled": "Disabled",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "Provider API key",
+    "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
   },
   "subscription": {
     "title": "Đăng ký",

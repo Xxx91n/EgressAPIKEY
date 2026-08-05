@@ -73,7 +73,12 @@
     "lastRefresh": "Dernière MAJ: {{time}}",
     "egressPolicyNote": "La politique degress par région se règle sur le canevas Topologie : glissez une Plateforme sur une région de canal IP puis définissez Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) sur la plateforme. Resin v1.1.2 na pas de sélecteur par nœud.",
     "protocolWeights": "Poids de protocole pour SSE IA",
-    "protocolWeightDesc": "Meilleur (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Modéré (0.7): shadowsocks. Éviter (0.1): hysteria2, tuic, wireguard (QUIC, casse les flux SSE)."
+    "protocolWeightDesc": "Meilleur (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Modéré (0.7): shadowsocks. Éviter (0.1): hysteria2, tuic, wireguard (QUIC, casse les flux SSE).",
+    "reputationTitle": "IP reputation",
+    "reputationSummary": "{{count}} live egress IPs checked",
+    "reputationCached": "cached",
+    "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
+    "reputationDisabled": "IP reputation checks are disabled."
   },
   "platform": {
     "accounts": "Comptes",
@@ -140,7 +145,16 @@
     "interceptPortHint": "Définissez ceci comme base_url dans omniroute / litellm pour que toutes les clés API passent par l'intercepteur. Il injecte X-Resin-Account par (clé, modèle) pour que chaque paire (clé, endpoint) obtienne une IP de sortie distincte.",
     "whiteboxReload": "Recharger la config des ports",
     "whiteboxPath": "Fichier de config des ports",
-    "whiteboxReloaded": "Config des ports rechargée — {{count}} listeners"
+    "whiteboxReloaded": "Config des ports rechargée — {{count}} listeners",
+    "ipReputation": "IP reputation",
+    "ipReputationProvider": "Provider",
+    "ipReputationDisabled": "Disabled",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "Provider API key",
+    "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
   },
   "subscription": {
     "title": "Abonnements",

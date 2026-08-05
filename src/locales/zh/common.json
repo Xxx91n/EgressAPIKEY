@@ -73,7 +73,12 @@
     "lastRefresh": "最后刷新：{{time}}",
     "egressPolicyNote": "按区域设置出口策略请在拓扑画布上操作：把“平台”拖到某个 IP 通道区域，并在该平台上设置分配策略（BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP）。Resin v1.1.2 不支持逐节点策略。",
     "protocolWeights": "AI SSE 协议权重",
-    "protocolWeightDesc": "最佳 (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp。中等 (0.7): shadowsocks。避免 (0.1): hysteria2, tuic, wireguard (基于 QUIC, 破坏 SSE 流)。"
+    "protocolWeightDesc": "最佳 (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp。中等 (0.7): shadowsocks。避免 (0.1): hysteria2, tuic, wireguard (基于 QUIC, 破坏 SSE 流)。",
+    "reputationTitle": "IP 信誉",
+    "reputationSummary": "已检查 {{count}} 个在线出口 IP",
+    "reputationCached": "已缓存",
+    "reputationNotConfigured": "请在设置中选择服务商并保存 API 密钥。",
+    "reputationDisabled": "IP 信誉检测已禁用。"
   },
   "platform": {
     "accounts": "账号",
@@ -140,7 +145,16 @@
     "interceptPortHint": "在 omniroute / litellm 中将此填为 base_url，所有 API key 将经由拦截器路由。拦截器按 (key, model) 注入 X-Resin-Account，使每个 (key, 端点) 组合获得不同的出口 IP。",
     "whiteboxReload": "重新加载入口端口配置",
     "whiteboxPath": "入口端口配置文件",
-    "whiteboxReloaded": "入口端口配置已重载 — {{count}} 个监听"
+    "whiteboxReloaded": "入口端口配置已重载 — {{count}} 个监听",
+    "ipReputation": "IP 信誉",
+    "ipReputationProvider": "服务商",
+    "ipReputationDisabled": "禁用",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "服务商 API 密钥",
+    "ipReputationHelp": "只查询 Resin 租约返回的公开出口 IP。",
+    "ipApiWarning": "ip-api 免费接口仅支持 HTTP；仅在可信网络中启用。"
   },
   "subscription": {
     "title": "订阅",

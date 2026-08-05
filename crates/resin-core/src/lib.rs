@@ -10,29 +10,37 @@
 //! - [`resin_client`]: loopback REST client for the Resin Go sidecar API
 //! - [`db`]: SQLite port->platform mapping store (reuses DbPool infra)
 
+pub mod db;
+pub mod gateway;
+pub mod ip_reputation;
 pub mod lane;
 pub mod lease;
-pub mod tdewma;
-pub mod platform;
 pub mod mihomo;
-pub mod gateway;
-pub mod resin_client;
-pub mod db;
+pub mod platform;
 pub mod port_forwarder;
-pub mod whitebox_config;
+pub mod resin_client;
 pub mod strategy;
 pub mod stream_sensor;
+pub mod tdewma;
+pub mod whitebox_config;
 
-pub use lane::{lane_index, LaneConfig};
-pub use lease::{LeaseTable, LeaseId};
-pub use tdewma::TdEwma;
-pub use platform::{Platform, Account, PlatformRegistry};
-pub use resin_client::{ResinClient, fetch_clash_subscription, clash_yaml_to_proxies_block};
 pub use db::{DbPool, PortMapping};
-pub use port_forwarder::{PortForwarder, resin_identity, detect_protocol, MAX_ENTRY_PORTS, MIN_USER_PORT};
-pub use whitebox_config::{WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE, validate as validate_whitebox_config};
-pub use strategy::{StrategyId, StrategyInfo, strategy_catalog, protocol_weight};
-pub use stream_sensor::{StreamSensor, StreamSensorSnapshot, StreamKind, classify_http_headers};
+pub use ip_reputation::{
+    parse_public_ips, ReputationClient, ReputationEntry, ReputationProvider, ReputationSnapshot,
+};
+pub use lane::{lane_index, LaneConfig};
+pub use lease::{LeaseId, LeaseTable};
+pub use platform::{Account, Platform, PlatformRegistry};
+pub use port_forwarder::{
+    detect_protocol, resin_identity, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT,
+};
+pub use resin_client::{clash_yaml_to_proxies_block, fetch_clash_subscription, ResinClient};
+pub use strategy::{protocol_weight, strategy_catalog, StrategyId, StrategyInfo};
+pub use stream_sensor::{classify_http_headers, StreamKind, StreamSensor, StreamSensorSnapshot};
+pub use tdewma::TdEwma;
+pub use whitebox_config::{
+    validate as validate_whitebox_config, WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE,
+};
 
 /// Re-export canonical config for the whole core.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]

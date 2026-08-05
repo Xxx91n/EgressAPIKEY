@@ -73,7 +73,12 @@
     "lastRefresh": "Terakhir diperbarui: {{time}}",
     "egressPolicyNote": "Kebijakan egress per-region diatur di kanvas Topology: seret Platform ke region kanal IP lalu set Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) di platform. Resin v1.1.2 tidak punya seletor per-node.",
     "protocolWeights": "Bobot protokol untuk SSE AI",
-    "protocolWeightDesc": "Terbaik (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Sedang (0.7): shadowsocks. Hindari (0.1): hysteria2, tuic, wireguard (berbasis QUIC, merusak stream SSE)."
+    "protocolWeightDesc": "Terbaik (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Sedang (0.7): shadowsocks. Hindari (0.1): hysteria2, tuic, wireguard (berbasis QUIC, merusak stream SSE).",
+    "reputationTitle": "IP reputation",
+    "reputationSummary": "{{count}} live egress IPs checked",
+    "reputationCached": "cached",
+    "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
+    "reputationDisabled": "IP reputation checks are disabled."
   },
   "platform": {
     "accounts": "Akun",
@@ -140,7 +145,16 @@
     "interceptPortHint": "Setel ini sebagai base_url di omniroute / litellm agar semua kunci API melewati interseptor. Interseptor menyuntik X-Resin-Account per (kunci, model) supaya tiap pasangan (kunci, endpoint) mendapat IP keluar yang berbeda.",
     "whiteboxReload": "Muat ulang config port",
     "whiteboxPath": "File config port",
-    "whiteboxReloaded": "Config port dimuat ulang — {{count}} listener"
+    "whiteboxReloaded": "Config port dimuat ulang — {{count}} listener",
+    "ipReputation": "IP reputation",
+    "ipReputationProvider": "Provider",
+    "ipReputationDisabled": "Disabled",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "Provider API key",
+    "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
   },
   "subscription": {
     "title": "Langganan",

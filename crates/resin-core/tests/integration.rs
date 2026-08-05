@@ -78,8 +78,11 @@ fn sse_stream_full_lifecycle_reserve_to_record_to_release() {
     // 2. Stream phase: a second concurrent reserve on the SAME key must hit
     //    LaneBusy — the SSE stream holds the lane until completion.
     let second_attempt = s.reserve(api_key, account, authority, Some(exit_ip));
-    assert_eq!(second_attempt.reason, LeaseReason::LaneBusy,
-        "stream must lock the lane for its duration");
+    assert_eq!(
+        second_attempt.reason,
+        LeaseReason::LaneBusy,
+        "stream must lock the lane for its duration"
+    );
     assert!(second_attempt.lease.is_none());
 
     // 3. During the stream the upper layer observed a 250ms time-to-first-byte
@@ -94,26 +97,43 @@ fn sse_stream_full_lifecycle_reserve_to_record_to_release() {
 
     // 5. TD-EWMA must now record this authority with a smoothed EMA between
     //    250ms and 420ms, and at least 2 samples.
-    let stats = s.tdewma.get(authority).expect("latency must be recorded during stream");
-    assert!(stats.ema_ms > 250.0 && stats.ema_ms < 420.0,
-        "EMA after two samples must lie between them; got {}", stats.ema_ms);
+    let stats = s
+        .tdewma
+        .get(authority)
+        .expect("latency must be recorded during stream");
+    assert!(
+        stats.ema_ms > 250.0 && stats.ema_ms < 420.0,
+        "EMA after two samples must lie between them; got {}",
+        stats.ema_ms
+    );
     assert_eq!(stats.samples, 2, "two record_latency calls must accumulate");
 
     // 6. Lane reopens: the next request on the same key must acquire again.
     let next = s.reserve(api_key, account, authority, Some(exit_ip));
-    assert_eq!(next.reason, LeaseReason::Acquired,
-        "lane must reopen after the SSE stream released its lease");
-    assert_eq!(next.lane, lane, "same key must hash back onto the same lane");
+    assert_eq!(
+        next.reason,
+        LeaseReason::Acquired,
+        "lane must reopen after the SSE stream released its lease"
+    );
+    assert_eq!(
+        next.lane, lane,
+        "same key must hash back onto the same lane"
+    );
 
     // 7. Failure-path cohabits: evicting the lane mid-stream (the simulated
     //    upstream-abort path) releases the lane and does not corrupt tdewma.
     s.evict_lane(next.lane);
     let after_evict = s.reserve(api_key, account, authority, Some(exit_ip));
-    assert_eq!(after_evict.reason, LeaseReason::Acquired,
-        "lane must be re-acquirable after evict");
+    assert_eq!(
+        after_evict.reason,
+        LeaseReason::Acquired,
+        "lane must be re-acquirable after evict"
+    );
     // tdewma entry survives an evict — it tracks authority latency, not lane.
-    assert!(s.tdewma.get(authority).is_some(),
-        "tdewma must outlive a lane eviction");
+    assert!(
+        s.tdewma.get(authority).is_some(),
+        "tdewma must outlive a lane eviction"
+    );
 }
 
 /// Re3 upper-layer: weighted account pick via PlatformRegistry +
@@ -143,8 +163,11 @@ fn weighted_pick_prefers_low_latency_account() {
     let plat_arc = reg.get("openai").unwrap();
     let plat = plat_arc.read();
     let cold = plat.pick_account_weighted(0, |_| s.tdewma.get(authority).map(|st| st.ema_ms));
-    assert_eq!(cold.unwrap().id.clone(), "acct-low",
-        "cold lane must win when the other lane has samples");
+    assert_eq!(
+        cold.unwrap().id.clone(),
+        "acct-low",
+        "cold lane must win when the other lane has samples"
+    );
 
     // Now give acct-low's authority a latency record too — but much worse.
     // After both have samples the lower EMA must win.
@@ -156,15 +179,23 @@ fn weighted_pick_prefers_low_latency_account() {
     let plat2_arc = reg.get("openai").unwrap();
     let plat2 = plat2_arc.read();
     let weighted = plat2.pick_account_weighted(0, |a| {
-        latencies.iter().find(|(id, _)| *id == a.id).map(|(_, ms)| *ms)
+        latencies
+            .iter()
+            .find(|(id, _)| *id == a.id)
+            .map(|(_, ms)| *ms)
     });
-    assert_eq!(weighted.unwrap().id.clone(), "acct-high",
-        "weighted pick must prefer the lower-latency account");
+    assert_eq!(
+        weighted.unwrap().id.clone(),
+        "acct-high",
+        "weighted pick must prefer the lower-latency account"
+    );
 
     // Deterministic pick ignores latency; it only orders by lane preference.
     let plat3_arc = reg.get("openai").unwrap();
     let plat3 = plat3_arc.read();
     let det = plat3.pick_account(0).unwrap();
-    assert_eq!(det.id, "acct-low",
-        "deterministic pick must prefer the preferred lane regardless of latency");
+    assert_eq!(
+        det.id, "acct-low",
+        "deterministic pick must prefer the preferred lane regardless of latency"
+    );
 }

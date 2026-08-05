@@ -38,6 +38,30 @@ describe("NodesView", () => {
     expect(invokeMock).toHaveBeenCalledWith("node_pool_snapshot", undefined);
   });
 
+  it("P4: renders actual egress reputation returned by server-side IPC", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") return { items: [] };
+      if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
+      if (cmd === "ip_reputation_snapshot") return { provider: "ip_api", status: "ok", entries: [{ ip: "1.1.1.1", score: 3, cached: true }] };
+      return undefined;
+    });
+    render(<NodesView />);
+    await waitFor(() => expect(screen.getByText(/1\.1\.1\.1/)).toBeTruthy());
+    expect(invokeMock.mock.calls.some(([cmd]) => cmd === "ip_reputation_snapshot")).toBe(true);
+  });
+
+  it("P4: renders actual egress reputation returned by server-side IPC", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") return { items: [] };
+      if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
+      if (cmd === "ip_reputation_snapshot") return { provider: "ip_api", status: "ok", entries: [{ ip: "1.1.1.1", score: 3, cached: true }] };
+      return undefined;
+    });
+    render(<NodesView />);
+    await waitFor(() => expect(screen.getByText(/1\.1\.1\.1/)).toBeTruthy());
+    expect(invokeMock.mock.calls.some(([cmd]) => cmd === "ip_reputation_snapshot")).toBe(true);
+  });
+
   it("R3: shows empty state when no nodes returned", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return { items: [], total: 0 };

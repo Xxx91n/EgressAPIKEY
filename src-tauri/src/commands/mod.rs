@@ -7,12 +7,16 @@
 //! the Resin forward proxy owns sticky-session + exit-ip allocation natively.
 //! Each command still validates its inputs at the IPC boundary (AGENTS 7.5).
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
+use tauri_plugin_store::StoreExt;
 
 use crate::sidecar::SidecarHandle;
 use resin_core::DbPool;
-use resin_core::{ResinClient, MAX_LANES, fetch_clash_subscription, clash_yaml_to_proxies_block};
+use resin_core::{
+    clash_yaml_to_proxies_block, fetch_clash_subscription, parse_public_ips, ReputationClient,
+    ReputationProvider, ReputationSnapshot, ResinClient, MAX_LANES,
+};
 
 const AUTHORITY_MAX_LEN: usize = 253;
 const LATENCY_CAP_MS: u64 = 24 * 60 * 60 * 1000;
@@ -21,9 +25,14 @@ const NAME_MAX_LEN: usize = 128;
 
 fn validate_authority(authority: &str) -> Result<(), String> {
     if authority.is_empty() || authority.len() > AUTHORITY_MAX_LEN {
-        return Err(format!("authority length out of range (1..={AUTHORITY_MAX_LEN})"));
+        return Err(format!(
+            "authority length out of range (1..={AUTHORITY_MAX_LEN})"
+        ));
     }
-    if authority.bytes().any(|b| b == 0 || (b < 0x20 && b != 0x09) || b == 0x7f) {
+    if authority
+        .bytes()
+        .any(|b| b == 0 || (b < 0x20 && b != 0x09) || b == 0x7f)
+    {
         return Err("authority contains control characters".to_string());
     }
     Ok(())
@@ -43,7 +52,10 @@ fn validate_ip(ip: &str) -> Result<(), String> {
     if ip.is_empty() || ip.len() > 253 {
         return Err("exit_ip length out of range".to_string());
     }
-    if ip.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ') {
+    if ip
+        .bytes()
+        .any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')
+    {
         return Err("exit_ip contains control/space characters".to_string());
     }
     Ok(())
@@ -72,13 +84,19 @@ pub async fn gateway_reserve(
         return Err("api_key and account must be non-empty".to_string());
     }
     if api_key.len() > KEY_MAX_LEN || account.len() > KEY_MAX_LEN {
-        return Err(format!("api_key/account length out of range (1..={KEY_MAX_LEN})"));
+        return Err(format!(
+            "api_key/account length out of range (1..={KEY_MAX_LEN})"
+        ));
     }
     validate_authority(&authority)?;
     if let Some(ip) = exit_ip.as_deref() {
         validate_ip(ip)?;
     }
-    Ok(ReserveResult { lane: 0, lease: None, reason: "ok".into() })
+    Ok(ReserveResult {
+        lane: 0,
+        lease: None,
+        reason: "ok".into(),
+    })
 }
 
 #[tauri::command]
@@ -89,7 +107,10 @@ pub async fn gateway_release(_lease: Option<u64>) -> Result<(), String> {
 #[tauri::command]
 pub async fn gateway_evict_lane(lane: usize) -> Result<(), String> {
     if lane >= MAX_LANES {
-        return Err(format!("evict_lane: lane {lane} out of range (max {})", MAX_LANES - 1));
+        return Err(format!(
+            "evict_lane: lane {lane} out of range (max {})",
+            MAX_LANES - 1
+        ));
     }
     Ok(())
 }
@@ -135,7 +156,12 @@ pub async fn gateway_select_account(
         return Err("api_key must be non-empty".to_string());
     }
     validate_authority(&authority)?;
-    Ok(SelectResult { account: Some(platform.clone()), lane: 0, exit_ip: None, reason: platform })
+    Ok(SelectResult {
+        account: Some(platform.clone()),
+        lane: 0,
+        exit_ip: None,
+        reason: platform,
+    })
 }
 
 #[derive(Debug, Serialize)]
@@ -160,7 +186,10 @@ pub async fn gateway_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<LaneS
     // exposes platform_id as a UUID; Resin owns the UUID->name mapping). On
     // any failure we fall back to the raw platform_id so the canvas still
     // renders a real entry instead of dropping the lease count.
-    let platforms = client.list_platforms().await.unwrap_or_else(|_| serde_json::json!([]));
+    let platforms = client
+        .list_platforms()
+        .await
+        .unwrap_or_else(|_| serde_json::json!([]));
     let per_platform_active = per_platform_active_from_leases(&leases, &platforms);
     Ok(LaneSnapshot {
         lane_count: MAX_LANES,
@@ -172,12 +201,16 @@ pub async fn gateway_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<LaneS
 
 fn sum_active_leases(v: &serde_json::Value) -> usize {
     if let Some(items) = v.get("items").and_then(|i| i.as_array()) {
-        return items.iter()
+        return items
+            .iter()
             .filter_map(|it| it.get("active_leases").and_then(|n| n.as_u64()))
             .map(|n| n as usize)
             .sum();
     }
-    v.get("active_leases").and_then(|n| n.as_u64()).map(|n| n as usize).unwrap_or(0)
+    v.get("active_leases")
+        .and_then(|n| n.as_u64())
+        .map(|n| n as usize)
+        .unwrap_or(0)
 }
 
 /// Build per-platform (name, active_count) from a /metrics/realtime/leases
@@ -196,7 +229,11 @@ fn per_platform_active_from_leases(
         .filter_map(|p| {
             let id = p.get("id").and_then(|i| i.as_str())?.trim().to_string();
             let name = p.get("name").and_then(|n| n.as_str())?.trim().to_string();
-            if id.is_empty() || name.is_empty() { None } else { Some((id, name)) }
+            if id.is_empty() || name.is_empty() {
+                None
+            } else {
+                Some((id, name))
+            }
         })
         .collect();
     let default_name = parr
@@ -209,8 +246,17 @@ fn per_platform_active_from_leases(
     };
     let mut acc: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for it in items {
-        let raw_id = it.get("platform_id").and_then(|i| i.as_str()).unwrap_or("").trim().to_string();
-        let active = it.get("active_leases").and_then(|n| n.as_u64()).map(|n| n as usize).unwrap_or(0);
+        let raw_id = it
+            .get("platform_id")
+            .and_then(|i| i.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let active = it
+            .get("active_leases")
+            .and_then(|n| n.as_u64())
+            .map(|n| n as usize)
+            .unwrap_or(0);
         let resolved = if raw_id.is_empty() {
             // Resin emits "Default" platform leases with platform_id = ""
             default_name.clone()
@@ -228,16 +274,27 @@ fn per_platform_active_from_leases(
 pub async fn platform_add(sidecar: State<'_, SidecarHandle>, name: String) -> Result<(), String> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
-    client.create_platform_from_name(&name).await.map(|_| ()).map_err(|e| e.to_string())
+    client
+        .create_platform_from_name(&name)
+        .await
+        .map(|_| ())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn platform_remove(sidecar: State<'_, SidecarHandle>, name: String) -> Result<bool, String> {
+pub async fn platform_remove(
+    sidecar: State<'_, SidecarHandle>,
+    name: String,
+) -> Result<bool, String> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
     let list = client.list_platforms().await.map_err(|e| e.to_string())?;
-    let id = platform_id_for_name(&list, &name).ok_or_else(|| format!("platform not found: {name}"))?;
-    client.delete_platform(&id).await.map_err(|e| e.to_string())?;
+    let id =
+        platform_id_for_name(&list, &name).ok_or_else(|| format!("platform not found: {name}"))?;
+    client
+        .delete_platform(&id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(true)
 }
 
@@ -252,20 +309,28 @@ pub async fn platform_list(sidecar: State<'_, SidecarHandle>) -> Result<Vec<Stri
 /// canvas can render regex_filters, region_filters, allocation_policy,
 /// routable_node_count. Returns raw JSON; the frontend parses it.
 #[tauri::command]
-pub async fn platform_list_full(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
+pub async fn platform_list_full(
+    sidecar: State<'_, SidecarHandle>,
+) -> Result<serde_json::Value, String> {
     let client = resin_client(&sidecar)?;
     client.list_platforms().await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn platform_snapshot(sidecar: State<'_, SidecarHandle>, name: String) -> Result<serde_json::Value, String> {
+pub async fn platform_snapshot(
+    sidecar: State<'_, SidecarHandle>,
+    name: String,
+) -> Result<serde_json::Value, String> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
     // Resolve platform name -> id, then fetch that platform is routable node list
     // (Resin DESIGN.md: GET /nodes?platform_id=<id> filters to the platform routable set).
     let list = client.list_platforms().await.map_err(|e| e.to_string())?;
     match platform_id_for_name(&list, &name) {
-        Some(id) => client.list_nodes_for_platform(&id).await.map_err(|e| e.to_string()),
+        Some(id) => client
+            .list_nodes_for_platform(&id)
+            .await
+            .map_err(|e| e.to_string()),
         None => Ok(serde_json::json!({"items":[], "total":0, "limit":500, "offset":0})),
     }
 }
@@ -338,23 +403,41 @@ pub struct ProcessRouteRule {
 }
 
 #[tauri::command]
-pub async fn process_route_add(app: AppHandle, process: String, target_lane: usize) -> Result<(), String> {
+pub async fn process_route_add(
+    app: AppHandle,
+    process: String,
+    target_lane: usize,
+) -> Result<(), String> {
     validate_short_name(&process, "process")?;
     if target_lane >= MAX_LANES {
-        return Err(format!("process_route_add: lane {target_lane} out of range (max {})", MAX_LANES - 1));
+        return Err(format!(
+            "process_route_add: lane {target_lane} out of range (max {})",
+            MAX_LANES - 1
+        ));
     }
-    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json").map_err(|e| format!("store: {e:?}"))?;
-    let mut rules: Vec<ProcessRouteRule> = store.get("processRoutes")
+    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json")
+        .map_err(|e| format!("store: {e:?}"))?;
+    let mut rules: Vec<ProcessRouteRule> = store
+        .get("processRoutes")
         .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
         .unwrap_or_default();
     // conflict detect via the extracted helper (unit-testable)
     process_route_conflict_check(&rules, &process, target_lane)?;
-    if let Some(slot) = rules.iter_mut().find(|r| r.process.trim() == process.trim()) {
+    if let Some(slot) = rules
+        .iter_mut()
+        .find(|r| r.process.trim() == process.trim())
+    {
         slot.target_lane = target_lane;
     } else {
-        rules.push(ProcessRouteRule { process: process.trim().to_string(), target_lane });
+        rules.push(ProcessRouteRule {
+            process: process.trim().to_string(),
+            target_lane,
+        });
     }
-    store.set("processRoutes", serde_json::to_value(&rules).map_err(|e| format!("serialize: {e}"))?);
+    store.set(
+        "processRoutes",
+        serde_json::to_value(&rules).map_err(|e| format!("serialize: {e}"))?,
+    );
     store.save().map_err(|e| format!("store save: {e:?}"))?;
     Ok(())
 }
@@ -362,14 +445,19 @@ pub async fn process_route_add(app: AppHandle, process: String, target_lane: usi
 #[tauri::command]
 pub async fn process_route_remove(app: AppHandle, process: String) -> Result<bool, String> {
     validate_short_name(&process, "process")?;
-    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json").map_err(|e| format!("store: {e:?}"))?;
-    let mut rules: Vec<ProcessRouteRule> = store.get("processRoutes")
+    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json")
+        .map_err(|e| format!("store: {e:?}"))?;
+    let mut rules: Vec<ProcessRouteRule> = store
+        .get("processRoutes")
         .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
         .unwrap_or_default();
     let before = rules.len();
     rules.retain(|r| r.process.trim() != process.trim());
     if rules.len() != before {
-        store.set("processRoutes", serde_json::to_value(&rules).map_err(|e| format!("serialize: {e}"))?);
+        store.set(
+            "processRoutes",
+            serde_json::to_value(&rules).map_err(|e| format!("serialize: {e}"))?,
+        );
         store.save().map_err(|e| format!("store save: {e:?}"))?;
         Ok(true)
     } else {
@@ -379,17 +467,27 @@ pub async fn process_route_remove(app: AppHandle, process: String) -> Result<boo
 
 #[tauri::command]
 pub async fn process_route_list(app: AppHandle) -> Result<Vec<ProcessRouteRule>, String> {
-    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json").map_err(|e| format!("store: {e:?}"))?;
-    Ok(store.get("processRoutes")
+    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json")
+        .map_err(|e| format!("store: {e:?}"))?;
+    Ok(store
+        .get("processRoutes")
         .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
         .unwrap_or_default())
 }
 
 #[tauri::command]
-pub async fn subscription_add(sidecar: State<'_, SidecarHandle>, name: String, url: String) -> Result<(), String> {
+pub async fn subscription_add(
+    sidecar: State<'_, SidecarHandle>,
+    name: String,
+    url: String,
+) -> Result<(), String> {
     validate_short_name(&name, "subscription")?;
-    if url.trim().is_empty() { return Err("subscription url must be non-empty".to_string()); }
-    if url.len() > KEY_MAX_LEN { return Err("subscription url out of range".to_string()); }
+    if url.trim().is_empty() {
+        return Err("subscription url must be non-empty".to_string());
+    }
+    if url.len() > KEY_MAX_LEN {
+        return Err("subscription url out of range".to_string());
+    }
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err("subscription url must start with http:// or https://".to_string());
     }
@@ -403,12 +501,22 @@ pub async fn subscription_add(sidecar: State<'_, SidecarHandle>, name: String, u
     // subscription so Resin parses the nodes we already fetched. The user's
     // url is retained as metadata so the UI can still show the source.
     tracing::info!(subscription = %name, url = %url, "subscription_add: fetching clash yaml");
-    let yaml = fetch_clash_subscription(&url).await
-        .map_err(|e| { tracing::warn!(error = ?e, "subscription_add: fetch failed"); e.to_string() })?;
-    tracing::info!(bytes = yaml.len(), "subscription_add: fetched yaml, converting to proxies-only block");
-    let block = clash_yaml_to_proxies_block(&yaml)
-        .map_err(|e| { tracing::warn!(error = ?e, "subscription_add: convert failed"); e.to_string() })?;
-    tracing::info!(block_bytes = block.len(), "subscription_add: posting local subscription to Resin");
+    let yaml = fetch_clash_subscription(&url).await.map_err(|e| {
+        tracing::warn!(error = ?e, "subscription_add: fetch failed");
+        e.to_string()
+    })?;
+    tracing::info!(
+        bytes = yaml.len(),
+        "subscription_add: fetched yaml, converting to proxies-only block"
+    );
+    let block = clash_yaml_to_proxies_block(&yaml).map_err(|e| {
+        tracing::warn!(error = ?e, "subscription_add: convert failed");
+        e.to_string()
+    })?;
+    tracing::info!(
+        block_bytes = block.len(),
+        "subscription_add: posting local subscription to Resin"
+    );
 
     // 30s update_interval so Resin's scheduler parses the local content on the
     // first tick (seconds, not the default 5m). Resin does not expose a
@@ -437,12 +545,22 @@ pub async fn subscription_add(sidecar: State<'_, SidecarHandle>, name: String, u
 }
 
 #[tauri::command]
-pub async fn subscription_remove(sidecar: State<'_, SidecarHandle>, name: String) -> Result<bool, String> {
+pub async fn subscription_remove(
+    sidecar: State<'_, SidecarHandle>,
+    name: String,
+) -> Result<bool, String> {
     validate_short_name(&name, "subscription")?;
     let client = resin_client(&sidecar)?;
-    let list = client.list_subscriptions().await.map_err(|e| e.to_string())?;
-    let id = subscription_id_for_name(&list, &name).ok_or_else(|| format!("subscription not found: {name}"))?;
-    client.delete_subscription(&id).await.map_err(|e| e.to_string())?;
+    let list = client
+        .list_subscriptions()
+        .await
+        .map_err(|e| e.to_string())?;
+    let id = subscription_id_for_name(&list, &name)
+        .ok_or_else(|| format!("subscription not found: {name}"))?;
+    client
+        .delete_subscription(&id)
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(true)
 }
 
@@ -459,14 +577,21 @@ pub struct SubscriptionSnapshotEntry {
 }
 
 #[tauri::command]
-pub async fn subscription_list(sidecar: State<'_, SidecarHandle>) -> Result<Vec<SubscriptionSnapshotEntry>, String> {
+pub async fn subscription_list(
+    sidecar: State<'_, SidecarHandle>,
+) -> Result<Vec<SubscriptionSnapshotEntry>, String> {
     let client = resin_client(&sidecar)?;
-    let list = client.list_subscriptions().await.map_err(|e| e.to_string())?;
+    let list = client
+        .list_subscriptions()
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(subscription_snapshot(&list))
 }
 
 #[tauri::command]
-pub async fn node_pool_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
+pub async fn node_pool_snapshot(
+    sidecar: State<'_, SidecarHandle>,
+) -> Result<serde_json::Value, String> {
     let client = resin_client(&sidecar)?;
     client.node_pool_snapshot().await.map_err(|e| e.to_string())
 }
@@ -477,8 +602,7 @@ pub async fn node_pool_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<ser
 
 /// The allocation_policy values Resin v1.1.2 actually accepts (probed
 /// 2026-07-31). The IPC layer rejects anything else before reaching Resin.
-const ALLOWED_ALLOCATION_POLICIES: &[&str] =
-    &["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"];
+const ALLOWED_ALLOCATION_POLICIES: &[&str] = &["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"];
 
 /// PATCH a platform's fields (allocation_policy, regex_filters, region_filters, sticky_ttl).
 /// The webview identifies the platform by NAME; we resolve name->id then
@@ -497,8 +621,8 @@ pub async fn platform_update(
     let client = resin_client(&sidecar)?;
     // Resolve name -> id (same pattern as platform_remove).
     let list = client.list_platforms().await.map_err(|e| e.to_string())?;
-    let id = platform_id_for_name(&list, &name)
-        .ok_or_else(|| format!("platform not found: {name}"))?;
+    let id =
+        platform_id_for_name(&list, &name).ok_or_else(|| format!("platform not found: {name}"))?;
 
     // Build the PATCH body with only the fields the caller provided. Validate
     // each at the IPC boundary (AGENTS 7.5) so a hostile webview cannot send
@@ -511,7 +635,10 @@ pub async fn platform_update(
                 ALLOWED_ALLOCATION_POLICIES
             ));
         }
-        body.insert("allocation_policy".to_string(), serde_json::Value::String(policy.clone()));
+        body.insert(
+            "allocation_policy".to_string(),
+            serde_json::Value::String(policy.clone()),
+        );
     }
     if let Some(ref filters) = regex_filters {
         if filters.len() > 64 {
@@ -521,9 +648,9 @@ pub async fn platform_update(
             .iter()
             .map(|f| {
                 // Cap each filter at 253 chars (DNS-host scale) and reject
-               // control chars / NUL.
+                // control chars / NUL.
                 if f.len() > 253 || f.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-                   serde_json::Value::Null
+                    serde_json::Value::Null
                 } else {
                     serde_json::Value::String(f.clone())
                 }
@@ -542,7 +669,10 @@ pub async fn platform_update(
         let arr: Vec<serde_json::Value> = filters
             .iter()
             .map(|f| {
-                if f.len() > 16 || f.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ') {
+                if f.len() > 16
+                    || f.bytes()
+                        .any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')
+                {
                     serde_json::Value::Null
                 } else {
                     serde_json::Value::String(f.clone())
@@ -553,11 +683,14 @@ pub async fn platform_update(
         body.insert("region_filters".to_string(), serde_json::Value::Array(arr));
     }
     if let Some(ref ttl) = sticky_ttl {
-       // Go duration string; cap length to prevent abuse.
+        // Go duration string; cap length to prevent abuse.
         if ttl.len() > 32 || ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
             return Err("sticky_ttl: invalid (max 32 chars, no control)".to_string());
         }
-        body.insert("sticky_ttl".to_string(), serde_json::Value::String(ttl.clone()));
+        body.insert(
+            "sticky_ttl".to_string(),
+            serde_json::Value::String(ttl.clone()),
+        );
     }
     if body.is_empty() {
         return Err("platform_update: no fields to update".to_string());
@@ -588,9 +721,12 @@ pub async fn platform_create_with_fields(
     body: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     // body must be a JSON object with a non-empty "name".
-    let obj = body.as_object()
+    let obj = body
+        .as_object()
         .ok_or("platform_create_with_fields: body must be a JSON object")?;
-    let name = obj.get("name").and_then(|v| v.as_str())
+    let name = obj
+        .get("name")
+        .and_then(|v| v.as_str())
         .ok_or("platform_create_with_fields: missing 'name' field")?;
     validate_short_name(name, "platform")?;
     // If allocation_policy is present, must be one of the allowed enum.
@@ -610,7 +746,9 @@ pub async fn platform_create_with_fields(
         for f in arr {
             if let Some(s) = f.as_str() {
                 if s.len() > 253 || s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-                    return Err("regex_filters: entry invalid (max 253 chars, no control)".to_string());
+                    return Err(
+                        "regex_filters: entry invalid (max 253 chars, no control)".to_string()
+                    );
                 }
             }
         }
@@ -622,7 +760,10 @@ pub async fn platform_create_with_fields(
         }
         for r in arr {
             if let Some(s) = r.as_str() {
-                if s.len() > 16 || s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ') {
+                if s.len() > 16
+                    || s.bytes()
+                        .any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')
+                {
                     return Err("region_filter invalid (max 16, no control/space)".to_string());
                 }
             }
@@ -635,7 +776,10 @@ pub async fn platform_create_with_fields(
         }
     }
     let client = resin_client(&sidecar)?;
-    client.create_platform_with_fields(body).await.map_err(|e| e.to_string())
+    client
+        .create_platform_with_fields(body)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// GET /api/v1/platforms/{id}/leases - the live leases on a platform, used by
@@ -650,8 +794,8 @@ pub async fn platform_leases(
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
     let list = client.list_platforms().await.map_err(|e| e.to_string())?;
-    let id = platform_id_for_name(&list, &name)
-        .ok_or_else(|| format!("platform not found: {name}"))?;
+    let id =
+        platform_id_for_name(&list, &name).ok_or_else(|| format!("platform not found: {name}"))?;
     client.platform_leases(&id).await.map_err(|e| e.to_string())
 }
 
@@ -661,11 +805,30 @@ fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotEntry
         .filter_map(|p| {
             let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
             let node_count = p.get("node_count").and_then(|n| n.as_u64()).unwrap_or(0);
-            if name.is_empty() { None } else {
-                let healthy_node_count = p.get("healthy_node_count").and_then(|n| n.as_u64()).unwrap_or(0);
-                let last_error = p.get("last_error").and_then(|n| n.as_str()).unwrap_or("").to_string();
-                let last_checked = p.get("last_checked").and_then(|n| n.as_str()).unwrap_or("").to_string();
-                Some(SubscriptionSnapshotEntry { name: name.to_string(), node_count, healthy_node_count, last_error, last_checked })
+            if name.is_empty() {
+                None
+            } else {
+                let healthy_node_count = p
+                    .get("healthy_node_count")
+                    .and_then(|n| n.as_u64())
+                    .unwrap_or(0);
+                let last_error = p
+                    .get("last_error")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let last_checked = p
+                    .get("last_checked")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                Some(SubscriptionSnapshotEntry {
+                    name: name.to_string(),
+                    node_count,
+                    healthy_node_count,
+                    last_error,
+                    last_checked,
+                })
             }
         })
         .collect()
@@ -676,7 +839,9 @@ fn subscription_id_for_name(v: &serde_json::Value, want: &str) -> Option<String>
         let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
         if name == want {
             let id = p.get("id").and_then(|n| n.as_str()).unwrap_or("");
-            if !id.is_empty() { return Some(id.to_string()); }
+            if !id.is_empty() {
+                return Some(id.to_string());
+            }
         }
     }
     None
@@ -735,7 +900,9 @@ pub async fn backup_create(app: AppHandle) -> Result<String, String> {
                 .wrapping_mul(std::process::id() as u64);
             let mut s = seed;
             for b in rand_bytes.iter_mut() {
-                s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                s = s
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 *b = (s >> 56) as u8;
             }
         }
@@ -750,21 +917,24 @@ pub async fn backup_create(app: AppHandle) -> Result<String, String> {
 
     // Add settings.json if it exists
     if settings_path.is_file() {
-        zip.start_file("settings.json", opts).map_err(|e| e.to_string())?;
+        zip.start_file("settings.json", opts)
+            .map_err(|e| e.to_string())?;
         let data = std::fs::read(&settings_path).map_err(|e| e.to_string())?;
         zip.write_all(&data).map_err(|e| e.to_string())?;
     }
     // Add resin state DB if it exists
     let state_db = resin_state.join("state.db");
     if state_db.is_file() {
-        zip.start_file("resin-state/state.db", opts).map_err(|e| e.to_string())?;
+        zip.start_file("resin-state/state.db", opts)
+            .map_err(|e| e.to_string())?;
         let data = std::fs::read(&state_db).map_err(|e| e.to_string())?;
         zip.write_all(&data).map_err(|e| e.to_string())?;
     }
     // Add cache DB if it exists
     let cache_db = resin_state.join("cache.db");
     if cache_db.is_file() {
-        zip.start_file("resin-state/cache.db", opts).map_err(|e| e.to_string())?;
+        zip.start_file("resin-state/cache.db", opts)
+            .map_err(|e| e.to_string())?;
         let data = std::fs::read(&cache_db).map_err(|e| e.to_string())?;
         zip.write_all(&data).map_err(|e| e.to_string())?;
     }
@@ -775,12 +945,22 @@ pub async fn backup_create(app: AppHandle) -> Result<String, String> {
 /// Upload a backup zip to a WebDAV server.
 /// url/username/password come from tauri-plugin-store (server-trust, never webview raw).
 #[tauri::command]
-pub async fn backup_upload(app: AppHandle, url: String, username: String, password: String, zip_path: String) -> Result<(), String> {
-    if url.trim().is_empty() { return Err("webdav url must not be empty".to_string()); }
+pub async fn backup_upload(
+    app: AppHandle,
+    url: String,
+    username: String,
+    password: String,
+    zip_path: String,
+) -> Result<(), String> {
+    if url.trim().is_empty() {
+        return Err("webdav url must not be empty".to_string());
+    }
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err("webdav url must start with http:// or https://".to_string());
     }
-    if url.len() > 2048 { return Err("webdav url too long".to_string()); }
+    if url.len() > 2048 {
+        return Err("webdav url too long".to_string());
+    }
 
     // Security: confine zip_path to the per-user app_data/backups dir.
     // Canonicalize both and require backups_dir to be a prefix; reject ../
@@ -792,8 +972,8 @@ pub async fn backup_upload(app: AppHandle, url: String, username: String, passwo
     std::fs::create_dir_all(&backups_dir).map_err(|e| e.to_string())?;
     let canon_backup = std::fs::canonicalize(&backups_dir)
         .map_err(|e| format!("backups dir not accessible: {e}"))?;
-    let canon_zip = std::fs::canonicalize(&zip_path)
-        .map_err(|e| format!("zip path not accessible: {e}"))?;
+    let canon_zip =
+        std::fs::canonicalize(&zip_path).map_err(|e| format!("zip path not accessible: {e}"))?;
     if !canon_zip.starts_with(&canon_backup) {
         return Err("zip path must be inside the app backups directory".to_string());
     }
@@ -828,8 +1008,14 @@ pub async fn backup_upload(app: AppHandle, url: String, username: String, passwo
 
 /// List backups on the WebDAV server (PROPFIND).
 #[tauri::command]
-pub async fn backup_list(url: String, username: String, password: String) -> Result<Vec<String>, String> {
-    if url.trim().is_empty() { return Err("webdav url must not be empty".to_string()); }
+pub async fn backup_list(
+    url: String,
+    username: String,
+    password: String,
+) -> Result<Vec<String>, String> {
+    if url.trim().is_empty() {
+        return Err("webdav url must not be empty".to_string());
+    }
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err("webdav url must start with http:// or https://".to_string());
     }
@@ -839,11 +1025,16 @@ pub async fn backup_list(url: String, username: String, password: String) -> Res
         .build()
         .map_err(|e| e.to_string())?;
     let resp = client
-        .request(reqwest::Method::from_bytes(b"PROPFIND").unwrap(), url.trim_end_matches('/'))
+        .request(
+            reqwest::Method::from_bytes(b"PROPFIND").unwrap(),
+            url.trim_end_matches('/'),
+        )
         .basic_auth(&username, Some(&password))
         .header("Depth", "1")
         .header("Content-Type", "application/xml")
-        .body(r#"<?xml version="1.0"?><propfind xmlns="DAV:"><prop><displayname/></prop></propfind>"#)
+        .body(
+            r#"<?xml version="1.0"?><propfind xmlns="DAV:"><prop><displayname/></prop></propfind>"#,
+        )
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -864,7 +1055,6 @@ pub async fn backup_list(url: String, username: String, password: String) -> Res
     Ok(names)
 }
 
-
 // Pure helper: returns Err(msg) if adding {process, target_lane} would
 // conflict with an existing rule (same target lane, different process).
 // Extracted for unit testing without an AppHandle.
@@ -875,12 +1065,14 @@ pub fn process_route_conflict_check(
 ) -> Result<(), String> {
     for r in existing {
         if r.target_lane == new_lane && new_process.trim() != r.process.trim() {
-            return Err(format!("conflict: lane {new_lane} already bound to process '{}'", r.process));
+            return Err(format!(
+                "conflict: lane {new_lane} already bound to process '{}'",
+                r.process
+            ));
         }
     }
     Ok(())
 }
-
 
 /// Phase R4: export the current platform + subscription config as JSON.
 /// This is the whitebox config layer — the user can save this file, edit it,
@@ -893,7 +1085,10 @@ pub fn process_route_conflict_check(
 pub async fn config_export(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
     let client = resin_client(&sidecar)?;
     let platforms = client.list_platforms().await.map_err(|e| e.to_string())?;
-    let subscriptions = client.list_subscriptions().await.map_err(|e| e.to_string())?;
+    let subscriptions = client
+        .list_subscriptions()
+        .await
+        .map_err(|e| e.to_string())?;
 
     let plat_items: Vec<serde_json::Value> = items_arr(&platforms)
         .iter()
@@ -914,7 +1109,9 @@ pub async fn config_export(sidecar: State<'_, SidecarHandle>) -> Result<serde_js
         .iter()
         .filter_map(|s| {
             let name = s.get("name").and_then(|n| n.as_str())?;
-            if name.is_empty() { return None; }
+            if name.is_empty() {
+                return None;
+            }
             let url = s.get("url").and_then(|u| u.as_str()).unwrap_or("");
             Some(serde_json::json!({ "name": name, "url": url }))
         })
@@ -940,10 +1137,12 @@ pub async fn config_import(
     config: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     // Validate top-level structure
-    let platforms = config.get("platforms")
+    let platforms = config
+        .get("platforms")
         .and_then(|v| v.as_array())
         .ok_or("config_import: missing 'platforms' array")?;
-    let subscriptions = config.get("subscriptions")
+    let subscriptions = config
+        .get("subscriptions")
         .and_then(|v| v.as_array())
         .ok_or("config_import: missing 'subscriptions' array")?;
 
@@ -962,13 +1161,24 @@ pub async fn config_import(
     let existing_plats = client.list_platforms().await.map_err(|e| e.to_string())?;
     let existing_plat_names: std::collections::HashSet<String> = items_arr(&existing_plats)
         .iter()
-        .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+        .filter_map(|p| {
+            p.get("name")
+                .and_then(|n| n.as_str())
+                .map(|s| s.to_string())
+        })
         .collect();
 
-    let existing_subs = client.list_subscriptions().await.map_err(|e| e.to_string())?;
+    let existing_subs = client
+        .list_subscriptions()
+        .await
+        .map_err(|e| e.to_string())?;
     let existing_sub_names: std::collections::HashSet<String> = items_arr(&existing_subs)
         .iter()
-        .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+        .filter_map(|s| {
+            s.get("name")
+                .and_then(|n| n.as_str())
+                .map(|s| s.to_string())
+        })
         .collect();
 
     let mut platforms_created = 0u32;
@@ -995,13 +1205,22 @@ pub async fn config_import(
                 let mut body = serde_json::Map::new();
                 if let Some(policy) = plat.get("allocation_policy").and_then(|v| v.as_str()) {
                     if ALLOWED_ALLOCATION_POLICIES.contains(&policy) {
-                        body.insert("allocation_policy".to_string(), serde_json::Value::String(policy.to_string()));
+                        body.insert(
+                            "allocation_policy".to_string(),
+                            serde_json::Value::String(policy.to_string()),
+                        );
                     }
                 }
                 if let Some(filters) = plat.get("regex_filters").and_then(|v| v.as_array()) {
                     if filters.len() <= 64 {
-                        let valid: Vec<serde_json::Value> = filters.iter()
-                            .filter(|f| f.as_str().map_or(false, |s| s.len() <= 253 && !s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f)))
+                        let valid: Vec<serde_json::Value> = filters
+                            .iter()
+                            .filter(|f| {
+                                f.as_str().map_or(false, |s| {
+                                    s.len() <= 253
+                                        && !s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f)
+                                })
+                            })
                             .cloned()
                             .collect();
                         body.insert("regex_filters".to_string(), serde_json::Value::Array(valid));
@@ -1009,23 +1228,39 @@ pub async fn config_import(
                 }
                 if let Some(filters) = plat.get("region_filters").and_then(|v| v.as_array()) {
                     if filters.len() <= 64 {
-                        let valid: Vec<serde_json::Value> = filters.iter()
-                            .filter(|f| f.as_str().map_or(false, |s| s.len() <= 16 && !s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')))
+                        let valid: Vec<serde_json::Value> = filters
+                            .iter()
+                            .filter(|f| {
+                                f.as_str().map_or(false, |s| {
+                                    s.len() <= 16
+                                        && !s
+                                            .bytes()
+                                            .any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')
+                                })
+                            })
                             .cloned()
                             .collect();
-                        body.insert("region_filters".to_string(), serde_json::Value::Array(valid));
+                        body.insert(
+                            "region_filters".to_string(),
+                            serde_json::Value::Array(valid),
+                        );
                     }
                 }
                 if let Some(ttl) = plat.get("sticky_ttl").and_then(|v| v.as_str()) {
                     if ttl.len() <= 32 && !ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-                        body.insert("sticky_ttl".to_string(), serde_json::Value::String(ttl.to_string()));
+                        body.insert(
+                            "sticky_ttl".to_string(),
+                            serde_json::Value::String(ttl.to_string()),
+                        );
                     }
                 }
                 if !body.is_empty() {
                     // Resolve name->id and PATCH
                     let list = client.list_platforms().await.map_err(|e| e.to_string())?;
                     if let Some(id) = platform_id_for_name(&list, name) {
-                        let _ = client.update_platform(&id, serde_json::Value::Object(body)).await;
+                        let _ = client
+                            .update_platform(&id, serde_json::Value::Object(body))
+                            .await;
                     }
                 }
             }
@@ -1046,37 +1281,41 @@ pub async fn config_import(
             continue;
         }
         if !url.starts_with("http://") && !url.starts_with("https://") {
-            errors.push(format!("subscription {name}: url must start with http(s)://"));
+            errors.push(format!(
+                "subscription {name}: url must start with http(s)://"
+            ));
             continue;
         }
         // Use the same local-fetch path as subscription_add
         match fetch_clash_subscription(url).await {
-            Ok(yaml) => {
-                match clash_yaml_to_proxies_block(&yaml) {
-                    Ok(block) => {
-                        let body = serde_json::json!({
-                            "name": name,
-                            "source_type": "local",
-                            "content": block,
-                            "url": url,
-                            "update_interval": "30s",
-                        });
-                        match client.create_subscription(body).await {
-                            Ok(_) => subscriptions_created += 1,
-                            Err(e) => errors.push(format!("subscription {name}: {e}")),
-                        }
+            Ok(yaml) => match clash_yaml_to_proxies_block(&yaml) {
+                Ok(block) => {
+                    let body = serde_json::json!({
+                        "name": name,
+                        "source_type": "local",
+                        "content": block,
+                        "url": url,
+                        "update_interval": "30s",
+                    });
+                    match client.create_subscription(body).await {
+                        Ok(_) => subscriptions_created += 1,
+                        Err(e) => errors.push(format!("subscription {name}: {e}")),
                     }
-                    Err(e) => errors.push(format!("subscription {name} convert: {e}")),
                 }
-            }
+                Err(e) => errors.push(format!("subscription {name} convert: {e}")),
+            },
             Err(e) => errors.push(format!("subscription {name} fetch: {e}")),
         }
     }
 
     tracing::info!(
-        platforms_created, platforms_skipped, subscriptions_created, subscriptions_skipped,
+        platforms_created,
+        platforms_skipped,
+        subscriptions_created,
+        subscriptions_skipped,
         error_count = errors.len(),
-        "config_import complete; backup at {}", backup_path
+        "config_import complete; backup at {}",
+        backup_path
     );
 
     Ok(serde_json::json!({
@@ -1118,27 +1357,33 @@ pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEnt
     let items = items_arr(&raw);
     let mut out = Vec::with_capacity(items.len());
     for it in items {
-        let platform_id = it.get("platform_id")
+        let platform_id = it
+            .get("platform_id")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        let account = it.get("account")
+        let account = it
+            .get("account")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        let egress_ip = it.get("egress_ip")
+        let egress_ip = it
+            .get("egress_ip")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        let node_tag = it.get("node_tag")
+        let node_tag = it
+            .get("node_tag")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        let target_domain = it.get("target_domain")
+        let target_domain = it
+            .get("target_domain")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
-        let ts = it.get("ts")
+        let ts = it
+            .get("ts")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
@@ -1154,9 +1399,77 @@ pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEnt
     Ok(out)
 }
 
+/// Reputation only queries public egress IPs already reported by the local Resin
+/// lease API. Provider credentials stay in the Rust-side settings store and are
+/// never returned to the webview.
+#[tauri::command]
+pub async fn ip_reputation_snapshot(
+    app: AppHandle,
+    sidecar: State<'_, SidecarHandle>,
+) -> Result<ReputationSnapshot, String> {
+    let store = app
+        .store("settings.json")
+        .map_err(|e| format!("settings store: {e}"))?;
+    let provider_name = store
+        .get("ipReputationProvider")
+        .and_then(|v| v.as_str().map(str::to_string));
+    let Some(provider) = provider_name.as_deref().and_then(ReputationProvider::parse) else {
+        return Ok(ReputationSnapshot {
+            provider: None,
+            status: "disabled".into(),
+            entries: Vec::new(),
+        });
+    };
+    let api_key = if provider.requires_key() {
+        store
+            .get(provider.key_name())
+            .and_then(|v| v.as_str().map(str::to_string))
+    } else {
+        None
+    };
+    if provider.requires_key() && api_key.as_deref().unwrap_or("").trim().is_empty() {
+        return Ok(ReputationSnapshot {
+            provider: Some(provider),
+            status: "not_configured".into(),
+            entries: Vec::new(),
+        });
+    }
+    let client = resin_client(&sidecar)?;
+    let raw = client.active_leases().await.map_err(|e| e.to_string())?;
+    let ips = parse_public_ips(
+        items_arr(&raw)
+            .iter()
+            .filter_map(|v| {
+                v.get("egress_ip")
+                    .and_then(|x| x.as_str())
+                    .map(str::to_string)
+            })
+            .collect::<Vec<_>>(),
+        50,
+    );
+    let reputation = ReputationClient::new().map_err(|e| e.to_string())?;
+    let mut entries = Vec::with_capacity(ips.len());
+    for ip in ips {
+        match reputation.lookup(provider, api_key.as_deref(), ip).await {
+            Ok(entry) => entries.push(entry),
+            Err(e) => tracing::warn!(error = %e, "ip reputation lookup failed"),
+        }
+    }
+    Ok(ReputationSnapshot {
+        provider: Some(provider),
+        status: "ok".into(),
+        entries,
+    })
+}
 
 /// Validate an entry-port mapping before touching DB / listeners.
-fn validate_port_mapping(port: u16, protocol: &str, platform_name: &str, account: &str, label: &str) -> Result<(), String> {
+fn validate_port_mapping(
+    port: u16,
+    protocol: &str,
+    platform_name: &str,
+    account: &str,
+    label: &str,
+) -> Result<(), String> {
     use resin_core::{MAX_ENTRY_PORTS, MIN_USER_PORT};
     if port < MIN_USER_PORT {
         return Err(format!("port {port} is privileged (< {MIN_USER_PORT})"));
@@ -1246,7 +1559,9 @@ pub async fn port_remove(
 }
 
 #[tauri::command]
-pub async fn port_running(forwarder: State<'_, resin_core::PortForwarder>) -> Result<Vec<u16>, String> {
+pub async fn port_running(
+    forwarder: State<'_, resin_core::PortForwarder>,
+) -> Result<Vec<u16>, String> {
     Ok(forwarder.running_ports())
 }
 
@@ -1262,12 +1577,16 @@ pub async fn port_reload(
 }
 
 #[tauri::command]
-pub async fn whitebox_path(whitebox: State<'_, resin_core::WhiteboxConfigStore>) -> Result<String, String> {
+pub async fn whitebox_path(
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+) -> Result<String, String> {
     Ok(whitebox.path().display().to_string())
 }
 
 #[tauri::command]
-pub async fn whitebox_get(whitebox: State<'_, resin_core::WhiteboxConfigStore>) -> Result<resin_core::WhiteboxConfig, String> {
+pub async fn whitebox_get(
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+) -> Result<resin_core::WhiteboxConfig, String> {
     Ok(whitebox.snapshot())
 }
 
@@ -1279,8 +1598,6 @@ pub async fn whitebox_reload(
 ) -> Result<usize, String> {
     whitebox.reload_file(&db, &forwarder).await
 }
-
-
 
 #[tauri::command]
 pub async fn stream_sensor_snapshot(
@@ -1333,7 +1650,10 @@ mod tests {
             { "name": "Default", "id": "00000000-0000-0000-0000-000000000000" },
             { "name": "Platform-A", "id": "11111111-1111-1111-1111-111111111111" }
         ]);
-        assert_eq!(platform_names(&v), vec!["Default".to_string(), "Platform-A".to_string()]);
+        assert_eq!(
+            platform_names(&v),
+            vec!["Default".to_string(), "Platform-A".to_string()]
+        );
     }
 
     #[test]
@@ -1345,15 +1665,21 @@ mod tests {
 
     #[test]
     fn sum_active_leases_parses_resin_shape() {
-        assert_eq!(sum_active_leases(&json!({ "items": [{ "active_leases": 7 }, { "active_leases": 5 }] })), 12);
+        assert_eq!(
+            sum_active_leases(
+                &json!({ "items": [{ "active_leases": 7 }, { "active_leases": 5 }] })
+            ),
+            12
+        );
         assert_eq!(sum_active_leases(&json!({ "active_leases": 4 })), 4);
         assert_eq!(sum_active_leases(&json!({})), 0);
     }
     #[test]
     fn process_route_conflict_rejects_same_lane_different_process() {
-        let existing = vec![
-            ProcessRouteRule { process: "ollama".to_string(), target_lane: 3 },
-        ];
+        let existing = vec![ProcessRouteRule {
+            process: "ollama".to_string(),
+            target_lane: 3,
+        }];
         // same process + same lane -> ok (update path)
         assert!(process_route_conflict_check(&existing, "ollama", 3).is_ok());
         // different process, same lane -> conflict
@@ -1386,12 +1712,15 @@ mod tests {
     fn per_platform_active_falls_back_to_raw_id_when_unknown() {
         // Lease for a UUID not present in the platforms list; we surface the raw
         // UUID string instead of dropping the count so the canvas still renders.
-        let platforms = json!([ { "name": "Default", "id": "00000000-0000-0000-0000-000000000000" } ]);
+        let platforms =
+            json!([ { "name": "Default", "id": "00000000-0000-0000-0000-000000000000" } ]);
         let leases = json!({
             "items": [ { "platform_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "active_leases": 7 } ],
         });
         let got = per_platform_active_from_leases(&leases, &platforms);
-        assert!(got.iter().any(|(n, c)| n == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" && *c == 7));
+        assert!(got
+            .iter()
+            .any(|(n, c)| n == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" && *c == 7));
     }
 
     /// P13 B6/B4: Resin wraps list responses as `{"items":[...]}`. The old
@@ -1427,7 +1756,10 @@ mod tests {
             ],
             "total": 2, "limit": 50, "offset": 0,
         });
-        assert_eq!(platform_names(&v), vec!["Default".to_string(), "OpenAI".to_string()]);
+        assert_eq!(
+            platform_names(&v),
+            vec!["Default".to_string(), "OpenAI".to_string()]
+        );
     }
 
     #[test]
@@ -1436,7 +1768,10 @@ mod tests {
             "items": [ { "id": "uuid-9", "name": "Anthropic" } ],
             "total": 1,
         });
-        assert_eq!(platform_id_for_name(&v, "Anthropic"), Some("uuid-9".to_string()));
+        assert_eq!(
+            platform_id_for_name(&v, "Anthropic"),
+            Some("uuid-9".to_string())
+        );
         assert_eq!(platform_id_for_name(&v, "Missing"), None);
     }
 
@@ -1497,7 +1832,10 @@ mod tests {
             "items": [ { "id": "sub-uuid-1", "name": "main" } ],
             "total": 1,
         });
-        assert_eq!(subscription_id_for_name(&v, "main"), Some("sub-uuid-1".to_string()));
+        assert_eq!(
+            subscription_id_for_name(&v, "main"),
+            Some("sub-uuid-1".to_string())
+        );
         assert_eq!(subscription_id_for_name(&v, "nope"), None);
     }
     #[test]
@@ -1512,5 +1850,4 @@ mod tests {
     fn validate_port_mapping_rejects_control_in_label() {
         assert!(validate_port_mapping(17990, "socks5", "OpenAI", "a", "bad\n").is_err());
     }
-
 }

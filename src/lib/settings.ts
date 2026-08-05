@@ -292,3 +292,36 @@ export async function saveIpChannelPolicyMap(m: Record<string, string>): Promise
     await store().save();
   } catch (e) { console.warn("[settings] save failed:", e); }
 }
+
+
+export interface IpReputationConfig {
+  provider: "" | "ip_quality_score" | "abuse_ip_db" | "ip_api";
+  ipQualityScoreApiKey: string;
+  abuseIpDbApiKey: string;
+}
+
+export async function loadIpReputationConfig(): Promise<IpReputationConfig> {
+  try {
+    const [provider, ipQualityScoreApiKey, abuseIpDbApiKey] = await Promise.all([
+      store().get<string>("ipReputationProvider"),
+      store().get<string>("ipQualityScoreApiKey"),
+      store().get<string>("abuseIpDbApiKey"),
+    ]);
+    return {
+      provider: provider === "ip_quality_score" || provider === "abuse_ip_db" || provider === "ip_api" ? provider : "",
+      ipQualityScoreApiKey: typeof ipQualityScoreApiKey === "string" ? ipQualityScoreApiKey : "",
+      abuseIpDbApiKey: typeof abuseIpDbApiKey === "string" ? abuseIpDbApiKey : "",
+    };
+  } catch { return { provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" }; }
+}
+
+export async function saveIpReputationConfig(cfg: IpReputationConfig): Promise<void> {
+  try {
+    await Promise.all([
+      store().set("ipReputationProvider", cfg.provider),
+      store().set("ipQualityScoreApiKey", cfg.ipQualityScoreApiKey.slice(0, 512)),
+      store().set("abuseIpDbApiKey", cfg.abuseIpDbApiKey.slice(0, 512)),
+    ]);
+    await store().save();
+  } catch (e) { console.warn("[settings] reputation save failed:", e); }
+}

@@ -34,7 +34,11 @@ pub const MIN_USER_PORT: u16 = 1024;
 /// Account defaults to `port-<n>` when empty so two ports never collapse.
 pub fn resin_identity(platform_name: &str, account: &str, port: u16) -> String {
     let platform = platform_name.trim();
-    let platform = if platform.is_empty() { "Default" } else { platform };
+    let platform = if platform.is_empty() {
+        "Default"
+    } else {
+        platform
+    };
     let acct = account.trim();
     let acct = if acct.is_empty() {
         format!("port-{port}")
@@ -46,7 +50,11 @@ pub fn resin_identity(platform_name: &str, account: &str, port: u16) -> String {
 
 /// First-byte protocol detect: 0x05 = SOCKS5, otherwise treat as HTTP.
 pub fn detect_protocol(first: u8) -> &'static str {
-    if first == 0x05 { "socks5" } else { "http" }
+    if first == 0x05 {
+        "socks5"
+    } else {
+        "http"
+    }
 }
 
 fn basic_proxy_auth(identity: &str, proxy_token: &str) -> String {
@@ -102,7 +110,12 @@ struct PortForwarderInner {
 }
 
 impl PortForwarder {
-    pub fn new(db: DbPool, resin_host: impl Into<String>, resin_port: u16, proxy_token: impl Into<String>) -> Self {
+    pub fn new(
+        db: DbPool,
+        resin_host: impl Into<String>,
+        resin_port: u16,
+        proxy_token: impl Into<String>,
+    ) -> Self {
         let (alive, _) = watch::channel(true);
         Self {
             inner: Arc::new(PortForwarderInner {
@@ -134,7 +147,9 @@ impl PortForwarder {
     pub async fn reload(&self) -> Result<usize, String> {
         let mappings = self.inner.db.list_ports()?;
         if mappings.iter().filter(|m| m.enabled).count() > MAX_ENTRY_PORTS {
-            return Err(format!("too many enabled entry ports (max {MAX_ENTRY_PORTS})"));
+            return Err(format!(
+                "too many enabled entry ports (max {MAX_ENTRY_PORTS})"
+            ));
         }
         let enabled: HashMap<u16, PortMapping> = mappings
             .into_iter()
@@ -145,7 +160,11 @@ impl PortForwarder {
         // Stop removed / disabled
         let to_stop: Vec<u16> = {
             let running = self.inner.running.lock();
-            running.keys().copied().filter(|p| !enabled.contains_key(p)).collect()
+            running
+                .keys()
+                .copied()
+                .filter(|p| !enabled.contains_key(p))
+                .collect()
         };
         for p in to_stop {
             self.stop_port(p).await;
@@ -262,7 +281,10 @@ async fn handle_client(
 ) -> Result<(), String> {
     let _ = peer;
     let mut first = [0u8; 1];
-    client.read_exact(&mut first).await.map_err(|e| format!("peek first byte: {e}"))?;
+    client
+        .read_exact(&mut first)
+        .await
+        .map_err(|e| format!("peek first byte: {e}"))?;
     let detected = detect_protocol(first[0]);
     // Prefer mapping.protocol when it is explicit socks5/http; otherwise use detect.
     let proto = if protocol_hint == "socks5" || protocol_hint == "http" {
@@ -271,9 +293,26 @@ async fn handle_client(
         detected
     };
     if proto == "socks5" {
-        handle_socks5(client, first[0], identity, resin_host, resin_port, proxy_token).await
+        handle_socks5(
+            client,
+            first[0],
+            identity,
+            resin_host,
+            resin_port,
+            proxy_token,
+        )
+        .await
     } else {
-        handle_http(client, first[0], identity, resin_host, resin_port, proxy_token, stream_sensor).await
+        handle_http(
+            client,
+            first[0],
+            identity,
+            resin_host,
+            resin_port,
+            proxy_token,
+            stream_sensor,
+        )
+        .await
     }
 }
 
@@ -290,29 +329,44 @@ async fn handle_socks5(
         return Err("not socks5".into());
     }
     let mut nmethods = [0u8; 1];
-    client.read_exact(&mut nmethods).await.map_err(|e| e.to_string())?;
+    client
+        .read_exact(&mut nmethods)
+        .await
+        .map_err(|e| e.to_string())?;
     let mut methods = vec![0u8; nmethods[0] as usize];
     if !methods.is_empty() {
-        client.read_exact(&mut methods).await.map_err(|e| e.to_string())?;
+        client
+            .read_exact(&mut methods)
+            .await
+            .map_err(|e| e.to_string())?;
     }
     // We accept NO AUTH from the AI gateway — port is the identity.
-    client.write_all(&[0x05, 0x00]).await.map_err(|e| e.to_string())?;
+    client
+        .write_all(&[0x05, 0x00])
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Request: VER CMD RSV ATYP DST.ADDR DST.PORT
     let mut hdr = [0u8; 4];
-    client.read_exact(&mut hdr).await.map_err(|e| e.to_string())?;
+    client
+        .read_exact(&mut hdr)
+        .await
+        .map_err(|e| e.to_string())?;
     if hdr[0] != 0x05 {
         return Err("bad socks ver in req".into());
     }
     if hdr[1] != 0x01 {
         // only CONNECT
-        let _ = client.write_all(&[0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await;
+        let _ = client
+            .write_all(&[0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+            .await;
         return Err("socks cmd not CONNECT".into());
     }
     let (host, port) = read_socks_addr(&mut client, hdr[3]).await?;
 
     // Open authed SOCKS5 to Resin and issue the same CONNECT.
-    let mut upstream = socks5_connect_authed(resin_host, resin_port, identity, proxy_token, &host, port).await?;
+    let mut upstream =
+        socks5_connect_authed(resin_host, resin_port, identity, proxy_token, &host, port).await?;
 
     // Success reply to client (bind 0.0.0.0:0)
     client
@@ -328,16 +382,28 @@ async fn read_socks_addr(stream: &mut TcpStream, atyp: u8) -> Result<(String, u1
     match atyp {
         0x01 => {
             let mut ip = [0u8; 4];
-            stream.read_exact(&mut ip).await.map_err(|e| e.to_string())?;
+            stream
+                .read_exact(&mut ip)
+                .await
+                .map_err(|e| e.to_string())?;
             let mut p = [0u8; 2];
             stream.read_exact(&mut p).await.map_err(|e| e.to_string())?;
-            Ok((format!("{}.{}.{}.{}", ip[0], ip[1], ip[2], ip[3]), u16::from_be_bytes(p)))
+            Ok((
+                format!("{}.{}.{}.{}", ip[0], ip[1], ip[2], ip[3]),
+                u16::from_be_bytes(p),
+            ))
         }
         0x03 => {
             let mut len = [0u8; 1];
-            stream.read_exact(&mut len).await.map_err(|e| e.to_string())?;
+            stream
+                .read_exact(&mut len)
+                .await
+                .map_err(|e| e.to_string())?;
             let mut name = vec![0u8; len[0] as usize];
-            stream.read_exact(&mut name).await.map_err(|e| e.to_string())?;
+            stream
+                .read_exact(&mut name)
+                .await
+                .map_err(|e| e.to_string())?;
             let mut p = [0u8; 2];
             stream.read_exact(&mut p).await.map_err(|e| e.to_string())?;
             let host = String::from_utf8(name).map_err(|e| e.to_string())?;
@@ -345,11 +411,17 @@ async fn read_socks_addr(stream: &mut TcpStream, atyp: u8) -> Result<(String, u1
         }
         0x04 => {
             let mut ip = [0u8; 16];
-            stream.read_exact(&mut ip).await.map_err(|e| e.to_string())?;
+            stream
+                .read_exact(&mut ip)
+                .await
+                .map_err(|e| e.to_string())?;
             let mut p = [0u8; 2];
             stream.read_exact(&mut p).await.map_err(|e| e.to_string())?;
             // compact v6 string
-            let segs: Vec<String> = ip.chunks(2).map(|c| format!("{:x}", u16::from_be_bytes([c[0], c[1]]))).collect();
+            let segs: Vec<String> = ip
+                .chunks(2)
+                .map(|c| format!("{:x}", u16::from_be_bytes([c[0], c[1]])))
+                .collect();
             Ok((segs.join(":"), u16::from_be_bytes(p)))
         }
         _ => Err(format!("unsupported atyp {atyp}")),
@@ -365,9 +437,13 @@ async fn socks5_connect_authed(
     dest_port: u16,
 ) -> Result<TcpStream, String> {
     let addr = format!("{resin_host}:{resin_port}");
-    let mut s = TcpStream::connect(&addr).await.map_err(|e| format!("connect resin {addr}: {e}"))?;
+    let mut s = TcpStream::connect(&addr)
+        .await
+        .map_err(|e| format!("connect resin {addr}: {e}"))?;
     // greeting: offer user/pass only
-    s.write_all(&[0x05, 0x01, 0x02]).await.map_err(|e| e.to_string())?;
+    s.write_all(&[0x05, 0x01, 0x02])
+        .await
+        .map_err(|e| e.to_string())?;
     let mut resp = [0u8; 2];
     s.read_exact(&mut resp).await.map_err(|e| e.to_string())?;
     if resp[0] != 0x05 || resp[1] != 0x02 {
@@ -387,7 +463,9 @@ async fn socks5_connect_authed(
     auth.extend_from_slice(pass);
     s.write_all(&auth).await.map_err(|e| e.to_string())?;
     let mut auth_resp = [0u8; 2];
-    s.read_exact(&mut auth_resp).await.map_err(|e| e.to_string())?;
+    s.read_exact(&mut auth_resp)
+        .await
+        .map_err(|e| e.to_string())?;
     if auth_resp[1] != 0x00 {
         return Err(format!("resin socks auth failed: {:02x?}", auth_resp));
     }
@@ -425,16 +503,26 @@ async fn handle_http(
     let mut buf = vec![first];
     let mut tmp = [0u8; 1024];
     loop {
-        if buf.windows(4).any(|w| w == b"\r\n\r\n") { break; }
+        if buf.windows(4).any(|w| w == b"\r\n\r\n") {
+            break;
+        }
         if buf.len() > 64 * 1024 {
             return Err("http headers too large".into());
         }
         let n = client.read(&mut tmp).await.map_err(|e| e.to_string())?;
-        if n == 0 { return Err("client closed before headers".into()); }
+        if n == 0 {
+            return Err("client closed before headers".into());
+        }
         buf.extend_from_slice(&tmp[..n]);
-        if buf.windows(4).any(|w| w == b"\r\n\r\n") { break; }
+        if buf.windows(4).any(|w| w == b"\r\n\r\n") {
+            break;
+        }
     }
-    let header_end = buf.windows(4).position(|w| w == b"\r\n\r\n").ok_or("no header end")? + 4;
+    let header_end = buf
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .ok_or("no header end")?
+        + 4;
     let head = String::from_utf8_lossy(&buf[..header_end]);
     // split drops the final empty segment after trailing CRLFCRLFs
     let mut lines: Vec<String> = head
@@ -447,9 +535,13 @@ async fn handle_http(
     }
     // Header-only telemetry; never decrypts CONNECT traffic or reads request bodies.
     let header_value = |name: &str| -> String {
-        lines.iter().find_map(|line| line.split_once(':').and_then(|(k, v)| {
-            k.eq_ignore_ascii_case(name).then(|| v.trim().to_string())
-        })).unwrap_or_default()
+        lines
+            .iter()
+            .find_map(|line| {
+                line.split_once(':')
+                    .and_then(|(k, v)| k.eq_ignore_ascii_case(name).then(|| v.trim().to_string()))
+            })
+            .unwrap_or_default()
     };
     stream_sensor.observe_headers(
         &header_value("accept"),
@@ -466,8 +558,13 @@ async fn handle_http(
     let body = &buf[header_end..];
 
     let addr = format!("{resin_host}:{resin_port}");
-    let mut upstream = TcpStream::connect(&addr).await.map_err(|e| format!("connect resin {addr}: {e}"))?;
-    upstream.write_all(out.as_bytes()).await.map_err(|e| e.to_string())?;
+    let mut upstream = TcpStream::connect(&addr)
+        .await
+        .map_err(|e| format!("connect resin {addr}: {e}"))?;
+    upstream
+        .write_all(out.as_bytes())
+        .await
+        .map_err(|e| e.to_string())?;
     if !body.is_empty() {
         upstream.write_all(body).await.map_err(|e| e.to_string())?;
     }
@@ -527,7 +624,8 @@ mod tests {
             account: format!("port-{p1}"),
             label: "a".into(),
             enabled: true,
-        }).unwrap();
+        })
+        .unwrap();
         db.upsert_port(&PortMapping {
             port: p2,
             protocol: "http".into(),
@@ -535,7 +633,8 @@ mod tests {
             account: format!("port-{p2}"),
             label: "b".into(),
             enabled: true,
-        }).unwrap();
+        })
+        .unwrap();
 
         // resin_port is unused until a client connects; use a dummy.
         let fwd = PortForwarder::new(db.clone(), "127.0.0.1", 9, "tok-test");
@@ -552,7 +651,8 @@ mod tests {
             account: format!("port-{p2}"),
             label: "b".into(),
             enabled: false,
-        }).unwrap();
+        })
+        .unwrap();
         let started2 = fwd.reload().await.expect("reload disable");
         assert_eq!(started2, 0, "no new ports");
         assert_eq!(fwd.running_ports(), vec![p1]);
@@ -584,22 +684,38 @@ mod tests {
             }
         }
 
-        let resin_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind mock Resin");
-        let resin_port = resin_listener.local_addr().expect("mock Resin address").port();
+        let resin_listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind mock Resin");
+        let resin_port = resin_listener
+            .local_addr()
+            .expect("mock Resin address")
+            .port();
         let (headers_tx, mut headers_rx) = mpsc::channel(2);
         tokio::spawn(async move {
             for _ in 0..2 {
-                let (mut stream, _) = resin_listener.accept().await.expect("accept forwarded request");
+                let (mut stream, _) = resin_listener
+                    .accept()
+                    .await
+                    .expect("accept forwarded request");
                 let headers = read_headers(&mut stream).await;
-                headers_tx.send(headers).await.expect("collect forwarded headers");
-                stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK")
+                headers_tx
+                    .send(headers)
+                    .await
+                    .expect("collect forwarded headers");
+                stream
+                    .write_all(
+                        b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK",
+                    )
                     .await
                     .expect("respond from mock Resin");
             }
         });
 
         async fn free_port() -> u16 {
-            let listener = TcpListener::bind("127.0.0.1:0").await.expect("reserve entry port");
+            let listener = TcpListener::bind("127.0.0.1:0")
+                .await
+                .expect("reserve entry port");
             listener.local_addr().expect("entry address").port()
         }
         let first_port = free_port().await;
@@ -615,18 +731,24 @@ mod tests {
                 account: account.into(),
                 label: format!("entry-{port}"),
                 enabled: true,
-            }).expect("persist port mapping");
+            })
+            .expect("persist port mapping");
         }
         let forwarder = PortForwarder::new(db, "127.0.0.1", resin_port, "proxy-token");
         assert_eq!(forwarder.reload().await.expect("start entry listeners"), 2);
 
         for port in [first_port, second_port] {
-            let mut client = TcpStream::connect(("127.0.0.1", port)).await.expect("connect entry port");
+            let mut client = TcpStream::connect(("127.0.0.1", port))
+                .await
+                .expect("connect entry port");
             client.write_all(b"GET http://example.test/v1/models HTTP/1.1\r\nHost: example.test\r\nAccept: application/json\r\nProxy-Authorization: Basic attacker-controlled\r\nConnection: close\r\n\r\n")
                 .await
                 .expect("send client request");
             let mut response = Vec::new();
-            client.read_to_end(&mut response).await.expect("read forwarded response");
+            client
+                .read_to_end(&mut response)
+                .await
+                .expect("read forwarded response");
             assert!(String::from_utf8_lossy(&response).starts_with("HTTP/1.1 200 OK"));
         }
 
@@ -636,7 +758,10 @@ mod tests {
         let expected_b = basic_proxy_auth("SharedPlatform.account-b", "proxy-token");
         assert!(first.contains(&expected_a) || first.contains(&expected_b));
         assert!(second.contains(&expected_a) || second.contains(&expected_b));
-        assert_ne!(first, second, "two entry ports must inject distinct Resin identities");
+        assert_ne!(
+            first, second,
+            "two entry ports must inject distinct Resin identities"
+        );
         assert!(!first.contains("attacker-controlled"));
         assert!(!second.contains("attacker-controlled"));
         forwarder.shutdown();
@@ -656,11 +781,11 @@ mod tests {
                 account: format!("port-{port}"),
                 label: String::new(),
                 enabled: true,
-            }).unwrap();
+            })
+            .unwrap();
         }
         let fwd = PortForwarder::new(db, "127.0.0.1", 9, "tok");
         let err = fwd.reload().await.expect_err("must reject over capacity");
         assert!(err.contains("too many enabled entry ports"), "got: {err}");
     }
-
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Server, RefreshCw, Activity, Globe, AlertCircle, Info } from "lucide-react";
-import { ipcNodeList, ipcNodePoolSnapshot } from "../lib/ipc";
+import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ShieldCheck } from "lucide-react";
+import { ipcNodeList, ipcNodePoolSnapshot, ipcIpReputationSnapshot, type ReputationSnapshot } from "../lib/ipc";
 
 /// NodesView — Phase R3 node/IP-channel management tab.
 ///
@@ -48,16 +48,19 @@ export function NodesView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<number>(0);
+  const [reputation, setReputation] = useState<ReputationSnapshot>({ provider: null, status: "disabled", entries: [] });
 
   const refresh = useCallback(async () => {
     setError(null);
     try {
-      const [rawNodes, rawPool] = await Promise.all([
+      const [rawNodes, rawPool, rawReputation] = await Promise.all([
         ipcNodeList().catch(() => null),
         ipcNodePoolSnapshot().catch(() => null),
+        ipcIpReputationSnapshot().catch(() => ({ provider: null, status: "disabled", entries: [] })),
       ]);
       if (rawNodes) setNodes(itemsArr(rawNodes));
       if (rawPool) setPool(rawPool as PoolSnapshot);
+      setReputation(rawReputation);
       setLastRefresh(Date.now());
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
@@ -87,6 +90,21 @@ export function NodesView() {
           <RefreshCw size={14} />
           {t("nodes.refresh")}
         </button>
+      </div>
+
+      <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 bg-white dark:bg-zinc-950 flex flex-wrap items-center gap-3">
+        <ShieldCheck size={18} className="text-zinc-500" />
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{t("nodes.reputationTitle")}</div>
+          {reputation.status === "ok" ? (
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              {t("nodes.reputationSummary", { count: reputation.entries.length })}
+              {reputation.entries.slice(0, 4).map((entry) => ` ${entry.ip}${entry.score == null ? "" : ` · ${entry.score}`}${entry.cached ? ` · ${t("nodes.reputationCached")}` : ""}`).join(" | ")}
+            </div>
+          ) : (
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">{t(reputation.status === "not_configured" ? "nodes.reputationNotConfigured" : "nodes.reputationDisabled")}</div>
+          )}
+        </div>
       </div>
 
       {/* Aggregate stats */}

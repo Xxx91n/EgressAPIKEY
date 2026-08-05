@@ -40,7 +40,10 @@ impl TdEwma {
     }
 
     pub fn with_alpha(alpha: f64) -> Self {
-        Self { inner: DashMap::new(), alpha: alpha.clamp(0.01, 1.0) }
+        Self {
+            inner: DashMap::new(),
+            alpha: alpha.clamp(0.01, 1.0),
+        }
     }
 
     /// Cap state: when the table already holds `MAX_AUTHORITIES` entries,
@@ -52,11 +55,11 @@ impl TdEwma {
         self.inner.len() >= MAX_AUTHORITIES
     }
 
- /// Record a latency sample for `authority` (e.g. "api.openai.com").
- /// Returns the updated stats. When the authority table is already at
- /// `MAX_AUTHORITIES` and `authority` is new, the insert is rejected and a
- /// one-shot snapshot is returned; the table stays bounded and the caller
- /// still gets a non-empty stats record.
+    /// Record a latency sample for `authority` (e.g. "api.openai.com").
+    /// Returns the updated stats. When the authority table is already at
+    /// `MAX_AUTHORITIES` and `authority` is new, the insert is rejected and a
+    /// one-shot snapshot is returned; the table stays bounded and the caller
+    /// still gets a non-empty stats record.
     pub fn record(&self, authority: &str, latency: Duration) -> LatencyStats {
         let ms = latency.as_secs_f64() * 1000.0;
         // Fast path: existing entry short-circuits the cap check.
@@ -66,13 +69,20 @@ impl TdEwma {
             return *st;
         }
         if self.is_full() {
-            return LatencyStats { ema_ms: ms, samples: 1, trend: 0 };
+            return LatencyStats {
+                ema_ms: ms,
+                samples: 1,
+                trend: 0,
+            };
         }
-        let mut entry = self.inner.entry(authority.to_string()).or_insert(LatencyStats {
-            ema_ms: ms,
-            samples: 0,
-            trend: 0,
-        });
+        let mut entry = self
+            .inner
+            .entry(authority.to_string())
+            .or_insert(LatencyStats {
+                ema_ms: ms,
+                samples: 0,
+                trend: 0,
+            });
         let s = entry.value_mut();
         Self::update(s, self.alpha, ms);
         *s
@@ -152,7 +162,11 @@ mod tests {
         let _ = t.record("x", Duration::from_millis(100));
         let _ = t.record("x", Duration::from_millis(200));
         let s = t.record("x", Duration::from_millis(200));
-        assert!(s.ema_ms > 100.0 && s.ema_ms < 200.0, "ema={} should be between", s.ema_ms);
+        assert!(
+            s.ema_ms > 100.0 && s.ema_ms < 200.0,
+            "ema={} should be between",
+            s.ema_ms
+        );
     }
 
     #[test]
@@ -161,7 +175,10 @@ mod tests {
         let _ = t.record("y", Duration::from_millis(100));
         let _ = t.record("y", Duration::from_millis(100));
         let s_up = t.record("y", Duration::from_millis(500));
-        assert_eq!(s_up.trend, 1, "huge sample above ema should mark degradation");
+        assert_eq!(
+            s_up.trend, 1,
+            "huge sample above ema should mark degradation"
+        );
         let s_down = t.record("y", Duration::from_millis(10));
         assert_eq!(s_down.trend, -1, "sample below ema should mark improvement");
     }
@@ -186,7 +203,11 @@ mod tests {
         let s = t.record("newhost", Duration::from_millis(42));
         assert_eq!(s.ema_ms, 42.0);
         assert_eq!(s.samples, 1);
-        assert_eq!(t.len(), MAX_AUTHORITIES, "capacity must not grow on new-authority overflow");
+        assert_eq!(
+            t.len(),
+            MAX_AUTHORITIES,
+            "capacity must not grow on new-authority overflow"
+        );
         assert!(t.get("newhost").is_none());
     }
 
@@ -198,7 +219,10 @@ mod tests {
             let _ = t.record(&format!("h{i}"), Duration::from_millis(1));
         }
         let s = t.record("known", Duration::from_millis(500));
-        assert!(s.samples >= 2, "known authority must keep accumulating samples at cap");
+        assert!(
+            s.samples >= 2,
+            "known authority must keep accumulating samples at cap"
+        );
         assert_eq!(s.trend, 1, "500ms above prior ema marks degradation");
     }
 

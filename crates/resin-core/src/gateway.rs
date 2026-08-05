@@ -13,8 +13,8 @@
 //! Production TLS termination and auth enrichment are layered above this
 //! in the Tauri shell.
 
-use crate::lease::{LeaseId, LeaseTable};
 use crate::lane::{lane_index, LaneConfig};
+use crate::lease::{LeaseId, LeaseTable};
 use crate::tdewma::TdEwma;
 use std::time::Duration;
 
@@ -69,14 +69,23 @@ impl GatewayState {
         }
     }
 
- /// Try to reserve lane+lease for (api_key, account, authority). Returns
- /// the reservation descriptor; the caller must release the lease when the
- /// stream ends or errors, and record a TD-EWMA sample in both cases.
-    pub fn reserve(&self, api_key: &str, account: &str, authority: &str, exit_ip: Option<&str>) -> LaneReservation {
+    /// Try to reserve lane+lease for (api_key, account, authority). Returns
+    /// the reservation descriptor; the caller must release the lease when the
+    /// stream ends or errors, and record a TD-EWMA sample in both cases.
+    pub fn reserve(
+        &self,
+        api_key: &str,
+        account: &str,
+        authority: &str,
+        exit_ip: Option<&str>,
+    ) -> LaneReservation {
         let lane = lane_index(api_key, &self.lanes);
         let reason;
         let lease = match exit_ip {
-            Some(ip) => match self.lease_table.acquire(lane, account, ip, authority, self.lease_ttl) {
+            Some(ip) => match self
+                .lease_table
+                .acquire(lane, account, ip, authority, self.lease_ttl)
+            {
                 Some(id) => {
                     reason = LeaseReason::Acquired;
                     Some(id)
@@ -91,7 +100,11 @@ impl GatewayState {
                 None
             }
         };
-        LaneReservation { lane, lease, reason }
+        LaneReservation {
+            lane,
+            lease,
+            reason,
+        }
     }
 
     /// Record a latency sample for the authority. Call this after the stream
@@ -142,9 +155,18 @@ mod tests {
 
     #[test]
     fn extract_bearer_key_strips_prefix() {
-        assert_eq!(GatewayState::extract_api_key("Bearer sk-abc"), Some("sk-abc"));
-        assert_eq!(GatewayState::extract_api_key("bearer sk-abc"), Some("sk-abc"));
-        assert_eq!(GatewayState::extract_api_key("BEARER sk-abc"), Some("sk-abc"));
+        assert_eq!(
+            GatewayState::extract_api_key("Bearer sk-abc"),
+            Some("sk-abc")
+        );
+        assert_eq!(
+            GatewayState::extract_api_key("bearer sk-abc"),
+            Some("sk-abc")
+        );
+        assert_eq!(
+            GatewayState::extract_api_key("BEARER sk-abc"),
+            Some("sk-abc")
+        );
         assert_eq!(GatewayState::extract_api_key("sk-abc"), Some("sk-abc"));
         assert_eq!(GatewayState::extract_api_key(""), None);
     }

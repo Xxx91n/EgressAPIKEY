@@ -64,7 +64,11 @@ impl ResinClient {
             .timeout(std::time::Duration::from_secs(8))
             .build()
             .context("resin_client: cannot build reqwest::Client")?;
-        Ok(Self { base: url, admin_token, http })
+        Ok(Self {
+            base: url,
+            admin_token,
+            http,
+        })
     }
 
     /// Return a copy of the admin token for the safety-net poller (which for
@@ -111,7 +115,9 @@ impl ResinClient {
             } else {
                 txt.clone()
             };
-            return Err(anyhow!("resin_client: {method_str} {path} -> {status}: {excerpt}"));
+            return Err(anyhow!(
+                "resin_client: {method_str} {path} -> {status}: {excerpt}"
+            ));
         }
         if status == reqwest::StatusCode::NO_CONTENT {
             return Ok(Value::Null);
@@ -138,7 +144,8 @@ impl ResinClient {
     /// body: free-form serde_json::Value (Resin accepts the fields described in
     /// DESIGN.md platform POST section); only `name` is required by Resin.
     pub async fn create_platform(&self, body: Value) -> Result<Value> {
-        self.send(reqwest::Method::POST, "/platforms", Some(body)).await
+        self.send(reqwest::Method::POST, "/platforms", Some(body))
+            .await
     }
 
     /// Convenience: create a platform with just a name. Sticky TTL, filters,
@@ -154,9 +161,12 @@ impl ResinClient {
         // guard so the error message comes from us, not an opaque 400.
         const BAD: &str = ".:|/\\@?#%~";
         if name.chars().any(|c| BAD.contains(c) || c.is_whitespace()) {
-            return Err(anyhow!("resin_client: platform name contains disallowed char"));
+            return Err(anyhow!(
+                "resin_client: platform name contains disallowed char"
+            ));
         }
-        self.create_platform(serde_json::json!({ "name": name })).await
+        self.create_platform(serde_json::json!({ "name": name }))
+            .await
     }
 
     /// GET /api/v1/platforms
@@ -179,29 +189,33 @@ impl ResinClient {
     /// GET /api/v1/metrics/realtime/leases — active-lease snapshot used by the
     /// desktop Topology view in place of the dead resin-core LeaseTable.
     pub async fn active_leases(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/metrics/realtime/leases", None).await
+        self.send(reqwest::Method::GET, "/metrics/realtime/leases", None)
+            .await
     }
 
     /// GET /api/v1/metrics/snapshots/node-pool — global node pool snapshot.
     pub async fn node_pool_snapshot(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/metrics/snapshots/node-pool", None).await
+        self.send(reqwest::Method::GET, "/metrics/snapshots/node-pool", None)
+            .await
     }
 
     /// POST /subscriptions - create a subscription. `source_type` is "remote"
     /// (with a `url`) or "local" (with `content`). The webview supplies the
     /// fields via a free-form JSON body; Resin fetches the nodes itself.
     pub async fn create_subscription(&self, body: Value) -> Result<Value> {
-        self.send(reqwest::Method::POST, "/subscriptions", Some(body)).await
+        self.send(reqwest::Method::POST, "/subscriptions", Some(body))
+            .await
     }
 
     /// GET /subscriptions - list all subscriptions (raw array).
     pub async fn list_subscriptions(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/subscriptions", None).await
+        self.send(reqwest::Method::GET, "/subscriptions", None)
+            .await
     }
 
     /// DELETE /subscriptions/{id} - remove a subscription (204 -> Null).
     pub async fn delete_subscription(&self, id: &str) -> Result<Value> {
-    let path = format!("/subscriptions/{}", urlencoding(id));
+        let path = format!("/subscriptions/{}", urlencoding(id));
         self.send(reqwest::Method::DELETE, &path, None).await
     }
 
@@ -220,7 +234,8 @@ impl ResinClient {
     /// snapshot grows. We pass an explicit limit (and optional offset) so the
     /// per-node table reflects the same count as the stats card.
     pub async fn list_nodes(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/nodes?limit=500", None).await
+        self.send(reqwest::Method::GET, "/nodes?limit=500", None)
+            .await
     }
 
     /// GET /api/v1/nodes?platform_id=<id>&limit=500 - the routable node list
@@ -241,7 +256,8 @@ impl ResinClient {
     /// create auto-{uid} independent platforms when a candidate key is dropped
     /// on the right pane's empty space, with a custom allocation_policy.
     pub async fn create_platform_with_fields(&self, body: Value) -> Result<Value> {
-        self.send(reqwest::Method::POST, "/platforms", Some(body)).await
+        self.send(reqwest::Method::POST, "/platforms", Some(body))
+            .await
     }
 
     /// GET /api/v1/platforms/{id}/leases — list live leases on a platform (P21).
@@ -266,7 +282,9 @@ impl ResinClient {
 /// rotation is a Vec pick, not a pluggable strategy.
 pub async fn fetch_clash_subscription(url: &str) -> Result<String> {
     if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err(anyhow!("fetch_clash_subscription: url must start with http(s)://"));
+        return Err(anyhow!(
+            "fetch_clash_subscription: url must start with http(s)://"
+        ));
     }
     let http = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
@@ -288,7 +306,9 @@ pub async fn fetch_clash_subscription(url: &str) -> Result<String> {
                     last_err = Some(format!("HTTP {status}"));
                     continue;
                 }
-                let body = resp.text().await
+                let body = resp
+                    .text()
+                    .await
                     .context("fetch_clash_subscription: body read failed")?;
                 if body.trim().is_empty() {
                     last_err = Some("empty body".to_string());
@@ -296,11 +316,16 @@ pub async fn fetch_clash_subscription(url: &str) -> Result<String> {
                 }
                 return Ok(body);
             }
-            Err(e) => { last_err = Some(format!("{e:?}")); continue; }
+            Err(e) => {
+                last_err = Some(format!("{e:?}"));
+                continue;
+            }
         }
     }
-    Err(anyhow!("fetch_clash_subscription: all UA attempts failed: {}",
-        last_err.unwrap_or_else(|| "unknown".to_string())))
+    Err(anyhow!(
+        "fetch_clash_subscription: all UA attempts failed: {}",
+        last_err.unwrap_or_else(|| "unknown".to_string())
+    ))
 }
 
 /// Convert a Clash YAML subscription into a proxies-only block-style YAML.
@@ -329,7 +354,9 @@ pub fn clash_yaml_to_proxies_block(input: &str) -> Result<String> {
         let trimmed = ln.trim_start();
         // top-level key: "proxies:" at the start of the trimmed line, no
         // leading dash, no colon deeper. We accept "proxies:" exactly.
-        if trimmed == "proxies:" || trimmed.starts_with("proxies:") && !trimmed.starts_with("proxies::") {
+        if trimmed == "proxies:"
+            || trimmed.starts_with("proxies:") && !trimmed.starts_with("proxies::")
+        {
             // must be column 0 (top-level)
             if ln.chars().take_while(|c| *c == ' ').count() == 0 {
                 start = Some(i + 1);
@@ -340,18 +367,25 @@ pub fn clash_yaml_to_proxies_block(input: &str) -> Result<String> {
     let start = start.ok_or_else(|| anyhow!("clash_yaml: no top-level 'proxies:' key"))?;
     // find end: next top-level key (column 0, non-empty, not a comment)
     for (i, ln) in lines.iter().enumerate().skip(start) {
-        if ln.is_empty() || ln.trim_start().starts_with('#') { continue; }
+        if ln.is_empty() || ln.trim_start().starts_with('#') {
+            continue;
+        }
         if ln.chars().take_while(|c| *c == ' ').count() == 0 {
             // top-level line. If it's a key (contains ': ') or a bare key ending ':' -> end.
-            if ln.contains(':') { end = Some(i); break; }
+            if ln.contains(':') {
+                end = Some(i);
+                break;
+            }
         }
     }
     let end = end.unwrap_or(lines.len());
     let proxies_block = &lines[start..end];
 
     // 2) rewrite each list item from flow-style to block-style.
-    let mut out = String::from("proxies:
-");
+    let mut out = String::from(
+        "proxies:
+",
+    );
     for ln in proxies_block {
         let s = ln.trim_end();
         if s.trim().is_empty() || s.trim_start().starts_with('#') {
@@ -365,29 +399,41 @@ pub fn clash_yaml_to_proxies_block(input: &str) -> Result<String> {
         if let Some(rest) = body.strip_prefix("- ") {
             let rest = rest.trim();
             if rest.starts_with('{') && rest.ends_with('}') {
-                let inner = &rest[1..rest.len()-1];
+                let inner = &rest[1..rest.len() - 1];
                 let fields = split_flow_fields(inner);
-                out.push_str(&format!("{indent}-
-"));
+                out.push_str(&format!(
+                    "{indent}-
+"
+                ));
                 for f in fields {
                     let f = f.trim();
-                    if f.is_empty() { continue; }
-                    out.push_str(&format!("{indent}    {f}
-"));
+                    if f.is_empty() {
+                        continue;
+                    }
+                    out.push_str(&format!(
+                        "{indent}    {f}
+"
+                    ));
                 }
             } else {
                 // Already block-style or a different shape; keep verbatim.
-                out.push_str(&format!("{s}
-"));
+                out.push_str(&format!(
+                    "{s}
+"
+                ));
             }
         } else {
             // Not a list item (continuation? keep verbatim to be safe).
-            out.push_str(&format!("{s}
-"));
+            out.push_str(&format!(
+                "{s}
+"
+            ));
         }
     }
     if out.lines().count() < 2 {
-        return Err(anyhow!("clash_yaml: proxies block is empty after transform"));
+        return Err(anyhow!(
+            "clash_yaml: proxies block is empty after transform"
+        ));
     }
     Ok(out)
 }
@@ -409,8 +455,14 @@ fn split_flow_fields(s: &str) -> Vec<String> {
                 in_single = !in_single;
                 cur.push(ch);
             }
-            '{' | '[' if !in_single => { depth += 1; cur.push(ch); }
-            '}' | ']' if !in_single => { depth -= 1; cur.push(ch); }
+            '{' | '[' if !in_single => {
+                depth += 1;
+                cur.push(ch);
+            }
+            '}' | ']' if !in_single => {
+                depth -= 1;
+                cur.push(ch);
+            }
             ',' if !in_single && depth == 0 => {
                 out.push(cur.trim().to_string());
                 cur.clear();
@@ -419,7 +471,9 @@ fn split_flow_fields(s: &str) -> Vec<String> {
         }
     }
     let last = cur.trim().to_string();
-    if !last.is_empty() { out.push(last); }
+    if !last.is_empty() {
+        out.push(last);
+    }
     out
 }
 
@@ -501,7 +555,10 @@ mod tests {
             .await;
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
-        let out = c.list_platforms().await.expect("list_platforms should succeed");
+        let out = c
+            .list_platforms()
+            .await
+            .expect("list_platforms should succeed");
         assert!(out.is_array());
         assert_eq!(out[0]["name"], "Default");
         m.assert_async().await;
@@ -518,7 +575,10 @@ mod tests {
             .await;
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
-        let out = c.delete_platform("abc-123").await.expect("delete_platform should succeed");
+        let out = c
+            .delete_platform("abc-123")
+            .await
+            .expect("delete_platform should succeed");
         assert!(out.is_null(), "204 No Content should parse to Value::Null");
         m.assert_async().await;
     }
@@ -536,7 +596,10 @@ mod tests {
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
         let err = c.get_platform("missing").await.unwrap_err().to_string();
-        assert!(err.contains("404"), "error message must surface status: {err}");
+        assert!(
+            err.contains("404"),
+            "error message must surface status: {err}"
+        );
         m.assert_async().await;
     }
 
@@ -555,7 +618,9 @@ mod tests {
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
         let out = c
-            .create_subscription(serde_json::json!({ "name": "sub-A", "url": "https://example.com/sub" }))
+            .create_subscription(
+                serde_json::json!({ "name": "sub-A", "url": "https://example.com/sub" }),
+            )
             .await
             .expect("create_subscription should succeed against mockito");
         assert_eq!(out["name"], "sub-A");
@@ -573,7 +638,10 @@ mod tests {
             .await;
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
-        let out = c.delete_subscription("abc-123").await.expect("delete_subscription should succeed");
+        let out = c
+            .delete_subscription("abc-123")
+            .await
+            .expect("delete_subscription should succeed");
         assert!(out.is_null(), "204 No Content should parse to Value::Null");
         m.assert_async().await;
     }
@@ -583,13 +651,22 @@ mod tests {
         let yaml = "proxies:\n  - { name: 'alpha', type: trojan, server: a.com, port: 443 }\n  - { name: 'beta', type: vless, server: b.com, port: 80 }\nproxy-groups:\n  - { name: auto, type: select }\nrules:\n  - DOMAIN-SUFFIX,example.com,auto\n";
         let out = clash_yaml_to_proxies_block(yaml).expect("convert should succeed");
         // Should start with proxies: header
-        assert!(out.starts_with("proxies:\n"), "must start with proxies header");
+        assert!(
+            out.starts_with("proxies:\n"),
+            "must start with proxies header"
+        );
         // proxy-groups / rules must be stripped
-        assert!(!out.contains("proxy-groups:"), "proxy-groups must be stripped");
+        assert!(
+            !out.contains("proxy-groups:"),
+            "proxy-groups must be stripped"
+        );
         assert!(!out.contains("rules:"), "rules must be stripped");
         // Each list item should be block-style: a "-\n" line followed by indented fields
         assert!(out.contains("-\n"), "each item must break into block form");
-        assert!(out.contains("name: 'alpha'"), "alpha name preserved (quoted scalar is fine in block style)");
+        assert!(
+            out.contains("name: 'alpha'"),
+            "alpha name preserved (quoted scalar is fine in block style)"
+        );
         assert!(out.contains("name: 'beta'"), "beta name preserved");
         assert!(out.contains("server: a.com"), "alpha server preserved");
         assert!(out.contains("port: 443"), "alpha port preserved");
@@ -609,7 +686,10 @@ mod tests {
     fn clash_yaml_to_proxies_block_rejects_yaml_without_proxies_key() {
         let yaml = "proxy-groups:\n  - { name: auto, type: select }\n";
         let err = clash_yaml_to_proxies_block(yaml).unwrap_err().to_string();
-        assert!(err.contains("proxies:"), "error should mention missing proxies key: {err}");
+        assert!(
+            err.contains("proxies:"),
+            "error should mention missing proxies key: {err}"
+        );
     }
 
     #[test]
@@ -617,7 +697,10 @@ mod tests {
         // A value with an embedded comma inside single quotes must NOT split there.
         let fields = split_flow_fields("name: 'a,b,c', port: 443");
         assert_eq!(fields.len(), 2);
-        assert!(fields[0].contains("a,b,c"), "quoted comma preserved: {fields:?}");
+        assert!(
+            fields[0].contains("a,b,c"),
+            "quoted comma preserved: {fields:?}"
+        );
         assert_eq!(fields[1], "port: 443");
     }
 
@@ -626,10 +709,15 @@ mod tests {
         let mut server = mockito::Server::new_async().await;
         let body = r#"{"id":"11111111-1111-1111-1111-111111111111","name":"OpenAI","allocation_policy":"PREFER_LOW_LATENCY"}"#;
         let m = server
-            .mock("PATCH", "/api/v1/platforms/11111111-1111-1111-1111-111111111111")
+            .mock(
+                "PATCH",
+                "/api/v1/platforms/11111111-1111-1111-1111-111111111111",
+            )
             .match_header("authorization", "Bearer testtok")
             .match_header("content-type", "application/json")
-            .match_body(mockito::Matcher::PartialJson(serde_json::json!({"allocation_policy":"PREFER_LOW_LATENCY"})))
+            .match_body(mockito::Matcher::PartialJson(
+                serde_json::json!({"allocation_policy":"PREFER_LOW_LATENCY"}),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(body)
@@ -638,7 +726,10 @@ mod tests {
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
         let out = c
-            .update_platform("11111111-1111-1111-1111-111111111111", serde_json::json!({"allocation_policy":"PREFER_LOW_LATENCY"}))
+            .update_platform(
+                "11111111-1111-1111-1111-111111111111",
+                serde_json::json!({"allocation_policy":"PREFER_LOW_LATENCY"}),
+            )
             .await
             .expect("update_platform should succeed against mockito");
         assert_eq!(out["allocation_policy"], "PREFER_LOW_LATENCY");

@@ -73,7 +73,12 @@
     "lastRefresh": "最終更新: {{time}}",
     "egressPolicyNote": "リージョンごとの出口ポリシーはトポロジーキャンバスで設定します：プラットフォームをIPチャネル領域にドラッグし、プラットフォームで割り当てポリシー（BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP）を設定してください。Resin v1.1.2にはノード単位のポリシー選択はありません。",
     "protocolWeights": "AI SSE プロトコル重み",
-    "protocolWeightDesc": "最適 (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp。中程度 (0.7): shadowsocks。避けるべき (0.1): hysteria2, tuic, wireguard (QUICベース, SSEストリームを壊す)。"
+    "protocolWeightDesc": "最適 (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp。中程度 (0.7): shadowsocks。避けるべき (0.1): hysteria2, tuic, wireguard (QUICベース, SSEストリームを壊す)。",
+    "reputationTitle": "IP reputation",
+    "reputationSummary": "{{count}} live egress IPs checked",
+    "reputationCached": "cached",
+    "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
+    "reputationDisabled": "IP reputation checks are disabled."
   },
   "platform": {
     "accounts": "アカウント",
@@ -140,7 +145,16 @@
     "interceptPortHint": "これを omniroute / litellm の base_url に設定すると、すべての API キーがインターセプタ経由でルーティングされます。インターセプタは (key, model) ごとに X-Resin-Account を注入し、(key, エンドポイント) の組み合わせごとに異なる出口 IP を割り当てます。",
     "whiteboxReload": "エントリポート設定を再読込",
     "whiteboxPath": "エントリポート設定ファイル",
-    "whiteboxReloaded": "エントリポート設定を再読込 — リスナー {{count}}"
+    "whiteboxReloaded": "エントリポート設定を再読込 — リスナー {{count}}",
+    "ipReputation": "IP reputation",
+    "ipReputationProvider": "Provider",
+    "ipReputationDisabled": "Disabled",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "Provider API key",
+    "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
   },
   "subscription": {
     "title": "サブスクリプション",

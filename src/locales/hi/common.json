@@ -73,7 +73,12 @@
     "lastRefresh": "अंतिम ताज़ा: {{time}}",
     "egressPolicyNote": "प्रति-क्षेत्र निकास नीति Topology कैनवास पर सेट की जाती है: प्लेटफ़ॉर्म को IP चैनल क्षेत्र में खींचें, फिर प्लेटफ़ॉर्म पर Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) सेट करें। Resin v1.1.2 में प्रति-नोड चयनकर्ता नहीं है।",
     "protocolWeights": "AI SSE के लिए प्रोटोकॉल वज़न",
-    "protocolWeightDesc": "सर्वोत्तम (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. मध्यम (0.7): shadowsocks. बचें (0.1): hysteria2, tuic, wireguard (QUIC आधारित, SSE स्ट्रीम तोड़ता है)।"
+    "protocolWeightDesc": "सर्वोत्तम (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. मध्यम (0.7): shadowsocks. बचें (0.1): hysteria2, tuic, wireguard (QUIC आधारित, SSE स्ट्रीम तोड़ता है)।",
+    "reputationTitle": "IP reputation",
+    "reputationSummary": "{{count}} live egress IPs checked",
+    "reputationCached": "cached",
+    "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
+    "reputationDisabled": "IP reputation checks are disabled."
   },
   "platform": {
     "accounts": "खाते",
@@ -140,7 +145,16 @@
     "interceptPortHint": "इसे omniroute / litellm में base_url के रूप में सेट करें ताकि सभी API कुंजियाँ इंटरसेप्टर से गुजरें। इंटरसेप्टर हर (कुंजी, मॉडल) के लिए X-Resin-Account इंजेक्ट करता है ताकि प्रत्येक (कुंजी, एंडपॉइंट) जोड़ी को अलग निकास IP मिले।",
     "whiteboxReload": "एंट्री पोर्ट कॉन्फ़िग रीलोड",
     "whiteboxPath": "एंट्री पोर्ट कॉन्फ़िग फ़ाइल",
-    "whiteboxReloaded": "एंट्री पोर्ट कॉन्फ़िग रीलोड — {{count}}"
+    "whiteboxReloaded": "एंट्री पोर्ट कॉन्फ़िग रीलोड — {{count}}",
+    "ipReputation": "IP reputation",
+    "ipReputationProvider": "Provider",
+    "ipReputationDisabled": "Disabled",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "Provider API key",
+    "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
   },
   "subscription": {
     "title": "सब्सक्रिप्शन",

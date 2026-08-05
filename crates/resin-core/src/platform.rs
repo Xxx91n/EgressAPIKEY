@@ -6,10 +6,10 @@
 //! Platform/Account two-layer isolation without the Go xsync lease table.
 
 use dashmap::DashMap;
-use std::sync::Arc;
 use parking_lot::RwLock;
+use std::sync::Arc;
 
- /// One anchored exit-IP account inside a Platform.
+/// One anchored exit-IP account inside a Platform.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Account {
     pub id: String,
@@ -23,7 +23,13 @@ pub struct Account {
 
 impl Account {
     pub fn new(id: impl Into<String>, platform: impl Into<String>, lane: usize) -> Self {
-        Self { id: id.into(), platform: platform.into(), exit_ip: None, lane, active: true }
+        Self {
+            id: id.into(),
+            platform: platform.into(),
+            exit_ip: None,
+            lane,
+            active: true,
+        }
     }
 
     pub fn bind_ip(&mut self, ip: impl Into<String>) {
@@ -44,7 +50,10 @@ pub struct Platform {
 
 impl Platform {
     pub fn new(name: impl Into<String>) -> Self {
-        Self { name: name.into(), accounts: Vec::new() }
+        Self {
+            name: name.into(),
+            accounts: Vec::new(),
+        }
     }
 
     pub fn add_account(&mut self, account: Account) {
@@ -87,16 +96,13 @@ impl Platform {
     where
         F: Fn(&Account) -> Option<f64>,
     {
-        self.accounts
-            .iter()
-            .filter(|a| a.active)
-            .min_by_key(|a| {
-                let sample = latency_for(a);
-                let has_sample = if sample.is_some() { 1u8 } else { 0u8 };
-                let latency = sample.map(|m| m.round() as u64).unwrap_or(0u64);
-                let lane_match = if a.lane == prefer_lane { 0u8 } else { 1u8 };
-                (has_sample, latency, lane_match, a.lane)
-            })
+        self.accounts.iter().filter(|a| a.active).min_by_key(|a| {
+            let sample = latency_for(a);
+            let has_sample = if sample.is_some() { 1u8 } else { 0u8 };
+            let latency = sample.map(|m| m.round() as u64).unwrap_or(0u64);
+            let lane_match = if a.lane == prefer_lane { 0u8 } else { 1u8 };
+            (has_sample, latency, lane_match, a.lane)
+        })
     }
 }
 
@@ -112,7 +118,8 @@ impl PlatformRegistry {
     }
 
     pub fn upsert(&self, p: Platform) {
-        self.platforms.insert(p.name.clone(), Arc::new(RwLock::new(p)));
+        self.platforms
+            .insert(p.name.clone(), Arc::new(RwLock::new(p)));
     }
 
     pub fn get(&self, name: &str) -> Option<Arc<RwLock<Platform>>> {
@@ -120,7 +127,10 @@ impl PlatformRegistry {
     }
 
     pub fn list(&self) -> Vec<String> {
-        self.platforms.iter().map(|e| e.value().read().name.clone()).collect()
+        self.platforms
+            .iter()
+            .map(|e| e.value().read().name.clone())
+            .collect()
     }
 
     pub fn remove(&self, name: &str) -> bool {
@@ -168,11 +178,12 @@ mod tests {
         p.add_account(Account::new("acct-3", "openai", 3));
 
         let pick = p
-            .pick_account_weighted(0, |a| {
-                if a.lane == 2 { Some(800.0) } else { None }
-            })
+            .pick_account_weighted(0, |a| if a.lane == 2 { Some(800.0) } else { None })
             .unwrap();
-        assert_eq!(pick.lane, 3, "fresh (unmeasured) lane must beat slow sampled lane");
+        assert_eq!(
+            pick.lane, 3,
+            "fresh (unmeasured) lane must beat slow sampled lane"
+        );
     }
 
     /// Re3: When all candidates are sampled, the lowest EMA wins.

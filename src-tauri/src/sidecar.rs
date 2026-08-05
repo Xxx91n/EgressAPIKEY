@@ -17,8 +17,8 @@
 //! Ponytail: do NOT add a retry/restart loop here — that is Ghost safety net
 //! (G3), separate file, separate concerns.
 use std::net::TcpListener;
-use std::time::{Duration, Instant};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -103,7 +103,9 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
         .with_context(|| format!("sidecar: cannot create log_dir {:?}", log_dir))?;
     tracing::info!(
         "resin sidecar dirs: state={:?} cache={:?} log={:?}",
-        state_dir, cache_dir, log_dir
+        state_dir,
+        cache_dir,
+        log_dir
     );
 
     let shell = app.shell();
@@ -120,7 +122,7 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
         .env("RESIN_CACHE_DIR", &cache_dir)
         .env("RESIN_LOG_DIR", &log_dir);
 
-    let (mut receiver, child) = cmd  // spawn() returns (Receiver, CommandChild)
+    let (mut receiver, child) = cmd // spawn() returns (Receiver, CommandChild)
         .spawn()
         .context("sidecar: failed to spawn resin binary")?;
 
@@ -227,7 +229,6 @@ mod tests {
         assert_ne!(a, b, "tokens should differ across calls");
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // G3: Ghost safety net (health poll + tray + system proxy cutoff).
@@ -364,7 +365,13 @@ async fn clear_os_proxy() -> anyhow::Result<()> {
             .args([
                 "add",
                 "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
-                "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "0", "/f",
+                "/v",
+                "ProxyEnable",
+                "/t",
+                "REG_DWORD",
+                "/d",
+                "0",
+                "/f",
             ])
             .output()
             .await;

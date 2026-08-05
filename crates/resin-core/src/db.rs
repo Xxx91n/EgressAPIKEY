@@ -6,11 +6,11 @@
 //! to Resin. Reuses the DbPool infrastructure from ADR-0011 (parking_lot::Mutex
 //! + WAL + hand-rolled PRAGMA user_version migration).
 
-use std::path::Path;
-use std::sync::Arc;
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
+use std::sync::Arc;
 
 /// One row of the port_mappings table.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -101,7 +101,9 @@ impl DbPool {
     /// map untouched.
     pub fn replace_ports(&self, mappings: &[PortMapping]) -> Result<(), String> {
         let mut conn = self.0.lock();
-        let tx = conn.transaction().map_err(|e| format!("begin replace_ports: {e}"))?;
+        let tx = conn
+            .transaction()
+            .map_err(|e| format!("begin replace_ports: {e}"))?;
         tx.execute("DELETE FROM port_mappings", [])
             .map_err(|e| format!("clear port_mappings: {e}"))?;
         for m in mappings {
@@ -110,7 +112,8 @@ impl DbPool {
                 params![m.port, m.protocol, m.platform_name, m.account, m.label, m.enabled],
             ).map_err(|e| format!("insert port_mappings: {e}"))?;
         }
-        tx.commit().map_err(|e| format!("commit replace_ports: {e}"))
+        tx.commit()
+            .map_err(|e| format!("commit replace_ports: {e}"))
     }
     pub fn get_port(&self, port: u16) -> Result<Option<PortMapping>, String> {
         let conn = self.0.lock();
@@ -146,7 +149,9 @@ mod tests {
         let pool = DbPool::open_in_memory().unwrap();
         let pool2 = DbPool::open_in_memory().unwrap();
         let conn = pool2.0.lock();
-        let v: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
+        let v: i64 = conn
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(v, 2);
         drop(conn);
         drop(pool);
@@ -156,13 +161,23 @@ mod tests {
     fn upsert_port_inserts_then_updates() {
         let pool = DbPool::open_in_memory().unwrap();
         pool.upsert_port(&PortMapping {
-            port: 17990, protocol: "socks5".into(), platform_name: "OpenAI".into(),
-            account: "port-17990".into(), label: "key-A".into(), enabled: true,
-        }).unwrap();
+            port: 17990,
+            protocol: "socks5".into(),
+            platform_name: "OpenAI".into(),
+            account: "port-17990".into(),
+            label: "key-A".into(),
+            enabled: true,
+        })
+        .unwrap();
         pool.upsert_port(&PortMapping {
-            port: 17990, protocol: "http".into(), platform_name: "Anthropic".into(),
-            account: "port-17990".into(), label: "key-A-updated".into(), enabled: false,
-        }).unwrap();
+            port: 17990,
+            protocol: "http".into(),
+            platform_name: "Anthropic".into(),
+            account: "port-17990".into(),
+            label: "key-A-updated".into(),
+            enabled: false,
+        })
+        .unwrap();
         let got = pool.get_port(17990).unwrap().unwrap();
         assert_eq!(got.protocol, "http");
         assert_eq!(got.platform_name, "Anthropic");
@@ -173,13 +188,23 @@ mod tests {
     fn distinct_ports_do_not_collide() {
         let pool = DbPool::open_in_memory().unwrap();
         pool.upsert_port(&PortMapping {
-            port: 17990, protocol: "socks5".into(), platform_name: "A".into(),
-            account: "p1".into(), label: "k1".into(), enabled: true,
-        }).unwrap();
+            port: 17990,
+            protocol: "socks5".into(),
+            platform_name: "A".into(),
+            account: "p1".into(),
+            label: "k1".into(),
+            enabled: true,
+        })
+        .unwrap();
         pool.upsert_port(&PortMapping {
-            port: 17991, protocol: "socks5".into(), platform_name: "B".into(),
-            account: "p2".into(), label: "k2".into(), enabled: true,
-        }).unwrap();
+            port: 17991,
+            protocol: "socks5".into(),
+            platform_name: "B".into(),
+            account: "p2".into(),
+            label: "k2".into(),
+            enabled: true,
+        })
+        .unwrap();
         let all = pool.list_ports().unwrap();
         assert_eq!(all.len(), 2);
         assert_eq!(all[0].port, 17990);
@@ -190,9 +215,14 @@ mod tests {
     fn delete_port_removes_row() {
         let pool = DbPool::open_in_memory().unwrap();
         pool.upsert_port(&PortMapping {
-            port: 18000, protocol: "http".into(), platform_name: "X".into(),
-            account: "p3".into(), label: "k3".into(), enabled: true,
-        }).unwrap();
+            port: 18000,
+            protocol: "http".into(),
+            platform_name: "X".into(),
+            account: "p3".into(),
+            label: "k3".into(),
+            enabled: true,
+        })
+        .unwrap();
         pool.delete_port(18000).unwrap();
         assert!(pool.get_port(18000).unwrap().is_none());
     }
@@ -201,13 +231,23 @@ mod tests {
     fn replace_ports_swaps_full_map() {
         let pool = DbPool::open_in_memory().unwrap();
         pool.upsert_port(&PortMapping {
-            port: 17990, protocol: "socks5".into(), platform_name: "A".into(),
-            account: "a".into(), label: "".into(), enabled: true,
-        }).unwrap();
+            port: 17990,
+            protocol: "socks5".into(),
+            platform_name: "A".into(),
+            account: "a".into(),
+            label: "".into(),
+            enabled: true,
+        })
+        .unwrap();
         pool.replace_ports(&[PortMapping {
-            port: 17991, protocol: "http".into(), platform_name: "B".into(),
-            account: "b".into(), label: "x".into(), enabled: true,
-        }]).unwrap();
+            port: 17991,
+            protocol: "http".into(),
+            platform_name: "B".into(),
+            account: "b".into(),
+            label: "x".into(),
+            enabled: true,
+        }])
+        .unwrap();
         let all = pool.list_ports().unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].port, 17991);

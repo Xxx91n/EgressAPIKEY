@@ -16,10 +16,10 @@ use hotswap_config::{
     prelude::{HotswapConfig, ValidationError},
 };
 use parking_lot::Mutex as SyncMutex;
-use tokio::sync::Mutex as AsyncMutex;
 use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex as AsyncMutex;
 
-use crate::{DbPool, MAX_ENTRY_PORTS, MIN_USER_PORT, PortForwarder, PortMapping};
+use crate::{DbPool, PortForwarder, PortMapping, MAX_ENTRY_PORTS, MIN_USER_PORT};
 
 pub const WHITEBOX_CONFIG_FILE: &str = "egressapikey-ports.json";
 
@@ -50,7 +50,10 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
     let mut seen = HashSet::with_capacity(config.entry_ports.len());
     for port in &config.entry_ports {
         if port.port < MIN_USER_PORT {
-            return Err(format!("port {} is privileged (< {MIN_USER_PORT})", port.port));
+            return Err(format!(
+                "port {} is privileged (< {MIN_USER_PORT})",
+                port.port
+            ));
         }
         if !seen.insert(port.port) {
             return Err(format!("duplicate port {}", port.port));
@@ -289,14 +292,17 @@ mod tests {
 
     #[test]
     fn validator_accepts_two_distinct_ports() {
-        assert!(
-            validate(&WhiteboxConfig::from_ports(vec![mapping(17990), mapping(17991)])).is_ok()
-        );
+        assert!(validate(&WhiteboxConfig::from_ports(vec![
+            mapping(17990),
+            mapping(17991)
+        ]))
+        .is_ok());
     }
 
     #[test]
     fn write_atomic_persists_json_without_partial_file() {
-        let dir = std::env::temp_dir().join(format!("egressapikey-whitebox-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("egressapikey-whitebox-{}", std::process::id()));
         let path = dir.join(WHITEBOX_CONFIG_FILE);
         let config = WhiteboxConfig::from_ports(vec![mapping(17990)]);
         write_atomic(&path, &config).unwrap();

@@ -16,8 +16,8 @@ use dashmap::DashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use parking_lot::Mutex;
 use crate::MAX_LANES;
+use parking_lot::Mutex;
 
 /// Unique lease id (process-wide monotonic).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -65,9 +65,9 @@ impl LeaseTable {
         }
     }
 
-/// Acquire the lease for (lane, account). Returns [`None`] if the lane
- /// already has a live lease for this account (caller should pick another
- /// lane or wait). Records TTL = 90s default.
+    /// Acquire the lease for (lane, account). Returns [`None`] if the lane
+    /// already has a live lease for this account (caller should pick another
+    /// lane or wait). Records TTL = 90s default.
     pub fn acquire(
         &self,
         lane: usize,
@@ -90,8 +90,14 @@ impl LeaseTable {
         }
         let id = LeaseId(self.next.fetch_add(1, Ordering::SeqCst));
         let lease = Lease {
-            id, lane, account: account.to_string(), exit_ip: exit_ip.to_string(),
-            authority: authority.to_string(), created: now, ttl, alive: true,
+            id,
+            lane,
+            account: account.to_string(),
+            exit_ip: exit_ip.to_string(),
+            authority: authority.to_string(),
+            created: now,
+            ttl,
+            alive: true,
         };
         self.inner.insert(id, lease);
         *guard = Some((id, now, ttl));
@@ -241,7 +247,9 @@ mod tests {
     #[test]
     fn renew_keeps_lease_alive() {
         let t = LeaseTable::new();
-        let id = t.acquire(5, "a", "8.8.8.8", "api.x.com", Duration::from_millis(10)).unwrap();
+        let id = t
+            .acquire(5, "a", "8.8.8.8", "api.x.com", Duration::from_millis(10))
+            .unwrap();
         sleep(Duration::from_millis(15));
         // Without renew the lane would have expired. Renew and try a second acquire: should still be blocked.
         assert!(t.renew(id, ttl()));
@@ -274,7 +282,13 @@ mod tests {
             let t = t.clone();
             let winners = winners.clone();
             handles.push(std::thread::spawn(move || {
-                let r = t.acquire(lane, "acct", "1.2.3.4", "api.x.com", Duration::from_secs(60));
+                let r = t.acquire(
+                    lane,
+                    "acct",
+                    "1.2.3.4",
+                    "api.x.com",
+                    Duration::from_secs(60),
+                );
                 if r.is_some() {
                     winners.fetch_add(1, Ordering::SeqCst);
                 }
@@ -307,12 +321,16 @@ mod tests {
     fn concurrent_release_then_acquire() {
         let t = std::sync::Arc::new(LeaseTable::new());
         let lane = 9;
-        let id = t.acquire(lane, "a", "1.1.1.1", "api.x.com", Duration::from_secs(60)).unwrap();
+        let id = t
+            .acquire(lane, "a", "1.1.1.1", "api.x.com", Duration::from_secs(60))
+            .unwrap();
         let t2 = t.clone();
         let h = std::thread::spawn(move || {
             // Spin until the lane opens, then take it.
             for _ in 0..200 {
-                if let Some(id2) = t2.acquire(lane, "a", "1.1.1.1", "api.x.com", Duration::from_secs(60)) {
+                if let Some(id2) =
+                    t2.acquire(lane, "a", "1.1.1.1", "api.x.com", Duration::from_secs(60))
+                {
                     t2.release(id2);
                     return true;
                 }

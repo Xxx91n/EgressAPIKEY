@@ -16,7 +16,9 @@ pub struct LaneConfig {
 
 impl LaneConfig {
     pub fn new(lanes: usize) -> Self {
-        Self { lanes: sanitize_lanes(lanes) }
+        Self {
+            lanes: sanitize_lanes(lanes),
+        }
     }
 }
 

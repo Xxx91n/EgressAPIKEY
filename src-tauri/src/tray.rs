@@ -11,13 +11,35 @@
 //! refocuses; this is the QoL fallback for users who minimized to tray.
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-use tauri::{AppHandle, Manager, tray::{TrayIconBuilder, MouseButton, MouseButtonState, TrayIconEvent}};
+use tauri::{
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Manager,
+};
 
 /// Supported tray label locales (18 base locales). MUST stay in lockstep with
 /// `src/locales/<lc>/common.json` keys `tray.*` and the `Locale` union in
 /// `src/store/appStore.ts`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum TrayLang { En, Zh, Ja, Es, Fr, De, Ko, Ru, Pt, Ar, It, Nl, Pl, Tr, Vi, Th, Id, Hi }
+pub enum TrayLang {
+    En,
+    Zh,
+    Ja,
+    Es,
+    Fr,
+    De,
+    Ko,
+    Ru,
+    Pt,
+    Ar,
+    It,
+    Nl,
+    Pl,
+    Tr,
+    Vi,
+    Th,
+    Id,
+    Hi,
+}
 
 /// Per-locale tray label set.
 pub struct TrayLabels {
@@ -31,24 +53,96 @@ pub struct TrayLabels {
 /// `pnpm i18n:check` gate on the frontend side).
 pub fn labels(lc: TrayLang) -> TrayLabels {
     match lc {
-        TrayLang::En => TrayLabels { show: "Show Window", quit: "Quit", tooltip: "EgressAPIKEY" },
-        TrayLang::Zh => TrayLabels { show: "显示窗口", quit: "退出", tooltip: "EgressAPIKEY" },
-        TrayLang::Ja => TrayLabels { show: "ウィンドウを表示", quit: "終了", tooltip: "EgressAPIKEY" },
-        TrayLang::Es => TrayLabels { show: "Mostrar Ventana", quit: "Salir", tooltip: "EgressAPIKEY" },
-        TrayLang::Fr => TrayLabels { show: "Afficher la Fenêtre", quit: "Quitter", tooltip: "EgressAPIKEY" },
-        TrayLang::De => TrayLabels { show: "Fenster anzeigen", quit: "Beenden", tooltip: "EgressAPIKEY" },
-        TrayLang::Ko => TrayLabels { show: "창 표시", quit: "종료", tooltip: "EgressAPIKEY" },
-        TrayLang::Ru => TrayLabels { show: "Показать окно", quit: "Выйти", tooltip: "EgressAPIKEY" },
-        TrayLang::Pt => TrayLabels { show: "Mostrar Janela", quit: "Sair", tooltip: "EgressAPIKEY" },
-        TrayLang::Ar => TrayLabels { show: "إظهار النافذة", quit: "إنهاء", tooltip: "EgressAPIKEY" },
-        TrayLang::It => TrayLabels { show: "Mostra finestra", quit: "Esci", tooltip: "EgressAPIKEY" },
-        TrayLang::Nl => TrayLabels { show: "Venster tonen", quit: "Afsluiten", tooltip: "EgressAPIKEY" },
-        TrayLang::Pl => TrayLabels { show: "Pokaż okno", quit: "Zakończ", tooltip: "EgressAPIKEY" },
-        TrayLang::Tr => TrayLabels { show: "Pencereyi göster", quit: "Çık", tooltip: "EgressAPIKEY" },
-        TrayLang::Vi => TrayLabels { show: "Hiện cửa sổ", quit: "Thoát", tooltip: "EgressAPIKEY" },
-        TrayLang::Th => TrayLabels { show: "แสดงหน้าต่าง", quit: "ออก", tooltip: "EgressAPIKEY" },
-        TrayLang::Id => TrayLabels { show: "Tampilkan jendela", quit: "Keluar", tooltip: "EgressAPIKEY" },
-        TrayLang::Hi => TrayLabels { show: "विंडो दिखाएं", quit: "बाहर निकलें", tooltip: "EgressAPIKEY" },
+        TrayLang::En => TrayLabels {
+            show: "Show Window",
+            quit: "Quit",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Zh => TrayLabels {
+            show: "显示窗口",
+            quit: "退出",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Ja => TrayLabels {
+            show: "ウィンドウを表示",
+            quit: "終了",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Es => TrayLabels {
+            show: "Mostrar Ventana",
+            quit: "Salir",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Fr => TrayLabels {
+            show: "Afficher la Fenêtre",
+            quit: "Quitter",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::De => TrayLabels {
+            show: "Fenster anzeigen",
+            quit: "Beenden",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Ko => TrayLabels {
+            show: "창 표시",
+            quit: "종료",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Ru => TrayLabels {
+            show: "Показать окно",
+            quit: "Выйти",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Pt => TrayLabels {
+            show: "Mostrar Janela",
+            quit: "Sair",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Ar => TrayLabels {
+            show: "إظهار النافذة",
+            quit: "إنهاء",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::It => TrayLabels {
+            show: "Mostra finestra",
+            quit: "Esci",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Nl => TrayLabels {
+            show: "Venster tonen",
+            quit: "Afsluiten",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Pl => TrayLabels {
+            show: "Pokaż okno",
+            quit: "Zakończ",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Tr => TrayLabels {
+            show: "Pencereyi göster",
+            quit: "Çık",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Vi => TrayLabels {
+            show: "Hiện cửa sổ",
+            quit: "Thoát",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Th => TrayLabels {
+            show: "แสดงหน้าต่าง",
+            quit: "ออก",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Id => TrayLabels {
+            show: "Tampilkan jendela",
+            quit: "Keluar",
+            tooltip: "EgressAPIKEY",
+        },
+        TrayLang::Hi => TrayLabels {
+            show: "विंडो दिखाएं",
+            quit: "बाहर निकलें",
+            tooltip: "EgressAPIKEY",
+        },
     }
 }
 
@@ -84,8 +178,13 @@ pub fn lang_for_str(s: &str) -> TrayLang {
 
 pub fn current_lang(app: &AppHandle) -> TrayLang {
     use tauri_plugin_store::StoreExt;
-    let Ok(store) = app.store("settings.json") else { return TrayLang::En; };
-    let lang = store.get("lang").and_then(|v| v.as_str().map(String::from)).unwrap_or_else(|| "en".into());
+    let Ok(store) = app.store("settings.json") else {
+        return TrayLang::En;
+    };
+    let lang = store
+        .get("lang")
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(|| "en".into());
     lang_for_str(&lang)
 }
 
@@ -155,7 +254,12 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         // Re10: left-click the tray icon = show+focus the GUI (it is the most
         // common "I minimized to tray, bring it back" gesture).
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
                 let app = tray.app_handle();
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.unminimize();
@@ -180,9 +284,24 @@ mod tests {
     #[test]
     fn labels_all_variants_non_empty() {
         let all = [
-            TrayLang::En, TrayLang::Zh, TrayLang::Ja, TrayLang::Es, TrayLang::Fr, TrayLang::De,
-            TrayLang::Ko, TrayLang::Ru, TrayLang::Pt, TrayLang::Ar, TrayLang::It, TrayLang::Nl,
-            TrayLang::Pl, TrayLang::Tr, TrayLang::Vi, TrayLang::Th, TrayLang::Id, TrayLang::Hi,
+            TrayLang::En,
+            TrayLang::Zh,
+            TrayLang::Ja,
+            TrayLang::Es,
+            TrayLang::Fr,
+            TrayLang::De,
+            TrayLang::Ko,
+            TrayLang::Ru,
+            TrayLang::Pt,
+            TrayLang::Ar,
+            TrayLang::It,
+            TrayLang::Nl,
+            TrayLang::Pl,
+            TrayLang::Tr,
+            TrayLang::Vi,
+            TrayLang::Th,
+            TrayLang::Id,
+            TrayLang::Hi,
         ];
         for lc in all {
             let l = labels(lc);
@@ -198,29 +317,65 @@ mod tests {
     #[test]
     fn labels_show_distinct_per_locale() {
         let all = [
-            TrayLang::En, TrayLang::Zh, TrayLang::Ja, TrayLang::Es, TrayLang::Fr, TrayLang::De,
-            TrayLang::Ko, TrayLang::Ru, TrayLang::Pt, TrayLang::Ar, TrayLang::It, TrayLang::Nl,
-            TrayLang::Pl, TrayLang::Tr, TrayLang::Vi, TrayLang::Th, TrayLang::Id, TrayLang::Hi,
+            TrayLang::En,
+            TrayLang::Zh,
+            TrayLang::Ja,
+            TrayLang::Es,
+            TrayLang::Fr,
+            TrayLang::De,
+            TrayLang::Ko,
+            TrayLang::Ru,
+            TrayLang::Pt,
+            TrayLang::Ar,
+            TrayLang::It,
+            TrayLang::Nl,
+            TrayLang::Pl,
+            TrayLang::Tr,
+            TrayLang::Vi,
+            TrayLang::Th,
+            TrayLang::Id,
+            TrayLang::Hi,
         ];
         let shows: Vec<&str> = all.iter().map(|lc| labels(*lc).show).collect();
         let mut dedup = shows.clone();
         dedup.sort_unstable();
         dedup.dedup();
-        assert_eq!(dedup.len(), shows.len(),
-            "show labels must be distinct per locale; duplicates found");
+        assert_eq!(
+            dedup.len(),
+            shows.len(),
+            "show labels must be distinct per locale; duplicates found"
+        );
     }
 
     /// The locale-key table must cover every frontend base locale (the 18 in
     /// `src/store/appStore.ts` Locale union). Unknown/garbage -> English.
     #[test]
     fn lang_for_str_covers_all_base_locales() {
-        let base = ["en", "zh", "ja", "es", "fr", "de", "ko", "ru", "pt", "ar",
-                    "it", "nl", "pl", "tr", "vi", "th", "id", "hi"];
+        let base = [
+            "en", "zh", "ja", "es", "fr", "de", "ko", "ru", "pt", "ar", "it", "nl", "pl", "tr",
+            "vi", "th", "id", "hi",
+        ];
         // Each maps to the expected variant (round-trip on the canonical key).
-        let expect = [TrayLang::En, TrayLang::Zh, TrayLang::Ja, TrayLang::Es, TrayLang::Fr,
-            TrayLang::De, TrayLang::Ko, TrayLang::Ru, TrayLang::Pt, TrayLang::Ar, TrayLang::It,
-            TrayLang::Nl, TrayLang::Pl, TrayLang::Tr, TrayLang::Vi, TrayLang::Th, TrayLang::Id,
-            TrayLang::Hi];
+        let expect = [
+            TrayLang::En,
+            TrayLang::Zh,
+            TrayLang::Ja,
+            TrayLang::Es,
+            TrayLang::Fr,
+            TrayLang::De,
+            TrayLang::Ko,
+            TrayLang::Ru,
+            TrayLang::Pt,
+            TrayLang::Ar,
+            TrayLang::It,
+            TrayLang::Nl,
+            TrayLang::Pl,
+            TrayLang::Tr,
+            TrayLang::Vi,
+            TrayLang::Th,
+            TrayLang::Id,
+            TrayLang::Hi,
+        ];
         for (k, want) in base.iter().zip(expect.iter()) {
             assert_eq!(lang_for_str(k), *want, "lang_for_str({k:?}) mismatch");
         }

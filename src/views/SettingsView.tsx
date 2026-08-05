@@ -15,6 +15,9 @@ import {
   saveMihomoApi,
   loadWebdavConfig,
   saveWebdavConfig,
+  loadIpReputationConfig,
+  saveIpReputationConfig,
+  type IpReputationConfig,
 } from "../lib/settings";
 
 const LOCALES: Locale[] = ["en", "zh", "es", "fr", "de", "ja", "ko", "ru", "pt", "it", "nl", "pl", "tr", "ar", "vi", "th", "id", "hi"];
@@ -90,9 +93,10 @@ export function SettingsView() {
   // MihomoController::new which refuses non-loopback URLs (§7.6).
   const [gatewayBind, setGatewayBind] = useState("127.0.0.1:7897");
   const [mihomoApi, setMihomoApi] = useState("http://127.0.0.1:9090");
+  const [reputationConfig, setReputationConfig] = useState<IpReputationConfig>({ provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" });
   // C2-8: dirty-state tracking — baseline snapshot vs current form values.
   // idiomatic enterprise pattern (minimal baseline+JSON.stringify diff, no RHF dep).
-  const [baseline, setBaseline] = useState({ lanes: laneCount, gatewayBind, mihomoApi });
+  const [baseline, setBaseline] = useState({ lanes: laneCount, gatewayBind, mihomoApi, reputationConfig: { provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" } });
   // WebDAV backup config (clash-verge-rev pattern)
   const [backupUrl, setBackupUrl] = useState("");
   const [whiteboxPath, setWhiteboxPath] = useState("");
@@ -127,11 +131,12 @@ export function SettingsView() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [b, m] = await Promise.all([loadGatewayBind(), loadMihomoApi()]);
+      const [b, m, reputation] = await Promise.all([loadGatewayBind(), loadMihomoApi(), loadIpReputationConfig()]);
       if (cancelled) return;
       if (b) setGatewayBind(b);
       if (m) setMihomoApi(m);
-      setBaseline({ lanes: laneCount, gatewayBind: b ?? gatewayBind, mihomoApi: m ?? mihomoApi });
+      setReputationConfig(reputation);
+      setBaseline({ lanes: laneCount, gatewayBind: b ?? gatewayBind, mihomoApi: m ?? mihomoApi, reputationConfig: reputation });
     })();
     return () => { cancelled = true; };
   }, []);
@@ -237,7 +242,7 @@ export function SettingsView() {
  };
 
  // C2-8: isDirty = baseline vs current form snapshot. showSaveBar gates the sticky bar.
- const isDirty = useMemo(() => JSON.stringify({ lanes, gatewayBind, mihomoApi }) !== JSON.stringify(baseline), [lanes, gatewayBind, mihomoApi, baseline]);
+ const isDirty = useMemo(() => JSON.stringify({ lanes, gatewayBind, mihomoApi, reputationConfig }) !== JSON.stringify(baseline), [lanes, gatewayBind, mihomoApi, reputationConfig, baseline]);
  const showSaveBar = isDirty || busy || saved;
 
  const saveAll = async () => {
@@ -258,8 +263,8 @@ export function SettingsView() {
     const api = looksLikeUrl ? rawApi : "http://127.0.0.1:9090";
     setGatewayBind(bind);
     setMihomoApi(api);
-    await Promise.all([saveGatewayBind(bind), saveMihomoApi(api)]);
-    setBaseline({ lanes: n, gatewayBind: bind, mihomoApi: api });
+    await Promise.all([saveGatewayBind(bind), saveMihomoApi(api), saveIpReputationConfig(reputationConfig)]);
+    setBaseline({ lanes: n, gatewayBind: bind, mihomoApi: api, reputationConfig });
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
     } finally { setBusy(false); }
@@ -350,6 +355,19 @@ export function SettingsView() {
         </Field>
         {/* Issue 6: per-card Save removed; the unified sticky bottom bar
             calls saveAll() so there is one obvious commit action. */}
+      </SectionCard>
+      <SectionCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("settings.ipReputation")}>
+        <Field label={t("settings.ipReputationProvider")} hint={t("settings.ipReputationHelp")}>
+          <select aria-label={t("settings.ipReputationProvider")} value={reputationConfig.provider} onChange={(e) => setReputationConfig((current) => ({ ...current, provider: e.target.value as IpReputationConfig["provider"] }))} className={inputCls}>
+            <option value="">{t("settings.ipReputationDisabled")}</option>
+            <option value="ip_quality_score">{t("settings.ipQualityScore")}</option>
+            <option value="abuse_ip_db">{t("settings.abuseIpDb")}</option>
+            <option value="ip_api">{t("settings.ipApi")}</option>
+          </select>
+        </Field>
+        {reputationConfig.provider === "ip_quality_score" ? <Field label={t("settings.ipReputationKey")}><input aria-label={t("settings.ipReputationKey")} type="password" autoComplete="off" value={reputationConfig.ipQualityScoreApiKey} onChange={(e) => setReputationConfig((current) => ({ ...current, ipQualityScoreApiKey: e.target.value }))} className={inputCls} /></Field> : null}
+        {reputationConfig.provider === "abuse_ip_db" ? <Field label={t("settings.ipReputationKey")}><input aria-label={t("settings.ipReputationKey")} type="password" autoComplete="off" value={reputationConfig.abuseIpDbApiKey} onChange={(e) => setReputationConfig((current) => ({ ...current, abuseIpDbApiKey: e.target.value }))} className={inputCls} /></Field> : null}
+        {reputationConfig.provider === "ip_api" ? <p className="text-xs text-amber-700 dark:text-amber-300">{t("settings.ipApiWarning")}</p> : null}
       </SectionCard>
       <SectionCard icon={<FolderOpen size={16} strokeWidth={1.75} />} title={t("settings.storage")}>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-3">

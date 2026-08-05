@@ -26,6 +26,7 @@ import {
   ipChannelList, ipChannelPolicySet, ipChannelCreate, ipChannelDelete,
   ipcPortList, ipcPortUpsert, ipcPortRemove, ipcPortRunning, ipcPortReload,
   ipcWhiteboxPath, ipcWhiteboxGet, ipcWhiteboxReload,
+  ipcIpReputationSnapshot,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -293,6 +294,22 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     await expect(ipcPortUpsert({ port: 80, protocol: "socks5", platform_name: "OpenAI" })).rejects.toThrow(/port out of range/);
     await expect(ipcPortUpsert({ port: 17990, protocol: "ftp", platform_name: "OpenAI" })).rejects.toThrow(/protocol must be socks5 or http/);
     expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ipcIpReputationSnapshot forwards and normalizes malformed responses", async () => {
+    invokeMock.mockResolvedValueOnce({ provider: "ip_api", status: "ok", entries: [{ ip: "1.1.1.1", score: 5 }] });
+    await expect(ipcIpReputationSnapshot()).resolves.toMatchObject({ provider: "ip_api", status: "ok" });
+    expect(invokeMock).toHaveBeenLastCalledWith("ip_reputation_snapshot");
+    invokeMock.mockResolvedValueOnce({ provider: "ip_api", status: "ok" });
+    await expect(ipcIpReputationSnapshot()).resolves.toEqual({ provider: null, status: "disabled", entries: [] });
+  });
+
+  it("ipcIpReputationSnapshot forwards and normalizes malformed responses", async () => {
+    invokeMock.mockResolvedValueOnce({ provider: "ip_api", status: "ok", entries: [{ ip: "1.1.1.1", score: 5 }] });
+    await expect(ipcIpReputationSnapshot()).resolves.toMatchObject({ provider: "ip_api", status: "ok" });
+    expect(invokeMock).toHaveBeenLastCalledWith("ip_reputation_snapshot");
+    invokeMock.mockResolvedValueOnce({ provider: "ip_api", status: "ok" });
+    await expect(ipcIpReputationSnapshot()).resolves.toEqual({ provider: null, status: "disabled", entries: [] });
   });
 
   it("ipcPortRemove / ipcPortRunning / ipcPortReload forward", async () => {

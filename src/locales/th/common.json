@@ -73,7 +73,12 @@
     "lastRefresh": "รีเฟรชล่าสุด: {{time}}",
     "egressPolicyNote": "นโยบายทางออกตามภูมิภาคตั้งค่าบนผืนผ้าใบ Topology: ลากแพลตฟอร์มไปยังภูมิภาคช่อง IP แล้วตั้ง Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) บนแพลตฟอร์ม Resin v1.1.2 ไม่มีตัวเลือกรายโหนด",
     "protocolWeights": "น้ำหนักโปรโตคอลสำหรับ AI SSE",
-    "protocolWeightDesc": "ดีที่สุด (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. ปานกลาง (0.7): shadowsocks. หลีกเลี่ยง (0.1): hysteria2, tuic, wireguard (ใช้ QUIC, ทำลายสตรีม SSE)।"
+    "protocolWeightDesc": "ดีที่สุด (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. ปานกลาง (0.7): shadowsocks. หลีกเลี่ยง (0.1): hysteria2, tuic, wireguard (ใช้ QUIC, ทำลายสตรีม SSE)।",
+    "reputationTitle": "IP reputation",
+    "reputationSummary": "{{count}} live egress IPs checked",
+    "reputationCached": "cached",
+    "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
+    "reputationDisabled": "IP reputation checks are disabled."
   },
   "platform": {
     "accounts": "บัญชี",
@@ -140,7 +145,16 @@
     "interceptPortHint": "ตั้งค่านี้เป็น base_url ใน omniroute / litellm เพื่อให้คีย์ API ทั้งหมดผ่านตัวสกัดกั้น ตัวสกัดกั้นจะแทรก X-Resin-Account ตาม (คีย์, โมเดล) เพื่อให้คู่ (คีย์, endpoint) แต่ละคู่ ได้ IP ขาออกที่ต่างกัน",
     "whiteboxReload": "โหลดการตั้งค่าพอร์ตใหม่",
     "whiteboxPath": "ไฟล์การตั้งค่าพอร์ต",
-    "whiteboxReloaded": "โหลดการตั้งค่าพอร์ตแล้ว — {{count}}"
+    "whiteboxReloaded": "โหลดการตั้งค่าพอร์ตแล้ว — {{count}}",
+    "ipReputation": "IP reputation",
+    "ipReputationProvider": "Provider",
+    "ipReputationDisabled": "Disabled",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "Provider API key",
+    "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
   },
   "subscription": {
     "title": "การสมัครรับข้อมูล",

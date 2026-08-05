@@ -10,7 +10,7 @@
 
 use anyhow::Result;
 use clap::Parser;
-use resin_core::{CoreConfig, sanitize_lanes, MAX_LANES, MIN_LANES};
+use resin_core::{sanitize_lanes, CoreConfig, MAX_LANES, MIN_LANES};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
@@ -40,11 +40,18 @@ async fn main() -> Result<()> {
 
 /// Read a JSON config file into CoreConfig. Failures fall back to default.
 fn load_config(path: Option<&PathBuf>) -> CoreConfig {
-    let Some(p) = path else { return CoreConfig::default(); };
-    if !p.exists() { return CoreConfig::default(); }
+    let Some(p) = path else {
+        return CoreConfig::default();
+    };
+    if !p.exists() {
+        return CoreConfig::default();
+    }
     match std::fs::read(p) {
         Ok(bytes) => match serde_json::from_slice::<CoreConfig>(&bytes) {
-            Ok(mut c) => { c.lanes = sanitize_lanes(c.lanes); c }
+            Ok(mut c) => {
+                c.lanes = sanitize_lanes(c.lanes);
+                c
+            }
             Err(_) => CoreConfig::default(),
         },
         Err(_) => CoreConfig::default(),

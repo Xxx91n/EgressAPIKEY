@@ -73,7 +73,12 @@
     "lastRefresh": "Última actualización: {{time}}",
     "egressPolicyNote": "La política de egreso por región se configura en el lienzo Topology: arrastra una Plataforma a una región de canal IP y establece su Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP). Resin v1.1.2 no tiene selector por nodo.",
     "protocolWeights": "Pesos de protocolo para SSE AI",
-    "protocolWeightDesc": "Mejor (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Moderado (0.7): shadowsocks. Evitar (0.1): hysteria2, tuic, wireguard (basado en QUIC, rompe streams SSE)."
+    "protocolWeightDesc": "Mejor (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Moderado (0.7): shadowsocks. Evitar (0.1): hysteria2, tuic, wireguard (basado en QUIC, rompe streams SSE).",
+    "reputationTitle": "IP reputation",
+    "reputationSummary": "{{count}} live egress IPs checked",
+    "reputationCached": "cached",
+    "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
+    "reputationDisabled": "IP reputation checks are disabled."
   },
   "platform": {
     "accounts": "Cuentas",
@@ -140,7 +145,16 @@
     "interceptPortHint": "Configura esto como base_url en omniroute / litellm para que todas las API keys pasen por el interceptor. Este inyecta X-Resin-Account por (key, model) para que cada par (key, endpoint) obtenga una IP de salida distinta.",
     "whiteboxReload": "Recargar config de puertos",
     "whiteboxPath": "Archivo de config de puertos",
-    "whiteboxReloaded": "Config de puertos recargada — {{count}} listeners"
+    "whiteboxReloaded": "Config de puertos recargada — {{count}} listeners",
+    "ipReputation": "IP reputation",
+    "ipReputationProvider": "Provider",
+    "ipReputationDisabled": "Disabled",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "Provider API key",
+    "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
   },
   "subscription": {
     "title": "Suscripciones",

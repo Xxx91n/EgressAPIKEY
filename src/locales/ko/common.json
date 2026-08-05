@@ -73,7 +73,12 @@
     "lastRefresh": "최근 새로고침: {{time}}",
     "egressPolicyNote": "리전별 출구 정책은 Topology 캔버스에서 설정합니다: 플랫폼을 IP 채널 리전으로 드래그한 뒤 플랫폼의 Allocation policy(BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP)를 설정하세요. Resin v1.1.2는 노드별 정책 선택 기능이 없습니다.",
     "protocolWeights": "AI SSE 프로토콜 가중치",
-    "protocolWeightDesc": "최적 (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. 보통 (0.7): shadowsocks. 피해야 함 (0.1): hysteria2, tuic, wireguard (QUIC 기반, SSE 스트림 중단)."
+    "protocolWeightDesc": "최적 (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. 보통 (0.7): shadowsocks. 피해야 함 (0.1): hysteria2, tuic, wireguard (QUIC 기반, SSE 스트림 중단).",
+    "reputationTitle": "IP reputation",
+    "reputationSummary": "{{count}} live egress IPs checked",
+    "reputationCached": "cached",
+    "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
+    "reputationDisabled": "IP reputation checks are disabled."
   },
   "platform": {
     "accounts": "계정",
@@ -140,7 +145,16 @@
     "interceptPortHint": "omniroute / litellm에서 이 값을 base_url로 설정하면 모든 API 키가 인터셉터를 경유합니다. 인터셉터는 (key, model)마다 X-Resin-Account를 주입하여 각 (key, 엔드포인트) 조합이 서로 다른 출구 IP를 갖도록 합니다.",
     "whiteboxReload": "엔트리 포트 설정 다시 로드",
     "whiteboxPath": "엔트리 포트 설정 파일",
-    "whiteboxReloaded": "엔트리 포트 설정 다시 로드됨 — 리스너 {{count}}"
+    "whiteboxReloaded": "엔트리 포트 설정 다시 로드됨 — 리스너 {{count}}",
+    "ipReputation": "IP reputation",
+    "ipReputationProvider": "Provider",
+    "ipReputationDisabled": "Disabled",
+    "ipQualityScore": "IPQualityScore",
+    "abuseIpDb": "AbuseIPDB",
+    "ipApi": "ip-api",
+    "ipReputationKey": "Provider API key",
+    "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
   },
   "subscription": {
     "title": "구독",

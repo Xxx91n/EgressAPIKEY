@@ -267,6 +267,31 @@ export async function ipcNodePoolSnapshot(): Promise<{ total_nodes: number; heal
 }
 
 
+export type ReputationProvider = "ip_quality_score" | "abuse_ip_db" | "ip_api";
+export interface ReputationEntry {
+  ip: string;
+  provider: ReputationProvider;
+  score: number | null;
+  proxy: boolean | null;
+  vpn: boolean | null;
+  tor: boolean | null;
+  country_code: string | null;
+  checked_at: number;
+  cached: boolean;
+}
+export interface ReputationSnapshot {
+  provider: ReputationProvider | null;
+  status: "disabled" | "not_configured" | "ok" | string;
+  entries: ReputationEntry[];
+}
+
+/** P4: server-side lookup of Resin's real public lease egress IPs. No free-form IP/URL reaches Rust. */
+export async function ipcIpReputationSnapshot(): Promise<ReputationSnapshot> {
+  const raw = await invoke<ReputationSnapshot>("ip_reputation_snapshot");
+  return raw && Array.isArray(raw.entries) ? raw : { provider: null, status: "disabled", entries: [] };
+}
+
+
 /// Backup: create zip of settings + resin state, return temp path.
 export async function ipcBackupCreate(): Promise<string> {
   return invoke<string>("backup_create");

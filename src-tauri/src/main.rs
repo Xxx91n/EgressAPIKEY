@@ -4,10 +4,16 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use egressapikey_app::{build_shared_gateway, build_shared_registry, commands, sidecar::{boot_resin, spawn_health_poll, SidecarHandle}, tray::build_tray};
+use egressapikey_app::{
+    build_shared_gateway, build_shared_registry, commands,
+    sidecar::{boot_resin, spawn_health_poll, SidecarHandle},
+    tray::build_tray,
+};
 use resin_core::{CoreConfig, DEFAULT_LANES};
-use resin_core::{DbPool, PortForwarder, WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE};
-use tauri::{Manager, Emitter, WindowEvent};
+use resin_core::{
+    DbPool, PortForwarder, WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE,
+};
+use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_store::StoreExt;
 
 fn main() {
@@ -117,6 +123,7 @@ fn main() {
             commands::config_export,
             commands::config_import,
             commands::lease_map,
+            commands::ip_reputation_snapshot,
             commands::port_list,
             commands::port_upsert,
             commands::port_remove,
