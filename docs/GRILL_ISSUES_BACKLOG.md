@@ -121,12 +121,12 @@ ambiguity or the user raises a new concern.
 | Step | Task | Status |
 |------|------|--------|
 | T1-1 | ADR-0015 + backlog update | done |
-| T1-2 | fetch_resin.{ps1,sh} REL v1.1.2→v1.2.0 + fetch binary | pending |
-| T1-3 | ResinClient: 5 endpoint methods + mockito tests | pending |
-| T1-4 | port_forwarder.rs: delete protocol handling, keep StreamSensor + identity + constants | pending |
-| T1-5 | db.rs PortMapping field align with endpoint schema | pending |
-| T1-6 | commands/mod.rs port_* IPC → endpoint API forwarder | pending |
-| T1-7 | main.rs PortForwarder::new wiring → ResinClient + StreamSensor | pending |
-| T1-8 | frontend ipc.ts PortMapping type alignment | pending |
-| T1-9 | Build: pnpm build + cargo build --release + stage + smoke + codegraph sync | pending |
-| T1-10 | Phase 6 remaining: C2-11/C2-12/C2-13/C1-2/3/4 polish | pending |
+| T1-2 | fetch_resin.{ps1,sh} REL v1.1.2→v1.2.0 + fetch binary | done (0b913a0) |
+| T1-3 | ResinClient: 5 endpoint methods + mockito tests | done (0b913a0, 88 cargo pass) |
+| T1-4 | port_forwarder.rs: delete protocol handling, keep StreamSensor + identity + constants | done (0b913a0, 791→208 lines) |
+| T1-5 | db.rs PortMapping field align with endpoint schema | done (schema already aligned; port primary key) |
+| T1-6 | commands/mod.rs port_* IPC → endpoint API forwarder + atomic werbox layering | done (this commit; +#[tauri::command]) |
+| T1-7 | main.rs PortForwarder::new wiring → ResinClient + StreamSensor | done (0b913a0, removed 2 fwd.reload fallbacks) |
+| T1-8 | frontend ipc.ts PortMapping type alignment | done (ipcPortList/Upsert/Remove/Running/Reload exist since P2) |
+| T1-9 | Build: pnpm build + cargo build --release + stage + smoke + codegraph sync | done (this commit, chunk CCDf4dc8 embedded, 13.25 MB, smoke green) |
+| T1-10 | Phase 6 remaining: C2-11/C2-12/C2-13/C1-2/3/4 polish | pending (next phase) |

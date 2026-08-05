@@ -1506,6 +1506,7 @@ pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapp
 /// (validate -> SQLite replace -> listener reload -> atomic JSON -> hotswap).
 #[tauri::command]
 pub async fn port_upsert(
+    sidecar: State<'_, SidecarHandle>,
     db: State<'_, DbPool>,
     forwarder: State<'_, resin_core::PortForwarder>,
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
@@ -1522,14 +1523,49 @@ pub async fn port_upsert(
     } else {
         account
     };
+    let proto = protocol.trim().to_ascii_lowercase();
     let m = resin_core::PortMapping {
         port,
-        protocol: protocol.trim().to_ascii_lowercase(),
+        protocol: proto.clone(),
         platform_name,
         account: acct,
         label,
         enabled,
     };
+    // Step 1: Resin endpoint API CRUD (owns listener lifecycle)
+    if enabled {
+        let client = resin_client(&sidecar)?;
+        let existing = client.list_endpoints().await
+            .map_err(|e| format!("list_endpoints: {e:?}"))?;
+        let items_arr = existing.get("items")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        let found = items_arr.iter().find(|ep| {
+            ep.get("port").and_then(|p| p.as_u64()) == Some(port as u64)
+        });
+        let allow_socks5 = proto == "socks5";
+        let allow_http_forward = proto == "http" || proto == "socks5";
+        let body = serde_json::json!({
+            "port": port,
+            "allow_management": false,
+            "allow_proxy": true,
+            "allow_http_forward": allow_http_forward,
+            "allow_http_reverse": false,
+            "allow_socks5": allow_socks5,
+        });
+        if let Some(ep) = found {
+            // PATCH if port exists
+            let ep_id = ep.get("id").and_then(|v| v.as_str()).unwrap_or("");
+            client.update_endpoint(ep_id, body).await
+                .map_err(|e| format!("update_endpoint: {e:?}"))?;
+        } else {
+            // POST if port does not exist (create new listener)
+            client.create_endpoint(body).await
+                .map_err(|e| format!("create_endpoint: {e:?}"))?;
+        }
+    }
+    // Step 2: Shell DB + whitebox metadata (port -> platform_name binding)
     let mut next = whitebox.snapshot();
     if let Some(existing) = next.entry_ports.iter_mut().find(|row| row.port == m.port) {
         *existing = m.clone();
@@ -1543,6 +1579,7 @@ pub async fn port_upsert(
 
 #[tauri::command]
 pub async fn port_remove(
+    sidecar: State<'_, SidecarHandle>,
     db: State<'_, DbPool>,
     forwarder: State<'_, resin_core::PortForwarder>,
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
@@ -1551,6 +1588,28 @@ pub async fn port_remove(
     if port < resin_core::MIN_USER_PORT {
         return Err(format!("port {port} is privileged"));
     }
+    // Step 1: Resin endpoint API delete (find by port -> endpoint_id -> DELETE)
+    let client = resin_client(&sidecar)?;
+    let existing = client.list_endpoints().await
+        .map_err(|e| format!("list_endpoints: {e:?}"))?;
+    let items_arr = existing.get("items")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    for ep in items_arr.iter() {
+        if ep.get("port").and_then(|p| p.as_u64()) == Some(port as u64) {
+            if let Some(ep_id) = ep.get("id").and_then(|v| v.as_str()) {
+                if ep_id == "default" {
+                    // Don't try to delete the default endpoint (read_only)
+                    continue;
+                }
+                let _ = client.delete_endpoint(ep_id).await
+                    .map_err(|e| format!("delete_endpoint: {e:?}"))?;
+                break;
+            }
+        }
+    }
+    // Step 2: Remove from shell DB + whitebox metadata
     let mut next = whitebox.snapshot();
     next.entry_ports.retain(|row| row.port != port);
     whitebox.apply(&db, &forwarder, next).await?;

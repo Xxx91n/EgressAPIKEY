@@ -10,7 +10,9 @@
 
 use anyhow::Result;
 use clap::Parser;
-use resin_core::{sanitize_lanes, CoreConfig, MAX_LANES, MIN_LANES};
+use resin_core::{sanitize_lanes, CoreConfig};
+#[cfg(test)]
+use resin_core::{MAX_LANES, MIN_LANES};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]

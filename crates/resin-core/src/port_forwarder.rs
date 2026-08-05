@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use tokio::sync::watch;
 
-use crate::db::{DbPool, PortMapping};
+use crate::db::DbPool;
 use crate::{StreamSensor, StreamSensorSnapshot};
 
 /// Max concurrent entry ports the shell will bind (industrial safety).
@@ -52,11 +52,13 @@ pub fn detect_protocol(first: u8) -> &'static str {
     }
 }
 
+#[cfg(test)]
 fn basic_proxy_auth(identity: &str, proxy_token: &str) -> String {
     let raw = format!("{identity}:{proxy_token}");
     b64_encode(raw.as_bytes())
 }
 
+#[cfg(test)]
 fn b64_encode(input: &[u8]) -> String {
     const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(((input.len() + 2) / 3) * 4);

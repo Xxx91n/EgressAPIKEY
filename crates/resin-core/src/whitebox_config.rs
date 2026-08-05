@@ -229,7 +229,7 @@ impl WhiteboxConfigStore {
 
 async fn apply_ports(
     db: &DbPool,
-    forwarder: &PortForwarder,
+    _forwarder: &PortForwarder,
     next: &[PortMapping],
 ) -> Result<usize, String> {
     validate(&WhiteboxConfig::from_ports(next.to_vec()))?;
