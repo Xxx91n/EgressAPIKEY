@@ -48,11 +48,11 @@
 11. NEW-6: IP reputation integration (IPQualityScore + AbuseIPDB + ip-api, pluggable)
 
 ### Phase 5: GUI redefinition (after Phase 2)
-12. TopologyView A column = entry ports (multiple, each port = identity)
-13. TopologyView B column = platforms with port-based chips
-14. PlatformsView left pane = entry ports (not key candidates)
-15. PlatformsView right pane = platforms (drag port -> platform)
-16. ProcessRouteView = process -> port mapping (lane deprecated)
+12. **DONE (P5a-7dd3c1d)** TopologyView A column = entry ports (multiple, each port = identity)
+13. **DONE (P5b-7dd3c1d)** TopologyView B column = platforms with port-based chips
+14. **DONE (P21)** PlatformsView left pane = entry ports (already refactored in P21)
+15. **DONE (P21)** PlatformsView right pane = platforms (drag port -> platform already in P21)
+16. **DONE (P5c-7dd3c1d)** ProcessRouteView = process -> port mapping (lane deprecated)
 
 ### Phase 6: Surviving polish items (after Phase 5)
 17. C2-9: log system maturation
