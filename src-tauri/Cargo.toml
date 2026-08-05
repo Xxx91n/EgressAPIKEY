@@ -1,19 +1,19 @@
 [package]
-name = "ai-api-route-app"
+name = "egressapikey-app"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Tauri 2 desktop shell for ai-api-route"
+description = "Tauri 2 desktop shell for EgressAPIKEY"
 
 [lib]
-name = "ai_api_route_app"
+name = "egressapikey_app"
 path = "src/lib.rs"
 
 [[bin]]
-name = "ai-api-route"
+name = "EgressAPIKEY"
 path = "src/main.rs"
 
 [dependencies]
@@ -58,7 +58,7 @@ tauri-build = { version = "2", features = ["codegen"] }
 # `cargo build --release` would still set dev:true and the webview would try
 # to load http://localhost:1420 (ERR_CONNECTION_REFUSED when no dev server
 # runs). Forward the feature so our portable build path can opt in:
-#   cargo build --release -p ai-api-route-app --features custom-protocol
+#   cargo build --release -p egressapikey-app --features custom-protocol
 # build-all.sh / CI must pass --features custom-protocol for every GUI build
 # that is handed to a user. See AGENTS.md section 5.
 [features]

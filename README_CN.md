@@ -1,4 +1,6 @@
-# AI API Route · AI API 路由
+# EgressAPIKEY
+
+> 原名 **ai-api-route**。按 ADR-0013 改名。
 
 **面向 AI API Key 的特化代理池，配有拓扑画布。**
 

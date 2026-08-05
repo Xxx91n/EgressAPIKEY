@@ -3,12 +3,12 @@
 #   - backend headless (resin-core): compile-guard only, NOT staged (P0 stub,
 #     see crates/resin-core/src/bin/resin_core.rs - logs + exits, no listener)
 #   - GUI installer bundles (msi/nsis setup, deb, AppImage, dmg) -> release/${NAME}-gui/
-#   - GUI portable binary -> release/${NAME}-gui/ai-api-route(.exe)
+#   - GUI portable binary -> release/${NAME}-gui/egressapikey(.exe)
 # Both GUI paths MUST pass --features custom-protocol (AGENTS.md section 5):
 # without it tauri::generate_context! compiles dev:true and the webview loads
 # devUrl (http://localhost:1420), giving ERR_CONNECTION_REFUSED on any
 # machine without a Vite dev server. A flow guard launches the portable exe
-# and verifies MainWindowTitle == ai-api-route + alive 5s + no panic
+# and verifies MainWindowTitle == EgressAPIKEY + alive 5s + no panic
 # (mirrors AGENTS.md section 5 launch-verify). The find searches BOTH
 # src-tauri/target AND the workspace root target/ because tauri build may
 # output the portable exe under either (gnu/msvc target triple subdir).
@@ -43,7 +43,7 @@ fi
 # so both the installer step and the portable finder see it.
 TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
 if [ -n "$TRIPLE" ] && [ -d "target/$TRIPLE/release" ]; then
-  for f in target/$TRIPLE/release/ai-api-route*; do
+  for f in target/$TRIPLE/release/egressapikey*; do
     [ -f "$f" ] && cp "$f" "target/release/" 2>/dev/null || true
   done
 fi
@@ -55,7 +55,7 @@ if [ -n "$TAURI_BIN" ]; then
   $TAURI_BIN build --no-bundle --features custom-protocol || echo "[build-all] WARNING: --no-bundle not supported; skipping portable"
 else
   echo "[build-all] tauri-cli not installed; fallback cargo build (portable GUI only)"
-  cargo build --release -p ai-api-route-app --features custom-protocol
+  cargo build --release -p egressapikey-app --features custom-protocol
 fi
 
 GUI_STAGE="release/${NAME}-gui"
@@ -63,10 +63,10 @@ rm -rf "$GUI_STAGE"
 mkdir -p "$GUI_STAGE"
 BUNDLES="$(find src-tauri/target target -maxdepth 6 -type f \( -name '*.msi' -o -name '*-setup.exe' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' \) 2>/dev/null || true)"
 for f in $BUNDLES; do cp "$f" "$GUI_STAGE/" 2>/dev/null || true; done
-PORT_BIN="$(find src-tauri/target target -maxdepth 5 -type f \( -name 'ai-api-route' -o -name 'ai-api-route.exe' \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | head -n1 || true)"
+PORT_BIN="$(find src-tauri/target target -maxdepth 5 -type f \( -name 'egressapikey' -o -name 'egressapikey.exe' \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | head -n1 || true)"
 if [ -z "$PORT_BIN" ]; then echo "[build-all] ERROR: portable GUI binary not found (searched src-tauri/target and target)"; exit 1; fi
-PORT_NAME=ai-api-route
-case $NAME in windows) PORT_NAME=ai-api-route.exe ;; esac
+PORT_NAME=egressapikey
+case $NAME in windows) PORT_NAME=egressapikey.exe ;; esac
 cp "$PORT_BIN" "$GUI_STAGE/$PORT_NAME"
 
 # Ponytail: portable exe needs the sidecar binary (resin) in the SAME

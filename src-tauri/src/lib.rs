@@ -1,4 +1,4 @@
-//! Tauri 2 desktop shell for ai-api-route. Owns sidecar lifecycle, the
+//! Tauri 2 desktop shell for EgressAPIKEY. Owns sidecar lifecycle, the
 //! system tray, and the Ghost-style safety net. Wires frontend IPC commands
 //! to a resin-core GatewayState instance.
 //!
@@ -39,7 +39,7 @@ pub fn build_shared_registry() -> SharedRegistry {
 
 /// Legacy placeholder kept for any external callers/tests that used `init()`.
 pub fn init() -> anyhow::Result<()> {
-    tracing::trace!("ai-api-route shell init");
+    tracing::trace!("EgressAPIKEY shell init");
     Ok(())
 }
 

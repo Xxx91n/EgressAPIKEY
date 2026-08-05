@@ -185,6 +185,6 @@
   "tray": {
     "show": "ウィンドウを表示",
     "quit": "終了",
-    "tooltip": "ai-api-route"
+    "tooltip": "EgressAPIKEY"
   }
 }

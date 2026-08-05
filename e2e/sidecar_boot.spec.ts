@@ -19,7 +19,7 @@ test("G1: app shell mounts and sidecar contract surfaces", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Topology/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /Settings/i })).toBeVisible();
   // G1 contract file under src-tauri/src/sidecar.rs (verified at build time
-  // by `cargo build -p ai-api-route-app --features custom-protocol`).
+  // by `cargo build -p egressapikey-app --features custom-protocol`).
   // Documenting here so a future deletion trips a maintainer reading this
   // spec; the actual binary is asserted by the release-exe smoke harness.
 });

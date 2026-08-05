@@ -1,10 +1,12 @@
-# AI API Route
+# EgressAPIKEY
+
+> Formerly **ai-api-route**. Renamed per ADR-0013.
 
 [中文](README_CN.md)
 
-**AI API key specialized proxy pool with a topology canvas.**
+**Multi-port socks5/http forwarder between AI gateways and upstream v1 providers — exit-IP routing for AI API keys, with a topology canvas.**
 
-A desktop application (Tauri 2 + React 19) that provides an L7 proxy gateway for AI API keys. Each key is hashed into a lane, and every request opens a fresh TCP connection through mihomo to guarantee distinct exit IPs — solving the same-domain/same-IP collision problem that plagues AI API key pools.
+A desktop application (Tauri 2 + React 19) that sits between an AI gateway (omniroute/litellm/cliproxy) and upstream v1 providers. It exposes many socks5/http entry ports; each port is the identity for a (platform, account) pair mapped onto a Resin Go sidecar. Topology canvas + allocation strategies route each port to exit IPs. HTTPS upstreams are opaque to a single unified proxy, so multi-port is the correct identity mechanism (ADR-0012).
 
 ## Quick start
 

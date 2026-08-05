@@ -185,6 +185,6 @@
   "tray": {
     "show": "창 표시",
     "quit": "종료",
-    "tooltip": "ai-api-route"
+    "tooltip": "EgressAPIKEY"
   }
 }

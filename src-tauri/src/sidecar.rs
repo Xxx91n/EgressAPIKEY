@@ -326,7 +326,7 @@ fn mark_tray_status<R: Runtime>(app: &AppHandle<R>, healthy: bool) -> tauri::Res
             if let Some(icon) = app.default_window_icon() {
                 tray.set_icon(Some(icon.clone()))?;
             }
-            let _ = tray.set_tooltip(Some("ai-api-route"));
+            let _ = tray.set_tooltip(Some("EgressAPIKEY"));
         } else {
             // 32x32 solid red icon — Ponytail: generate at runtime, no extra
             // asset file, no github LFS, no branded-red variant to maintain.
@@ -339,7 +339,7 @@ fn mark_tray_status<R: Runtime>(app: &AppHandle<R>, healthy: bool) -> tauri::Res
             }
             let red = tauri::image::Image::new_owned(rgba, 32, 32);
             tray.set_icon(Some(red))?;
-            let _ = tray.set_tooltip(Some("ai-api-route — sidecar offline"));
+            let _ = tray.set_tooltip(Some("EgressAPIKEY — sidecar offline"));
         }
     }
     Ok(())
@@ -349,7 +349,7 @@ fn mark_tray_status<R: Runtime>(app: &AppHandle<R>, healthy: bool) -> tauri::Res
 /// cannot keep hijacking system traffic. Async (we run inside the poll
 /// loop). Uses tokio::process::Command - already in the tokio "full"
 /// feature; no new native crate. This is the safety net for a future
-/// feature that may enable system proxy; today the ai-api-route shell
+/// feature that may enable system proxy; today the EgressAPIKEY shell
 /// never sets it, so in practice this is a defense-in-depth no-op.
 /// Windows: HKCU\Software\Microsoft\Windows\CurrentVersion\Internet
 ///   Settings ProxyEnable=0 (registry write is authoritative; a new
@@ -411,12 +411,3 @@ async fn clear_os_proxy() -> anyhow::Result<()> {
     tracing::info!("ghost: OS system proxy cleared (platform best-effort)");
     Ok(())
 }
-
-
-/// Tauri managed state holding the interceptor's bound port. Set once during
-/// app.setup() after the axum interceptor binds 127.0.0.1:<port>. The webview
-/// reads it via the `interceptor_port` IPC command so the user knows what to
-/// paste into omniroute/litellm's base_url. The interceptor itself holds the
-/// proxy_token (never exposed via IPC); only the port crosses the boundary.
-#[derive(Debug, Clone, Copy)]
-pub struct InterceptorPort(pub u16);

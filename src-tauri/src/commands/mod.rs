@@ -10,9 +10,9 @@
 use serde::{Serialize, Deserialize};
 use tauri::{AppHandle, Manager, State};
 
-use crate::sidecar::{SidecarHandle, InterceptorPort};
+use crate::sidecar::SidecarHandle;
 use resin_core::DbPool;
-use resin_core::{ResinClient, MAX_LANES, fetch_clash_subscription, clash_yaml_to_proxies_block, ObservedKey};
+use resin_core::{ResinClient, MAX_LANES, fetch_clash_subscription, clash_yaml_to_proxies_block};
 
 const AUTHORITY_MAX_LEN: usize = 253;
 const LATENCY_CAP_MS: u64 = 24 * 60 * 60 * 1000;
@@ -741,7 +741,7 @@ pub async fn backup_create(app: AppHandle) -> Result<String, String> {
         }
     }
     let suffix: String = rand_bytes.iter().map(|b| format!("{:02x}", b)).collect();
-    let zip_name = format!("ai-api-route-backup-{}-{}.zip", now, suffix);
+    let zip_name = format!("egressapikey-backup-{}-{}.zip", now, suffix);
     let zip_path = backups_dir.join(&zip_name);
 
     let zip_file = std::fs::File::create(&zip_path).map_err(|e| e.to_string())?;
@@ -1104,15 +1104,6 @@ pub struct LeaseEntry {
     pub ts: String,
 }
 
-/// Return the port the A4-3 axum interceptor bound to on 127.0.0.1. The GUI
-/// surfaces this in Settings so the user knows what to set as omniroute/litellm
-/// base_url. Returns 0 if the interceptor failed to bind (Sets InterceptorPort
-/// is always Some, but value 0 = bind failure logged at boot).
-#[tauri::command]
-pub async fn interceptor_port(port: State<'_, InterceptorPort>) -> Result<u16, String> {
-    Ok(port.0)
-}
-
 /// Live active lease map from the Resin sidecar. The GUI polls this alongside
 /// platform_list + node_list in the Topology sync loop and renders a per-platform
 /// lease chip showing "(account short): egress_ip". Used by A4-3 to prove the
@@ -1163,16 +1154,6 @@ pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEnt
     Ok(out)
 }
 
-
-#[tauri::command]
-pub async fn observed_keys(db: State<'_, DbPool>) -> Result<Vec<ObservedKey>, String> {
-    // C1-1: surface the observed key pool to the webview. The pool is
-    // populated by the interceptor (route_id upsert on every proxied
-    // request); the GUI joins this against the lease map to display
-    // the masked api key + upstream endpoint for each platform chip.
-    // No user-supplied input; pure read of rust-side state.
-    db.list()
-}
 
 #[cfg(test)]
 mod tests {

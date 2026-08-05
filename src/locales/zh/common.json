@@ -185,6 +185,6 @@
   "tray": {
     "show": "显示窗口",
     "quit": "退出",
-    "tooltip": "ai-api-route"
+    "tooltip": "EgressAPIKEY"
   }
 }

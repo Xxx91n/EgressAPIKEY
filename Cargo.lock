@@ -30,32 +30,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ai-api-route-app"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "once_cell",
- "parking_lot",
- "reqwest 0.12.28",
- "resin-core",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-shell",
- "tauri-plugin-single-instance",
- "tauri-plugin-store",
- "tauri-plugin-tracing",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "zip",
-]
-
-[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1098,6 +1072,32 @@ name = "dyn-clone"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
+
+[[package]]
+name = "egressapikey-app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "once_cell",
+ "parking_lot",
+ "reqwest 0.12.28",
+ "resin-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-shell",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-store",
+ "tauri-plugin-tracing",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "zip",
+]
 
 [[package]]
 name = "embed-resource"

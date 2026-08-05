@@ -31,24 +31,24 @@ pub struct TrayLabels {
 /// `pnpm i18n:check` gate on the frontend side).
 pub fn labels(lc: TrayLang) -> TrayLabels {
     match lc {
-        TrayLang::En => TrayLabels { show: "Show Window", quit: "Quit", tooltip: "ai-api-route" },
-        TrayLang::Zh => TrayLabels { show: "显示窗口", quit: "退出", tooltip: "ai-api-route" },
-        TrayLang::Ja => TrayLabels { show: "ウィンドウを表示", quit: "終了", tooltip: "ai-api-route" },
-        TrayLang::Es => TrayLabels { show: "Mostrar Ventana", quit: "Salir", tooltip: "ai-api-route" },
-        TrayLang::Fr => TrayLabels { show: "Afficher la Fenêtre", quit: "Quitter", tooltip: "ai-api-route" },
-        TrayLang::De => TrayLabels { show: "Fenster anzeigen", quit: "Beenden", tooltip: "ai-api-route" },
-        TrayLang::Ko => TrayLabels { show: "창 표시", quit: "종료", tooltip: "ai-api-route" },
-        TrayLang::Ru => TrayLabels { show: "Показать окно", quit: "Выйти", tooltip: "ai-api-route" },
-        TrayLang::Pt => TrayLabels { show: "Mostrar Janela", quit: "Sair", tooltip: "ai-api-route" },
-        TrayLang::Ar => TrayLabels { show: "إظهار النافذة", quit: "إنهاء", tooltip: "ai-api-route" },
-        TrayLang::It => TrayLabels { show: "Mostra finestra", quit: "Esci", tooltip: "ai-api-route" },
-        TrayLang::Nl => TrayLabels { show: "Venster tonen", quit: "Afsluiten", tooltip: "ai-api-route" },
-        TrayLang::Pl => TrayLabels { show: "Pokaż okno", quit: "Zakończ", tooltip: "ai-api-route" },
-        TrayLang::Tr => TrayLabels { show: "Pencereyi göster", quit: "Çık", tooltip: "ai-api-route" },
-        TrayLang::Vi => TrayLabels { show: "Hiện cửa sổ", quit: "Thoát", tooltip: "ai-api-route" },
-        TrayLang::Th => TrayLabels { show: "แสดงหน้าต่าง", quit: "ออก", tooltip: "ai-api-route" },
-        TrayLang::Id => TrayLabels { show: "Tampilkan jendela", quit: "Keluar", tooltip: "ai-api-route" },
-        TrayLang::Hi => TrayLabels { show: "विंडो दिखाएं", quit: "बाहर निकलें", tooltip: "ai-api-route" },
+        TrayLang::En => TrayLabels { show: "Show Window", quit: "Quit", tooltip: "EgressAPIKEY" },
+        TrayLang::Zh => TrayLabels { show: "显示窗口", quit: "退出", tooltip: "EgressAPIKEY" },
+        TrayLang::Ja => TrayLabels { show: "ウィンドウを表示", quit: "終了", tooltip: "EgressAPIKEY" },
+        TrayLang::Es => TrayLabels { show: "Mostrar Ventana", quit: "Salir", tooltip: "EgressAPIKEY" },
+        TrayLang::Fr => TrayLabels { show: "Afficher la Fenêtre", quit: "Quitter", tooltip: "EgressAPIKEY" },
+        TrayLang::De => TrayLabels { show: "Fenster anzeigen", quit: "Beenden", tooltip: "EgressAPIKEY" },
+        TrayLang::Ko => TrayLabels { show: "창 표시", quit: "종료", tooltip: "EgressAPIKEY" },
+        TrayLang::Ru => TrayLabels { show: "Показать окно", quit: "Выйти", tooltip: "EgressAPIKEY" },
+        TrayLang::Pt => TrayLabels { show: "Mostrar Janela", quit: "Sair", tooltip: "EgressAPIKEY" },
+        TrayLang::Ar => TrayLabels { show: "إظهار النافذة", quit: "إنهاء", tooltip: "EgressAPIKEY" },
+        TrayLang::It => TrayLabels { show: "Mostra finestra", quit: "Esci", tooltip: "EgressAPIKEY" },
+        TrayLang::Nl => TrayLabels { show: "Venster tonen", quit: "Afsluiten", tooltip: "EgressAPIKEY" },
+        TrayLang::Pl => TrayLabels { show: "Pokaż okno", quit: "Zakończ", tooltip: "EgressAPIKEY" },
+        TrayLang::Tr => TrayLabels { show: "Pencereyi göster", quit: "Çık", tooltip: "EgressAPIKEY" },
+        TrayLang::Vi => TrayLabels { show: "Hiện cửa sổ", quit: "Thoát", tooltip: "EgressAPIKEY" },
+        TrayLang::Th => TrayLabels { show: "แสดงหน้าต่าง", quit: "ออก", tooltip: "EgressAPIKEY" },
+        TrayLang::Id => TrayLabels { show: "Tampilkan jendela", quit: "Keluar", tooltip: "EgressAPIKEY" },
+        TrayLang::Hi => TrayLabels { show: "विंडो दिखाएं", quit: "बाहर निकलें", tooltip: "EgressAPIKEY" },
     }
 }
 
@@ -188,7 +188,7 @@ mod tests {
             let l = labels(lc);
             assert!(!l.show.is_empty(), "show label empty for variant {:?}", lc);
             assert!(!l.quit.is_empty(), "quit label empty for variant {:?}", lc);
-            assert_eq!(l.tooltip, "ai-api-route", "tooltip must be the app name");
+            assert_eq!(l.tooltip, "EgressAPIKEY", "tooltip must be the app name");
         }
     }
 

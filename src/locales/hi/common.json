@@ -185,6 +185,6 @@
   "tray": {
     "show": "विंडो दिखाएं",
     "quit": "बाहर निकलें",
-    "tooltip": "ai-api-route"
+    "tooltip": "EgressAPIKEY"
   }
 }

@@ -197,7 +197,7 @@ export function SettingsView() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "ai-api-route-config.json";
+      a.download = "egressapikey-config.json";
       a.click();
       URL.revokeObjectURL(url);
       setConfigMsg(t("config.exported"));

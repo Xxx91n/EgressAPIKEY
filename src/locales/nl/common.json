@@ -185,6 +185,6 @@
   "tray": {
     "show": "Venster tonen",
     "quit": "Afsluiten",
-    "tooltip": "ai-api-route"
+    "tooltip": "EgressAPIKEY"
   }
 }

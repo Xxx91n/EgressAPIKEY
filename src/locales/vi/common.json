@@ -185,6 +185,6 @@
   "tray": {
     "show": "Hiện cửa sổ",
     "quit": "Thoát",
-    "tooltip": "ai-api-route"
+    "tooltip": "EgressAPIKEY"
   }
 }

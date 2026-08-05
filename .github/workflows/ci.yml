@@ -172,7 +172,7 @@ jobs:
           # See AGENTS.md section 5 + src-tauri/Cargo.toml [features].
           args: --target ${{ matrix.target }} --features custom-protocol
           tagName: ${{ inputs.tag }}
-          releaseName: "ai-api-route ${{ inputs.tag }}"
+          releaseName: "EgressAPIKEY ${{ inputs.tag }}"
           releaseBody: "Windows MSI+NSIS setup, Linux deb+AppImage, macOS dmg (arm64 + x86_64), plus per-OS headless backend tarballs."
           releaseDraft: true
           prerelease: false
@@ -211,17 +211,17 @@ jobs:
             target: x86_64-unknown-linux-gnu
             name: linux-gui-portable
             ubuntuDeps: true
-            bin: ai-api-route
+            bin: egressapikey
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             name: windows-gui-portable
             ubuntuDeps: false
-            bin: ai-api-route.exe
+            bin: egressapikey.exe
           - os: macos-latest
             target: aarch64-apple-darwin
             name: macos-gui-portable-arm64
             ubuntuDeps: false
-            bin: ai-api-route
+            bin: egressapikey
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

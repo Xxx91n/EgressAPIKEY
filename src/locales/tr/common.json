@@ -185,6 +185,6 @@
   "tray": {
     "show": "Pencereyi göster",
     "quit": "Çık",
-    "tooltip": "ai-api-route"
+    "tooltip": "EgressAPIKEY"
   }
 }

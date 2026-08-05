@@ -185,6 +185,6 @@
   "tray": {
     "show": "Tampilkan jendela",
     "quit": "Keluar",
-    "tooltip": "ai-api-route"
+    "tooltip": "EgressAPIKEY"
   }
 }

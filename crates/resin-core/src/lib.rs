@@ -7,6 +7,8 @@
 //! - [`platform`]: Platform/Account model (Resin architecture, Rust)
 //! - [`mihomo`]: mihomo sidecar REST API control (subscription -> YAML -> reload)
 //! - [`gateway`]: axum HTTP + SSE forwarding gateway on 127.0.0.1
+//! - [`resin_client`]: loopback REST client for the Resin Go sidecar API
+//! - [`db`]: SQLite port->platform mapping store (reuses DbPool infra)
 
 pub mod lane;
 pub mod lease;
@@ -15,7 +17,6 @@ pub mod platform;
 pub mod mihomo;
 pub mod gateway;
 pub mod resin_client;
-pub mod interceptor;
 pub mod db;
 
 pub use lane::{lane_index, LaneConfig};
@@ -23,9 +24,7 @@ pub use lease::{LeaseTable, LeaseId};
 pub use tdewma::TdEwma;
 pub use platform::{Platform, Account, PlatformRegistry};
 pub use resin_client::{ResinClient, fetch_clash_subscription, clash_yaml_to_proxies_block};
-pub use interceptor::{InterceptorConfig, app as interceptor_app, serve as interceptor_serve};
 pub use db::DbPool;
-pub use db::ObservedKey;
 
 /// Re-export canonical config for the whole core.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]

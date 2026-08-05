@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ai-api-route",
+  "productName": "EgressAPIKEY",
   "version": "0.1.0",
-  "identifier": "com.ai-api-route.desktop",
+  "identifier": "com.egressapikey.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "ai-api-route",
+        "title": "EgressAPIKEY",
         "width": 1200,
         "height": 800,
         "resizable": true,
@@ -49,8 +49,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "shortDescription": "AI API key specialized proxy pool",
-    "longDescription": "L7 proxy gateway for AI API keys with lane hashing, SSE session stickiness, and a topology canvas.",
+    "shortDescription": "EgressAPIKEY — AI API key exit-IP proxy pool",
+    "longDescription": "Multi-port socks5/http forwarder between AI gateways (omniroute/litellm) and upstream v1 providers, with per-port key identity and exit-IP routing via a bundled Resin sidecar.",
     "externalBin": [
       "binaries/resin"
     ]

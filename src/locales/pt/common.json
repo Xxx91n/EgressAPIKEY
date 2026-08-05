@@ -185,6 +185,6 @@
   "tray": {
     "show": "Mostrar Janela",
     "quit": "Sair",
-    "tooltip": "ai-api-route"
+    "tooltip": "EgressAPIKEY"
   }
 }

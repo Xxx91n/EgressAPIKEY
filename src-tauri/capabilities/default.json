@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability for the ai-api-route main window. Custom app commands (reserve/release/evict/snapshot/record-latency) are allowed to all windows by the Tauri 2 default; this file wires the core + plugin defaults the GUI relies on.",
+  "description": "Default capability for the EgressAPIKEY main window. Custom app commands (reserve/release/evict/snapshot/record-latency) are allowed to all windows by the Tauri 2 default; this file wires the core + plugin defaults the GUI relies on.",
   "windows": [
     "main"
   ],
