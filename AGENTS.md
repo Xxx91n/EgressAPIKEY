@@ -532,3 +532,28 @@ PLAN SCHEDULE item #12 (final item). Spec from grill Q5-Q13 confirmed C2-8 + pwm
 - **AI stream sensor (NEW-5)**: `stream_sensor.rs` classifies plain HTTP proxy headers (`Accept`, `Upgrade`, `Content-Type`) as unary/SSE/WebSocket/unknown. `PortForwarder` records only header metadata on its HTTP path and exposes `stream_sensor_snapshot`; it never terminates TLS, reads request bodies, or revives key/body interception deleted by ADR-0014. SOCKS/HTTPS CONNECT traffic is intentionally opaque.
 - **Tests**: config validation + atomic JSON, SQLite full-map replace, strategy mapping/protocol weights, and stream classification/counters are covered by resin-core unit tests. Frontend IPC tests cover whitebox path/get/reload. Before claiming a P3 release, run `cargo test -p resin-core --lib`, `pnpm test`, `pnpm exec tsc --noEmit`, `pnpm i18n:check`, then the §5 fresh frontend+release-exe staging loop.
 
+
+### 30. P5+P6 - route-correction final architecture (ADR-0012 thin-shell multi-port)
+
+- **Architecture (ADR-0012, supersedes ADR-0003/0011)**: port = identity. Each listener port IS the API key identity. A thin multi-port SOCKS5/HTTP forwarder sits in front of upstream Resin. No header sniffing, no interceptor.rs, no route_id, no observed_keys, no single-port-identifies-encrypted-request. Resin core routing is reused from upstream releases, NOT forked.
+- **P5a (commit `06376e2`)**: `TopologyView.tsx` A column = multiple `EntryPortNode` nodes, one per `ipcPortList()` port (port number + protocol + label + bound platform). `buildEdges` accepts `ports[]` and draws A→B edges by `platform_name` match. `topology.noPorts` i18n key added (18 locales). 22 TopologyView tests updated with port mocks.
+- **P5b (commit `7dd3c1d`)**: `PlatformNode` renders `:port` chips (blue badges) for all entry ports bound to that platform. `nodes` useMemo passes `ports.filter(x => x.platform_name === p.name).map(x => x.port)` to each platform node's `data.ports`.
+- **P5c (commit `7dd3c1d`)**: `ProcessRouteRule.target_lane: usize` → `target_port: u16` in `src-tauri/src/commands/mod.rs`. `process_route_add` validates port ≥ 1024 (u16 max inherent). `process_route_conflict_check` compares `target_port`. TS wrapper `ipcProcessRouteAdd(process, targetPort)` with port range 1024..65535. `ProcessRouteView.tsx` lane selector (0..49) replaced with port input (default 17990). i18n `processRoute.targetPort` + conflict message → `port {{port}}` across 18 locales.
+- **P2 closed-loop test evidence**: `ipc.test.ts` has a `port IPC (P2 multi-port thin forwarder)` suite (8 tests: `ipcPortList`, `ipcPortUpsert` range/protocol validation + privileged-port reject, `ipcPortRemove`/Running/Reload forward, `ipcIpReputationSnapshot`). `PlatformsView.test.tsx` has 5 closed-loop tests: renders ports+platforms pane, adds entry port via form + $ABLE invoke, rejects invalid port before invoke, creates platform from dialog, binds dragged port onto platform card via pointer events. All green.
+- **i18n**: 187 keys across 18 locales. `pnpm i18n:check` green.
+- **Build (P23 hard close-loop)**: `pnpm build` + `cargo build --release -p egressapikey-app --features custom-protocol` → 14MB exe at `release/windows-gui/EgressAPIKEY.exe` + `resin.exe` sidecar (37.8MB Go binary). Vite chunk `CCDf4dc8` embedded at byte 11431795 (verified via Node fs). Smoke: MainWindowTitle=EgressAPIKEY, pid alive, resin.exe child alive.
+
+### 31. P6 polish - surviving items VERIFIED implemented in prior commits
+
+Code-level audit confirms all 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/13) are already implemented — no new code needed in this phase. Status recorded in `docs/GRILL_ISSUES_BACKLOG.md`.
+
+| Item | Status | Code evidence |
+|------|--------|---------------|
+| C2-9 (log system maturation) | done | `main.rs` L24 `std::panic::set_hook` + L70-72 tauri-plugin-tracing `Rotation::Daily`, `MaxFileSize::mb(10)`, `KeepSome(7)` |
+| C2-10 (path protection) | done | `commands/mod.rs` L964-965 canonicalize+starts_with backups confinement (P14 security) |
+| C2-11 (env var / OS side-effect) | done | `sidecar.rs` `spawn_health_poll`: clears OS proxy on 3 consecutive /healthz fail, restores on recovery |
+| C2-12 (second instance guard) | done | `main.rs` L43 `tauri_plugin_single_instance::init` — focuses + unminimizes existing window |
+| C2-13 (close GUI keeps tray) | done | `main.rs` L78-85 `on_window close requested` handler hides window; tray Quit is the real exit |
+| C1-2 (topology edge atomicity) | done | `TopologyView.tsx` L301 `patchingRef` reentry lock + `patchAndSyncOnce` idempotent helper + `backupBeforeEdit` before every PATCH |
+| C1-3 (viewport memory) | done | `TopologyView.tsx` L14 `loadTopologyViewport`/`saveTopologyViewport` via `settings.ts` → `tauri-plugin-store`. `onInit` restores, `onMoveEnd` persists, `ready` opacity gate |
+| C1-4 (drag-to-connect = config hot-switch) | done | `onConnect` → `patchAndSyncOnce` → `ipcPlatformUpdate` PATCHes `region_filters` on live Resin sidecar |

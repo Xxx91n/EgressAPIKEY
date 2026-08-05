@@ -44,11 +44,11 @@
 | C2-5 (tray i18n real-time sync) | done=55f6583 | Unaffected |
 | C2-7 (Settings locale switch re-renders canvas) | done=d109e86 | Unaffected |
 | C2-8 (Settings dirty-state sticky save bar) | done=f359c82 | Unaffected |
-| C2-9 (log system maturation) | pending | More important now (new architecture needs debug) |
-| C2-10 (path protection / privilege escalation) | pending | Unaffected |
-| C2-11 (env var / OS side-effect protection) | pending | Unaffected |
-| C2-12 (second instance guard + focus) | pending | Unaffected |
-| C2-13 (close GUI keeps tray icon) | pending | Unaffected |
+| C2-9 (log system maturation) | done (P14 `f359c82`/P18 `main.rs` L24 panic hook + L70-72 tauri-plugin-tracing Rotation::Daily + MaxFileSize::mb(10) + KeepSome(7)) | Implemented in prior phase; verified code-level |
+| C2-10 (path protection / privilege escalation) | done (P14 `commands/mod.rs` L964-965 canonicalize+starts_with backups confinement, backup zip_path traversal HIGH fixed) | Implemented in prior phase |
+| C2-11 (env var / OS side-effect protection) | done (G3 `sidecar.rs` spawn_health_poll: clears OS proxy on 3 consecutive /healthz fail, restores on recovery; no env var injection from webview) | Implemented in prior phase |
+| C2-12 (second instance guard + focus) | done (`main.rs` L43 tauri_plugin_single_instance::init — focuses + unminimizes existing window on second launch) | Implemented in prior phase |
+| C2-13 (close GUI keeps tray icon) | done (`main.rs` L78-85 on_window close requested handler hides window instead of exiting; tray Quit is the real exit path) | Implemented in prior phase |
 | P25burst-1 (reset-sort duplicates) | done (P20 fix) | Unaffected |
 | P25burst-2 (node pool stats vs table mismatch) | done (P20 fix) | Unaffected |
 | P25burst-3 (import 0 nodes) | done (P13 clash UA fix) | Unaffected |
