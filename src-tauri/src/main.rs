@@ -240,10 +240,7 @@ fn main() {
                     let store_watch = store.clone();
                     tauri::async_runtime::spawn(async move {
                         if let Err(e) = store_watch.reload_file(&db_wb, &fwd_wb).await {
-                            tracing::warn!(error = %e, "whitebox: initial apply failed; reloading listeners from DB");
-                            if let Err(e2) = fwd_wb.reload().await {
-                                tracing::warn!(error = %e2, "port_forwarder: initial reload failed");
-                            }
+                            tracing::warn!(error = %e, "whitebox: initial apply failed; Resin owns listeners, no shell reload needed");
                         }
                         store_watch.watch_apply(db_wb, fwd_wb).await;
                     });
@@ -271,12 +268,7 @@ fn main() {
                         }
                         Err(e2) => {
                             tracing::error!(error = %e2, "temp whitebox open failed");
-                            let fwd = forwarder.clone();
-                            tauri::async_runtime::spawn(async move {
-                                if let Err(e3) = fwd.reload().await {
-                                    tracing::warn!(error = %e3, "port_forwarder: initial reload failed");
-                                }
-                            });
+                            tracing::warn!("temp whitebox open failed; Resin owns listeners, no shell reload needed");
                         }
                     }
                 }

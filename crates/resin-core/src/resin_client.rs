@@ -268,6 +268,37 @@ impl ResinClient {
         let path = format!("/platforms/{}/leases", urlencoding(platform_id));
         self.send(reqwest::Method::GET, &path, None).await
     }
+
+    // ── Endpoint management (Resin v1.2.0) ───────────────────────────
+
+    /// GET /api/v1/endpoints — list all inbound endpoints (default + custom).
+    pub async fn list_endpoints(&self) -> Result<Value> {
+        self.send(reqwest::Method::GET, "/endpoints", None).await
+    }
+
+    /// POST /api/v1/endpoints — create + immediately start a custom listener.
+    pub async fn create_endpoint(&self, body: Value) -> Result<Value> {
+        self.send(reqwest::Method::POST, "/endpoints", Some(body)).await
+    }
+
+    /// GET /api/v1/endpoints/{endpoint_id} — read a single endpoint.
+    pub async fn get_endpoint(&self, endpoint_id: &str) -> Result<Value> {
+        let path = format!("/endpoints/{}", urlencoding(endpoint_id));
+        self.send(reqwest::Method::GET, &path, None).await
+    }
+
+    /// PATCH /api/v1/endpoints/{endpoint_id} — update port or capabilities (hot-reload).
+    pub async fn update_endpoint(&self, endpoint_id: &str, body: Value) -> Result<Value> {
+        let path = format!("/endpoints/{}", urlencoding(endpoint_id));
+        self.send(reqwest::Method::PATCH, &path, Some(body)).await
+    }
+
+    /// DELETE /api/v1/endpoints/{endpoint_id} — delete + close listener.
+    pub async fn delete_endpoint(&self, endpoint_id: &str) -> Result<Value> {
+        let path = format!("/endpoints/{}", urlencoding(endpoint_id));
+        self.send(reqwest::Method::DELETE, &path, None).await
+    }
+
 }
 
 /// Fetch a Clash/ClashMeta subscription URL with a clash-family User-Agent.
@@ -833,4 +864,111 @@ mod tests {
         assert_eq!(out["items"][0]["egress_ip"], "5.6.7.8");
         m.assert_async().await;
     }
+
+
+    // ── Endpoint API mockito tests (Resin v1.2.0) ────────────────────
+
+    #[tokio::test]
+    async fn mockito_list_endpoints_happy_path() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"items":[{"id":"default","port":2260,"allow_management":true,"allow_proxy":true,"source":"environment","read_only":true}]}"#;
+        let m = server
+            .mock("GET", "/api/v1/endpoints")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c.list_endpoints().await.expect("list_endpoints should succeed");
+        assert!(out["items"].is_array());
+        assert_eq!(out["items"][0]["id"], "default");
+        assert_eq!(out["items"][0]["port"], 2260);
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_create_endpoint_happy_path() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"id":"abc123","port":17990,"allow_management":false,"allow_proxy":true}"#;
+        let m = server
+            .mock("POST", "/api/v1/endpoints")
+            .match_header("authorization", "Bearer testtok")
+            .match_header("content-type", "application/json")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let req = serde_json::json!({"port":17990,"allow_proxy":true,"allow_socks5":true});
+        let out = c.create_endpoint(req).await.expect("create_endpoint should succeed");
+        assert_eq!(out["id"], "abc123");
+        assert_eq!(out["port"], 17990);
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_update_endpoint_patch() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"id":"abc123","port":17991,"allow_proxy":true}"#;
+        let m = server
+            .mock("PATCH", "/api/v1/endpoints/abc123")
+            .match_header("authorization", "Bearer testtok")
+            .match_header("content-type", "application/json")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let req = serde_json::json!({"port":17991});
+        let out = c.update_endpoint("abc123", req).await.expect("update_endpoint should succeed");
+        assert_eq!(out["port"], 17991);
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_delete_endpoint_204() {
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("DELETE", "/api/v1/endpoints/abc123")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(204)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c.delete_endpoint("abc123").await.expect("delete_endpoint should succeed");
+        // 204 no content -> empty Value
+        assert!(out.is_null() || out.is_object());
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_get_endpoint_single() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"id":"default","port":2260,"allow_socks5":true,"source":"environment","read_only":true}"#;
+        let m = server
+            .mock("GET", "/api/v1/endpoints/default")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c.get_endpoint("default").await.expect("get_endpoint should succeed");
+        assert_eq!(out["id"], "default");
+        assert_eq!(out["port"], 2260);
+        assert_eq!(out["source"], "environment");
+        assert_eq!(out["read_only"], true);
+        m.assert_async().await;
+    }
+
 }

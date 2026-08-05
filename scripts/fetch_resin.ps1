@@ -5,7 +5,7 @@
 $ErrorActionPreference="Stop"
 $ProgressPreference="SilentlyContinue"
 $REPO="Resinat/Resin"
-$REL="v1.1.2"
+$REL="v1.2.0"
 $BU="https://github.com/$REPO/releases/download/$REL"
 $triple = & rustc -vV | Select-String "^host:" | ForEach-Object { ($_ -split "\s+")[1] }
 $asset=$null; $ext=""
@@ -18,7 +18,7 @@ else{ Write-Error "Resin sidecar unsupported triple: $triple"; exit 2 }
 $destDir="src-tauri/binaries"
 if(-not (Test-Path $destDir)){ New-Item -ItemType Directory -Force -Path $destDir | Out-Null }
 $tag=[guid]::NewGuid().ToString("N").Substring(0,8)
-$temp="$env:TEMP\resin-$tag.downloaded"
+$temp="$env:TEMP\resin-$tag.zip"
 $expand="$env:TEMP\resin-expand-$tag"
 Write-Host "downloading $BU/$asset"
 Invoke-WebRequest -Uri "$BU/$asset" -OutFile $temp -UseBasicParsing

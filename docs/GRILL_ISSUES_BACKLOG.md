@@ -109,3 +109,24 @@ NEW-6 (IP reputation) -> 重定义项 (TopologyView/PlatformsView rewrite) ->
 
 All Q1-Q11 resolved. Next grill round starts when execution hits a new
 ambiguity or the user raises a new concern.
+
+## Grill v1.2.0 Audit (Q12 — Resin v1.2.0 alignment)
+
+| Q | Topic | Decision | ADR |
+|---|---|---|---|
+| Q12 | Resin v1.2.0 endpoint API vs port_forwarder redundancy | T1 (Thin-Shell Downgrade): port_forwarder deletes protocol handling, keeps StreamSensor; 5 IPC forward to endpoint API; fetch_resin REL → v1.2.0; shell DB stays as port→platform metadata | ADR-0015 |
+
+### T1 Execution Plan (dependency graph)
+
+| Step | Task | Status |
+|------|------|--------|
+| T1-1 | ADR-0015 + backlog update | done |
+| T1-2 | fetch_resin.{ps1,sh} REL v1.1.2→v1.2.0 + fetch binary | pending |
+| T1-3 | ResinClient: 5 endpoint methods + mockito tests | pending |
+| T1-4 | port_forwarder.rs: delete protocol handling, keep StreamSensor + identity + constants | pending |
+| T1-5 | db.rs PortMapping field align with endpoint schema | pending |
+| T1-6 | commands/mod.rs port_* IPC → endpoint API forwarder | pending |
+| T1-7 | main.rs PortForwarder::new wiring → ResinClient + StreamSensor | pending |
+| T1-8 | frontend ipc.ts PortMapping type alignment | pending |
+| T1-9 | Build: pnpm build + cargo build --release + stage + smoke + codegraph sync | pending |
+| T1-10 | Phase 6 remaining: C2-11/C2-12/C2-13/C1-2/3/4 polish | pending |

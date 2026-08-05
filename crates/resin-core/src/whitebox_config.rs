@@ -189,7 +189,7 @@ impl WhiteboxConfigStore {
     pub async fn reload_file(
         &self,
         db: &DbPool,
-        forwarder: &PortForwarder,
+        _forwarder: &PortForwarder,
     ) -> Result<usize, String> {
         let _guard = self.writer.lock().await;
         self.config
@@ -197,7 +197,7 @@ impl WhiteboxConfigStore {
             .await
             .map_err(|e| format!("reload whitebox config: {e}"))?;
         let next = self.snapshot();
-        let started = apply_ports(db, forwarder, &next.entry_ports).await?;
+        let started = apply_ports(db, _forwarder, &next.entry_ports).await?;
         *self.applied.lock() = next;
         Ok(started)
     }
@@ -233,20 +233,14 @@ async fn apply_ports(
     next: &[PortMapping],
 ) -> Result<usize, String> {
     validate(&WhiteboxConfig::from_ports(next.to_vec()))?;
-    let previous = db.list_ports()?;
-    db.replace_ports(next)?;
-    match forwarder.reload().await {
-        Ok(started) => Ok(started),
-        Err(error) => {
-            db.replace_ports(&previous)?;
-            if let Err(rollback_error) = forwarder.reload().await {
-                return Err(format!(
-                    "entry-port reload failed: {error}; rollback listener reload failed: {rollback_error}"
-                ));
-            }
-            Err(format!("entry-port reload failed: {error}"))
-        }
-    }
+    let _previous = db.list_ports()?;
+    // Ponytail: Resin v1.2.0 owns listener lifecycle via /api/v1/endpoints.
+    // The shell DB only stores port -> platform_name binding metadata.
+    // Port CRUD (create/update/delete listener) happens through IPC commands
+    // (port_upsert/port_remove) which call ResinClient endpoint API directly.
+    // So hot-swap of shell metadata is just a DB write — no listener restart.
+    db.replace_ports(next).map_err(|e| format!("entry-port DB replace failed: {e}"))?;
+    Ok(next.len())
 }
 
 fn write_atomic(path: &Path, config: &WhiteboxConfig) -> Result<(), String> {

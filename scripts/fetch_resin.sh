@@ -4,7 +4,7 @@
 # See docs/MEMORY_REUSE_DECISION.md path A.
 set -euo pipefail
 REPO="Resinat/Resin"
-REL="v1.1.2"
+REL="v1.2.0"
 BU="https://github.com/${REPO}/releases/download/${REL}"
 triple="$(rustc -vV | awk '/^host:/ {print $2}')"
 case "$triple" in
