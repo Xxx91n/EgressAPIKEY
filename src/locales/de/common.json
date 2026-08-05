@@ -207,7 +207,8 @@
     "filters": "Upstream: {{filters}}",
     "activeLease": "Lease {{account}} → {{egress}}",
     "activeLeases": "Aktive Leases",
-    "noLeases": "Keine aktiven Leases"
+    "noLeases": "Keine aktiven Leases",
+    "noPorts": "Keine Eingangsports konfiguriert. Füge einen im Plattformen-Tab hinzu."
   },
   "tray": {
     "show": "Fenster anzeigen",

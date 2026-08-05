@@ -207,7 +207,8 @@
     "filters": "업스트림: {{filters}}",
     "activeLease": "리스 {{account}} → {{egress}}",
     "activeLeases": "활성 리스",
-    "noLeases": "활성 리스 없음"
+    "noLeases": "활성 리스 없음",
+    "noPorts": "입력 포트가 구성되지 않았습니다. 플랫폼 탭에서 추가하세요."
   },
   "tray": {
     "show": "창 표시",

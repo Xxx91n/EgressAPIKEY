@@ -207,7 +207,8 @@
     "filters": "Upstream: {{filters}}",
     "activeLease": "thuê {{account}} → {{egress}}",
     "activeLeases": "Các thuê đang hoạt động",
-    "noLeases": "Không có lượt thuê hoạt động"
+    "noLeases": "Không có lượt thuê hoạt động",
+    "noPorts": "Chưa cấu hình cổng vào. Thêm trong tab Nền tảng."
   },
   "tray": {
     "show": "Hiện cửa sổ",

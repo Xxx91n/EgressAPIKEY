@@ -207,7 +207,8 @@
     "filters": "Upstream: {{filters}}",
     "activeLease": "dzierżawa {{account}} → {{egress}}",
     "activeLeases": "Aktywne dzierżawy",
-    "noLeases": "Brak aktywnych dzierżaw"
+    "noLeases": "Brak aktywnych dzierżaw",
+    "noPorts": "Brak skonfigurowanych portów wejściowych. Dodaj w zakładce Platformy."
   },
   "tray": {
     "show": "Pokaż okno",

@@ -207,7 +207,8 @@
     "filters": "Yukarı akış: {{filters}}",
     "activeLease": "kira {{account}} → {{egress}}",
     "activeLeases": "Aktif kiralar",
-    "noLeases": "Aktif kira yok"
+    "noLeases": "Aktif kira yok",
+    "noPorts": "Giriş portu yapılandırılmadı. Platform sekmesinden ekleyin."
   },
   "tray": {
     "show": "Pencereyi göster",

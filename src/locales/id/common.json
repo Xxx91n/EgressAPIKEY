@@ -207,7 +207,8 @@
     "filters": "Upstream: {{filters}}",
     "activeLease": "sewa {{account}} → {{egress}}",
     "activeLeases": "Sewa aktif",
-    "noLeases": "Tidak ada sewa aktif"
+    "noLeases": "Tidak ada sewa aktif",
+    "noPorts": "Tidak ada port masuk. Tambahkan di tab Platform."
   },
   "tray": {
     "show": "Tampilkan jendela",

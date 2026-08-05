@@ -207,7 +207,8 @@
     "filters": "Upstream: {{filters}}",
     "activeLease": "lease {{account}} → {{egress}}",
     "activeLeases": "Lease attive",
-    "noLeases": "Nessuna lease attiva"
+    "noLeases": "Nessuna lease attiva",
+    "noPorts": "Nessuna porta di ingresso configurata. Aggiungine una nella scheda Piattaforme."
   },
   "tray": {
     "show": "Mostra finestra",

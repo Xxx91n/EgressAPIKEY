@@ -207,7 +207,8 @@
     "filters": "Upstream: {{filters}}",
     "activeLease": "concessão {{account}} → {{egress}}",
     "activeLeases": "Concessões ativas",
-    "noLeases": "Sem concessões ativas"
+    "noLeases": "Sem concessões ativas",
+    "noPorts": "Sem portas de entrada configuradas. Adicione na aba Plataformas."
   },
   "tray": {
     "show": "Mostrar Janela",

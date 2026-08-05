@@ -207,7 +207,8 @@
     "filters": "Upstream: {{filters}}",
     "activeLease": "lease {{account}} → {{egress}}",
     "activeLeases": "Actieve leases",
-    "noLeases": "Geen actieve leases"
+    "noLeases": "Geen actieve leases",
+    "noPorts": "Geen invoerpoorten geconfigureerd. Voeg er een toe op het tabblad Platformen."
   },
   "tray": {
     "show": "Venster tonen",

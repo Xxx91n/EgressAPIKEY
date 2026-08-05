@@ -32,6 +32,11 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
         ],
         total: 3, limit: 50, offset: 0,
       });
+      if (cmd === "lease_map") return Promise.resolve([]);
+      if (cmd === "port_list") return Promise.resolve([
+        { port: 17990, protocol: "socks5", platform_name: "OpenAI", account: "acc1", label: "Pool1", enabled: true },
+        { port: 17991, protocol: "http", platform_name: "Anthropic", account: "acc2", label: "Pool2", enabled: true },
+      ]);
       return Promise.resolve(undefined);
     });
 
@@ -41,14 +46,17 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
       expect(screen.getByText("OpenAI")).toBeInTheDocument();
       expect(screen.getByText("Anthropic")).toBeInTheDocument();
     });
-    // Entry port label present.
-    expect(screen.getByText(/forward proxy/i)).toBeInTheDocument();
+    // ADR-0012: A column shows actual port numbers, not "forward proxy" label.
+    expect(screen.getByText("17990")).toBeInTheDocument();
+    expect(screen.getByText("17991")).toBeInTheDocument();
   });
 
   it("shows noPlatforms / noNodes hints when Resin returns empty", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
       if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
+      if (cmd === "lease_map") return Promise.resolve([]);
+      if (cmd === "port_list") return Promise.resolve([]);
       return Promise.resolve(undefined);
     });
 
@@ -82,7 +90,8 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
     // subDrag.test.ts unit test already guards the drag math.
     render(<TopologyView />);
     await waitFor(() => {
-      expect(screen.getByText(/forward proxy/i)).toBeInTheDocument();
+      // ADR-0012 fallback: no ports configured, so the placeholder renders.
+    expect(screen.getByText(/Entry proxy port/i)).toBeInTheDocument();
     });
     vi.doUnmock("../lib/settings");
   });
@@ -126,7 +135,8 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
       });
       render(<TopologyView />);
       await waitFor(() => {
-        expect(screen.getByText(/forward proxy/i)).toBeInTheDocument();
+        // ADR-0012 fallback: no ports configured, so the placeholder renders.
+    expect(screen.getByText(/Entry proxy port/i)).toBeInTheDocument();
       });
       // The canvas container should have min-h so handles stay responsive even
       // before fitView sets the viewport (Q2-Bug3 root cause).
@@ -145,7 +155,8 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
       });
       render(<TopologyView />);
       await waitFor(() => {
-        expect(screen.getByText(/forward proxy/i)).toBeInTheDocument();
+        // ADR-0012 fallback: no ports configured, so the placeholder renders.
+    expect(screen.getByText(/Entry proxy port/i)).toBeInTheDocument();
       });
       // Initial sync fired platform_list_full at least once.
       expect(calls.filter((c) => c === "platform_list_full").length).toBeGreaterThanOrEqual(1);
@@ -247,7 +258,15 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
       const after = buildEdges([{ name: "OpenAI", region_filters: [] }], groups);
       expect(after.find((e) => e.id === "e-OpenAI-hk")).toBeFalsy();
     });
-    it("always emits the A->B entry edge regardless of region_filters", () => {
+    it("ADR-0012: A->B edge connects entry port to platform by platform_name match", () => {
+      const edges = buildEdges(
+        [{ name: "OpenAI", region_filters: null }],
+        groups,
+        [{ port: 17990, platform_name: "OpenAI" }],
+      );
+      expect(edges.find((e) => e.id === "e-port-17990-OpenAI" && e.source === "entry-port-17990" && e.target === "platform-OpenAI")).toBeTruthy();
+    });
+    it("ADR-0012: no ports = fallback A->B.edges for every platform (scaffolding)", () => {
       const edges = buildEdges([{ name: "OpenAI", region_filters: null }], groups);
       expect(edges.find((e) => e.id === "e-entry-OpenAI" && e.source === "entry-port" && e.target === "platform-OpenAI")).toBeTruthy();
     });
@@ -296,20 +315,21 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
           total: 1, limit: 500, offset: 0,
         });
         if (cmd === "lease_map") return Promise.resolve([]);
-                return Promise.resolve(undefined);
+                if (cmd === "port_list") return Promise.resolve([]);
+      return Promise.resolve(undefined);
       });
       // pin locale=en before first render.
       await i18next.changeLanguage("en");
       render(<TopologyView />);
-      // Initial render at en: entry-port box shows "Entry proxy port".
+      // ADR-0012: entry port fallback shows "Entry proxy port" (no ports configured).
       await waitFor(() => {
-        expect(screen.getByText(/Entry proxy port:/i)).toBeInTheDocument();
+        expect(screen.getByText(/Entry proxy port/i)).toBeInTheDocument();
       });
       // Switch to zh; the gate ensures the canvas re-renders with the zh catalog rather
       // than caching the English-painted node from the prior paint.
       await i18next.changeLanguage("zh");
       await waitFor(() => {
-        expect(screen.getByText(/入口代理端口:/i)).toBeInTheDocument();
+        expect(screen.getByText(/入口代理端口/i)).toBeInTheDocument();
       });
     });
   });

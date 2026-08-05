@@ -207,7 +207,8 @@
     "filters": "Upstream: {{filters}}",
     "activeLease": "lease {{account}} → {{egress}}",
     "activeLeases": "Active leases",
-    "noLeases": "No active leases"
+    "noLeases": "No active leases",
+    "noPorts": "No entry ports configured. Add one in the Platforms tab."
   },
   "tray": {
     "show": "Show Window",

@@ -207,7 +207,8 @@
     "filters": "上游: {{filters}}",
     "activeLease": "租约 {{account}} → {{egress}}",
     "activeLeases": "活跃租约",
-    "noLeases": "无活跃租约"
+    "noLeases": "无活跃租约",
+    "noPorts": "未配置入口端口。请在平台标签页添加。"
   },
   "tray": {
     "show": "显示窗口",

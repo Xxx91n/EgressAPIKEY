@@ -207,7 +207,8 @@
     "filters": "Upstream: {{filters}}",
     "activeLease": "arrendamiento {{account}} → {{egress}}",
     "activeLeases": "Arrendamientos activos",
-    "noLeases": "Sin arrendamientos activos"
+    "noLeases": "Sin arrendamientos activos",
+    "noPorts": "No hay puertos de entrada configurados. Añade uno en la pestaña Plataformas."
   },
   "tray": {
     "show": "Mostrar Ventana",

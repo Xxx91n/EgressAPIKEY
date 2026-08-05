@@ -9,7 +9,7 @@ import "@xyflow/react/dist/style.css";
 import { useAppStore } from "../store/appStore";
 import {
   ipcPlatformListFull, ipcNodeList, ipcPlatformUpdate, ipcBackupCreate,
-  ipcLeaseMap, type LeaseEntry,
+  ipcLeaseMap, ipcPortList, type LeaseEntry, type PortMapping,
 } from "../lib/ipc";
 import { loadTopologyViewport, saveTopologyViewport } from "../lib/settings";
 import { listen } from "@tauri-apps/api/event";
@@ -116,11 +116,27 @@ function parseNodeGroups(raw: unknown): NodeGroup[] {
 }
 
 /// Custom node components so the canvas shows structured content, not a bare label.
-function EntryNode({ data }: NodeProps) {
+/// ADR-0012: EntryPortNode renders one actual listener port (socks5/http).
+/// Each port IS the identity (port=identity per ADR-0012). Shows port number,
+/// protocol, label, and the bound platform_name + account.
+function EntryPortNode({ data }: NodeProps) {
+  const d = data as Record<string, unknown>;
   return (
-    <div className="rounded-lg border border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-950/50 px-4 py-3 text-xs min-w-[140px]">
+    <div className="rounded-lg border border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-950/50 px-4 py-3 text-xs min-w-[140px] max-w-[200px]">
       <Handle type="source" position={Position.Right} />
-      <div className="font-semibold text-blue-700 dark:text-blue-300">{String(data.label)}</div>
+      <div className="font-semibold text-blue-700 dark:text-blue-300">
+        {typeof d.port === "number" ? String(d.port) : String(d.label)}
+      </div>
+      <div className="text-blue-600/70 dark:text-blue-400/70 mt-0.5 text-[10px]">
+        {typeof d.protocol === "string" ? d.protocol.toUpperCase() : ""}
+        {typeof d.label === "string" && d.label ? " · " + d.label : ""}
+      </div>
+      {typeof d.boundPlatform === "string" && d.boundPlatform && (
+        <div className="mt-1 text-[10px] text-blue-500/60 dark:text-blue-400/60 font-mono">
+          → {d.boundPlatform}
+          {typeof d.account === "string" && d.account ? " · " + d.account : ""}
+        </div>
+      )}
     </div>
   );
 }
@@ -166,7 +182,7 @@ function NodeGroupNode({ data }: NodeProps) {
   );
 }
 
-const nodeTypes = { entry: EntryNode, platform: PlatformNode, nodeGroup: NodeGroupNode };
+const nodeTypes = { entryPort: EntryPortNode, platform: PlatformNode, nodeGroup: NodeGroupNode };
 
 /// Best-effort auto-backup before a topology edit (P19 item 4). Failures are
 /// swallowed: a broken backup should never block a user's routing change.
@@ -232,11 +248,23 @@ export async function patchAndSyncOnce(args: {
 export function buildEdges(
   platforms: { name: string; region_filters: string[] | null }[],
   nodeGroups: { region: string }[],
+  ports: { port: number; platform_name: string }[] = [],
 ): { id: string; source: string; target: string; animated?: boolean }[] {
   const list: { id: string; source: string; target: string; animated?: boolean }[] = [];
-  for (const p of platforms) {
-    list.push({ id: "e-entry-" + p.name, source: "entry-port", target: "platform-" + p.name, animated: true });
+  // A->B: entry port -> platform (by platform_name match).
+  for (const p of ports) {
+    const plat = platforms.find((x) => x.name === p.platform_name);
+    if (plat) {
+      list.push({ id: "e-port-" + p.port + "-" + p.platform_name, source: "entry-port-" + p.port, target: "platform-" + p.platform_name, animated: true });
+    }
   }
+  // If no ports defined yet, fall back to A->B for every platform (scaffolding edge).
+  if (ports.length === 0) {
+    for (const p of platforms) {
+      list.push({ id: "e-entry-" + p.name, source: "entry-port", target: "platform-" + p.name, animated: true });
+    }
+  }
+  // B->C: platform -> nodeGroup (by region_filters match).
   for (const p of platforms) {
     const regions = p.region_filters ?? [];
     for (const g of nodeGroups) {
@@ -257,6 +285,7 @@ function TopologyCanvas() {
   // in settings.json gatewayBind but the canvas does not need it to draw.
   const [platforms, setPlatforms] = useState<PlatformFull[]>([]);
   const [nodeGroups, setNodeGroups] = useState<NodeGroup[]>([]);
+  const [ports, setPorts] = useState<PortMapping[]>([]);
   const [leases, setLeases] = useState<LeaseEntry[]>([]);
   const [sidecarStatus, setSidecarStatus] = useState<"healthy" | "unhealthy" | null>(null);
   const [patching, setPatching] = useState(false);
@@ -284,14 +313,16 @@ function TopologyCanvas() {
 
   const sync = useCallback(async () => {
     try {
-      const [plRaw, nRaw, lRaw] = await Promise.all([
+      const [plRaw, nRaw, lRaw, pRaw] = await Promise.all([
         ipcPlatformListFull(),
         ipcNodeList(),
         ipcLeaseMap(),
+        ipcPortList(),
       ]);
       setPlatforms(parsePlatforms(plRaw));
       setNodeGroups(parseNodeGroups(nRaw));
       setLeases(Array.isArray(lRaw) ? lRaw : []);
+      setPorts(Array.isArray(pRaw) ? pRaw : []);
     } catch {
       // Outside Tauri (vitest) or sidecar down - keep last state.
     }
@@ -410,14 +441,30 @@ function TopologyCanvas() {
   const nodes: Node[] = useMemo(() => {
     if (!i18n.isInitialized || !i18n.language) return [];
     const list: Node[] = [];
-    // A: entry port (single node).
-    const port = "forward proxy";
-    list.push({
-      id: "entry-port",
-      type: "entry",
-      position: { x: 0, y: 200 },
-      data: { label: t("topology.entryPort") + ":\n" + port },
+    // A: entry ports (one node per port from ipcPortList). ADR-0012: port=identity.
+    ports.forEach((p, idx) => {
+      list.push({
+        id: "entry-port-" + p.port,
+        type: "entryPort",
+        position: { x: 0, y: 60 + idx * 90 },
+        data: {
+          port: p.port,
+          protocol: p.protocol,
+          label: p.label,
+          boundPlatform: p.platform_name,
+          account: p.account,
+        },
+      });
     });
+    // Fallback: if no ports configured, show a single placeholder so the canvas is not empty.
+    if (ports.length === 0) {
+      list.push({
+        id: "entry-port",
+        type: "entryPort",
+        position: { x: 0, y: 200 },
+        data: { label: t("topology.entryPort"), port: 0, protocol: "", boundPlatform: "", account: "" },
+      });
+    }
     // B: platforms. A4-3: attach the platform's active leases (matched on
     // platform_id) so the chip list under each card proves the
     // port-identity -> platform -> egress-IP contract (ADR-0012).
@@ -459,7 +506,7 @@ function TopologyCanvas() {
   }, [platforms, nodeGroups, leases, t, i18n.isInitialized, i18n.language]);
 
   // Edges: A->B always connected; B->C when region_filters matches.
-  const edges: Edge[] = useMemo(() => buildEdges(platforms, nodeGroups) as Edge[], [platforms, nodeGroups]);
+  const edges: Edge[] = useMemo(() => buildEdges(platforms, nodeGroups, ports) as Edge[], [platforms, nodeGroups, ports]);
 
   return (
     <section className="h-full flex flex-col">
@@ -475,6 +522,9 @@ function TopologyCanvas() {
           <span className="text-xs font-mono text-amber-500">PATCH...</span>
         )}
       </div>
+      {ports.length === 0 && (
+        <div className="px-1 pb-2 text-xs text-zinc-400">{t("topology.noPorts")}</div>
+      )}
       {platforms.length === 0 && (
         <div className="px-1 pb-2 text-xs text-zinc-400">{t("topology.noPlatforms")}</div>
       )}

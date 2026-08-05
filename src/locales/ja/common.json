@@ -207,7 +207,8 @@
     "filters": "上流: {{filters}}",
     "activeLease": "リース {{account}} → {{egress}}",
     "activeLeases": "アクティブリース",
-    "noLeases": "アクティブリースなし"
+    "noLeases": "アクティブリースなし",
+    "noPorts": "エントリーポートが未設定。プラットフォームタブで追加してください。"
   },
   "tray": {
     "show": "ウィンドウを表示",

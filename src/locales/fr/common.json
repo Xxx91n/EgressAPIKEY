@@ -207,7 +207,8 @@
     "filters": "Upstream: {{filters}}",
     "activeLease": "bail {{account}} → {{egress}}",
     "activeLeases": "Baux actifs",
-    "noLeases": "Aucun bail actif"
+    "noLeases": "Aucun bail actif",
+    "noPorts": "Aucun port d'entrée configuré. Ajoutez-en un dans l'onglet Plateformes."
   },
   "tray": {
     "show": "Afficher la Fenêtre",
