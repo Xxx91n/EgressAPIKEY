@@ -137,7 +137,10 @@
     "openLogDir": "Открыть каталог журналов",
     "unifiedHelp": "Сохранить все изменения",
     "interceptPort": "Порт перехвата (base_url omniroute)",
-    "interceptPortHint": "Используйте это как base_url в omniroute / litellm, чтобы все API-ключи проходили через перехватчик. Он внедряет X-Resin-Account для каждой (ключ, модель), чтобы пара (ключ, endpoint) получала уникальный выходной IP."
+    "interceptPortHint": "Используйте это как base_url в omniroute / litellm, чтобы все API-ключи проходили через перехватчик. Он внедряет X-Resin-Account для каждой (ключ, модель), чтобы пара (ключ, endpoint) получала уникальный выходной IP.",
+    "whiteboxReload": "Перезагрузить конфиг портов",
+    "whiteboxPath": "Файл конфига портов",
+    "whiteboxReloaded": "Конфиг портов перезагружен — {{count}} listeners"
   },
   "subscription": {
     "title": "Подписки",

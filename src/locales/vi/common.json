@@ -137,7 +137,10 @@
     "openLogDir": "Mở thư mục nhật ký",
     "unifiedHelp": "Lưu tất cả thay đổi",
     "interceptPort": "Cổng chặn (base_url của omniroute)",
-    "interceptPortHint": "Đặt đây làm base_url trong omniroute / litellm để mọi khóa API đều đi qua bộ chặn. Bộ chặn chèn X-Resin-Account theo từng (khóa, mô hình) để mỗi cặp (khóa, endpoint) có IP đầu ra khác nhau."
+    "interceptPortHint": "Đặt đây làm base_url trong omniroute / litellm để mọi khóa API đều đi qua bộ chặn. Bộ chặn chèn X-Resin-Account theo từng (khóa, mô hình) để mỗi cặp (khóa, endpoint) có IP đầu ra khác nhau.",
+    "whiteboxReload": "Tải lại cấu hình cổng",
+    "whiteboxPath": "Tệp cấu hình cổng",
+    "whiteboxReloaded": "Đã tải lại cấu hình cổng — {{count}} listener"
   },
   "subscription": {
     "title": "Đăng ký",

@@ -23,6 +23,7 @@ use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 use crate::db::{DbPool, PortMapping};
+use crate::{StreamSensor, StreamSensorSnapshot};
 
 /// Max concurrent entry ports the shell will bind (industrial safety).
 pub const MAX_ENTRY_PORTS: usize = 256;
@@ -93,6 +94,7 @@ struct PortForwarderInner {
     resin_host: String,
     resin_port: u16,
     proxy_token: String,
+    stream_sensor: StreamSensor,
     /// port -> join handle of accept loop
     running: Mutex<HashMap<u16, JoinHandle<()>>>,
     /// broadcast cancel: when false, all accept loops exit
@@ -108,6 +110,7 @@ impl PortForwarder {
                 resin_host: resin_host.into(),
                 resin_port,
                 proxy_token: proxy_token.into(),
+                stream_sensor: StreamSensor::new(),
                 running: Mutex::new(HashMap::new()),
                 alive,
             }),
@@ -120,6 +123,11 @@ impl PortForwarder {
 
     pub fn proxy_token(&self) -> &str {
         &self.inner.proxy_token
+    }
+
+    /// Header-only AI stream observations from plain HTTP proxy traffic.
+    pub fn stream_snapshot(&self) -> StreamSensorSnapshot {
+        self.inner.stream_sensor.snapshot()
     }
 
     /// Reload listeners from DB: start enabled missing ports, stop disabled/deleted.
@@ -184,6 +192,7 @@ impl PortForwarder {
         let resin_host = self.inner.resin_host.clone();
         let resin_port = self.inner.resin_port;
         let proxy_token = self.inner.proxy_token.clone();
+        let stream_sensor = self.inner.stream_sensor.clone();
         let port = m.port;
         let mut alive_rx = self.inner.alive.subscribe();
 
@@ -200,10 +209,11 @@ impl PortForwarder {
                                 let identity = identity.clone();
                                 let resin_host = resin_host.clone();
                                 let proxy_token = proxy_token.clone();
+                                let stream_sensor = stream_sensor.clone();
                                 let protocol_hint = protocol_hint.clone();
                                 tokio::spawn(async move {
                                     if let Err(e) = handle_client(
-                                        client, peer, &identity, &resin_host, resin_port, &proxy_token, &protocol_hint,
+                                        client, peer, &identity, &resin_host, resin_port, &proxy_token, &protocol_hint, &stream_sensor,
                                     ).await {
                                         tracing::debug!(port, error = %e, "port_forwarder: client session ended");
                                     }
@@ -248,6 +258,7 @@ async fn handle_client(
     resin_port: u16,
     proxy_token: &str,
     protocol_hint: &str,
+    stream_sensor: &StreamSensor,
 ) -> Result<(), String> {
     let _ = peer;
     let mut first = [0u8; 1];
@@ -262,7 +273,7 @@ async fn handle_client(
     if proto == "socks5" {
         handle_socks5(client, first[0], identity, resin_host, resin_port, proxy_token).await
     } else {
-        handle_http(client, first[0], identity, resin_host, resin_port, proxy_token).await
+        handle_http(client, first[0], identity, resin_host, resin_port, proxy_token, stream_sensor).await
     }
 }
 
@@ -408,6 +419,7 @@ async fn handle_http(
     resin_host: &str,
     resin_port: u16,
     proxy_token: &str,
+    stream_sensor: &StreamSensor,
 ) -> Result<(), String> {
     // Read headers (cap 64 KiB)
     let mut buf = vec![first];
@@ -433,6 +445,17 @@ async fn handle_http(
     if lines.is_empty() {
         return Err("empty http".into());
     }
+    // Header-only telemetry; never decrypts CONNECT traffic or reads request bodies.
+    let header_value = |name: &str| -> String {
+        lines.iter().find_map(|line| line.split_once(':').and_then(|(k, v)| {
+            k.eq_ignore_ascii_case(name).then(|| v.trim().to_string())
+        })).unwrap_or_default()
+    };
+    stream_sensor.observe_headers(
+        &header_value("accept"),
+        &header_value("upgrade"),
+        &header_value("content-type"),
+    );
     // Drop any inbound Proxy-Authorization; inject ours (port = identity).
     lines.retain(|l| !l.to_ascii_lowercase().starts_with("proxy-authorization:"));
     let auth = basic_proxy_auth(identity, proxy_token);
@@ -540,6 +563,83 @@ mod tests {
         assert_eq!(started3, 0);
         assert!(fwd.running_ports().is_empty());
         fwd.shutdown();
+    }
+
+    #[tokio::test]
+    async fn two_http_entry_ports_inject_distinct_resin_identities() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+        use tokio::sync::mpsc;
+
+        async fn read_headers(stream: &mut TcpStream) -> String {
+            let mut bytes = Vec::new();
+            let mut chunk = [0u8; 512];
+            loop {
+                let n = stream.read(&mut chunk).await.expect("read request");
+                assert!(n > 0, "client closed before HTTP headers");
+                bytes.extend_from_slice(&chunk[..n]);
+                if bytes.windows(4).any(|window| window == b"\r\n\r\n") {
+                    return String::from_utf8(bytes).expect("HTTP headers are UTF-8");
+                }
+            }
+        }
+
+        let resin_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind mock Resin");
+        let resin_port = resin_listener.local_addr().expect("mock Resin address").port();
+        let (headers_tx, mut headers_rx) = mpsc::channel(2);
+        tokio::spawn(async move {
+            for _ in 0..2 {
+                let (mut stream, _) = resin_listener.accept().await.expect("accept forwarded request");
+                let headers = read_headers(&mut stream).await;
+                headers_tx.send(headers).await.expect("collect forwarded headers");
+                stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nOK")
+                    .await
+                    .expect("respond from mock Resin");
+            }
+        });
+
+        async fn free_port() -> u16 {
+            let listener = TcpListener::bind("127.0.0.1:0").await.expect("reserve entry port");
+            listener.local_addr().expect("entry address").port()
+        }
+        let first_port = free_port().await;
+        let second_port = free_port().await;
+        assert_ne!(first_port, second_port);
+
+        let db = crate::db::DbPool::open_in_memory().expect("memory database");
+        for (port, account) in [(first_port, "account-a"), (second_port, "account-b")] {
+            db.upsert_port(&PortMapping {
+                port,
+                protocol: "http".into(),
+                platform_name: "SharedPlatform".into(),
+                account: account.into(),
+                label: format!("entry-{port}"),
+                enabled: true,
+            }).expect("persist port mapping");
+        }
+        let forwarder = PortForwarder::new(db, "127.0.0.1", resin_port, "proxy-token");
+        assert_eq!(forwarder.reload().await.expect("start entry listeners"), 2);
+
+        for port in [first_port, second_port] {
+            let mut client = TcpStream::connect(("127.0.0.1", port)).await.expect("connect entry port");
+            client.write_all(b"GET http://example.test/v1/models HTTP/1.1\r\nHost: example.test\r\nAccept: application/json\r\nProxy-Authorization: Basic attacker-controlled\r\nConnection: close\r\n\r\n")
+                .await
+                .expect("send client request");
+            let mut response = Vec::new();
+            client.read_to_end(&mut response).await.expect("read forwarded response");
+            assert!(String::from_utf8_lossy(&response).starts_with("HTTP/1.1 200 OK"));
+        }
+
+        let first = headers_rx.recv().await.expect("first forwarded request");
+        let second = headers_rx.recv().await.expect("second forwarded request");
+        let expected_a = basic_proxy_auth("SharedPlatform.account-a", "proxy-token");
+        let expected_b = basic_proxy_auth("SharedPlatform.account-b", "proxy-token");
+        assert!(first.contains(&expected_a) || first.contains(&expected_b));
+        assert!(second.contains(&expected_a) || second.contains(&expected_b));
+        assert_ne!(first, second, "two entry ports must inject distinct Resin identities");
+        assert!(!first.contains("attacker-controlled"));
+        assert!(!second.contains("attacker-controlled"));
+        forwarder.shutdown();
     }
 
     #[tokio::test]

@@ -137,7 +137,10 @@
     "openLogDir": "Ouvrir le répertoire des journaux",
     "unifiedHelp": "Enregistrer toutes les modifications",
     "interceptPort": "Port d'interception (base_url omniroute)",
-    "interceptPortHint": "Définissez ceci comme base_url dans omniroute / litellm pour que toutes les clés API passent par l'intercepteur. Il injecte X-Resin-Account par (clé, modèle) pour que chaque paire (clé, endpoint) obtienne une IP de sortie distincte."
+    "interceptPortHint": "Définissez ceci comme base_url dans omniroute / litellm pour que toutes les clés API passent par l'intercepteur. Il injecte X-Resin-Account par (clé, modèle) pour que chaque paire (clé, endpoint) obtienne une IP de sortie distincte.",
+    "whiteboxReload": "Recharger la config des ports",
+    "whiteboxPath": "Fichier de config des ports",
+    "whiteboxReloaded": "Config des ports rechargée — {{count}} listeners"
   },
   "subscription": {
     "title": "Abonnements",

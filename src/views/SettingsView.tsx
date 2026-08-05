@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload } from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport } from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload } from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import {
   saveLocale,
@@ -95,6 +95,8 @@ export function SettingsView() {
   const [baseline, setBaseline] = useState({ lanes: laneCount, gatewayBind, mihomoApi });
   // WebDAV backup config (clash-verge-rev pattern)
   const [backupUrl, setBackupUrl] = useState("");
+  const [whiteboxPath, setWhiteboxPath] = useState("");
+  const [whiteboxBusy, setWhiteboxBusy] = useState(false);
   const [backupUser, setBackupUser] = useState("");
   const [backupPass, setBackupPass] = useState("");
   const [backupBusy, setBackupBusy] = useState(false);
@@ -102,6 +104,24 @@ export function SettingsView() {
   const [configBusy, setConfigBusy] = useState(false);
   // surface it. Swallow errors (vitest, sidecar not running, IPC not registered).
   const [configMsg, setConfigMsg] = useState("");
+
+  useEffect(() => {
+    void ipcWhiteboxPath().then(setWhiteboxPath).catch(() => setWhiteboxPath(""));
+  }, []);
+
+  async function reloadWhitebox() {
+    setWhiteboxBusy(true);
+    try {
+      const n = await ipcWhiteboxReload();
+      setConfigMsg(t("settings.whiteboxReloaded", { count: n }));
+      const p = await ipcWhiteboxPath().catch(() => whiteboxPath);
+      setWhiteboxPath(p);
+    } catch (e) {
+      setConfigMsg(String(e));
+    } finally {
+      setWhiteboxBusy(false);
+    }
+  }
 
   // Hydrate persisted network settings on mount (webview only; no-op in vitest).
   useEffect(() => {
@@ -332,7 +352,7 @@ export function SettingsView() {
             calls saveAll() so there is one obvious commit action. */}
       </SectionCard>
       <SectionCard icon={<FolderOpen size={16} strokeWidth={1.75} />} title={t("settings.storage")}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-3">
           <button
             onClick={() => void openDir("config")}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors"
@@ -347,7 +367,21 @@ export function SettingsView() {
             <ScrollText size={14} strokeWidth={1.75} />
             {t("settings.openLogDir")}
           </button>
+          <button
+            data-testid="settings-whitebox-reload"
+            onClick={() => void reloadWhitebox()}
+            disabled={whiteboxBusy}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {whiteboxBusy ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} strokeWidth={1.75} />}
+            {t("settings.whiteboxReload")}
+          </button>
         </div>
+        {whiteboxPath ? (
+          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 break-all" data-testid="settings-whitebox-path">
+            {t("settings.whiteboxPath")}: {whiteboxPath}
+          </p>
+        ) : null}
       </SectionCard>
       <SectionCard icon={<CloudUpload size={16} strokeWidth={1.75} />} title={t("backup.title")}>
         <Field label={t("backup.webdavUrl")}>

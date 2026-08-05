@@ -137,7 +137,10 @@
     "openLogDir": "Günlük dizinini aç",
     "unifiedHelp": "Tüm değişiklikleri kaydet",
     "interceptPort": "Araya girme bağlantı noktası (omniroute base_url)",
-    "interceptPortHint": "Bunu omniroute / litellm içinde base_url olarak ayarlayın; tüm API anahtarları araya giriciden geçsin. Araya girici her (anahtar, model) için X-Resin-Account enjekte eder; her (anahtar, uç nokta) çifti farklı bir çıkış IP'si alır."
+    "interceptPortHint": "Bunu omniroute / litellm içinde base_url olarak ayarlayın; tüm API anahtarları araya giriciden geçsin. Araya girici her (anahtar, model) için X-Resin-Account enjekte eder; her (anahtar, uç nokta) çifti farklı bir çıkış IP'si alır.",
+    "whiteboxReload": "Port yapılandırmasını yenile",
+    "whiteboxPath": "Port yapılandırma dosyası",
+    "whiteboxReloaded": "Port yapılandırması yenilendi — {{count}}"
   },
   "subscription": {
     "title": "Abonelikler",

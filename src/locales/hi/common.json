@@ -137,7 +137,10 @@
     "openLogDir": "लॉग निर्देशिका खोलें",
     "unifiedHelp": "सभी परिवर्तन सहेजें",
     "interceptPort": "इंटरसेप्ट पोर्ट (omniroute base_url)",
-    "interceptPortHint": "इसे omniroute / litellm में base_url के रूप में सेट करें ताकि सभी API कुंजियाँ इंटरसेप्टर से गुजरें। इंटरसेप्टर हर (कुंजी, मॉडल) के लिए X-Resin-Account इंजेक्ट करता है ताकि प्रत्येक (कुंजी, एंडपॉइंट) जोड़ी को अलग निकास IP मिले।"
+    "interceptPortHint": "इसे omniroute / litellm में base_url के रूप में सेट करें ताकि सभी API कुंजियाँ इंटरसेप्टर से गुजरें। इंटरसेप्टर हर (कुंजी, मॉडल) के लिए X-Resin-Account इंजेक्ट करता है ताकि प्रत्येक (कुंजी, एंडपॉइंट) जोड़ी को अलग निकास IP मिले।",
+    "whiteboxReload": "एंट्री पोर्ट कॉन्फ़िग रीलोड",
+    "whiteboxPath": "एंट्री पोर्ट कॉन्फ़िग फ़ाइल",
+    "whiteboxReloaded": "एंट्री पोर्ट कॉन्फ़िग रीलोड — {{count}}"
   },
   "subscription": {
     "title": "सब्सक्रिप्शन",

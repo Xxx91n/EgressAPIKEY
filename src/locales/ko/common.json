@@ -137,7 +137,10 @@
     "openLogDir": "로그 디렉터리 열기",
     "unifiedHelp": "모든 변경 사항 저장",
     "interceptPort": "인터셉트 포트 (omniroute base_url)",
-    "interceptPortHint": "omniroute / litellm에서 이 값을 base_url로 설정하면 모든 API 키가 인터셉터를 경유합니다. 인터셉터는 (key, model)마다 X-Resin-Account를 주입하여 각 (key, 엔드포인트) 조합이 서로 다른 출구 IP를 갖도록 합니다."
+    "interceptPortHint": "omniroute / litellm에서 이 값을 base_url로 설정하면 모든 API 키가 인터셉터를 경유합니다. 인터셉터는 (key, model)마다 X-Resin-Account를 주입하여 각 (key, 엔드포인트) 조합이 서로 다른 출구 IP를 갖도록 합니다.",
+    "whiteboxReload": "엔트리 포트 설정 다시 로드",
+    "whiteboxPath": "엔트리 포트 설정 파일",
+    "whiteboxReloaded": "엔트리 포트 설정 다시 로드됨 — 리스너 {{count}}"
   },
   "subscription": {
     "title": "구독",

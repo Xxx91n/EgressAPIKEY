@@ -420,3 +420,35 @@ export async function ipcPortReload(): Promise<number> {
   return invoke<number>("port_reload");
 }
 
+export interface WhiteboxConfig {
+  version: number;
+  entry_ports: PortMapping[];
+}
+
+export async function ipcWhiteboxPath(): Promise<string> {
+  return invoke<string>("whitebox_path");
+}
+
+export async function ipcWhiteboxGet(): Promise<WhiteboxConfig> {
+  const raw = await invoke<WhiteboxConfig>("whitebox_get");
+  return {
+    version: Number(raw?.version ?? 1),
+    entry_ports: Array.isArray(raw?.entry_ports) ? raw.entry_ports : [],
+  };
+}
+
+/** Reload hand-edited egressapikey-ports.json into DB + listeners. */
+export async function ipcWhiteboxReload(): Promise<number> {
+  return invoke<number>("whitebox_reload");
+}
+
+export interface StreamSensorSnapshot {
+  unary: number;
+  sse: number;
+  websocket: number;
+  unknown: number;
+}
+
+export async function ipcStreamSensorSnapshot(): Promise<StreamSensorSnapshot> {
+  return invoke<StreamSensorSnapshot>("stream_sensor_snapshot");
+}

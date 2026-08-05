@@ -137,7 +137,10 @@
     "openLogDir": "打开日志目录",
     "unifiedHelp": "保存所有更改",
     "interceptPort": "拦截端口 (omniroute base_url)",
-    "interceptPortHint": "在 omniroute / litellm 中将此填为 base_url，所有 API key 将经由拦截器路由。拦截器按 (key, model) 注入 X-Resin-Account，使每个 (key, 端点) 组合获得不同的出口 IP。"
+    "interceptPortHint": "在 omniroute / litellm 中将此填为 base_url，所有 API key 将经由拦截器路由。拦截器按 (key, model) 注入 X-Resin-Account，使每个 (key, 端点) 组合获得不同的出口 IP。",
+    "whiteboxReload": "重新加载入口端口配置",
+    "whiteboxPath": "入口端口配置文件",
+    "whiteboxReloaded": "入口端口配置已重载 — {{count}} 个监听"
   },
   "subscription": {
     "title": "订阅",

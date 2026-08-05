@@ -23,6 +23,7 @@ reqwest = { workspace = true }
 hyper = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+hotswap-config = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }

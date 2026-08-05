@@ -82,7 +82,16 @@
 | NEW-4 | Modular strategy layer (pluggable: liveness, latency, bandwidth, quality, protocol weight) | high — Q7 decision |
 | NEW-5 | AI stream sensor module (SSE/WS awareness, independent board) | high — Q7 decision |
 | NEW-6 | IP reputation integration (IPQualityScore + AbuseIPDB + ip-api, pluggable) | medium — Q8 decision |
-| NEW-7 | hotswap-config (whitebox config layer, atomic backup, hot-reload) | high — A5 decision |
+| NEW-7 | hotswap-config (whitebox config layer, atomic backup, hot-reload) | **done (P3)** — validated file watch + transactional SQLite/listener/file reload |
+
+## P3 progress (2026-08-05)
+
+- **NEW-7 complete**: hotswap-config-backed whitebox entry-port document, transactional DB/listener/file swap, hand-edit reload IPC and Settings surface.
+- **NEW-4 complete (Resin-compatible scope)**: strategy catalog maps supported user choices to Resin's three live allocation policies; it does not fabricate a per-node selector.
+- **NEW-5 complete (header-visible scope)**: independent stream sensor counts HTTP unary/SSE/WebSocket classifications without TLS termination, body inspection, or key interception.
+- **P2 closed-loop strengthened**: two actual HTTP entry ports forward to a loopback Resin mock, inject distinct port-derived identities, and replace attacker-supplied proxy authorization.
+- **Validation**: cargo test -p resin-core --lib: 82 passed; pnpm test: 103 passed; pnpm exec tsc --noEmit; pnpm i18n:check: 18 locales / 171 keys; staged release/windows-gui/EgressAPIKEY.exe embeds index-C-jBubhx, smoke title EgressAPIKEY with Resin child.
+
 | NEW-8 | Project rename to EgressAPIKEY (repo, Cargo.toml, tauri.conf, package.json, README, AGENTS) | high — Q9 decision |
 | NEW-9 | Dead code deletion (interceptor.rs, route_id, observed_keys, ADR-0003/0011 superseded) | blocking — Q10 decision |
 | NEW-10 | MEMORY_REUSE_DECISION.md update (route correction conclusion固化) | medium — documentation |

@@ -137,7 +137,10 @@
     "openLogDir": "Logmap openen",
     "unifiedHelp": "Alle wijzigingen opslaan",
     "interceptPort": "Onderscheppingspoort (omniroute base_url)",
-    "interceptPortHint": "Stel dit in als base_url in omniroute / litellm zodat alle API-sleutels via de onderschepper lopen. Deze injecteert X-Resin-Account per (sleutel, model) zodat elk (sleutel, endpoint)-paar een eigen uitgaande IP krijgt."
+    "interceptPortHint": "Stel dit in als base_url in omniroute / litellm zodat alle API-sleutels via de onderschepper lopen. Deze injecteert X-Resin-Account per (sleutel, model) zodat elk (sleutel, endpoint)-paar een eigen uitgaande IP krijgt.",
+    "whiteboxReload": "Poortconfig herladen",
+    "whiteboxPath": "Poortconfig-bestand",
+    "whiteboxReloaded": "Poortconfig herladen — {{count}} listeners"
   },
   "subscription": {
     "title": "Abonnementen",

@@ -13,7 +13,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 /// One row of the port_mappings table.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PortMapping {
     pub port: u16,
     pub protocol: String,
@@ -96,6 +96,22 @@ impl DbPool {
         Ok(())
     }
 
+    /// Replace the complete port map in one SQLite transaction. The caller has
+    /// already validated the desired configuration; a DB error leaves the old
+    /// map untouched.
+    pub fn replace_ports(&self, mappings: &[PortMapping]) -> Result<(), String> {
+        let mut conn = self.0.lock();
+        let tx = conn.transaction().map_err(|e| format!("begin replace_ports: {e}"))?;
+        tx.execute("DELETE FROM port_mappings", [])
+            .map_err(|e| format!("clear port_mappings: {e}"))?;
+        for m in mappings {
+            tx.execute(
+                "INSERT INTO port_mappings (port, protocol, platform_name, account, label, enabled) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![m.port, m.protocol, m.platform_name, m.account, m.label, m.enabled],
+            ).map_err(|e| format!("insert port_mappings: {e}"))?;
+        }
+        tx.commit().map_err(|e| format!("commit replace_ports: {e}"))
+    }
     pub fn get_port(&self, port: u16) -> Result<Option<PortMapping>, String> {
         let conn = self.0.lock();
         let row = conn
@@ -179,5 +195,23 @@ mod tests {
         }).unwrap();
         pool.delete_port(18000).unwrap();
         assert!(pool.get_port(18000).unwrap().is_none());
+    }
+
+    #[test]
+    fn replace_ports_swaps_full_map() {
+        let pool = DbPool::open_in_memory().unwrap();
+        pool.upsert_port(&PortMapping {
+            port: 17990, protocol: "socks5".into(), platform_name: "A".into(),
+            account: "a".into(), label: "".into(), enabled: true,
+        }).unwrap();
+        pool.replace_ports(&[PortMapping {
+            port: 17991, protocol: "http".into(), platform_name: "B".into(),
+            account: "b".into(), label: "x".into(), enabled: true,
+        }]).unwrap();
+        let all = pool.list_ports().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].port, 17991);
+        assert_eq!(all[0].protocol, "http");
+        assert!(pool.get_port(17990).unwrap().is_none());
     }
 }

@@ -137,7 +137,10 @@
     "openLogDir": "เปิดไดเรกทอรีบันทึก",
     "unifiedHelp": "บันทึกการเปลี่ยนแปลงทั้งหมด",
     "interceptPort": "พอร์ตสกัดกั้น (base_url ของ omniroute)",
-    "interceptPortHint": "ตั้งค่านี้เป็น base_url ใน omniroute / litellm เพื่อให้คีย์ API ทั้งหมดผ่านตัวสกัดกั้น ตัวสกัดกั้นจะแทรก X-Resin-Account ตาม (คีย์, โมเดล) เพื่อให้คู่ (คีย์, endpoint) แต่ละคู่ ได้ IP ขาออกที่ต่างกัน"
+    "interceptPortHint": "ตั้งค่านี้เป็น base_url ใน omniroute / litellm เพื่อให้คีย์ API ทั้งหมดผ่านตัวสกัดกั้น ตัวสกัดกั้นจะแทรก X-Resin-Account ตาม (คีย์, โมเดล) เพื่อให้คู่ (คีย์, endpoint) แต่ละคู่ ได้ IP ขาออกที่ต่างกัน",
+    "whiteboxReload": "โหลดการตั้งค่าพอร์ตใหม่",
+    "whiteboxPath": "ไฟล์การตั้งค่าพอร์ต",
+    "whiteboxReloaded": "โหลดการตั้งค่าพอร์ตแล้ว — {{count}}"
   },
   "subscription": {
     "title": "การสมัครรับข้อมูล",

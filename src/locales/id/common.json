@@ -137,7 +137,10 @@
     "openLogDir": "Buka direktori log",
     "unifiedHelp": "Simpan semua perubahan",
     "interceptPort": "Port intersepsi (base_url omniroute)",
-    "interceptPortHint": "Setel ini sebagai base_url di omniroute / litellm agar semua kunci API melewati interseptor. Interseptor menyuntik X-Resin-Account per (kunci, model) supaya tiap pasangan (kunci, endpoint) mendapat IP keluar yang berbeda."
+    "interceptPortHint": "Setel ini sebagai base_url di omniroute / litellm agar semua kunci API melewati interseptor. Interseptor menyuntik X-Resin-Account per (kunci, model) supaya tiap pasangan (kunci, endpoint) mendapat IP keluar yang berbeda.",
+    "whiteboxReload": "Muat ulang config port",
+    "whiteboxPath": "File config port",
+    "whiteboxReloaded": "Config port dimuat ulang — {{count}} listener"
   },
   "subscription": {
     "title": "Langganan",

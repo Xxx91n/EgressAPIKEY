@@ -25,6 +25,7 @@ import {
   ipcPlatformCreateWithFields, ipcPlatformLeases,
   ipChannelList, ipChannelPolicySet, ipChannelCreate, ipChannelDelete,
   ipcPortList, ipcPortUpsert, ipcPortRemove, ipcPortRunning, ipcPortReload,
+  ipcWhiteboxPath, ipcWhiteboxGet, ipcWhiteboxReload,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -311,6 +312,20 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
   it("ipcPortRemove rejects privileged port before invoke", async () => {
     await expect(ipcPortRemove(443)).rejects.toThrow(/port out of range/);
     expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ipcWhiteboxPath/Get/Reload forward", async () => {
+    invokeMock.mockResolvedValueOnce("C:/cfg/egressapikey-ports.json");
+    await expect(ipcWhiteboxPath()).resolves.toBe("C:/cfg/egressapikey-ports.json");
+    expect(invokeMock).toHaveBeenCalledWith("whitebox_path");
+    invokeMock.mockResolvedValueOnce({ version: 1, entry_ports: [{ port: 17990, protocol: "socks5", platform_name: "OpenAI", account: "port-17990", label: "", enabled: true }] });
+    const cfg = await ipcWhiteboxGet();
+    expect(cfg.version).toBe(1);
+    expect(cfg.entry_ports).toHaveLength(1);
+    expect(invokeMock).toHaveBeenCalledWith("whitebox_get");
+    invokeMock.mockResolvedValueOnce(3);
+    await expect(ipcWhiteboxReload()).resolves.toBe(3);
+    expect(invokeMock).toHaveBeenCalledWith("whitebox_reload");
   });
 });
 

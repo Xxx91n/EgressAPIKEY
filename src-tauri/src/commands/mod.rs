@@ -1190,10 +1190,13 @@ pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapp
     db.list_ports()
 }
 
+/// Upsert one entry-port via the whitebox config transaction
+/// (validate -> SQLite replace -> listener reload -> atomic JSON -> hotswap).
 #[tauri::command]
 pub async fn port_upsert(
     db: State<'_, DbPool>,
     forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     port: u16,
     protocol: String,
     platform_name: String,
@@ -1215,9 +1218,14 @@ pub async fn port_upsert(
         label,
         enabled,
     };
-    db.upsert_port(&m)?;
-    // Hot-apply listeners (ADR-0012). Failure surfaces to GUI.
-    forwarder.reload().await?;
+    let mut next = whitebox.snapshot();
+    if let Some(existing) = next.entry_ports.iter_mut().find(|row| row.port == m.port) {
+        *existing = m.clone();
+    } else {
+        next.entry_ports.push(m.clone());
+        next.entry_ports.sort_by_key(|row| row.port);
+    }
+    whitebox.apply(&db, &forwarder, next).await?;
     Ok(m)
 }
 
@@ -1225,13 +1233,15 @@ pub async fn port_upsert(
 pub async fn port_remove(
     db: State<'_, DbPool>,
     forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     port: u16,
 ) -> Result<bool, String> {
     if port < resin_core::MIN_USER_PORT {
         return Err(format!("port {port} is privileged"));
     }
-    db.delete_port(port)?;
-    forwarder.reload().await?;
+    let mut next = whitebox.snapshot();
+    next.entry_ports.retain(|row| row.port != port);
+    whitebox.apply(&db, &forwarder, next).await?;
     Ok(true)
 }
 
@@ -1240,9 +1250,43 @@ pub async fn port_running(forwarder: State<'_, resin_core::PortForwarder>) -> Re
     Ok(forwarder.running_ports())
 }
 
+/// Explicit reload of the whitebox file (hand-edit path). Invalid files are
+/// rejected by hotswap-config validation and leave the active map unchanged.
 #[tauri::command]
-pub async fn port_reload(forwarder: State<'_, resin_core::PortForwarder>) -> Result<usize, String> {
-    forwarder.reload().await
+pub async fn port_reload(
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+) -> Result<usize, String> {
+    whitebox.reload_file(&db, &forwarder).await
+}
+
+#[tauri::command]
+pub async fn whitebox_path(whitebox: State<'_, resin_core::WhiteboxConfigStore>) -> Result<String, String> {
+    Ok(whitebox.path().display().to_string())
+}
+
+#[tauri::command]
+pub async fn whitebox_get(whitebox: State<'_, resin_core::WhiteboxConfigStore>) -> Result<resin_core::WhiteboxConfig, String> {
+    Ok(whitebox.snapshot())
+}
+
+#[tauri::command]
+pub async fn whitebox_reload(
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+) -> Result<usize, String> {
+    whitebox.reload_file(&db, &forwarder).await
+}
+
+
+
+#[tauri::command]
+pub async fn stream_sensor_snapshot(
+    forwarder: State<'_, resin_core::PortForwarder>,
+) -> Result<resin_core::StreamSensorSnapshot, String> {
+    Ok(forwarder.stream_snapshot())
 }
 
 #[cfg(test)]

@@ -137,7 +137,10 @@
     "openLogDir": "Protokollverzeichnis öffnen",
     "unifiedHelp": "Alle Änderungen speichern",
     "interceptPort": "Abfangport (omniroute base_url)",
-    "interceptPortHint": "Setze dies als base_url in omniroute / litellm, damit alle API-Schlüssel über den Interceptor geleitet werden. Dieser injiziert X-Resin-Account pro (Schlüssel, Modell), sodass jedes (Schlüssel, Endpunkt)-Paar eine eigene Ausgangs-IP erhält."
+    "interceptPortHint": "Setze dies als base_url in omniroute / litellm, damit alle API-Schlüssel über den Interceptor geleitet werden. Dieser injiziert X-Resin-Account pro (Schlüssel, Modell), sodass jedes (Schlüssel, Endpunkt)-Paar eine eigene Ausgangs-IP erhält.",
+    "whiteboxReload": "Port-Konfiguration neu laden",
+    "whiteboxPath": "Port-Konfigurationsdatei",
+    "whiteboxReloaded": "Port-Config neu geladen — {{count}} Listener"
   },
   "subscription": {
     "title": "Abonnements",

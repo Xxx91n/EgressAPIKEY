@@ -137,7 +137,10 @@
     "openLogDir": "فتح دليل السجلات",
     "unifiedHelp": "حفظ كل التغييرات",
     "interceptPort": "منفذ الاعتراض (base_url لـ omniroute)",
-    "interceptPortHint": "اضبط هذا كـ base_url في omniroute / litellm لتمرير جميع مفاتيح API عبر المعترض. يحقن المعترض X-Resin-Account لكل (مفتاح, نموذج) ليحصل كل زوج (مفتاح, نقطة نهاية) على عنوان IP خروج مختلف."
+    "interceptPortHint": "اضبط هذا كـ base_url في omniroute / litellm لتمرير جميع مفاتيح API عبر المعترض. يحقن المعترض X-Resin-Account لكل (مفتاح, نموذج) ليحصل كل زوج (مفتاح, نقطة نهاية) على عنوان IP خروج مختلف.",
+    "whiteboxReload": "إعادة تحميل إعدادات المنافذ",
+    "whiteboxPath": "ملف إعدادات المنافذ",
+    "whiteboxReloaded": "أُعيد تحميل إعدادات المنافذ — {{count}}"
   },
   "subscription": {
     "title": "الاشتراكات",

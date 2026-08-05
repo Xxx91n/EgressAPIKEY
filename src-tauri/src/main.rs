@@ -6,7 +6,7 @@
 
 use egressapikey_app::{build_shared_gateway, build_shared_registry, commands, sidecar::{boot_resin, spawn_health_poll, SidecarHandle}, tray::build_tray};
 use resin_core::{CoreConfig, DEFAULT_LANES};
-use resin_core::{DbPool, PortForwarder};
+use resin_core::{DbPool, PortForwarder, WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE};
 use tauri::{Manager, Emitter, WindowEvent};
 use tauri_plugin_store::StoreExt;
 
@@ -122,6 +122,10 @@ fn main() {
             commands::port_remove,
             commands::port_running,
             commands::port_reload,
+            commands::whitebox_path,
+            commands::whitebox_get,
+            commands::whitebox_reload,
+            commands::stream_sensor_snapshot,
         ])
         .setup(|app| {
             // #2/#6: read persisted network settings so the user
@@ -205,13 +209,71 @@ fn main() {
                 api_port,
                 proxy_token,
             );
-            // Hot-apply current port_mappings so previously saved ports resume on boot.
-            let fwd = forwarder.clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = fwd.reload().await {
-                    tracing::warn!(error = %e, "port_forwarder: initial reload failed");
+            // Phase 3 / NEW-7: whitebox entry-port JSON + hotswap-config.
+            // Seed from SQLite so first boot materializes the file from DB.
+            let whitebox_path = cfg_dir.join(WHITEBOX_CONFIG_FILE);
+            let seed = WhiteboxConfig::from_ports(db.list_ports().unwrap_or_default());
+            let store = tauri::async_runtime::block_on(async {
+                match WhiteboxConfigStore::open(whitebox_path.clone(), seed.clone()).await {
+                    Ok(s) => Ok(s),
+                    Err(e) => {
+                        // Corrupt/hand-broken JSON: quarantine and reseed from DB so
+                        // State<WhiteboxConfigStore> always exists for port_* IPC.
+                        tracing::error!(error = %e, "whitebox config open failed; reseeding from DB");
+                        let bak = whitebox_path.with_extension("json.bad");
+                        let _ = std::fs::rename(&whitebox_path, &bak);
+                        WhiteboxConfigStore::open(whitebox_path, seed).await
+                    }
                 }
             });
+            match store {
+                Ok(store) => {
+                    let db_wb = db.clone();
+                    let fwd_wb = forwarder.clone();
+                    let store_watch = store.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(e) = store_watch.reload_file(&db_wb, &fwd_wb).await {
+                            tracing::warn!(error = %e, "whitebox: initial apply failed; reloading listeners from DB");
+                            if let Err(e2) = fwd_wb.reload().await {
+                                tracing::warn!(error = %e2, "port_forwarder: initial reload failed");
+                            }
+                        }
+                        store_watch.watch_apply(db_wb, fwd_wb).await;
+                    });
+                    tracing::info!(path = %store.path().display(), "whitebox config opened");
+                    app.manage(store);
+                }
+                Err(e) => {
+                    // Last-resort: still manage a store under temp so IPC does not panic.
+                    tracing::error!(error = %e, "whitebox config unrecoverable; using temp store");
+                    let tmp = std::env::temp_dir().join(format!(
+                        "egressapikey-ports-{}.json",
+                        std::process::id()
+                    ));
+                    let seed2 = WhiteboxConfig::from_ports(db.list_ports().unwrap_or_default());
+                    match tauri::async_runtime::block_on(WhiteboxConfigStore::open(tmp, seed2)) {
+                        Ok(store) => {
+                            let db_wb = db.clone();
+                            let fwd_wb = forwarder.clone();
+                            let store_watch = store.clone();
+                            tauri::async_runtime::spawn(async move {
+                                let _ = store_watch.reload_file(&db_wb, &fwd_wb).await;
+                                store_watch.watch_apply(db_wb, fwd_wb).await;
+                            });
+                            app.manage(store);
+                        }
+                        Err(e2) => {
+                            tracing::error!(error = %e2, "temp whitebox open failed");
+                            let fwd = forwarder.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Err(e3) = fwd.reload().await {
+                                    tracing::warn!(error = %e3, "port_forwarder: initial reload failed");
+                                }
+                            });
+                        }
+                    }
+                }
+            }
             app.manage(forwarder);
             // G3: Ghost safety-net - /healthz poll every 3s, 3 consecutive
             // failures flip the tray red, clear OS system proxy if any, and

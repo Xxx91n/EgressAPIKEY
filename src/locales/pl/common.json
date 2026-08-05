@@ -137,7 +137,10 @@
     "openLogDir": "Otwórz katalog dzienników",
     "unifiedHelp": "Zapisz wszystkie zmiany",
     "interceptPort": "Port przechwytywania (base_url omniroute)",
-    "interceptPortHint": "Ustaw to jako base_url w omniroute / litellm, aby wszystkie klucze API przechodziły przez przechwytywacz. Wstrzykuje X-Resin-Account dla każdej (klucz, model) pary, tak aby każda (klucz, endpoint) miała unikalny wychodzący IP."
+    "interceptPortHint": "Ustaw to jako base_url w omniroute / litellm, aby wszystkie klucze API przechodziły przez przechwytywacz. Wstrzykuje X-Resin-Account dla każdej (klucz, model) pary, tak aby każda (klucz, endpoint) miała unikalny wychodzący IP.",
+    "whiteboxReload": "Przeładuj konfigurację portów",
+    "whiteboxPath": "Plik konfiguracji portów",
+    "whiteboxReloaded": "Przeładowano konfigurację portów — {{count}}"
   },
   "subscription": {
     "title": "Subskrypcje",

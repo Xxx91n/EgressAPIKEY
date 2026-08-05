@@ -1,0 +1,309 @@
+//! Whitebox entry-port configuration (Phase 3 / NEW-7).
+//!
+//! `HotswapConfig` owns the active, validated document. Every update is
+//! validated before an atomic swap; application code persists the same document
+//! to disk only after the SQLite + listener reload transaction succeeds.
+
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
+
+use hotswap_config::{
+    notify::SubscriptionHandle,
+    prelude::{HotswapConfig, ValidationError},
+};
+use parking_lot::Mutex as SyncMutex;
+use tokio::sync::Mutex as AsyncMutex;
+use serde::{Deserialize, Serialize};
+
+use crate::{DbPool, MAX_ENTRY_PORTS, MIN_USER_PORT, PortForwarder, PortMapping};
+
+pub const WHITEBOX_CONFIG_FILE: &str = "egressapikey-ports.json";
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
+pub struct WhiteboxConfig {
+    pub version: u8,
+    #[serde(default)]
+    pub entry_ports: Vec<PortMapping>,
+}
+
+impl WhiteboxConfig {
+    pub fn from_ports(entry_ports: Vec<PortMapping>) -> Self {
+        Self {
+            version: 1,
+            entry_ports,
+        }
+    }
+}
+
+/// Validate before the config is made active or persisted.
+pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
+    if config.version != 1 {
+        return Err("whitebox config version must be 1".into());
+    }
+    if config.entry_ports.len() > MAX_ENTRY_PORTS {
+        return Err(format!("too many entry ports (max {MAX_ENTRY_PORTS})"));
+    }
+    let mut seen = HashSet::with_capacity(config.entry_ports.len());
+    for port in &config.entry_ports {
+        if port.port < MIN_USER_PORT {
+            return Err(format!("port {} is privileged (< {MIN_USER_PORT})", port.port));
+        }
+        if !seen.insert(port.port) {
+            return Err(format!("duplicate port {}", port.port));
+        }
+        if !matches!(port.protocol.as_str(), "socks5" | "http") {
+            return Err("protocol must be socks5 or http".into());
+        }
+        validate_identity(&port.platform_name, "platform_name")?;
+        if !port.account.is_empty() {
+            validate_identity(&port.account, "account")?;
+        }
+        validate_text(&port.label, "label")?;
+    }
+    Ok(())
+}
+
+fn validate_text(value: &str, field: &str) -> Result<(), String> {
+    if value.len() > 128 || value.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+        return Err(format!("{field} invalid"));
+    }
+    Ok(())
+}
+
+fn validate_identity(value: &str, field: &str) -> Result<(), String> {
+    if value.is_empty() || value.len() > 128 {
+        return Err(format!("{field} invalid"));
+    }
+    validate_text(value, field)?;
+    if value.chars().any(|ch| ".:/\\@?#%~ ".contains(ch)) {
+        return Err(format!("{field} contains Resin-forbidden chars"));
+    }
+    Ok(())
+}
+
+fn as_validation_error(config: &WhiteboxConfig) -> Result<(), ValidationError> {
+    validate(config).map_err(|e| ValidationError::invalid_field("entry_ports", e))
+}
+
+/// Runtime handle for the whitebox file and its in-memory atomic state.
+#[derive(Clone)]
+pub struct WhiteboxConfigStore {
+    path: PathBuf,
+    config: HotswapConfig<WhiteboxConfig>,
+    // Writers are serialized so DB snapshot, listener reload and config swap do
+    // not interleave. Reads stay lock-free through hotswap-config.
+    writer: Arc<AsyncMutex<()>>,
+    // Last successfully committed listener map; used to restore the atomic
+    // in-memory view if a watched file cannot bind.
+    applied: Arc<SyncMutex<WhiteboxConfig>>,
+    // Keep the wheel subscription alive for the lifetime of the desktop app.
+    subscription: Arc<SyncMutex<Option<SubscriptionHandle>>>,
+}
+
+impl WhiteboxConfigStore {
+    pub async fn open(path: PathBuf, initial: WhiteboxConfig) -> Result<Self, String> {
+        validate(&initial)?;
+        if !path.exists() {
+            write_atomic(&path, &initial)?;
+        }
+        let config = HotswapConfig::builder()
+            .with_file(&path)
+            .with_file_watch(true)
+            .with_watch_debounce(Duration::from_millis(500))
+            .with_validation(as_validation_error)
+            .build::<WhiteboxConfig>()
+            .await
+            .map_err(|e| format!("open whitebox config: {e}"))?;
+        Ok(Self {
+            path,
+            config,
+            writer: Arc::new(AsyncMutex::new(())),
+            applied: Arc::new(SyncMutex::new(initial)),
+            subscription: Arc::new(SyncMutex::new(None)),
+        })
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn snapshot(&self) -> WhiteboxConfig {
+        (*self.config.get()).clone()
+    }
+
+    /// Attach the file-watch bridge once runtime dependencies exist. Accepted
+    /// file writes are applied to SQLite/listeners asynchronously; invalid files
+    /// never trigger this callback because hotswap-config preserves the old value.
+    pub async fn watch_apply(&self, db: DbPool, forwarder: PortForwarder) {
+        let config = self.config.clone();
+        let writer = self.writer.clone();
+        let applied = self.applied.clone();
+        let handle = self
+            .config
+            .subscribe(move || {
+                let config = config.clone();
+                let db = db.clone();
+                let forwarder = forwarder.clone();
+                let writer = writer.clone();
+                let applied = applied.clone();
+                tokio::spawn(async move {
+                    let _guard = writer.lock().await;
+                    let next = (*config.get()).clone();
+                    let previous = applied.lock().clone();
+                    match apply_ports(&db, &forwarder, &next.entry_ports).await {
+                        Ok(_) => {
+                            *applied.lock() = next;
+                            tracing::info!("whitebox config file update applied");
+                        }
+                        Err(error) => {
+                            // The wheel already atomically swapped the parsed file.
+                            // Restore the last fully applied document so memory, DB
+                            // and listeners remain one transactionally consistent view.
+                            if let Err(restore_error) = config.update(previous).await {
+                                tracing::error!(
+                                    %restore_error,
+                                    "whitebox config failed to restore active snapshot"
+                                );
+                            }
+                            tracing::error!(
+                                %error,
+                                "whitebox config file update rejected during listener apply"
+                            );
+                        }
+                    }
+                });
+            })
+            .await;
+        *self.subscription.lock() = Some(handle);
+    }
+
+    /// Explicitly reload a hand-edited file. Invalid data is rejected by the
+    /// wheel and the old atomic config remains active.
+    pub async fn reload_file(
+        &self,
+        db: &DbPool,
+        forwarder: &PortForwarder,
+    ) -> Result<usize, String> {
+        let _guard = self.writer.lock().await;
+        self.config
+            .reload()
+            .await
+            .map_err(|e| format!("reload whitebox config: {e}"))?;
+        let next = self.snapshot();
+        let started = apply_ports(db, forwarder, &next.entry_ports).await?;
+        *self.applied.lock() = next;
+        Ok(started)
+    }
+
+    /// GUI writes use the identical validate -> DB -> listener -> file -> atomic
+    /// config sequence as a whitebox file reload.
+    pub async fn apply(
+        &self,
+        db: &DbPool,
+        forwarder: &PortForwarder,
+        next: WhiteboxConfig,
+    ) -> Result<usize, String> {
+        validate(&next)?;
+        let _guard = self.writer.lock().await;
+        let previous = self.snapshot();
+        let started = apply_ports(db, forwarder, &next.entry_ports).await?;
+        if let Err(e) = write_atomic(&self.path, &next) {
+            let _ = apply_ports(db, forwarder, &previous.entry_ports).await;
+            return Err(e);
+        }
+        if let Err(e) = self.config.update(next.clone()).await {
+            let _ = apply_ports(db, forwarder, &previous.entry_ports).await;
+            return Err(format!("activate whitebox config: {e}"));
+        }
+        *self.applied.lock() = next;
+        Ok(started)
+    }
+}
+
+async fn apply_ports(
+    db: &DbPool,
+    forwarder: &PortForwarder,
+    next: &[PortMapping],
+) -> Result<usize, String> {
+    validate(&WhiteboxConfig::from_ports(next.to_vec()))?;
+    let previous = db.list_ports()?;
+    db.replace_ports(next)?;
+    match forwarder.reload().await {
+        Ok(started) => Ok(started),
+        Err(error) => {
+            db.replace_ports(&previous)?;
+            if let Err(rollback_error) = forwarder.reload().await {
+                return Err(format!(
+                    "entry-port reload failed: {error}; rollback listener reload failed: {rollback_error}"
+                ));
+            }
+            Err(format!("entry-port reload failed: {error}"))
+        }
+    }
+}
+
+fn write_atomic(path: &Path, config: &WhiteboxConfig) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| "whitebox config has no parent directory".to_string())?;
+    std::fs::create_dir_all(parent)
+        .map_err(|e| format!("create whitebox config directory: {e}"))?;
+    let bytes =
+        serde_json::to_vec_pretty(config).map_err(|e| format!("encode whitebox config: {e}"))?;
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, bytes).map_err(|e| format!("write whitebox config temp: {e}"))?;
+    std::fs::rename(&tmp, path).map_err(|e| format!("activate whitebox config: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mapping(port: u16) -> PortMapping {
+        PortMapping {
+            port,
+            protocol: "socks5".into(),
+            platform_name: "OpenAI".into(),
+            account: format!("port-{port}"),
+            label: String::new(),
+            enabled: true,
+        }
+    }
+
+    #[test]
+    fn validator_rejects_duplicate_privileged_and_invalid_protocol() {
+        let mut duplicate = WhiteboxConfig::from_ports(vec![mapping(17990), mapping(17990)]);
+        assert!(validate(&duplicate).unwrap_err().contains("duplicate"));
+        duplicate.entry_ports = vec![mapping(80)];
+        assert!(validate(&duplicate).unwrap_err().contains("privileged"));
+        duplicate.entry_ports = vec![PortMapping {
+            protocol: "https".into(),
+            ..mapping(17990)
+        }];
+        assert!(validate(&duplicate).unwrap_err().contains("protocol"));
+    }
+
+    #[test]
+    fn validator_accepts_two_distinct_ports() {
+        assert!(
+            validate(&WhiteboxConfig::from_ports(vec![mapping(17990), mapping(17991)])).is_ok()
+        );
+    }
+
+    #[test]
+    fn write_atomic_persists_json_without_partial_file() {
+        let dir = std::env::temp_dir().join(format!("egressapikey-whitebox-{}", std::process::id()));
+        let path = dir.join(WHITEBOX_CONFIG_FILE);
+        let config = WhiteboxConfig::from_ports(vec![mapping(17990)]);
+        write_atomic(&path, &config).unwrap();
+        let loaded: WhiteboxConfig =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(loaded, config);
+        assert!(!path.with_extension("json.tmp").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}

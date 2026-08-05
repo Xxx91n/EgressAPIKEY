@@ -19,6 +19,9 @@ pub mod gateway;
 pub mod resin_client;
 pub mod db;
 pub mod port_forwarder;
+pub mod whitebox_config;
+pub mod strategy;
+pub mod stream_sensor;
 
 pub use lane::{lane_index, LaneConfig};
 pub use lease::{LeaseTable, LeaseId};
@@ -27,6 +30,9 @@ pub use platform::{Platform, Account, PlatformRegistry};
 pub use resin_client::{ResinClient, fetch_clash_subscription, clash_yaml_to_proxies_block};
 pub use db::{DbPool, PortMapping};
 pub use port_forwarder::{PortForwarder, resin_identity, detect_protocol, MAX_ENTRY_PORTS, MIN_USER_PORT};
+pub use whitebox_config::{WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE, validate as validate_whitebox_config};
+pub use strategy::{StrategyId, StrategyInfo, strategy_catalog, protocol_weight};
+pub use stream_sensor::{StreamSensor, StreamSensorSnapshot, StreamKind, classify_http_headers};
 
 /// Re-export canonical config for the whole core.
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
