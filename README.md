@@ -17,7 +17,7 @@ pnpm tauri dev
 
 ## Key design
 
-- **N lanes** (default 10, max 50) — keys hash into lanes, not 1:1 port mapping
+- **Entry port = identity** — each exposed port is one (platform, account) pair; Resin binds sticky-IP per port natively (ADR-0012/0014/0015)
 - **Per-request TCP** — `pool_max_idle_per_host(0)` guarantees fresh connections
 - **SSE session stickiness** — stream locks node until completion, auto-switches on failure
 - **Zero adaptation** — OmniRoute users change one proxy address; client code unchanged

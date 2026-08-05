@@ -126,11 +126,15 @@ starts_with confinement).
 _Avoid_: snapshot, checkpoint, save
 
 ### Entry Port Mapping
-The SQLite table (reuses DbPool infra) that maps each Entry Port number
-to a (platform_name, account_string) pair. Written by the shell when the
-user creates a port in the GUI; read by the forwarder on every inbound
-connection to inject the correct X-Resin-Account header before forwarding
-to Resin. Schema migration = hand-written PRAGMA user_version (A12-revision).
+The SQLite table (reuses DbPool infra) that stores each Entry Port number
+paired with its (platform_name, protocol, label, account_string) metadata.
+Written by the shell when the GUI creates a port (the same call forwards
+the listener lifecycle to the Resin v1.2.0 /api/v1/endpoints admin API).
+The port being live IS the account identity: Resin receives the inbound
+connection on that port and binds traffic to the platform's sticky-IP
+lease without any shell-side header injection (ADR-0014 deleted
+interceptor.rs and route_id; ADR-0015 confirmed thin-shell forwarder).
+Schema migration = hand-written PRAGMA user_version.
 _Avoid_: port table, route map, binding table
 
 ### hotswap-config

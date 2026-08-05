@@ -353,7 +353,7 @@ export async function ipcConfigImport(config: unknown): Promise<{
   return invoke("config_import", { config });
 }
 
-/// A4-3: live lease row from Resin /api/v1/metrics/realtime/leases.
+/// Live lease row from Resin /api/v1/metrics/realtime/leases.
 export interface LeaseEntry {
   platform_id: string;
   account: string;
@@ -363,7 +363,7 @@ export interface LeaseEntry {
   ts: string;
 }
 
-/// A4-3: Live active lease map. Polled in the Topology canvas together with
+/// Live active lease map. Polled in the Topology canvas together with
 /// platform_list + node_list so each platform card can show its active leases.
 export async function ipcLeaseMap(): Promise<LeaseEntry[]> {
   const raw = await invoke<LeaseEntry[]>("lease_map");
@@ -382,7 +382,6 @@ export async function ipcLeaseMap(): Promise<LeaseEntry[]> {
   }));
 }
 
-// C1-1: Observed key pool entry. The route_id is the shell-side identity
 
 // Phase 2 / ADR-0012: Entry Port = identity. Shell multi-port forwarder.
 export interface PortMapping {

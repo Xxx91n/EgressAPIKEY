@@ -1333,7 +1333,7 @@ pub async fn config_import(
 pub struct LeaseEntry {
     /// Platform UUID (Resin's internal id). Empty = Default platform.
     pub platform_id: String,
-    /// The X-Resin-Account the interceptor injected (the A4-3 identity).
+    /// Account string Resin binds to this lease (the upstream business identity).
     pub account: String,
     /// Brand fields Resin surfaces per-lease when it has them.
     pub egress_ip: String,
