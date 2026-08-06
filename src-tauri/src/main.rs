@@ -185,6 +185,9 @@ fn main() {
             let proxy_token = sidecar.proxy_token;
             app.manage(SidecarHandle {
                 child: sidecar.child,
+                mode: std::sync::RwLock::new(
+                    egressapikey_app::sidecar::RunningMode::Running,
+                ),
                 api_port,
                 admin_token: sidecar.admin_token,
                 proxy_token: proxy_token.clone(),
@@ -304,6 +307,12 @@ fn main() {
                         let _ = child.kill();
                         tracing::info!("sidecar child killed on app exit");
                     }
+                    // ADR-0016 T2-1: mark mode as NotRunning so any
+                    // concurrent reader (health poll, crash restarter)
+                    // sees the shutdown is intentional, not a crash.
+                    sidecar.set_mode(
+                        egressapikey_app::sidecar::RunningMode::NotRunning,
+                    );
                 }
             }
         });

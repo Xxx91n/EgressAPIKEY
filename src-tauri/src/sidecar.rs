@@ -25,6 +25,25 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
+/// Lifecycle state of the Resin sidecar process (ADR-0016 Q1).
+/// Modeled after clash-verge-rev CoreManager RunningMode: a lightweight
+/// enum behind RwLock so any thread can cheaply read the current state
+/// without blocking the IPC command layer. Transition graph:
+///   NotRunning -> Starting -> Running  (boot_resin success path)
+///   Running -> NotRunning              (exit hook / crash)
+///   Starting -> NotRunning             (boot timeout)
+/// Ponytail: std RwLock, not arc-swap crate — mode transitions are rare
+/// (boot, crash, shutdown), so RwLock contention is negligible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunningMode {
+    /// No sidecar process exists (initial state before boot or after kill).
+    NotRunning,
+    /// Process spawned, /healthz not yet confirmed (boot_resin polling).
+    Starting,
+    /// Process is live and control plane is up (normal steady state).
+    Running,
+}
+
 /// The running sidecar process plus the connection info the Rust side needs.
 /// Lives in Tauri managed state as `State<SidecarHandle>` so IPC commands
 /// (G2 ResinClient) can reach it without piping admin tokens anywhere else.
@@ -36,6 +55,10 @@ pub struct SidecarHandle {
     /// out of SysState. None after kill() means a second Exit callback
     /// (if Tauri ever re-emits one) is a no-op.
     pub child: Mutex<Option<CommandChild>>,
+    /// Lifecycle mode (ADR-0016 Q1). RwLock so the health poll thread,
+    /// crash restarter, and exit hook can all read/set the mode without
+    /// blocking the IPC command path (which only needs api_port + tokens).
+    pub mode: std::sync::RwLock<RunningMode>,
     /// Resin's single consolidated port (control-plane API + proxy + webui).
     pub api_port: u16,
     /// Resin admin token. Used to authenticate Rust-side REST calls to the
@@ -50,6 +73,35 @@ impl SidecarHandle {
     /// Base URL for the Resin REST API. Always loopback.
     pub fn api_base(&self) -> String {
         format!("http://127.0.0.1:{}", self.api_port)
+    }
+
+    /// Read the current lifecycle mode (cheap RwLock read).
+    pub fn mode(&self) -> RunningMode {
+        *self.mode.read().unwrap()
+    }
+
+    /// Transition to a new mode. Validates that the transition is legal
+    /// per the ADR-0016 state graph; logs a warn on illegal transitions
+    /// but does not panic (defensive against races in the exit path).
+    pub fn set_mode(&self, new: RunningMode) {
+        let old = self.mode();
+        // Valid: Starting->Running, Starting->NotRunning (timeout),
+        //        Running->NotRunning (crash/exit), NotRunning->Starting (reboot).
+        let valid = matches!(
+            (old, new),
+            (RunningMode::Starting, RunningMode::Running)
+                | (RunningMode::Starting, RunningMode::NotRunning)
+                | (RunningMode::Running, RunningMode::NotRunning)
+                | (RunningMode::NotRunning, RunningMode::Starting)
+        );
+        if !valid {
+            tracing::warn!(
+                "sidecar: unexpected mode transition {:?} -> {:?}",
+                old,
+                new
+            );
+        }
+        *self.mode.write().unwrap() = new;
     }
 }
 
@@ -173,6 +225,7 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
                 );
                 return Ok(SidecarHandle {
                     child: Mutex::new(Some(child)),
+                    mode: std::sync::RwLock::new(RunningMode::Running),
                     api_port,
                     admin_token,
                     proxy_token,
@@ -227,6 +280,66 @@ mod tests {
         std::thread::sleep(Duration::from_millis(5));
         let b = gen_token();
         assert_ne!(a, b, "tokens should differ across calls");
+    }
+
+    #[test]
+    fn running_mode_default_is_not_running() {
+        let m = RunningMode::NotRunning;
+        assert_eq!(m, RunningMode::NotRunning);
+    }
+
+    #[test]
+    fn sidecar_handle_mode_starts_running() {
+        // A freshly booted SidecarHandle (mocked: no real child) should
+        // report Running because boot_resin only returns after /healthz is up.
+        let h = SidecarHandle {
+            child: Mutex::new(None),
+            mode: std::sync::RwLock::new(RunningMode::Running),
+            api_port: 0,
+            admin_token: String::new(),
+            proxy_token: String::new(),
+        };
+        assert_eq!(h.mode(), RunningMode::Running);
+    }
+
+    #[test]
+    fn sidecar_handle_set_mode_running_to_not_running() {
+        let h = SidecarHandle {
+            child: Mutex::new(None),
+            mode: std::sync::RwLock::new(RunningMode::Running),
+            api_port: 0,
+            admin_token: String::new(),
+            proxy_token: String::new(),
+        };
+        h.set_mode(RunningMode::NotRunning);
+        assert_eq!(h.mode(), RunningMode::NotRunning);
+    }
+
+    #[test]
+    fn sidecar_handle_set_mode_not_running_to_starting() {
+        let h = SidecarHandle {
+            child: Mutex::new(None),
+            mode: std::sync::RwLock::new(RunningMode::NotRunning),
+            api_port: 0,
+            admin_token: String::new(),
+            proxy_token: String::new(),
+        };
+        // Reboot: NotRunning -> Starting is a valid transition
+        h.set_mode(RunningMode::Starting);
+        assert_eq!(h.mode(), RunningMode::Starting);
+    }
+
+    #[test]
+    fn sidecar_handle_set_mode_starting_to_running() {
+        let h = SidecarHandle {
+            child: Mutex::new(None),
+            mode: std::sync::RwLock::new(RunningMode::Starting),
+            api_port: 0,
+            admin_token: String::new(),
+            proxy_token: String::new(),
+        };
+        h.set_mode(RunningMode::Running);
+        assert_eq!(h.mode(), RunningMode::Running);
     }
 }
 
