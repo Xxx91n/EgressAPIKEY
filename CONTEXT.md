@@ -145,6 +145,68 @@ edits and file edits are kept in atomic transaction sync (A4 decision).
 _Avoid_: live config, dynamic config, reload
 
 ### Request Log
+
+### RunningMode
+The enum (Sidecar | NotRunning) that says whether the Resin Go binary
+is currently alive as a child process of the desktop shell. Stored in
+an ArcSwap for lock-free reads from any IPC command or tray handler.
+Transtions: NotRunning -> Sidecar on boot_resin; Sidecar -> NotRunning
+on kill. Not to be confused with the Ghost Safety Net health state
+(healthy/unhealthy), which is a separate observation of the same
+running sidecar.
+_Avoid_: process state, alive flag
+
+### Ring Buffer
+A bounded (500-entry) VecDeque<String> that drains Resin sidecar
+stderr line-by-line via tauri-plugin-shell CommandEvent::Stderr.
+Oldest line evicts when full. Exposed to the GUI as an IPC snapshot
+(get_sidecar_logs -> Vec<String>) and as a real-time Tauri event
+push (sidecar-stderr). Resin emits ~30 stderr lines at boot then
+goes quiet; 500 lines covers days of operation.
+_Avoid_: log buffer, pipe drain, stderr cache
+
+### Crash Restart
+The bounded auto-retry policy when the Resin CommandChild is detected
+dead (try_wait returns Some). Up to 3 retries with exponential backoff
+(1s, 2s, 4s). The tray shows a "restarting" spinner during retries.
+After 3 failures the sidecar is marked dead and the user is notified;
+the shell does not attempt further spawns until the user triggers a
+manual restart. Distinct from Ghost Safety Net which polls /healthz
+while the process is alive.
+_Avoid_: watchdog respawn, auto-recover
+
+### Two-Phase Shutdown
+The kill sequence used when the desktop exits or the user restarts the
+sidecar: SIGTERM the entire process group -> wait 500ms -> try_wait ->
+if still alive, SIGKILL -> wait (reap zombie). The process-group kill
+ensures any child processes spawned by Resin are also terminated,
+preventing orphans that hold the sidecar port.
+_Avoid_: graceful kill, soft terminate
+
+### Port Cleanup
+Before spawning a new sidecar, check for a stale process holding the
+configured free port. If found, SIGTERM the orphan and wait for it to
+release the port. This prevents the "port occupied" boot failure where
+a prior sidecar crashed without releasing its listen socket.
+_Avoid_: port preflight, stale-process sweep
+
+### Upstream Manifest
+A YAML file (docs/RESIN_UPSTREAM_MANIFEST.yaml) that records the
+pinned Resin sidecar version, per-platform SHA256 hashes, the release
+URL, the API version surface, and any breaking changes or compat
+notes from the last upgrade. fetch_resin.{ps1,sh} read the version
+from this file instead of hardcoding a REL tag. Each version bump is
+a manual edit + test + commit cycle; the shell does not auto-follow
+upstream releases.
+_Avoid_: version pin, compat matrix, version tracker
+
+### Read Retry
+The automatic bounded retry (2 attempts, 500ms interval) applied
+only to ResinClient GET methods (list/get/snapshot). Write methods
+(POST/PATCH/DELETE) do not retry to avoid duplicate mutations. Lives
+in ResinClient, not in the IPC command layer, so all read-only IPC
+commands benefit transparently.
+_Avoid_: GET retry, idempotent retry, backoff
 The tauri-plugin-tracing daily-rotating file appender (10MB max, 7 files
 kept) that captures every Rust-side tracing::info/warn/error. The user
 can open the log directory from Settings > Storage. Used for debugging

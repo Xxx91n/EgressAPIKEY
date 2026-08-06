@@ -131,25 +131,34 @@ ambiguity or the user raises a new concern.
 | T1-9 | Build: pnpm build + cargo build --release + stage + smoke + codegraph sync | done (this commit, chunk CCDf4dc8 embedded, 13.25 MB, smoke green) |
 | T1-10 | Phase 6 remaining: C2-9/10/11/12/13 + C1-2/3/4 polish | done (AGENTS §31 verified) |
 
-## T2 Planning (post-T1 completion)
+## T2 Execution Plan (Grill Q1-Q7 round 2026-08-06)
 
-All T1 steps complete (T1-1..T1-10). Remaining backlog items:
+| Step | Task | ADR | Status |
+|------|------|-----|--------|
+| T2-1 | sidecar.rs: RunningMode enum + ArcSwap<State> + refactor SidecarHandle | 0016 | pending |
+| T2-2 | sidecar.rs: stderr CommandEvent -> RingBuffer (500 lines) + IPC get_sidecar_logs + Tauri event push | 0016 | pending |
+| T2-3 | sidecar.rs: Crash auto-restart (3x bounded, 1s/2s/4s backoff) + try_wait death short-circuit | 0016 | pending |
+| T2-4 | sidecar.rs: Port cleanup before spawn (detect stale process on free port) | 0016 | pending |
+| T2-5 | sidecar.rs: Two-phase shutdown (SIGTERM -> 500ms -> try_wait -> SIGKILL -> reap) | 0016 | pending |
+| T2-6 | docs/RESIN_UPSTREAM_MANIFEST.yaml: create manifest + fetch_resin.{ps1,sh} read from it | 0017 | pending |
+| T2-7 | AGENTS.md: update 11 stale v1.1.2 refs to manifest version | 0017 | pending |
+| T2-8 | resin_client.rs: read-only method auto-retry (2x, 500ms) + mockito 503->200 test | 0018 | pending |
+| T2-9 | scripts/build-all.ps1: PowerShell build+stage+SHA256+smoke pipeline | 0019 | pending |
+| T2-10 | Closed-loop tests per capability (ADR-0020): ring buffer, crash restart mock, two-phase shutdown mock, manifest parse, retry mockito, ps1 stage SHA256 | 0020 | pending |
+| T2-11 | Release exe rebuild + stage + smoke + codegraph sync | 0005 | pending |
 
-| Item | Status | Notes |
-|------|--------|-------|
-| NEW-6 (IP reputation integration) | not started | Medium priority (Q8 decision). IPQualityScore (5K/mo free) + AbuseIPDB (1K/day) + ip-api.com (45/min). Use mature open-source wheels, not self-built. Pluggable provider interface. |
-| T2+ next grill round | pending | No predefined T2 plan in backlog. Next grill round starts when user raises new concern or planner defines next milestone. |
+Dependency: T2-1 -> (T2-2 || T2-3 || T2-4 || T2-5) -> T2-6 -> T2-7 || T2-8 -> T2-9 -> T2-10 -> T2-11
 
-### Items NOT requiring new work (verified complete)
+### Resin log volume fact (measured 2026-08-06)
 
-- NEW-1 (multi-port listener): done (P2, T1-4 downgraded to StreamSensor only)
-- NEW-2 (port->platform mapping): done (P2, db.rs port_mappings)
-- NEW-3 (port identity injection): done (P2, resin_identity + proxy auth rewrite)
-- NEW-4 (strategy layer): done (P3, strategy.rs catalog maps to Resin 3 policies)
-- NEW-5 (AI stream sensor): done (P3, stream_sensor.rs header classification)
-- NEW-7 (hotswap-config): done (P3, whitebox_config.rs transactional reload)
-- NEW-8 (rename to EgressAPIKEY): done
-- NEW-9 (dead code deletion): done (ADR-0014)
-- NEW-10 (MEMORY_REUSE_DECISION.md update): done
-- NEW-11 (HANDOFF doc): done (HANDOFF_ROUTE_CORRECTION.md)
-- All 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/13): done (AGENTS §31)
+Measured by running resin v1.2.0 binary locally:
+- stdout: 0 lines (all output goes to stderr)
+- stderr boot spam: 29 lines / 1.75 KB (all in <1s at boot)
+- stderr after boot with 25 API requests: 0 new lines
+- Conclusion: Resin is quiet after boot. 500-line ring buffer covers days of operation.
+
+### Resin upstream repo (固化防止遗忘)
+
+https://github.com/Resinat/Resin
+Current pinned version: v1.2.0
+License: MIT
