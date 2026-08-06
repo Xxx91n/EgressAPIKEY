@@ -47,3 +47,32 @@
 背景: ai-api-route 项目已历经 P0-P23 阶段, G1-G5 全部完成 (Resin Go sidecar + Tauri shell).
 用户要求: 对整个计划/设计进行严厉质询 (grilling), 同时构建领域模型 (CONTEXT.md + ADR).
 约束: 始终遵循 AGENTS.md, 使用 ctx_*, 必要时用 1mcp 的 exa/perplexity 联网搜索, Ponytail full 模式, 禁用子代理.
+## 2026-08-07 - grill-with-docs T3 round user original prompt (6 bugs from release exe testing)
+
+User invoked [-with-docs] + [] (full mode).
+Background: EgressAPIKEY project at D:\\Aworker\\ai-api-route. Resin v1.2.0 fork, Tauri 2 desktop shell. T2 lifecycle pipeline phase just complete, release exe staged at release/windows-gui/EgressAPIKEY.exe.
+
+User reports 6 bugs after testing release exe:
+1. Entry endpoint protocol has no HTTPS - is this because Resin does not yet support it?
+2. Imported subscription URL https://anniu.eepzau.org/yuexia/duzhuo?token=502d4c63c2810f46c63adb667582b35e returns: fetch_clash_subscription: all UA attempts failed: HTTP 525 <unknown status code> - wrong built-in UA? Doesnt Resin handle this?
+3. Deleting Default platform shows: resin_client: DELETE /platforms/00000000-0000-0000-0000-000000000000 -> 409 Conflict: {\ error\:{\code\:\CONFLICT\,\message\:\cannot delete Default platform\}} - this is not a friendly i18n prompt?
+4. Various strategy names also need i18n sync
+5. Gateway listen address now set to 127.0.0.1:9999, mihomo API address set to http://127.0.0.1:9191 - if using default config or Resin official docs, will this conflict with local clash-verge-dev global TUN+global proxy?
+6. Right-click exit D:\\Aworker\\ai-api-route\\release\\windows-gui\\EgressAPIKEY.exe flashes a console window? Will the resin pipeline and lifecycle process be cleanly killed?
+
+Constraints:
+- Always follow AGENTS.md, use ctx_*, use 1mcp exa/perplexity for web research if needed, Ponytail full mode, no hallucination
+- All features should reuse existing mature wheels/templates, not self-developed
+
+How to fix Q3/Q4/Q5/Q6 to industrial-grade/mature template level?
+- Also now need to move towards npm-installable version that can be accessed via localhost for EgressAPIKEY adaptation, and future engineering-grade stable Linux operation.
+- Industrial grade / mature template level.
+
+### Domain commands this round should generate
+
+- ADR-0021: error key translation closure (i18n key display path) - frontend toast catchment missing t()
+- ADR-0022: Resin HTTP 525 SSL handshake + subscription UA fallback strategy - susual clash UA rotation or improved fallback
+- ADR-0023: default gateway/mihomo port conflict mitigation - conflict detection against known local proxy tools (clash-verge-dev, clash-meta, v2rayN, etc.)
+- ADR-0024: sidecar clean shutdown on tray Quit - no residual console flash, no orphan resin.exe
+- ADR-0025: HTTPS entry endpoint support roadmap - Resin v1.2.0 capability audit
+
