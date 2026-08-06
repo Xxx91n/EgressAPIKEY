@@ -531,6 +531,8 @@ const STATUS_EVENT: &str = "sidecar-status";
 /// Crash auto-restart bounds (ADR-0016 Q3). After a sidecar process crash,
 /// attempt up to 3 restarts with exponential backoff: 1s, 2s, 4s.
 /// After MAX_RESTARTS, mark terminal dead + notify user (no infinite loop).
+#[allow(dead_code)]
+// ponytail: dead code — crash restart not yet wired in Terminated handler; ceiling: 3 retries then terminal failure; upgrade: wire in boot_resin Terminated event with crash_backoff_ms(i) + re-spawn + RunningMode::Starting
 const MAX_CRASH_RESTARTS: u32 = 3;
 
 /// T2-5 (ADR-0016 Q5): milliseconds to wait between TerminateProcess and
@@ -558,6 +560,7 @@ pub fn two_phase_shutdown_result(killed: bool, pid_alive: bool) -> Result<(), St
     Ok(())
 }
 
+#[allow(dead_code)]
 /// Return the backoff delay in milliseconds for crash restart attempt N
 /// (0-indexed). ADR-0016 Q3: 1s, 2s, 4s exponential backoff.
 /// Pure function for testability.
