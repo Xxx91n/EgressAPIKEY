@@ -63,7 +63,7 @@ $bundles = Get-ChildItem -Path "src-tauri/target","target" -Recurse -File -Error
 foreach($f in $bundles) { Copy-Item $f.FullName "$GUI_STAGE/" -Force; Write-Host "[build-all] staged bundle: $($f.Name)" }
 
 # Find and copy portable GUI binary
-$portBin = Get-ChildItem -Path "src-tauri/target","target" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq "EgressAPIKEY.exe" -or $_.Name -eq "ai-api-route.exe") -and $_.FullName -match "release" -and $_.FullName -notmatch "bundle" } | Select-Object -First 1
+$portBin = Get-ChildItem -Path "src-tauri/target","target" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq "EgressAPIKEY.exe") -and $_.FullName -match "release" -and $_.FullName -notmatch "bundle" } | Select-Object -First 1
 if(-not $portBin) { Write-Error "[build-all] ERROR: portable GUI binary not found"; exit 1 }
 Copy-Item $portBin.FullName "$GUI_STAGE/EgressAPIKEY.exe" -Force
 Write-Host "[build-all] portable GUI staged: $GUI_STAGE/EgressAPIKEY.exe"

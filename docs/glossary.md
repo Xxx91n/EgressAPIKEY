@@ -1,4 +1,6 @@
-# ai-api-route Glossary
+# EgressAPIKEY Glossary
+
+> **Superseded by [CONTEXT.md](../CONTEXT.md)** — kept here as the original term-history record; new terms are added to CONTEXT.md directly per ADR-0013.
 
 > Domain terms used across ADRs, AGENTS.md, and docs/. Maintained by the
 > grill-with-docs / domain-modeling workflow. Add a term when an ADR or
@@ -54,7 +56,7 @@ Sequential: B starts only after A is closed-loop verified.
 The shell-side SQLite table (ADR-0011) storing the reverse map from
 route_id (ar-<16hex>) to readable (apiKeyMask, endpoint, first_seen,
 last_seen, request_count). Append-only. Backed up inside the P14 zip
-alongside settings.json. Lives at app_config_dir()/ai-api-route.db (WAL).
+alongside settings.json. Lives at app_config_dir()/egressapikey.db (WAL).
 
 ## DbPool
 
