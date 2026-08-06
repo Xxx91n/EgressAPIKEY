@@ -1,0 +1,23 @@
+# Resin upstream version manifest (ADR-0017 T2-6).
+# Single source of truth for the Resin Go sidecar version this shell bundles.
+# fetch_resin.ps1 / .sh read the "version" + "repo" fields from this file.
+# To upgrade: bump version, verify the release asset names match, test boot.
+#
+# Breaking changes between v1.1 and v1.2: endpoint API surface changes
+# (allocation_policy enum, region_filters field, /nodes pagination).
+
+repo: "Resinat/Resin"
+version: "v1.2.0"
+license: "MIT"
+# Asset naming pattern: resin-<os>-<arch>.{zip|tar.gz}
+# Windows: resin-windows-amd64.zip (contains resin.exe)
+# macOS arm64: resin-darwin-arm64.tar.gz
+# macOS amd64: resin-darwin-amd64.tar.gz
+# Linux arm64: resin-linux-arm64.tar.gz
+# Linux amd64: resin-linux-amd64.tar.gz
+assets:
+  windows-amd64: "resin-windows-amd64.zip"
+  darwin-arm64: "resin-darwin-arm64.tar.gz"
+  darwin-amd64: "resin-darwin-amd64.tar.gz"
+  linux-arm64: "resin-linux-arm64.tar.gz"
+  linux-amd64: "resin-linux-amd64.tar.gz"

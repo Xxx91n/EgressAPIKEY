@@ -3,8 +3,13 @@
 # into src-tauri/binaries/resin-<triple> so Tauri can bundle it as a sidecar.
 # See docs/MEMORY_REUSE_DECISION.md path A.
 set -euo pipefail
-REPO="Resinat/Resin"
-REL="v1.2.0"
+# Read version + repo from docs/RESIN_UPSTREAM_MANIFEST.yaml (ADR-0017 T2-6)
+MANIFEST="$(dirname "$0")/../docs/RESIN_UPSTREAM_MANIFEST.yaml"
+REPO=$(grep '^repo:' "$MANIFEST" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+REL=$(grep '^version:' "$MANIFEST" | head -1 | sed 's/.*"\(.*\)".*/\1/')
+if [ -z "$REPO" ] || [ -z "$REL" ]; then
+  echo "ERROR: cannot read repo/version from $MANIFEST" >&2; exit 1
+fi
 BU="https://github.com/${REPO}/releases/download/${REL}"
 triple="$(rustc -vV | awk '/^host:/ {print $2}')"
 case "$triple" in
