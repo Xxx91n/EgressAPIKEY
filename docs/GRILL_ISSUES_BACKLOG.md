@@ -129,4 +129,27 @@ ambiguity or the user raises a new concern.
 | T1-7 | main.rs PortForwarder::new wiring → ResinClient + StreamSensor | done (0b913a0, removed 2 fwd.reload fallbacks) |
 | T1-8 | frontend ipc.ts PortMapping type alignment | done (ipcPortList/Upsert/Remove/Running/Reload exist since P2) |
 | T1-9 | Build: pnpm build + cargo build --release + stage + smoke + codegraph sync | done (this commit, chunk CCDf4dc8 embedded, 13.25 MB, smoke green) |
-| T1-10 | Phase 6 remaining: C2-11/C2-12/C2-13/C1-2/3/4 polish | pending (next phase) |
+| T1-10 | Phase 6 remaining: C2-9/10/11/12/13 + C1-2/3/4 polish | done (AGENTS §31 verified) |
+
+## T2 Planning (post-T1 completion)
+
+All T1 steps complete (T1-1..T1-10). Remaining backlog items:
+
+| Item | Status | Notes |
+|------|--------|-------|
+| NEW-6 (IP reputation integration) | not started | Medium priority (Q8 decision). IPQualityScore (5K/mo free) + AbuseIPDB (1K/day) + ip-api.com (45/min). Use mature open-source wheels, not self-built. Pluggable provider interface. |
+| T2+ next grill round | pending | No predefined T2 plan in backlog. Next grill round starts when user raises new concern or planner defines next milestone. |
+
+### Items NOT requiring new work (verified complete)
+
+- NEW-1 (multi-port listener): done (P2, T1-4 downgraded to StreamSensor only)
+- NEW-2 (port->platform mapping): done (P2, db.rs port_mappings)
+- NEW-3 (port identity injection): done (P2, resin_identity + proxy auth rewrite)
+- NEW-4 (strategy layer): done (P3, strategy.rs catalog maps to Resin 3 policies)
+- NEW-5 (AI stream sensor): done (P3, stream_sensor.rs header classification)
+- NEW-7 (hotswap-config): done (P3, whitebox_config.rs transactional reload)
+- NEW-8 (rename to EgressAPIKEY): done
+- NEW-9 (dead code deletion): done (ADR-0014)
+- NEW-10 (MEMORY_REUSE_DECISION.md update): done
+- NEW-11 (HANDOFF doc): done (HANDOFF_ROUTE_CORRECTION.md)
+- All 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/13): done (AGENTS §31)
