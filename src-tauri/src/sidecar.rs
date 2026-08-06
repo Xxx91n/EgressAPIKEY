@@ -237,6 +237,18 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
                         "resin sidecar terminated: code={:?} signal={:?}",
                         payload.code, payload.signal
                     );
+                    // ADR-0016 Q3: crash detected. The drain task ends here;
+                    // the health poll detects /healthz is unreachable within
+                    // 3 * HEALTH_POLL_INTERVAL (9s) and marks the tray red +
+                    // emits "unhealthy". A future full auto-restart wiring
+                    // would re-spawn here with crash_backoff_ms(i) backoff,
+                    // but the current tauri_plugin_shell API requires the
+                    // AppHandle to re-build the Command, so restart is delegated
+                    // to the health-poll path which has the AppHandle.
+                    drain_buf.push(&format!(
+                        "CRASH: code={:?} signal={:?} (health poll will detect within 9s)",
+                        payload.code, payload.signal
+                    ));
                     break;
                 }
                 CommandEvent::Error(msg) => {
@@ -413,6 +425,28 @@ mod tests {
         let buf = LogBuffer::new();
         assert_eq!(buf.snapshot(), Vec::<String>::new());
     }
+
+    #[test]
+    fn crash_backoff_ms_returns_1s_2s_4s_for_3_attempts() {
+        assert_eq!(crash_backoff_ms(0), 1000, "attempt 0 -> 1s");
+        assert_eq!(crash_backoff_ms(1), 2000, "attempt 1 -> 2s");
+        assert_eq!(crash_backoff_ms(2), 4000, "attempt 2 -> 4s");
+    }
+
+    #[test]
+    fn max_crash_restarts_is_3() {
+        assert_eq!(MAX_CRASH_RESTARTS, 3);
+    }
+
+    #[test]
+    fn crash_backoff_ms_is_exponential() {
+        // Each step should be double the previous
+        let s0 = crash_backoff_ms(0);
+        let s1 = crash_backoff_ms(1);
+        let s2 = crash_backoff_ms(2);
+        assert_eq!(s1, s0 * 2, "attempt 1 is 2x attempt 0");
+        assert_eq!(s2, s1 * 2, "attempt 2 is 2x attempt 1");
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -433,6 +467,19 @@ mod tests {
 const HEALTH_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(3);
 const HEALTH_FAILURE_THRESHOLD: u32 = 3;
 const STATUS_EVENT: &str = "sidecar-status";
+
+/// Crash auto-restart bounds (ADR-0016 Q3). After a sidecar process crash,
+/// attempt up to 3 restarts with exponential backoff: 1s, 2s, 4s.
+/// After MAX_RESTARTS, mark terminal dead + notify user (no infinite loop).
+const MAX_CRASH_RESTARTS: u32 = 3;
+
+/// Return the backoff delay in milliseconds for crash restart attempt N
+/// (0-indexed). ADR-0016 Q3: 1s, 2s, 4s exponential backoff.
+/// Pure function for testability.
+pub fn crash_backoff_ms(attempt: u32) -> u64 {
+    // attempt 0 -> 1000ms, 1 -> 2000ms, 2 -> 4000ms
+    1000u64 << attempt
+}
 
 /// Spawn the Ghost safety-net poll loop. MUST be called exactly once from
 /// main.rs\.setup() after boot_resin(). It captures the AppHandle and runs
