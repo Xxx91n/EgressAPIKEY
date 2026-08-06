@@ -97,6 +97,8 @@ fn main() {
             // #7: open config / log directory buttons in Settings.
             commands::get_config_dir,
             commands::get_log_dir,
+            // T2-2 (ADR-0016 Q2b): sidecar stderr ring buffer snapshot.
+            commands::get_sidecar_logs,
             // Re3: Platform/Account registry + weighted account selection.
             commands::platform_add,
             commands::platform_remove,
@@ -188,6 +190,7 @@ fn main() {
                 mode: std::sync::RwLock::new(
                     egressapikey_app::sidecar::RunningMode::Running,
                 ),
+                log_buf: sidecar.log_buf,
                 api_port,
                 admin_token: sidecar.admin_token,
                 proxy_token: proxy_token.clone(),

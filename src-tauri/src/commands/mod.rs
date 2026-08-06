@@ -867,6 +867,14 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
     }
 }
 
+/// T2-2 (ADR-0016 Q2b): IPC snapshot of the sidecar stderr/stdout ring
+/// buffer. Returns the last N lines (oldest still in buffer first) for the
+/// Settings > Logs view. Read-only; no input from the webview.
+#[tauri::command]
+pub fn get_sidecar_logs(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>, String> {
+    Ok(sidecar.log_buf.snapshot())
+}
+
 // --- WebDAV backup (clash-verge-rev pattern: zip config + upload to WebDAV) ---
 // Ponytail: no reqwest_dav crate — reqwest does HTTP PUT for WebDAV upload.
 // The webview never sees the password; it passes through tauri-plugin-store.

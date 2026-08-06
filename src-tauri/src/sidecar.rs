@@ -16,7 +16,9 @@
 //!
 //! Ponytail: do NOT add a retry/restart loop here — that is Ghost safety net
 //! (G3), separate file, separate concerns.
+use std::collections::VecDeque;
 use std::net::TcpListener;
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -44,6 +46,35 @@ pub enum RunningMode {
     Running,
 }
 
+/// Ring buffer capacity for sidecar stderr/stdout lines (ADR-0016 Q2a).
+const SIDECAR_LOG_CAPACITY: usize = 500;
+
+/// Bounded ring buffer for sidecar process stdout/stderr output (ADR-0016 Q2a).
+pub struct LogBuffer {
+    lines: parking_lot::Mutex<VecDeque<String>>,
+}
+
+impl LogBuffer {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            lines: parking_lot::Mutex::new(VecDeque::with_capacity(SIDECAR_LOG_CAPACITY)),
+        })
+    }
+
+    pub fn push(&self, line: &str) {
+        let mut g = self.lines.lock();
+        if g.len() >= SIDECAR_LOG_CAPACITY {
+            g.pop_front();
+        }
+        g.push_back(line.to_string());
+    }
+
+    pub fn snapshot(&self) -> Vec<String> {
+        let g = self.lines.lock();
+        g.iter().cloned().collect()
+    }
+}
+
 /// The running sidecar process plus the connection info the Rust side needs.
 /// Lives in Tauri managed state as `State<SidecarHandle>` so IPC commands
 /// (G2 ResinClient) can reach it without piping admin tokens anywhere else.
@@ -59,6 +90,8 @@ pub struct SidecarHandle {
     /// crash restarter, and exit hook can all read/set the mode without
     /// blocking the IPC command path (which only needs api_port + tokens).
     pub mode: std::sync::RwLock<RunningMode>,
+    /// Ring buffer for sidecar stderr/stdout lines (ADR-0016 Q2a).
+    pub log_buf: Arc<LogBuffer>,
     /// Resin's single consolidated port (control-plane API + proxy + webui).
     pub api_port: u16,
     /// Resin admin token. Used to authenticate Rust-side REST calls to the
@@ -178,6 +211,11 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
         .spawn()
         .context("sidecar: failed to spawn resin binary")?;
 
+    // Ring buffer for sidecar stderr/stdout (ADR-0016 Q2a). Shared between
+    // the drain task (writer) and the SidecarHandle (IPC reader).
+    let log_buf = LogBuffer::new();
+    let drain_buf = log_buf.clone();
+
     // Poll /healthz until up or timeout. Spawn a background task to also drain
     // receiver so the sidecar's stdout buffer does not fill and block.
     let _drain = tauri::async_runtime::spawn(async move {
@@ -185,11 +223,13 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
         while let Some(ev) = receiver.recv().await {
             match ev {
                 CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes) => {
+                    let text = String::from_utf8_lossy(&bytes).trim_end().to_string();
                     tracing::trace!(
                         target: "resin_sidecar",
                         "sidecar stdout/stderr: {}",
-                        String::from_utf8_lossy(&bytes).trim_end()
+                        text
                     );
+                    drain_buf.push(&text);
                 }
                 CommandEvent::Terminated(payload) => {
                     tracing::error!(
@@ -226,6 +266,7 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
                 return Ok(SidecarHandle {
                     child: Mutex::new(Some(child)),
                     mode: std::sync::RwLock::new(RunningMode::Running),
+                    log_buf,
                     api_port,
                     admin_token,
                     proxy_token,
@@ -295,6 +336,7 @@ mod tests {
         let h = SidecarHandle {
             child: Mutex::new(None),
             mode: std::sync::RwLock::new(RunningMode::Running),
+            log_buf: LogBuffer::new(),
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
@@ -307,6 +349,7 @@ mod tests {
         let h = SidecarHandle {
             child: Mutex::new(None),
             mode: std::sync::RwLock::new(RunningMode::Running),
+            log_buf: LogBuffer::new(),
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
@@ -320,6 +363,7 @@ mod tests {
         let h = SidecarHandle {
             child: Mutex::new(None),
             mode: std::sync::RwLock::new(RunningMode::NotRunning),
+            log_buf: LogBuffer::new(),
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
@@ -334,12 +378,40 @@ mod tests {
         let h = SidecarHandle {
             child: Mutex::new(None),
             mode: std::sync::RwLock::new(RunningMode::Starting),
+            log_buf: LogBuffer::new(),
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
         };
         h.set_mode(RunningMode::Running);
         assert_eq!(h.mode(), RunningMode::Running);
+    }
+
+    #[test]
+    fn ring_buffer_push_and_snapshot() {
+        let buf = LogBuffer::new();
+        buf.push("line1");
+        buf.push("line2");
+        let snap = buf.snapshot();
+        assert_eq!(snap, vec!["line1", "line2"]);
+    }
+
+    #[test]
+    fn ring_buffer_evicts_oldest_at_capacity() {
+        let buf = LogBuffer::new();
+        for i in 0..502 {
+            buf.push(&format!("line{i}"));
+        }
+        let snap = buf.snapshot();
+        assert_eq!(snap.len(), 500);
+        assert_eq!(snap[0], "line2");
+        assert_eq!(snap[499], "line501");
+    }
+
+    #[test]
+    fn ring_buffer_empty_snapshot() {
+        let buf = LogBuffer::new();
+        assert_eq!(buf.snapshot(), Vec::<String>::new());
     }
 }
 
