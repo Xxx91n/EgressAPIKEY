@@ -87,6 +87,45 @@ impl ResinClient {
     /// Send an authenticated admin request and return the parsed JSON body.
     /// For non-success (2xx) responses we surface the upstream status + a
     /// short body excerpt rather than swallowing the error.
+    /// T2-8 (ADR-0018): Read-only auto-retry wrapper. Calls send() and
+    /// retries up to READ_MAX_RETRIES times with READ_RETRY_DELAY_MS between
+    /// attempts. Only for GET methods (read-only); write methods use send()
+    /// directly. Retries on network error or 5xx (server transient failure);
+    /// does NOT retry on 4xx (client error) or success.
+    async fn send_read(
+        &self,
+        path: &str,
+    ) -> Result<Value> {
+        let max_retries = 2u32;
+        let delay = std::time::Duration::from_millis(500);
+        let mut last_err = None;
+        for attempt in 0..=max_retries {
+            match self.send(reqwest::Method::GET, path, None).await {
+                Ok(v) => return Ok(v),
+                Err(e) => {
+                    let s = format!("{e}");
+                    // Retry on network errors or 5xx; don't retry 4xx or parse errors
+                    let should_retry = s.contains("request send failed")
+                        || s.contains("-> 503")
+                        || s.contains("-> 502")
+                        || s.contains("-> 500")
+                        || s.contains("-> 504");
+                    if attempt < max_retries && should_retry {
+                        tracing::warn!(
+                            "resin_client: read retry {}/{} for {path} after: {}",
+                            attempt + 1, max_retries, s
+                        );
+                        last_err = Some(e);
+                        tokio::time::sleep(delay).await;
+                        continue;
+                    }
+                    return Err(e);
+                }
+            }
+        }
+        Err(last_err.unwrap_or_else(|| anyhow!("resin_client: exhausted read retries for {path}")))
+    }
+
     async fn send(
         &self,
         method: reqwest::Method,
@@ -171,13 +210,13 @@ impl ResinClient {
 
     /// GET /api/v1/platforms
     pub async fn list_platforms(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/platforms", None).await
+        self.send_read("/platforms").await
     }
 
     /// GET /api/v1/platforms/{id}
     pub async fn get_platform(&self, id: &str) -> Result<Value> {
         let path = format!("/platforms/{}", urlencoding(id));
-        self.send(reqwest::Method::GET, &path, None).await
+        self.send_read(&path).await
     }
 
     /// DELETE /api/v1/platforms/{id}
@@ -189,13 +228,13 @@ impl ResinClient {
     /// GET /api/v1/metrics/realtime/leases — active-lease snapshot used by the
     /// desktop Topology view in place of the dead resin-core LeaseTable.
     pub async fn active_leases(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/metrics/realtime/leases", None)
+        self.send_read("/metrics/realtime/leases")
             .await
     }
 
     /// GET /api/v1/metrics/snapshots/node-pool — global node pool snapshot.
     pub async fn node_pool_snapshot(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/metrics/snapshots/node-pool", None)
+        self.send_read("/metrics/snapshots/node-pool")
             .await
     }
 
@@ -209,7 +248,7 @@ impl ResinClient {
 
     /// GET /subscriptions - list all subscriptions (raw array).
     pub async fn list_subscriptions(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/subscriptions", None)
+        self.send_read("/subscriptions")
             .await
     }
 
@@ -234,7 +273,7 @@ impl ResinClient {
     /// snapshot grows. We pass an explicit limit (and optional offset) so the
     /// per-node table reflects the same count as the stats card.
     pub async fn list_nodes(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/nodes?limit=500", None)
+        self.send_read("/nodes?limit=500")
             .await
     }
 
@@ -242,7 +281,7 @@ impl ResinClient {
     /// for a single platform (Resin DESIGN.md "list nodes" with platform_id filter).
     pub async fn list_nodes_for_platform(&self, platform_id: &str) -> Result<Value> {
         let path = format!("/nodes?limit=500&platform_id={}", platform_id);
-        self.send(reqwest::Method::GET, &path, None).await
+        self.send_read(&path).await
     }
 
     /// POST /api/v1/platforms with the full create schema (P21 Milestone B).
@@ -266,14 +305,14 @@ impl ResinClient {
     /// this platform. This is the "right pane already-active accounts" view.
     pub async fn platform_leases(&self, platform_id: &str) -> Result<Value> {
         let path = format!("/platforms/{}/leases", urlencoding(platform_id));
-        self.send(reqwest::Method::GET, &path, None).await
+        self.send_read(&path).await
     }
 
     // ── Endpoint management (Resin v1.2.0) ───────────────────────────
 
     /// GET /api/v1/endpoints — list all inbound endpoints (default + custom).
     pub async fn list_endpoints(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/endpoints", None).await
+        self.send_read("/endpoints").await
     }
 
     /// POST /api/v1/endpoints — create + immediately start a custom listener.
@@ -284,7 +323,7 @@ impl ResinClient {
     /// GET /api/v1/endpoints/{endpoint_id} — read a single endpoint.
     pub async fn get_endpoint(&self, endpoint_id: &str) -> Result<Value> {
         let path = format!("/endpoints/{}", urlencoding(endpoint_id));
-        self.send(reqwest::Method::GET, &path, None).await
+        self.send_read(&path).await
     }
 
     /// PATCH /api/v1/endpoints/{endpoint_id} — update port or capabilities (hot-reload).
@@ -969,6 +1008,85 @@ mod tests {
         assert_eq!(out["source"], "environment");
         assert_eq!(out["read_only"], true);
         m.assert_async().await;
+    }
+
+
+    #[tokio::test]
+    async fn mockito_read_retry_503_then_200() {
+        // First call returns 503, second returns 200 (send_read retries up to 2 times)
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"items":[{"name":"retry-test"}],"total":1}"#;
+        let m503 = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(503)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"transient"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let m200 = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c.list_platforms().await.expect("list_platforms should succeed after retry");
+        assert_eq!(out["items"][0]["name"], "retry-test");
+        // First attempt (503) + second attempt (200) = 2 hits total
+        m503.assert_async().await;
+        m200.assert_async().await;
+
+
+    }
+
+    #[tokio::test]
+    async fn mockito_read_retry_all_503_exhausts() {
+        // All 3 attempts return 503 -> error is surfaced
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(503)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"transient"}"#)
+            .expect(3)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let result = c.list_platforms().await;
+        assert!(result.is_err(), "should error after exhausting retries");
+        // 1 initial + 2 retries = 3 total attempts
+        m.assert_async().await;
+
+    }
+
+    #[tokio::test]
+    async fn mockito_read_no_retry_on_4xx() {
+        // 404 should NOT retry (4xx is not transient)
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(404)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"not found"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let result = c.list_platforms().await;
+        assert!(result.is_err(), "404 should error without retry");
+        // Should be called exactly once (no retry on 4xx)
+        m.assert_async().await;
+
     }
 
 }
