@@ -215,5 +215,23 @@
     "show": "إظهار النافذة",
     "quit": "إنهاء",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "لا يمكن حذف المنصة الافتراضية",
+    "authRequired": "المصادقة مطلوبة",
+    "authFailed": "فشل المصادقة",
+    "urlParse": "تنسيق URL غير صالح",
+    "invalidProtocol": "بروتوكول غير صالح",
+    "upstreamConnectFailed": "فشل الاتصال العلوي",
+    "upstreamRequestFailed": "فشل الطلب العلوي",
+    "conflict": "تعارض",
+    "notFound": "غير موجود",
+    "badRequest": "طلب غير صالح",
+    "unauthorized": "غير مصرح"
+  },
+  "policy": {
+    "balanced": "متوازن",
+    "lowLatency": "تفضيل التأخير المنخفض",
+    "idleIp": "تفضيل IP الخامل"
   }
 }

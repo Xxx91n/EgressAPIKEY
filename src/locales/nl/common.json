@@ -215,5 +215,23 @@
     "show": "Venster tonen",
     "quit": "Afsluiten",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Kan standaard platform niet verwijderen",
+    "authRequired": "Authenticatie vereist",
+    "authFailed": "Authenticatie mislukt",
+    "urlParse": "Ongeldig URL-formaat",
+    "invalidProtocol": "Ongeldig protocol",
+    "upstreamConnectFailed": "Upstream verbinding mislukt",
+    "upstreamRequestFailed": "Upstream verzoek mislukt",
+    "conflict": "Conflict",
+    "notFound": "Niet gevonden",
+    "badRequest": "Slecht verzoek",
+    "unauthorized": "Niet geautoriseerd"
+  },
+  "policy": {
+    "balanced": "Gebalanceerd",
+    "lowLatency": "Voorkeur lage latentie",
+    "idleIp": "Voorkeur inactieve IP"
   }
 }

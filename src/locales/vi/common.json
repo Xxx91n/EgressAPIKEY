@@ -215,5 +215,23 @@
     "show": "Hiện cửa sổ",
     "quit": "Thoát",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Khong the xoa nen tang mac dinh",
+    "authRequired": "Can xac thuc",
+    "authFailed": "Xac thuc that bai",
+    "urlParse": "Dinh dang URL khong hop le",
+    "invalidProtocol": "Giao thuc khong hop le",
+    "upstreamConnectFailed": "Ket noi nguon len that bai",
+    "upstreamRequestFailed": "Yeu cau nguon len that bai",
+    "conflict": "Xung dot",
+    "notFound": "Khong tim thay",
+    "badRequest": "Yeu cau khong hop le",
+    "unauthorized": "Khong duoc uy quyen"
+  },
+  "policy": {
+    "balanced": "Can bang",
+    "lowLatency": "Uu tien do tre thap",
+    "idleIp": "Uu tien IP ranh roi"
   }
 }

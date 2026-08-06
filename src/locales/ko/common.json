@@ -215,5 +215,23 @@
     "show": "창 표시",
     "quit": "종료",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "기본 플랫폼을 삭제할 수 없습니다",
+    "authRequired": "인증이 필요합니다",
+    "authFailed": "인증 실패",
+    "urlParse": "잘못된 URL 형식",
+    "invalidProtocol": "잘못된 프로토콜",
+    "upstreamConnectFailed": "업스트림 연결 실패",
+    "upstreamRequestFailed": "업스트림 요청 실패",
+    "conflict": "충돌",
+    "notFound": "찾을 수 없음",
+    "badRequest": "잘못된 요청",
+    "unauthorized": "인증되지 않음"
+  },
+  "policy": {
+    "balanced": "균형",
+    "lowLatency": "낮은 지연 우선",
+    "idleIp": "유휴 IP 우선"
   }
 }

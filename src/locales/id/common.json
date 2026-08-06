@@ -215,5 +215,23 @@
     "show": "Tampilkan jendela",
     "quit": "Keluar",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Tidak dapat menghapus platform default",
+    "authRequired": "Autentikasi diperlukan",
+    "authFailed": "Autentikasi gagal",
+    "urlParse": "Format URL tidak valid",
+    "invalidProtocol": "Protokol tidak valid",
+    "upstreamConnectFailed": "Koneksi hulu gagal",
+    "upstreamRequestFailed": "Permintaan hulu gagal",
+    "conflict": "Konflik",
+    "notFound": "Tidak ditemukan",
+    "badRequest": "Permintaan buruk",
+    "unauthorized": "Tidak diotorisasi"
+  },
+  "policy": {
+    "balanced": "Seimbang",
+    "lowLatency": "Preferensi latensi rendah",
+    "idleIp": "Preferensi IP menganggur"
   }
 }

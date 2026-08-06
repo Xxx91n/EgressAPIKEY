@@ -215,5 +215,23 @@
     "show": "显示窗口",
     "quit": "退出",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "无法删除默认平台",
+    "authRequired": "需要认证",
+    "authFailed": "认证失败",
+    "urlParse": "URL 格式无效",
+    "invalidProtocol": "协议无效",
+    "upstreamConnectFailed": "上游连接失败",
+    "upstreamRequestFailed": "上游请求失败",
+    "conflict": "冲突",
+    "notFound": "未找到",
+    "badRequest": "请求格式错误",
+    "unauthorized": "未授权"
+  },
+  "policy": {
+    "balanced": "均衡",
+    "lowLatency": "优先低延迟",
+    "idleIp": "优先空闲 IP"
   }
 }

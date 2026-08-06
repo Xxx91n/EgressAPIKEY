@@ -215,5 +215,23 @@
     "show": "Show Window",
     "quit": "Quit",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Cannot delete the Default platform",
+    "authRequired": "Authentication required",
+    "authFailed": "Authentication failed",
+    "urlParse": "Invalid URL format",
+    "invalidProtocol": "Invalid protocol",
+    "upstreamConnectFailed": "Upstream connection failed",
+    "upstreamRequestFailed": "Upstream request failed",
+    "conflict": "Conflict",
+    "notFound": "Not found",
+    "badRequest": "Bad request",
+    "unauthorized": "Unauthorized"
+  },
+  "policy": {
+    "balanced": "Balanced",
+    "lowLatency": "Prefer low latency",
+    "idleIp": "Prefer idle IP"
   }
 }

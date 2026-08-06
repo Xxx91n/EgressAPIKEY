@@ -16,6 +16,10 @@ path = "src/lib.rs"
 name = "EgressAPIKEY"
 path = "src/main.rs"
 
+[[bin]]
+name = "egressapikey-headless"
+path = "src/bin/headless.rs"
+
 [dependencies]
 resin-core = { path = "../crates/resin-core" }
 tokio = { workspace = true }
@@ -24,6 +28,14 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+axum = { workspace = true }
+tower-http = { workspace = true }
+tracing-appender = { workspace = true }
+open = { workspace = true }
+http-body-util = { workspace = true }
+bytes = { workspace = true }
+clap = { workspace = true }
+dirs = { workspace = true }
 
 # Tauri 2 desktop runtime + the plugin set the GUI uses. Versions pinned to
 # the v2 line so cargo + npm agree on the JS @tauri-apps/* counterpart.

@@ -66,6 +66,52 @@ fn resin_client(h: &SidecarHandle) -> Result<ResinClient, String> {
         .map_err(|e| format!("sidecar client: {e:?}"))
 }
 
+/// A3+Q3: Map Resin upstream error strings to i18n keys for the frontend.
+/// The frontend receives the returned string and uses it as a t() key.
+/// Unknown errors pass through verbatim (prefixed with "error." not used —
+/// the frontend treats unknown strings as literal messages). Always logs
+/// the original error to tracing::warn! so debugging is not lost.
+pub fn map_resin_error(raw: &str) -> String {
+    // Log the original error before any mapping.
+    tracing::warn!(target: "resin_ipc", raw = raw, "Resin error mapped to i18n");
+    // Known Resin error patterns (from DESIGN.md error code table + probed).
+    if raw.contains("cannot delete Default platform") {
+        return "error.cannotDeleteDefaultPlatform".to_string();
+    }
+    if raw.contains("AUTH_REQUIRED") || raw.contains("auth required") {
+        return "error.authRequired".to_string();
+    }
+    if raw.contains("AUTH_FAILED") || raw.contains("auth failed") {
+        return "error.authFailed".to_string();
+    }
+    if raw.contains("URL_PARSE_ERROR") || raw.contains("url parse") {
+        return "error.urlParse".to_string();
+    }
+    if raw.contains("INVALID_PROTOCOL") || raw.contains("invalid protocol") {
+        return "error.invalidProtocol".to_string();
+    }
+    if raw.contains("UPSTREAM_CONNECT_FAILED") || raw.contains("upstream connect") {
+        return "error.upstreamConnectFailed".to_string();
+    }
+    if raw.contains("UPSTREAM_REQUEST_FAILED") || raw.contains("upstream request") {
+        return "error.upstreamRequestFailed".to_string();
+    }
+    if raw.contains("CONFLICT") {
+        return "error.conflict".to_string();
+    }
+    if raw.contains("not found") || raw.contains("NOT_FOUND") {
+        return "error.notFound".to_string();
+    }
+    if raw.contains("BAD_REQUEST") || raw.contains("bad request") {
+        return "error.badRequest".to_string();
+    }
+    if raw.contains("UNAUTHORIZED") || raw.contains("unauthorized") {
+        return "error.unauthorized".to_string();
+    }
+    // Unknown — pass through as literal for the frontend to display.
+    raw.to_string()
+}
+
 #[derive(Debug, Serialize)]
 pub struct ReserveResult {
     pub lane: usize,
@@ -178,7 +224,7 @@ pub struct LaneSnapshot {
 #[tauri::command]
 pub async fn gateway_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<LaneSnapshot, String> {
     let client = resin_client(&sidecar)?;
-    let leases = client.active_leases().await.map_err(|e| e.to_string())?;
+    let leases = client.active_leases().await.map_err(|e| map_resin_error(&e.to_string()))?;
     let busy = sum_active_leases(&leases);
     // Issue 4+7: pull the Resin /platforms list once per snapshot so we can
     // resolve lease items' platform_id back to the user-visible platform NAME
@@ -278,7 +324,7 @@ pub async fn platform_add(sidecar: State<'_, SidecarHandle>, name: String) -> Re
         .create_platform_from_name(&name)
         .await
         .map(|_| ())
-        .map_err(|e| e.to_string())
+        .map_err(|e| map_resin_error(&e.to_string()))
 }
 
 #[tauri::command]
@@ -288,20 +334,20 @@ pub async fn platform_remove(
 ) -> Result<bool, String> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
-    let list = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
     let id =
         platform_id_for_name(&list, &name).ok_or_else(|| format!("platform not found: {name}"))?;
     client
         .delete_platform(&id)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     Ok(true)
 }
 
 #[tauri::command]
 pub async fn platform_list(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>, String> {
     let client = resin_client(&sidecar)?;
-    let list = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
     Ok(platform_names(&list))
 }
 
@@ -313,7 +359,7 @@ pub async fn platform_list_full(
     sidecar: State<'_, SidecarHandle>,
 ) -> Result<serde_json::Value, String> {
     let client = resin_client(&sidecar)?;
-    client.list_platforms().await.map_err(|e| e.to_string())
+    client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))
 }
 
 #[tauri::command]
@@ -325,12 +371,12 @@ pub async fn platform_snapshot(
     let client = resin_client(&sidecar)?;
     // Resolve platform name -> id, then fetch that platform is routable node list
     // (Resin DESIGN.md: GET /nodes?platform_id=<id> filters to the platform routable set).
-    let list = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
     match platform_id_for_name(&list, &name) {
         Some(id) => client
             .list_nodes_for_platform(&id)
             .await
-            .map_err(|e| e.to_string()),
+            .map_err(|e| map_resin_error(&e.to_string())),
         None => Ok(serde_json::json!({"items":[], "total":0, "limit":500, "offset":0})),
     }
 }
@@ -553,13 +599,13 @@ pub async fn subscription_remove(
     let list = client
         .list_subscriptions()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     let id = subscription_id_for_name(&list, &name)
         .ok_or_else(|| format!("subscription not found: {name}"))?;
     client
         .delete_subscription(&id)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     Ok(true)
 }
 
@@ -583,7 +629,7 @@ pub async fn subscription_list(
     let list = client
         .list_subscriptions()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     Ok(subscription_snapshot(&list))
 }
 
@@ -592,7 +638,7 @@ pub async fn node_pool_snapshot(
     sidecar: State<'_, SidecarHandle>,
 ) -> Result<serde_json::Value, String> {
     let client = resin_client(&sidecar)?;
-    client.node_pool_snapshot().await.map_err(|e| e.to_string())
+    client.node_pool_snapshot().await.map_err(|e| map_resin_error(&e.to_string()))
 }
 
 // Phase R1: the topology canvas hot-switch and the node-pool tab need the
@@ -619,7 +665,7 @@ pub async fn platform_update(
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
     // Resolve name -> id (same pattern as platform_remove).
-    let list = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
     let id =
         platform_id_for_name(&list, &name).ok_or_else(|| format!("platform not found: {name}"))?;
 
@@ -697,7 +743,7 @@ pub async fn platform_update(
     client
         .update_platform(&id, serde_json::Value::Object(body))
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| map_resin_error(&e.to_string()))
 }
 
 /// GET /api/v1/nodes - return the full node list (the "C category" ip/ip
@@ -705,7 +751,7 @@ pub async fn platform_update(
 #[tauri::command]
 pub async fn node_list(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
     let client = resin_client(&sidecar)?;
-    client.list_nodes().await.map_err(|e| e.to_string())
+    client.list_nodes().await.map_err(|e| map_resin_error(&e.to_string()))
 }
 
 /// POST /api/v1/platforms with the full create schema (P21 Milestone B).
@@ -778,7 +824,7 @@ pub async fn platform_create_with_fields(
     client
         .create_platform_with_fields(body)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| map_resin_error(&e.to_string()))
 }
 
 /// GET /api/v1/platforms/{id}/leases - the live leases on a platform, used by
@@ -792,10 +838,10 @@ pub async fn platform_leases(
 ) -> Result<serde_json::Value, String> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
-    let list = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
     let id =
         platform_id_for_name(&list, &name).ok_or_else(|| format!("platform not found: {name}"))?;
-    client.platform_leases(&id).await.map_err(|e| e.to_string())
+    client.platform_leases(&id).await.map_err(|e| map_resin_error(&e.to_string()))
 }
 
 fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotEntry> {
@@ -1005,7 +1051,7 @@ pub async fn backup_upload(
         .body(data)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     if resp.status().is_success() {
         Ok(())
     } else {
@@ -1044,11 +1090,11 @@ pub async fn backup_list(
         )
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     if !resp.status().is_success() {
         return Err(format!("webdav PROPFIND failed: HTTP {}", resp.status()));
     }
-    let body = resp.text().await.map_err(|e| e.to_string())?;
+    let body = resp.text().await.map_err(|e| map_resin_error(&e.to_string()))?;
     // Parse <D:href> or <D:displayname> entries
     let mut names = Vec::new();
     for part in body.split("<D:href>").skip(1) {
@@ -1091,11 +1137,11 @@ pub fn process_route_conflict_check(
 #[tauri::command]
 pub async fn config_export(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
     let client = resin_client(&sidecar)?;
-    let platforms = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let platforms = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
     let subscriptions = client
         .list_subscriptions()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| map_resin_error(&e.to_string()))?;
 
     let plat_items: Vec<serde_json::Value> = items_arr(&platforms)
         .iter()
@@ -1165,7 +1211,7 @@ pub async fn config_import(
     let client = resin_client(&sidecar)?;
 
     // Get existing names to skip duplicates (idempotent import)
-    let existing_plats = client.list_platforms().await.map_err(|e| e.to_string())?;
+    let existing_plats = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
     let existing_plat_names: std::collections::HashSet<String> = items_arr(&existing_plats)
         .iter()
         .filter_map(|p| {
@@ -1178,7 +1224,7 @@ pub async fn config_import(
     let existing_subs = client
         .list_subscriptions()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     let existing_sub_names: std::collections::HashSet<String> = items_arr(&existing_subs)
         .iter()
         .filter_map(|s| {
@@ -1263,7 +1309,7 @@ pub async fn config_import(
                 }
                 if !body.is_empty() {
                     // Resolve name->id and PATCH
-                    let list = client.list_platforms().await.map_err(|e| e.to_string())?;
+                    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
                     if let Some(id) = platform_id_for_name(&list, name) {
                         let _ = client
                             .update_platform(&id, serde_json::Value::Object(body))
@@ -1358,7 +1404,7 @@ pub struct LeaseEntry {
 #[tauri::command]
 pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEntry>, String> {
     let client = resin_client(&sidecar)?;
-    let raw = client.active_leases().await.map_err(|e| e.to_string())?;
+    let raw = client.active_leases().await.map_err(|e| map_resin_error(&e.to_string()))?;
     // Resin returns {"items":[{active_leases:N,"ts":"...","platform_id":""}]}
     // or a bare array. We use the shared items_arr helper to be robust.
     let items = items_arr(&raw);
@@ -1442,7 +1488,7 @@ pub async fn ip_reputation_snapshot(
         });
     }
     let client = resin_client(&sidecar)?;
-    let raw = client.active_leases().await.map_err(|e| e.to_string())?;
+    let raw = client.active_leases().await.map_err(|e| map_resin_error(&e.to_string()))?;
     let ips = parse_public_ips(
         items_arr(&raw)
             .iter()
@@ -1915,5 +1961,30 @@ mod tests {
     #[test]
     fn validate_port_mapping_rejects_control_in_label() {
         assert!(validate_port_mapping(17990, "socks5", "OpenAI", "a", "bad\n").is_err());
+    }
+
+    #[test]
+    fn map_resin_error_cannot_delete_default() {
+        let raw = r#"409 Conflict: {"error":{"code":"CONFLICT","message":"cannot delete Default platform"}}"#;
+        assert_eq!(map_resin_error(raw), "error.cannotDeleteDefaultPlatform");
+    }
+
+    #[test]
+    fn map_resin_error_auth_required() {
+        assert_eq!(map_resin_error("407 AUTH_REQUIRED: missing token"), "error.authRequired");
+    }
+
+    #[test]
+    fn map_resin_error_upstream_connect_failed() {
+        assert_eq!(
+            map_resin_error("502 UPSTREAM_CONNECT_FAILED: timeout"),
+            "error.upstreamConnectFailed"
+        );
+    }
+
+    #[test]
+    fn map_resin_error_unknown_passes_through() {
+        let raw = "something unexpected happened";
+        assert_eq!(map_resin_error(raw), raw);
     }
 }

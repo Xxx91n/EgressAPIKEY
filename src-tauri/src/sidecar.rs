@@ -24,8 +24,14 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
-use tauri_plugin_shell::process::CommandChild;
-use tauri_plugin_shell::ShellExt;
+// Q6 fix: bypass tauri_plugin_shell .sidecar() which spawns a child via the
+// plugin layer — the plugin does NOT set CREATE_NO_WINDOW, so a console
+// window flashes on every quit of the GUI. We use std::process::Command
+// directly with creation_flags(0x08000000) on Windows to suppress the console.
+// stdout/stderr pipes are still drained into the LogBuffer via tokio async
+// read — same observable behavior as the plugin's CommandEvent, minus the
+// console window.
+use std::process::{Child, Command, Stdio};
 
 /// Lifecycle state of the Resin sidecar process (ADR-0016 Q1).
 /// Modeled after clash-verge-rev CoreManager RunningMode: a lightweight
@@ -80,12 +86,12 @@ impl LogBuffer {
 /// (G2 ResinClient) can reach it without piping admin tokens anywhere else.
 pub struct SidecarHandle {
     /// Owned in a Mutex<Option<_>> so the app exit hook can take() the
-    /// child once and call .kill(). CommandChild::kill takes self
-    /// (consumes the receiver); State<SidecarHandle> only hands out
-    /// borrows, so without the Option<take()> you cannot move the child
-    /// out of SysState. None after kill() means a second Exit callback
-    /// (if Tauri ever re-emits one) is a no-op.
-    pub child: Mutex<Option<CommandChild>>,
+    /// child once and call .kill() + .wait(). std::process::Child::kill
+    /// takes &mut self (does NOT consume), so the Option<take()> pattern
+    /// is kept for the exit hook's single-owner discipline. None after
+    /// kill() means a second Exit callback (if Tauri ever re-emits one)
+    /// is a no-op.
+    pub child: Mutex<Option<Child>>,
     /// Lifecycle mode (ADR-0016 Q1). RwLock so the health poll thread,
     /// crash restarter, and exit hook can all read/set the mode without
     /// blocking the IPC command path (which only needs api_port + tokens).
@@ -142,123 +148,159 @@ impl SidecarHandle {
 ///
 /// Timeout: 15s (matches the Ghost safety-net reference but uses HTTP poll
 /// rather than stdout because Resin's design is HTTP-first).
-pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
-    // Pick a free loopback port up front so we hand it to Resin and know what
-    // to poll. Drop the listener immediately after taking the port; Resin
-    // will bind it again as part of its startup.
+/// Pick a free loopback TCP port up front so the resin child can bind it.
+/// Returns (port, dummy_listener_dropped).
+fn pick_free_loopback_port() -> Result<u16> {
     let listener = TcpListener::bind("127.0.0.1:0")
         .context("sidecar: failed to allocate a free port for Resin")?;
-    let api_port = listener
+    let port = listener
         .local_addr()
         .context("sidecar: listener has no local addr")?
         .port();
     drop(listener);
+    Ok(port)
+}
 
-    // Generate strong-enough loopback-only secrets. Not user-facing.
-    let admin_token = gen_token();
-    let proxy_token = gen_token();
+/// Resolve the resin sidecar binary by host triple. Tries `binary_dir`
+/// (CLI-supplied) first, then packaged resource_dir, then dev fallback.
+fn resolve_resin_binary(binary_dir: Option<&std::path::Path>) -> Result<std::path::PathBuf> {
+    // std::env::consts::OS returns 'windows'/'macos'/'linux' WITHOUT the
+    // ABI suffix (msvc/gnu), so the triple we can construct at runtime is
+    // only a prefix of the real cargo host-triple. We glob
+    // 'resin-<arch>-pc-<os>-*<.exe>' in the caller dir + the src-tauri
+    // fallback dir so any ABI variant is resolved symmetrically.
+    let arch = std::env::consts::ARCH;
+    let os = std::env::consts::OS;
+    let exe_suffix = if cfg!(target_os = "windows") { ".exe" } else { "" };
+    let direct_name = format!("resin-{}-pc-{}{}", arch, os, exe_suffix);
+    if let Some(bd) = binary_dir {
+        if let Some(p) = scan_for_resin_bin(bd, arch, os, exe_suffix, &direct_name) {
+            tracing::info!(resolved = ?p, "sidecar: resolved resin binary (caller dir)");
+            return Ok(p);
+        }
+    }
+    let dev_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries");
+    if let Some(p) = scan_for_resin_bin(&dev_dir, arch, os, exe_suffix, &direct_name) {
+        tracing::info!(resolved = ?p, "sidecar: resolved resin binary (dev fallback)");
+        return Ok(p);
+    }
+    Err(anyhow!(
+        "sidecar: resin binary not found in caller dir ({:?}) or src-tauri/binaries (arch={}, os={})",
+        binary_dir, arch, os
+    ))
+}
 
-    // Build and spawn the sidecar. We pass environment (not CLI args) because
-    // Resin reads RESIN_* from env (DESIGN.md env contract). We do NOT
-    // env_clear — Resin needs its own runtime env (PATH, TMP, etc.) and we
-    // add only the RESIN_* knobs we want to pin.
-    // Resin needs writable state/cache/log dirs. On a Go binary compiled
-    // with Linux defaults (/var/lib/resin, /var/cache/resin, /var/log/resin)
-    // those paths do not exist on Windows and the process exits with
-    //   fatal: persistence bootstrap: repair consistency: attach state_db:
-    //   unable to open database file ... (14)
-    // We override all three to the Tauri per-user app data dir + OS log dir
-    // so the sidecar owns its own subdirectory on every platform. The Rust
-    // shell is the trust boundary; the webview never sees these paths.
-    let path = app.path();
-    let app_data = path
-        .app_data_dir()
-        .context("sidecar: cannot resolve app_data_dir for resin state")?;
-    let state_dir = app_data.join("resin-state");
-    let cache_dir = app_data.join("resin-cache");
-    let log_dir = path
-        .app_log_dir()
-        .unwrap_or_else(|_| app_data.join("logs"))
-        .join("resin");
-    std::fs::create_dir_all(&state_dir)
+/// Scan dir for a file matching 'resin-<arch>-pc-<os>-*<.exe>' (Windows ABI
+/// variants) or the canonical triple on non-Windows. Prefer the
+/// exact-direct-name match first, then any ABI-glob fall-through.
+fn scan_for_resin_bin(
+    dir: &std::path::Path,
+    arch: &str,
+    os: &str,
+    exe_suffix: &str,
+    direct_name: &str,
+) -> Option<std::path::PathBuf> {
+    let direct = dir.join(direct_name);
+    if direct.exists() {
+        return Some(direct);
+    }
+    let entries = std::fs::read_dir(dir).ok()?;
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    for e in entries.flatten() {
+        let name = e.file_name().to_string_lossy().to_string();
+        if os == "windows" {
+            let prefix = format!("resin-{}-pc-windows-", arch);
+            if name.starts_with(&prefix) && name.ends_with(exe_suffix) {
+                candidates.push(e.path());
+            }
+        } else if os == "macos" {
+            let direct_full = format!("resin-{}-apple-darwin{}", arch, exe_suffix);
+            if name == direct_full {
+                return Some(e.path());
+            }
+        } else if os == "linux" {
+            let direct_full = format!("resin-{}-unknown-linux-gnu{}", arch, exe_suffix);
+            if name == direct_full {
+                return Some(e.path());
+            }
+        }
+    }
+    candidates.sort();
+    candidates.into_iter().next()
+}
+
+/// Spawn the resin child, drain its stdout/stderr into the log buffer,
+/// poll /healthz until the control plane is up (15s deadline), then
+/// return a SidecarHandle. Path/port-independent: callers pass explicit
+/// dirs + binary path. Used by both boot_resin (Tauri app) and
+/// boot_resin_standalone (headless npm launcher).
+fn spawn_resin_await_healthz(
+    state_dir: &std::path::Path,
+    cache_dir: &std::path::Path,
+    log_dir: &std::path::Path,
+    binary_path: &std::path::Path,
+) -> Result<SidecarHandle> {
+    std::fs::create_dir_all(state_dir)
         .with_context(|| format!("sidecar: cannot create state_dir {:?}", state_dir))?;
-    std::fs::create_dir_all(&cache_dir)
+    std::fs::create_dir_all(cache_dir)
         .with_context(|| format!("sidecar: cannot create cache_dir {:?}", cache_dir))?;
-    std::fs::create_dir_all(&log_dir)
+    std::fs::create_dir_all(log_dir)
         .with_context(|| format!("sidecar: cannot create log_dir {:?}", log_dir))?;
     tracing::info!(
         "resin sidecar dirs: state={:?} cache={:?} log={:?}",
-        state_dir,
-        cache_dir,
-        log_dir
+        state_dir, cache_dir, log_dir
     );
 
-    let shell = app.shell();
-    let mut cmd = shell
-        .sidecar("resin")
-        .context("sidecar: resin binary not found in bundle (externalBin misconfigured)")?;
-    cmd = cmd
-        .env("RESIN_AUTH_VERSION", "V1")
+    let api_port = pick_free_loopback_port()?;
+    let admin_token = gen_token();
+    let proxy_token = gen_token();
+
+    let mut cmd = Command::new(binary_path);
+    cmd.env("RESIN_AUTH_VERSION", "V1")
         .env("RESIN_ADMIN_TOKEN", &admin_token)
         .env("RESIN_PROXY_TOKEN", &proxy_token)
         .env("RESIN_LISTEN_ADDRESS", "127.0.0.1")
         .env("RESIN_PORT", api_port.to_string())
-        .env("RESIN_STATE_DIR", &state_dir)
-        .env("RESIN_CACHE_DIR", &cache_dir)
-        .env("RESIN_LOG_DIR", &log_dir);
+        .env("RESIN_STATE_DIR", state_dir)
+        .env("RESIN_CACHE_DIR", cache_dir)
+        .env("RESIN_LOG_DIR", log_dir)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
 
-    let (mut receiver, child) = cmd // spawn() returns (Receiver, CommandChild)
-        .spawn()
-        .context("sidecar: failed to spawn resin binary")?;
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
 
-    // Ring buffer for sidecar stderr/stdout (ADR-0016 Q2a). Shared between
-    // the drain task (writer) and the SidecarHandle (IPC reader).
+    let mut child = cmd.spawn().context("sidecar: failed to spawn resin binary")?;
+
     let log_buf = LogBuffer::new();
     let drain_buf = log_buf.clone();
-
-    // Poll /healthz until up or timeout. Spawn a background task to also drain
-    // receiver so the sidecar's stdout buffer does not fill and block.
-    let _drain = tauri::async_runtime::spawn(async move {
-        use tauri_plugin_shell::process::CommandEvent;
-        while let Some(ev) = receiver.recv().await {
-            match ev {
-                CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes) => {
-                    let text = String::from_utf8_lossy(&bytes).trim_end().to_string();
-                    tracing::trace!(
-                        target: "resin_sidecar",
-                        "sidecar stdout/stderr: {}",
-                        text
-                    );
-                    drain_buf.push(&text);
-                }
-                CommandEvent::Terminated(payload) => {
-                    tracing::error!(
-                        target: "resin_sidecar",
-                        "resin sidecar terminated: code={:?} signal={:?}",
-                        payload.code, payload.signal
-                    );
-                    // ADR-0016 Q3: crash detected. The drain task ends here;
-                    // the health poll detects /healthz is unreachable within
-                    // 3 * HEALTH_POLL_INTERVAL (9s) and marks the tray red +
-                    // emits "unhealthy". A future full auto-restart wiring
-                    // would re-spawn here with crash_backoff_ms(i) backoff,
-                    // but the current tauri_plugin_shell API requires the
-                    // AppHandle to re-build the Command, so restart is delegated
-                    // to the health-poll path which has the AppHandle.
-                    drain_buf.push(&format!(
-                        "CRASH: code={:?} signal={:?} (health poll will detect within 9s)",
-                        payload.code, payload.signal
-                    ));
-                    break;
-                }
-                CommandEvent::Error(msg) => {
-                    tracing::error!(target: "resin_sidecar", "sidecar event err: {msg}");
-                    break;
-                }
-                _ => {}
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    if let Some(stdout) = stdout {
+        let buf = drain_buf.clone();
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            let reader = std::io::BufReader::new(stdout);
+            for line in reader.lines().flatten() {
+                tracing::trace!(target: "resin_sidecar", "sidecar stdout: {}", line);
+                buf.push(&line);
             }
-        }
-    });
+        });
+    }
+    if let Some(stderr) = stderr {
+        let buf = drain_buf.clone();
+        std::thread::spawn(move || {
+            use std::io::BufRead;
+            let reader = std::io::BufReader::new(stderr);
+            for line in reader.lines().flatten() {
+                tracing::trace!(target: "resin_sidecar", "sidecar stderr: {}", line);
+                buf.push(&line);
+            }
+        });
+    }
 
     let deadline = Instant::now() + Duration::from_secs(15);
     let base = format!("http://127.0.0.1:{}", api_port);
@@ -284,19 +326,13 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
                     proxy_token,
                 });
             }
-            Ok(r) => {
-                last_err = Some(format!("HTTP {}", r.status()));
-            }
-            Err(e) => {
-                last_err = Some(e.to_string());
-            }
+            Ok(r) => { last_err = Some(format!("HTTP {}", r.status())); }
+            Err(e) => { last_err = Some(e.to_string()); }
         }
         std::thread::sleep(Duration::from_millis(250));
     }
 
-    // Timeout: kill the child and surface what we saw.
     let _ = child.kill();
-    // T2-4: check if the port is now occupied by a stale Resin process
     let port_hint = match check_port_available(api_port) {
         Ok(()) => "port is free; sidecar likely crashed during startup".to_string(),
         Err(_) => "port is occupied by a stale process; kill it or use a different port".to_string(),
@@ -306,6 +342,42 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
         last_err.unwrap_or_else(|| "no response".into())
     ))
 }
+
+/// Headless entry point: spawn the resin sidecar without a Tauri webview.
+/// `state_root` and `log_root` are OS-standard dirs (e.g.
+/// ~/.local/share/egressapikey, ~/.local/state/egressapikey/logs).
+/// `binary_dir` is where the launcher placed the resin sidecar binary.
+/// Returns a SidecarHandle the axum headless server can read API_BASE /
+/// token from. No Tauri dependency.
+pub fn boot_resin_standalone(
+    state_root: std::path::PathBuf,
+    log_root: std::path::PathBuf,
+    binary_dir: std::path::PathBuf,
+) -> Result<SidecarHandle> {
+    let state_dir = state_root.join("resin-state");
+    let cache_dir = state_root.join("resin-cache");
+    let log_dir = log_root.join("resin");
+    let binary_path = resolve_resin_binary(Some(&binary_dir))?;
+    spawn_resin_await_healthz(&state_dir, &cache_dir, &log_dir, &binary_path)
+}
+
+/// Tauri app entry: resolve per-user app data + log dirs via the Tauri
+/// path resolver, then delegate to the shared spawn helper.
+pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
+    let path = app.path();
+    let app_data = path
+        .app_data_dir()
+        .context("sidecar: cannot resolve app_data_dir for resin state")?;
+    let state_dir = app_data.join("resin-state");
+    let cache_dir = app_data.join("resin-cache");
+    let log_dir = path
+        .app_log_dir()
+        .unwrap_or_else(|_| app_data.join("logs"))
+        .join("resin");
+    let binary_path = resolve_resin_binary(None)?;
+    spawn_resin_await_healthz(&state_dir, &cache_dir, &log_dir, &binary_path)
+}
+
 
 /// Generate a loopback-only secret token. Ponytail: use stdrand + Instant
 /// instead of pulling a uuid crate dep — 32 hex chars of entropy from

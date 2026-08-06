@@ -306,9 +306,9 @@ fn main() {
                     // CommandChild::kill takes self (consumes); wrap child in
                     // Mutex<Option<_>> so we can take() once here. A second
                     // Exit (if ever re-emitted) finds None and no-ops.
-                    if let Some(child) = sidecar.child.lock().ok().and_then(|mut g| g.take()) {
-                        let pid: u32 = child.pid();
-                        let _ = child.kill(); // Phase 1: TerminateProcess
+                    if let Some(mut child) = sidecar.child.lock().ok().and_then(|mut g| g.take()) {
+                        let pid: u32 = child.id();
+                        let _ = child.kill(); // std::process::Child::kill = &mut self (no consume)
                         // T2-5 (ADR-0016 Q5): Phase 2 — wait for OS to release
                         // port + SQLite lock before app exit, then verify PID.
                         std::thread::sleep(std::time::Duration::from_millis(

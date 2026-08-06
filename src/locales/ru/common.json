@@ -215,5 +215,23 @@
     "show": "Показать окно",
     "quit": "Выйти",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Невозможно удалить платформу по умолчанию",
+    "authRequired": "Требуется аутентификация",
+    "authFailed": "Ошибка аутентификации",
+    "urlParse": "Неверный формат URL",
+    "invalidProtocol": "Неверный протокол",
+    "upstreamConnectFailed": "Ошибка подключения к восходящему серверу",
+    "upstreamRequestFailed": "Ошибка запроса к восходящему серверу",
+    "conflict": "Конфликт",
+    "notFound": "Не найдено",
+    "badRequest": "Неверный запрос",
+    "unauthorized": "Не авторизован"
+  },
+  "policy": {
+    "balanced": "Сбалансированный",
+    "lowLatency": "Предпочитать низкую задержку",
+    "idleIp": "Предпочтировать свободный IP"
   }
 }

@@ -215,5 +215,23 @@
     "show": "Mostrar Ventana",
     "quit": "Salir",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "No se puede eliminar la plataforma predeterminada",
+    "authRequired": "Autenticacion requerida",
+    "authFailed": "Autenticacion fallida",
+    "urlParse": "Formato de URL invalido",
+    "invalidProtocol": "Protocolo invalido",
+    "upstreamConnectFailed": "Conexion ascendente fallida",
+    "upstreamRequestFailed": "Solicitud ascendente fallida",
+    "conflict": "Conflicto",
+    "notFound": "No encontrado",
+    "badRequest": "Solicitud incorrecta",
+    "unauthorized": "No autorizado"
+  },
+  "policy": {
+    "balanced": "Equilibrado",
+    "lowLatency": "Preferir baja latencia",
+    "idleIp": "Preferir IP inactiva"
   }
 }

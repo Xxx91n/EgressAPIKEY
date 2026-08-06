@@ -15,6 +15,7 @@ import {
   type AllocationPolicy,
   type PortMapping,
 } from "../lib/ipc";
+import { policyToI18nKey } from "../lib/policy";
 import { loadSplitRatio, saveSplitRatio } from "../lib/settings";
 
 /** Phase 5 / ADR-0012: left = Entry Ports, right = Platforms. Port = identity. */
@@ -246,7 +247,7 @@ export function PlatformsView() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="font-medium">{p.name}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">{p.allocationPolicy + " · " + t("platform.leases") + ": " + leases.length + " · " + t("platform.routableNodes") + ": " + p.routableNodeCount}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{t(policyToI18nKey(p.allocationPolicy)) + " · " + t("platform.leases") + ": " + leases.length + " · " + t("platform.routableNodes") + ": " + p.routableNodeCount}</div>
                       {bound.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {bound.map((b) => (
@@ -257,7 +258,7 @@ export function PlatformsView() {
                     </div>
                     <div className="flex items-center gap-1">
                       <select className="rounded border bg-background px-1 py-0.5 text-[11px]" value={p.allocationPolicy} onChange={(e) => { const policy = e.target.value as AllocationPolicy; void ipcPlatformUpdate(p.name, policy).then(() => refreshPlatforms()).catch((err) => showToast("err", err instanceof Error ? err.message : String(err))); }}>
-                        {ALLOCATION_POLICIES.map((pol) => (<option key={pol} value={pol}>{pol}</option>))}
+                        {ALLOCATION_POLICIES.map((pol) => (<option key={pol} value={pol}>{t(policyToI18nKey(pol))}</option>))}
                       </select>
                       <button type="button" className="rounded p-1 text-muted-foreground hover:text-red-500" onClick={() => void handleDeletePlatform(p.name)}>
                         <Trash2 className="h-4 w-4" />
@@ -278,7 +279,7 @@ export function PlatformsView() {
             <div className="mt-3 space-y-2">
               <input className="w-full rounded border bg-background px-2 py-1.5 text-sm" value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder={t("platform.name")} data-testid="platform-create-name" />
               <select className="w-full rounded border bg-background px-2 py-1.5 text-sm" value={createPolicy} onChange={(e) => setCreatePolicy(e.target.value as AllocationPolicy)}>
-                {ALLOCATION_POLICIES.map((pol) => (<option key={pol} value={pol}>{pol}</option>))}
+                {ALLOCATION_POLICIES.map((pol) => (<option key={pol} value={pol}>{t(policyToI18nKey(pol))}</option>))}
               </select>
               {createFormError && <p className="text-xs text-red-500">{createFormError}</p>}
             </div>

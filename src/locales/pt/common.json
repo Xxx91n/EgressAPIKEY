@@ -215,5 +215,23 @@
     "show": "Mostrar Janela",
     "quit": "Sair",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Nao e possivel excluir a plataforma padrao",
+    "authRequired": "Autenticacao necessaria",
+    "authFailed": "Falha na autenticacao",
+    "urlParse": "Formato de URL invalido",
+    "invalidProtocol": "Protocolo invalido",
+    "upstreamConnectFailed": "Falha na conexao upstream",
+    "upstreamRequestFailed": "Falha na solicitacao upstream",
+    "conflict": "Conflito",
+    "notFound": "Nao encontrado",
+    "badRequest": "Solicitacao invalida",
+    "unauthorized": "Nao autorizado"
+  },
+  "policy": {
+    "balanced": "Equilibrado",
+    "lowLatency": "Preferir baixa latencia",
+    "idleIp": "Preferir IP inativo"
   }
 }

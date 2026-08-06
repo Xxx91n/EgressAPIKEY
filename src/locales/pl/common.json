@@ -215,5 +215,23 @@
     "show": "Pokaż okno",
     "quit": "Zakończ",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Nie mozna usunac platformy domyslnej",
+    "authRequired": "Wymagane uwierzytelnienie",
+    "authFailed": "Uwierzytelnienie nie powiodlo sie",
+    "urlParse": "Nieprawidlowy format URL",
+    "invalidProtocol": "Nieprawidlowy protokol",
+    "upstreamConnectFailed": "Polaczenie upstream nie powiodlo sie",
+    "upstreamRequestFailed": "Zadanie upstream nie powiodlo sie",
+    "conflict": "Konflikt",
+    "notFound": "Nie znaleziono",
+    "badRequest": "Nieprawidlowe zadanie",
+    "unauthorized": "Nieautoryzowany"
+  },
+  "policy": {
+    "balanced": "Zrownowazony",
+    "lowLatency": "Preferuj niskie opoznienie",
+    "idleIp": "Preferuj bezczynny IP"
   }
 }

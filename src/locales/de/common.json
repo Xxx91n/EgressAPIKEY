@@ -215,5 +215,23 @@
     "show": "Fenster anzeigen",
     "quit": "Beenden",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Standard-Plattform kann nicht geloescht werden",
+    "authRequired": "Authentifizierung erforderlich",
+    "authFailed": "Authentifizierung fehlgeschlagen",
+    "urlParse": "Ungueltiges URL-Format",
+    "invalidProtocol": "Ungueltiges Protokoll",
+    "upstreamConnectFailed": "Upstream-Verbindung fehlgeschlagen",
+    "upstreamRequestFailed": "Upstream-Anfrage fehlgeschlagen",
+    "conflict": "Konflikt",
+    "notFound": "Nicht gefunden",
+    "badRequest": "Ungueltige Anfrage",
+    "unauthorized": "Nicht autorisiert"
+  },
+  "policy": {
+    "balanced": "Ausgeglichen",
+    "lowLatency": "Bevorzugt niedrige Latenz",
+    "idleIp": "Bevorzugt inaktive IP"
   }
 }

@@ -215,5 +215,23 @@
     "show": "Pencereyi göster",
     "quit": "Çık",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Varsayilan platform silinemez",
+    "authRequired": "Kimlik dogrulama gerekli",
+    "authFailed": "Kimlik dogrulama basarisiz",
+    "urlParse": "Gecersiz URL formati",
+    "invalidProtocol": "Gecersiz protokol",
+    "upstreamConnectFailed": "Yukari akis baglantisi basarisiz",
+    "upstreamRequestFailed": "Yukari akis istegi basarisiz",
+    "conflict": "Celiski",
+    "notFound": "Bulunamadi",
+    "badRequest": "Gecersiz istek",
+    "unauthorized": "Yetkisiz"
+  },
+  "policy": {
+    "balanced": "Dengeli",
+    "lowLatency": "Dusuk gecikme tercih et",
+    "idleIp": "Bosluktaki IP tercih et"
   }
 }

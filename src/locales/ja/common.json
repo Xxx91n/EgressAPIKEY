@@ -215,5 +215,23 @@
     "show": "ウィンドウを表示",
     "quit": "終了",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "デフォルトプラットフォームは削除できません",
+    "authRequired": "認証が必要です",
+    "authFailed": "認証に失敗しました",
+    "urlParse": "URL形式が無効です",
+    "invalidProtocol": "プロトコルが無効です",
+    "upstreamConnectFailed": "上流接続に失敗しました",
+    "upstreamRequestFailed": "上流リクエストに失敗しました",
+    "conflict": "競合",
+    "notFound": "見つかりません",
+    "badRequest": "不正なリクエスト",
+    "unauthorized": "未認証"
+  },
+  "policy": {
+    "balanced": "バランス",
+    "lowLatency": "低遅延優先",
+    "idleIp": "アイドルIP優先"
   }
 }

@@ -215,5 +215,23 @@
     "show": "Afficher la Fenêtre",
     "quit": "Quitter",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Impossible de supprimer la plateforme par defaut",
+    "authRequired": "Authentification requise",
+    "authFailed": "Authentification echouee",
+    "urlParse": "Format d URL invalide",
+    "invalidProtocol": "Protocole invalide",
+    "upstreamConnectFailed": "Connexion amont echouee",
+    "upstreamRequestFailed": "Requete amont echouee",
+    "conflict": "Conflit",
+    "notFound": "Introuvable",
+    "badRequest": "Mauvaise requete",
+    "unauthorized": "Non autorise"
+  },
+  "policy": {
+    "balanced": "Equilibre",
+    "lowLatency": "Preferer faible latence",
+    "idleIp": "Preferer IP inactive"
   }
 }

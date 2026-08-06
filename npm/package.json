@@ -1,0 +1,29 @@
+{
+  "name": "@egressapikey/server",
+  "version": "0.1.0",
+  "description": "Headless launcher for EgressAPIKEY — runs the Resin-backed control surface in any browser without installing the Tauri desktop shell.",
+  "license": "GPL-3.0-or-later",
+  "keywords": [
+    "ai-gateway",
+    "resin",
+    "ip-routing",
+    "egress",
+    "headless"
+  ],
+  "bin": {
+    "egressapikey-server": "./launcher.cjs"
+  },
+  "main": "./launcher.cjs",
+  "files": [
+    "launcher.cjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node ./launcher.cjs",
+    "build:headless": "../scripts/build-all.sh --headless-only",
+    "test": "node ./launcher.cjs --dry-run"
+  }
+}

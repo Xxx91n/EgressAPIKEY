@@ -215,5 +215,23 @@
     "show": "แสดงหน้าต่าง",
     "quit": "ออก",
     "tooltip": "EgressAPIKEY"
+  },
+  "error": {
+    "cannotDeleteDefaultPlatform": "ไม่สามารถลบแพลตฟอร์มเริ่มต้นได้",
+    "authRequired": "ต้องมีการยืนยันตัวตน",
+    "authFailed": "การยืนยันตัวตนล้มเหลว",
+    "urlParse": "รูปแบบ URL ไม่ถูกต้อง",
+    "invalidProtocol": "โปรโตคอลไม่ถูกต้อง",
+    "upstreamConnectFailed": "การเชื่อมต่ออัปสตรีมล้มเหลว",
+    "upstreamRequestFailed": "คำขออัปสตรีมล้มเหลว",
+    "conflict": "ขัดแย้ง",
+    "notFound": "ไม่พบ",
+    "badRequest": "คำขอไม่ถูกต้อง",
+    "unauthorized": "ไม่ได้รับอนุญาต"
+  },
+  "policy": {
+    "balanced": "สมดุล",
+    "lowLatency": "ต้องการความหน่วงต่ำ",
+    "idleIp": "ต้องการ IP ที่ไม่ใช้งาน"
   }
 }
