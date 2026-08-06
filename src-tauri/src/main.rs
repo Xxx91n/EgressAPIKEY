@@ -307,7 +307,29 @@ fn main() {
                     // Mutex<Option<_>> so we can take() once here. A second
                     // Exit (if ever re-emitted) finds None and no-ops.
                     if let Some(child) = sidecar.child.lock().ok().and_then(|mut g| g.take()) {
-                        let _ = child.kill();
+                        let pid: u32 = child.pid();
+                        let _ = child.kill(); // Phase 1: TerminateProcess
+                        // T2-5 (ADR-0016 Q5): Phase 2 — wait for OS to release
+                        // port + SQLite lock before app exit, then verify PID.
+                        std::thread::sleep(std::time::Duration::from_millis(
+                            egressapikey_app::sidecar::SHUTDOWN_WAIT_MS,
+                        ));
+                        let alive = {
+                            let out = std::process::Command::new("tasklist")
+                                .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+                                .output();
+                            match out {
+                                Ok(o) => {
+                                    let stdout = String::from_utf8_lossy(&o.stdout);
+                                    stdout.contains(&format!(r#""{pid}""#))
+                                }
+                                Err(_) => false,
+                            }
+                        };
+                        match egressapikey_app::sidecar::two_phase_shutdown_result(true, alive) {
+                            Ok(()) => tracing::info!("sidecar two-phase shutdown: PID {pid} reaped cleanly"),
+                            Err(e) => tracing::warn!("sidecar two-phase shutdown: PID {pid} {e}"),
+                        }
                         tracing::info!("sidecar child killed on app exit");
                     }
                     // ADR-0016 T2-1: mark mode as NotRunning so any

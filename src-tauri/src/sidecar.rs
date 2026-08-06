@@ -487,6 +487,26 @@ mod tests {
         assert!(result.is_err(), "occupied port should return Err");
         drop(listener);
     }
+
+    #[test]
+    fn two_phase_shutdown_ok_when_killed_and_dead() {
+        assert!(two_phase_shutdown_result(true, false).is_ok());
+    }
+
+    #[test]
+    fn two_phase_shutdown_err_when_not_killed() {
+        assert!(two_phase_shutdown_result(false, false).is_err());
+    }
+
+    #[test]
+    fn two_phase_shutdown_err_when_still_alive() {
+        assert!(two_phase_shutdown_result(true, true).is_err());
+    }
+
+    #[test]
+    fn shutdown_wait_ms_is_500() {
+        assert_eq!(SHUTDOWN_WAIT_MS, 500);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -512,6 +532,31 @@ const STATUS_EVENT: &str = "sidecar-status";
 /// attempt up to 3 restarts with exponential backoff: 1s, 2s, 4s.
 /// After MAX_RESTARTS, mark terminal dead + notify user (no infinite loop).
 const MAX_CRASH_RESTARTS: u32 = 3;
+
+/// T2-5 (ADR-0016 Q5): milliseconds to wait between TerminateProcess and
+/// PID reaping check. Gives the OS time to release the port + SQLite state
+/// lock so the next boot does not get EADDRINUSE or "database is locked".
+/// 500ms is the clash-verge-rev CoreManager two-phase shutdown interval.
+pub const SHUTDOWN_WAIT_MS: u64 = 500;
+
+/// T2-5 (ADR-0016 Q5): Two-phase shutdown sequence for the sidecar process.
+/// Phase 1: Send the kill signal (TerminateProcess on Windows, SIGTERM on Unix).
+/// Phase 2: Wait SHUTDOWN_WAIT_MS, then verify the process is gone.
+/// Returns Ok(()) if the process is gone within the wait window,
+/// Err(diagnostic) if it's still alive (extremely unlikely after kill()).
+/// Pure extraction of the shutdown logic for unit testability.
+pub fn two_phase_shutdown_result(killed: bool, pid_alive: bool) -> Result<(), String> {
+    if !killed {
+        return Err("kill signal was not sent".to_string());
+    }
+    if pid_alive {
+        return Err(format!(
+            "process still alive after {}ms wait; may need manual cleanup",
+            SHUTDOWN_WAIT_MS
+        ));
+    }
+    Ok(())
+}
 
 /// Return the backoff delay in milliseconds for crash restart attempt N
 /// (0-indexed). ADR-0016 Q3: 1s, 2s, 4s exponential backoff.
