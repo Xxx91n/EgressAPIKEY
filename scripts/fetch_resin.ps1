@@ -2,10 +2,17 @@
 # into src-tauri/binaries/resin-<triple>{.exe} so Tauri can bundle it as a
 # sidecar. We download from the upstream GitHub release tag.
 # See docs/MEMORY_REUSE_DECISION.md path A.
+# Read version + repo from docs/RESIN_UPSTREAM_MANIFEST.yaml (ADR-0017 T2-6)
 $ErrorActionPreference="Stop"
 $ProgressPreference="SilentlyContinue"
-$REPO="Resinat/Resin"
-$REL="v1.2.0"
+$MANIFEST="$PSScriptRoot\..\docs\RESIN_UPSTREAM_MANIFEST.yaml"
+if(-not (Test-Path $MANIFEST)) { Write-Error "manifest not found: $MANIFEST"; exit 2 }
+$manifestContent = Get-Content $MANIFEST -Raw
+$repoMatch = [regex]::Match($manifestContent, 'repo:\s*"([^"]+)"')
+$versionMatch = [regex]::Match($manifestContent, 'version:\s*"([^"]+)"')
+if(-not $repoMatch.Success -or -not $versionMatch.Success) { Write-Error "cannot parse repo/version from manifest"; exit 2 }
+$REPO=$repoMatch.Groups[1].Value
+$REL=$versionMatch.Groups[1].Value
 $BU="https://github.com/$REPO/releases/download/$REL"
 $triple = & rustc -vV | Select-String "^host:" | ForEach-Object { ($_ -split "\s+")[1] }
 $asset=$null; $ext=""
