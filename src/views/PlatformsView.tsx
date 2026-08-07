@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Plug } from "lucide-react";
 import { useAppStore } from "../store/appStore";
+import { translateError } from "../lib/i18n-error";
 import {
   ipcPlatformRemove,
   ipcPlatformListFull,
@@ -107,14 +108,14 @@ export function PlatformsView() {
       setNewLabel("");
       showToast("ok", t("platform.portAddOk"));
       await refreshPorts();
-    } catch (e) { showToast("err", e instanceof Error ? e.message : String(e)); }
+    } catch (e) { showToast("err", translateError(e, t)); }
     finally { setBusy(false); }
   };
 
   const handleRemovePort = async (port: number) => {
     setBusy(true);
     try { await ipcPortRemove(port); showToast("ok", t("platform.portRemoved")); await refreshPorts(); }
-    catch (e) { showToast("err", e instanceof Error ? e.message : String(e)); }
+    catch (e) { showToast("err", translateError(e, t)); }
     finally { setBusy(false); }
   };
 
@@ -133,7 +134,7 @@ export function PlatformsView() {
       });
       showToast("ok", t("platform.portBound", { port, platform: platformName }));
       await refreshPorts();
-    } catch (e) { showToast("err", e instanceof Error ? e.message : String(e)); }
+    } catch (e) { showToast("err", translateError(e, t)); }
     finally { setBusy(false); setDraggingPort(null); setDragOverPlatform(null); }
   };
 
@@ -146,14 +147,14 @@ export function PlatformsView() {
       setCreateDialogOpen(false); setCreateName("");
       showToast("ok", t("platform.addOk"));
       await refreshPlatforms();
-    } catch (e) { setCreateFormError(e instanceof Error ? e.message : String(e)); }
+    } catch (e) { setCreateFormError(translateError(e, t)); }
     finally { setBusy(false); }
   };
 
   const handleDeletePlatform = async (name: string) => {
     setBusy(true);
     try { await ipcPlatformRemove(name); removePlatform(name); showToast("ok", t("platform.deleteConfirm")); await refreshPlatforms(); }
-    catch (e) { showToast("err", e instanceof Error ? e.message : String(e)); }
+    catch (e) { showToast("err", translateError(e, t)); }
     finally { setBusy(false); }
   };
 

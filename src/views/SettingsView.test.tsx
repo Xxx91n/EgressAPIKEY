@@ -89,7 +89,7 @@ describe("SettingsView C2-8 dirty-state save bar visibility", () => {
 
   it("save bar is hidden when form is clean (default state)", async () => {
     render(<SettingsView />);
-    await waitFor(() => expect(screen.getByDisplayValue("127.0.0.1:7897")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("spinbutton")).toBeInTheDocument());
     expect(screen.queryByTestId("settings-save-bar")).toBeNull();
   });
 

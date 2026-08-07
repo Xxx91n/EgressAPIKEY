@@ -155,7 +155,11 @@
     "ipApi": "ip-api",
     "ipReputationKey": "服务商 API 密钥",
     "ipReputationHelp": "只查询 Resin 租约返回的公开出口 IP。",
-    "ipApiWarning": "ip-api 免费接口仅支持 HTTP；仅在可信网络中启用。"
+    "ipApiWarning": "ip-api 免费接口仅支持 HTTP；仅在可信网络中启用。",
+    "resinPort": "Resin 端口",
+    "resinStatus": "Resin 状态",
+    "sidecarLoading": "加载中...",
+    "sidecarAutoPort": "端口由 Resin sidecar 自动分配，无需手动配置。"
   },
   "subscription": {
     "title": "订阅",

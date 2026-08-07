@@ -155,7 +155,11 @@
     "ipApi": "ip-api",
     "ipReputationKey": "Provider API key",
     "ipReputationHelp": "Only public egress IPs reported by Resin leases are queried.",
-    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network."
+    "ipApiWarning": "ip-api free endpoint is HTTP-only; enable only on a trusted network.",
+    "resinPort": "Resin ポート",
+    "resinStatus": "Resin ステータス",
+    "sidecarLoading": "読み込み中...",
+    "sidecarAutoPort": "ポートは Resin サイドカーによって自動割り当てされます。"
   },
   "subscription": {
     "title": "サブスクリプション",

@@ -5,14 +5,11 @@ import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUplo
 import { openPath } from "@tauri-apps/plugin-opener";
 import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload } from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
+import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
 import {
   saveLocale,
   saveTheme,
   saveLaneCount,
-  loadGatewayBind,
-  saveGatewayBind,
-  loadMihomoApi,
-  saveMihomoApi,
   loadWebdavConfig,
   saveWebdavConfig,
   loadIpReputationConfig,
@@ -89,14 +86,15 @@ export function SettingsView() {
   const [busy, setBusy] = useState(false);
   // Network settings (problem 6 parity): loaded from tauri-plugin-store on
   // mount, persisted via the Save button. The Rust shell reads these keys
-  // (gatewayBind, mihomoApi) at startup into CoreConfig; mihomoApi flows to
+  // T3-A2: gatewayBind/mihomoApi were dead fields (main.rs L173 dropped cfg).
   // MihomoController::new which refuses non-loopback URLs (§7.6).
-  const [gatewayBind, setGatewayBind] = useState("127.0.0.1:7897");
-  const [mihomoApi, setMihomoApi] = useState("http://127.0.0.1:9090");
+  // T3-A2: gatewayBind/mihomoApi are dead fields (main.rs L173 drops cfg).
+  // Replaced with read-only Resin sidecar actual port display.
+  const [sidecarStatus, setSidecarStatus] = useState<SidecarStatus | null>(null);
   const [reputationConfig, setReputationConfig] = useState<IpReputationConfig>({ provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" });
   // C2-8: dirty-state tracking — baseline snapshot vs current form values.
   // idiomatic enterprise pattern (minimal baseline+JSON.stringify diff, no RHF dep).
-  const [baseline, setBaseline] = useState({ lanes: laneCount, gatewayBind, mihomoApi, reputationConfig: { provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" } });
+  const [baseline, setBaseline] = useState({ lanes: laneCount, reputationConfig: { provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" } });
   // WebDAV backup config (clash-verge-rev pattern)
   const [backupUrl, setBackupUrl] = useState("");
   const [whiteboxPath, setWhiteboxPath] = useState("");
@@ -131,12 +129,11 @@ export function SettingsView() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [b, m, reputation] = await Promise.all([loadGatewayBind(), loadMihomoApi(), loadIpReputationConfig()]);
-      if (cancelled) return;
-      if (b) setGatewayBind(b);
-      if (m) setMihomoApi(m);
-      setReputationConfig(reputation);
-      setBaseline({ lanes: laneCount, gatewayBind: b ?? gatewayBind, mihomoApi: m ?? mihomoApi, reputationConfig: reputation });
+      const [status, reputation] = await Promise.all([ipcGetSidecarStatus().catch(() => null), loadIpReputationConfig()]);
+    if (cancelled) return;
+    if (status) setSidecarStatus(status);
+    setReputationConfig(reputation);
+    setBaseline({ lanes: laneCount, reputationConfig: reputation });
     })();
     return () => { cancelled = true; };
   }, []);
@@ -171,7 +168,7 @@ export function SettingsView() {
   // Persist laneCount + network settings to tauri-plugin-store (problem 6 fix:
   // the old Save button only updated the in-memory store, so the count was lost
   // on quit). Client-side guards here are UX-only: trim, a `^https?://` shape
-  // check on mihomoApi, and a length cap so we never persist a multi-MB string.
+  // T3-A2: mihomoApi field removed from Settings.
   // The Rust side is the real trust boundary (MihomoController::new refuses
   // non-loopback URLs, see crates/resin-core/src/mihomo.rs + AGENTS §7.6).
   const saveWebdav = async () => {
@@ -242,7 +239,7 @@ export function SettingsView() {
  };
 
  // C2-8: isDirty = baseline vs current form snapshot. showSaveBar gates the sticky bar.
- const isDirty = useMemo(() => JSON.stringify({ lanes, gatewayBind, mihomoApi, reputationConfig }) !== JSON.stringify(baseline), [lanes, gatewayBind, mihomoApi, reputationConfig, baseline]);
+ const isDirty = useMemo(() => JSON.stringify({ lanes, reputationConfig }) !== JSON.stringify(baseline), [lanes, reputationConfig, baseline]);
  const showSaveBar = isDirty || busy || saved;
 
  const saveAll = async () => {
@@ -253,18 +250,9 @@ export function SettingsView() {
     setLaneCount(n);
     await saveLaneCount(n);
 
-    const rawBind = gatewayBind.trim().slice(0, 2048);
-    const bind = rawBind || "127.0.0.1:7897";
-    const rawApi = mihomoApi.trim().slice(0, 2048);
-    // Reject an mihomoApi that is not an http(s) URL shape (UX only; the Rust
-    // loopback guard is still the authoritative check). On bad shape we keep
-    // the canonical default so the saved store never holds garbage.
-    const looksLikeUrl = /^https?:\/\//i.test(rawApi);
-    const api = looksLikeUrl ? rawApi : "http://127.0.0.1:9090";
-    setGatewayBind(bind);
-    setMihomoApi(api);
-    await Promise.all([saveGatewayBind(bind), saveMihomoApi(api), saveIpReputationConfig(reputationConfig)]);
-    setBaseline({ lanes: n, gatewayBind: bind, mihomoApi: api, reputationConfig });
+    // T3-A2: gatewayBind/mihomoApi removed — sidecar port is auto-assigned.
+    await saveIpReputationConfig(reputationConfig);
+    setBaseline({ lanes: n, reputationConfig });
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
     } finally { setBusy(false); }
@@ -335,26 +323,19 @@ export function SettingsView() {
       </SectionCard>
 
       <SectionCard icon={<Server size={16} strokeWidth={1.75} />} title={t("settings.network")}>
-        <Field label={t("settings.gatewayBind")}>
-          <input
-            type="text"
-            value={gatewayBind}
-            onChange={(e) => setGatewayBind(e.target.value)}
-            placeholder="127.0.0.1:7897"
-            className="w-56 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-          />
+        <Field label={t("settings.resinPort")}>
+          <p className="text-sm text-zinc-700 dark:text-zinc-300" data-testid="sidecar-port">
+            {sidecarStatus ? sidecarStatus.api_port : t("settings.sidecarLoading")}
+          </p>
         </Field>
-        <Field label={t("settings.mihomoApi")}>
-          <input
-            type="text"
-            value={mihomoApi}
-            onChange={(e) => setMihomoApi(e.target.value)}
-            placeholder="http://127.0.0.1:9090"
-            className="w-56 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-          />
+        <Field label={t("settings.resinStatus")}>
+          <p className="text-sm text-zinc-700 dark:text-zinc-300" data-testid="sidecar-mode">
+            {sidecarStatus ? sidecarStatus.mode : t("settings.sidecarLoading")}
+          </p>
         </Field>
-        {/* Issue 6: per-card Save removed; the unified sticky bottom bar
-            calls saveAll() so there is one obvious commit action. */}
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          {t("settings.sidecarAutoPort")}
+        </p>
       </SectionCard>
       <SectionCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("settings.ipReputation")}>
         <Field label={t("settings.ipReputationProvider")} hint={t("settings.ipReputationHelp")}>

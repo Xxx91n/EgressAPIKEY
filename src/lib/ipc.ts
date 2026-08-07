@@ -478,3 +478,14 @@ export interface StreamSensorSnapshot {
 export async function ipcStreamSensorSnapshot(): Promise<StreamSensorSnapshot> {
   return invoke<StreamSensorSnapshot>("stream_sensor_snapshot");
 }
+
+
+export interface SidecarStatus {
+  api_port: number;
+  api_base: string;
+  mode: string;
+}
+
+export async function ipcGetSidecarStatus(): Promise<SidecarStatus> {
+  return invoke<SidecarStatus>("get_sidecar_status");
+}
