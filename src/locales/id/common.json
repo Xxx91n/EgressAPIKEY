@@ -231,7 +231,8 @@
     "conflict": "Konflik",
     "notFound": "Tidak ditemukan",
     "badRequest": "Permintaan buruk",
-    "unauthorized": "Tidak diotorisasi"
+    "unauthorized": "Tidak diotorisasi",
+    "subscriptionFetch": "Gagal mengambil sumber langganan (HTTP {{code}})"
   },
   "policy": {
     "balanced": "Seimbang",

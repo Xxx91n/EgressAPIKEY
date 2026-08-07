@@ -231,7 +231,8 @@
     "conflict": "Конфликт",
     "notFound": "Не найдено",
     "badRequest": "Неверный запрос",
-    "unauthorized": "Не авторизован"
+    "unauthorized": "Не авторизован",
+    "subscriptionFetch": "Не удалось получить источник подписки (HTTP {{code}})"
   },
   "policy": {
     "balanced": "Сбалансированный",

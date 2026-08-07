@@ -108,6 +108,22 @@ pub fn map_resin_error(raw: &str) -> String {
     if raw.contains("UNAUTHORIZED") || raw.contains("unauthorized") {
         return "error.unauthorized".to_string();
     }
+    // T3-Q2: subscription fetch failure (UA rotation exhausted, likely
+    // origin SSL/4xx/5xx). Extract the trailing HTTP status code so the
+    // i18n key carries the surface reason (e.g. 525 origin SSL error)
+    // without leaking fetch pipeline internals. Regex-free: the literal
+    // error format is owned by fetch_clash_subscription.
+    if let Some(idx) = raw.find("fetch_clash_subscription") {
+        let tail = &raw[idx..];
+        if let Some(http_idx) = tail.find("HTTP ") {
+            let after = &tail[http_idx + 5..];
+            let code: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
+            if !code.is_empty() {
+                return format!("error.subscriptionFetch.{}", code);
+            }
+        }
+        return "error.subscriptionFetch".to_string();
+    }
     // Unknown — pass through as literal for the frontend to display.
     raw.to_string()
 }
@@ -548,7 +564,10 @@ pub async fn subscription_add(
     tracing::info!(subscription = %name, url = %url, "subscription_add: fetching clash yaml");
     let yaml = fetch_clash_subscription(&url).await.map_err(|e| {
         tracing::warn!(error = ?e, "subscription_add: fetch failed");
-        e.to_string()
+        // T3-Q2: route fetch errors through map_resin_error so the frontend
+        // receives a localizable key (error.subscriptionFetch.<code>) instead
+        // of a leaky internal error string.
+        map_resin_error(&e.to_string())
     })?;
     tracing::info!(
         bytes = yaml.len(),
@@ -2006,5 +2025,25 @@ mod tests {
     fn map_resin_error_unknown_passes_through() {
         let raw = "something unexpected happened";
         assert_eq!(map_resin_error(raw), raw);
+    }
+
+    /// T3-Q2: subscription fetch error routing to i18n keys with HTTP code suffix.
+    #[test]
+    fn map_resin_error_subscription_fetch_with_http_code() {
+        let raw = "fetch_clash_subscription: all UA attempts failed: HTTP 525 <unknown status code>";
+        assert_eq!(map_resin_error(raw), "error.subscriptionFetch.525");
+    }
+
+    #[test]
+    fn map_resin_error_subscription_fetch_no_code_falls_back_to_base() {
+        // No HTTP code in the error string (e.g. "...all UA attempts failed: empty body")
+        let raw = "fetch_clash_subscription: all UA attempts failed: empty body";
+        assert_eq!(map_resin_error(raw), "error.subscriptionFetch");
+    }
+
+    #[test]
+    fn map_resin_error_subscription_fetch_403() {
+        let raw = "fetch_clash_subscription: all UA attempts failed: HTTP 403 Forbidden";
+        assert_eq!(map_resin_error(raw), "error.subscriptionFetch.403");
     }
 }

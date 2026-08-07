@@ -231,7 +231,8 @@
     "conflict": "ขัดแย้ง",
     "notFound": "ไม่พบ",
     "badRequest": "คำขอไม่ถูกต้อง",
-    "unauthorized": "ไม่ได้รับอนุญาต"
+    "unauthorized": "ไม่ได้รับอนุญาต",
+    "subscriptionFetch": "ดึงแหล่งสมัครรับข้อมูลล้มเหลว (HTTP {{code}})"
   },
   "policy": {
     "balanced": "สมดุล",

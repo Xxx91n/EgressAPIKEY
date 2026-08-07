@@ -231,7 +231,8 @@
     "conflict": "Conflicto",
     "notFound": "No encontrado",
     "badRequest": "Solicitud incorrecta",
-    "unauthorized": "No autorizado"
+    "unauthorized": "No autorizado",
+    "subscriptionFetch": "Error al obtener la fuente de suscripción (HTTP {{code}})"
   },
   "policy": {
     "balanced": "Equilibrado",

@@ -231,7 +231,8 @@
     "conflict": "Xung dot",
     "notFound": "Khong tim thay",
     "badRequest": "Yeu cau khong hop le",
-    "unauthorized": "Khong duoc uy quyen"
+    "unauthorized": "Khong duoc uy quyen",
+    "subscriptionFetch": "Lấy nguồn đăng ký thất bại (HTTP {{code}})"
   },
   "policy": {
     "balanced": "Can bang",

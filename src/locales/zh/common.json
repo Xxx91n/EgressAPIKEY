@@ -231,7 +231,8 @@
     "conflict": "冲突",
     "notFound": "未找到",
     "badRequest": "请求格式错误",
-    "unauthorized": "未授权"
+    "unauthorized": "未授权",
+    "subscriptionFetch": "订阅源拉取失败 (HTTP {{code}})"
   },
   "policy": {
     "balanced": "均衡",

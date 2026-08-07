@@ -231,7 +231,8 @@
     "conflict": "Conflit",
     "notFound": "Introuvable",
     "badRequest": "Mauvaise requete",
-    "unauthorized": "Non autorise"
+    "unauthorized": "Non autorise",
+    "subscriptionFetch": "Échec de la récupération de la source d'abonnement (HTTP {{code}})"
   },
   "policy": {
     "balanced": "Equilibre",

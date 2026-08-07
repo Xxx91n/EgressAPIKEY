@@ -231,7 +231,8 @@
     "conflict": "Conflict",
     "notFound": "Not found",
     "badRequest": "Bad request",
-    "unauthorized": "Unauthorized"
+    "unauthorized": "Unauthorized",
+    "subscriptionFetch": "Subscription source fetch failed (HTTP {{code}})"
   },
   "policy": {
     "balanced": "Balanced",

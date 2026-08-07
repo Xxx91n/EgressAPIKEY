@@ -231,7 +231,8 @@
     "conflict": "Conflito",
     "notFound": "Nao encontrado",
     "badRequest": "Solicitacao invalida",
-    "unauthorized": "Nao autorizado"
+    "unauthorized": "Nao autorizado",
+    "subscriptionFetch": "Falha ao buscar fonte de assinatura (HTTP {{code}})"
   },
   "policy": {
     "balanced": "Equilibrado",

@@ -231,7 +231,8 @@
     "conflict": "Konflikt",
     "notFound": "Nicht gefunden",
     "badRequest": "Ungueltige Anfrage",
-    "unauthorized": "Nicht autorisiert"
+    "unauthorized": "Nicht autorisiert",
+    "subscriptionFetch": "Abrufen der Abonnement-Quelle fehlgeschlagen (HTTP {{code}})"
   },
   "policy": {
     "balanced": "Ausgeglichen",

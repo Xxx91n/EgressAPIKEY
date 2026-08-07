@@ -231,7 +231,8 @@
     "conflict": "충돌",
     "notFound": "찾을 수 없음",
     "badRequest": "잘못된 요청",
-    "unauthorized": "인증되지 않음"
+    "unauthorized": "인증되지 않음",
+    "subscriptionFetch": "구독 원본 가져오기 실패 (HTTP {{code}})"
   },
   "policy": {
     "balanced": "균형",

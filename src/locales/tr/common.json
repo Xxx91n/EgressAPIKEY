@@ -231,7 +231,8 @@
     "conflict": "Celiski",
     "notFound": "Bulunamadi",
     "badRequest": "Gecersiz istek",
-    "unauthorized": "Yetkisiz"
+    "unauthorized": "Yetkisiz",
+    "subscriptionFetch": "Abonelik kaynağı getirme başarısız (HTTP {{code}})"
   },
   "policy": {
     "balanced": "Dengeli",

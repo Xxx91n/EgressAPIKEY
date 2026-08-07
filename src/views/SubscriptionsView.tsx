@@ -6,6 +6,7 @@ import {
   ipcSubscriptionAdd, ipcSubscriptionList, ipcSubscriptionRemove, ipcNodePoolSnapshot,
   type SubscriptionSnapshotEntry,
 } from "../lib/ipc";
+import { translateError } from "../lib/i18n-error";
 import { loadSubOrder, saveSubOrder } from "../lib/settings";
 
 /// SubscriptionsView - Resin subscription import surface (P20 rewrite).
@@ -147,7 +148,7 @@ export function SubscriptionsView() {
         setToast({ kind: "ok", msg: t("subscription.importSuccess", { total }) });
       } catch { /* node pool optional */ }
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = translateError(e, t);
       setToast({ kind: "err", msg });
     } finally {
       try { setName(""); setUrl(""); setBusy(false); } catch { /* unmounted */ }
@@ -209,7 +210,7 @@ export function SubscriptionsView() {
       await refreshWithRetry();
       setToast({ kind: "ok", msg: t("subscription.renameOk", { name: renamed }) });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = translateError(e, t);
       setToast({ kind: "err", msg });
     } finally {
       setBusy(false);

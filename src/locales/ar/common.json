@@ -231,7 +231,8 @@
     "conflict": "تعارض",
     "notFound": "غير موجود",
     "badRequest": "طلب غير صالح",
-    "unauthorized": "غير مصرح"
+    "unauthorized": "غير مصرح",
+    "subscriptionFetch": "فشل جلب مصدر الاشتراك (HTTP {{code}})"
   },
   "policy": {
     "balanced": "متوازن",
