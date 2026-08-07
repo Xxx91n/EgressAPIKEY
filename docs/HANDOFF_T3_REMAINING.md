@@ -145,3 +145,26 @@ Then verify Vite chunk hash embedded in exe.
 - Every code change: build + test + stage release exe + smoke
 - Small step commits
 - Do NOT tag, do NOT publish, do NOT trigger GitHub Actions
+
+---
+
+## T3 Completion Status (added 2026-08-07 — T3 closeout commits 1c7f140, 47e0adb, d679f32, 1b8b8c6, 24b686b, 8961948)
+
+Each T3 item below is closed:
+
+- **T3-A1**: get_sidecar_status IPC — DONE (commit 1c7f140)
+- **T3-A2**: SettingsView dead-field removal — DONE (commit 47e0adb)
+- **T3-A-main.rs**: dead CoreConfig bind/mihomo_api block + StoreExt import — DONE (commit 1b8b8c6)
+- **T3-Q2**: subscription fetch error surfaces HTTP code via i18n parent-key interpolation — DONE (commit 24b686b) (3 cargo tests + 5 vitest tests)
+- **T3-Q3**: PlatformsView i18n error mapping (translateError helper) — DONE (commit 47e0adb)
+- **T3-Q4**: policy i18n translation — DONE PRE-EXISTING (verified policy.ts + 2 vitest tests in policy.test.ts)
+- **T3-Q5**: gatewayBind/mihomoApi Settings dead fields — DONE (subsumed by T3-A2 + T3-A)
+- **T3-Q6**: console flash on tray Quit — DONE (tasklist CREATE_NO_WINDOW at main.rs ~L288, commit 1b8b8c6)
+- **T3-B-build**: winres resource.lib link failure — DONE (project-local .cargo/config.toml forces x86_64-pc-windows-msvc, commit d679f32). Previously blocked every release-exe rebuild.
+- **T2-Q3**: crash restarter wiring — VERY-NARROW DONE (running_count tracking + Terminated state+backoff via spawn_health_poll, commit 8961948). Real respawn (kill + re-spawn + port conflict handling) still deferred — tracked below.
+- **AGENTS §11 stale debug_assert note**: corrected L179 (deleted dead CoreConfig block) and L182 (release guard exists at mihomo.rs L91-101, runs in non-debug builds) — same commit as T3-A (1b8b8c6).
+
+Remaining unfinished T3 items (not committed in this session):
+
+- **Release exe restage**: new release exe builds cleanly on x86_64-pc-windows-msvc, but front-end (dist) + custom-protocol exe rebuild still pending so the staged release/windows-gui/EgressAPIKEY.exe is current.
+- **T2-Q3 real respawn**: kill + re-spawn requires extracting a regenerate path out of boot_resin + port-conflict handling + child Mutex<Option<Child>> swap. Tracked as a Ponytail debt ledger follow-up.

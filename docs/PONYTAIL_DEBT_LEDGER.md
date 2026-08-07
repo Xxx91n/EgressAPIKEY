@@ -7,7 +7,8 @@ Standard: every `ponytail:` source marker MUST appear in this ledger so future s
 | File | Line | Text | Status | Rationale |
 |---|---|---|---|---|
 | `src-tauri/src/sidecar.rs` | 595 | do NOT add tauri-plugin-notification just for this | keep | Ghost safety net uses the existing webview event listener to draw a banner; no need to introduce a new native notification crate (volume tag: yagni). |
-| `src-tauri/src/sidecar.rs` | 607 | MAX_CRASH_RESTARTS dead code | reserved | Reserved for ADR-0016 Q3 wired crash-restart handler in the SidecarHandle Terminated event. Implements the documented bound (3 retries with exponential backoff 1s/2s/4s then terminal failure). Until the handler lands, the constant is dead but documented. |
+| `src-tauri/src/sidecar.rs` | 665 | MAX_CRASH_RESTARTS wiring | done (commit 8961948) | ADR-0016 Q3 wiring landed in spawn_health_poll: tracks crash_count, sleeps crash_backoff_ms(i) emitting 'restarting'/'terminated' status events, transitions RunningMode to Terminated past the ceiling. Removed the dead-code marker + #[allow(dead_code)] on crash_backoff_ms. |
+| `src-tauri/src/sidecar.rs` | 704 | crash restarter real respawn | deferred | Reserving a follow-up: spawn_health_poll now emits the right status events but does NOT actually call kill() + .spawn() again at the backoff boundary. Re-spawn requires extracting a regenerate path out of boot_resin (binary lookup, sidecar pickup, port conflict, child Mutex<Option<Child>> swap). Until then, the poll surfaces a 'terminated' status to the GUI so the user can restart the app manually. |
 
 ## Status legend
 
