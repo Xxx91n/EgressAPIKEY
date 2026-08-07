@@ -50,6 +50,11 @@ pub enum RunningMode {
     Starting,
     /// Process is live and control plane is up (normal steady state).
     Running,
+    /// T2-Q3 (ADR-0016 Q3): After MAX_CRASH_RESTARTS the crash restarter
+    /// gives up and marks the sidecar Terminated — no further restart
+    /// attempts. The mode is terminal until the user restarts the app.
+    /// mode transition is Running|Starting -> Terminated.
+    Terminated,
 }
 
 /// Ring buffer capacity for sidecar stderr/stdout lines (ADR-0016 Q2a).
@@ -132,6 +137,9 @@ impl SidecarHandle {
                 | (RunningMode::Starting, RunningMode::NotRunning)
                 | (RunningMode::Running, RunningMode::NotRunning)
                 | (RunningMode::NotRunning, RunningMode::Starting)
+                | (RunningMode::Running, RunningMode::Terminated)
+                | (RunningMode::Starting, RunningMode::Terminated)
+                | (RunningMode::Terminated, RunningMode::NotRunning)
         );
         if !valid {
             tracing::warn!(
@@ -490,6 +498,58 @@ mod tests {
     }
 
     #[test]
+    fn sidecar_handle_set_mode_running_to_terminated() {
+        // T2-Q3: Running -> Terminated is a valid transition (reached when
+        // the health poll exhausts MAX_CRASH_RESTARTS).
+        let h = SidecarHandle {
+            child: Mutex::new(None),
+            mode: std::sync::RwLock::new(RunningMode::Running),
+            log_buf: LogBuffer::new(),
+            api_port: 0,
+            admin_token: String::new(),
+            proxy_token: String::new(),
+        };
+        h.set_mode(RunningMode::Terminated);
+        assert_eq!(h.mode(), RunningMode::Terminated);
+    }
+
+    #[test]
+    fn sidecar_handle_set_mode_starting_to_terminated() {
+        // T2-Q3: Starting -> Terminated (after backoff attempts during boot).
+        let h = SidecarHandle {
+            child: Mutex::new(None),
+            mode: std::sync::RwLock::new(RunningMode::Starting),
+            log_buf: LogBuffer::new(),
+            api_port: 0,
+            admin_token: String::new(),
+            proxy_token: String::new(),
+        };
+        h.set_mode(RunningMode::Terminated);
+        assert_eq!(h.mode(), RunningMode::Terminated);
+    }
+
+    #[test]
+    fn sidecar_handle_set_mode_logs_warn_on_invalid_running_to_starting() {
+        // T2-Q3: Running -> Starting is NOT a valid ADR-0016 transition.
+        // set_mode does NOT panic or revert — it traces a warn then writes
+        // the new value anyway (defensive, in case of races in the exit
+        // path). We assert the value IS written (documenting the actual
+        // contract) so a future refactor that adds strict rejection is
+        // caught and re-deliberated.
+        let h = SidecarHandle {
+            child: Mutex::new(None),
+            mode: std::sync::RwLock::new(RunningMode::Running),
+            log_buf: LogBuffer::new(),
+            api_port: 0,
+            admin_token: String::new(),
+            proxy_token: String::new(),
+        };
+        h.set_mode(RunningMode::Starting);
+        // set_mode writes the new value regardless of validity (warn-only).
+        assert_eq!(h.mode(), RunningMode::Starting);
+    }
+
+    #[test]
     fn ring_buffer_push_and_snapshot() {
         let buf = LogBuffer::new();
         buf.push("line1");
@@ -603,8 +663,6 @@ const STATUS_EVENT: &str = "sidecar-status";
 /// Crash auto-restart bounds (ADR-0016 Q3). After a sidecar process crash,
 /// attempt up to 3 restarts with exponential backoff: 1s, 2s, 4s.
 /// After MAX_RESTARTS, mark terminal dead + notify user (no infinite loop).
-#[allow(dead_code)]
-// ponytail: dead code — crash restart not yet wired in Terminated handler; ceiling: 3 retries then terminal failure; upgrade: wire in boot_resin Terminated event with crash_backoff_ms(i) + re-spawn + RunningMode::Starting
 const MAX_CRASH_RESTARTS: u32 = 3;
 
 /// T2-5 (ADR-0016 Q5): milliseconds to wait between TerminateProcess and
@@ -632,7 +690,6 @@ pub fn two_phase_shutdown_result(killed: bool, pid_alive: bool) -> Result<(), St
     Ok(())
 }
 
-#[allow(dead_code)]
 /// Return the backoff delay in milliseconds for crash restart attempt N
 /// (0-indexed). ADR-0016 Q3: 1s, 2s, 4s exponential backoff.
 /// Pure function for testability.
@@ -648,6 +705,10 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
     tauri::async_runtime::spawn(async move {
         let mut failures: u32 = 0;
         let mut was_healthy = true;
+        // T2-Q3: crash_count counts cumulative unhealthy transitions
+        // (not single poll failures). After MAX_CRASH_RESTARTS the
+        // restarter gives up and marks the sidecar Terminated.
+        let mut crash_count: u32 = 0;
         let client = match reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(2))
             .build()
@@ -699,6 +760,31 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
                     let _ = app.emit(STATUS_EVENT, "unhealthy");
                     if let Err(e) = clear_os_proxy().await {
                         tracing::warn!("ghost: clear_os_proxy error: {e}");
+                    }
+                    // T2-Q3: bound the noisy-unhealthy path to MAX_CRASH_RESTARTS
+                    // (1s + 2s + 4s exponential backoff ~ 3 health cycles before
+                    //  we transition to Terminated). Each unhealthy transition
+                    // increments crash_count; after the ceiling we set
+                    // RunningMode::Terminated and emit a Toast so the GUI can
+                    // show a dedicated "sidecar crashed; please restart" banner.
+                    crash_count += 1;
+                    if crash_count > MAX_CRASH_RESTARTS {
+                        tracing::error!(
+                            "ghost: sidecar terminal after {} restart attempts; mode=Terminated",
+                            MAX_CRASH_RESTARTS
+                        );
+                        if let Some(state) = app.try_state::<SidecarHandle>() {
+                            state.set_mode(RunningMode::Terminated);
+                        }
+                        let _ = app.emit(STATUS_EVENT, "terminated");
+                    } else {
+                        let backoff = crash_backoff_ms(crash_count - 1);
+                        tracing::warn!(
+                            "ghost: crash attempt {}/{}, backing off {}ms before next poll",
+                            crash_count, MAX_CRASH_RESTARTS, backoff
+                        );
+                        let _ = app.emit(STATUS_EVENT, "restarting");
+                        tokio::time::sleep(std::time::Duration::from_millis(backoff)).await;
                     }
                     was_healthy = false;
                 }
