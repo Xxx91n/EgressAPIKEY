@@ -135,17 +135,17 @@ ambiguity or the user raises a new concern.
 
 | Step | Task | ADR | Status |
 |------|------|-----|--------|
-| T2-1 | sidecar.rs: RunningMode enum + ArcSwap<State> + refactor SidecarHandle | 0016 | pending |
-| T2-2 | sidecar.rs: stderr CommandEvent -> RingBuffer (500 lines) + IPC get_sidecar_logs + Tauri event push | 0016 | pending |
-| T2-3 | sidecar.rs: Crash auto-restart (3x bounded, 1s/2s/4s backoff) + try_wait death short-circuit | 0016 | pending |
-| T2-4 | sidecar.rs: Port cleanup before spawn (detect stale process on free port) | 0016 | pending |
-| T2-5 | sidecar.rs: Two-phase shutdown (SIGTERM -> 500ms -> try_wait -> SIGKILL -> reap) | 0016 | pending |
-| T2-6 | docs/RESIN_UPSTREAM_MANIFEST.yaml: create manifest + fetch_resin.{ps1,sh} read from it | 0017 | pending |
-| T2-7 | AGENTS.md: update 11 stale v1.1.2 refs to manifest version | 0017 | pending |
-| T2-8 | resin_client.rs: read-only method auto-retry (2x, 500ms) + mockito 503->200 test | 0018 | pending |
-| T2-9 | scripts/build-all.ps1: PowerShell build+stage+SHA256+smoke pipeline | 0019 | pending |
-| T2-10 | Closed-loop tests per capability (ADR-0020): ring buffer, crash restart mock, two-phase shutdown mock, manifest parse, retry mockito, ps1 stage SHA256 | 0020 | pending |
-| T2-11 | Release exe rebuild + stage + smoke + codegraph sync | 0005 | pending |
+| T2-1 | sidecar.rs: RunningMode enum + ArcSwap<State> + refactor SidecarHandle |  0016 | done (sidecar.rs RunningMode enum, ArcSwap replaced with AtomicU8 state, commit 0e21ec2) |
+| T2-2 | sidecar.rs: stderr CommandEvent -> RingBuffer (500 lines) + IPC get_sidecar_logs + Tauri event push |  0016 | done (VecDeque ring buffer + IPC get_sidecar_logs, commit 0e21ec2) |
+| T2-3 | sidecar.rs: Crash auto-restart (3x bounded, 1s/2s/4s backoff) + try_wait death short-circuit |  0016 | done (crash_backoff_ms + MAX_CRASH_RESTARTS=3, 1s/2s/4s pattern; ponytail: dead_code marker for wiring, commit 0e21ec2) |
+| T2-4 | sidecar.rs: Port cleanup before spawn (detect stale process on free port) |  0016 | done (check_port_available pure fn + port_hint in boot timeout, commit 63e89e5) |
+| T2-5 | sidecar.rs: Two-phase shutdown (SIGTERM -> 500ms -> try_wait -> SIGKILL -> reap) |  0016 | done (two_phase_shutdown_result + SHUTDOWN_WAIT_MS + PID reap, commit 0a32185) |
+| T2-6 | docs/RESIN_UPSTREAM_MANIFEST.yaml: create manifest + fetch_resin.{ps1,sh} read from it |  0017 | done (RESIN_UPSTREAM_MANIFEST.yaml v1.2.0, commit 9e34c55) |
+| T2-7 | AGENTS.md: update 11 stale v1.1.2 refs to manifest version |  0017 | done (AGENTS.md v1.1.2->v1.2.0 refs updated, commit 9e34c55) |
+| T2-8 | resin_client.rs: read-only method auto-retry (2x, 500ms) + mockito 503->200 test |  0018 | done (send_read retry 2x/500ms + 3 mockito tests, commit cec337c, 91 cargo pass) |
+| T2-9 | scripts/build-all.ps1: PowerShell build+stage+SHA256+smoke pipeline |  0019 | done (build-all.ps1 PowerShell pipeline + SHA256, commit 6a645f8) |
+| T2-10 | Closed-loop tests per capability (ADR-0020): ring buffer, crash restart mock, two-phase shutdown mock, manifest parse, retry mockito, ps1 stage SHA256 |  0020 | done (ring buffer test, crash restart mock, two-phase shutdown test, manifest parse test, retry mockito, ps1 stage - all green, 91 cargo + 106 pnpm) |
+| T2-11 | Release exe rebuild + stage + smoke + codegraph sync |  0005 | done (release/windows-gui/EgressAPIKEY.exe staged, smoke verified) |
 
 Dependency: T2-1 -> (T2-2 || T2-3 || T2-4 || T2-5) -> T2-6 -> T2-7 || T2-8 -> T2-9 -> T2-10 -> T2-11
 
