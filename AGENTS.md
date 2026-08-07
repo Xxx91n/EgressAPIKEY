@@ -1,7 +1,6 @@
 # EgressAPIKEY - Project Operating Instructions
 
-> **[!IMPORTANT] Reproducible folder rename**: the on-disk repository folder is still called `D:\Aworker\ai-api-route` because it is in use by Codex. After the user closes Codex, manually rename the folder to `D:\Aworker\EgressAPIKEY`. All path-agnostic artifacts are already aligned: `tauri.conf.json` productName = "EgressAPIKEY", Cargo bin name "egressapikey-app", npm name "EgressAPIKEY", bundle id "com.egressapikey.desktop". The ctx sandbox path examples below still reference the old in-use folder name `D:/Aworker/ai-api-route/...` **on purpose** until the rename is performed; nothing else needs an edit.
-This document is the single source of truth for the EgressAPIKEY project. All developers, AI agents, and LLMs must follow this specification. When any project feature or structure changes, update this file in the same commit. Detailed references live in `docs/` - keep this file concise; link out instead of inlining large tables.
+> **[!IMPORTANT] Folder rename complete**: the on-disk repository folder has been renamed from `D:\Aworker\ai-api-route` to `D:\Aworker\EgressAPIKEY`. All path-agnostic artifacts are aligned: `tauri.conf.json` productName = "EgressAPIKEY", Cargo bin name "egressapikey-app", npm name "EgressAPIKEY", bundle id "com.egressapikey.desktop".
 
 ---
 
@@ -11,7 +10,7 @@ This document is the single source of truth for the EgressAPIKEY project. All de
 - ctx_* first; fallback to Codex builtins only when ctx_* can't do the same job. Read-to-analyze / search / large grep: ctx_batch_execute(commands, queries) or ctx_search(queries) - never Get-Content/Select-String into context. For data analysis use ctx_execute(code) and print only the answer.
 - Web/HTTP: ctx_fetch_and_index(url, source) then ctx_search(queries). curl/wget/inline HTTP are forbidden.
 - Shell OK for git, mkdir, rm, mv, cd, ls, npm install, dotnet build, cargo build, vitest, scripts/build-all.ps1 (execution, not analysis; output is bounded and acceptable).
-- Windows paths in ctx sandbox: use forward-slash Windows form `D:/Aworker/ai-api-route/...` for both the `cwd` argument and inline paths. The ctx `shell` language routes to `pwsh.exe` (PowerShell 7), NOT bash — Git-Bash form `/d/Aworker/...` either resolves to the wrong drive `D:\d\Aworker\...` or, when passed as `cwd`, kills the spawn with `pwsh.exe ENOENT`. PowerShell cmdlets need `pwsh -NoProfile -Command "..."`. `$`-using PowerShell logic must go in a `.ps1` and run with `-File` (inline `$` is stripped by the host transport).
+- Windows paths in ctx sandbox: use forward-slash Windows form `D:/Aworker/EgressAPIKEY/...` for both the `cwd` argument and inline paths. The ctx `shell` language routes to `pwsh.exe` (PowerShell 7), NOT bash — Git-Bash form `/d/Aworker/...` either resolves to the wrong drive `D:\d\Aworker\...` or, when passed as `cwd`, kills the spawn with `pwsh.exe ENOENT`. PowerShell cmdlets need `pwsh -NoProfile -Command "..."`. `$`-using PowerShell logic must go in a `.ps1` and run with `-File` (inline `$` is stripped by the host transport).
 - After resume: `ctx_search(sort:"timeline")` before asking the user anything. Search prior session memory before re-reading sources.
 - Output artifacts as files + path + one-line summary; never inline large content. Descriptive source labels for `ctx_search(source:"label")`.
 - Keep this block at the very top. Any later agent editing this file must keep the context-mode routing block intact and on top. Extended project spec follows.
@@ -24,7 +23,7 @@ This document is the single source of truth for the EgressAPIKEY project. All de
 CodeGraph is the project's indexed code intelligence layer. The index lives at `.codegraph/` (gitignored). All agents and LLMs working on this project MUST use CodeGraph as the FIRST step for code exploration — it returns verbatim source of relevant symbols grouped by file in one capped call, far more efficient than manual Grep/Read loops.
 
 **How to use**:
-- Via MCP: call `codegraph_explore` with `projectPath: "D:\Aworker\ai-api-route"` and a query (symbol names, file names, or natural-language question).
+- Via MCP: call `codegraph_explore` with `projectPath: "D:\Aworker\EgressAPIKEY"` and a query (symbol names, file names, or natural-language question).
 - Via CLI: `codegraph explore "<query>"` or `codegraph query "<symbol>"` or `codegraph node <symbol>` or `codegraph files`.
 - After any code change: run `codegraph sync .` to incrementally update the index. For a full rebuild: `codegraph index .`.
 - Check index status: `codegraph status .`.
