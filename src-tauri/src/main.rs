@@ -9,12 +9,11 @@ use egressapikey_app::{
     sidecar::{boot_resin, spawn_health_poll, SidecarHandle},
     tray::build_tray,
 };
-use resin_core::{CoreConfig, DEFAULT_LANES};
+use resin_core::DEFAULT_LANES;
 use resin_core::{
     DbPool, PortForwarder, WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE,
 };
 use tauri::{Emitter, Manager, WindowEvent};
-use tauri_plugin_store::StoreExt;
 
 fn main() {
     // Issue 11: capture panics into the tracing pipeline so a crashed
@@ -138,40 +137,6 @@ fn main() {
             commands::stream_sensor_snapshot,
         ])
         .setup(|app| {
-            // #2/#6: read persisted network settings so the user
-            // edits to gatewayBind/mihomoApi actually reach the Rust
-            // side (previously the shell always used CoreConfig::default
-            // and ignored settings.json for these keys). We construct a
-            // CoreConfig from the persisted values and log it; the live
-            // gateway listen (axum) wiring is the next #6 phase. We never
-            // panic on missing/invalid values - we fall back to defaults.
-            let mut cfg = CoreConfig::default();
-            if let Ok(store) = app.store("settings.json") {
-                // tauri-plugin-store 2.4.4 store.get returns Option<JsonValue>;
-                // match on serde_json::Value variants for string + number keys.
-                if let Some(serde_json::Value::String(v)) = store.get("gatewayBind") {
-                    if !v.trim().is_empty() { cfg.bind = v.trim().to_string(); }
-                }
-                if let Some(serde_json::Value::String(v)) = store.get("mihomoApi") {
-                    if !v.trim().is_empty() { cfg.mihomo_api = v.trim().to_string(); }
-                }
-                if let Some(serde_json::Value::Number(n)) = store.get("laneCount") {
-                    if let Some(u) = n.as_u64() {
-                        cfg.lanes = resin_core::sanitize_lanes(u as usize);
-                    } else if let Some(f) = n.as_f64() {
-                        cfg.lanes = resin_core::sanitize_lanes(f as usize);
-                    }
-                }
-            }
-            tracing::info!(
-                "EgressAPIKEY config: lanes={}, bind={}, mihomo_api={}",
-                cfg.lanes, cfg.bind, cfg.mihomo_api
-            );
-            // The CoreConfig is dropped here today; the live gateway state
-            // (managed below) still uses the env/DEFAULT_LANES value for
-            // the lane count pending the axum listen + mihomo sidecar
-            // lifecycle port (Resin proxy runtime, #6 next phase).
-            let _ = cfg;
             build_tray(app.handle())?;
 
             // G1: boot the Resin Go sidecar and expose it to IPC commands (G2
@@ -315,8 +280,15 @@ fn main() {
                         std::thread::sleep(std::time::Duration::from_millis(
                             egressapikey_app::sidecar::SHUTDOWN_WAIT_MS,
                         ));
+                        // T3-Q6: apply CREATE_NO_WINDOW to suppress the console flash
+                        // observed when the GUI exe runs tasklist at quit. Without
+                        // this flag, Windows briefly allocates a console for the
+                        // child even though stdout/stderr are captured.
+                        use std::os::windows::process::CommandExt;
                         let alive = {
-                            let out = std::process::Command::new("tasklist")
+                            let mut cmd = std::process::Command::new("tasklist");
+                            cmd.creation_flags(0x08000000);
+                            let out = cmd
                                 .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
                                 .output();
                             match out {
