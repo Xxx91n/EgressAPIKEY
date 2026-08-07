@@ -1,0 +1,11 @@
+# Project-local Cargo configuration.
+# Overrides the user's global ~/.cargo/config.toml which forces
+# target = "x86_64-pc-windows-gnu" + MinGW linker.
+# Tauri 2's build.rs emits a COFF resource.lib via winres which MinGW's
+# gcc cannot link (file format not recognized). We must use the MSVC
+# host triple (x86_64-pc-windows-msvc) so the MSVC linker accepts winres
+# output. This also matches the triple reported by "rustc -vV" host line
+# read by scripts/build-all.ps1.
+
+[build]
+target = "x86_64-pc-windows-msvc"

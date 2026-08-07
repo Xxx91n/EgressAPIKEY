@@ -69,7 +69,8 @@ src-tauri/icons/
 !src-tauri/icons/*.ico
 
 # rust toolchain
-.cargo/
+.cargo/*
+!.cargo/config.toml
 rust-toolchain.toml
 
 # codegraph
@@ -82,3 +83,7 @@ playwright-report/
 test-results/
 .playwright/
 .codex-tmp/
+
+# session-local artifacts (context-mode plugin)
+.npmrc
+context-mode/
