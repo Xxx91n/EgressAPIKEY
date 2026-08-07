@@ -99,6 +99,7 @@ fn main() {
             commands::get_log_dir,
             // T2-2 (ADR-0016 Q2b): sidecar stderr ring buffer snapshot.
             commands::get_sidecar_logs,
+            commands::get_sidecar_status,
             // Re3: Platform/Account registry + weighted account selection.
             commands::platform_add,
             commands::platform_remove,

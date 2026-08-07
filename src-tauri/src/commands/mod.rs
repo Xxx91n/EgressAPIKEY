@@ -921,6 +921,26 @@ pub fn get_sidecar_logs(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>
     Ok(sidecar.log_buf.snapshot())
 }
 
+/// T3-A1 (ADR-0012 deep audit): Expose the Resin sidecar's actual runtime
+/// port + health status to the frontend. Replaces the dead gatewayBind/mihomoApi
+/// Settings fields with real data from the sidecar.
+#[derive(serde::Serialize)]
+pub struct SidecarStatus {
+    pub api_port: u16,
+    pub api_base: String,
+    pub mode: String,
+}
+
+#[tauri::command]
+pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarStatus, String> {
+    let mode = sidecar.mode.read().map(|m| format!("{:?}", *m)).unwrap_or_else(|_| "Unknown".to_string());
+    Ok(SidecarStatus {
+        api_port: sidecar.api_port,
+        api_base: sidecar.api_base(),
+        mode,
+    })
+}
+
 // --- WebDAV backup (clash-verge-rev pattern: zip config + upload to WebDAV) ---
 // Ponytail: no reqwest_dav crate — reqwest does HTTP PUT for WebDAV upload.
 // The webview never sees the password; it passes through tauri-plugin-store.
