@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { translateError } from "./i18n-error";
 
 /// T3-Q3: translateError static unit tests — no React render needed.
