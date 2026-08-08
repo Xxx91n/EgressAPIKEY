@@ -26,7 +26,7 @@ const samplePlatform = {
 
 describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   beforeEach(() => {
-    useAppStore.setState({ platforms: [], laneCount: 10 });
+    useAppStore.setState({ platforms: [] });
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([samplePort]);

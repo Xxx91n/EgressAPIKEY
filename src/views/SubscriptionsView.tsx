@@ -33,7 +33,6 @@ import { loadSubOrder, saveSubOrder } from "../lib/settings";
 /// keep the local appStore as a fallback list so the screen never blanks.
 export function SubscriptionsView() {
   const { t } = useTranslation();
-  const lanes = useAppStore((s) => s.laneCount);
   const localAdd = useAppStore((s) => s.addSubscription);
   const localSubs = useAppStore((s) => s.subscriptions);
   const subFormDraft = useAppStore((s) => s.subFormDraft);
@@ -132,7 +131,7 @@ export function SubscriptionsView() {
         return;
       }
     } catch { /* dev: allow */ }
-    localAdd(u, 0, lanes);
+    localAdd(u, 0);
     try {
       await ipcSubscriptionAdd(n, u);
       // Push the new sub name into the local order so it stays at the tail
@@ -386,7 +385,7 @@ export function SubscriptionsView() {
                   <span className="font-mono text-xs text-zinc-600 dark:text-zinc-300 truncate max-w-[60%]">{s.name}</span>
                 </span>
                 <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
-                  {t("subscription.imported", { count: s.node_count, lanes })}
+                  {t("subscription.imported", { count: s.node_count })}
                   <button
                     onClick={() => handleRename(s.name)}
                     disabled={busy}
@@ -416,7 +415,7 @@ export function SubscriptionsView() {
             >
               <span className="font-mono text-xs text-zinc-600 dark:text-zinc-300 truncate max-w-[60%]">{s.url}</span>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                {t("subscription.imported", { count: s.nodeCount, lanes: s.lanes })}
+                {t("subscription.imported", { count: s.nodeCount })}
               </span>
             </li>
           ))}

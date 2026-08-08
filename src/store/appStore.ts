@@ -1,24 +1,6 @@
 import { create } from "zustand";
 import { saveView, saveProcessRoutes } from "../lib/settings";
 
-/// One lane in the topology canvas. Matches resin-core lane state.
-export interface LaneState {
-  index: number;
-  exitIp: string | null;
-  busy: boolean;
-  account: string | null;
-  authority: string | null;
-  // Issue 4+7: each lane carries the platform + key-hash it currently
-  // serves, plus an SSE-locked flag. The Resin sidecar computes the
-  // lane<->exit-IP mapping (token-hash->lane native); the desktop shell
-  // only mirrors the live lease view here, so these default falsy and
-  // only populate when the IPC gateway_snapshot active_leases includes
-  // platform/token/exit_ip fields (Resin is the source of truth).
-  platform: string | null;
-  keyHash: string | null;
-  sseLocked: boolean;
-}
-
 /// One Platform + its accounts (Resin Platform/Account model).
 export interface Platform {
   name: string;
@@ -62,7 +44,6 @@ export interface Subscription {
   id: string;
   url: string;
   nodeCount: number;
-  lanes: number;
 }
 
 /// View selection between the three primary desktop views.
@@ -83,18 +64,15 @@ export interface SubFormDraft {
 export interface AppState {
   view: View;
   subFormDraft: SubFormDraft;
-  lanes: LaneState[];
   platforms: Platform[];
   nodes: NodeInfo[];
   processRoutes: ProcessRoute[];
   subscriptions: Subscription[];
-  laneCount: number;
   locale: Locale;
   theme: Theme;
 
   setView: (v: View) => void;
   setSubFormDraft: (d: SubFormDraft) => void;
-  setLanes: (l: LaneState[]) => void;
   setPlatforms: (p: Platform[]) => void;
   setNodes: (n: NodeInfo[]) => void;
   addPlatform: (name: string) => void;
@@ -104,8 +82,7 @@ export interface AppState {
   addProcessRoute: (process: string, targetPort: number) => void;
   removeProcessRoute: (id: string) => void;
   setProcessRoutes: (routes: ProcessRoute[]) => void;
-  addSubscription: (url: string, nodeCount: number, lanes: number) => void;
-  setLaneCount: (n: number) => void;
+  addSubscription: (url: string, nodeCount: number) => void;
   setLocale: (l: Locale) => void;
   setTheme: (t: Theme) => void;
 }
@@ -115,21 +92,15 @@ const uid = () => Math.random().toString(36).slice(2, 10);
 export const useAppStore = create<AppState>((set) => ({
   view: "topology",
   subFormDraft: { name: "", url: "" },
-  lanes: [
-    { index: 0, exitIp: null, busy: false, account: null, authority: null, platform: null, keyHash: null, sseLocked: false },
-    { index: 1, exitIp: null, busy: false, account: null, authority: null, platform: null, keyHash: null, sseLocked: false },
-  ],
   platforms: [],
   nodes: [],
   processRoutes: [],
   subscriptions: [],
-  laneCount: 10,
   locale: "en",
   theme: "system",
 
   setView: (view) => { set({ view }); void saveView(view); },
   setSubFormDraft: (subFormDraft) => set({ subFormDraft }),
-  setLanes: (lanes) => set({ lanes }),
   setPlatforms: (platforms) => set({ platforms }),
   setNodes: (nodes) => set({ nodes }),
   addPlatform: (name) =>
@@ -173,12 +144,11 @@ export const useAppStore = create<AppState>((set) => ({
     set({ processRoutes: next });
     void saveProcessRoutes(next);
   },
-  addSubscription: (url, nodeCount, lanes) =>
+  addSubscription: (url, nodeCount) =>
     set((s) => ({
-      subscriptions: [...s.subscriptions, { id: uid(), url, nodeCount, lanes }],
+      subscriptions: [...s.subscriptions, { id: uid(), url, nodeCount }],
     })),
   setProcessRoutes: (routes) => { set({ processRoutes: routes }); void saveProcessRoutes(routes); },
-  setLaneCount: (n) => set({ laneCount: Math.max(1, Math.min(50, n)) }),
   setLocale: (locale) => set({ locale }),
   setTheme: (theme) => set({ theme }),
 }));

@@ -9,7 +9,6 @@ import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
 import {
   saveLocale,
   saveTheme,
-  saveLaneCount,
   loadWebdavConfig,
   saveWebdavConfig,
   loadIpReputationConfig,
@@ -75,13 +74,10 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 export function SettingsView() {
   const { t, i18n } = useTranslation();
-  const laneCount = useAppStore((s) => s.laneCount);
-  const setLaneCount = useAppStore((s) => s.setLaneCount);
   const locale = useAppStore((s) => s.locale);
   const setLocale = useAppStore((s) => s.setLocale);
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
-  const [lanes, setLanes] = useState(laneCount);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   // Network settings (problem 6 parity): loaded from tauri-plugin-store on
@@ -94,7 +90,7 @@ export function SettingsView() {
   const [reputationConfig, setReputationConfig] = useState<IpReputationConfig>({ provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" });
   // C2-8: dirty-state tracking — baseline snapshot vs current form values.
   // idiomatic enterprise pattern (minimal baseline+JSON.stringify diff, no RHF dep).
-  const [baseline, setBaseline] = useState({ lanes: laneCount, reputationConfig: { provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" } });
+  const [baseline, setBaseline] = useState({ reputationConfig: { provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" } });
   // WebDAV backup config (clash-verge-rev pattern)
   const [backupUrl, setBackupUrl] = useState("");
   const [whiteboxPath, setWhiteboxPath] = useState("");
@@ -133,7 +129,7 @@ export function SettingsView() {
     if (cancelled) return;
     if (status) setSidecarStatus(status);
     setReputationConfig(reputation);
-    setBaseline({ lanes: laneCount, reputationConfig: reputation });
+    setBaseline({ reputationConfig: reputation });
     })();
     return () => { cancelled = true; };
   }, []);
@@ -165,10 +161,9 @@ export function SettingsView() {
     void saveTheme(next);
   };
 
-  // Persist laneCount + network settings to tauri-plugin-store (problem 6 fix:
-  // the old Save button only updated the in-memory store, so the count was lost
-  // on quit). Client-side guards here are UX-only: trim, a `^https?://` shape
-  // T3-A2: mihomoApi field removed from Settings.
+  // Persist network + backup config to tauri-plugin-store.
+  // Client-side guards are UX-only; Rust side is the trust boundary
+  // (MihomoController::new refuses non-loopback URLs, AGENTS §7.6).
   // The Rust side is the real trust boundary (MihomoController::new refuses
   // non-loopback URLs, see crates/resin-core/src/mihomo.rs + AGENTS §7.6).
   const saveWebdav = async () => {
@@ -239,20 +234,15 @@ export function SettingsView() {
  };
 
  // C2-8: isDirty = baseline vs current form snapshot. showSaveBar gates the sticky bar.
- const isDirty = useMemo(() => JSON.stringify({ lanes, reputationConfig }) !== JSON.stringify(baseline), [lanes, reputationConfig, baseline]);
+ const isDirty = useMemo(() => JSON.stringify({ reputationConfig }) !== JSON.stringify(baseline), [reputationConfig, baseline]);
  const showSaveBar = isDirty || busy || saved;
 
  const saveAll = async () => {
    setBusy(true);
     try {
-    const n = Math.max(1, Math.min(50, Math.trunc(lanes)));
-    setLanes(n);
-    setLaneCount(n);
-    await saveLaneCount(n);
-
     // T3-A2: gatewayBind/mihomoApi removed — sidecar port is auto-assigned.
     await saveIpReputationConfig(reputationConfig);
-    setBaseline({ lanes: n, reputationConfig });
+    setBaseline({ reputationConfig });
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
     } finally { setBusy(false); }
@@ -302,23 +292,6 @@ export function SettingsView() {
               </option>
             ))}
           </select>
-        </Field>
-      </SectionCard>
-
-      <SectionCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("settings.advanced")}>
-        <Field label={t("settings.lanes")} hint="1..50">
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={1}
-              max={50}
-              value={lanes}
-              onChange={(e) => setLanes(Number(e.target.value))}
-              className="w-24 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-            />
-            {/* Issue 6: unified Save moved to the sticky bottom bar so the user
-                sees a single save action for the whole settings panel. */}
-          </div>
         </Field>
       </SectionCard>
 

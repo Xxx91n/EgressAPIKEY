@@ -14,7 +14,6 @@ describe("appStore", () => {
       platforms: [],
       processRoutes: [],
       subscriptions: [],
-      laneCount: 10,
       locale: "en",
     });
   });
@@ -36,13 +35,6 @@ describe("appStore", () => {
     expect(p.accounts[0].lane).toBe(2);
   });
 
-  it("clamps lane count to 1..50", () => {
-    useAppStore.getState().setLaneCount(9999);
-    expect(useAppStore.getState().laneCount).toBe(50);
-    useAppStore.getState().setLaneCount(0);
-    expect(useAppStore.getState().laneCount).toBe(1);
-  });
-
   it("adds and removes process routes", () => {
     useAppStore.getState().addProcessRoute("ollama", 3);
     expect(useAppStore.getState().processRoutes).toHaveLength(1);
@@ -51,8 +43,8 @@ describe("appStore", () => {
     expect(useAppStore.getState().processRoutes).toHaveLength(0);
   });
 
-  it("records subscriptions with lane count", () => {
-    useAppStore.getState().addSubscription("https://example.invalid/sub.yaml", 42, 10);
+  it("records subscriptions", () => {
+    useAppStore.getState().addSubscription("https://example.invalid/sub.yaml", 42);
     expect(useAppStore.getState().subscriptions[0].nodeCount).toBe(42);
   });
 

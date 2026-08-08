@@ -8,7 +8,7 @@ afterEach(() => cleanup());
 
 describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
   beforeEach(() => {
-    useAppStore.setState({ subscriptions: [], laneCount: 10 });
+    useAppStore.setState({ subscriptions: [] });
     invokeMock.mockReset();
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "subscription_list") return [];
@@ -90,8 +90,7 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
   });
   it("P19-6-a: rename button triggers subscription_remove + subscription_add with new name", async () => {
     useAppStore.setState({
-      subscriptions: [{ id: "x", url: "https://cached.example/x.yaml", nodeCount: 0, lanes: 10 }],
-      laneCount: 10,
+      subscriptions: [{ id: "x", url: "https://cached.example/x.yaml", nodeCount: 0 }],
     });
     let removed = false;
     let addedNew = false;
@@ -243,7 +242,7 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
 describe("SubscriptionsView item 2 row hint (ADR-0006 item 2)", () => {
   afterEach(() => cleanup());
   beforeEach(() => {
-    useAppStore.setState({ subscriptions: [], laneCount: 10 });
+    useAppStore.setState({ subscriptions: [] });
     invokeMock.mockReset();
   });
 
@@ -313,7 +312,7 @@ describe("SubscriptionsView item 2 row hint (ADR-0006 item 2)", () => {
   // --- C2-2 closed-loop: rename collision guard + delete list refresh ---
   describe("C2-2: rename collision guard + delete refreshes live list", () => {
     beforeEach(() => {
-      useAppStore.setState({ subscriptions: [], laneCount: 10 });
+      useAppStore.setState({ subscriptions: [] });
       invokeMock.mockReset();
     });
 

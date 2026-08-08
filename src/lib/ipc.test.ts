@@ -20,7 +20,6 @@ import {
   ipcPlatformAdd, ipcPlatformRemove, ipcPlatformList,
   ipcSubscriptionAdd, ipcSubscriptionRemove, ipcSubscriptionList,
   ipcProcessRouteAdd, ipcProcessRouteRemove, ipcProcessRouteList,
-  ipcAccountAdd,
   ipcPlatformUpdate, ipcNodeList,
   ipcPlatformCreateWithFields, ipcPlatformLeases,
   ipChannelList, ipChannelPolicySet, ipChannelCreate, ipChannelDelete,
@@ -54,11 +53,6 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockResolvedValue(["a", "b"]);
     const r = await ipcPlatformList();
     expect(r).toEqual(["a", "b"]);
-  });
-
-  it("account_add rejects lanes outside 0..49", async () => {
-    await expect(ipcAccountAdd("p", "a", 50)).rejects.toThrow(/out of range/);
-    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it("subscription_add validates URL shape (http prefix)", async () => {

@@ -7,8 +7,8 @@
  * the appStore + apply side effects (html class, tray refresh) themselves.
  *
  * Persisted keys (all in settings.json, single source of truth): "lang" (Locale),
- * "theme" (Theme), "laneCount" (number 1..50), "gatewayBind" (loopback addr),
- * "mihomoApi" (http(s):// URL).
+ * "theme" (Theme). P19: "topologyViewport" ({x,y,zoom} canvas pan/zoom memory),
+ * P19: "localSubOrder" (string[]) - user's drag-reorder override for subscriptions.
  * P19: "topologyViewport" ({x,y,zoom} canvas pan/zoom memory),
  * P19: "localSubOrder" (string[]) - user's drag-reorder override for subscriptions. The Rust tray reads "lang" directly via
  * tauri-plugin-store (see src-tauri/src/tray.rs::current_lang) so the tray is
@@ -58,27 +58,6 @@ export async function loadTheme(): Promise<string | null> {
 export async function saveTheme(theme: string): Promise<void> {
   try {
     await store().set("theme", theme);
-    await store().save();
-  } catch (e) {
-    // UX bug #2: surface tauri-plugin-store failures instead of silently
-    // swallowing — the old /* noop */ let saves fail invisibly so the user
-    // believed edits were lost. We keep the function non-throwing (vitest runs
-    // without a webview) but log so devtools surfaces the real cause.
-    console.warn("[settings] save failed:", e);
-  }
-}
-export async function loadLaneCount(): Promise<number | null> {
-  try {
-    const v = await store().get<number>("laneCount");
-    return typeof v === "number" ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-export async function saveLaneCount(n: number): Promise<void> {
-  try {
-    await store().set("laneCount", n);
     await store().save();
   } catch (e) {
     // UX bug #2: surface tauri-plugin-store failures instead of silently

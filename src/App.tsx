@@ -10,7 +10,7 @@ import { PlatformsView } from "./views/PlatformsView";
 import { NodesView } from "./views/NodesView";
 import { useTheme } from "./lib/useTheme";
 import { LogPanel } from "./components/LogPanel";
-import { loadLocale, loadTheme, loadLaneCount, loadView, loadProcessRoutes } from "./lib/settings";
+import { loadLocale, loadTheme, loadView, loadProcessRoutes } from "./lib/settings";
 
 // Side rail nav: icon + label, desktop-tool density. Lucide vector icons
 // (not emoji) per ui-ux-pro-max: scalable, theme-aware, consistent stroke.
@@ -60,7 +60,6 @@ export default function App() {
   const view = useAppStore((s) => s.view);
   const setLocale = useAppStore((s) => s.setLocale);
   const setTheme = useAppStore((s) => s.setTheme);
-  const setLaneCount = useAppStore((s) => s.setLaneCount);
   const setView = useAppStore((s) => s.setView);
   const setProcessRoutes = useAppStore((s) => s.setProcessRoutes);
   useTheme();
@@ -83,10 +82,6 @@ export default function App() {
       if (savedTheme && !cancelled) {
         setTheme(savedTheme as Theme);
       }
-      const savedLaneCount = await loadLaneCount();
-      if (savedLaneCount && !cancelled) {
-        setLaneCount(savedLaneCount);
-      }
       const savedView = await loadView();
       if (savedView && !cancelled) {
         setView(savedView as any);
@@ -98,7 +93,7 @@ export default function App() {
       if (!cancelled) setBootstrapped(true);
     })();
     return () => { cancelled = true; };
-  }, [setLocale, setTheme, setLaneCount, setView, setProcessRoutes, i18n]);
+  }, [setLocale, setTheme, setView, setProcessRoutes, i18n]);
 
   if (!bootstrapped) {
     return (

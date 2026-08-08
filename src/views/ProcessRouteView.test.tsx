@@ -8,7 +8,7 @@ afterEach(() => cleanup());
 
 describe("ProcessRouteView (closed-loop, IPC-mocked)", () => {
   beforeEach(() => {
-    useAppStore.setState({ processRoutes: [], laneCount: 10 });
+    useAppStore.setState({ processRoutes: [] });
     invokeMock.mockReset();
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "process_route_list") return [];

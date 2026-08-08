@@ -80,38 +80,3 @@ describe("SettingsView P4 IP reputation settings", () => {
     expect(screen.getByTestId("settings-save-bar")).toBeInTheDocument();
   });
 });
-
-describe("SettingsView C2-8 dirty-state save bar visibility", () => {
-  beforeEach(() => {
-    invokeMock.mockReset();
-    invokeMock.mockResolvedValue(undefined);
-  });
-
-  it("save bar is hidden when form is clean (default state)", async () => {
-    render(<SettingsView />);
-    await waitFor(() => expect(screen.getByRole("spinbutton")).toBeInTheDocument());
-    expect(screen.queryByTestId("settings-save-bar")).toBeNull();
-  });
-
-  it("save bar appears after editing lanes (dirty state visible)", async () => {
-    render(<SettingsView />);
-    const lanes = await screen.findByRole("spinbutton");
-    fireEvent.change(lanes, { target: { value: "12" } });
-    await waitFor(() => expect(screen.getByTestId("settings-save-bar")).toBeInTheDocument());
-  });
-
-  it("save commits and sticky bar remains controllable after edit", async () => {
-    render(<SettingsView />);
-    const lanes = await screen.findByRole("spinbutton");
-    fireEvent.change(lanes, { target: { value: "15" } });
-    await waitFor(() => expect(screen.getByTestId("settings-save-bar")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("settings-save-button"));
-    // saveAll sets saved=true briefly; bar may remain while saved badge shows.
-    // Closed-loop: button stays present and becomes re-enabled after busy clears.
-    await waitFor(() => {
-      const btn = screen.getByTestId("settings-save-button") as HTMLButtonElement;
-      expect(btn.disabled).toBe(false);
-    });
-  });
-});
-
