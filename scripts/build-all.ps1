@@ -46,7 +46,11 @@ if($TAURI_BIN) {
   if($LASTEXITCODE -ne 0) { Write-Host "[build-all] WARNING: installer bundle failed (host-triple layout mismatch); continuing to portable stage" }
   Write-Host "[build-all] GUI portable binary ($TAURI_BIN build --no-bundle --features custom-protocol)"
   & $TAURI_BIN build --no-bundle --features custom-protocol 2>&1 | ForEach-Object { Write-Host $_ }
-  if($LASTEXITCODE -ne 0) { Write-Host "[build-all] WARNING: --no-bundle not supported; using cargo fallback" }
+  if($LASTEXITCODE -ne 0) {
+    Write-Host "[build-all] WARNING: --no-bundle not supported on this tauri-cli; running cargo fallback build"
+    cargo build --release -p egressapikey-app --features custom-protocol
+    if($LASTEXITCODE -ne 0) { Write-Error "[build-all] cargo fallback build failed"; exit 1 }
+  }
 } else {
   Write-Host "[build-all] tauri-cli not installed; fallback cargo build (portable GUI only)"
   cargo build --release -p egressapikey-app --features custom-protocol
