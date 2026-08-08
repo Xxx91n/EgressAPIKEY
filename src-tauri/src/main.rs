@@ -5,11 +5,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use egressapikey_app::{
-    build_shared_gateway, build_shared_registry, commands,
+    build_shared_registry, commands,
     sidecar::{boot_resin, spawn_health_poll, SidecarHandle},
     tray::build_tray,
 };
-use resin_core::DEFAULT_LANES;
 use resin_core::{
     DbPool, PortForwarder, WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE,
 };
@@ -24,12 +23,6 @@ fn main() {
         tracing::error!(panic = %info, backtrace = ?std::backtrace::Backtrace::force_capture(), "panic captured");
         prev_hook(info);
     }));
-    let lanes = std::env::var("AI_API_ROUTE_LANES")
-        .ok()
-        .and_then(|v| v.parse::<usize>().ok())
-        .unwrap_or(DEFAULT_LANES);
-
-    let gateway = build_shared_gateway(lanes);
     let registry = build_shared_registry();
 
     tauri::Builder::default()
@@ -72,7 +65,6 @@ fn main() {
                 .with_default_subscriber()
                 .build(),
         )
-        .manage(gateway)
         .manage(registry)
         // Closing the main window hides to tray instead of quitting the app
         // (problem 5). The tray "Quit" item is the real exit path; the tray
@@ -87,10 +79,6 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            commands::gateway_reserve,
-            commands::gateway_release,
-            commands::gateway_evict_lane,
-            commands::gateway_record_latency,
             commands::gateway_snapshot,
             commands::tray_refresh_labels,
             // #7: open config / log directory buttons in Settings.
@@ -107,7 +95,6 @@ fn main() {
             commands::platform_snapshot,
             commands::account_add,
             commands::account_bind_ip,
-            commands::gateway_select_account,
             commands::process_route_add,
             commands::process_route_remove,
             commands::process_route_list,

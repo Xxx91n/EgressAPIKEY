@@ -18,25 +18,8 @@ use resin_core::{
     ReputationProvider, ReputationSnapshot, ResinClient, MAX_LANES,
 };
 
-const AUTHORITY_MAX_LEN: usize = 253;
-const LATENCY_CAP_MS: u64 = 24 * 60 * 60 * 1000;
 const KEY_MAX_LEN: usize = 4096;
 const NAME_MAX_LEN: usize = 128;
-
-fn validate_authority(authority: &str) -> Result<(), String> {
-    if authority.is_empty() || authority.len() > AUTHORITY_MAX_LEN {
-        return Err(format!(
-            "authority length out of range (1..={AUTHORITY_MAX_LEN})"
-        ));
-    }
-    if authority
-        .bytes()
-        .any(|b| b == 0 || (b < 0x20 && b != 0x09) || b == 0x7f)
-    {
-        return Err("authority contains control characters".to_string());
-    }
-    Ok(())
-}
 
 fn validate_short_name(name: &str, field: &str) -> Result<(), String> {
     if name.is_empty() || name.len() > NAME_MAX_LEN {
@@ -128,61 +111,6 @@ pub fn map_resin_error(raw: &str) -> String {
     raw.to_string()
 }
 
-#[derive(Debug, Serialize)]
-pub struct ReserveResult {
-    pub lane: usize,
-    pub lease: Option<u64>,
-    pub reason: String,
-}
-
-#[tauri::command]
-pub async fn gateway_reserve(
-    api_key: String,
-    account: String,
-    authority: String,
-    exit_ip: Option<String>,
-) -> Result<ReserveResult, String> {
-    if api_key.is_empty() || account.is_empty() {
-        return Err("api_key and account must be non-empty".to_string());
-    }
-    if api_key.len() > KEY_MAX_LEN || account.len() > KEY_MAX_LEN {
-        return Err(format!(
-            "api_key/account length out of range (1..={KEY_MAX_LEN})"
-        ));
-    }
-    validate_authority(&authority)?;
-    if let Some(ip) = exit_ip.as_deref() {
-        validate_ip(ip)?;
-    }
-    Ok(ReserveResult {
-        lane: 0,
-        lease: None,
-        reason: "ok".into(),
-    })
-}
-
-#[tauri::command]
-pub async fn gateway_release(_lease: Option<u64>) -> Result<(), String> {
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn gateway_evict_lane(lane: usize) -> Result<(), String> {
-    if lane >= MAX_LANES {
-        return Err(format!(
-            "evict_lane: lane {lane} out of range (max {})",
-            MAX_LANES - 1
-        ));
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn gateway_record_latency(authority: String, latency_ms: u64) -> Result<(), String> {
-    validate_authority(&authority)?;
-    let _capped = latency_ms.min(LATENCY_CAP_MS);
-    Ok(())
-}
 
 /// Extract the array from a Resin list response. Resin wraps paginated
 /// collections as `{"items":[...], "total", "limit", "offset"}`; a few
@@ -198,33 +126,6 @@ fn items_arr<'a>(v: &'a serde_json::Value) -> &'a [serde_json::Value] {
     &[]
 }
 
-#[derive(Debug, Serialize)]
-pub struct SelectResult {
-    pub account: Option<String>,
-    pub lane: usize,
-    pub exit_ip: Option<String>,
-    pub reason: String,
-}
-
-#[tauri::command]
-pub async fn gateway_select_account(
-    platform: String,
-    api_key: String,
-    authority: String,
-    _weighted: Option<bool>,
-) -> Result<SelectResult, String> {
-    validate_short_name(&platform, "platform")?;
-    if api_key.is_empty() {
-        return Err("api_key must be non-empty".to_string());
-    }
-    validate_authority(&authority)?;
-    Ok(SelectResult {
-        account: Some(platform.clone()),
-        lane: 0,
-        exit_ip: None,
-        reason: platform,
-    })
-}
 
 #[derive(Debug, Serialize)]
 pub struct LaneSnapshot {
@@ -1766,17 +1667,6 @@ mod tests {
     fn key_max_len_is_reasonable_cap() {
         assert!(KEY_MAX_LEN >= 64);
         assert!(KEY_MAX_LEN <= 32_768);
-    }
-
-    #[test]
-    fn validate_authority_accepts_normal_rejects_bad() {
-        assert!(validate_authority("api.openai.com").is_ok());
-        assert!(validate_authority("").is_err());
-        assert!(validate_authority(&"x".repeat(AUTHORITY_MAX_LEN + 1)).is_err());
-        assert!(validate_authority("a\x00b").is_err());
-        assert!(validate_authority("a\x01b").is_err());
-        assert!(validate_authority("a\x7fb").is_err());
-        assert!(validate_authority("a\tb").is_ok());
     }
 
     #[test]
