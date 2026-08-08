@@ -212,3 +212,54 @@ kept) that captures every Rust-side tracing::info/warn/error. The user
 can open the log directory from Settings > Storage. Used for debugging
 topology drag edits, subscription imports, and sidecar lifecycle events.
 _Avoid_: audit trail, access log, debug log
+
+### A-Class Strategy
+A strategy that controls which IP nodes enter a Platform. Modes (mutually
+exclusive for auto): manual (user-selected node hashes), region (filter by
+geo region), quality (filter by IP quality score threshold), subscription
+(filter by subscription source). Manual + one auto mode can coexist. A
+mandatory liveness gate (Resin ProbeManager + circuit breaker) excludes
+unhealthy nodes before any strategy applies. Implemented in the shell-side
+strategy_engine.rs, not in Resin.
+_Avoid_: ingress filter, node selector, admission policy
+
+### B-Class Strategy
+A strategy that controls how an Entry Port selects an exit IP from a
+Platform's node pool. Single-IP platforms are fixed (no strategy). Multi-IP
+platforms pick one (mutually exclusive): random (OsRng true random),
+round_robin (N requests per IP before rotating), low_latency (real-time
+sort by EWMA). Implemented in the shell-side strategy_engine.rs; maps onto
+Resin allocation_policy where possible, biases lease selection otherwise.
+_Avoid_: egress selector, exit picker, rotation mode
+
+### Strategy Engine
+The shell-side modular decision layer (strategy_engine.rs) that owns A-class
+and B-class strategy evaluation. Periodically polls Resin /nodes for health +
+latency, applies A-class filters to produce region_filters/regex_filters
+PATCHes, and biases B-class lease selection. Config stored in
+egressapikey-strategy.json (whitebox, hotswap-config atomic backup).
+_Avoid_: optimizer, scheduler, balancer
+
+### Port Auth Info
+The SOCKS5 credentials for an Entry Port: username = Platform.Account
+string (e.g. Default.port-17990), password = RESIN_PROXY_TOKEN. Exposed
+to the GUI via port_auth_info IPC for copy-to-clipboard. The token is
+loopback-only; exposing it to the local webview does not increase attack
+surface. SOCKS5 no-auth mode is not supported per-port (Resin architecture
+limit: token is global).
+_Avoid_: socks credentials, proxy auth, port password
+
+### Port Health Check
+An IPC command that TCP-connects to an Entry Port and optionally performs
+a SOCKS5 handshake. Returns { reachable, auth_required, latency_ms }.
+GUI shows green/red status per port. Auto-triggered after port create/update.
+Modeled after clash-verge-rev CoreManager health check pattern.
+_Avoid_: port probe, listener test, connectivity check
+
+### Strategy-Labeled Edge
+A topology canvas edge (B->C) annotated with the A-class strategy name that
+caused the connection: "manual", "region:US", "quality>75". Multiple edges
+from one platform to different nodes indicate multiple strategies coexist.
+Inspired by Kiali's edge labels for Istio routing rules. Auto-strategy edges
+are non-deletable; only manual edges can be dragged/deleted.
+_Avoid_: routing line, connection tag, policy edge

@@ -87,3 +87,6 @@ test-results/
 # session-local artifacts (context-mode plugin)
 .npmrc
 context-mode/
+
+# Resin upstream source (local clone for reference)
+resin/
