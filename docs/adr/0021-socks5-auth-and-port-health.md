@@ -1,4 +1,4 @@
-# ADR-0015: SOCKS5 Auth Exposure + Port Health Check
+# ADR-0021: SOCKS5 Auth Exposure + Port Health Check
 
 **Status**: Accepted
 **Date**: 2026-08-08
