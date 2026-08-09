@@ -25,26 +25,26 @@ Q5 (topology refactor) --- depends on Q2 (strategy data) + Q3 (node grouping)
 
 ## Phases
 
-### Phase T4-1: Dead Code Cleanup (Q4 / ADR-0024)
+### Phase T4-1: ✅ DONE Dead Code Cleanup (Q4 / ADR-0024)
 - Delete laneCount from appStore.ts + SettingsView.tsx
 - Delete SharedGateway / GatewayState if no other callers
 - Delete AI_API_ROUTE_LANES env var + build_shared_gateway
 - Test: cargo check + vitest
 
-### Phase T4-2: SOCKS5 Auth + Port Health (Q1 / ADR-0021)
+### Phase T4-2: ✅ DONE SOCKS5 Auth + Port Health (Q1 / ADR-0021)
 - New IPC: port_auth_info(port) -> { username, password, auth_required }
 - New IPC: port_health_check(port) -> { reachable, auth_required, latency_ms }
 - GUI: port cards show auth credentials + copy button + health indicator
 - Test: cargo test (Rust) + vitest (GUI)
 
-### Phase T4-3: Node Pool Tree View (Q3 / ADR-0023)
+### Phase T4-3: ✅ DONE Node Pool Tree View (Q3 / ADR-0023)
 - Refactor NodesView.tsx: flat table -> collapsible tree by subscription
 - Add reference_latency_ms to NodeItem interface
 - Latency color coding: <200ms green, 200-500ms yellow, >500ms red, timeout gray
 - Search box + row expand for details
 - Test: vitest
 
-### Phase T4-4: Strategy Engine (Q2 / ADR-0022)
+### Phase T4-4: ✅ DONE Strategy Engine (Q2 / ADR-0022)
 - New module: crates/resin-core/src/strategy_engine.rs
 - A-class: poll /nodes -> filter by strategy -> PATCH /platforms
 - B-class: subscribe leases -> bias selection (random/round_robin/low_latency)
@@ -52,7 +52,7 @@ Q5 (topology refactor) --- depends on Q2 (strategy data) + Q3 (node grouping)
 - GUI: strategy selection panel per platform
 - Test: cargo test (strategy logic) + vitest (GUI)
 
-### Phase T4-5: Topology Canvas Refactor (Q5 / ADR-0025)
+### Phase T4-5: ✅ DONE Topology Canvas Refactor (Q5 / ADR-0025)
 - C-column: subscription-folded node pool (aligned with Q3)
 - B->C edges: strategy-driven with labels
 - B-column: show B-class strategy name on platform nodes
