@@ -116,7 +116,14 @@
     "portRemoved": "Entry port removed",
     "portInvalid": "Port must be 1024–65535",
     "portDuplicate": "Port already exists",
-    "portBound": "Bound :{{port}} → {{platform}}"
+    "portBound": "Bound :{{port}} → {{platform}}",
+    "healthOk": "port alive (SOCKS5)",
+    "healthProtocolMismatch": "listener on different protocol",
+    "healthUnavailable": "port unreachable",
+    "copyCredentials": "Copy SOCKS5 credentials",
+    "copied": "copied",
+    "socks5Auth": "SOCKS5 user",
+    "passwordMasked": "password: (masked)"
   },
   "processRoute": {
     "title": "Process route",

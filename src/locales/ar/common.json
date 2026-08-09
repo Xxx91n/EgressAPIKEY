@@ -116,7 +116,14 @@
     "portRemoved": "تمت إزالة المنفذ",
     "portInvalid": "يجب أن يكون المنفذ 1024–65535",
     "portDuplicate": "المنفذ موجود بالفعل",
-    "portBound": "مرتبط :{{port}} → {{platform}}"
+    "portBound": "مرتبط :{{port}} → {{platform}}",
+    "healthOk": "المنفذ نشط (SOCKS5)",
+    "healthProtocolMismatch": "يستمع على بروتوكول آخر",
+    "healthUnavailable": "المنفذ غير قابل للوصول",
+    "copyCredentials": "نسخ بيانات اعتماد SOCKS5",
+    "copied": "تم النسخ",
+    "socks5Auth": "مستخدم SOCKS5",
+    "passwordMasked": "كلمة المرور: (مخفية)"
   },
   "processRoute": {
     "title": "مسار العملية",

@@ -392,6 +392,39 @@ export async function ipcPortReload(): Promise<number> {
   return invoke<number>("port_reload");
 }
 
+/// ADR-0021 Q1: SOCKS5 credentials a gateway must present to reach an
+/// entry-port. Username is the port's bound Platform.Account string,
+/// password is the sidecar global proxy_token. `auth_required` is always
+/// true in the thin-shell stack (Resin sets RESIN_PROXY_TOKEN at boot).
+export interface PortAuthInfo {
+  port: number;
+  username: string;
+  password: string;
+  auth_required: boolean;
+  platform_name: string;
+}
+
+export async function ipcPortAuthInfo(port: number): Promise<PortAuthInfo> {
+  if (port < 1024 || port > 65535) throw new Error(`port ${port} out of range (1024..65535)`);
+  return invoke<PortAuthInfo>("port_auth_info", { port });
+}
+
+/// ADR-0021 Q1: live TCP probe + SOCKS5 method-negotiation so the GUI can
+/// show a green/red health chip per port (clash-verge-rev CoreManager mode).
+export interface PortHealthCheck {
+  port: number;
+  reachable: boolean;
+  socks5_ok: boolean;
+  protocol_mismatch: boolean;
+  latency_ms: number;
+  reason: "ok" | "refused" | "timeout" | "noop_no_reply" | "protocol_mismatch";
+}
+
+export async function ipcPortHealthCheck(port: number): Promise<PortHealthCheck> {
+  if (port < 1024 || port > 65535) throw new Error(`port ${port} out of range (1024..65535)`);
+  return invoke<PortHealthCheck>("port_health_check", { port });
+}
+
 export interface WhiteboxConfig {
   version: number;
   entry_ports: PortMapping[];

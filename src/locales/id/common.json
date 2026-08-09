@@ -116,7 +116,14 @@
     "portRemoved": "Port dihapus",
     "portInvalid": "Port harus 1024–65535",
     "portDuplicate": "Port sudah ada",
-    "portBound": "Terikat :{{port}} → {{platform}}"
+    "portBound": "Terikat :{{port}} → {{platform}}",
+    "healthOk": "port aktif (SOCKS5)",
+    "healthProtocolMismatch": "mendengarkan protokol lain",
+    "healthUnavailable": "port tidak dapat dijangkau",
+    "copyCredentials": "Salin kredensial SOCKS5",
+    "copied": "disalin",
+    "socks5Auth": "Pengguna SOCKS5",
+    "passwordMasked": "kata sandi: (tersembunyi)"
   },
   "processRoute": {
     "title": "Rute proses",

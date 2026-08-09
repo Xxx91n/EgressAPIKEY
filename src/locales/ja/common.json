@@ -116,7 +116,14 @@
     "portRemoved": "エントリポートを削除しました",
     "portInvalid": "ポートは 1024–65535",
     "portDuplicate": "ポートは既に存在します",
-    "portBound": ":{{port}} を {{platform}} にバインド"
+    "portBound": ":{{port}} を {{platform}} にバインド",
+    "healthOk": "ポート稼働中 (SOCKS5)",
+    "healthProtocolMismatch": "別プロトコルで待機中",
+    "healthUnavailable": "ポートに到達できません",
+    "copyCredentials": "SOCKS5 認証情報をコピー",
+    "copied": "コピーしました",
+    "socks5Auth": "SOCKS5 ユーザー",
+    "passwordMasked": "パスワード: (非表示)"
   },
   "processRoute": {
     "title": "プロセスルート",

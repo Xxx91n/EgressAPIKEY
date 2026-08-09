@@ -118,6 +118,8 @@ fn main() {
             commands::port_remove,
             commands::port_running,
             commands::port_reload,
+            commands::port_auth_info,
+            commands::port_health_check,
             commands::whitebox_path,
             commands::whitebox_get,
             commands::whitebox_reload,

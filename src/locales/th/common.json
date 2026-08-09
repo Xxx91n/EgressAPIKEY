@@ -116,7 +116,14 @@
     "portRemoved": "ลบพอร์ตแล้ว",
     "portInvalid": "พอร์ตต้องเป็น 1024–65535",
     "portDuplicate": "มีพอร์ตนี้อยู่แล้ว",
-    "portBound": "ผูก :{{port}} → {{platform}}"
+    "portBound": "ผูก :{{port}} → {{platform}}",
+    "healthOk": "พอร์ตทำงาน (SOCKS5)",
+    "healthProtocolMismatch": "รอรับบนโปรโตคอลอื่น",
+    "healthUnavailable": "เข้าถึงพอร์ตไม่ได้",
+    "copyCredentials": "คัดลอกข้อมูล SOCKS5",
+    "copied": "คัดลอกแล้ว",
+    "socks5Auth": "ผู้ใช้ SOCKS5",
+    "passwordMasked": "รหัสผ่าน: (ซ่อนอยู่)"
   },
   "processRoute": {
     "title": "เส้นทางโปรเซส",

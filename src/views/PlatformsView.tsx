@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Plug } from "lucide-react";
+import { Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Plug, ShieldCheck, ShieldAlert, Copy } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import {
@@ -12,9 +12,13 @@ import {
   ipcPortList,
   ipcPortUpsert,
   ipcPortRemove,
+  ipcPortAuthInfo,
+  ipcPortHealthCheck,
   ALLOCATION_POLICIES,
   type AllocationPolicy,
   type PortMapping,
+  type PortAuthInfo,
+  type PortHealthCheck,
 } from "../lib/ipc";
 import { policyToI18nKey } from "../lib/policy";
 import { loadSplitRatio, saveSplitRatio } from "../lib/settings";
@@ -48,11 +52,20 @@ export function PlatformsView() {
   const [createName, setCreateName] = useState("");
   const [createPolicy, setCreatePolicy] = useState<AllocationPolicy>("BALANCED");
   const [createFormError, setCreateFormError] = useState<string | null>(null);
+  /// ADR-0021 Q1: per-port auth info cache (port -> credentials displayed inline).
+  const [authInfo, setAuthInfo] = useState<Record<number, PortAuthInfo>>({});
+  /// ADR-0021 Q1: per-port health probe result (port -> chip color + reason).
+  const [health, setHealth] = useState<Record<number, PortHealthCheck>>({});
+  const [copiedPort, setCopiedPort] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
 
-  const refreshPorts = useCallback(async () => {
-    try { setPorts(await ipcPortList()); } catch { /* outside Tauri */ }
+  const refreshPorts = useCallback(async (): Promise<PortMapping[]> => {
+    try {
+      const list = await ipcPortList();
+      setPorts(list);
+      return list;
+    } catch { /* outside Tauri */ return []; }
   }, []);
 
   const refreshPlatforms = useCallback(async () => {
@@ -80,16 +93,49 @@ export function PlatformsView() {
     } catch { /* outside Tauri */ }
   }, []);
 
-  useEffect(() => {
-    loadSplitRatio().then((r) => { if (typeof r === "number" && r > 0.15 && r < 0.85) setSplitRatio(r); }).catch(() => {});
-    void refreshPorts();
-    void refreshPlatforms();
-  }, [refreshPorts, refreshPlatforms]);
+  /// ADR-0021 Q1: after each ports refresh, fetch auth-info + health probes
+  /// in parallel. The probes are best-effort (outside Tauri in vitest) so
+  /// the failure path leaves the chip unrendered rather than crashing the view.
+  const refreshPortAuthAndHealth = useCallback(async (list: PortMapping[]) => {
+    if (list.length === 0) return;
+    const [authResults, healthResults] = await Promise.all([
+      Promise.all(list.map(async (p) => {
+        try { return [p.port, await ipcPortAuthInfo(p.port)] as const; } catch { return null; }
+      })),
+      Promise.all(list.map(async (p) => {
+        try { return [p.port, await ipcPortHealthCheck(p.port)] as const; } catch { return null; }
+      })),
+    ]);
+    const authMap: Record<number, PortAuthInfo> = {};
+    for (const r of authResults) if (r) authMap[r[0]] = r[1];
+    setAuthInfo(authMap);
+    const healthMap: Record<number, PortHealthCheck> = {};
+    for (const r of healthResults) if (r) healthMap[r[0]] = r[1];
+    setHealth(healthMap);
+  }, []);
 
   const showToast = (kind: "ok" | "err", msg: string) => {
     setToast({ kind, msg });
     window.setTimeout(() => setToast(null), 3500);
   };
+
+  /// Copy SOCKS5 credentials `username:password` to the clipboard; show a
+  /// transient "copied" badge on the row so the user has visual feedback.
+  const copyCredentials = (port: number, auth: PortAuthInfo) => {
+    const cred = `${auth.username}:${auth.password}`;
+    try {
+      void navigator.clipboard?.writeText(cred).then(() => {
+        setCopiedPort(port);
+        window.setTimeout(() => setCopiedPort((c) => (c === port ? null : c)), 1500);
+      });
+    } catch { /* clipboard may be unavailable outside https or in vitest */ }
+  };
+
+  useEffect(() => {
+    loadSplitRatio().then((r) => { if (typeof r === "number" && r > 0.15 && r < 0.85) setSplitRatio(r); }).catch(() => {});
+    void refreshPorts().then((list) => { void refreshPortAuthAndHealth(list); });
+    void refreshPlatforms();
+  }, [refreshPorts, refreshPortAuthAndHealth, refreshPlatforms]);
 
   const handleAddPort = async () => {
     const port = Number(newPort);
@@ -107,14 +153,22 @@ export function PlatformsView() {
       });
       setNewLabel("");
       showToast("ok", t("platform.portAddOk"));
-      await refreshPorts();
+      await refreshPortAuthAndHealth(await refreshPorts());
     } catch (e) { showToast("err", translateError(e, t)); }
     finally { setBusy(false); }
   };
 
   const handleRemovePort = async (port: number) => {
     setBusy(true);
-    try { await ipcPortRemove(port); showToast("ok", t("platform.portRemoved")); await refreshPorts(); }
+    try {
+      await ipcPortRemove(port);
+      showToast("ok", t("platform.portRemoved"));
+      // Drop the stale health/auth entry so the row does not flash the old
+      // chip when the re-render sees the port gone before the health probe runs.
+      setHealth((s) => { const x = { ...s }; delete x[port]; return x; });
+      setAuthInfo((s) => { const x = { ...s }; delete x[port]; return x; });
+      await refreshPortAuthAndHealth(await refreshPorts());
+    }
     catch (e) { showToast("err", translateError(e, t)); }
     finally { setBusy(false); }
   };
@@ -133,7 +187,7 @@ export function PlatformsView() {
         enabled: row.enabled,
       });
       showToast("ok", t("platform.portBound", { port, platform: platformName }));
-      await refreshPorts();
+      await refreshPortAuthAndHealth(await refreshPorts());
     } catch (e) { showToast("err", translateError(e, t)); }
     finally { setBusy(false); setDraggingPort(null); setDragOverPlatform(null); }
   };
@@ -229,6 +283,38 @@ export function PlatformsView() {
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
+                {/* ADR-0021 Q1: per-port health chip + SOCKS5 credentials */}
+                <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground" data-testid={"port-auth-" + p.port}>
+                  {(() => {
+                    const h = health[p.port];
+                    const a = authInfo[p.port];
+                    const healthIcon = h ? (h.socks5_ok ? <ShieldCheck className="h-3 w-3 text-emerald-500" /> : h.protocol_mismatch ? <ShieldAlert className="h-3 w-3 text-amber-500" /> : <ShieldAlert className="h-3 w-3 text-red-500" />) : null;
+                    return (
+                      <>
+                        {healthIcon}
+                        <span>{h ? (h.socks5_ok ? t("platform.healthOk") : h.protocol_mismatch ? t("platform.healthProtocolMismatch") : t("platform.healthUnavailable")) : ""}</span>
+                        {h && h.latency_ms > 0 && <span className="text-muted-foreground/70">· {h.latency_ms}ms</span>}
+                        {a && (
+                          <button
+                            type="button"
+                            className="ml-auto inline-flex items-center gap-1 rounded p-1 hover:text-primary"
+                            onClick={() => copyCredentials(p.port, a)}
+                            aria-label={t("platform.copyCredentials")}
+                            title={t("platform.copyCredentials")}
+                          >
+                            <Copy className="h-3 w-3" />
+                            {copiedPort === p.port ? t("platform.copied") : ""}
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+                {authInfo[p.port] && (
+                  <div className="mt-1 break-all text-[10px] text-muted-foreground/80">
+                    {t("platform.socks5Auth")}: {authInfo[p.port].username} · {t("platform.passwordMasked")}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

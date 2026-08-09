@@ -116,7 +116,14 @@
     "portRemoved": "Poort verwijderd",
     "portInvalid": "Poort moet 1024–65535 zijn",
     "portDuplicate": "Poort bestaat al",
-    "portBound": "Gebonden :{{port}} → {{platform}}"
+    "portBound": "Gebonden :{{port}} → {{platform}}",
+    "healthOk": "poort actief (SOCKS5)",
+    "healthProtocolMismatch": "luistert op ander protocol",
+    "healthUnavailable": "poort onbereikbaar",
+    "copyCredentials": "SOCKS5-inloggegevens kopiëren",
+    "copied": "gekopieerd",
+    "socks5Auth": "SOCKS5-gebruiker",
+    "passwordMasked": "wachtwoord: (verborgen)"
   },
   "processRoute": {
     "title": "Procesroute",

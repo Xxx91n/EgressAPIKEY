@@ -116,7 +116,14 @@
     "portRemoved": "포트 삭제됨",
     "portInvalid": "포트는 1024–65535",
     "portDuplicate": "포트가 이미 있음",
-    "portBound": "바인딩 :{{port}} → {{platform}}"
+    "portBound": "바인딩 :{{port}} → {{platform}}",
+    "healthOk": "포트 활성 (SOCKS5)",
+    "healthProtocolMismatch": "다른 프로토콜로 대기 중",
+    "healthUnavailable": "포트에 도달할 수 없습니다",
+    "copyCredentials": "SOCKS5 자격 증명 복사",
+    "copied": "복사됨",
+    "socks5Auth": "SOCKS5 사용자",
+    "passwordMasked": "비밀번호: (숨김)"
   },
   "processRoute": {
     "title": "프로세스 경로",

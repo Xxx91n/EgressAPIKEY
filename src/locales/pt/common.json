@@ -116,7 +116,14 @@
     "portRemoved": "Porta removida",
     "portInvalid": "A porta deve ser 1024–65535",
     "portDuplicate": "A porta já existe",
-    "portBound": "Ligado :{{port}} → {{platform}}"
+    "portBound": "Ligado :{{port}} → {{platform}}",
+    "healthOk": "porta ativa (SOCKS5)",
+    "healthProtocolMismatch": "escutando outro protocolo",
+    "healthUnavailable": "porta inalcançável",
+    "copyCredentials": "Copiar credenciais SOCKS5",
+    "copied": "copiado",
+    "socks5Auth": "Usuário SOCKS5",
+    "passwordMasked": "senha: (oculta)"
   },
   "processRoute": {
     "title": "Rota de processo",

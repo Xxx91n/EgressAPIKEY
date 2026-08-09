@@ -116,7 +116,14 @@
     "portRemoved": "Port supprimé",
     "portInvalid": "Le port doit être 1024–65535",
     "portDuplicate": "Le port existe déjà",
-    "portBound": "Lié :{{port}} → {{platform}}"
+    "portBound": "Lié :{{port}} → {{platform}}",
+    "healthOk": "port actif (SOCKS5)",
+    "healthProtocolMismatch": "écoute sur un autre protocole",
+    "healthUnavailable": "port inaccessible",
+    "copyCredentials": "Copier les identifiants SOCKS5",
+    "copied": "copié",
+    "socks5Auth": "Utilisateur SOCKS5",
+    "passwordMasked": "mot de passe : (masqué)"
   },
   "processRoute": {
     "title": "Routage des processus",

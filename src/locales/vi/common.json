@@ -116,7 +116,14 @@
     "portRemoved": "Đã xóa cổng",
     "portInvalid": "Cổng phải là 1024–65535",
     "portDuplicate": "Cổng đã tồn tại",
-    "portBound": "Đã gắn :{{port}} → {{platform}}"
+    "portBound": "Đã gắn :{{port}} → {{platform}}",
+    "healthOk": "cổng đang hoạt động (SOCKS5)",
+    "healthProtocolMismatch": "đang lắng nghe giao thức khác",
+    "healthUnavailable": "không truy cập được cổng",
+    "copyCredentials": "Sao chép thông tin SOCKS5",
+    "copied": "đã sao chép",
+    "socks5Auth": "Người dùng SOCKS5",
+    "passwordMasked": "mật khẩu: (ẩn)"
   },
   "processRoute": {
     "title": "Tuyến tiến trình",

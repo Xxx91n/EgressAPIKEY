@@ -116,7 +116,14 @@
     "portRemoved": "入口端口已删除",
     "portInvalid": "端口必须在 1024–65535",
     "portDuplicate": "端口已存在",
-    "portBound": "已绑定 :{{port}} → {{platform}}"
+    "portBound": "已绑定 :{{port}} → {{platform}}",
+    "healthOk": "端口在线 (SOCKS5)",
+    "healthProtocolMismatch": "监听协议不是 SOCKS5",
+    "healthUnavailable": "端口不可达",
+    "copyCredentials": "复制 SOCKS5 凭据",
+    "copied": "已复制",
+    "socks5Auth": "SOCKS5 用户名",
+    "passwordMasked": "密码: (已隐藏)"
   },
   "processRoute": {
     "title": "进程路由",

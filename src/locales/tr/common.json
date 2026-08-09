@@ -116,7 +116,14 @@
     "portRemoved": "Port kaldırıldı",
     "portInvalid": "Port 1024–65535 olmalı",
     "portDuplicate": "Port zaten var",
-    "portBound": "Bağlandı :{{port}} → {{platform}}"
+    "portBound": "Bağlandı :{{port}} → {{platform}}",
+    "healthOk": "port etkin (SOCKS5)",
+    "healthProtocolMismatch": "farklı protokolde dinliyor",
+    "healthUnavailable": "porta ulaşılamıyor",
+    "copyCredentials": "SOCKS5 kimlik bilgilerini kopyala",
+    "copied": "kopyalandı",
+    "socks5Auth": "SOCKS5 kullanıcısı",
+    "passwordMasked": "parola: (gizli)"
   },
   "processRoute": {
     "title": "Süreç rotası",

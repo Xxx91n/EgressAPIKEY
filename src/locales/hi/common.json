@@ -116,7 +116,14 @@
     "portRemoved": "पोर्ट हटाया गया",
     "portInvalid": "पोर्ट 1024–65535 होना चाहिए",
     "portDuplicate": "पोर्ट पहले से मौजूद है",
-    "portBound": "बाउंड :{{port}} → {{platform}}"
+    "portBound": "बाउंड :{{port}} → {{platform}}",
+    "healthOk": "पोर्ट सक्रिय (SOCKS5)",
+    "healthProtocolMismatch": "दूसरे प्रोटोकॉल पर सुन रहा है",
+    "healthUnavailable": "पोर्ट पहुँच योग्य नहीं",
+    "copyCredentials": "SOCKS5 क्रेडेंशियल कॉपी करें",
+    "copied": "कॉपी किया गया",
+    "socks5Auth": "SOCKS5 उपयोगकर्ता",
+    "passwordMasked": "पासवर्ड: (छिपा हुआ)"
   },
   "processRoute": {
     "title": "प्रक्रिया मार्ग",

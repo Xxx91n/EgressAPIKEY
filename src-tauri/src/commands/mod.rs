@@ -1491,6 +1491,19 @@ fn validate_port_mapping(
     Ok(())
 }
 
+/// Worker-port range guard for port_* commands that take only a port number.
+/// Mirrors the lower-bound check inside `validate_port_mapping` but without
+/// the protocol/account checks (auth-info + health-check only need the port
+/// segment). Ensures a hostile GUI caller cannot ask the shell to dial a
+/// privileged system port.
+fn validate_port_segments(port: u16) -> Result<(), String> {
+    if port < resin_core::MIN_USER_PORT {
+        return Err(format!("port {port} is privileged (< {})", resin_core::MIN_USER_PORT));
+    }
+    // u16 upper bound is 65535, no range check needed above MIN_USER_PORT.
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapping>, String> {
     db.list_ports()
@@ -1656,6 +1669,177 @@ pub async fn stream_sensor_snapshot(
     forwarder: State<'_, resin_core::PortForwarder>,
 ) -> Result<resin_core::StreamSensorSnapshot, String> {
     Ok(forwarder.stream_snapshot())
+}
+
+/// ADR-0021 Q1: return the SOCKS5 authentication credentials a gateway must
+/// present to reach one entry-port. Resin's SOCKS5 server, when `proxy_token`
+/// is set in the sidecar env, requires UserPass auth: username equals the
+/// port's bound `platform.account` string (`Platform.Account`), password is
+/// the sidecar global proxy token kept in `SidecarHandle.proxy_token`. As long
+/// as the sidecar sets `RESIN_PROXY_TOKEN`, every port requires auth — there
+/// is no per-port no-auth fallback without forking Resin, so `auth_required`
+/// is always true here in the thin-shell stack.
+#[derive(Debug, Serialize, Clone)]
+pub struct PortAuthInfo {
+    /// SOCKS5 username to present = the port's bound Platform.Account string.
+    pub username: String,
+    /// SOCKS5 password = the sidecar global proxy token (session-stable).
+    pub password: String,
+    /// Always true in the thin-shell stack (proxy_token is set at boot).
+    pub auth_required: bool,
+    /// Bound platform name (for GUI display).
+    pub platform_name: String,
+    /// Port number echoed back so the GUI can pair the auth with the row.
+    pub port: u16,
+}
+
+#[tauri::command]
+pub async fn port_auth_info(
+    sidecar: State<'_, SidecarHandle>,
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    port: u16,
+) -> Result<PortAuthInfo, String> {
+    // The port_mapping row tells us the bound platform_name + account string.
+    let mapping = db
+        .list_ports()?
+        .into_iter()
+        .find(|m| m.port == port)
+        .ok_or_else(|| format!("port {port} is not configured"))?;
+    // Validate port range early so a hostile caller cannot pivot to an
+    // arbitrary port number for a dial probe (Path-traversal safety:reuse the
+    // same guard the whitebox config transaction already enforces).
+    validate_port_segments(port)?;
+    let username = if mapping.account.trim().is_empty() {
+        // P22 orphan sidecar fix style: synthesize an account if the row was
+        // created as the default per-port-account fallback (`port-{port}`).
+        format!("port-{port}")
+    } else {
+        mapping.account.clone()
+    };
+    let password = sidecar.proxy_token.clone();
+    if password.is_empty() {
+        tracing::warn!("port_auth_info: sidecar proxy_token is empty; the Resin sidecar boot likely failed");
+    }
+    let _ = forwarder; // forwarder carries the live listener state; not needed for auth-info lookup
+    Ok(PortAuthInfo {
+        username,
+        password,
+        auth_required: true,
+        platform_name: mapping.platform_name,
+        port,
+    })
+}
+
+/// ADR-0021 Q1: live TCP probe + minimal SOCKS5 method-negotiation so the GUI
+/// can show a green/red health chip per port (same pattern clash-verge-rev
+/// uses for `CoreManager` reachability). We send the 3-byte greeting
+/// `05 01 02` (SOCKS5 version + 1 method + method 0x02 UserPass). A healthy
+/// listener replies `05 02`; an HTTP-mode listener replies with an HTTP status
+/// line or a non-SOCKS5 byte we flag as `protocol_mismatch` but still
+/// `reachable=true`. Takes ~100ms typical; capped at 750ms.
+#[derive(Debug, Serialize, Clone)]
+pub struct PortHealthCheck {
+    pub port: u16,
+    /// TCP connect succeeded.
+    pub reachable: bool,
+    /// SOCKS5 greeting got a plausible `05 <method>` reply.
+    pub socks5_ok: bool,
+    /// Listener replied with bytes but not SOCKS5 shape -> probably HTTP.
+    pub protocol_mismatch: bool,
+    /// Measured round-trip in millis (connect + greeting/reply).
+    pub latency_ms: u64,
+    /// Human-facing reason: "ok" | "refused" | "timeout" | "noop_no_reply" | "protocol_mismatch"
+    pub reason: String,
+}
+
+#[tauri::command]
+pub async fn port_health_check(port: u16) -> Result<PortHealthCheck, String> {
+    validate_port_segments(port)?;
+    use std::time::Instant;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let started = Instant::now();
+    let addr = format!("127.0.0.1:{port}");
+    // 200ms connect timeout (headroom under the 750ms request budget).
+    let connect = tokio::time::timeout(
+        std::time::Duration::from_millis(200),
+        tokio::net::TcpStream::connect(&addr),
+    )
+    .await;
+    let mut stream = match connect {
+        Ok(Ok(s)) => s,
+        Ok(Err(_)) => {
+            return Ok(PortHealthCheck {
+                port,
+                reachable: false,
+                socks5_ok: false,
+                protocol_mismatch: false,
+                latency_ms: started.elapsed().as_millis() as u64,
+                reason: "refused".into(),
+            });
+        }
+        Err(_) => {
+            return Ok(PortHealthCheck {
+                port,
+                reachable: false,
+                socks5_ok: false,
+                protocol_mismatch: false,
+                latency_ms: started.elapsed().as_millis() as u64,
+                reason: "timeout".into(),
+            });
+        }
+    };
+    // SOCKS5 greeting: version 5, 1 method candidate, method 0x02 (UserPass).
+    let greeting: [u8; 3] = [0x05, 0x01, 0x02];
+    if let Err(e) = stream.write_all(&greeting).await {
+        tracing::trace!(port, error = %e, "port_health_check: write greeting failed");
+        return Ok(PortHealthCheck {
+            port,
+            reachable: true,
+            socks5_ok: false,
+            protocol_mismatch: false,
+            latency_ms: started.elapsed().as_millis() as u64,
+            reason: "noop_no_reply".into(),
+        });
+    }
+    // Reply should be exactly 2 bytes: 0x05 0x02 (UserPass chosen). HTTP
+    // listeners reply with an HTTP status line e.g. `HTTP/1.1 400...`.
+    let mut buf = [0u8; 16];
+    let read = tokio::time::timeout(
+        std::time::Duration::from_millis(550),
+        stream.read(&mut buf),
+    )
+    .await;
+    let elapsed = started.elapsed().as_millis() as u64;
+    match read {
+        Ok(Ok(n)) if n >= 2 && buf[0] == 0x05 && buf[1] == 0x02 => Ok(PortHealthCheck {
+            port,
+            reachable: true,
+            socks5_ok: true,
+            protocol_mismatch: false,
+            latency_ms: elapsed,
+            reason: "ok".into(),
+        }),
+        Ok(Ok(n)) if n >= 4 => Ok(PortHealthCheck {
+            // Has bytes but not a SOCKS5 shape: most likely an HTTP listener
+            // replying with an error status line (`HTTP/1.1 ...`). Still
+            // reachable; mark protocol_mismatch so the GUI shows a distinct chip.
+            port,
+            reachable: true,
+            socks5_ok: false,
+            protocol_mismatch: true,
+            latency_ms: elapsed,
+            reason: "protocol_mismatch".into(),
+        }),
+        _ => Ok(PortHealthCheck {
+            port,
+            reachable: true,
+            socks5_ok: false,
+            protocol_mismatch: false,
+            latency_ms: elapsed,
+            reason: "noop_no_reply".into(),
+        }),
+    }
 }
 
 #[cfg(test)]
@@ -1890,6 +2074,19 @@ mod tests {
     #[test]
     fn validate_port_mapping_rejects_control_in_label() {
         assert!(validate_port_mapping(17990, "socks5", "OpenAI", "a", "bad\n").is_err());
+    }
+
+    #[test]
+    fn validate_port_segments_rejects_privileged_and_accepts_user_range() {
+        // Privileged ports below MIN_USER_PORT must be rejected so a hostile
+        // GUI caller cannot pivot the shell to dial system ports (path-safety
+        // guard for port_auth_info + port_health_check).
+        assert!(validate_port_segments(80).is_err());
+        assert!(validate_port_segments(1023).is_err());
+        // User range is accepted: boundary at MIN_USER_PORT (1024) up to 65535.
+        assert!(validate_port_segments(1024).is_ok());
+        assert!(validate_port_segments(17990).is_ok());
+        assert!(validate_port_segments(65535).is_ok());
     }
 
     #[test]
