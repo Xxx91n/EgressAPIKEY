@@ -67,6 +67,8 @@ interface NodeGroup {
   nodes: NodeItem[];
   healthy: number;
   total: number;
+  /// T4-5: subscription sources that contribute nodes to this region group.
+  subscriptions: string[];
 }
 
 /// Parse the Resin items-wrapper (or bare array) into a typed list.
@@ -111,7 +113,17 @@ function parseNodeGroups(raw: unknown): NodeGroup[] {
   const groups: NodeGroup[] = [];
   for (const [region, nodes] of byRegion) {
     const healthy = nodes.filter((n) => (n.failure_count ?? 0) === 0 && n.has_outbound !== false).length;
-    groups.push({ region, nodes, healthy, total: nodes.length });
+    // T4-5: collect unique subscription names from node tags.
+    const subs = new Set<string>();
+    for (const n of nodes) {
+      if (Array.isArray(n.tags)) {
+        for (const t of n.tags) {
+          if (t.subscriptionName) subs.add(t.subscriptionName);
+          else if (t.tag && t.tag.length > 3) subs.add(t.tag);
+        }
+      }
+    }
+    groups.push({ region, nodes, healthy, total: nodes.length, subscriptions: [...subs].sort() });
   }
   return groups.sort((a, b) => a.region.localeCompare(b.region));
 }
@@ -252,12 +264,13 @@ export async function patchAndSyncOnce(args: {
 // includes the node group region. Extracted from the useMemo so vitest
 // can assert that removing a region from region_filters deletes the edge
 // without mounting a live ReactFlow.
+type EdgeWithLabel = { id: string; source: string; target: string; animated?: boolean; label?: string };
 export function buildEdges(
-  platforms: { name: string; region_filters: string[] | null }[],
+  platforms: { name: string; region_filters: string[] | null; allocation_policy?: string }[],
   nodeGroups: { region: string }[],
   ports: { port: number; platform_name: string }[] = [],
-): { id: string; source: string; target: string; animated?: boolean }[] {
-  const list: { id: string; source: string; target: string; animated?: boolean }[] = [];
+): EdgeWithLabel[] {
+  const list: EdgeWithLabel[] = [];
   // A->B: entry port -> platform (by platform_name match).
   for (const p of ports) {
     const plat = platforms.find((x) => x.name === p.platform_name);
@@ -272,11 +285,17 @@ export function buildEdges(
     }
   }
   // B->C: platform -> nodeGroup (by region_filters match).
+  // T4-5: edges carry strategy labels so the canvas shows WHY the binding exists.
   for (const p of platforms) {
     const regions = p.region_filters ?? [];
     for (const g of nodeGroups) {
       if (regions.includes(g.region)) {
-        list.push({ id: "e-" + p.name + "-" + g.region, source: "platform-" + p.name, target: "nodegroup-" + g.region });
+        list.push({
+          id: "e-" + p.name + "-" + g.region,
+          source: "platform-" + p.name,
+          target: "nodegroup-" + g.region,
+          label: "region:" + g.region,
+        });
       }
     }
   }
@@ -488,7 +507,11 @@ function TopologyCanvas() {
         : "";
       const policy = t("topology.policy", { policy: t(policyToI18nKey(p.allocation_policy ?? "BALANCED")) });
       const routable = t("topology.routable", { count: p.routable_node_count });
-      const sub = [filters, policy, routable].filter(Boolean).join("\n");
+      // T4-5: include A-class strategy summary (how many region_filters bound).
+      const aClassSummary = (p.region_filters?.length ?? 0) > 0
+        ? "A: region(" + p.region_filters!.length + ")"
+        : "A: manual";
+      const sub = [filters, policy, routable, aClassSummary].filter(Boolean).join("\n");
       const pidLeases = leasesByPid.get(p.id) ?? [];
       list.push({
         id: "platform-" + p.name,
@@ -502,11 +525,16 @@ function TopologyCanvas() {
       const healthLabel = g.healthy === g.total
         ? t("topology.healthy")
         : g.healthy + "/" + g.total + " " + t("topology.healthy");
+      // T4-5: show subscription sources below the region label.
+      const subsLabel = g.subscriptions.length > 0
+        ? g.subscriptions.slice(0, 3).join(", ") + (g.subscriptions.length > 3 ? "+" : "")
+        : "";
+      const sub = [healthLabel, subsLabel].filter(Boolean).join(" · ");
       list.push({
         id: "nodegroup-" + g.region,
         type: "nodeGroup",
         position: { x: 640, y: 60 + i * 100 },
-        data: { label: t("topology.region", { region: g.region }), sub: healthLabel },
+        data: { label: t("topology.region", { region: g.region }), sub, subscriptions: g.subscriptions },
       });
     });
     return list;
@@ -550,7 +578,7 @@ function TopologyCanvas() {
           colorMode={colorMode}
           nodesConnectable
           nodesDraggable
-          defaultEdgeOptions={{ type: "smoothstep", animated: true }}
+          defaultEdgeOptions={{ type: "smoothstep", animated: true, style: { fontSize: 10 } }}
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
           <Controls />

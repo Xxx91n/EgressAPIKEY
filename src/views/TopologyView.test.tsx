@@ -334,4 +334,50 @@ describe("TopologyView (Phase R2 three-column canvas, closed-loop)", () => {
     });
   });
 
+
+  describe("T4-5: strategy-labeled edges + subscription info + B-class display", () => {
+    it("buildEdges labels B->C edges with 'region:<region>' label", () => {
+      const platforms = [{ name: "P1", region_filters: ["US", "SG"], allocation_policy: "BALANCED" }];
+      const nodeGroups = [{ region: "US" }, { region: "SG" }, { region: "JP" }];
+      const edges = buildEdges(platforms, nodeGroups, []);
+      const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
+      expect(bcEdges).toHaveLength(2);
+      expect(bcEdges[0].label).toBe("region:US");
+      expect(bcEdges[1].label).toBe("region:SG");
+    });
+
+    it("platform node sub text includes A-class strategy summary (region count)", async () => {
+      invokeMock.mockReset();
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({ items: [{ name: "P1", allocation_policy: "PREFER_LOW_LATENCY", regex_filters: [], region_filters: ["US"], routable_node_count: 5, sticky_ttl: "30m" }] });
+        if (cmd === "node_list") return Promise.resolve({ items: [] });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([]);
+        return Promise.resolve(undefined);
+      });
+
+      render(<TopologyView />);
+      await waitFor(() => {
+        const text = document.body.textContent ?? "";
+        expect(text).toContain("A: region(1)");
+      });
+    });
+
+    it("platform node sub text shows 'A: manual' when no region_filters", async () => {
+      invokeMock.mockReset();
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({ items: [{ name: "P2", allocation_policy: "BALANCED", regex_filters: [], region_filters: [], routable_node_count: 0, sticky_ttl: "" }] });
+        if (cmd === "node_list") return Promise.resolve({ items: [] });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([]);
+        return Promise.resolve(undefined);
+      });
+
+      render(<TopologyView />);
+      await waitFor(() => {
+        const text = document.body.textContent ?? "";
+        expect(text).toContain("A: manual");
+      });
+    });
+  });
 });
