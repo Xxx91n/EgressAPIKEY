@@ -81,7 +81,7 @@
     "loading": "Đang tải…",
     "empty": "Không có nút. Nhập gói đăng ký trước.",
     "lastRefresh": "Cập nhật lúc: {{time}}",
-    "egressPolicyNote": "Chính sách egress theo vùng được đặt trên canvas Topology: kéo một Platform vào vùng kênh IP rồi đặt Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) trên platform. Resin v1.1.2 không có bộ chọn theo node.",
+    "egressPolicyNote": "Chính sách egress theo vùng được đặt trên canvas Topology: kéo một Platform vào vùng kênh IP rồi đặt Allocation policy trên platform. Tab Platforms chứa engine chiến lược (ADR-0022): lớp A chọn IP nào vào platform, lớp B cách port chọn IP ra.",
     "protocolWeights": "Trọng số giao thức cho AI SSE",
     "protocolWeightDesc": "Tốt nhất (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Vừa (0.7): shadowsocks. Tránh (0.1): hysteria2, tuic, wireguard (dựa trên QUIC, phá vỡ luồng SSE).",
     "reputationTitle": "IP reputation",

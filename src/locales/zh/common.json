@@ -81,7 +81,7 @@
     "loading": "加载中…",
     "empty": "暂无节点，请先导入订阅。",
     "lastRefresh": "最后刷新：{{time}}",
-    "egressPolicyNote": "按区域设置出口策略请在拓扑画布上操作：把“平台”拖到某个 IP 通道区域，并在该平台上设置分配策略（BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP）。Resin v1.1.2 不支持逐节点策略。",
+    "egressPolicyNote": "按区域设置出口策略请在拓扑画布上操作：把平台拖到某个 IP 通道区域，并在该平台上设置分配策略。平台标签页承载策略引擎（ADR-0022）：A 类选择哪些 IP 进入平台，B 类选择端口如何选出口 IP。",
     "protocolWeights": "AI SSE 协议权重",
     "protocolWeightDesc": "最佳 (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp。中等 (0.7): shadowsocks。避免 (0.1): hysteria2, tuic, wireguard (基于 QUIC, 破坏 SSE 流)。",
     "reputationTitle": "IP 信誉",

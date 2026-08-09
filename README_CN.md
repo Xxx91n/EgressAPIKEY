@@ -39,7 +39,7 @@ pnpm tauri dev
 - **左栏**：候选 key 组合（上游 v1 端点 + API key），本地存储在 `settings.json#keyCandidates` —— 在激活前从不发送给 Resin。
 - **右栏**：实时 Resin 平台 + 每平台租约。从左栏拖动 key 到右栏空白处即创建 `auto-{uid}` 独立平台（POST /platforms，策略 `BALANCED`）；拖到已有平台上即附加该 key。实线边框卡片是自动独立平台，虚线边框卡片是手动平台。每平台的 `allocation_policy` 是个 5 档出口策略选择器（随机/顺序 → `BALANCED`，延时 → `PREFER_LOW_LATENCY`，质量 → `PREFER_IDLE_IP`）。
 
-**节点** 标签页展示实时节点池快照，并附协议权重参考卡（SSE 适用性：http/socks5/vmess=1.0，shadowsocks=0.7，hysteria2/tuic/wireguard=0.1）和出口策略引导卡（指向拓扑画布中绑定每平台 `allocation_policy`）。GUI 不自造每节点策略选择器——Resin v1.1.2 没有该端点，故策略选择器绑定的是真实的平台 `allocation_policy` 字段。
+**节点** 标签页以按订阅源折叠的树形展示（clash-verge-dev 模式）。每个订阅可展开显示其节点，含实时延时（绿 <200ms / 黄 200-500ms / 红 >500ms / 灰超时）、`display_tag`、`region`、健康状态，并附协议权重参考卡（SSE 适用性：http/socks5/vmess=1.0，shadowsocks=0.7，hysteria2/tuic/wireguard=0.1）。平台标签页承载策略引擎面板（ADR-0022）：A 类策略选择哪些 IP 进入平台（手动 / 地区 / 质量分 / 订阅源，受自动探活门控），B 类策略选择端口如何选出口 IP（随机 / 轮询 / 低延时）。白盒配置 `egressapikey-strategy.json`。
 
 
 ## 架构
@@ -65,7 +65,7 @@ pnpm tauri dev
 | 桌面壳 | Tauri 2 (Rust) |
 | 前端 | React 19, TypeScript, ReactFlow 12, Zustand 5, Tailwind CSS |
 | 后端 | Rust (tokio, axum, reqwest, rusqlite) |
-| 代理心 | mihomo (侧车, REST API) |
+| 代理核心 | Resin Go 侧车 v1.2.0 (github.com/Resinat/Resin) |
 
 ## 文档
 

@@ -81,7 +81,7 @@
     "loading": "लोड हो रहा है…",
     "empty": "कोई नोड नहीं। पहले सदस्यता आयात करें।",
     "lastRefresh": "अंतिम ताज़ा: {{time}}",
-    "egressPolicyNote": "प्रति-क्षेत्र निकास नीति Topology कैनवास पर सेट की जाती है: प्लेटफ़ॉर्म को IP चैनल क्षेत्र में खींचें, फिर प्लेटफ़ॉर्म पर Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) सेट करें। Resin v1.1.2 में प्रति-नोड चयनकर्ता नहीं है।",
+    "egressPolicyNote": "प्रति-क्षेत्र निकास नीति Topology कैनवास पर सेट की जाती है: प्लेटफ़ॉर्म को IP चैनल क्षेत्र में खींचें, फिर Allocation policy सेट करें। Platforms टैब में रणनीति इंजन है (ADR-0022): A-वर्ग चुनता है कौन से IP प्लेटफ़ॉर्म में आएँ, B-वर्ग पोर्ट कैसे निकास IP चुने।",
     "protocolWeights": "AI SSE के लिए प्रोटोकॉल वज़न",
     "protocolWeightDesc": "सर्वोत्तम (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. मध्यम (0.7): shadowsocks. बचें (0.1): hysteria2, tuic, wireguard (QUIC आधारित, SSE स्ट्रीम तोड़ता है)।",
     "reputationTitle": "IP reputation",

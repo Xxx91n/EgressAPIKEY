@@ -81,7 +81,7 @@
     "loading": "Loading nodes…",
     "empty": "No nodes loaded. Import a subscription first.",
     "lastRefresh": "Last refresh: {{time}}",
-    "egressPolicyNote": "Per-region egress policy is bound on the Topology canvas: drag a Platform to an IP channel region then set Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) on the platform. Resin v1.1.2 has no per-node strategy selector.",
+    "egressPolicyNote": "Per-region egress policy is bound on the Topology canvas: drag a Platform to an IP channel region then set Allocation policy on the platform. The Platforms tab hosts the strategy engine (ADR-0022): A-class selects which IPs enter a platform, B-class selects how the port picks an exit IP.",
     "protocolWeights": "Protocol weights for AI SSE",
     "protocolWeightDesc": "Best (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Moderate (0.7): shadowsocks. Avoid (0.1): hysteria2, tuic, wireguard (QUIC-based, breaks SSE streams).",
     "reputationTitle": "IP reputation",

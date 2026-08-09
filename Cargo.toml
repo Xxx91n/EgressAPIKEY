@@ -11,7 +11,7 @@ edition = "2021"
 rust-version = "1.80"
 license = "GPL-3.0-or-later"
 authors = ["EgressAPIKEY contributors"]
-repository = "https://github.com/ai-api-route/EgressAPIKEY"
+repository = "https://github.com/RCrushMe/EgressAPIKEY"
 
 [workspace.dependencies]
 tokio = { version = "1", features = ["full"] }

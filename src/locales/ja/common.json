@@ -81,7 +81,7 @@
     "loading": "読み込み中…",
     "empty": "ノードがありません。先にサブスクリプションをインポートしてください。",
     "lastRefresh": "最終更新: {{time}}",
-    "egressPolicyNote": "リージョンごとの出口ポリシーはトポロジーキャンバスで設定します：プラットフォームをIPチャネル領域にドラッグし、プラットフォームで割り当てポリシー（BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP）を設定してください。Resin v1.1.2にはノード単位のポリシー選択はありません。",
+    "egressPolicyNote": "リージョンごとの出口ポリシーはトポロジーキャンバスで設定します：プラットフォームをIPチャネル領域にドラッグし、割り当てポリシーを設定してください。プラットフォームタブには戦略エンジンがあります（ADR-0022）：A類がプラットフォームに入るIPを選び、B類がポートの出口IP選択方法を決めます。",
     "protocolWeights": "AI SSE プロトコル重み",
     "protocolWeightDesc": "最適 (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp。中程度 (0.7): shadowsocks。避けるべき (0.1): hysteria2, tuic, wireguard (QUICベース, SSEストリームを壊す)。",
     "reputationTitle": "IP reputation",

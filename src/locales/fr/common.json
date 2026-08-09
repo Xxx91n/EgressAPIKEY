@@ -81,7 +81,7 @@
     "loading": "Chargement…",
     "empty": "Aucun nœud. Importez un abonnement d'abord.",
     "lastRefresh": "Dernière MAJ: {{time}}",
-    "egressPolicyNote": "La politique degress par région se règle sur le canevas Topologie : glissez une Plateforme sur une région de canal IP puis définissez Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) sur la plateforme. Resin v1.1.2 na pas de sélecteur par nœud.",
+    "egressPolicyNote": "La politique d'egress par région se règle sur le canevas Topologie : glissez une Plateforme sur une région de canal IP puis définissez Allocation policy dessus. L'onglet Platforms contient le moteur de stratégies (ADR-0022) : la classe A sélectionne les IP entrant dans une plateforme, la classe B la méthode de choix de l'IP de sortie.",
     "protocolWeights": "Poids de protocole pour SSE IA",
     "protocolWeightDesc": "Meilleur (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Modéré (0.7): shadowsocks. Éviter (0.1): hysteria2, tuic, wireguard (QUIC, casse les flux SSE).",
     "reputationTitle": "IP reputation",

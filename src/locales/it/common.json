@@ -81,7 +81,7 @@
     "loading": "Caricamento…",
     "empty": "Nessun nodo. Importa un abbonamento.",
     "lastRefresh": "Ultimo aggiornamento: {{time}}",
-    "egressPolicyNote": "La policy di egress per region si imposta sul canvas Topology: trascina una Piattaforma su una regione canale IP poi imposta Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) sulla piattaforma. Resin v1.1.2 non ha selettore per nodo.",
+    "egressPolicyNote": "La policy di egress per region si imposta sul canvas Topology: trascina una Piattaforma su una regione canale IP poi imposta Allocation policy sulla piattaforma. La scheda Platforms ospita il motore di strategie (ADR-0022): la classe A seleziona quali IP entrano in una piattaforma, la classe B come la porta sceglie l'IP di uscita.",
     "protocolWeights": "Pesi del protocollo per SSE IA",
     "protocolWeightDesc": "Migliore (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Moderato (0.7): shadowsocks. Evitare (0.1): hysteria2, tuic, wireguard (basato su QUIC, interrompe stream SSE).",
     "reputationTitle": "IP reputation",

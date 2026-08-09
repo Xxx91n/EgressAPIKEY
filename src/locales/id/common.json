@@ -81,7 +81,7 @@
     "loading": "Memuat…",
     "empty": "Tidak ada node. Impor langganan dulu.",
     "lastRefresh": "Terakhir diperbarui: {{time}}",
-    "egressPolicyNote": "Kebijakan egress per-region diatur di kanvas Topology: seret Platform ke region kanal IP lalu set Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) di platform. Resin v1.1.2 tidak punya seletor per-node.",
+    "egressPolicyNote": "Kebijakan egress per-region diatur di kanvas Topology: seret Platform ke region kanal IP lalu set Allocation policy di platform. Tab Platforms berisi mesin strategi (ADR-0022): kelas A memilih IP mana yang masuk ke platform, kelas B bagaiman port memilih IP keluar.",
     "protocolWeights": "Bobot protokol untuk SSE AI",
     "protocolWeightDesc": "Terbaik (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Sedang (0.7): shadowsocks. Hindari (0.1): hysteria2, tuic, wireguard (berbasis QUIC, merusak stream SSE).",
     "reputationTitle": "IP reputation",

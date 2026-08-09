@@ -81,7 +81,7 @@
     "loading": "Carregando…",
     "empty": "Sem nós. Importe uma assinatura.",
     "lastRefresh": "Última atualização: {{time}}",
-    "egressPolicyNote": "A política de egress por região é configurada na tela Topology: arraste uma Plataforma para uma região de canal IP e defina Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) na plataforma. Resin v1.1.2 não tem seletor por nó.",
+    "egressPolicyNote": "A política de egress por região é configurada na tela Topology: arraste uma Plataforma para uma região de canal IP e defina Allocation policy. A aba Platforms contém o motor de estratégias (ADR-0022): a classe A seleciona quais IPs entram numa plataforma, a classe B como a porta escolhe a IP de saída.",
     "protocolWeights": "Pesos de protocolo para SSE IA",
     "protocolWeightDesc": "Melhor (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Moderado (0.7): shadowsocks. Evitar (0.1): hysteria2, tuic, wireguard (baseado em QUIC, quebra streams SSE).",
     "reputationTitle": "IP reputation",

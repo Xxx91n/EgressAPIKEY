@@ -33,7 +33,7 @@ The **Platforms** tab is a dual-pane key-to-platform surface:
 - **Left pane**: candidate key combinations (upstream v1 endpoint + API key), stored locally in `settings.json#keyCandidates` — never sent to Resin until activated.
 - **Right pane**: live Resin platforms + per-platform leases. Drag a key from the left into the right pane's empty space to create an `auto-{uid}` independent platform (POST /platforms with `BALANCED`); drop a key onto an existing platform to attach it. Solid-border cards are auto-independents; dashed-border cards are manual platforms. Per-platform `allocation_policy` is a 5-label egress policy selector (random/sequential → `BALANCED`, latency → `PREFER_LOW_LATENCY`, quality → `PREFER_IDLE_IP`).
 
-The **Nodes** tab shows the live node-pool snapshot plus a protocol-weight reference card (SSE suitability: http/socks5/vmess=1.0, shadowsocks=0.7, hysteria2/tuic/wireguard=0.1) and an egress-policy guidance card pointing to the Topology canvas where per-platform `allocation_policy` is bound. No GUI-only egress policy selector is invented — Resin v1.1.2 has no per-node strategy endpoint, so the policy selector binds the real platform `allocation_policy` field.
+The **Nodes** tab is a collapsible tree grouped by subscription source (clash-verge-dev pattern). Each subscription expands to show its nodes with real-time latency (green <200ms / yellow 200-500ms / red >500ms / gray timeout), `display_tag`, `region`, and health. Plus a protocol-weight reference card (SSE suitability: http/socks5/vmess=1.0, shadowsocks=0.7, hysteria2/tuic/wireguard=0.1). The Platforms tab hosts the strategy engine panel (ADR-0022): A-class selects which IPs enter a platform (manual / region / quality_score / subscription_source, gated by auto-probe liveness), B-class selects how the port picks an exit IP (random / round-robin / low-latency). Whitebox config at `egressapikey-strategy.json`.
 
 
 ## Docs
@@ -52,7 +52,7 @@ The **Nodes** tab shows the live node-pool snapshot plus a protocol-weight refer
 | Desktop shell | Tauri 2 (Rust) |
 | Frontend | React 19, TypeScript, ReactFlow 12, Zustand 5, Tailwind CSS |
 | Backend | Rust (tokio, axum, reqwest, rusqlite) |
-| Proxy core | mihomo (sidecar subprocess, REST API control) |
+| Proxy core | Resin Go sidecar v1.2.0 (github.com/Resinat/Resin) |
 
 ## License
 

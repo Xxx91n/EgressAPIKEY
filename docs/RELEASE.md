@@ -4,9 +4,9 @@ CI produces artifact groups landing in release/ (gitignored; GitHub Release):
 
 | Name | Job | Output |
 |---|---|---|
-| windows-gui | gui matrix (windows-latest) | MSI + NSIS + portable ai-api-route.exe |
-| linux-gui | gui matrix (ubuntu-latest) | deb + AppImage + portable ai-api-route |
-| macos-gui | gui matrix (macos-latest) | dmg + portable ai-api-route |
+| windows-gui | gui matrix (windows-latest) | MSI + NSIS + portable EgressAPIKEY.exe |
+| linux-gui | gui matrix (ubuntu-latest) | deb + AppImage + portable EgressAPIKEY |
+| macos-gui | gui matrix (macos-latest) | dmg + portable EgressAPIKEY |
 | backend | backend matrix (per OS) | <os>-backend.tar.gz |
 
 ## Portable variant

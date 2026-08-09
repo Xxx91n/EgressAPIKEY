@@ -81,7 +81,7 @@
     "loading": "Yükleniyor…",
     "empty": "Düğüm yok. Abonelik içe aktarın.",
     "lastRefresh": "Son güncelleme: {{time}}",
-    "egressPolicyNote": "Bölge başına çıkış politikası Topology tuvalinde ayarlanır: bir Platformu bir IP kanalı bölgesine sürükleyin ardından platformda Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) ayarlayın. Resin v1.1.2nin düğüm başına seçicisi yoktur.",
+    "egressPolicyNote": "Bölge başına çıkış politikası Topology tuvalinde ayarlanır: bir Platformu bir IP kanalı bölgesine sürükleyin ardından platformda Allocation policy ayarlayın. Platforms sekmesi strateji motorunu içerir (ADR-0022): A sınıfı hangi IP'lerin platforma gireceğini, B sınıfı portun çıkış IP'sini nasıl seçtiğini belirler.",
     "protocolWeights": "AI SSE için protokol ağırlıkları",
     "protocolWeightDesc": "En iyisi (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Orta (0.7): shadowsocks. Kaçınılması gereken (0.1): hysteria2, tuic, wireguard (QUIC tabanlı, SSE akışını bozar).",
     "reputationTitle": "IP reputation",

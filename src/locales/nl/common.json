@@ -81,7 +81,7 @@
     "loading": "Laden…",
     "empty": "Geen nodes. Importeer een abonnement.",
     "lastRefresh": "Laatst vernieuwd: {{time}}",
-    "egressPolicyNote": "Per-regio egress-beleid wordt op het Topology-canvas ingesteld: sleep een Platform naar een IP-kanaalregio en zet er Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) op. Resin v1.1.2 heeft geen per-node selector.",
+    "egressPolicyNote": "Per-regio egress-beleid wordt op het Topology-canvas ingesteld: sleep een Platform naar een IP-kanaalregio en zet er Allocation policy op. Het tabblad Platforms bevat de strategie-engine (ADR-0022): klasse A kiest welke IPs een platform binnenkomen, klasse B hoe de poort de uitgaande IP kiest.",
     "protocolWeights": "Protocolgewichten voor AI-SSE",
     "protocolWeightDesc": "Best (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. Matig (0.7): shadowsocks. Vermijden (0.1): hysteria2, tuic, wireguard (QUIC-gebaseerd, breekt SSE-streams).",
     "reputationTitle": "IP reputation",

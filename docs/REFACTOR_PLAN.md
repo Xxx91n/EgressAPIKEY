@@ -1,4 +1,4 @@
-# ai-api-route Refactor Plan - Topology-driven Key-to-Egress Routing
+# EgressAPIKEY Refactor Plan - Topology-driven Key-to-Egress Routing
 
 Status: R1 DONE (1fe2ce7) + R2 DONE (2fd8c5a) + R3 DONE (f5e641e) + R4 DONE (this commit). All phases complete. Authored from live Resin v1.1.2 sidecar probes
 (2026-07-31), not assumption. All API shapes below were verified against

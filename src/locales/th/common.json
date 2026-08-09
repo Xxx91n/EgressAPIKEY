@@ -81,7 +81,7 @@
     "loading": "กำลังโหลด…",
     "empty": "ไม่มีโหนด นำเข้าการสมัครรับข้อมูลก่อน",
     "lastRefresh": "รีเฟรชล่าสุด: {{time}}",
-    "egressPolicyNote": "นโยบายทางออกตามภูมิภาคตั้งค่าบนผืนผ้าใบ Topology: ลากแพลตฟอร์มไปยังภูมิภาคช่อง IP แล้วตั้ง Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) บนแพลตฟอร์ม Resin v1.1.2 ไม่มีตัวเลือกรายโหนด",
+    "egressPolicyNote": "นโยบายทางออกตามภูมิภาคตั้งค่าบนผืนผ้าใบ Topology: ลากแพลตฟอร์มไปยังภูมิภาคช่อง IP แล้วตั้ง Allocation policy บนแพลตฟอร์ม แท็บ Platforms มีกลยุทธ์เอนจิน (ADR-0022): คลาส A เลือก IP ที่เข้าสู่แพลตฟอร์ม, คลาส B วิธีพอร์ตเลือก IP ทางออก",
     "protocolWeights": "น้ำหนักโปรโตคอลสำหรับ AI SSE",
     "protocolWeightDesc": "ดีที่สุด (1.0): http, socks5, vmess/vless-tcp, trojan-tls-tcp. ปานกลาง (0.7): shadowsocks. หลีกเลี่ยง (0.1): hysteria2, tuic, wireguard (ใช้ QUIC, ทำลายสตรีม SSE)।",
     "reputationTitle": "IP reputation",

@@ -1,4 +1,4 @@
-# Architecture - ai-api-route
+# Architecture - EgressAPIKEY
 
 > Companion to README.md and docs/MEMORY_REUSE_DECISION.md. Concrete module layout, data flow, and tech stack.
 
@@ -17,7 +17,7 @@ React 19 Frontend (src/)
 
 Tauri 2 Shell (src-tauri/)
 - sidecar.rs: boot_resin + spawn_health_poll (3s, 3-fail clear-os-proxy)
-- commands/mod.rs: 19 #[tauri::command] forwarding to Resin via ResinClient
+- commands/mod.rs: 44 #[tauri::command] (platforms/subscriptions/strategy/process_routes/port_auth/port_health/nodes/config_export/whitebox/stream_sensor/ip_reputation) forwarding to Resin via ResinClient
 - tray.rs: i18n tray (18 locales), click-to-show
 
 Resin Go Sidecar (bundle.externalBin)
@@ -40,8 +40,8 @@ Resin-pattern Core (crates/resin-core/)
 
 Desktop shell: Tauri 2 (Rust)
 Frontend: React 19, Vite 6, ReactFlow 12, Zustand 5, Tailwind 4, react-i18next
-Sidecar: Resin Go binary (github.com/Resinat/Resin v1.1.2)
-Tests: cargo test (54), vitest, playwright
+Sidecar: Resin Go binary (github.com/Resinat/Resin v1.2.0)
+Tests: cargo test (100), vitest (123), playwright
 Packaging: tauri build --features custom-protocol -> release/
 
 ## Fallback
