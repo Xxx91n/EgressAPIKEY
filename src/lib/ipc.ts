@@ -437,9 +437,14 @@ export interface PortHealthCheck {
   reason: "ok" | "refused" | "timeout" | "noop_no_reply" | "protocol_mismatch";
 }
 
-export async function ipcPortHealthCheck(port: number): Promise<PortHealthCheck> {
+/// ADR-0026 Q9: protocol-aware health probe. For socks5 ports the Rust side
+/// sends a SOCKS5 greeting; for http ports it sends an HTTP CONNECT probe.
+/// Defaults to "socks5" when omitted (back-compat).
+export async function ipcPortHealthCheck(port: number, protocol?: string): Promise<PortHealthCheck> {
   if (port < 1024 || port > 65535) throw new Error(`port ${port} out of range (1024..65535)`);
-  return invoke<PortHealthCheck>("port_health_check", { port });
+  const proto = (protocol ?? "socks5").toLowerCase();
+  if (proto !== "socks5" && proto !== "http") throw new Error("protocol must be socks5 or http");
+  return invoke<PortHealthCheck>("port_health_check", { port, protocol: proto });
 }
 
 export interface WhiteboxConfig {

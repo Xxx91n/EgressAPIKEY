@@ -88,6 +88,17 @@ pub fn map_resin_error(raw: &str) -> String {
     if raw.contains("BAD_REQUEST") || raw.contains("bad request") {
         return "error.badRequest".to_string();
     }
+    // Bug 3 (ADR-0026 Q6): port bind conflict. Resin returns 409 with a body
+    // like `listen on port 17111: bind: Only one usage of each socket address
+    // (protocol/network address/port) is normally permitted.` Extract the
+    // port number so the frontend can show "port {{port}} already in use"
+    // and auto-suggest another port. Format: `error.bindConflict:PORT`.
+    if raw.contains("bind") && (raw.contains("Only one usage") || raw.contains("EADDRINUSE") || raw.contains("address already in use")) {
+        if let Some(port) = extract_port_from_residual(raw) {
+            return format!("error.bindConflict:{}", port);
+        }
+        return "error.bindConflict".to_string();
+    }
     if raw.contains("UNAUTHORIZED") || raw.contains("unauthorized") {
         return "error.unauthorized".to_string();
     }
@@ -116,6 +127,16 @@ pub fn map_resin_error(raw: &str) -> String {
 /// collections as `{"items":[...], "total", "limit", "offset"}`; a few
 /// legacy endpoints still return a bare array. Accept both so a future
 /// Resin API tightening cannot silently empty the UI (P13 root cause).
+/// Extract a port number from a Resin error message, looking for
+/// `port <digits>` or `:<digits>` patterns. Zero-alloc, no regex.
+fn extract_port_from_residual(raw: &str) -> Option<u16> {
+    let lower = raw.to_ascii_lowercase();
+    let idx = lower.find("port ")?;
+    let rest = &raw[idx + 5..];
+    let num: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    num.parse().ok()
+}
+
 fn items_arr<'a>(v: &'a serde_json::Value) -> &'a [serde_json::Value] {
     if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
         return arr.as_slice();
@@ -1754,8 +1775,11 @@ pub struct PortHealthCheck {
 }
 
 #[tauri::command]
-pub async fn port_health_check(port: u16) -> Result<PortHealthCheck, String> {
+pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<PortHealthCheck, String> {
     validate_port_segments(port)?;
+    let proto = protocol
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_else(|| "socks5".into());
     use std::time::Instant;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let started = Instant::now();
@@ -1790,9 +1814,14 @@ pub async fn port_health_check(port: u16) -> Result<PortHealthCheck, String> {
         }
     };
     // SOCKS5 greeting: version 5, 1 method candidate, method 0x02 (UserPass).
-    let greeting: [u8; 3] = [0x05, 0x01, 0x02];
+    let greeting: Vec<u8> = if proto == "http" {
+        // HTTP CONNECT probe: minimal `CONNECT host:port HTTP/1.1\r\n\r\n`.
+        format!("CONNECT 127.0.0.1:{port} HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n").into_bytes()
+    } else {
+        vec![0x05, 0x01, 0x02]
+    };
     if let Err(e) = stream.write_all(&greeting).await {
-        tracing::trace!(port, error = %e, "port_health_check: write greeting failed");
+        tracing::trace!(port, proto = %proto, error = %e, "port_health_check: write probe failed");
         return Ok(PortHealthCheck {
             port,
             reachable: true,
@@ -1812,7 +1841,15 @@ pub async fn port_health_check(port: u16) -> Result<PortHealthCheck, String> {
     .await;
     let elapsed = started.elapsed().as_millis() as u64;
     match read {
-        Ok(Ok(n)) if n >= 2 && buf[0] == 0x05 && buf[1] == 0x02 => Ok(PortHealthCheck {
+        Ok(Ok(n)) if proto == "http" && n >= 12 && buf.starts_with(b"HTTP/") => Ok(PortHealthCheck {
+            port,
+            reachable: true,
+            socks5_ok: false,
+            protocol_mismatch: false,
+            latency_ms: elapsed,
+            reason: "ok".into(),
+        }),
+        Ok(Ok(n)) if proto == "socks5" && n >= 2 && buf[0] == 0x05 && buf[1] == 0x02 => Ok(PortHealthCheck {
             port,
             reachable: true,
             socks5_ok: true,
@@ -2225,5 +2262,24 @@ mod tests {
     fn map_resin_error_subscription_fetch_403() {
         let raw = "fetch_clash_subscription: all UA attempts failed: HTTP 403 Forbidden";
         assert_eq!(map_resin_error(raw), "error.subscriptionFetch.403");
+    }
+
+    #[test]
+    fn map_resin_error_bind_conflict_extracts_port() {
+        let raw = "create_endpoint: resin_client: POST /endpoints -> 409 Conflict: {\"error\":{\"code\":\"CONFLICT\",\"message\":\"listen on port 17111: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.\"}}";
+        assert_eq!(map_resin_error(raw), "error.bindConflict:17111");
+    }
+
+    #[test]
+    fn map_resin_error_bind_conflict_no_port_falls_back_to_base() {
+        let raw = "EADDRINUSE: address already in use";
+        assert_eq!(map_resin_error(raw), "error.bindConflict");
+    }
+
+    #[test]
+    fn extract_port_from_residual_finds_port() {
+        assert_eq!(extract_port_from_residual("listen on port 8080: bind"), Some(8080));
+        assert_eq!(extract_port_from_residual("no port here"), None);
+        assert_eq!(extract_port_from_residual("port 443"), Some(443));
     }
 }

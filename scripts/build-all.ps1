@@ -63,11 +63,11 @@ if(Test-Path $GUI_STAGE) { Remove-Item $GUI_STAGE -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $GUI_STAGE | Out-Null
 
 # Copy installer bundles (msi, setup.exe)
-$bundles = Get-ChildItem -Path "src-tauri/target","target" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in ".msi",".exe" -and $_.Name -match "setup|EgressAPIKEY" -and $_.FullName -match "release" -and $_.FullName -notmatch "bundle" }
+$bundles = Get-ChildItem -Path "src-tauri/target","target" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in ".msi",".exe" -and $_.FullName -match "release" -and $_.FullName -notmatch "bundle" -and $_.FullName -notmatch "[\\/]deps[\\/]" -and $_.Name -in @("EgressAPIKEY.exe", "EgressAPIKEY-setup.exe", "EgressAPIKEY_*.msi") }
 foreach($f in $bundles) { Copy-Item $f.FullName "$GUI_STAGE/" -Force; Write-Host "[build-all] staged bundle: $($f.Name)" }
 
 # Find and copy portable GUI binary
-$portBin = Get-ChildItem -Path "src-tauri/target","target" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq "EgressAPIKEY.exe") -and $_.FullName -match "release" -and $_.FullName -notmatch "bundle" } | Select-Object -First 1
+$portBin = Get-ChildItem -Path "src-tauri/target","target" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq "EgressAPIKEY.exe") -and $_.FullName -match "release" -and $_.FullName -notmatch "bundle" -and $_.FullName -notmatch "[\\/]deps[\\/]" } | Select-Object -First 1
 if(-not $portBin) { Write-Error "[build-all] ERROR: portable GUI binary not found"; exit 1 }
 Copy-Item $portBin.FullName "$GUI_STAGE/EgressAPIKEY.exe" -Force
 Write-Host "[build-all] portable GUI staged: $GUI_STAGE/EgressAPIKEY.exe"

@@ -24,6 +24,7 @@ import {
   ipcPlatformCreateWithFields, ipcPlatformLeases,
   ipChannelList, ipChannelPolicySet, ipChannelCreate, ipChannelDelete,
   ipcPortList, ipcPortUpsert, ipcPortRemove, ipcPortRunning, ipcPortReload,
+  ipcPortHealthCheck,
   ipcWhiteboxPath, ipcWhiteboxGet, ipcWhiteboxReload,
   ipcIpReputationSnapshot,
   ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
@@ -340,6 +341,23 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     expect(invokeMock).toHaveBeenCalledWith("whitebox_reload", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 
+  it("ipcPortHealthCheck forwards port + protocol", async () => {
+    invokeMock.mockResolvedValueOnce({ port: 17990, reachable: true, socks5_ok: true, protocol_mismatch: false, latency_ms: 5, reason: "ok" });
+    await ipcPortHealthCheck(17990, "socks5");
+    expect(invokeMock).toHaveBeenCalledWith("port_health_check", expect.objectContaining({ port: 17990, protocol: "socks5" }));
+  });
+
+  it("ipcPortHealthCheck defaults to socks5 when protocol omitted", async () => {
+    invokeMock.mockResolvedValueOnce({ port: 17991, reachable: true, socks5_ok: true, protocol_mismatch: false, latency_ms: 3, reason: "ok" });
+    await ipcPortHealthCheck(17991);
+    expect(invokeMock).toHaveBeenCalledWith("port_health_check", expect.objectContaining({ port: 17991, protocol: "socks5" }));
+  });
+
+  it("ipcPortHealthCheck rejects invalid protocol before invoke", async () => {
+    await expect(ipcPortHealthCheck(17990, "ftp")).rejects.toThrow(/protocol must be socks5 or http/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
 describe("strategy IPC (T4-4)", () => {
   it("ipcStrategyConfigGet forwards to strategy_config_get", async () => {
     invokeMock.mockResolvedValueOnce({ version: 1, platforms: [] });
@@ -374,4 +392,3 @@ describe("strategy IPC (T4-4)", () => {
   });
 });
 });
-
