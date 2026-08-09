@@ -42,6 +42,20 @@
     "importError": "Errore importazione",
     "backupCreated": "Backup creato: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Impossibile eliminare la piattaforma predefinita",
+    "authRequired": "Autenticazione richiesta",
+    "authFailed": "Autenticazione fallita",
+    "urlParse": "Formato URL non valido",
+    "invalidProtocol": "Protocollo non valido",
+    "upstreamConnectFailed": "Connessione upstream fallita",
+    "upstreamRequestFailed": "Richiesta upstream fallita",
+    "conflict": "Conflitto",
+    "notFound": "Non trovato",
+    "badRequest": "Richiesta errata",
+    "unauthorized": "Non autorizzato",
+    "subscriptionFetch": "Recupero fonte abbonamento fallito (HTTP {{code}})"
+  },
   "log": {
     "title": "Log",
     "clear": "Pulisci",
@@ -129,6 +143,11 @@
     "socks5Auth": "Utente SOCKS5",
     "passwordMasked": "password: (nascosta)"
   },
+  "policy": {
+    "balanced": "Bilanciato",
+    "lowLatency": "Preferisci bassa latenza",
+    "idleIp": "Preferisci IP inattivo"
+  },
   "processRoute": {
     "title": "Instradamento processi",
     "add": "Aggiungi regola",
@@ -167,6 +186,25 @@
     "resinStatus": "Stato Resin",
     "sidecarLoading": "Caricamento...",
     "sidecarAutoPort": "La porta e assegnata dal sidecar Resin."
+  },
+  "strategy": {
+    "title": "Strategia di Uscita",
+    "apply": "Applica",
+    "applyOk": "Strategia applicata con successo",
+    "applyPartial": "Strategia applicata con avvisi — alcune piattaforme non trovate",
+    "noPlatforms": "Nessuna piattaforma configurata",
+    "aClass": "Selezione Nodi (classe A)",
+    "bClass": "Selezione Uscita (classe B)",
+    "manual": "Manuale",
+    "region": "Per Regione",
+    "quality": "Top-N Qualità",
+    "subscription": "Per Abbonamento",
+    "balanced": "Bilanciato",
+    "preferLowLatency": "Preferisci bassa latenza",
+    "preferIdleIp": "Preferisci IP inattivo",
+    "regionsHint": "US,SG,JP (separato da virgole)",
+    "subsHint": "sub1,sub2 (separato da virgole)",
+    "topN": "Nodi max"
   },
   "subscription": {
     "title": "Sottoscrizioni",
@@ -225,24 +263,5 @@
     "show": "Mostra finestra",
     "quit": "Esci",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "Impossibile eliminare la piattaforma predefinita",
-    "authRequired": "Autenticazione richiesta",
-    "authFailed": "Autenticazione fallita",
-    "urlParse": "Formato URL non valido",
-    "invalidProtocol": "Protocollo non valido",
-    "upstreamConnectFailed": "Connessione upstream fallita",
-    "upstreamRequestFailed": "Richiesta upstream fallita",
-    "conflict": "Conflitto",
-    "notFound": "Non trovato",
-    "badRequest": "Richiesta errata",
-    "unauthorized": "Non autorizzato",
-    "subscriptionFetch": "Recupero fonte abbonamento fallito (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Bilanciato",
-    "lowLatency": "Preferisci bassa latenza",
-    "idleIp": "Preferisci IP inattivo"
   }
 }

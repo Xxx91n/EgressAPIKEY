@@ -6,6 +6,11 @@ import { translateError } from "../lib/i18n-error";
 import {
   ipcPlatformRemove,
   ipcPlatformListFull,
+  ipcStrategyConfigGet,
+  ipcStrategyConfigPut,
+  ipcStrategyApply,
+  type PlatformStrategy,
+  type StrategyConfig,
   ipcPlatformLeases,
   ipcPlatformCreateWithFields,
   ipcPlatformUpdate,
@@ -57,6 +62,81 @@ export function PlatformsView() {
   /// ADR-0021 Q1: per-port health probe result (port -> chip color + reason).
   const [health, setHealth] = useState<Record<number, PortHealthCheck>>({});
   const [copiedPort, setCopiedPort] = useState<number | null>(null);
+
+  // T4-4: strategy panel state.
+  const [strategyConfig, setStrategyConfig] = useState<StrategyConfig>({ version: 1, platforms: [] });
+  const [strategyBusy, setStrategyBusy] = useState(false);
+  const [strategyRegionsInput, setStrategyRegionsInput] = useState<Record<string, string>>({});
+  const [strategySubsInput, setStrategySubsInput] = useState<Record<string, string>>({});
+  const [strategyTopNInput, setStrategyTopNInput] = useState<Record<string, string>>({});
+
+  const refreshStrategy = useCallback(async () => {
+    try {
+      const cfg = await ipcStrategyConfigGet();
+      if (cfg && cfg.version === 1 && Array.isArray(cfg.platforms)) setStrategyConfig(cfg);
+    } catch { /* outside Tauri */ }
+  }, []);
+
+
+  const updateStrategyField = (platformName: string, field: keyof PlatformStrategy, value: string | string[]) => {
+    setStrategyConfig((prev) => {
+      let platforms = [...prev.platforms];
+      let idx = platforms.findIndex((p) => p.platform_name === platformName);
+      if (idx === -1) {
+        platforms.push({ platform_name: platformName, a_class: "manual", b_class: "balanced" });
+        idx = platforms.length - 1;
+      }
+      platforms[idx] = { ...platforms[idx], [field]: value };
+      return { ...prev, platforms };
+    });
+  };
+
+  const handleApplyStrategy = async () => {
+    setStrategyBusy(true);
+    try {
+      await ipcStrategyConfigPut(strategyConfig);
+      const result = await ipcStrategyApply();
+      const allPatched = result.platforms.every((p) => p.patched);
+      showToast(allPatched ? "ok" : "err", allPatched ? t("strategy.applyOk") : t("strategy.applyPartial"));
+      await refreshPlatforms();
+    } catch (e) { showToast("err", translateError(e, t)); }
+    finally { setStrategyBusy(false); }
+  };
+
+  const handleAddRegion = (platformName: string) => {
+    const input = (strategyRegionsInput[platformName] ?? "").trim();
+    if (!input) return;
+    const regions = input.split(",").map((r) => r.trim().toLowerCase()).filter(Boolean);
+    const existing = strategyConfig.platforms.find((p) => p.platform_name === platformName);
+    const current = existing?.regions ?? [];
+    const merged = [...new Set([...current, ...regions])];
+    updateStrategyField(platformName, "regions", merged);
+    setStrategyRegionsInput((s) => ({ ...s, [platformName]: "" }));
+  };
+
+  const handleAddSub = (platformName: string) => {
+    const input = (strategySubsInput[platformName] ?? "").trim();
+    if (!input) return;
+    const subs = input.split(",").map((s) => s.trim()).filter(Boolean);
+    const existing = strategyConfig.platforms.find((p) => p.platform_name === platformName);
+    const current = existing?.subscriptions ?? [];
+    const merged = [...new Set([...current, ...subs])];
+    updateStrategyField(platformName, "subscriptions", merged);
+    setStrategySubsInput((s) => ({ ...s, [platformName]: "" }));
+  };
+
+  const removeRegion = (platformName: string, region: string) => {
+    const existing = strategyConfig.platforms.find((p) => p.platform_name === platformName);
+    const current = existing?.regions ?? [];
+    updateStrategyField(platformName, "regions", current.filter((r) => r !== region));
+  };
+
+  const removeSub = (platformName: string, sub: string) => {
+    const existing = strategyConfig.platforms.find((p) => p.platform_name === platformName);
+    const current = existing?.subscriptions ?? [];
+    updateStrategyField(platformName, "subscriptions", current.filter((s) => s !== sub));
+  };
+
   const containerRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
 
@@ -135,7 +215,8 @@ export function PlatformsView() {
     loadSplitRatio().then((r) => { if (typeof r === "number" && r > 0.15 && r < 0.85) setSplitRatio(r); }).catch(() => {});
     void refreshPorts().then((list) => { void refreshPortAuthAndHealth(list); });
     void refreshPlatforms();
-  }, [refreshPorts, refreshPortAuthAndHealth, refreshPlatforms]);
+    void refreshStrategy();
+  }, [refreshPorts, refreshPortAuthAndHealth, refreshPlatforms, refreshStrategy]);
 
   const handleAddPort = async () => {
     const port = Number(newPort);
@@ -356,6 +437,98 @@ export function PlatformsView() {
               );
             })}
           </ul>
+
+        {/* T4-4: Strategy panel */}
+        <div className="border-t px-3 py-2" data-testid="strategy-panel">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">{t("strategy.title")}</span>
+            <button type="button" disabled={strategyBusy} onClick={() => void handleApplyStrategy()} className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-xs text-primary-foreground disabled:opacity-50" data-testid="strategy-apply">
+              {strategyBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+              {t("strategy.apply")}
+            </button>
+          </div>
+
+          <div className="mt-2 space-y-2 max-h-40 overflow-auto">
+            {platforms.length === 0 && <p className="text-xs text-muted-foreground">{t("strategy.noPlatforms")}</p>}
+            {platforms.map((p) => {
+              const entry = strategyConfig.platforms.find((s) => s.platform_name === p.name);
+              const aClass = entry?.a_class ?? "manual";
+              const bClass = entry?.b_class ?? "balanced";
+              const regions = entry?.regions ?? [];
+              const subs = entry?.subscriptions ?? [];
+              const topN = entry?.top_n ?? 10;
+              return (
+                <div key={"strategy-" + p.name} className="rounded-md border bg-muted/30 p-2 text-xs" data-testid={"strategy-row-" + p.name}>
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="font-medium">{p.name}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <label className="flex flex-col gap-0.5">
+                      <span className="text-[10px] text-muted-foreground">{t("strategy.aClass")}</span>
+                      <select className="rounded border bg-background px-1.5 py-1 text-[11px]" value={aClass} onChange={(e) => updateStrategyField(p.name, "a_class", e.target.value)} data-testid={"strategy-aclass-" + p.name}>
+                        <option value="manual">{t("strategy.manual")}</option>
+                        <option value="region">{t("strategy.region")}</option>
+                        <option value="quality">{t("strategy.quality")}</option>
+                        <option value="subscription">{t("strategy.subscription")}</option>
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-0.5">
+                      <span className="text-[10px] text-muted-foreground">{t("strategy.bClass")}</span>
+                      <select className="rounded border bg-background px-1.5 py-1 text-[11px]" value={bClass} onChange={(e) => updateStrategyField(p.name, "b_class", e.target.value)} data-testid={"strategy-bclass-" + p.name}>
+                        <option value="balanced">{t("strategy.balanced")}</option>
+                        <option value="prefer_low_latency">{t("strategy.preferLowLatency")}</option>
+                        <option value="prefer_idle_ip">{t("strategy.preferIdleIp")}</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  {aClass === "region" && (
+                    <div className="mt-1.5">
+                      <div className="flex gap-1">
+                        <input className="flex-1 rounded border bg-background px-1.5 py-1 text-[11px]" value={strategyRegionsInput[p.name] ?? ""} onChange={(e) => setStrategyRegionsInput((s) => ({ ...s, [p.name]: e.target.value }))} placeholder={t("strategy.regionsHint")} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddRegion(p.name); } }} data-testid={"strategy-regions-input-" + p.name} />
+                        <button type="button" className="rounded border px-1.5 py-1 text-[11px]" onClick={() => handleAddRegion(p.name)}>+</button>
+                      </div>
+                      {regions.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {regions.map((r) => (
+                            <button key={r} type="button" className="inline-flex items-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px]" onClick={() => removeRegion(p.name, r)}>
+                              {r} <span className="text-red-500">x</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {aClass === "subscription" && (
+                    <div className="mt-1.5">
+                      <div className="flex gap-1">
+                        <input className="flex-1 rounded border bg-background px-1.5 py-1 text-[11px]" value={strategySubsInput[p.name] ?? ""} onChange={(e) => setStrategySubsInput((s) => ({ ...s, [p.name]: e.target.value }))} placeholder={t("strategy.subsHint")} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddSub(p.name); } }} data-testid={"strategy-subs-input-" + p.name} />
+                        <button type="button" className="rounded border px-1.5 py-1 text-[11px]" onClick={() => handleAddSub(p.name)}>+</button>
+                      </div>
+                      {subs.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {subs.map((s) => (
+                            <button key={s} type="button" className="inline-flex items-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px]" onClick={() => removeSub(p.name, s)}>
+                              {s} <span className="text-red-500">x</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {aClass === "quality" && (
+                    <label className="mt-1.5 flex items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground">{t("strategy.topN")}</span>
+                      <input type="number" min={1} max={1000} className="w-20 rounded border bg-background px-1.5 py-1 text-[11px]" value={strategyTopNInput[p.name] ?? String(topN)} onChange={(e) => { setStrategyTopNInput((s) => ({ ...s, [p.name]: e.target.value })); updateStrategyField(p.name, "top_n", e.target.value); }} data-testid={"strategy-topn-" + p.name} />
+                    </label>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
         </div>
       </div>
 

@@ -42,6 +42,20 @@
     "importError": "आयात त्रुटि",
     "backupCreated": "बैकअप बनाया गया: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "डिफ़ॉल्ट प्लेटफ़ॉर्म हटाया नहीं जा सकता",
+    "authRequired": "प्रमाणीकरण आवश्यक है",
+    "authFailed": "प्रमाणीकरण विफल",
+    "urlParse": "अमान्य URL प्रारूप",
+    "invalidProtocol": "अमान्य प्रोटोकॉल",
+    "upstreamConnectFailed": "अपस्ट्रीम कनेक्शन विफल",
+    "upstreamRequestFailed": "अपस्ट्रीम अनुरोध विफल",
+    "conflict": "विरोध",
+    "notFound": "नहीं मिला",
+    "badRequest": "अमान्य अनुरोध",
+    "unauthorized": "अनधिकृत",
+    "subscriptionFetch": "सब्स्क्रिप्शन स्रोत लाना विफल (HTTP {{code}})"
+  },
   "log": {
     "title": "लॉग",
     "clear": "साफ़ करें",
@@ -129,6 +143,11 @@
     "socks5Auth": "SOCKS5 उपयोगकर्ता",
     "passwordMasked": "पासवर्ड: (छिपा हुआ)"
   },
+  "policy": {
+    "balanced": "संतुलित",
+    "lowLatency": "कम विलंबता पसंद",
+    "idleIp": "निष्क्रिय IP पसंद"
+  },
   "processRoute": {
     "title": "प्रक्रिया मार्ग",
     "add": "नियम जोड़ें",
@@ -167,6 +186,25 @@
     "resinStatus": "Resin स्थिति",
     "sidecarLoading": "लोड हो रहा है...",
     "sidecarAutoPort": "पोर्ट Resin साइडकार द्वारा स्वतः आवंटित किया गया है।"
+  },
+  "strategy": {
+    "title": "निकास रणनीति",
+    "apply": "लागू करें",
+    "applyOk": "रणनीति सफलतापूर्वक लागू की गई",
+    "applyPartial": "रणनीति लागू की गई चेतावनियों के साथ — कुछ प्लेटफ़ॉर्म नहीं मिले",
+    "noPlatforms": "कोई प्लेटफ़ॉर्म कॉन्फ़िगर नहीं",
+    "aClass": "नोड चयन (A-वर्ग)",
+    "bClass": "निकास चयन (B-वर्ग)",
+    "manual": "मैनुअल",
+    "region": "क्षेत्र अनुसार",
+    "quality": "Top-N गुणवत्ता",
+    "subscription": "सदस्यता अनुसार",
+    "balanced": "संतुलित",
+    "preferLowLatency": "कम विलंबता पसंद",
+    "preferIdleIp": "निष्क्रिय IP पसंद",
+    "regionsHint": "US,SG,JP (अल्पविराम से अलग)",
+    "subsHint": "sub1,sub2 (अल्पविराम से अलग)",
+    "topN": "अधिकतम नोड"
   },
   "subscription": {
     "title": "सब्सक्रिप्शन",
@@ -225,24 +263,5 @@
     "show": "विंडो दिखाएं",
     "quit": "बाहर निकलें",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "डिफ़ॉल्ट प्लेटफ़ॉर्म हटाया नहीं जा सकता",
-    "authRequired": "प्रमाणीकरण आवश्यक है",
-    "authFailed": "प्रमाणीकरण विफल",
-    "urlParse": "अमान्य URL प्रारूप",
-    "invalidProtocol": "अमान्य प्रोटोकॉल",
-    "upstreamConnectFailed": "अपस्ट्रीम कनेक्शन विफल",
-    "upstreamRequestFailed": "अपस्ट्रीम अनुरोध विफल",
-    "conflict": "विरोध",
-    "notFound": "नहीं मिला",
-    "badRequest": "अमान्य अनुरोध",
-    "unauthorized": "अनधिकृत",
-    "subscriptionFetch": "सब्स्क्रिप्शन स्रोत लाना विफल (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "संतुलित",
-    "lowLatency": "कम विलंबता पसंद",
-    "idleIp": "निष्क्रिय IP पसंद"
   }
 }

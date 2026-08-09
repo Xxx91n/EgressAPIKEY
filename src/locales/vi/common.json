@@ -42,6 +42,20 @@
     "importError": "Lỗi nhập",
     "backupCreated": "Đã sao lưu: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Khong the xoa nen tang mac dinh",
+    "authRequired": "Can xac thuc",
+    "authFailed": "Xac thuc that bai",
+    "urlParse": "Dinh dang URL khong hop le",
+    "invalidProtocol": "Giao thuc khong hop le",
+    "upstreamConnectFailed": "Ket noi nguon len that bai",
+    "upstreamRequestFailed": "Yeu cau nguon len that bai",
+    "conflict": "Xung dot",
+    "notFound": "Khong tim thay",
+    "badRequest": "Yeu cau khong hop le",
+    "unauthorized": "Khong duoc uy quyen",
+    "subscriptionFetch": "Lấy nguồn đăng ký thất bại (HTTP {{code}})"
+  },
   "log": {
     "title": "Nhật ký",
     "clear": "Xóa",
@@ -129,6 +143,11 @@
     "socks5Auth": "Người dùng SOCKS5",
     "passwordMasked": "mật khẩu: (ẩn)"
   },
+  "policy": {
+    "balanced": "Can bang",
+    "lowLatency": "Uu tien do tre thap",
+    "idleIp": "Uu tien IP ranh roi"
+  },
   "processRoute": {
     "title": "Tuyến tiến trình",
     "add": "Thêm quy tắc",
@@ -167,6 +186,25 @@
     "resinStatus": "Trạng thái Resin",
     "sidecarLoading": "Đang tải...",
     "sidecarAutoPort": "Cổng được sidecar Resin tự động gán."
+  },
+  "strategy": {
+    "title": "Chiến lược Egess",
+    "apply": "Áp dụng",
+    "applyOk": "Áp dụng chiến lược thành công",
+    "applyPartial": "Áp dụng chiến lược với cảnh báo — không tìm thấy một số nền tảng",
+    "noPlatforms": "Chưa cấu hình nền tảng",
+    "aClass": "Chọn Node (lớp A)",
+    "bClass": "Chọn Egess (lớp B)",
+    "manual": "Thủ công",
+    "region": "Theo khu vực",
+    "quality": "Top-N chất lượng",
+    "subscription": "Theo đăng ký",
+    "balanced": "Cân bằng",
+    "preferLowLatency": "Ưu tiên độ trễ thấp",
+    "preferIdleIp": "Ưu tiên IP nhàn rỗi",
+    "regionsHint": "US,SG,JP (cách nhau dấu phẩy)",
+    "subsHint": "sub1,sub2 (cách nhau dấu phẩy)",
+    "topN": "Tối đa node"
   },
   "subscription": {
     "title": "Đăng ký",
@@ -225,24 +263,5 @@
     "show": "Hiện cửa sổ",
     "quit": "Thoát",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "Khong the xoa nen tang mac dinh",
-    "authRequired": "Can xac thuc",
-    "authFailed": "Xac thuc that bai",
-    "urlParse": "Dinh dang URL khong hop le",
-    "invalidProtocol": "Giao thuc khong hop le",
-    "upstreamConnectFailed": "Ket noi nguon len that bai",
-    "upstreamRequestFailed": "Yeu cau nguon len that bai",
-    "conflict": "Xung dot",
-    "notFound": "Khong tim thay",
-    "badRequest": "Yeu cau khong hop le",
-    "unauthorized": "Khong duoc uy quyen",
-    "subscriptionFetch": "Lấy nguồn đăng ký thất bại (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Can bang",
-    "lowLatency": "Uu tien do tre thap",
-    "idleIp": "Uu tien IP ranh roi"
   }
 }

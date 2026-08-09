@@ -42,6 +42,20 @@
     "importError": "Importfehler",
     "backupCreated": "Backup erstellt: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Standard-Plattform kann nicht geloescht werden",
+    "authRequired": "Authentifizierung erforderlich",
+    "authFailed": "Authentifizierung fehlgeschlagen",
+    "urlParse": "Ungueltiges URL-Format",
+    "invalidProtocol": "Ungueltiges Protokoll",
+    "upstreamConnectFailed": "Upstream-Verbindung fehlgeschlagen",
+    "upstreamRequestFailed": "Upstream-Anfrage fehlgeschlagen",
+    "conflict": "Konflikt",
+    "notFound": "Nicht gefunden",
+    "badRequest": "Ungueltige Anfrage",
+    "unauthorized": "Nicht autorisiert",
+    "subscriptionFetch": "Abrufen der Abonnement-Quelle fehlgeschlagen (HTTP {{code}})"
+  },
   "log": {
     "title": "Protokolle",
     "clear": "Leeren",
@@ -129,6 +143,11 @@
     "socks5Auth": "SOCKS5-Benutzer",
     "passwordMasked": "Passwort: (versteckt)"
   },
+  "policy": {
+    "balanced": "Ausgeglichen",
+    "lowLatency": "Bevorzugt niedrige Latenz",
+    "idleIp": "Bevorzugt inaktive IP"
+  },
   "processRoute": {
     "title": "Prozessroute",
     "add": "Routing-Regel hinzufügen",
@@ -167,6 +186,25 @@
     "resinStatus": "Resin-Status",
     "sidecarLoading": "Laden...",
     "sidecarAutoPort": "Port wird vom Resin-Sidecar automatisch zugewiesen."
+  },
+  "strategy": {
+    "title": "Egress-Strategie",
+    "apply": "Anwenden",
+    "applyOk": "Strategie erfolgreich angewendet",
+    "applyPartial": "Strategie angewendet mit Warnungen — einige Plattformen nicht gefunden",
+    "noPlatforms": "Keine Plattformen konfiguriert",
+    "aClass": "Knotenauswahl (A-Klasse)",
+    "bClass": "Egress-Auswahl (B-Klasse)",
+    "manual": "Manuell",
+    "region": "Nach Region",
+    "quality": "Top-N Qualität",
+    "subscription": "Nach Abonnement",
+    "balanced": "Ausgeglichen",
+    "preferLowLatency": "Bevorzuge niedrige Latenz",
+    "preferIdleIp": "Bevorzuge inaktive IP",
+    "regionsHint": "US,SG,JP (durch Kommas getrennt)",
+    "subsHint": "sub1,sub2 (durch Kommas getrennt)",
+    "topN": "Max. Knoten"
   },
   "subscription": {
     "title": "Abonnements",
@@ -225,24 +263,5 @@
     "show": "Fenster anzeigen",
     "quit": "Beenden",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "Standard-Plattform kann nicht geloescht werden",
-    "authRequired": "Authentifizierung erforderlich",
-    "authFailed": "Authentifizierung fehlgeschlagen",
-    "urlParse": "Ungueltiges URL-Format",
-    "invalidProtocol": "Ungueltiges Protokoll",
-    "upstreamConnectFailed": "Upstream-Verbindung fehlgeschlagen",
-    "upstreamRequestFailed": "Upstream-Anfrage fehlgeschlagen",
-    "conflict": "Konflikt",
-    "notFound": "Nicht gefunden",
-    "badRequest": "Ungueltige Anfrage",
-    "unauthorized": "Nicht autorisiert",
-    "subscriptionFetch": "Abrufen der Abonnement-Quelle fehlgeschlagen (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Ausgeglichen",
-    "lowLatency": "Bevorzugt niedrige Latenz",
-    "idleIp": "Bevorzugt inaktive IP"
   }
 }

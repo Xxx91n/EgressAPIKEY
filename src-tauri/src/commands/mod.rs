@@ -1842,6 +1842,99 @@ pub async fn port_health_check(port: u16) -> Result<PortHealthCheck, String> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Strategy Engine (T4-4 / ADR-0022) — whitebox per-platform strategy config.
+// The shell polls Resin /nodes, applies A-class filters, PATCHes region_filters.
+// B-class maps to Resin allocation_policy via the existing platform_update IPC.
+
+#[tauri::command]
+pub async fn strategy_config_get(app: AppHandle) -> Result<serde_json::Value, String> {
+    let dir = std::path::PathBuf::from(get_config_dir(app)?);
+    let path = dir.join("egressapikey-strategy.json");
+    if !path.exists() {
+        let default = resin_core::StrategyConfig::default();
+        return serde_json::to_value(&default).map_err(|e| e.to_string());
+    }
+    let raw = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    serde_json::from_str::<serde_json::Value>(&raw).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn strategy_config_put(
+    app: AppHandle,
+    config: serde_json::Value,
+) -> Result<(), String> {
+    let dir = std::path::PathBuf::from(get_config_dir(app)?);
+    let path = dir.join("egressapikey-strategy.json");
+    let typed: resin_core::StrategyConfig =
+        serde_json::from_value(config).map_err(|e| format!("strategy config invalid: {e}"))?;
+    if typed.version != 1 {
+        return Err("strategy config version must be 1".into());
+    }
+    for ps in &typed.platforms {
+        if ps.platform_name.is_empty() || ps.platform_name.len() > 128 {
+            return Err("platform_name must be 1..128 chars".to_string());
+        }
+        if ps.regions.len() > 64 {
+            return Err("regions list too long (max 64)".to_string());
+        }
+        if ps.subscriptions.len() > 64 {
+            return Err("subscriptions list too long (max 64)".to_string());
+        }
+        if ps.top_n > 1000 {
+            return Err("top_n too large (max 1000)".to_string());
+        }
+    }
+    let json = serde_json::to_string_pretty(&typed).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn strategy_apply(
+    sidecar: State<'_, SidecarHandle>,
+    app: AppHandle,
+) -> Result<serde_json::Value, String> {
+    let dir = std::path::PathBuf::from(get_config_dir(app)?);
+    let path = dir.join("egressapikey-strategy.json");
+    let raw = if path.exists() {
+        std::fs::read_to_string(&path).map_err(|e| e.to_string())?
+    } else {
+        serde_json::to_string(&resin_core::StrategyConfig::default()).map_err(|e| e.to_string())?
+    };
+    let config: resin_core::StrategyConfig =
+        serde_json::from_str(&raw).map_err(|e| format!("strategy config parse error: {e}"))?;
+
+    let client = resin_client(&sidecar)?;
+    let nodes_v = client.list_nodes().await.map_err(|e| e.to_string())?;
+    let nodes = resin_core::parse_nodes(&nodes_v);
+
+    let plan = resin_core::compute_plan(&config, &nodes);
+    let mut applied = serde_json::json!({"platforms": []});
+    let platforms_arr = applied["platforms"].as_array_mut().unwrap();
+
+    for (platform_name, regions) in &plan {
+        let platforms_v = client.list_platforms().await.map_err(|e| e.to_string())?;
+        if let Some(id) = platform_id_for_name(&platforms_v, platform_name) {
+            let body = serde_json::json!({"region_filters": regions});
+            let _ = client.update_platform(&id, body).await;
+            platforms_arr.push(serde_json::json!({
+                "platform": platform_name,
+                "region_filters": regions,
+                "patched": true,
+            }));
+        } else {
+            platforms_arr.push(serde_json::json!({
+                "platform": platform_name,
+                "region_filters": regions,
+                "patched": false,
+                "reason": "platform not found",
+            }));
+        }
+    }
+    Ok(applied)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

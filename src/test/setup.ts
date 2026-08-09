@@ -134,6 +134,7 @@ beforeAll(async () => {
         "common.confirm": "Confirm",
         "common.edit": "Edit",
         "theme.label": "Theme", "theme.light": "Light", "theme.dark": "Dark", "theme.system": "System",
+        "strategy.title": "Egress Strategy", "strategy.apply": "Apply", "strategy.applyOk": "Strategy applied", "strategy.applyPartial": "Strategy applied with warnings", "strategy.noPlatforms": "No platforms configured", "strategy.aClass": "Node Selection", "strategy.bClass": "Egress Selection", "strategy.manual": "Manual", "strategy.region": "By Region", "strategy.quality": "Top-N Quality", "strategy.subscription": "By Subscription", "strategy.balanced": "Balanced", "strategy.preferLowLatency": "Prefer low latency", "strategy.preferIdleIp": "Prefer idle IP", "strategy.regionsHint": "US,SG,JP", "strategy.subsHint": "sub1,sub2", "strategy.topN": "Max nodes",
         "app.title": "AI API Route",
         "nav.topology": "Topology", "nav.platforms": "Platforms", "nav.settings": "Settings",
         "nav.processRoute": "Process Route", "nav.subscriptions": "Subscriptions",

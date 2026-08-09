@@ -42,6 +42,20 @@
     "importError": "Ошибка импорта",
     "backupCreated": "Резервная копия: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Невозможно удалить платформу по умолчанию",
+    "authRequired": "Требуется аутентификация",
+    "authFailed": "Ошибка аутентификации",
+    "urlParse": "Неверный формат URL",
+    "invalidProtocol": "Неверный протокол",
+    "upstreamConnectFailed": "Ошибка подключения к восходящему серверу",
+    "upstreamRequestFailed": "Ошибка запроса к восходящему серверу",
+    "conflict": "Конфликт",
+    "notFound": "Не найдено",
+    "badRequest": "Неверный запрос",
+    "unauthorized": "Не авторизован",
+    "subscriptionFetch": "Не удалось получить источник подписки (HTTP {{code}})"
+  },
   "log": {
     "title": "Журнал",
     "clear": "Очистить",
@@ -129,6 +143,11 @@
     "socks5Auth": "Пользователь SOCKS5",
     "passwordMasked": "пароль: (скрыт)"
   },
+  "policy": {
+    "balanced": "Сбалансированный",
+    "lowLatency": "Предпочитать низкую задержку",
+    "idleIp": "Предпочтировать свободный IP"
+  },
   "processRoute": {
     "title": "Маршрут процесса",
     "add": "Добавить правило маршрутизации",
@@ -167,6 +186,25 @@
     "resinStatus": "Статус Resin",
     "sidecarLoading": "Загрузка...",
     "sidecarAutoPort": "Порт назначается автоматически sidecar Resin."
+  },
+  "strategy": {
+    "title": "Стратегия выхода",
+    "apply": "Применить",
+    "applyOk": "Стратегия успешно применена",
+    "applyPartial": "Стратегия применена с предупреждениями — некоторые платформы не найдены",
+    "noPlatforms": "Платформы не настроены",
+    "aClass": "Выбор узлов (класс A)",
+    "bClass": "Выбор выхода (класс B)",
+    "manual": "Вручную",
+    "region": "По регионам",
+    "quality": "Top-N качество",
+    "subscription": "По подпискам",
+    "balanced": "Сбалансировано",
+    "preferLowLatency": "Предпочитать низкую задержку",
+    "preferIdleIp": "Предпочитать простой IP",
+    "regionsHint": "US,SG,JP (через запятую)",
+    "subsHint": "sub1,sub2 (через запятую)",
+    "topN": "Макс. узлов"
   },
   "subscription": {
     "title": "Подписки",
@@ -225,24 +263,5 @@
     "show": "Показать окно",
     "quit": "Выйти",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "Невозможно удалить платформу по умолчанию",
-    "authRequired": "Требуется аутентификация",
-    "authFailed": "Ошибка аутентификации",
-    "urlParse": "Неверный формат URL",
-    "invalidProtocol": "Неверный протокол",
-    "upstreamConnectFailed": "Ошибка подключения к восходящему серверу",
-    "upstreamRequestFailed": "Ошибка запроса к восходящему серверу",
-    "conflict": "Конфликт",
-    "notFound": "Не найдено",
-    "badRequest": "Неверный запрос",
-    "unauthorized": "Не авторизован",
-    "subscriptionFetch": "Не удалось получить источник подписки (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Сбалансированный",
-    "lowLatency": "Предпочитать низкую задержку",
-    "idleIp": "Предпочтировать свободный IP"
   }
 }

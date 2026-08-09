@@ -42,6 +42,20 @@
     "importError": "导入错误",
     "backupCreated": "备份已创建：{{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "无法删除默认平台",
+    "authRequired": "需要认证",
+    "authFailed": "认证失败",
+    "urlParse": "URL 格式无效",
+    "invalidProtocol": "协议无效",
+    "upstreamConnectFailed": "上游连接失败",
+    "upstreamRequestFailed": "上游请求失败",
+    "conflict": "冲突",
+    "notFound": "未找到",
+    "badRequest": "请求格式错误",
+    "unauthorized": "未授权",
+    "subscriptionFetch": "订阅源拉取失败 (HTTP {{code}})"
+  },
   "log": {
     "title": "日志",
     "clear": "清空",
@@ -129,6 +143,11 @@
     "socks5Auth": "SOCKS5 用户名",
     "passwordMasked": "密码: (已隐藏)"
   },
+  "policy": {
+    "balanced": "均衡",
+    "lowLatency": "优先低延迟",
+    "idleIp": "优先空闲 IP"
+  },
   "processRoute": {
     "title": "进程路由",
     "add": "添加路由规则",
@@ -167,6 +186,25 @@
     "resinStatus": "Resin 状态",
     "sidecarLoading": "加载中...",
     "sidecarAutoPort": "端口由 Resin sidecar 自动分配，无需手动配置。"
+  },
+  "strategy": {
+    "title": "出口策略",
+    "apply": "应用",
+    "applyOk": "策略应用成功",
+    "applyPartial": "策略已应用但有警告 — 部分平台未找到",
+    "noPlatforms": "尚未配置平台",
+    "aClass": "节点选择 (A类)",
+    "bClass": "出口选择 (B类)",
+    "manual": "手动",
+    "region": "按地区",
+    "quality": "Top-N 质量",
+    "subscription": "按订阅",
+    "balanced": "均衡",
+    "preferLowLatency": "优先低延时",
+    "preferIdleIp": "优先空闲IP",
+    "regionsHint": "US,SG,JP (逗号分隔)",
+    "subsHint": "sub1,sub2 (逗号分隔)",
+    "topN": "最大节点数"
   },
   "subscription": {
     "title": "订阅",
@@ -225,24 +263,5 @@
     "show": "显示窗口",
     "quit": "退出",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "无法删除默认平台",
-    "authRequired": "需要认证",
-    "authFailed": "认证失败",
-    "urlParse": "URL 格式无效",
-    "invalidProtocol": "协议无效",
-    "upstreamConnectFailed": "上游连接失败",
-    "upstreamRequestFailed": "上游请求失败",
-    "conflict": "冲突",
-    "notFound": "未找到",
-    "badRequest": "请求格式错误",
-    "unauthorized": "未授权",
-    "subscriptionFetch": "订阅源拉取失败 (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "均衡",
-    "lowLatency": "优先低延迟",
-    "idleIp": "优先空闲 IP"
   }
 }

@@ -42,6 +42,20 @@
     "importError": "Błąd importu",
     "backupCreated": "Utworzono kopię: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Nie mozna usunac platformy domyslnej",
+    "authRequired": "Wymagane uwierzytelnienie",
+    "authFailed": "Uwierzytelnienie nie powiodlo sie",
+    "urlParse": "Nieprawidlowy format URL",
+    "invalidProtocol": "Nieprawidlowy protokol",
+    "upstreamConnectFailed": "Polaczenie upstream nie powiodlo sie",
+    "upstreamRequestFailed": "Zadanie upstream nie powiodlo sie",
+    "conflict": "Konflikt",
+    "notFound": "Nie znaleziono",
+    "badRequest": "Nieprawidlowe zadanie",
+    "unauthorized": "Nieautoryzowany",
+    "subscriptionFetch": "Nie udało się pobrać źródła subskrypcji (HTTP {{code}})"
+  },
   "log": {
     "title": "Logi",
     "clear": "Wyczyść",
@@ -129,6 +143,11 @@
     "socks5Auth": "Użytkownik SOCKS5",
     "passwordMasked": "hasło: (ukryte)"
   },
+  "policy": {
+    "balanced": "Zrownowazony",
+    "lowLatency": "Preferuj niskie opoznienie",
+    "idleIp": "Preferuj bezczynny IP"
+  },
   "processRoute": {
     "title": "Trasa procesu",
     "add": "Dodaj regułę",
@@ -167,6 +186,25 @@
     "resinStatus": "Status Resin",
     "sidecarLoading": "Ładowanie...",
     "sidecarAutoPort": "Port jest automatycznie przypisywany przez sidecar Resin."
+  },
+  "strategy": {
+    "title": "Strategia Wyjścia",
+    "apply": "Zastosuj",
+    "applyOk": "Strategia zastosowana pomyślnie",
+    "applyPartial": "Strategia zastosowana z ostrzeżeniami — niektóre platformy nie znaleziono",
+    "noPlatforms": "Brak skonfigurowanych platform",
+    "aClass": "Wybór Węzłów (klasa A)",
+    "bClass": "Wybór Wyjścia (klasa B)",
+    "manual": "Ręczny",
+    "region": "Według Regionu",
+    "quality": "Top-N Jakość",
+    "subscription": "Według Subskrypcji",
+    "balanced": "Zrównoważony",
+    "preferLowLatency": "Preferuj niskie opóźnienie",
+    "preferIdleIp": "Preferuj bezczynny IP",
+    "regionsHint": "US,SG,JP (oddzielone przecinkami)",
+    "subsHint": "sub1,sub2 (oddzielone przecinkami)",
+    "topN": "Maks. węzłów"
   },
   "subscription": {
     "title": "Subskrypcje",
@@ -225,24 +263,5 @@
     "show": "Pokaż okno",
     "quit": "Zakończ",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "Nie mozna usunac platformy domyslnej",
-    "authRequired": "Wymagane uwierzytelnienie",
-    "authFailed": "Uwierzytelnienie nie powiodlo sie",
-    "urlParse": "Nieprawidlowy format URL",
-    "invalidProtocol": "Nieprawidlowy protokol",
-    "upstreamConnectFailed": "Polaczenie upstream nie powiodlo sie",
-    "upstreamRequestFailed": "Zadanie upstream nie powiodlo sie",
-    "conflict": "Konflikt",
-    "notFound": "Nie znaleziono",
-    "badRequest": "Nieprawidlowe zadanie",
-    "unauthorized": "Nieautoryzowany",
-    "subscriptionFetch": "Nie udało się pobrać źródła subskrypcji (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Zrownowazony",
-    "lowLatency": "Preferuj niskie opoznienie",
-    "idleIp": "Preferuj bezczynny IP"
   }
 }

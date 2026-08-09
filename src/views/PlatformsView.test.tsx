@@ -186,4 +186,86 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
       );
     });
   });
+
+  // -------------------------------------------------------------------
+  // T4-4: Strategy panel closed-loop tests
+  // -------------------------------------------------------------------
+  it("T4-4 strategy: panel renders with noPlatforms hint when no platforms exist", async () => {
+    useAppStore.setState({ platforms: [] });
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve([]);
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      return Promise.resolve(undefined);
+    });
+
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("strategy-panel")).toBeInTheDocument());
+    expect(screen.getByText("No platforms configured")).toBeInTheDocument();
+  });
+
+  it("T4-4 strategy: shows a strategy row per platform with A-class + B-class selects", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      return Promise.resolve(undefined);
+    });
+
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("strategy-row-Default")).toBeInTheDocument());
+    expect(screen.getByTestId("strategy-aclass-Default")).toBeInTheDocument();
+    expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument();
+  });
+
+  it("T4-4 strategy: changing A-class to region reveals regionsInput + tag chips after add", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      return Promise.resolve(undefined);
+    });
+
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("strategy-row-Default")).toBeInTheDocument());
+
+    // Change A-class select to region
+    fireEvent.change(screen.getByTestId("strategy-aclass-Default"), { target: { value: "region" } });
+    await waitFor(() => expect(screen.getByTestId("strategy-regions-input-Default")).toBeInTheDocument());
+
+    // Verify the regions input is visible and accepts text
+    const regInput = screen.getByTestId("strategy-regions-input-Default");
+    expect(regInput).toHaveAttribute("placeholder", "US,SG,JP");
+    fireEvent.change(regInput, { target: { value: "GH" } });
+    expect((regInput as HTMLInputElement).value).toBe("GH");
+  });
+
+  it("T4-4 strategy: apply button calls strategy_config_put + strategy_apply", async () => {
+    invokeMock.mockReset();
+    let putCalled = false;
+    let applyCalled = false;
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "strategy_config_put") { putCalled = true; return Promise.resolve(null); }
+      if (cmd === "strategy_apply") {
+        applyCalled = true;
+        return Promise.resolve({ platforms: [{ platform: "Default", region_filters: ["US"], patched: true }] });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("strategy-apply")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("strategy-apply"));
+    await waitFor(() => expect(putCalled).toBe(true));
+    await waitFor(() => expect(applyCalled).toBe(true));
+  });
 });

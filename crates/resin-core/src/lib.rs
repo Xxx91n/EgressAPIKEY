@@ -20,6 +20,7 @@ pub mod platform;
 pub mod port_forwarder;
 pub mod resin_client;
 pub mod strategy;
+pub mod strategy_engine;
 pub mod stream_sensor;
 pub mod tdewma;
 pub mod whitebox_config;
@@ -36,6 +37,7 @@ pub use port_forwarder::{
 };
 pub use resin_client::{clash_yaml_to_proxies_block, fetch_clash_subscription, ResinClient};
 pub use strategy::{protocol_weight, strategy_catalog, StrategyId, StrategyInfo};
+pub use strategy_engine::{a_class_regions, compute_plan, liveness_filter, parse_nodes, AClassStrategy, PlatformStrategy, StrategyConfig, NodeSummary};
 pub use stream_sensor::{classify_http_headers, StreamKind, StreamSensor, StreamSensorSnapshot};
 pub use tdewma::TdEwma;
 pub use whitebox_config::{

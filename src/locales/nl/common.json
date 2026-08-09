@@ -42,6 +42,20 @@
     "importError": "Importfout",
     "backupCreated": "Backup gemaakt: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Kan standaard platform niet verwijderen",
+    "authRequired": "Authenticatie vereist",
+    "authFailed": "Authenticatie mislukt",
+    "urlParse": "Ongeldig URL-formaat",
+    "invalidProtocol": "Ongeldig protocol",
+    "upstreamConnectFailed": "Upstream verbinding mislukt",
+    "upstreamRequestFailed": "Upstream verzoek mislukt",
+    "conflict": "Conflict",
+    "notFound": "Niet gevonden",
+    "badRequest": "Slecht verzoek",
+    "unauthorized": "Niet geautoriseerd",
+    "subscriptionFetch": "Ophalen abonnementsbron mislukt (HTTP {{code}})"
+  },
   "log": {
     "title": "Logs",
     "clear": "Wissen",
@@ -129,6 +143,11 @@
     "socks5Auth": "SOCKS5-gebruiker",
     "passwordMasked": "wachtwoord: (verborgen)"
   },
+  "policy": {
+    "balanced": "Gebalanceerd",
+    "lowLatency": "Voorkeur lage latentie",
+    "idleIp": "Voorkeur inactieve IP"
+  },
   "processRoute": {
     "title": "Procesroute",
     "add": "Regel toevoegen",
@@ -167,6 +186,25 @@
     "resinStatus": "Resin Status",
     "sidecarLoading": "Laden...",
     "sidecarAutoPort": "Poort wordt automatisch toegewezen door de Resin sidecar."
+  },
+  "strategy": {
+    "title": "Egress Strategie",
+    "apply": "Toepassen",
+    "applyOk": "Strategie succesvol toegepast",
+    "applyPartial": "Strategie toegepast met waarschuwingen — sommige platforms niet gevonden",
+    "noPlatforms": "Geen platforms geconfigureerd",
+    "aClass": "Knoopselectie (A-klasse)",
+    "bClass": "Egress Selectie (B-klasse)",
+    "manual": "Handmatig",
+    "region": "Per Regio",
+    "quality": "Top-N Kwaliteit",
+    "subscription": "Per Abonnement",
+    "balanced": "Gebalanceerd",
+    "preferLowLatency": "Voorkeur lage latenteit",
+    "preferIdleIp": "Voorkeur inactieve IP",
+    "regionsHint": "US,SG,JP (door komma's gescheiden)",
+    "subsHint": "sub1,sub2 (door komma's gescheiden)",
+    "topN": "Max. knooppunten"
   },
   "subscription": {
     "title": "Abonnementen",
@@ -225,24 +263,5 @@
     "show": "Venster tonen",
     "quit": "Afsluiten",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "Kan standaard platform niet verwijderen",
-    "authRequired": "Authenticatie vereist",
-    "authFailed": "Authenticatie mislukt",
-    "urlParse": "Ongeldig URL-formaat",
-    "invalidProtocol": "Ongeldig protocol",
-    "upstreamConnectFailed": "Upstream verbinding mislukt",
-    "upstreamRequestFailed": "Upstream verzoek mislukt",
-    "conflict": "Conflict",
-    "notFound": "Niet gevonden",
-    "badRequest": "Slecht verzoek",
-    "unauthorized": "Niet geautoriseerd",
-    "subscriptionFetch": "Ophalen abonnementsbron mislukt (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Gebalanceerd",
-    "lowLatency": "Voorkeur lage latentie",
-    "idleIp": "Voorkeur inactieve IP"
   }
 }

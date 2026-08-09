@@ -42,6 +42,20 @@
     "importError": "Erro de importação",
     "backupCreated": "Backup criado: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Nao e possivel excluir a plataforma padrao",
+    "authRequired": "Autenticacao necessaria",
+    "authFailed": "Falha na autenticacao",
+    "urlParse": "Formato de URL invalido",
+    "invalidProtocol": "Protocolo invalido",
+    "upstreamConnectFailed": "Falha na conexao upstream",
+    "upstreamRequestFailed": "Falha na solicitacao upstream",
+    "conflict": "Conflito",
+    "notFound": "Nao encontrado",
+    "badRequest": "Solicitacao invalida",
+    "unauthorized": "Nao autorizado",
+    "subscriptionFetch": "Falha ao buscar fonte de assinatura (HTTP {{code}})"
+  },
   "log": {
     "title": "Registros",
     "clear": "Limpar",
@@ -129,6 +143,11 @@
     "socks5Auth": "Usuário SOCKS5",
     "passwordMasked": "senha: (oculta)"
   },
+  "policy": {
+    "balanced": "Equilibrado",
+    "lowLatency": "Preferir baixa latencia",
+    "idleIp": "Preferir IP inativo"
+  },
   "processRoute": {
     "title": "Rota de processo",
     "add": "Adicionar regra de roteamento",
@@ -167,6 +186,25 @@
     "resinStatus": "Status Resin",
     "sidecarLoading": "Carregando...",
     "sidecarAutoPort": "A porta e atribuida automaticamente pelo sidecar Resin."
+  },
+  "strategy": {
+    "title": "Estratégia de Saída",
+    "apply": "Aplicar",
+    "applyOk": "Estratégia aplicada com sucesso",
+    "applyPartial": "Estratégia aplicada com avisos — algumas plataformas não encontradas",
+    "noPlatforms": "Nenhuma plataforma configurada",
+    "aClass": "Seleção de Nós (classe A)",
+    "bClass": "Seleção de Saída (classe B)",
+    "manual": "Manual",
+    "region": "Por Região",
+    "quality": "Top-N Qualidade",
+    "subscription": "Por Assinatura",
+    "balanced": "Equilibrado",
+    "preferLowLatency": "Preferir baixa latência",
+    "preferIdleIp": "Preferir IP inativo",
+    "regionsHint": "US,SG,JP (separado por vírgulas)",
+    "subsHint": "sub1,sub2 (separado por vírgulas)",
+    "topN": "Máx. nós"
   },
   "subscription": {
     "title": "Assinaturas",
@@ -225,24 +263,5 @@
     "show": "Mostrar Janela",
     "quit": "Sair",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "Nao e possivel excluir a plataforma padrao",
-    "authRequired": "Autenticacao necessaria",
-    "authFailed": "Falha na autenticacao",
-    "urlParse": "Formato de URL invalido",
-    "invalidProtocol": "Protocolo invalido",
-    "upstreamConnectFailed": "Falha na conexao upstream",
-    "upstreamRequestFailed": "Falha na solicitacao upstream",
-    "conflict": "Conflito",
-    "notFound": "Nao encontrado",
-    "badRequest": "Solicitacao invalida",
-    "unauthorized": "Nao autorizado",
-    "subscriptionFetch": "Falha ao buscar fonte de assinatura (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Equilibrado",
-    "lowLatency": "Preferir baixa latencia",
-    "idleIp": "Preferir IP inativo"
   }
 }

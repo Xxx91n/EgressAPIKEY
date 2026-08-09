@@ -42,6 +42,20 @@
     "importError": "Error de importación",
     "backupCreated": "Copia creada: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "No se puede eliminar la plataforma predeterminada",
+    "authRequired": "Autenticacion requerida",
+    "authFailed": "Autenticacion fallida",
+    "urlParse": "Formato de URL invalido",
+    "invalidProtocol": "Protocolo invalido",
+    "upstreamConnectFailed": "Conexion ascendente fallida",
+    "upstreamRequestFailed": "Solicitud ascendente fallida",
+    "conflict": "Conflicto",
+    "notFound": "No encontrado",
+    "badRequest": "Solicitud incorrecta",
+    "unauthorized": "No autorizado",
+    "subscriptionFetch": "Error al obtener la fuente de suscripción (HTTP {{code}})"
+  },
   "log": {
     "title": "Registros",
     "clear": "Limpiar",
@@ -129,6 +143,11 @@
     "socks5Auth": "Usuario SOCKS5",
     "passwordMasked": "contraseña: (oculta)"
   },
+  "policy": {
+    "balanced": "Equilibrado",
+    "lowLatency": "Preferir baja latencia",
+    "idleIp": "Preferir IP inactiva"
+  },
   "processRoute": {
     "title": "Ruta de proceso",
     "add": "Añadir regla de enrutamiento",
@@ -167,6 +186,25 @@
     "resinStatus": "Estado de Resin",
     "sidecarLoading": "Cargando...",
     "sidecarAutoPort": "El puerto lo asigna el sidecar de Resin."
+  },
+  "strategy": {
+    "title": "Estrategia de Salida",
+    "apply": "Aplicar",
+    "applyOk": "Estrategia aplicada con éxito",
+    "applyPartial": "Estrategia aplicada con advertencias — algunas plataformas no se encontraron",
+    "noPlatforms": "No hay plataformas configuradas",
+    "aClass": "Selección de Nodos (clase A)",
+    "bClass": "Selección de Salida (clase B)",
+    "manual": "Manual",
+    "region": "Por Región",
+    "quality": "Top-N Calidad",
+    "subscription": "Por Suscripción",
+    "balanced": "Equilibrado",
+    "preferLowLatency": "Preferir baja latencia",
+    "preferIdleIp": "Preferir IP inactiva",
+    "regionsHint": "US,SG,JP (separado por comas)",
+    "subsHint": "sub1,sub2 (separado por comas)",
+    "topN": "Máx. nodos"
   },
   "subscription": {
     "title": "Suscripciones",
@@ -225,24 +263,5 @@
     "show": "Mostrar Ventana",
     "quit": "Salir",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "No se puede eliminar la plataforma predeterminada",
-    "authRequired": "Autenticacion requerida",
-    "authFailed": "Autenticacion fallida",
-    "urlParse": "Formato de URL invalido",
-    "invalidProtocol": "Protocolo invalido",
-    "upstreamConnectFailed": "Conexion ascendente fallida",
-    "upstreamRequestFailed": "Solicitud ascendente fallida",
-    "conflict": "Conflicto",
-    "notFound": "No encontrado",
-    "badRequest": "Solicitud incorrecta",
-    "unauthorized": "No autorizado",
-    "subscriptionFetch": "Error al obtener la fuente de suscripción (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Equilibrado",
-    "lowLatency": "Preferir baja latencia",
-    "idleIp": "Preferir IP inactiva"
   }
 }

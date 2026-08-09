@@ -468,3 +468,55 @@ export interface SidecarStatus {
 export async function ipcGetSidecarStatus(): Promise<SidecarStatus> {
   return invoke<SidecarStatus>("get_sidecar_status");
 }
+
+
+// ---------------------------------------------------------------------------
+// Strategy Engine (T4-4 / ADR-0022) — whitebox per-platform strategy config.
+// ---------------------------------------------------------------------------
+
+export interface PlatformStrategy {
+  platform_name: string;
+  a_class: "manual" | "region" | "quality" | "subscription";
+  b_class: string; // StrategyId serialised as snake_case
+  regions?: string[];
+  subscriptions?: string[];
+  top_n?: number;
+}
+
+export interface StrategyConfig {
+  version: number;
+  platforms: PlatformStrategy[];
+}
+
+export async function ipcStrategyConfigGet(): Promise<StrategyConfig> {
+  return invoke<StrategyConfig>("strategy_config_get");
+}
+
+export async function ipcStrategyConfigPut(config: StrategyConfig): Promise<void> {
+  if (config.version !== 1) throw new Error("strategy config version must be 1");
+  if (!Array.isArray(config.platforms)) throw new Error("platforms must be an array");
+  for (const ps of config.platforms) {
+    if (!ps.platform_name || ps.platform_name.length > 128)
+      throw new Error("platform_name must be 1..128 chars");
+    if (ps.regions && ps.regions.length > 64)
+      throw new Error("regions list too long (max 64)");
+    if (ps.subscriptions && ps.subscriptions.length > 64)
+      throw new Error("subscriptions list too long (max 64)");
+    if (ps.top_n !== undefined && ps.top_n > 1000)
+      throw new Error("top_n too large (max 1000)");
+  }
+  return invoke<void>("strategy_config_put", { config });
+}
+
+export interface StrategyApplyResult {
+  platforms: Array<{
+    platform: string;
+    region_filters: string[];
+    patched: boolean;
+    reason?: string;
+  }>;
+}
+
+export async function ipcStrategyApply(): Promise<StrategyApplyResult> {
+  return invoke<StrategyApplyResult>("strategy_apply");
+}

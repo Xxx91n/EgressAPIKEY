@@ -42,6 +42,20 @@
     "importError": "Kesalahan impor",
     "backupCreated": "Backup dibuat: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Tidak dapat menghapus platform default",
+    "authRequired": "Autentikasi diperlukan",
+    "authFailed": "Autentikasi gagal",
+    "urlParse": "Format URL tidak valid",
+    "invalidProtocol": "Protokol tidak valid",
+    "upstreamConnectFailed": "Koneksi hulu gagal",
+    "upstreamRequestFailed": "Permintaan hulu gagal",
+    "conflict": "Konflik",
+    "notFound": "Tidak ditemukan",
+    "badRequest": "Permintaan buruk",
+    "unauthorized": "Tidak diotorisasi",
+    "subscriptionFetch": "Gagal mengambil sumber langganan (HTTP {{code}})"
+  },
   "log": {
     "title": "Log",
     "clear": "Bersihkan",
@@ -129,6 +143,11 @@
     "socks5Auth": "Pengguna SOCKS5",
     "passwordMasked": "kata sandi: (tersembunyi)"
   },
+  "policy": {
+    "balanced": "Seimbang",
+    "lowLatency": "Preferensi latensi rendah",
+    "idleIp": "Preferensi IP menganggur"
+  },
   "processRoute": {
     "title": "Rute proses",
     "add": "Tambah aturan",
@@ -167,6 +186,25 @@
     "resinStatus": "Status Resin",
     "sidecarLoading": "Memuat...",
     "sidecarAutoPort": "Port ditetapkan otomatis oleh sidecar Resin."
+  },
+  "strategy": {
+    "title": "Strategi Egress",
+    "apply": "Terapkan",
+    "applyOk": "Strategi berhasil diterapkan",
+    "applyPartial": "Strategi diterapkan dengan peringatan — beberapa platform tidak ditemukan",
+    "noPlatforms": "Tidak ada platform dikonfigurasi",
+    "aClass": "Pemilihan Node (kelas A)",
+    "bClass": "Pemilihan Egress (kelas B)",
+    "manual": "Manual",
+    "region": "Berdasarkan Wilayah",
+    "quality": "Top-N Kualitas",
+    "subscription": "Berdasarkan Langganan",
+    "balanced": "Seimbang",
+    "preferLowLatency": "Preferensi latensi rendah",
+    "preferIdleIp": "Preferensi IP menganggur",
+    "regionsHint": "US,SG,JP (dipisah koma)",
+    "subsHint": "sub1,sub2 (dipisah koma)",
+    "topN": "Maks. node"
   },
   "subscription": {
     "title": "Langganan",
@@ -225,24 +263,5 @@
     "show": "Tampilkan jendela",
     "quit": "Keluar",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "Tidak dapat menghapus platform default",
-    "authRequired": "Autentikasi diperlukan",
-    "authFailed": "Autentikasi gagal",
-    "urlParse": "Format URL tidak valid",
-    "invalidProtocol": "Protokol tidak valid",
-    "upstreamConnectFailed": "Koneksi hulu gagal",
-    "upstreamRequestFailed": "Permintaan hulu gagal",
-    "conflict": "Konflik",
-    "notFound": "Tidak ditemukan",
-    "badRequest": "Permintaan buruk",
-    "unauthorized": "Tidak diotorisasi",
-    "subscriptionFetch": "Gagal mengambil sumber langganan (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Seimbang",
-    "lowLatency": "Preferensi latensi rendah",
-    "idleIp": "Preferensi IP menganggur"
   }
 }

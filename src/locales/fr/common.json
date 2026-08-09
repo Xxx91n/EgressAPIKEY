@@ -42,6 +42,20 @@
     "importError": "Erreur d'importation",
     "backupCreated": "Sauvegarde créée: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Impossible de supprimer la plateforme par defaut",
+    "authRequired": "Authentification requise",
+    "authFailed": "Authentification echouee",
+    "urlParse": "Format d URL invalide",
+    "invalidProtocol": "Protocole invalide",
+    "upstreamConnectFailed": "Connexion amont echouee",
+    "upstreamRequestFailed": "Requete amont echouee",
+    "conflict": "Conflit",
+    "notFound": "Introuvable",
+    "badRequest": "Mauvaise requete",
+    "unauthorized": "Non autorise",
+    "subscriptionFetch": "Échec de la récupération de la source d'abonnement (HTTP {{code}})"
+  },
   "log": {
     "title": "Journaux",
     "clear": "Effacer",
@@ -129,6 +143,11 @@
     "socks5Auth": "Utilisateur SOCKS5",
     "passwordMasked": "mot de passe : (masqué)"
   },
+  "policy": {
+    "balanced": "Equilibre",
+    "lowLatency": "Preferer faible latence",
+    "idleIp": "Preferer IP inactive"
+  },
   "processRoute": {
     "title": "Routage des processus",
     "add": "Ajouter une règle de routage",
@@ -167,6 +186,25 @@
     "resinStatus": "Statut Resin",
     "sidecarLoading": "Chargement...",
     "sidecarAutoPort": "Le port est automatiquement assigné par le sidecar Resin."
+  },
+  "strategy": {
+    "title": "Stratégie de Sortie",
+    "apply": "Appliquer",
+    "applyOk": "Stratégie appliquée avec succès",
+    "applyPartial": "Stratégie appliquée avec avertissements — certaines plateformes introuvables",
+    "noPlatforms": "Aucune plateforme configurée",
+    "aClass": "Sélection de Nœuds (classe A)",
+    "bClass": "Sélection de Sortie (classe B)",
+    "manual": "Manuel",
+    "region": "Par Région",
+    "quality": "Top-N Qualité",
+    "subscription": "Par Abonnement",
+    "balanced": "Équilibré",
+    "preferLowLatency": "Préférer faible latence",
+    "preferIdleIp": "Préférer IP inactive",
+    "regionsHint": "US,SG,JP (séparé par virgules)",
+    "subsHint": "sub1,sub2 (séparé par virgules)",
+    "topN": "Nœuds max"
   },
   "subscription": {
     "title": "Abonnements",
@@ -225,24 +263,5 @@
     "show": "Afficher la Fenêtre",
     "quit": "Quitter",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "Impossible de supprimer la plateforme par defaut",
-    "authRequired": "Authentification requise",
-    "authFailed": "Authentification echouee",
-    "urlParse": "Format d URL invalide",
-    "invalidProtocol": "Protocole invalide",
-    "upstreamConnectFailed": "Connexion amont echouee",
-    "upstreamRequestFailed": "Requete amont echouee",
-    "conflict": "Conflit",
-    "notFound": "Introuvable",
-    "badRequest": "Mauvaise requete",
-    "unauthorized": "Non autorise",
-    "subscriptionFetch": "Échec de la récupération de la source d'abonnement (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Equilibre",
-    "lowLatency": "Preferer faible latence",
-    "idleIp": "Preferer IP inactive"
   }
 }

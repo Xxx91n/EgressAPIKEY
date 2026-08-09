@@ -42,6 +42,20 @@
     "importError": "インポートエラー",
     "backupCreated": "バックアップ作成: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "デフォルトプラットフォームは削除できません",
+    "authRequired": "認証が必要です",
+    "authFailed": "認証に失敗しました",
+    "urlParse": "URL形式が無効です",
+    "invalidProtocol": "プロトコルが無効です",
+    "upstreamConnectFailed": "上流接続に失敗しました",
+    "upstreamRequestFailed": "上流リクエストに失敗しました",
+    "conflict": "競合",
+    "notFound": "見つかりません",
+    "badRequest": "不正なリクエスト",
+    "unauthorized": "未認証",
+    "subscriptionFetch": "サブスクリプション ソースの取得に失敗しました (HTTP {{code}})"
+  },
   "log": {
     "title": "ログ",
     "clear": "クリア",
@@ -129,6 +143,11 @@
     "socks5Auth": "SOCKS5 ユーザー",
     "passwordMasked": "パスワード: (非表示)"
   },
+  "policy": {
+    "balanced": "バランス",
+    "lowLatency": "低遅延優先",
+    "idleIp": "アイドルIP優先"
+  },
   "processRoute": {
     "title": "プロセスルート",
     "add": "ルーティングルールを追加",
@@ -167,6 +186,25 @@
     "resinStatus": "Resin ステータス",
     "sidecarLoading": "読み込み中...",
     "sidecarAutoPort": "ポートは Resin サイドカーによって自動割り当てされます。"
+  },
+  "strategy": {
+    "title": "エグレス戦略",
+    "apply": "適用",
+    "applyOk": "戦略を適用しました",
+    "applyPartial": "戦略を適用しましたが警告があります — 一部のプラットフォームが見つかりません",
+    "noPlatforms": "プラットフォームが設定されていません",
+    "aClass": "ノード選択 (Aクラス)",
+    "bClass": "エグレス選択 (Bクラス)",
+    "manual": "手動",
+    "region": "地域別",
+    "quality": "Top-N 品質",
+    "subscription": "サブスクリプション別",
+    "balanced": "バランス",
+    "preferLowLatency": "低遅延優先",
+    "preferIdleIp": "アイドルIP優先",
+    "regionsHint": "US,SG,JP (カンマ区切り)",
+    "subsHint": "sub1,sub2 (カンマ区切り)",
+    "topN": "最大ノード数"
   },
   "subscription": {
     "title": "サブスクリプション",
@@ -225,24 +263,5 @@
     "show": "ウィンドウを表示",
     "quit": "終了",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "デフォルトプラットフォームは削除できません",
-    "authRequired": "認証が必要です",
-    "authFailed": "認証に失敗しました",
-    "urlParse": "URL形式が無効です",
-    "invalidProtocol": "プロトコルが無効です",
-    "upstreamConnectFailed": "上流接続に失敗しました",
-    "upstreamRequestFailed": "上流リクエストに失敗しました",
-    "conflict": "競合",
-    "notFound": "見つかりません",
-    "badRequest": "不正なリクエスト",
-    "unauthorized": "未認証",
-    "subscriptionFetch": "サブスクリプション ソースの取得に失敗しました (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "バランス",
-    "lowLatency": "低遅延優先",
-    "idleIp": "アイドルIP優先"
   }
 }

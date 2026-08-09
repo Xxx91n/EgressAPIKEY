@@ -26,6 +26,7 @@ import {
   ipcPortList, ipcPortUpsert, ipcPortRemove, ipcPortRunning, ipcPortReload,
   ipcWhiteboxPath, ipcWhiteboxGet, ipcWhiteboxReload,
   ipcIpReputationSnapshot,
+  ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -338,5 +339,39 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     await expect(ipcWhiteboxReload()).resolves.toBe(3);
     expect(invokeMock).toHaveBeenCalledWith("whitebox_reload");
   });
+
+describe("strategy IPC (T4-4)", () => {
+  it("ipcStrategyConfigGet forwards to strategy_config_get", async () => {
+    invokeMock.mockResolvedValueOnce({ version: 1, platforms: [] });
+    const cfg = await ipcStrategyConfigGet();
+    expect(cfg.version).toBe(1);
+    expect(cfg.platforms).toEqual([]);
+    expect(invokeMock).toHaveBeenCalledWith("strategy_config_get");
+  });
+
+  it("ipcStrategyConfigPut validates and forwards to strategy_config_put", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await ipcStrategyConfigPut({ version: 1, platforms: [{ platform_name: "Test", a_class: "manual", b_class: "balanced" }] });
+    expect(invokeMock).toHaveBeenCalledWith("strategy_config_put", expect.objectContaining({ config: expect.any(Object) }));
+  });
+
+  it("ipcStrategyConfigPut rejects version != 1 before invoke", async () => {
+    await expect(ipcStrategyConfigPut({ version: 2, platforms: [] } as any)).rejects.toThrow("version must be 1");
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ipcStrategyConfigPut rejects too many regions before invoke", async () => {
+    const regions = Array.from({ length: 65 }, (_, i) => "r" + i);
+    await expect(ipcStrategyConfigPut({ version: 1, platforms: [{ platform_name: "T", a_class: "region", b_class: "balanced", regions }] } as any)).rejects.toThrow("regions");
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ipcStrategyApply forwards to strategy_apply", async () => {
+    invokeMock.mockResolvedValueOnce({ platforms: [{ platform: "T", region_filters: ["US"], patched: true }] });
+    const result = await ipcStrategyApply();
+    expect(result.platforms[0].patched).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("strategy_apply");
+  });
+});
 });
 

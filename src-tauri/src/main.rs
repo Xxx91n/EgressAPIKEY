@@ -124,7 +124,10 @@ fn main() {
             commands::whitebox_get,
             commands::whitebox_reload,
             commands::stream_sensor_snapshot,
-        ])
+                    commands::strategy_config_get,
+            commands::strategy_config_put,
+            commands::strategy_apply,
+])
         .setup(|app| {
             build_tray(app.handle())?;
 

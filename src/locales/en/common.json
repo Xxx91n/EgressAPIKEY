@@ -42,6 +42,20 @@
     "importError": "Import error",
     "backupCreated": "Backup created: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "Cannot delete the Default platform",
+    "authRequired": "Authentication required",
+    "authFailed": "Authentication failed",
+    "urlParse": "Invalid URL format",
+    "invalidProtocol": "Invalid protocol",
+    "upstreamConnectFailed": "Upstream connection failed",
+    "upstreamRequestFailed": "Upstream request failed",
+    "conflict": "Conflict",
+    "notFound": "Not found",
+    "badRequest": "Bad request",
+    "unauthorized": "Unauthorized",
+    "subscriptionFetch": "Subscription source fetch failed (HTTP {{code}})"
+  },
   "log": {
     "title": "Logs",
     "clear": "Clear",
@@ -129,6 +143,11 @@
     "socks5Auth": "SOCKS5 user",
     "passwordMasked": "password: (masked)"
   },
+  "policy": {
+    "balanced": "Balanced",
+    "lowLatency": "Prefer low latency",
+    "idleIp": "Prefer idle IP"
+  },
   "processRoute": {
     "title": "Process route",
     "add": "Add routing rule",
@@ -167,6 +186,25 @@
     "resinStatus": "Resin Status",
     "sidecarLoading": "Loading...",
     "sidecarAutoPort": "Port is auto-assigned by the Resin sidecar. No manual configuration needed."
+  },
+  "strategy": {
+    "title": "Egress Strategy",
+    "apply": "Apply",
+    "applyOk": "Strategy applied successfully",
+    "applyPartial": "Strategy applied with warnings — some platforms were not found",
+    "noPlatforms": "No platforms configured",
+    "aClass": "Node Selection (A-class)",
+    "bClass": "Egress Selection (B-class)",
+    "manual": "Manual",
+    "region": "By Region",
+    "quality": "Top-N Quality",
+    "subscription": "By Subscription",
+    "balanced": "Balanced",
+    "preferLowLatency": "Prefer low latency",
+    "preferIdleIp": "Prefer idle IP",
+    "regionsHint": "US,SG,JP (comma-separated)",
+    "subsHint": "sub1,sub2 (comma-separated)",
+    "topN": "Max nodes"
   },
   "subscription": {
     "title": "Subscriptions",
@@ -225,24 +263,5 @@
     "show": "Show Window",
     "quit": "Quit",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "Cannot delete the Default platform",
-    "authRequired": "Authentication required",
-    "authFailed": "Authentication failed",
-    "urlParse": "Invalid URL format",
-    "invalidProtocol": "Invalid protocol",
-    "upstreamConnectFailed": "Upstream connection failed",
-    "upstreamRequestFailed": "Upstream request failed",
-    "conflict": "Conflict",
-    "notFound": "Not found",
-    "badRequest": "Bad request",
-    "unauthorized": "Unauthorized",
-    "subscriptionFetch": "Subscription source fetch failed (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "Balanced",
-    "lowLatency": "Prefer low latency",
-    "idleIp": "Prefer idle IP"
   }
 }

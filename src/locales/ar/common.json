@@ -42,6 +42,20 @@
     "importError": "خطأ الاستيراد",
     "backupCreated": "تم النسخ: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "لا يمكن حذف المنصة الافتراضية",
+    "authRequired": "المصادقة مطلوبة",
+    "authFailed": "فشل المصادقة",
+    "urlParse": "تنسيق URL غير صالح",
+    "invalidProtocol": "بروتوكول غير صالح",
+    "upstreamConnectFailed": "فشل الاتصال العلوي",
+    "upstreamRequestFailed": "فشل الطلب العلوي",
+    "conflict": "تعارض",
+    "notFound": "غير موجود",
+    "badRequest": "طلب غير صالح",
+    "unauthorized": "غير مصرح",
+    "subscriptionFetch": "فشل جلب مصدر الاشتراك (HTTP {{code}})"
+  },
   "log": {
     "title": "السجلات",
     "clear": "مسح",
@@ -129,6 +143,11 @@
     "socks5Auth": "مستخدم SOCKS5",
     "passwordMasked": "كلمة المرور: (مخفية)"
   },
+  "policy": {
+    "balanced": "متوازن",
+    "lowLatency": "تفضيل التأخير المنخفض",
+    "idleIp": "تفضيل IP الخامل"
+  },
   "processRoute": {
     "title": "مسار العملية",
     "add": "إضافة قاعدة توجيه",
@@ -167,6 +186,25 @@
     "resinStatus": "حالة Resin",
     "sidecarLoading": "جار التحميل...",
     "sidecarAutoPort": "تم تعيين المنفذ تلقائيًا بواسطة Resin sidecar."
+  },
+  "strategy": {
+    "title": "استراتيجية الخروج",
+    "apply": "تطبيق",
+    "applyOk": "تم تطبيق الاستراتيجية بنجاح",
+    "applyPartial": "تم تطبيق الاستراتيجية مع تحذيرات — لم يتم العثور على بعض المنصات",
+    "noPlatforms": "لا توجد منصات مكونة",
+    "aClass": "اختيار العقد (فئة A)",
+    "bClass": "اختيار الخروج (فئة B)",
+    "manual": "يدوي",
+    "region": "حسب المنطقة",
+    "quality": "أفضل N جودة",
+    "subscription": "حسب الاشتراك",
+    "balanced": "متوازن",
+    "preferLowLatency": "تفضيل زمن الوصول المنخفض",
+    "preferIdleIp": "تفضيل IP الخامل",
+    "regionsHint": "US,SG,JP (مفصول بفواصل)",
+    "subsHint": "sub1,sub2 (مفصول بفواصل)",
+    "topN": "الحد الأقصى للعقد"
   },
   "subscription": {
     "title": "الاشتراكات",
@@ -225,24 +263,5 @@
     "show": "إظهار النافذة",
     "quit": "إنهاء",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "لا يمكن حذف المنصة الافتراضية",
-    "authRequired": "المصادقة مطلوبة",
-    "authFailed": "فشل المصادقة",
-    "urlParse": "تنسيق URL غير صالح",
-    "invalidProtocol": "بروتوكول غير صالح",
-    "upstreamConnectFailed": "فشل الاتصال العلوي",
-    "upstreamRequestFailed": "فشل الطلب العلوي",
-    "conflict": "تعارض",
-    "notFound": "غير موجود",
-    "badRequest": "طلب غير صالح",
-    "unauthorized": "غير مصرح",
-    "subscriptionFetch": "فشل جلب مصدر الاشتراك (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "متوازن",
-    "lowLatency": "تفضيل التأخير المنخفض",
-    "idleIp": "تفضيل IP الخامل"
   }
 }

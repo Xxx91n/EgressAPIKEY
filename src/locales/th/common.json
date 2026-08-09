@@ -42,6 +42,20 @@
     "importError": "ข้อผิดพลาดการนำเข้า",
     "backupCreated": "สำรองข้อมูลแล้ว: {{path}}"
   },
+  "error": {
+    "cannotDeleteDefaultPlatform": "ไม่สามารถลบแพลตฟอร์มเริ่มต้นได้",
+    "authRequired": "ต้องมีการยืนยันตัวตน",
+    "authFailed": "การยืนยันตัวตนล้มเหลว",
+    "urlParse": "รูปแบบ URL ไม่ถูกต้อง",
+    "invalidProtocol": "โปรโตคอลไม่ถูกต้อง",
+    "upstreamConnectFailed": "การเชื่อมต่ออัปสตรีมล้มเหลว",
+    "upstreamRequestFailed": "คำขออัปสตรีมล้มเหลว",
+    "conflict": "ขัดแย้ง",
+    "notFound": "ไม่พบ",
+    "badRequest": "คำขอไม่ถูกต้อง",
+    "unauthorized": "ไม่ได้รับอนุญาต",
+    "subscriptionFetch": "ดึงแหล่งสมัครรับข้อมูลล้มเหลว (HTTP {{code}})"
+  },
   "log": {
     "title": "บันทึก",
     "clear": "ล้าง",
@@ -129,6 +143,11 @@
     "socks5Auth": "ผู้ใช้ SOCKS5",
     "passwordMasked": "รหัสผ่าน: (ซ่อนอยู่)"
   },
+  "policy": {
+    "balanced": "สมดุล",
+    "lowLatency": "ต้องการความหน่วงต่ำ",
+    "idleIp": "ต้องการ IP ที่ไม่ใช้งาน"
+  },
   "processRoute": {
     "title": "เส้นทางโปรเซส",
     "add": "เพิ่มกฎ",
@@ -167,6 +186,25 @@
     "resinStatus": "สถานะ Resin",
     "sidecarLoading": "กำลังโหลด...",
     "sidecarAutoPort": "พอร์ตถูกกำหนดโดย Resin sidecar โดยอัตโนมัติ"
+  },
+  "strategy": {
+    "title": "กลยุทธ์ทางออก",
+    "apply": "ใช้งาน",
+    "applyOk": "ใช้กลยุทธ์สำเร็จแล้ว",
+    "applyPartial": "ใช้กลยุทธ์แล้วมีคำเตือน — ไม่พบบางแพลตฟอร์ม",
+    "noPlatforms": "ไม่มีแพลตฟอร์มที่กำหนดค่าไว้",
+    "aClass": "การเลือกโหนด (คลาส A)",
+    "bClass": "การเลือกทางออก (คลาส B)",
+    "manual": "ด้วยตนเอง",
+    "region": "ตามภูมิภาค",
+    "quality": "Top-N คุณภาพ",
+    "subscription": "ตามการสมัครรับข้อมูล",
+    "balanced": "สมดุล",
+    "preferLowLatency": "ต้องการเวลาแฝงต่ำ",
+    "preferIdleIp": "ต้องการ IP ที่ไม่ใช้งาน",
+    "regionsHint": "US,SG,JP (คั่นด้วยจุลภาค)",
+    "subsHint": "sub1,sub2 (คั่นด้วยจุลภาค)",
+    "topN": "โหนดสูงสุด"
   },
   "subscription": {
     "title": "การสมัครรับข้อมูล",
@@ -225,24 +263,5 @@
     "show": "แสดงหน้าต่าง",
     "quit": "ออก",
     "tooltip": "EgressAPIKEY"
-  },
-  "error": {
-    "cannotDeleteDefaultPlatform": "ไม่สามารถลบแพลตฟอร์มเริ่มต้นได้",
-    "authRequired": "ต้องมีการยืนยันตัวตน",
-    "authFailed": "การยืนยันตัวตนล้มเหลว",
-    "urlParse": "รูปแบบ URL ไม่ถูกต้อง",
-    "invalidProtocol": "โปรโตคอลไม่ถูกต้อง",
-    "upstreamConnectFailed": "การเชื่อมต่ออัปสตรีมล้มเหลว",
-    "upstreamRequestFailed": "คำขออัปสตรีมล้มเหลว",
-    "conflict": "ขัดแย้ง",
-    "notFound": "ไม่พบ",
-    "badRequest": "คำขอไม่ถูกต้อง",
-    "unauthorized": "ไม่ได้รับอนุญาต",
-    "subscriptionFetch": "ดึงแหล่งสมัครรับข้อมูลล้มเหลว (HTTP {{code}})"
-  },
-  "policy": {
-    "balanced": "สมดุล",
-    "lowLatency": "ต้องการความหน่วงต่ำ",
-    "idleIp": "ต้องการ IP ที่ไม่ใช้งาน"
   }
 }
