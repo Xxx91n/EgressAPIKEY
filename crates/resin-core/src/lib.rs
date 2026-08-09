@@ -11,6 +11,7 @@
 //! - [`db`]: SQLite port->platform mapping store (reuses DbPool infra)
 
 pub mod db;
+pub mod ipc_error;
 pub mod gateway;
 pub mod ip_reputation;
 pub mod lane;

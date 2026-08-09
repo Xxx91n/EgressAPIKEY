@@ -83,7 +83,7 @@ export function PlatformsView() {
       let platforms = [...prev.platforms];
       let idx = platforms.findIndex((p) => p.platform_name === platformName);
       if (idx === -1) {
-        platforms.push({ platform_name: platformName, a_class: "manual", b_class: "balanced" });
+        platforms.push({ platform_name: platformName, a_class: "manual", b_class: "random" });
         idx = platforms.length - 1;
       }
       platforms[idx] = { ...platforms[idx], [field]: value };
@@ -453,7 +453,7 @@ export function PlatformsView() {
             {platforms.map((p) => {
               const entry = strategyConfig.platforms.find((s) => s.platform_name === p.name);
               const aClass = entry?.a_class ?? "manual";
-              const bClass = entry?.b_class ?? "balanced";
+              const bClass = entry?.b_class ?? "random";
               const regions = entry?.regions ?? [];
               const subs = entry?.subscriptions ?? [];
               const topN = entry?.top_n ?? 10;
