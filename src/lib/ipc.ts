@@ -537,3 +537,70 @@ export interface StrategyApplyResult {
 export async function ipcStrategyApply(): Promise<StrategyApplyResult> {
   return invoke<StrategyApplyResult>("strategy_apply");
 }
+ 
+ // ---------------------------------------------------------------------------
+ // Phase 5-2: typed IPC error contract (ADR-0026 Q6-Q8).
+ // Discriminated union matching the Rust IpcError enum (externally-tagged serde).
+ // Each variant carries an i18n_key so the GUI renders a locale-specific message
+ // without parsing English error text.
+ // ---------------------------------------------------------------------------
+ 
+ export type IpcErr =
+   | { kind: "BindConflict"; data: { port: number; i18n_key: string } }
+   | { kind: "InvalidStrategy"; data: { value: string; accepted: string[]; i18n_key: string } }
+   | { kind: "ResinUpstream"; data: { status: number; excerpt: string; i18n_key: string } }
+   | { kind: "Internal"; data: { msg: string; i18n_key: string } };
+ 
+ /** Narrow a thrown/unknown value from invoke() into a typed IpcErr.
+  *  Tauri rejects with a string by default; if the Rust side returns
+  *  IpcError via serde, Tauri serialises it as a JS object. */
+ export function extractIpcErr(e: unknown): IpcErr {
+   if (e && typeof e === "object" && "kind" in e && "data" in e) {
+     const kind = (e as { kind: string }).kind;
+     const data = (e as { data: Record<string, unknown> }).data;
+     switch (kind) {
+       case "BindConflict":
+         return {
+           kind: "BindConflict",
+           data: {
+             port: Number(data?.port ?? 0),
+             i18n_key: String(data?.i18n_key ?? ""),
+           },
+         };
+       case "InvalidStrategy":
+         return {
+           kind: "InvalidStrategy",
+           data: {
+             value: String(data?.value ?? ""),
+             accepted: Array.isArray(data?.accepted) ? data.accepted.map(String) : [],
+             i18n_key: String(data?.i18n_key ?? ""),
+           },
+         };
+       case "ResinUpstream":
+         return {
+           kind: "ResinUpstream",
+           data: {
+             status: Number(data?.status ?? 0),
+             excerpt: String(data?.excerpt ?? ""),
+             i18n_key: String(data?.i18n_key ?? ""),
+           },
+         };
+       case "Internal":
+         return {
+           kind: "Internal",
+           data: {
+             msg: String(data?.msg ?? ""),
+             i18n_key: String(data?.i18n_key ?? ""),
+           },
+         };
+     }
+   }
+   // Fallback: Tauri string rejection or unknown error -> Internal.
+   const msg = typeof e === "string" ? e : e instanceof Error ? e.message : String(e);
+   return { kind: "Internal", data: { msg, i18n_key: "error.internal" } };
+ }
+ 
+ /** Extract the i18n key from an IpcErr for direct use with t(). */
+ export function ipcErrI18nKey(e: unknown): string {
+   return extractIpcErr(e).data.i18n_key || "error.internal";
+ }
