@@ -40,7 +40,7 @@ describe("ProcessRouteView (closed-loop, IPC-mocked)", () => {
     fireEvent.click(addBtn);
 
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("process_route_add", { process: "ollama", targetPort: 17990 });
+      expect(invokeMock).toHaveBeenCalledWith("process_route_add", expect.objectContaining({ process: "ollama", targetPort: 17990 }));
     });
     // After refresh-from-backend the rule shows up in the list.
     await waitFor(() => expect(screen.getByText("ollama")).toBeInTheDocument(), { timeout: 3000 });

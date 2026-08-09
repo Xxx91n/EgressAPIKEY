@@ -35,7 +35,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
   it("platform_add forwards name and resolves on backend ok", async () => {
     invokeMock.mockResolvedValue(undefined);
     await ipcPlatformAdd("openai");
-    expect(invokeMock).toHaveBeenCalledWith("platform_add", { name: "openai" });
+    expect(invokeMock).toHaveBeenCalledWith("platform_add", expect.objectContaining({ name: "openai" }));
   });
 
   it("platform_add rejects names with control chars (TS guard)", async () => {
@@ -47,7 +47,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockResolvedValue(true);
     const r = await ipcPlatformRemove("openai");
     expect(r).toBe(true);
-    expect(invokeMock).toHaveBeenCalledWith("platform_remove", { name: "openai" });
+    expect(invokeMock).toHaveBeenCalledWith("platform_remove", expect.objectContaining({ name: "openai" }));
   });
 
   it("platform_list returns the backend string array", async () => {
@@ -64,13 +64,13 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
   it("subscription_add forwards name + url to the backend", async () => {
     invokeMock.mockResolvedValue(undefined);
     await ipcSubscriptionAdd("n", "https://x.invalid/sub");
-    expect(invokeMock).toHaveBeenCalledWith("subscription_add", { name: "n", url: "https://x.invalid/sub" });
+    expect(invokeMock).toHaveBeenCalledWith("subscription_add", expect.objectContaining({ name: "n", url: "https://x.invalid/sub" }));
   });
 
   it("subscription_remove forwards the name", async () => {
     invokeMock.mockResolvedValue(true);
     await ipcSubscriptionRemove("n");
-    expect(invokeMock).toHaveBeenCalledWith("subscription_remove", { name: "n" });
+    expect(invokeMock).toHaveBeenCalledWith("subscription_remove", expect.objectContaining({ name: "n" }));
   });
 
   it("subscription_list returns the expected typed shape", async () => {
@@ -87,7 +87,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
   it("process_route_add forwards process + targetPort", async () => {
     invokeMock.mockResolvedValue(undefined);
     await ipcProcessRouteAdd("ollama", 17990);
-    expect(invokeMock).toHaveBeenCalledWith("process_route_add", { process: "ollama", targetPort: 17990 });
+    expect(invokeMock).toHaveBeenCalledWith("process_route_add", expect.objectContaining({ process: "ollama", targetPort: 17990 }));
   });
 
   it("process_route_remove rejects empty process name", async () => {
@@ -116,25 +116,25 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
   it("platform_update forwards valid fields with null for omitted ones", async () => {
     invokeMock.mockResolvedValue({ ok: true });
     await ipcPlatformUpdate("OpenAI", "PREFER_LOW_LATENCY");
-    expect(invokeMock).toHaveBeenCalledWith("platform_update", {
+    expect(invokeMock).toHaveBeenCalledWith("platform_update", expect.objectContaining({
       name: "OpenAI",
       allocationPolicy: "PREFER_LOW_LATENCY",
       regexFilters: null,
       regionFilters: null,
       stickyTtl: null,
-    });
+    }));
   });
 
   it("platform_update forwards regionFilters for B->C binding", async () => {
     invokeMock.mockResolvedValue({ ok: true });
     await ipcPlatformUpdate("OpenAI", undefined, undefined, ["hk", "us"]);
-    expect(invokeMock).toHaveBeenCalledWith("platform_update", {
+    expect(invokeMock).toHaveBeenCalledWith("platform_update", expect.objectContaining({
       name: "OpenAI",
       allocationPolicy: null,
       regexFilters: null,
       regionFilters: ["hk", "us"],
       stickyTtl: null,
-    });
+    }));
   });
 
   it("platform_update rejects too many region_filters before invoke", async () => {
@@ -147,7 +147,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockResolvedValue({ items: [] });
     const r = await ipcNodeList();
     expect(r).toEqual({ items: [] });
-    expect(invokeMock).toHaveBeenCalledWith("node_list");
+    expect(invokeMock).toHaveBeenCalledWith("node_list", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 
   // P21-B: platform_create_with_fields closed-loop guards
@@ -171,7 +171,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockResolvedValue({ id: "abc-123" });
     const body = { name: "auto-deadbeef", allocation_policy: "BALANCED", regex_filters: [], region_filters: [] };
     await ipcPlatformCreateWithFields(body);
-    expect(invokeMock).toHaveBeenCalledWith("platform_create_with_fields", { body });
+    expect(invokeMock).toHaveBeenCalledWith("platform_create_with_fields", expect.objectContaining({ body }));
   });
 
   // P21-B: platform_leases closed-loop guards
@@ -179,7 +179,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockResolvedValue({ items: [{ account: "acct1", egress_ip: "1.2.3.4" }] });
     const r = await ipcPlatformLeases("my-platform");
     expect(r).toEqual({ items: [{ account: "acct1", egress_ip: "1.2.3.4" }] });
-    expect(invokeMock).toHaveBeenCalledWith("platform_leases", { name: "my-platform" });
+    expect(invokeMock).toHaveBeenCalledWith("platform_leases", expect.objectContaining({ name: "my-platform" }));
   });
 
   it("platform_leases rejects empty name", async () => {
@@ -193,43 +193,43 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockResolvedValue({ items: [] });
     const r = await ipChannelList();
     expect(r).toEqual({ items: [] });
-    expect(invokeMock).toHaveBeenCalledWith("node_list");
+    expect(invokeMock).toHaveBeenCalledWith("node_list", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 
   it("ip_channel_policy_set maps BALANCED → platform_update", async () => {
     invokeMock.mockResolvedValue({ ok: true });
     await ipChannelPolicySet("my-egress", "BALANCED");
-    expect(invokeMock).toHaveBeenCalledWith("platform_update", {
+    expect(invokeMock).toHaveBeenCalledWith("platform_update", expect.objectContaining({
       name: "my-egress",
       allocationPolicy: "BALANCED",
       regexFilters: null,
       regionFilters: null,
       stickyTtl: null,
-    });
+    }));
   });
 
   it("ip_channel_policy_set maps PREFER_LOW_LATENCY → platform_update", async () => {
     invokeMock.mockResolvedValue({ ok: true });
     await ipChannelPolicySet("fast-egress", "PREFER_LOW_LATENCY");
-    expect(invokeMock).toHaveBeenCalledWith("platform_update", {
+    expect(invokeMock).toHaveBeenCalledWith("platform_update", expect.objectContaining({
       name: "fast-egress",
       allocationPolicy: "PREFER_LOW_LATENCY",
       regexFilters: null,
       regionFilters: null,
       stickyTtl: null,
-    });
+    }));
   });
 
   it("ip_channel_policy_set maps PREFER_IDLE_IP → platform_update", async () => {
     invokeMock.mockResolvedValue({ ok: true });
     await ipChannelPolicySet("idle-egress", "PREFER_IDLE_IP");
-    expect(invokeMock).toHaveBeenCalledWith("platform_update", {
+    expect(invokeMock).toHaveBeenCalledWith("platform_update", expect.objectContaining({
       name: "idle-egress",
       allocationPolicy: "PREFER_IDLE_IP",
       regexFilters: null,
       regionFilters: null,
       stickyTtl: null,
-    });
+    }));
   });
 
   it("ip_channel_policy_set rejects invalid policy before invoke", async () => {
@@ -241,14 +241,14 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockResolvedValue({ id: "new-id" });
     const body = { name: "auto-newuid1", allocation_policy: "BALANCED" };
     await ipChannelCreate(body);
-    expect(invokeMock).toHaveBeenCalledWith("platform_create_with_fields", { body });
+    expect(invokeMock).toHaveBeenCalledWith("platform_create_with_fields", expect.objectContaining({ body }));
   });
 
   it("ip_channel_delete forwards to platform_remove", async () => {
     invokeMock.mockResolvedValue(true);
     const r = await ipChannelDelete("auto-newuid1");
     expect(r).toBe(true);
-    expect(invokeMock).toHaveBeenCalledWith("platform_remove", { name: "auto-newuid1" });
+    expect(invokeMock).toHaveBeenCalledWith("platform_remove", expect.objectContaining({ name: "auto-newuid1" }));
   });
 
   it("ip_channel_delete rejects empty name", async () => {
@@ -267,7 +267,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     invokeMock.mockResolvedValueOnce([{ port: 17990, protocol: "socks5", platform_name: "Default", account: "port-17990", label: "a", enabled: true }]);
     const rows = await ipcPortList();
     expect(rows).toHaveLength(1);
-    expect(invokeMock).toHaveBeenCalledWith("port_list");
+    expect(invokeMock).toHaveBeenCalledWith("port_list", expect.objectContaining({ __trace_id: expect.any(String) }));
     invokeMock.mockResolvedValueOnce(null);
     expect(await ipcPortList()).toEqual([]);
   });
@@ -275,14 +275,14 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
   it("ipcPortUpsert validates range/protocol and forwards camelCase args", async () => {
     invokeMock.mockResolvedValue({ port: 17990, protocol: "socks5", platform_name: "OpenAI", account: "port-17990", label: "k", enabled: true });
     await ipcPortUpsert({ port: 17990, protocol: "SOCKS5", platform_name: "OpenAI", account: "port-17990", label: "k", enabled: true });
-    expect(invokeMock).toHaveBeenCalledWith("port_upsert", {
+    expect(invokeMock).toHaveBeenCalledWith("port_upsert", expect.objectContaining({
       port: 17990,
       protocol: "socks5",
       platformName: "OpenAI",
       account: "port-17990",
       label: "k",
       enabled: true,
-    });
+    }));
   });
 
   it("ipcPortUpsert rejects privileged port and bad protocol before invoke", async () => {
@@ -294,7 +294,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
   it("ipcIpReputationSnapshot forwards and normalizes malformed responses", async () => {
     invokeMock.mockResolvedValueOnce({ provider: "ip_api", status: "ok", entries: [{ ip: "1.1.1.1", score: 5 }] });
     await expect(ipcIpReputationSnapshot()).resolves.toMatchObject({ provider: "ip_api", status: "ok" });
-    expect(invokeMock).toHaveBeenLastCalledWith("ip_reputation_snapshot");
+    expect(invokeMock).toHaveBeenLastCalledWith("ip_reputation_snapshot", expect.objectContaining({ __trace_id: expect.any(String) }));
     invokeMock.mockResolvedValueOnce({ provider: "ip_api", status: "ok" });
     await expect(ipcIpReputationSnapshot()).resolves.toEqual({ provider: null, status: "disabled", entries: [] });
   });
@@ -302,7 +302,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
   it("ipcIpReputationSnapshot forwards and normalizes malformed responses", async () => {
     invokeMock.mockResolvedValueOnce({ provider: "ip_api", status: "ok", entries: [{ ip: "1.1.1.1", score: 5 }] });
     await expect(ipcIpReputationSnapshot()).resolves.toMatchObject({ provider: "ip_api", status: "ok" });
-    expect(invokeMock).toHaveBeenLastCalledWith("ip_reputation_snapshot");
+    expect(invokeMock).toHaveBeenLastCalledWith("ip_reputation_snapshot", expect.objectContaining({ __trace_id: expect.any(String) }));
     invokeMock.mockResolvedValueOnce({ provider: "ip_api", status: "ok" });
     await expect(ipcIpReputationSnapshot()).resolves.toEqual({ provider: null, status: "disabled", entries: [] });
   });
@@ -310,15 +310,15 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
   it("ipcPortRemove / ipcPortRunning / ipcPortReload forward", async () => {
     invokeMock.mockResolvedValueOnce(true);
     await expect(ipcPortRemove(17990)).resolves.toBe(true);
-    expect(invokeMock).toHaveBeenCalledWith("port_remove", { port: 17990 });
+    expect(invokeMock).toHaveBeenCalledWith("port_remove", expect.objectContaining({ port: 17990 }));
 
     invokeMock.mockResolvedValueOnce([17990, 17991]);
     await expect(ipcPortRunning()).resolves.toEqual([17990, 17991]);
-    expect(invokeMock).toHaveBeenCalledWith("port_running");
+    expect(invokeMock).toHaveBeenCalledWith("port_running", expect.objectContaining({ __trace_id: expect.any(String) }));
 
     invokeMock.mockResolvedValueOnce(2);
     await expect(ipcPortReload()).resolves.toBe(2);
-    expect(invokeMock).toHaveBeenCalledWith("port_reload");
+    expect(invokeMock).toHaveBeenCalledWith("port_reload", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 
   it("ipcPortRemove rejects privileged port before invoke", async () => {
@@ -329,15 +329,15 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
   it("ipcWhiteboxPath/Get/Reload forward", async () => {
     invokeMock.mockResolvedValueOnce("C:/cfg/egressapikey-ports.json");
     await expect(ipcWhiteboxPath()).resolves.toBe("C:/cfg/egressapikey-ports.json");
-    expect(invokeMock).toHaveBeenCalledWith("whitebox_path");
+    expect(invokeMock).toHaveBeenCalledWith("whitebox_path", expect.objectContaining({ __trace_id: expect.any(String) }));
     invokeMock.mockResolvedValueOnce({ version: 1, entry_ports: [{ port: 17990, protocol: "socks5", platform_name: "OpenAI", account: "port-17990", label: "", enabled: true }] });
     const cfg = await ipcWhiteboxGet();
     expect(cfg.version).toBe(1);
     expect(cfg.entry_ports).toHaveLength(1);
-    expect(invokeMock).toHaveBeenCalledWith("whitebox_get");
+    expect(invokeMock).toHaveBeenCalledWith("whitebox_get", expect.objectContaining({ __trace_id: expect.any(String) }));
     invokeMock.mockResolvedValueOnce(3);
     await expect(ipcWhiteboxReload()).resolves.toBe(3);
-    expect(invokeMock).toHaveBeenCalledWith("whitebox_reload");
+    expect(invokeMock).toHaveBeenCalledWith("whitebox_reload", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 
 describe("strategy IPC (T4-4)", () => {
@@ -346,7 +346,7 @@ describe("strategy IPC (T4-4)", () => {
     const cfg = await ipcStrategyConfigGet();
     expect(cfg.version).toBe(1);
     expect(cfg.platforms).toEqual([]);
-    expect(invokeMock).toHaveBeenCalledWith("strategy_config_get");
+    expect(invokeMock).toHaveBeenCalledWith("strategy_config_get", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 
   it("ipcStrategyConfigPut validates and forwards to strategy_config_put", async () => {
@@ -370,7 +370,7 @@ describe("strategy IPC (T4-4)", () => {
     invokeMock.mockResolvedValueOnce({ platforms: [{ platform: "T", region_filters: ["US"], patched: true }] });
     const result = await ipcStrategyApply();
     expect(result.platforms[0].patched).toBe(true);
-    expect(invokeMock).toHaveBeenCalledWith("strategy_apply");
+    expect(invokeMock).toHaveBeenCalledWith("strategy_apply", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 });
 });

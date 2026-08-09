@@ -10,6 +10,7 @@
 
 pub mod commands;
 pub mod sidecar;
+pub mod trace;
 pub mod tray;
 
 use std::sync::Arc;

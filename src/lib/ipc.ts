@@ -2,9 +2,26 @@
  * Re3 IPC bridge: typed wrappers over Tauri commands exposing the Resin
  * Platform/Account registry. TS-layer validation per AGENTS s7.6.
  */
-import { invoke } from "@tauri-apps/api/core";
+import { invoke as _invoke } from "@tauri-apps/api/core";
 
 const NAME_MAX = 128;
+
+// --- Phase 5-1: trace_id passthrough (ADR-0026 Q1-Q5) ---
+// Every IPC call automatically gets a UUID v4 trace_id injected into args.
+// The Rust side extracts __trace_id and opens a tracing::info_span! so
+// log files carry a per-call trace_id for end-to-end bug reproduction.
+function genTraceId(): string {
+  return crypto.randomUUID();
+}
+
+async function invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const traceId = genTraceId();
+  const enriched = { ...(args ?? {}), __trace_id: traceId };
+  if (typeof console !== "undefined" && console.debug) {
+    console.debug(`[trace_id=${traceId}] ipc.${cmd}`);
+  }
+  return _invoke<T>(cmd, enriched);
+}
 
 function assertShortName(v: string, field: string): void {
   if (!v || v.length > NAME_MAX || /[\x00-\x1f\x7f]/.test(v)) {

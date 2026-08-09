@@ -128,8 +128,8 @@ describe("NodesView T4-3", () => {
     await waitFor(() => screen.getByText("sub-alpha"));
 
     // Stat cards show pool values
-    expect(invokeMock).toHaveBeenCalledWith("node_list", undefined);
-    expect(invokeMock).toHaveBeenCalledWith("node_pool_snapshot", undefined);
+    expect(invokeMock).toHaveBeenCalledWith("node_list", expect.objectContaining({ __trace_id: expect.any(String) }));
+    expect(invokeMock).toHaveBeenCalledWith("node_pool_snapshot", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 
   it("T4-3i: P4 reputation card renders when IPC returns entries", async () => {
