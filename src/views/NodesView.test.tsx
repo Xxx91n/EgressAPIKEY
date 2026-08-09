@@ -1,78 +1,146 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { invokeMock } from "../test/setup";
 import { NodesView } from "./NodesView";
 
-describe("NodesView", () => {
+describe("NodesView T4-3", () => {
   beforeEach(() => {
     invokeMock.mockReset();
   });
 
-  it("R3: renders node pool with health stats from node_list + node_pool_snapshot", async () => {
+  // Helper: mock data with two subscriptions and 4 nodes
+  function mockTwoSubs() {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return {
         items: [
-          { node_hash: "h1", display_tag: "HK-01", region: "HK", failure_count: 0, has_outbound: true, tags: [{ subscriptionName: "sub1", tag: "ss" }] },
-          { node_hash: "h2", display_tag: "US-01", region: "US", failure_count: 2, has_outbound: false, tags: [{ subscriptionName: "sub1", tag: "vmess" }] },
+          { node_hash: "h1", display_tag: "HK-01", region: "HK", failure_count: 0, has_outbound: true, reference_latency_ms: 120, egress_ip: "1.1.1.1", tags: [{ subscription_name: "sub-alpha", tag: "vmess" }] },
+          { node_hash: "h2", display_tag: "JP-01", region: "JP", failure_count: 0, has_outbound: true, reference_latency_ms: 350, egress_ip: "2.2.2.2", tags: [{ subscription_name: "sub-alpha", tag: "ss" }] },
+          { node_hash: "h3", display_tag: "US-01", region: "US", failure_count: 3, has_outbound: false, reference_latency_ms: null, egress_ip: "3.3.3.3", tags: [{ subscription_name: "sub-beta", tag: "trojan" }] },
+          { node_hash: "h4", display_tag: "DE-01", region: "DE", failure_count: 0, has_outbound: true, reference_latency_ms: 800, egress_ip: "4.4.4.4", tags: [{ subscription_name: "sub-beta", tag: "vmess" }] },
         ],
-        total: 2,
+        total: 4,
       };
       if (cmd === "node_pool_snapshot") return {
-        total_nodes: 2,
-        healthy_nodes: 1,
-        egress_ip_count: 2,
-        healthy_egress_ip_count: 1,
+        total_nodes: 4, healthy_nodes: 3, egress_ip_count: 4, healthy_egress_ip_count: 3,
       };
       return undefined;
     });
+  }
 
+  it("T4-3a: groups nodes by subscription_name in collapsible tree", async () => {
+    mockTwoSubs();
     render(<NodesView />);
+    await waitFor(() => {
+      expect(screen.getByText("sub-alpha")).toBeTruthy();
+      expect(screen.getByText("sub-beta")).toBeTruthy();
+    });
+    // Both subscription headers render with node counts (2 each)
+    // nodeCount interpolation: "2 nodes" for both subs
+    const nodeCountEls = screen.getAllByText(/\d+ nodes/);
+    expect(nodeCountEls.length).toBe(2);
+  });
 
+  it("T4-3b: expanding a subscription shows its child nodes", async () => {
+    mockTwoSubs();
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("sub-alpha"));
+
+    // Nodes should be visible initially (not collapsed by default)
+    expect(screen.getByText("HK-01")).toBeTruthy();
+    expect(screen.getByText("JP-01")).toBeTruthy();
+    expect(screen.getByText("US-01")).toBeTruthy();
+    expect(screen.getByText("DE-01")).toBeTruthy();
+  });
+
+  it("T4-3c: collapsing a subscription hides its nodes", async () => {
+    mockTwoSubs();
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("sub-alpha"));
+
+    // Click sub-alpha header to collapse
+    const alphaHeader = screen.getByText("sub-alpha").closest("button");
+    expect(alphaHeader).toBeTruthy();
+    fireEvent.click(alphaHeader!);
+
+    // Now sub-alpha's nodes should be hidden
+    expect(screen.queryByText("HK-01")).toBeNull();
+    // sub-beta nodes still visible
+    expect(screen.getByText("US-01")).toBeTruthy();
+  });
+
+  it("T4-3d: search filters nodes across subscriptions", async () => {
+    mockTwoSubs();
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("HK-01"));
+
+    // Type "HK" in search
+    const searchInput = screen.getByPlaceholderText(/Search nodes/i);
+    expect(searchInput).toBeTruthy();
+    fireEvent.change(searchInput, { target: { value: "HK" } });
+
+    // Only HK-01 visible, JP-01 hidden
     await waitFor(() => {
       expect(screen.getByText("HK-01")).toBeTruthy();
-      expect(screen.getByText("US-01")).toBeTruthy();
+      expect(screen.queryByText("JP-01")).toBeNull();
+      expect(screen.queryByText("US-01")).toBeNull();
     });
-
-    // Aggregate stats render
-    expect(invokeMock).toHaveBeenCalledWith("node_list", undefined);
-    expect(invokeMock).toHaveBeenCalledWith("node_pool_snapshot", undefined);
   });
 
-  it("P4: renders actual egress reputation returned by server-side IPC", async () => {
-    invokeMock.mockImplementation(async (cmd: string) => {
-      if (cmd === "node_list") return { items: [] };
-      if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
-      if (cmd === "ip_reputation_snapshot") return { provider: "ip_api", status: "ok", entries: [{ ip: "1.1.1.1", score: 3, cached: true }] };
-      return undefined;
-    });
+  it("T4-3e: shows no-match state when search has no hits", async () => {
+    mockTwoSubs();
     render(<NodesView />);
-    await waitFor(() => expect(screen.getByText(/1\.1\.1\.1/)).toBeTruthy());
-    expect(invokeMock.mock.calls.some(([cmd]) => cmd === "ip_reputation_snapshot")).toBe(true);
-  });
+    await waitFor(() => screen.getByText("HK-01"));
 
-  it("P4: renders actual egress reputation returned by server-side IPC", async () => {
-    invokeMock.mockImplementation(async (cmd: string) => {
-      if (cmd === "node_list") return { items: [] };
-      if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
-      if (cmd === "ip_reputation_snapshot") return { provider: "ip_api", status: "ok", entries: [{ ip: "1.1.1.1", score: 3, cached: true }] };
-      return undefined;
+    const searchInput = screen.getByPlaceholderText(/Search nodes/i);
+    fireEvent.change(searchInput, { target: { value: "ZZZNONEXIST" } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/nodes\.noMatch|No nodes match/i)).toBeTruthy();
     });
-    render(<NodesView />);
-    await waitFor(() => expect(screen.getByText(/1\.1\.1\.1/)).toBeTruthy());
-    expect(invokeMock.mock.calls.some(([cmd]) => cmd === "ip_reputation_snapshot")).toBe(true);
   });
 
-  it("R3: shows empty state when no nodes returned", async () => {
+  it("T4-3f: health rate percentage shown per subscription", async () => {
+    mockTwoSubs();
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("sub-alpha"));
+
+    // sub-alpha: 2/2 healthy = 100%, sub-beta: 1/2 healthy = 50%
+    // healthRate interpolation: "100% healthy" and "50% healthy"
+    const healthEls = screen.getAllByText(/\d+% healthy/);
+    expect(healthEls.length).toBe(2);
+  });
+
+  it("T4-3g: empty state when no nodes returned", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return { items: [], total: 0 };
       if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
       return undefined;
     });
-
     render(<NodesView />);
-
     await waitFor(() => {
       expect(screen.getByText(/nodes\.empty|No nodes loaded/i)).toBeTruthy();
     });
+  });
+
+  it("T4-3h: aggregate stats render from node_pool_snapshot", async () => {
+    mockTwoSubs();
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("sub-alpha"));
+
+    // Stat cards show pool values
+    expect(invokeMock).toHaveBeenCalledWith("node_list", undefined);
+    expect(invokeMock).toHaveBeenCalledWith("node_pool_snapshot", undefined);
+  });
+
+  it("T4-3i: P4 reputation card renders when IPC returns entries", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") return { items: [] };
+      if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
+      if (cmd === "ip_reputation_snapshot") return { provider: "ip_api", status: "ok", entries: [{ ip: "1.1.1.1", score: 3, cached: true }] };
+      return undefined;
+    });
+    render(<NodesView />);
+    await waitFor(() => expect(screen.getByText(/1\.1\.1\.1/)).toBeTruthy());
+    expect(invokeMock.mock.calls.some(([cmd]) => cmd === "ip_reputation_snapshot")).toBe(true);
   });
 });

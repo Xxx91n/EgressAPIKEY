@@ -66,10 +66,6 @@
     "healthyEgress": "Đầu ra khỏe",
     "loading": "Đang tải…",
     "empty": "Không có nút. Nhập gói đăng ký trước.",
-    "colTag": "Nút",
-    "colRegion": "Khu vực",
-    "colHealth": "Trạng thái",
-    "colSub": "Đăng ký",
     "lastRefresh": "Cập nhật lúc: {{time}}",
     "egressPolicyNote": "Chính sách egress theo vùng được đặt trên canvas Topology: kéo một Platform vào vùng kênh IP rồi đặt Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) trên platform. Resin v1.1.2 không có bộ chọn theo node.",
     "protocolWeights": "Trọng số giao thức cho AI SSE",
@@ -78,7 +74,15 @@
     "reputationSummary": "{{count}} live egress IPs checked",
     "reputationCached": "cached",
     "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
-    "reputationDisabled": "IP reputation checks are disabled."
+    "reputationDisabled": "IP reputation checks are disabled.",
+    "search": "Tìm nút...",
+    "expandAll": "Mở tất cả",
+    "collapseAll": "Thu tất cả",
+    "nodeCount": "{{count}} nút",
+    "healthRate": "{{rate}}% khỏe mạnh",
+    "noMatch": "Không có nút phù hợp.",
+    "untagged": "Chưa phân nhóm",
+    "timeout": "hết giờ"
   },
   "platform": {
     "accounts": "Tài khoản",

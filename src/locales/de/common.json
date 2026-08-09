@@ -66,10 +66,6 @@
     "healthyEgress": "Gesunde Ausgänge",
     "loading": "Laden…",
     "empty": "Keine Knoten. Abonnement importieren.",
-    "colTag": "Knoten",
-    "colRegion": "Region",
-    "colHealth": "Status",
-    "colSub": "Abonnement",
     "lastRefresh": "Aktualisiert: {{time}}",
     "egressPolicyNote": "Die Egress-Richtlinie pro Region wird auf der Topology-Leinwand gesetzt: Plattform auf eine IP-Kanal-Region ziehen und Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) auf der Plattform setzen. Resin v1.1.2 hat keinen Per-Node-Selektor.",
     "protocolWeights": "Protokollgewichte für KI-SSE",
@@ -78,7 +74,15 @@
     "reputationSummary": "{{count}} live egress IPs checked",
     "reputationCached": "cached",
     "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
-    "reputationDisabled": "IP reputation checks are disabled."
+    "reputationDisabled": "IP reputation checks are disabled.",
+    "search": "Knoten suchen...",
+    "expandAll": "Alle ausklappen",
+    "collapseAll": "Alle einklappen",
+    "nodeCount": "{{count}} Knoten",
+    "healthRate": "{{rate}}% fehlerfrei",
+    "noMatch": "Keine passenden Knoten.",
+    "untagged": "Ungruppiert",
+    "timeout": "Zeitüberschreitung"
   },
   "platform": {
     "accounts": "Konten",

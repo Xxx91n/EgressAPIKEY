@@ -66,10 +66,6 @@
     "healthyEgress": "Saída saudável",
     "loading": "Carregando…",
     "empty": "Sem nós. Importe uma assinatura.",
-    "colTag": "Nó",
-    "colRegion": "Região",
-    "colHealth": "Saúde",
-    "colSub": "Assinatura",
     "lastRefresh": "Última atualização: {{time}}",
     "egressPolicyNote": "A política de egress por região é configurada na tela Topology: arraste uma Plataforma para uma região de canal IP e defina Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) na plataforma. Resin v1.1.2 não tem seletor por nó.",
     "protocolWeights": "Pesos de protocolo para SSE IA",
@@ -78,7 +74,15 @@
     "reputationSummary": "{{count}} live egress IPs checked",
     "reputationCached": "cached",
     "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
-    "reputationDisabled": "IP reputation checks are disabled."
+    "reputationDisabled": "IP reputation checks are disabled.",
+    "search": "Buscar nós...",
+    "expandAll": "Expandir tudo",
+    "collapseAll": "Recolher tudo",
+    "nodeCount": "{{count}} nós",
+    "healthRate": "{{rate}}% saudáveis",
+    "noMatch": "Sem nós correspondentes.",
+    "untagged": "Sem grupo",
+    "timeout": "tempo esgotado"
   },
   "platform": {
     "accounts": "Contas",

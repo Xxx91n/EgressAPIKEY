@@ -66,10 +66,6 @@
     "healthyEgress": "健康出口",
     "loading": "加载中…",
     "empty": "暂无节点，请先导入订阅。",
-    "colTag": "节点",
-    "colRegion": "地区",
-    "colHealth": "健康状态",
-    "colSub": "订阅",
     "lastRefresh": "最后刷新：{{time}}",
     "egressPolicyNote": "按区域设置出口策略请在拓扑画布上操作：把“平台”拖到某个 IP 通道区域，并在该平台上设置分配策略（BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP）。Resin v1.1.2 不支持逐节点策略。",
     "protocolWeights": "AI SSE 协议权重",
@@ -78,7 +74,15 @@
     "reputationSummary": "已检查 {{count}} 个在线出口 IP",
     "reputationCached": "已缓存",
     "reputationNotConfigured": "请在设置中选择服务商并保存 API 密钥。",
-    "reputationDisabled": "IP 信誉检测已禁用。"
+    "reputationDisabled": "IP 信誉检测已禁用。",
+    "search": "搜索节点...",
+    "expandAll": "全部展开",
+    "collapseAll": "全部折叠",
+    "nodeCount": "{{count}} 个节点",
+    "healthRate": "{{rate}}% 健康",
+    "noMatch": "没有匹配的节点。",
+    "untagged": "未分组",
+    "timeout": "超时"
   },
   "platform": {
     "accounts": "账号",

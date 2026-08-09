@@ -66,10 +66,6 @@
     "healthyEgress": "Zdrowe wyjście",
     "loading": "Ładowanie…",
     "empty": "Brak węzłów. Importuj subskrypcję.",
-    "colTag": "Węzeł",
-    "colRegion": "Region",
-    "colHealth": "Status",
-    "colSub": "Subskrypcja",
     "lastRefresh": "Ostatnia aktualizacja: {{time}}",
     "egressPolicyNote": "Polityka wyjścia per-region ustalana jest na płótnie Topology: przeciągnij Platformę na region kanału IP, a następnie ustaw Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) na platformie. Resin v1.1.2 nie ma selektora per-węzeł.",
     "protocolWeights": "Wagi protokołu dla AI SSE",
@@ -78,7 +74,15 @@
     "reputationSummary": "{{count}} live egress IPs checked",
     "reputationCached": "cached",
     "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
-    "reputationDisabled": "IP reputation checks are disabled."
+    "reputationDisabled": "IP reputation checks are disabled.",
+    "search": "Szukaj węzłów...",
+    "expandAll": "Rozwiń wszystko",
+    "collapseAll": "Zwiń wszystko",
+    "nodeCount": "{{count}} węzłów",
+    "healthRate": "{{rate}}% sprawnych",
+    "noMatch": "Brak pasujących węzłów.",
+    "untagged": "Bez grupy",
+    "timeout": "limit czasu"
   },
   "platform": {
     "accounts": "Konta",

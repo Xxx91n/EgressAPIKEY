@@ -66,10 +66,6 @@
     "healthyEgress": "Gezonde uitgang",
     "loading": "Laden…",
     "empty": "Geen nodes. Importeer een abonnement.",
-    "colTag": "Node",
-    "colRegion": "Regio",
-    "colHealth": "Status",
-    "colSub": "Abonnement",
     "lastRefresh": "Laatst vernieuwd: {{time}}",
     "egressPolicyNote": "Per-regio egress-beleid wordt op het Topology-canvas ingesteld: sleep een Platform naar een IP-kanaalregio en zet er Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) op. Resin v1.1.2 heeft geen per-node selector.",
     "protocolWeights": "Protocolgewichten voor AI-SSE",
@@ -78,7 +74,15 @@
     "reputationSummary": "{{count}} live egress IPs checked",
     "reputationCached": "cached",
     "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
-    "reputationDisabled": "IP reputation checks are disabled."
+    "reputationDisabled": "IP reputation checks are disabled.",
+    "search": "Knopen zoeken...",
+    "expandAll": "Alles uitklappen",
+    "collapseAll": "Alles inklappen",
+    "nodeCount": "{{count}} knopen",
+    "healthRate": "{{rate}}% gezond",
+    "noMatch": "Geen overeenkomende knopen.",
+    "untagged": "Ongesorteerd",
+    "timeout": "time-out"
   },
   "platform": {
     "accounts": "Accounts",

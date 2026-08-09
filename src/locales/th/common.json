@@ -66,10 +66,6 @@
     "healthyEgress": "ออกปกติ",
     "loading": "กำลังโหลด…",
     "empty": "ไม่มีโหนด นำเข้าการสมัครรับข้อมูลก่อน",
-    "colTag": "โหนด",
-    "colRegion": "ภูมิภาค",
-    "colHealth": "สุขภาพ",
-    "colSub": "การสมัครรับข้อมูล",
     "lastRefresh": "รีเฟรชล่าสุด: {{time}}",
     "egressPolicyNote": "นโยบายทางออกตามภูมิภาคตั้งค่าบนผืนผ้าใบ Topology: ลากแพลตฟอร์มไปยังภูมิภาคช่อง IP แล้วตั้ง Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) บนแพลตฟอร์ม Resin v1.1.2 ไม่มีตัวเลือกรายโหนด",
     "protocolWeights": "น้ำหนักโปรโตคอลสำหรับ AI SSE",
@@ -78,7 +74,15 @@
     "reputationSummary": "{{count}} live egress IPs checked",
     "reputationCached": "cached",
     "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
-    "reputationDisabled": "IP reputation checks are disabled."
+    "reputationDisabled": "IP reputation checks are disabled.",
+    "search": "ค้นหาโหนด...",
+    "expandAll": "ขยายทั้งหมด",
+    "collapseAll": "ย่อทั้งหมด",
+    "nodeCount": "{{count}} โหนด",
+    "healthRate": "{{rate}}% แข็งแรง",
+    "noMatch": "ไม่มีโหนดที่ตรงกัน.",
+    "untagged": "ไม่ได้จัดกลุ่ม",
+    "timeout": "หมดเวลา"
   },
   "platform": {
     "accounts": "บัญชี",

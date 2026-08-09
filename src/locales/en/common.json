@@ -66,10 +66,6 @@
     "healthyEgress": "Healthy egress",
     "loading": "Loading nodes…",
     "empty": "No nodes loaded. Import a subscription first.",
-    "colTag": "Node",
-    "colRegion": "Region",
-    "colHealth": "Health",
-    "colSub": "Subscription",
     "lastRefresh": "Last refresh: {{time}}",
     "egressPolicyNote": "Per-region egress policy is bound on the Topology canvas: drag a Platform to an IP channel region then set Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) on the platform. Resin v1.1.2 has no per-node strategy selector.",
     "protocolWeights": "Protocol weights for AI SSE",
@@ -78,7 +74,15 @@
     "reputationSummary": "{{count}} live egress IPs checked",
     "reputationCached": "cached",
     "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
-    "reputationDisabled": "IP reputation checks are disabled."
+    "reputationDisabled": "IP reputation checks are disabled.",
+    "search": "Search nodes...",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "nodeCount": "{{count}} nodes",
+    "healthRate": "{{rate}}% healthy",
+    "noMatch": "No nodes match search.",
+    "untagged": "Ungrouped",
+    "timeout": "timeout"
   },
   "platform": {
     "accounts": "Accounts",

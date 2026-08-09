@@ -1,18 +1,12 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ShieldCheck } from "lucide-react";
+import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ShieldCheck, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { ipcNodeList, ipcNodePoolSnapshot, ipcIpReputationSnapshot, type ReputationSnapshot } from "../lib/ipc";
 
-/// NodesView — Phase R3 node/IP-channel management tab.
-///
-/// Displays the Resin proxy node pool (the "C category" ip/ip channels) from
-/// GET /api/v1/nodes + the aggregate node-pool health snapshot. Each row shows
-/// display_tag, region, health (failure_count + has_outbound), and the
-/// subscription it came from. This is the whitebox surface for IP channels.
-///
-/// The Resin sidecar owns node lifecycle (fetch from subscriptions, health
-/// probe, circuit breaker). This view mirrors that state and lets the user
-/// verify which exit IPs are live. Import happens in the Subscriptions tab.
+/// NodesView — T4-3 collapsible tree by subscription (clash-verge-dev pattern).
+/// Level 1: subscription (foldable) — name + node count + health rate
+/// Level 2: nodes — display_tag / region / latency(ms) / health
+/// Latency color: <200ms green, 200-500ms yellow, >500ms red, timeout/null gray
 
 interface NodeItem {
   node_hash?: string;
@@ -22,7 +16,9 @@ interface NodeItem {
   failure_count?: number;
   region?: string | null;
   circuit_open_since?: string | null;
-  tags?: { subscriptionName: string; tag: string }[];
+  reference_latency_ms?: number | null;
+  egress_ip?: string;
+  tags?: { subscription_name?: string; subscriptionName?: string; tag: string }[];
 }
 
 interface PoolSnapshot {
@@ -41,6 +37,39 @@ function itemsArr(v: unknown): NodeItem[] {
   return [];
 }
 
+function subName(n: NodeItem): string {
+  return n.tags?.[0]?.subscription_name ?? n.tags?.[0]?.subscriptionName ?? n.tags?.[0]?.tag ?? "";
+}
+
+function groupBySub(nodes: NodeItem[]): Map<string, NodeItem[]> {
+  const m = new Map<string, NodeItem[]>();
+  for (const n of nodes) {
+    const key = subName(n) || "__untagged__";
+    const arr = m.get(key);
+    if (arr) arr.push(n);
+    else m.set(key, [n]);
+  }
+  return m;
+}
+
+function latencyColor(ms: number | null | undefined): string {
+  if (ms == null) return "text-zinc-400 dark:text-zinc-500";
+  if (ms < 200) return "text-green-600 dark:text-green-400";
+  if (ms < 500) return "text-yellow-600 dark:text-yellow-400";
+  if (ms > 9999) return "text-zinc-400 dark:text-zinc-500";
+  return "text-red-600 dark:text-red-400";
+}
+
+function latencyLabel(ms: number | null | undefined, t: (k: string) => string): string {
+  if (ms == null) return "-";
+  if (ms > 9999) return t("nodes.timeout");
+  return Math.round(ms) + "ms";
+}
+
+function isHealthy(n: NodeItem): boolean {
+  return (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
+}
+
 export function NodesView() {
   const { t } = useTranslation();
   const [nodes, setNodes] = useState<NodeItem[]>([]);
@@ -49,6 +78,9 @@ export function NodesView() {
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<number>(0);
   const [reputation, setReputation] = useState<ReputationSnapshot>({ provider: null, status: "disabled", entries: [] });
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -74,7 +106,43 @@ export function NodesView() {
     return () => clearInterval(id);
   }, [refresh]);
 
-  const healthyCount = nodes.filter((n) => (n.failure_count ?? 0) === 0 && n.has_outbound !== false).length;
+  const healthyCount = nodes.filter(isHealthy).length;
+  const grouped = useMemo(() => groupBySub(nodes), [nodes]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return grouped;
+    const q = search.toLowerCase();
+    const m = new Map<string, NodeItem[]>();
+    for (const [sub, items] of grouped) {
+      const matched = items.filter((n) =>
+        (n.display_tag ?? n.name ?? "").toLowerCase().includes(q) ||
+        (n.region ?? "").toLowerCase().includes(q) ||
+        (n.egress_ip ?? "").toLowerCase().includes(q) ||
+        sub.toLowerCase().includes(q)
+      );
+      if (matched.length > 0) m.set(sub, matched);
+    }
+    return m;
+  }, [grouped, search]);
+
+  function toggleSub(sub: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(sub)) next.delete(sub); else next.add(sub);
+      return next;
+    });
+  }
+
+  function toggleRow(hash: string) {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(hash)) next.delete(hash); else next.add(hash);
+      return next;
+    });
+  }
+
+  const subEntries = [...filtered.entries()];
+  const tKeys = t as unknown as (key: string, opts?: unknown) => string;
 
   return (
     <div className="flex-1 overflow-auto p-6 space-y-4">
@@ -99,7 +167,7 @@ export function NodesView() {
           {reputation.status === "ok" ? (
             <div className="text-xs text-zinc-500 dark:text-zinc-400">
               {t("nodes.reputationSummary", { count: reputation.entries.length })}
-              {reputation.entries.slice(0, 4).map((entry) => ` ${entry.ip}${entry.score == null ? "" : ` · ${entry.score}`}${entry.cached ? ` · ${t("nodes.reputationCached")}` : ""}`).join(" | ")}
+              {reputation.entries.slice(0, 4).map((entry) => " " + entry.ip + (entry.score == null ? "" : " \u00b7 " + entry.score) + (entry.cached ? " \u00b7 " + t("nodes.reputationCached") : "")).join(" | ")}
             </div>
           ) : (
             <div className="text-xs text-zinc-500 dark:text-zinc-400">{t(reputation.status === "not_configured" ? "nodes.reputationNotConfigured" : "nodes.reputationDisabled")}</div>
@@ -107,7 +175,6 @@ export function NodesView() {
         </div>
       </div>
 
-      {/* Aggregate stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={<Activity size={16} />} label={t("nodes.total")} value={pool?.total_nodes ?? nodes.length} />
         <StatCard icon={<Activity size={16} />} label={t("nodes.healthy")} value={pool?.healthy_nodes ?? healthyCount} accent="green" />
@@ -122,7 +189,6 @@ export function NodesView() {
         </div>
       )}
 
-      {/* P21-C: Egress policy guidance + protocol weight display */}
       <div className="space-y-2">
         <div className="flex items-start gap-2 p-3 rounded-md bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 text-xs text-blue-700 dark:text-blue-300">
           <Info size={14} className="shrink-0 mt-0.5" />
@@ -134,44 +200,77 @@ export function NodesView() {
         </div>
       </div>
 
+      {nodes.length > 0 && (
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("nodes.search")}
+              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <button onClick={() => setCollapsed(new Set())} className="text-xs px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300">{t("nodes.expandAll")}</button>
+          <button onClick={() => setCollapsed(new Set([...filtered.keys()]))} className="text-xs px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300">{t("nodes.collapseAll")}</button>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-sm text-zinc-400 py-8 text-center">{t("nodes.loading")}</div>
-      ) : nodes.length === 0 ? (
-        <div className="text-sm text-zinc-400 py-8 text-center">{t("nodes.empty")}</div>
+      ) : subEntries.length === 0 ? (
+        <div className="text-sm text-zinc-400 py-8 text-center">{nodes.length === 0 ? t("nodes.empty") : t("nodes.noMatch")}</div>
       ) : (
         <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 text-xs uppercase tracking-wide">
-              <tr>
-                <th className="text-left px-4 py-2.5 font-medium">{t("nodes.colTag")}</th>
-                <th className="text-left px-4 py-2.5 font-medium">{t("nodes.colRegion")}</th>
-                <th className="text-left px-4 py-2.5 font-medium">{t("nodes.colHealth")}</th>
-                <th className="text-left px-4 py-2.5 font-medium">{t("nodes.colSub")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {nodes.map((n, i) => {
-                const healthy = (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
-                const sub = n.tags?.[0]?.subscriptionName ?? n.tags?.[0]?.tag ?? "";
-                return (
-                  <tr key={n.node_hash ?? i} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
-                    <td className="px-4 py-2.5 text-zinc-900 dark:text-zinc-100 font-mono text-xs">
-                      {n.display_tag ?? n.name ?? n.node_hash?.slice(0, 12) ?? "-"}
-                    </td>
-                    <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400">
-                      {n.region ?? "-"}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className={healthy ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
-                        {healthy ? t("nodes.healthy") : t("nodes.unhealthy")} ({n.failure_count ?? 0})
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-zinc-600 dark:text-zinc-400 text-xs">{sub || "-"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {subEntries.map(([sub, items]) => {
+            const isCollapsed = collapsed.has(sub);
+            const subHealthy = items.filter(isHealthy).length;
+            const subHealthRate = items.length > 0 ? Math.round((subHealthy / items.length) * 100) : 0;
+            const displayName = sub === "__untagged__" ? t("nodes.untagged") : sub;
+            return (
+              <div key={sub} className="border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
+                <button
+                  onClick={() => toggleSub(sub)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-left"
+                >
+                  {isCollapsed ? <ChevronRight size={16} className="text-zinc-400 shrink-0" /> : <ChevronDown size={16} className="text-zinc-400 shrink-0" />}
+                  <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 flex-1 truncate">{displayName}</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{tKeys("nodes.nodeCount", { count: items.length })}</span>
+                  <span className={subHealthRate > 80 ? "text-xs text-green-600 dark:text-green-400" : subHealthRate > 50 ? "text-xs text-yellow-600 dark:text-yellow-400" : "text-xs text-red-600 dark:text-red-400"}>{tKeys("nodes.healthRate", { rate: subHealthRate })}</span>
+                </button>
+                {!isCollapsed && (
+                  <div className="divide-y divide-zinc-50 dark:divide-zinc-900">
+                    {items.map((n, i) => {
+                      const healthy = isHealthy(n);
+                      const hash = n.node_hash ?? ("n-" + i);
+                      const expanded = expandedRows.has(hash);
+                      const lat = n.reference_latency_ms ?? null;
+                      return (
+                        <div key={hash}>
+                          <div onClick={() => toggleRow(hash)} className="flex items-center gap-3 px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer text-sm">
+                            <span className={healthy ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{healthy ? "\u2713" : "\u2717"}</span>
+                            <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100 flex-1 truncate">{n.display_tag ?? n.name ?? n.node_hash?.slice(0, 12) ?? "-"}</span>
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400 w-16 text-center">{n.region ?? "-"}</span>
+                            <span className={"text-xs font-mono w-20 text-right " + latencyColor(lat)}>{latencyLabel(lat, t)}</span>
+                          </div>
+                          {expanded && (
+                            <div className="px-8 py-1.5 bg-zinc-50/50 dark:bg-zinc-900/30 text-xs text-zinc-500 dark:text-zinc-400 space-y-0.5">
+                              <div>{"node_hash: " + (n.node_hash ?? "-")}</div>
+                              <div>{"egress_ip: " + (n.egress_ip ?? "-")}</div>
+                              <div>{"failure_count: " + (n.failure_count ?? 0)}</div>
+                              <div>{"circuit_open: " + (n.circuit_open_since ?? "no")}</div>
+                              {n.tags && n.tags.length > 0 && <div>{"tags: " + n.tags.map((tg) => tg.tag).join(", ")}</div>}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

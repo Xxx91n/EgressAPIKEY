@@ -66,10 +66,6 @@
     "healthyEgress": "Sağlıklı çıkış",
     "loading": "Yükleniyor…",
     "empty": "Düğüm yok. Abonelik içe aktarın.",
-    "colTag": "Düğüm",
-    "colRegion": "Bölge",
-    "colHealth": "Sağlık",
-    "colSub": "Abonelik",
     "lastRefresh": "Son güncelleme: {{time}}",
     "egressPolicyNote": "Bölge başına çıkış politikası Topology tuvalinde ayarlanır: bir Platformu bir IP kanalı bölgesine sürükleyin ardından platformda Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) ayarlayın. Resin v1.1.2nin düğüm başına seçicisi yoktur.",
     "protocolWeights": "AI SSE için protokol ağırlıkları",
@@ -78,7 +74,15 @@
     "reputationSummary": "{{count}} live egress IPs checked",
     "reputationCached": "cached",
     "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
-    "reputationDisabled": "IP reputation checks are disabled."
+    "reputationDisabled": "IP reputation checks are disabled.",
+    "search": "Düğümleri ara...",
+    "expandAll": "Tümünü genişlet",
+    "collapseAll": "Tümünü daralt",
+    "nodeCount": "{{count}} düğüm",
+    "healthRate": "{{rate}}% sağlıklı",
+    "noMatch": "Eşleşen düğüm yok.",
+    "untagged": "Grupsuz",
+    "timeout": "zaman aşımı"
   },
   "platform": {
     "accounts": "Hesaplar",

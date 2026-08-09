@@ -66,10 +66,6 @@
     "healthyEgress": "Sortie saine",
     "loading": "Chargement…",
     "empty": "Aucun nœud. Importez un abonnement d'abord.",
-    "colTag": "Nœud",
-    "colRegion": "Région",
-    "colHealth": "Santé",
-    "colSub": "Abonnement",
     "lastRefresh": "Dernière MAJ: {{time}}",
     "egressPolicyNote": "La politique degress par région se règle sur le canevas Topologie : glissez une Plateforme sur une région de canal IP puis définissez Allocation policy (BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP) sur la plateforme. Resin v1.1.2 na pas de sélecteur par nœud.",
     "protocolWeights": "Poids de protocole pour SSE IA",
@@ -78,7 +74,15 @@
     "reputationSummary": "{{count}} live egress IPs checked",
     "reputationCached": "cached",
     "reputationNotConfigured": "Choose a provider and save its API key in Settings.",
-    "reputationDisabled": "IP reputation checks are disabled."
+    "reputationDisabled": "IP reputation checks are disabled.",
+    "search": "Rechercher des nœuds...",
+    "expandAll": "Tout déplier",
+    "collapseAll": "Tout replier",
+    "nodeCount": "{{count}} nœuds",
+    "healthRate": "{{rate}}% sains",
+    "noMatch": "Aucun nœud correspondant.",
+    "untagged": "Non groupés",
+    "timeout": "délai dépassé"
   },
   "platform": {
     "accounts": "Comptes",
