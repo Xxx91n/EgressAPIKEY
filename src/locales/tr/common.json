@@ -146,7 +146,7 @@
     "copied": "kopyalandı",
     "socks5Auth": "SOCKS5 kullanıcısı",
     "passwordMasked": "parola: (gizli)",
-    "httpNoAuth": "HTTP proxy (kimlik doğrulama yok)"
+    "httpAuth": "HTTP Kimlik Doğrulama"
   },
   "policy": {
     "balanced": "Dengeli",

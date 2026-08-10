@@ -146,7 +146,7 @@
     "copied": "gekopieerd",
     "socks5Auth": "SOCKS5-gebruiker",
     "passwordMasked": "wachtwoord: (verborgen)",
-    "httpNoAuth": "HTTP-proxy (geen authenticatie)"
+    "httpAuth": "HTTP-auth"
   },
   "policy": {
     "balanced": "Gebalanceerd",

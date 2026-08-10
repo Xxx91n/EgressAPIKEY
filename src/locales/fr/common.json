@@ -146,7 +146,7 @@
     "copied": "copié",
     "socks5Auth": "Utilisateur SOCKS5",
     "passwordMasked": "mot de passe : (masqué)",
-    "httpNoAuth": "Proxy HTTP (sans authentification)"
+    "httpAuth": "Auth HTTP"
   },
   "policy": {
     "balanced": "Equilibre",

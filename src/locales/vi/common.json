@@ -146,7 +146,7 @@
     "copied": "đã sao chép",
     "socks5Auth": "Người dùng SOCKS5",
     "passwordMasked": "mật khẩu: (ẩn)",
-    "httpNoAuth": "Proxy HTTP (không xác thực)"
+    "httpAuth": "Xác thực HTTP"
   },
   "policy": {
     "balanced": "Can bang",

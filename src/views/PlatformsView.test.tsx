@@ -336,7 +336,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(screen.getAllByText(/port-17990/).length).toBeGreaterThan(0);
   });
 
-  it("Bug4: HTTP port does NOT show SOCKS5 auth credentials (shows httpNoAuth instead)", async () => {
+  it("Bug4: HTTP port shows auth credentials (httpAuth), not httpNoAuth", async () => {
     invokeMock.mockReset();
     const httpPort = { ...samplePort, port: 17111, protocol: "http", account: "port-17111", label: "entry-17111" };
     invokeMock.mockImplementation((cmd: string) => {
@@ -351,9 +351,10 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     });
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("port-row-17111")).toBeInTheDocument());
-    const socks5Label = screen.queryByText(/socks5Auth|SOCKS5 Auth/i);
-    expect(socks5Label).toBeNull();
-    await waitFor(() => expect(screen.getByText(/HTTP proxy/i)).toBeInTheDocument(), { timeout: 3000 });
+    // Bug4 fix: HTTP port now shows httpAuth (credentials), not httpNoAuth
+    await waitFor(() => expect(screen.getByTestId("port-auth-17111")).toBeInTheDocument(), { timeout: 3000 });
+    // Should show HTTP auth credentials (not "no auth")
+    await waitFor(() => expect(screen.getByText(/httpAuth|HTTP Auth/i)).toBeInTheDocument(), { timeout: 3000 });
   });
 
 });

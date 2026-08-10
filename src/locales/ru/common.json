@@ -146,7 +146,7 @@
     "copied": "скопировано",
     "socks5Auth": "Пользователь SOCKS5",
     "passwordMasked": "пароль: (скрыт)",
-    "httpNoAuth": "HTTP-прокси (без аутентификации)"
+    "httpAuth": "HTTP аутентификация"
   },
   "policy": {
     "balanced": "Сбалансированный",

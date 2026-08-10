@@ -146,7 +146,7 @@
     "copied": "คัดลอกแล้ว",
     "socks5Auth": "ผู้ใช้ SOCKS5",
     "passwordMasked": "รหัสผ่าน: (ซ่อนอยู่)",
-    "httpNoAuth": "พร็อกซี HTTP (ไม่มีการยืนยันตัวตน)"
+    "httpAuth": "การตรวจสอบ HTTP"
   },
   "policy": {
     "balanced": "สมดุล",

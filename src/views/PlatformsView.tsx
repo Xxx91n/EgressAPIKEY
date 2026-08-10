@@ -395,9 +395,9 @@ export function PlatformsView() {
                     {t("platform.socks5Auth")}: {authInfo[p.port].username} · {t("platform.passwordMasked")}
                   </div>
                 )}
-                {authInfo[p.port] && p.protocol === "http" && (
-                  <div className="mt-1 text-[10px] text-muted-foreground/80">
-                    {t("platform.httpNoAuth")}
+                {authInfo[p.port] && p.protocol === "http" && authInfo[p.port].auth_required && (
+                  <div className="mt-1 break-all text-[10px] text-muted-foreground/80">
+                    {t("platform.httpAuth")}: {authInfo[p.port].username} · {t("platform.passwordMasked")}
                   </div>
                 )}
               </li>

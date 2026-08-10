@@ -146,7 +146,7 @@
     "copied": "복사됨",
     "socks5Auth": "SOCKS5 사용자",
     "passwordMasked": "비밀번호: (숨김)",
-    "httpNoAuth": "HTTP 프록시 (인증 없음)"
+    "httpAuth": "HTTP 인증"
   },
   "policy": {
     "balanced": "균형",

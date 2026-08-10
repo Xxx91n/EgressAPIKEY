@@ -146,7 +146,7 @@
     "copied": "कॉपी किया गया",
     "socks5Auth": "SOCKS5 उपयोगकर्ता",
     "passwordMasked": "पासवर्ड: (छिपा हुआ)",
-    "httpNoAuth": "HTTP प्रॉक्सी (कोई प्रमाणीकरण नहीं)"
+    "httpAuth": "HTTP प्रमाणीकरण"
   },
   "policy": {
     "balanced": "संतुलित",

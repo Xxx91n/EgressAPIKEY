@@ -146,7 +146,7 @@
     "copied": "disalin",
     "socks5Auth": "Pengguna SOCKS5",
     "passwordMasked": "kata sandi: (tersembunyi)",
-    "httpNoAuth": "Proxy HTTP (tanpa autentikasi)"
+    "httpAuth": "Auth HTTP"
   },
   "policy": {
     "balanced": "Seimbang",

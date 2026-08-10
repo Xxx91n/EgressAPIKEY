@@ -146,7 +146,7 @@
     "copied": "تم النسخ",
     "socks5Auth": "مستخدم SOCKS5",
     "passwordMasked": "كلمة المرور: (مخفية)",
-    "httpNoAuth": "وكيل HTTP (بدون مصادقة)"
+    "httpAuth": "مصادقة HTTP"
   },
   "policy": {
     "balanced": "متوازن",
