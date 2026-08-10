@@ -145,7 +145,8 @@
     "copyCredentials": "SOCKS5-inloggegevens kopiëren",
     "copied": "gekopieerd",
     "socks5Auth": "SOCKS5-gebruiker",
-    "passwordMasked": "wachtwoord: (verborgen)"
+    "passwordMasked": "wachtwoord: (verborgen)",
+    "httpNoAuth": "HTTP-proxy (geen authenticatie)"
   },
   "policy": {
     "balanced": "Gebalanceerd",

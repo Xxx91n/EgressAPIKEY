@@ -145,7 +145,8 @@
     "copyCredentials": "SOCKS5 क्रेडेंशियल कॉपी करें",
     "copied": "कॉपी किया गया",
     "socks5Auth": "SOCKS5 उपयोगकर्ता",
-    "passwordMasked": "पासवर्ड: (छिपा हुआ)"
+    "passwordMasked": "पासवर्ड: (छिपा हुआ)",
+    "httpNoAuth": "HTTP प्रॉक्सी (कोई प्रमाणीकरण नहीं)"
   },
   "policy": {
     "balanced": "संतुलित",

@@ -317,4 +317,43 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     fireEvent.change(sel, { target: { value: "latency" } });
     expect(sel.value).toBe("latency");
   });
+
+  it("Bug4: SOCKS5 port shows SOCKS5 auth credentials when auth_required", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([samplePort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "port_auth_info") return Promise.resolve({ port: 17990, username: "port-17990", password: "tok123", auth_required: true, platform_name: "Default" });
+      if (cmd === "port_health_check") return Promise.resolve({ port: 17990, reachable: true, socks5_ok: true, protocol_mismatch: false, latency_ms: 1 });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("port-row-17990")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/SOCKS5 user/i)).toBeInTheDocument(), { timeout: 3000 });
+    expect(screen.getAllByText(/port-17990/).length).toBeGreaterThan(0);
+  });
+
+  it("Bug4: HTTP port does NOT show SOCKS5 auth credentials (shows httpNoAuth instead)", async () => {
+    invokeMock.mockReset();
+    const httpPort = { ...samplePort, port: 17111, protocol: "http", account: "port-17111", label: "entry-17111" };
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([httpPort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "port_auth_info") return Promise.resolve({ port: 17111, username: "port-17111", password: "tok123", auth_required: true, platform_name: "Default" });
+      if (cmd === "port_health_check") return Promise.resolve({ port: 17111, reachable: true, socks5_ok: false, protocol_mismatch: true, latency_ms: 1 });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("port-row-17111")).toBeInTheDocument());
+    const socks5Label = screen.queryByText(/socks5Auth|SOCKS5 Auth/i);
+    expect(socks5Label).toBeNull();
+    await waitFor(() => expect(screen.getByText(/HTTP proxy/i)).toBeInTheDocument(), { timeout: 3000 });
+  });
+
 });

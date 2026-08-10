@@ -238,6 +238,7 @@ pub fn compute_plan(
 ///
 /// Format: `port-{port}::{strategy_tag}` — e.g. `port-17990::random`,
 /// `port-17991::rr-0`, `port-17992::latency`.
+// ponytail: no-caller, wire-into-port_upsert-when-IpcError-refactor-done
 pub fn account_for_bclass(strategy: StrategyId, port_label: &str) -> String {
     match strategy {
         StrategyId::Random => format!("{port_label}::random"),

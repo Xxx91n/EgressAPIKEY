@@ -25,11 +25,14 @@ if($LASTEXITCODE -ne 0) { Write-Error "tsc -b failed"; exit 1 }
 npx --no-install vite build
 if($LASTEXITCODE -ne 0) { Write-Error "vite build failed"; exit 1 }
 
-# --- 2. Backend headless compile-guard ---
-Write-Host "[build-all] backend headless compile-guard (resin-core)"
+# --- 2. Backend headless build (resin-core + headless binary) ---
+Write-Host "[build-all] backend headless build (resin-core)"
 cargo build --release -p resin-core
 if($LASTEXITCODE -ne 0) { Write-Error "resin-core build failed"; exit 1 }
 Write-Host "[build-all] resin-core compiles OK"
+Write-Host "[build-all] headless binary (egressapikey-headless)"
+cargo build --release -p egressapikey-app --bin egressapikey-headless
+if($LASTEXITCODE -ne 0) { Write-Host "[build-all] WARNING: headless binary build failed (non-fatal, GUI-only)" }
 
 # --- 3. Host triple ---
 $triple = (& rustc -vV | Select-String "^host:" | ForEach-Object { ($_ -split "\s+")[1] })
@@ -79,6 +82,17 @@ if($sidecarSrc) {
   Write-Host "[build-all] sidecar staged: $GUI_STAGE/resin.exe"
 } else {
   Write-Host "[build-all] WARNING: sidecar binary not found - portable GUI will panic at boot"
+}
+
+# Copy headless binary (npm-server) - exact name match, exclude deps/ to avoid underscore variant
+$headlessBin = Get-ChildItem -Path "src-tauri/target","target" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq "egressapikey-headless.exe" -and $_.FullName -match "release" -and $_.FullName -notmatch "[\\\\/]deps[\\\\/]" } | Select-Object -First 1
+if($headlessBin) {
+  $npmDir = "$GUI_STAGE/npm-server"
+  New-Item -ItemType Directory -Force -Path $npmDir | Out-Null
+  Copy-Item $headlessBin.FullName "$npmDir/egressapikey-headless.exe" -Force
+  Write-Host "[build-all] headless binary staged: $npmDir/egressapikey-headless.exe"
+} else {
+  Write-Host "[build-all] WARNING: headless binary not found (egressapikey-headless.exe not built yet)"
 }
 
 # --- 6. SHA256 checksums ---

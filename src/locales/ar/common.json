@@ -145,7 +145,8 @@
     "copyCredentials": "نسخ بيانات اعتماد SOCKS5",
     "copied": "تم النسخ",
     "socks5Auth": "مستخدم SOCKS5",
-    "passwordMasked": "كلمة المرور: (مخفية)"
+    "passwordMasked": "كلمة المرور: (مخفية)",
+    "httpNoAuth": "وكيل HTTP (بدون مصادقة)"
   },
   "policy": {
     "balanced": "متوازن",

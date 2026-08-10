@@ -145,7 +145,8 @@
     "copyCredentials": "Salin kredensial SOCKS5",
     "copied": "disalin",
     "socks5Auth": "Pengguna SOCKS5",
-    "passwordMasked": "kata sandi: (tersembunyi)"
+    "passwordMasked": "kata sandi: (tersembunyi)",
+    "httpNoAuth": "Proxy HTTP (tanpa autentikasi)"
   },
   "policy": {
     "balanced": "Seimbang",

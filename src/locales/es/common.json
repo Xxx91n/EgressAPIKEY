@@ -145,7 +145,8 @@
     "copyCredentials": "Copiar credenciales SOCKS5",
     "copied": "copiado",
     "socks5Auth": "Usuario SOCKS5",
-    "passwordMasked": "contraseña: (oculta)"
+    "passwordMasked": "contraseña: (oculta)",
+    "httpNoAuth": "Proxy HTTP (sin autenticación)"
   },
   "policy": {
     "balanced": "Equilibrado",

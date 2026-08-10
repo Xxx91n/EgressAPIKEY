@@ -145,7 +145,8 @@
     "copyCredentials": "Sao chép thông tin SOCKS5",
     "copied": "đã sao chép",
     "socks5Auth": "Người dùng SOCKS5",
-    "passwordMasked": "mật khẩu: (ẩn)"
+    "passwordMasked": "mật khẩu: (ẩn)",
+    "httpNoAuth": "Proxy HTTP (không xác thực)"
   },
   "policy": {
     "balanced": "Can bang",

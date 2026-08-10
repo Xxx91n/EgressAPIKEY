@@ -145,7 +145,8 @@
     "copyCredentials": "复制 SOCKS5 凭据",
     "copied": "已复制",
     "socks5Auth": "SOCKS5 用户名",
-    "passwordMasked": "密码: (已隐藏)"
+    "passwordMasked": "密码: (已隐藏)",
+    "httpNoAuth": "HTTP 代理 (无需认证)"
   },
   "policy": {
     "balanced": "均衡",

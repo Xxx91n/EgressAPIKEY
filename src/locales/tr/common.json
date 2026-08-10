@@ -145,7 +145,8 @@
     "copyCredentials": "SOCKS5 kimlik bilgilerini kopyala",
     "copied": "kopyalandı",
     "socks5Auth": "SOCKS5 kullanıcısı",
-    "passwordMasked": "parola: (gizli)"
+    "passwordMasked": "parola: (gizli)",
+    "httpNoAuth": "HTTP proxy (kimlik doğrulama yok)"
   },
   "policy": {
     "balanced": "Dengeli",

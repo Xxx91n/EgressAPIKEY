@@ -13,4 +13,6 @@ Re-verified: 2026-08-09 (post-T4 audit pass). Source-tagged markers drive this l
 - **keep** = permanent stub/dead code deliberately kept; rationalized inline.
 - **done** = previously-tagged shortcut resolved; status retained for audit trail.
 - **deferred** = planned follow-up; safe to leave until the upgrade lands.
-- **deferred-dead-code** = harvestable dead code; not blocking, slated for a future cleanup commit.
+- **deferred-dead-code** = harvestable dead code; not blocking, slated for a future cleanup commit.| `crates/resin-core/src/strategy_engine.rs` L241 | `account_for_bclass` + `account_for_fixed` have tests but zero production callers | no-caller, wire-into-port_upsert-when-IpcError-refactor-done | IpcError full refactor connects B-class account tag to port_upsert |
+| `src/lib/ipc.ts` L562 | `extractIpcErr` + `ipcErrI18nKey` have tests but zero GUI callers | no-gui-caller, wire-into-catch-blocks-when-IpcError-refactor-done | GUI catch blocks switch from raw string to extractIpcErr variant narrowing |
+

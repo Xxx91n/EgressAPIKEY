@@ -145,7 +145,8 @@
     "copyCredentials": "Скопировать учётные данные SOCKS5",
     "copied": "скопировано",
     "socks5Auth": "Пользователь SOCKS5",
-    "passwordMasked": "пароль: (скрыт)"
+    "passwordMasked": "пароль: (скрыт)",
+    "httpNoAuth": "HTTP-прокси (без аутентификации)"
   },
   "policy": {
     "balanced": "Сбалансированный",

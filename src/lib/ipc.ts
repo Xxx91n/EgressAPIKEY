@@ -559,7 +559,8 @@ export async function ipcStrategyApply(): Promise<StrategyApplyResult> {
  /** Narrow a thrown/unknown value from invoke() into a typed IpcErr.
   *  Tauri rejects with a string by default; if the Rust side returns
   *  IpcError via serde, Tauri serialises it as a JS object. */
- export function extractIpcErr(e: unknown): IpcErr {
+ // ponytail: no-gui-caller, wire-into-catch-blocks-when-IpcError-refactor-done
+export function extractIpcErr(e: unknown): IpcErr {
    if (e && typeof e === "object" && "kind" in e && "data" in e) {
      const kind = (e as { kind: string }).kind;
      const data = (e as { data: Record<string, unknown> }).data;

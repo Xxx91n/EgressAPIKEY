@@ -145,7 +145,8 @@
     "copyCredentials": "SOCKS5-Anmeldedaten kopieren",
     "copied": "kopiert",
     "socks5Auth": "SOCKS5-Benutzer",
-    "passwordMasked": "Passwort: (versteckt)"
+    "passwordMasked": "Passwort: (versteckt)",
+    "httpNoAuth": "HTTP-Proxy (keine Authentifizierung)"
   },
   "policy": {
     "balanced": "Ausgeglichen",

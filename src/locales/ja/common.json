@@ -145,7 +145,8 @@
     "copyCredentials": "SOCKS5 認証情報をコピー",
     "copied": "コピーしました",
     "socks5Auth": "SOCKS5 ユーザー",
-    "passwordMasked": "パスワード: (非表示)"
+    "passwordMasked": "パスワード: (非表示)",
+    "httpNoAuth": "HTTP プロキシ (認証なし)"
   },
   "policy": {
     "balanced": "バランス",

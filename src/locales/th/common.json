@@ -145,7 +145,8 @@
     "copyCredentials": "คัดลอกข้อมูล SOCKS5",
     "copied": "คัดลอกแล้ว",
     "socks5Auth": "ผู้ใช้ SOCKS5",
-    "passwordMasked": "รหัสผ่าน: (ซ่อนอยู่)"
+    "passwordMasked": "รหัสผ่าน: (ซ่อนอยู่)",
+    "httpNoAuth": "พร็อกซี HTTP (ไม่มีการยืนยันตัวตน)"
   },
   "policy": {
     "balanced": "สมดุล",

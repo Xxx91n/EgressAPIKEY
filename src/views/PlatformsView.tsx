@@ -183,7 +183,7 @@ export function PlatformsView() {
         try { return [p.port, await ipcPortAuthInfo(p.port)] as const; } catch { return null; }
       })),
       Promise.all(list.map(async (p) => {
-        try { return [p.port, await ipcPortHealthCheck(p.port)] as const; } catch { return null; }
+        try { return [p.port, await ipcPortHealthCheck(p.port, p.protocol)] as const; } catch { return null; }
       })),
     ]);
     const authMap: Record<number, PortAuthInfo> = {};
@@ -391,9 +391,14 @@ export function PlatformsView() {
                     );
                   })()}
                 </div>
-                {authInfo[p.port] && (
+                {authInfo[p.port] && p.protocol === "socks5" && authInfo[p.port].auth_required && (
                   <div className="mt-1 break-all text-[10px] text-muted-foreground/80">
                     {t("platform.socks5Auth")}: {authInfo[p.port].username} · {t("platform.passwordMasked")}
+                  </div>
+                )}
+                {authInfo[p.port] && p.protocol === "http" && (
+                  <div className="mt-1 text-[10px] text-muted-foreground/80">
+                    {t("platform.httpNoAuth")}
                   </div>
                 )}
               </li>
