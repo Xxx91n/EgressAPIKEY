@@ -54,7 +54,11 @@
     "notFound": "ไม่พบ",
     "badRequest": "คำขอไม่ถูกต้อง",
     "unauthorized": "ไม่ได้รับอนุญาต",
-    "subscriptionFetch": "ดึงแหล่งสมัครรับข้อมูลล้มเหลว (HTTP {{code}})"
+    "subscriptionFetch": "ดึงแหล่งสมัครรับข้อมูลล้มเหลว (HTTP {{code}})",
+    "bindConflict": "พอร์ต {{port}} ถูกใช้งานแล้ว",
+    "invalidStrategy": "ค่ากลยุทธ์ไม่ถูกต้อง: {{value}}. ยอมรับ: {{accepted}}",
+    "resinUpstream": "แบ็กเอนด์ส่งกลับ HTTP {{status}}: {{excerpt}}",
+    "internal": "เกิดข้อผิดพลาดภายใน"
   },
   "log": {
     "title": "บันทึก",
@@ -204,7 +208,13 @@
     "preferIdleIp": "ต้องการ IP ที่ไม่ใช้งาน",
     "regionsHint": "US,SG,JP (คั่นด้วยจุลภาค)",
     "subsHint": "sub1,sub2 (คั่นด้วยจุลภาค)",
-    "topN": "โหนดสูงสุด"
+    "topN": "โหนดสูงสุด",
+    "random": "สุ่ม",
+    "sequential": "ตามลำดับ (โหนดเดียว)",
+    "latency": "เลือกความหน่วงต่ำสุด",
+    "bandwidth": "เลือกแบนด์วิดท์สูงสุด",
+    "protocolWeight": "ถ่วงน้ำหนักตามโปรโตคอล",
+    "bQuality": "คะแนนคุณภาพ IP"
   },
   "subscription": {
     "title": "การสมัครรับข้อมูล",

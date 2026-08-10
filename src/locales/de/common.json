@@ -54,7 +54,11 @@
     "notFound": "Nicht gefunden",
     "badRequest": "Ungueltige Anfrage",
     "unauthorized": "Nicht autorisiert",
-    "subscriptionFetch": "Abrufen der Abonnement-Quelle fehlgeschlagen (HTTP {{code}})"
+    "subscriptionFetch": "Abrufen der Abonnement-Quelle fehlgeschlagen (HTTP {{code}})",
+    "bindConflict": "Port {{port}} wird bereits verwendet",
+    "invalidStrategy": "Ungueltiger Strategiewert: {{value}}. Akzeptiert: {{accepted}}",
+    "resinUpstream": "Backend gab HTTP {{status}} zurueck: {{excerpt}}",
+    "internal": "Es ist ein interner Fehler aufgetreten"
   },
   "log": {
     "title": "Protokolle",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Bevorzuge inaktive IP",
     "regionsHint": "US,SG,JP (durch Kommas getrennt)",
     "subsHint": "sub1,sub2 (durch Kommas getrennt)",
-    "topN": "Max. Knoten"
+    "topN": "Max. Knoten",
+    "random": "Zufaellig",
+    "sequential": "Sequentiell (einzelner Knoten)",
+    "latency": "Geringste Latenz bevorzugen",
+    "bandwidth": "Hoechste Bandbreite bevorzugen",
+    "protocolWeight": "Protokollgewichtet",
+    "bQuality": "IP-Qualitaetsbewertung"
   },
   "subscription": {
     "title": "Abonnements",

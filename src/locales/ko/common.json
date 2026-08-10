@@ -54,7 +54,11 @@
     "notFound": "찾을 수 없음",
     "badRequest": "잘못된 요청",
     "unauthorized": "인증되지 않음",
-    "subscriptionFetch": "구독 원본 가져오기 실패 (HTTP {{code}})"
+    "subscriptionFetch": "구독 원본 가져오기 실패 (HTTP {{code}})",
+    "bindConflict": "포트 {{port}}이(가) 이미 사용 중입니다",
+    "invalidStrategy": "잘못된 전략 값: {{value}}. 허용: {{accepted}}",
+    "resinUpstream": "백엔드가 HTTP {{status}} 반환: {{excerpt}}",
+    "internal": "내부 오류가 발생했습니다"
   },
   "log": {
     "title": "로그",
@@ -204,7 +208,13 @@
     "preferIdleIp": "유휴 IP 우선",
     "regionsHint": "US,SG,JP (쉼표 구분)",
     "subsHint": "sub1,sub2 (쉼표 구분)",
-    "topN": "최대 노드 수"
+    "topN": "최대 노드 수",
+    "random": "무작위",
+    "sequential": "순차 (단일 노드)",
+    "latency": "최저 지연 우선",
+    "bandwidth": "최고 대역폭 우선",
+    "protocolWeight": "프로토콜 가중치",
+    "bQuality": "IP 품질 점수"
   },
   "subscription": {
     "title": "구독",

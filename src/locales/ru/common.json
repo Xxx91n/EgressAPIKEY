@@ -54,7 +54,11 @@
     "notFound": "Не найдено",
     "badRequest": "Неверный запрос",
     "unauthorized": "Не авторизован",
-    "subscriptionFetch": "Не удалось получить источник подписки (HTTP {{code}})"
+    "subscriptionFetch": "Не удалось получить источник подписки (HTTP {{code}})",
+    "bindConflict": "Порт {{port}} уже занят",
+    "invalidStrategy": "Недопустимое значение стратегии: {{value}}. Принято: {{accepted}}",
+    "resinUpstream": "Бэкенд вернул HTTP {{status}}: {{excerpt}}",
+    "internal": "Произошла внутренняя ошибка"
   },
   "log": {
     "title": "Журнал",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Предпочитать простой IP",
     "regionsHint": "US,SG,JP (через запятую)",
     "subsHint": "sub1,sub2 (через запятую)",
-    "topN": "Макс. узлов"
+    "topN": "Макс. узлов",
+    "random": "Случайно",
+    "sequential": "Последовательный (один узел)",
+    "latency": " Предпочитать наименьшую задержку",
+    "bandwidth": "Предпочитать наибольшую пропускную способность",
+    "protocolWeight": "Взвешенный по протоколу",
+    "bQuality": "Оценка качества IP"
   },
   "subscription": {
     "title": "Подписки",

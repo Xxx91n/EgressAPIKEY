@@ -54,7 +54,11 @@
     "notFound": "غير موجود",
     "badRequest": "طلب غير صالح",
     "unauthorized": "غير مصرح",
-    "subscriptionFetch": "فشل جلب مصدر الاشتراك (HTTP {{code}})"
+    "subscriptionFetch": "فشل جلب مصدر الاشتراك (HTTP {{code}})",
+    "bindConflict": "المنفذ {{port}} مستخدم بالفعل",
+    "invalidStrategy": "قيمة استراتيجية غير صالحة: {{value}}. مقبول: {{accepted}}",
+    "resinUpstream": "أعاد الخادم HTTP {{status}}: {{excerpt}}",
+    "internal": "حدث خطأ داخلي"
   },
   "log": {
     "title": "السجلات",
@@ -204,7 +208,13 @@
     "preferIdleIp": "تفضيل IP الخامل",
     "regionsHint": "US,SG,JP (مفصول بفواصل)",
     "subsHint": "sub1,sub2 (مفصول بفواصل)",
-    "topN": "الحد الأقصى للعقد"
+    "topN": "الحد الأقصى للعقد",
+    "random": "عشوائي",
+    "sequential": "تسلسلي (عقدة واحدة)",
+    "latency": "تفضيل أقل زمن وصول",
+    "bandwidth": "تفضيل أعلى عرض نطاق",
+    "protocolWeight": "مرجح بالبروتوكول",
+    "bQuality": "تقييم جودة IP"
   },
   "subscription": {
     "title": "الاشتراكات",

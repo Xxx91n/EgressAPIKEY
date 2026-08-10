@@ -54,7 +54,11 @@
     "notFound": "Tidak ditemukan",
     "badRequest": "Permintaan buruk",
     "unauthorized": "Tidak diotorisasi",
-    "subscriptionFetch": "Gagal mengambil sumber langganan (HTTP {{code}})"
+    "subscriptionFetch": "Gagal mengambil sumber langganan (HTTP {{code}})",
+    "bindConflict": "Port {{port}} sudah digunakan",
+    "invalidStrategy": "Nilai strategi tidak valid: {{value}}. Diterima: {{accepted}}",
+    "resinUpstream": "Backend mengembalikan HTTP {{status}}: {{excerpt}}",
+    "internal": "Terjadi kesalahan internal"
   },
   "log": {
     "title": "Log",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Preferensi IP menganggur",
     "regionsHint": "US,SG,JP (dipisah koma)",
     "subsHint": "sub1,sub2 (dipisah koma)",
-    "topN": "Maks. node"
+    "topN": "Maks. node",
+    "random": "Acak",
+    "sequential": "Berurutan (node tunggal)",
+    "latency": "Prefer latensi terendah",
+    "bandwidth": "Prefer bandwidth tertinggi",
+    "protocolWeight": "Berbobot protokol",
+    "bQuality": "Skor kualitas IP"
   },
   "subscription": {
     "title": "Langganan",

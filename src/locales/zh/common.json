@@ -54,7 +54,11 @@
     "notFound": "未找到",
     "badRequest": "请求格式错误",
     "unauthorized": "未授权",
-    "subscriptionFetch": "订阅源拉取失败 (HTTP {{code}})"
+    "subscriptionFetch": "订阅源拉取失败 (HTTP {{code}})",
+    "bindConflict": "端口 {{port}} 已被其他进程占用",
+    "invalidStrategy": "无效策略值: {{value}}。可接受: {{accepted}}",
+    "resinUpstream": "后端返回 HTTP {{status}}: {{excerpt}}",
+    "internal": "发生内部错误"
   },
   "log": {
     "title": "日志",
@@ -204,7 +208,13 @@
     "preferIdleIp": "优先空闲IP",
     "regionsHint": "US,SG,JP (逗号分隔)",
     "subsHint": "sub1,sub2 (逗号分隔)",
-    "topN": "最大节点数"
+    "topN": "最大节点数",
+    "random": "随机",
+    "sequential": "顺序（单节点）",
+    "latency": "优选最低延时",
+    "bandwidth": "优选最高带宽",
+    "protocolWeight": "协议加权",
+    "bQuality": "IP 质量分"
   },
   "subscription": {
     "title": "订阅",

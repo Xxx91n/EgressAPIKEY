@@ -54,7 +54,11 @@
     "notFound": "Non trovato",
     "badRequest": "Richiesta errata",
     "unauthorized": "Non autorizzato",
-    "subscriptionFetch": "Recupero fonte abbonamento fallito (HTTP {{code}})"
+    "subscriptionFetch": "Recupero fonte abbonamento fallito (HTTP {{code}})",
+    "bindConflict": "La porta {{port}} e gia in uso",
+    "invalidStrategy": "Valore strategia non valido: {{value}}. Accettato: {{accepted}}",
+    "resinUpstream": "Il backend ha restituito HTTP {{status}}: {{excerpt}}",
+    "internal": "Si e verificato un errore interno"
   },
   "log": {
     "title": "Log",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Preferisci IP inattivo",
     "regionsHint": "US,SG,JP (separato da virgole)",
     "subsHint": "sub1,sub2 (separato da virgole)",
-    "topN": "Nodi max"
+    "topN": "Nodi max",
+    "random": "Casuale",
+    "sequential": "Sequenziale (nodo singolo)",
+    "latency": "Preferisci latenza piu bassa",
+    "bandwidth": "Preferisci bandwidth piu alto",
+    "protocolWeight": "Ponderato per protocollo",
+    "bQuality": "Punteggio qualita IP"
   },
   "subscription": {
     "title": "Sottoscrizioni",

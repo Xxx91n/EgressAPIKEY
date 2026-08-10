@@ -54,7 +54,11 @@
     "notFound": "Niet gevonden",
     "badRequest": "Slecht verzoek",
     "unauthorized": "Niet geautoriseerd",
-    "subscriptionFetch": "Ophalen abonnementsbron mislukt (HTTP {{code}})"
+    "subscriptionFetch": "Ophalen abonnementsbron mislukt (HTTP {{code}})",
+    "bindConflict": "Poort {{port}} is al in gebruik",
+    "invalidStrategy": "Ongeldige strategiewaarde: {{value}}. Geaccepteerd: {{accepted}}",
+    "resinUpstream": "Backend gaf HTTP {{status}} terug: {{excerpt}}",
+    "internal": "Er is een interne fout opgetreden"
   },
   "log": {
     "title": "Logs",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Voorkeur inactieve IP",
     "regionsHint": "US,SG,JP (door komma's gescheiden)",
     "subsHint": "sub1,sub2 (door komma's gescheiden)",
-    "topN": "Max. knooppunten"
+    "topN": "Max. knooppunten",
+    "random": "Willekeurig",
+    "sequential": "Sequentieel (enkele node)",
+    "latency": "Voorkeur laagste latentie",
+    "bandwidth": "Voorkeur hoogste bandbreedte",
+    "protocolWeight": "Protocol-gewogen",
+    "bQuality": "IP-kwaliteitsscore"
   },
   "subscription": {
     "title": "Abonnementen",

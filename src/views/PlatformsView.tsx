@@ -478,7 +478,7 @@ export function PlatformsView() {
                         <option value="random">{t("strategy.random")}</option>
                         <option value="sequential">{t("strategy.sequential")}</option>
                         <option value="latency">{t("strategy.latency")}</option>
-                        <option value="quality">{t("strategy.quality")}</option>
+                        <option value="quality">{t("strategy.bQuality")}</option>
                         <option value="bandwidth">{t("strategy.bandwidth")}</option>
                         <option value="protocol_weight">{t("strategy.protocolWeight")}</option>
                       </select>

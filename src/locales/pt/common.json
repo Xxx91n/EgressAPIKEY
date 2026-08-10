@@ -54,7 +54,11 @@
     "notFound": "Nao encontrado",
     "badRequest": "Solicitacao invalida",
     "unauthorized": "Nao autorizado",
-    "subscriptionFetch": "Falha ao buscar fonte de assinatura (HTTP {{code}})"
+    "subscriptionFetch": "Falha ao buscar fonte de assinatura (HTTP {{code}})",
+    "bindConflict": "A porta {{port}} ja esta em uso",
+    "invalidStrategy": "Valor de estrategia invalido: {{value}}. Aceito: {{accepted}}",
+    "resinUpstream": "O backend retornou HTTP {{status}}: {{excerpt}}",
+    "internal": "Ocorreu um erro interno"
   },
   "log": {
     "title": "Registros",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Preferir IP inativo",
     "regionsHint": "US,SG,JP (separado por vírgulas)",
     "subsHint": "sub1,sub2 (separado por vírgulas)",
-    "topN": "Máx. nós"
+    "topN": "Máx. nós",
+    "random": "Aleatorio",
+    "sequential": "Sequencial (no unico)",
+    "latency": "Preferir menor latencia",
+    "bandwidth": "Preferir maior largura de banda",
+    "protocolWeight": "Ponderado por protocolo",
+    "bQuality": "Pontuacao de qualidade IP"
   },
   "subscription": {
     "title": "Assinaturas",

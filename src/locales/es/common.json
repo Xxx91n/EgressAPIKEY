@@ -54,7 +54,11 @@
     "notFound": "No encontrado",
     "badRequest": "Solicitud incorrecta",
     "unauthorized": "No autorizado",
-    "subscriptionFetch": "Error al obtener la fuente de suscripción (HTTP {{code}})"
+    "subscriptionFetch": "Error al obtener la fuente de suscripción (HTTP {{code}})",
+    "bindConflict": "El puerto {{port}} ya esta en uso",
+    "invalidStrategy": "Valor de estrategia invalido: {{value}}. Aceptado: {{accepted}}",
+    "resinUpstream": "El backend devolvio HTTP {{status}}: {{excerpt}}",
+    "internal": "Ocurrio un error interno"
   },
   "log": {
     "title": "Registros",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Preferir IP inactiva",
     "regionsHint": "US,SG,JP (separado por comas)",
     "subsHint": "sub1,sub2 (separado por comas)",
-    "topN": "Máx. nodos"
+    "topN": "Máx. nodos",
+    "random": "Aleatorio",
+    "sequential": "Secuencial (nodo unico)",
+    "latency": "Preferir menor latencia",
+    "bandwidth": "Preferir mayor ancho de banda",
+    "protocolWeight": "Ponderado por protocolo",
+    "bQuality": "Puntuacion de calidad IP"
   },
   "subscription": {
     "title": "Suscripciones",

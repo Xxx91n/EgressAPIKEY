@@ -54,7 +54,11 @@
     "notFound": "Introuvable",
     "badRequest": "Mauvaise requete",
     "unauthorized": "Non autorise",
-    "subscriptionFetch": "Échec de la récupération de la source d'abonnement (HTTP {{code}})"
+    "subscriptionFetch": "Échec de la récupération de la source d'abonnement (HTTP {{code}})",
+    "bindConflict": "Le port {{port}} est deja utilise",
+    "invalidStrategy": "Valeur de strategie invalide: {{value}}. Accepte: {{accepted}}",
+    "resinUpstream": "Le backend a renvoye HTTP {{status}}: {{excerpt}}",
+    "internal": "Une erreur interne s'est produite"
   },
   "log": {
     "title": "Journaux",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Préférer IP inactive",
     "regionsHint": "US,SG,JP (séparé par virgules)",
     "subsHint": "sub1,sub2 (séparé par virgules)",
-    "topN": "Nœuds max"
+    "topN": "Nœuds max",
+    "random": "Aleatoire",
+    "sequential": "Sequentiel (noeud unique)",
+    "latency": "Preferer latence la plus basse",
+    "bandwidth": "Preferer la bande passante la plus elevee",
+    "protocolWeight": "Pondere par protocole",
+    "bQuality": "Score qualite IP"
   },
   "subscription": {
     "title": "Abonnements",

@@ -54,7 +54,11 @@
     "notFound": "Not found",
     "badRequest": "Bad request",
     "unauthorized": "Unauthorized",
-    "subscriptionFetch": "Subscription source fetch failed (HTTP {{code}})"
+    "subscriptionFetch": "Subscription source fetch failed (HTTP {{code}})",
+    "bindConflict": "Port {{port}} is already in use by another process",
+    "invalidStrategy": "Invalid strategy value: {{value}}. Accepted: {{accepted}}",
+    "resinUpstream": "Backend returned HTTP {{status}}: {{excerpt}}",
+    "internal": "An internal error occurred"
   },
   "log": {
     "title": "Logs",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Prefer idle IP",
     "regionsHint": "US,SG,JP (comma-separated)",
     "subsHint": "sub1,sub2 (comma-separated)",
-    "topN": "Max nodes"
+    "topN": "Max nodes",
+    "random": "Random",
+    "sequential": "Sequential (single node)",
+    "latency": "Prefer lowest latency",
+    "bQuality": "IP quality score",
+    "bandwidth": "Prefer highest bandwidth",
+    "protocolWeight": "Protocol-weighted"
   },
   "subscription": {
     "title": "Subscriptions",

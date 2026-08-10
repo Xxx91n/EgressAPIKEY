@@ -54,7 +54,11 @@
     "notFound": "見つかりません",
     "badRequest": "不正なリクエスト",
     "unauthorized": "未認証",
-    "subscriptionFetch": "サブスクリプション ソースの取得に失敗しました (HTTP {{code}})"
+    "subscriptionFetch": "サブスクリプション ソースの取得に失敗しました (HTTP {{code}})",
+    "bindConflict": "ポート{{port}}は既に使用されています",
+    "invalidStrategy": "無効な戦略値: {{value}}。承認済み: {{accepted}}",
+    "resinUpstream": "バックエンドが HTTP {{status}} を返しました: {{excerpt}}",
+    "internal": "内部エラーが発生しました"
   },
   "log": {
     "title": "ログ",
@@ -204,7 +208,13 @@
     "preferIdleIp": "アイドルIP優先",
     "regionsHint": "US,SG,JP (カンマ区切り)",
     "subsHint": "sub1,sub2 (カンマ区切り)",
-    "topN": "最大ノード数"
+    "topN": "最大ノード数",
+    "random": "ランダム",
+    "sequential": "順序（単一ノード）",
+    "latency": "最低遅延優先",
+    "bandwidth": "最高帯域幅優先",
+    "protocolWeight": "プロトコル重み付け",
+    "bQuality": "IP品質スコア"
   },
   "subscription": {
     "title": "サブスクリプション",

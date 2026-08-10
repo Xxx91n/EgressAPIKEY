@@ -54,7 +54,11 @@
     "notFound": "Bulunamadi",
     "badRequest": "Gecersiz istek",
     "unauthorized": "Yetkisiz",
-    "subscriptionFetch": "Abonelik kaynağı getirme başarısız (HTTP {{code}})"
+    "subscriptionFetch": "Abonelik kaynağı getirme başarısız (HTTP {{code}})",
+    "bindConflict": "Port {{port}} zaten kullaniliyor",
+    "invalidStrategy": "Gecersiz strateji degeri: {{value}}. Kabul edilen: {{accepted}}",
+    "resinUpstream": "Backend HTTP {{status}} dondurdu: {{excerpt}}",
+    "internal": "Bir dahili hata olustu"
   },
   "log": {
     "title": "Günlükler",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Boşta IP tercih et",
     "regionsHint": "US,SG,JP (virgülle ayrılmış)",
     "subsHint": "sub1,sub2 (virgülle ayrılmış)",
-    "topN": "Maks. düğüm"
+    "topN": "Maks. düğüm",
+    "random": "Rastgele",
+    "sequential": "Siral? (tek dugum)",
+    "latency": "En dusuk gecikme tercih",
+    "bandwidth": "Yuksek bant genisligi tercih",
+    "protocolWeight": "Protokol-agirlikli",
+    "bQuality": "IP kalite skoru"
   },
   "subscription": {
     "title": "Abonelikler",

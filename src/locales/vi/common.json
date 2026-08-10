@@ -54,7 +54,11 @@
     "notFound": "Khong tim thay",
     "badRequest": "Yeu cau khong hop le",
     "unauthorized": "Khong duoc uy quyen",
-    "subscriptionFetch": "Lấy nguồn đăng ký thất bại (HTTP {{code}})"
+    "subscriptionFetch": "Lấy nguồn đăng ký thất bại (HTTP {{code}})",
+    "bindConflict": "Port {{port}} da duoc su dung",
+    "invalidStrategy": "Gia tri chien luoc khong hop le: {{value}}. Chap nhan: {{accepted}}",
+    "resinUpstream": "Backend tra ve HTTP {{status}}: {{excerpt}}",
+    "internal": "Da xay ra loi noi bo"
   },
   "log": {
     "title": "Nhật ký",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Ưu tiên IP nhàn rỗi",
     "regionsHint": "US,SG,JP (cách nhau dấu phẩy)",
     "subsHint": "sub1,sub2 (cách nhau dấu phẩy)",
-    "topN": "Tối đa node"
+    "topN": "Tối đa node",
+    "random": "Ngau nhien",
+    "sequential": "Tuan tu? (don nut)",
+    "latency": "Uu tien do tre thap nhat",
+    "bandwidth": "Uu tien bang thong cao nhat",
+    "protocolWeight": "Trong so giao thuc",
+    "bQuality": "Diem chat luong IP"
   },
   "subscription": {
     "title": "Đăng ký",

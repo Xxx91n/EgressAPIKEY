@@ -54,7 +54,11 @@
     "notFound": "Nie znaleziono",
     "badRequest": "Nieprawidlowe zadanie",
     "unauthorized": "Nieautoryzowany",
-    "subscriptionFetch": "Nie udało się pobrać źródła subskrypcji (HTTP {{code}})"
+    "subscriptionFetch": "Nie udało się pobrać źródła subskrypcji (HTTP {{code}})",
+    "bindConflict": "Port {{port}} jest juz uzywany",
+    "invalidStrategy": "Nieprawidlowa wartosc strategii: {{value}}. Zaakceptowane: {{accepted}}",
+    "resinUpstream": "Backend zwrocil HTTP {{status}}: {{excerpt}}",
+    "internal": "Wystapil wewnetrzny blad"
   },
   "log": {
     "title": "Logi",
@@ -204,7 +208,13 @@
     "preferIdleIp": "Preferuj bezczynny IP",
     "regionsHint": "US,SG,JP (oddzielone przecinkami)",
     "subsHint": "sub1,sub2 (oddzielone przecinkami)",
-    "topN": "Maks. węzłów"
+    "topN": "Maks. węzłów",
+    "random": "Losowy",
+    "sequential": "Sekwencyjny (pojedynczy wezel)",
+    "latency": "Preferuj najnizsze opoznienie",
+    "bandwidth": "Preferuj najwyzsza przepustowosc",
+    "protocolWeight": "Wazony protokolem",
+    "bQuality": "Wynik jakosci IP"
   },
   "subscription": {
     "title": "Subskrypcje",
