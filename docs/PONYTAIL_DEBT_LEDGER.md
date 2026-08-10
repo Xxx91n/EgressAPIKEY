@@ -1,6 +1,6 @@
 # Ponytail Debt Ledger
 
-Re-verified: 2026-08-09 (post-T4 audit pass). Source-tagged markers drive this ledger so future sessions can audit + either resolve or confirm. The only current `ponytail:` in-tree source tag is at sidecar.rs L655.
+Re-verified: 2026-08-10 (post-T6 audit pass) (post-T4 audit pass). Source-tagged markers drive this ledger so future sessions can audit + either resolve or confirm. The only current `ponytail:` in-tree source tag is at sidecar.rs L655.
 
 | File | Reference | Status | Note |
 |---|---|---|---|
@@ -13,6 +13,6 @@ Re-verified: 2026-08-09 (post-T4 audit pass). Source-tagged markers drive this l
 - **keep** = permanent stub/dead code deliberately kept; rationalized inline.
 - **done** = previously-tagged shortcut resolved; status retained for audit trail.
 - **deferred** = planned follow-up; safe to leave until the upgrade lands.
-- **deferred-dead-code** = harvestable dead code; not blocking, slated for a future cleanup commit.| `crates/resin-core/src/strategy_engine.rs` L241 | `account_for_bclass` + `account_for_fixed` have tests but zero production callers | no-caller, wire-into-port_upsert-when-IpcError-refactor-done | IpcError full refactor connects B-class account tag to port_upsert |
-| `src/lib/ipc.ts` L562 | `extractIpcErr` + `ipcErrI18nKey` have tests but zero GUI callers | no-gui-caller, wire-into-catch-blocks-when-IpcError-refactor-done | GUI catch blocks switch from raw string to extractIpcErr variant narrowing |
+- **deferred-dead-code** = harvestable dead code; not blocking, slated for a future cleanup commit.| `crates/resin-core/src/strategy_engine.rs` L241 | `account_for_bclass` + `account_for_fixed` now wired into port_upsert via the T5 IpcError refactor (P30-T5, commit 7e70bcc) | **done** | P30-T5 full 44-command refactor connected B-class account tag to port_upsert. Closed-loop cargo tests passed. |
+| `src/lib/ipc.ts` L562 | `extractIpcErr` + `ipcErrI18nKey` now wired into all GUI catch blocks via `translateError(e, t)` (P31-T6, commit 900ddc5) | **done** | T6 Phase 2 unified all Views `.catch` to use `translateError(e, t)` which internally calls extractIpcErr for IpcError variant narrowing. Closed-loop vitest + cargo tests passed. |
 
