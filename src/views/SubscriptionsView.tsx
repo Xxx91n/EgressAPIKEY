@@ -264,7 +264,8 @@ export function SubscriptionsView() {
     dragMoved.current = false;
     // Capture pointer events so onPointerEnter continues to fire while moving
     // fast even if the pointer leaves the row briefly.
-    try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* noop */ }
+    // T6-Bug3: removed setPointerCapture — it locked pointer events on the source row
+    // and prevented onPointerEnter from firing on other rows during drag.
   };
 
   const onPointerEnterRow = (i: number) => {

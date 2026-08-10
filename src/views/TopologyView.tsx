@@ -12,7 +12,7 @@ import {
   ipcLeaseMap, ipcPortList, type LeaseEntry, type PortMapping,
 } from "../lib/ipc";
 import { loadTopologyViewport, saveTopologyViewport } from "../lib/settings";
-import { policyToI18nKey } from "../lib/policy";
+import { strategyToI18nKey } from "../lib/strategy";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
 import { AlertTriangle } from "lucide-react";
@@ -505,7 +505,7 @@ function TopologyCanvas() {
       const filters = p.regex_filters?.length
         ? t("topology.filters", { filters: p.regex_filters.join(", ") })
         : "";
-      const policy = t("topology.policy", { policy: t(policyToI18nKey(p.allocation_policy ?? "BALANCED")) });
+      const policy = t("topology.policy", { policy: t(strategyToI18nKey(p.allocation_policy ?? "BALANCED")) });
       const routable = t("topology.routable", { count: p.routable_node_count });
       // T4-5: include A-class strategy summary (how many region_filters bound).
       const aClassSummary = (p.region_filters?.length ?? 0) > 0

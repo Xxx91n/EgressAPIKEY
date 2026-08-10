@@ -79,10 +79,12 @@ export async function ipcPlatformSnapshot(name: string): Promise<unknown> {
   return invoke("platform_snapshot", { name });
 }
 
-/// The allocation policies Resin v1.1.2 actually accepts (must match the Rust
-/// ALLOWED_ALLOCATION_POLICIES in commands/mod.rs).
+/// T6-Bug2: Re-export from strategy.ts — shell 6-option is the sole UI source of truth.
+export { STRATEGY_IDS, type StrategyId, type AllocationPolicy, strategyToI18nKey, strategyToResinPolicy, isValidStrategyId } from "./strategy";
+import type { StrategyId, AllocationPolicy } from "./strategy";
+import { strategyToResinPolicy, isValidStrategyId, STRATEGY_IDS } from "./strategy";
+/// Back-compat: keep ALLOCATION_POLICIES for any call site that still imports it.
 export const ALLOCATION_POLICIES = ["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"] as const;
-export type AllocationPolicy = (typeof ALLOCATION_POLICIES)[number];
 
 /// Phase R1: PATCH a platform's allocation_policy / regex_filters / sticky_ttl.
 /// TS-boundary validation mirrors the Rust side (AGENTS s7.6): policy enum,
@@ -90,14 +92,22 @@ export type AllocationPolicy = (typeof ALLOCATION_POLICIES)[number];
 /// are sent; the Rust side rebuilds the body.
 export async function ipcPlatformUpdate(
   name: string,
-  allocationPolicy?: AllocationPolicy,
+  allocationPolicy?: StrategyId | AllocationPolicy,
   regexFilters?: string[],
   regionFilters?: string[],
   stickyTtl?: string,
 ): Promise<unknown> {
   assertShortName(name, "platform");
-  if (allocationPolicy !== undefined && !ALLOCATION_POLICIES.includes(allocationPolicy)) {
-    throw new Error(`allocation_policy must be one of ${ALLOCATION_POLICIES.join(", ")}`);
+  // T6-Bug2: translate shell StrategyId → Resin enum before sending to backend.
+  let resinPolicy: AllocationPolicy | undefined;
+  if (allocationPolicy !== undefined) {
+    // Accept shell StrategyId (random/sequential/latency/quality/bandwidth/protocol_weight)
+    // or Resin-native enum (BALANCED/PREFER_LOW_LATENCY/PREFER_IDLE_IP). Reject anything else.
+    const knownResin: string[] = ["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"];
+    if (!isValidStrategyId(allocationPolicy) && !knownResin.includes(allocationPolicy)) {
+      throw new Error("allocation_policy must be one of " + [...STRATEGY_IDS, ...knownResin].join(", "));
+    }
+    resinPolicy = strategyToResinPolicy(allocationPolicy);
   }
   if (regexFilters !== undefined) {
     if (regexFilters.length > 64) throw new Error("regex_filters: too many (max 64)");
@@ -117,7 +127,7 @@ export async function ipcPlatformUpdate(
   }
   return invoke("platform_update", {
     name,
-    allocationPolicy: allocationPolicy ?? null,
+    allocationPolicy: resinPolicy ?? null,
     regexFilters: regexFilters ?? null,
     regionFilters: regionFilters ?? null,
     stickyTtl: stickyTtl ?? null,
@@ -160,17 +170,18 @@ export async function ipChannelList(): Promise<unknown> {
 }
 
 /// Set an IP channel's egress policy (= PATCH platform allocation_policy).
-/// Maps the GUI label to the Resin enum: random/sequential -> BALANCED,
-/// latency -> PREFER_LOW_LATENCY, quality -> PREFER_IDLE_IP.
+/// T6-Bug2: accepts shell StrategyId, translates to Resin enum internally.
 export async function ipChannelPolicySet(
   platformName: string,
-  policy: AllocationPolicy,
+  policy: StrategyId | AllocationPolicy,
 ): Promise<unknown> {
   assertShortName(platformName, "platform");
-  if (!ALLOCATION_POLICIES.includes(policy)) {
-    throw new Error("ip_channel_policy_set: allocation_policy must be one of " + ALLOCATION_POLICIES.join(", "));
+  const knownResin: string[] = ["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"];
+  if (!isValidStrategyId(policy) && !knownResin.includes(policy)) {
+    throw new Error("ip_channel_policy_set: allocation_policy must be one of " + [...STRATEGY_IDS, ...knownResin].join(", "));
   }
-  return invoke("platform_update", { name: platformName, allocationPolicy: policy, regexFilters: null, regionFilters: null, stickyTtl: null });
+  const resinPolicy = strategyToResinPolicy(policy);
+  return invoke("platform_update", { name: platformName, allocationPolicy: resinPolicy, regexFilters: null, regionFilters: null, stickyTtl: null });
 }
 
 /// Create a new IP channel (= POST /platforms with fields).
