@@ -268,4 +268,53 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(putCalled).toBe(true));
     await waitFor(() => expect(applyCalled).toBe(true));
   });
+
+  it("T5-4 B-class: selector has 6 StrategyId options (random/sequential/latency/quality/bandwidth/protocol_weight)", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument());
+    const sel = screen.getByTestId("strategy-bclass-Default") as HTMLSelectElement;
+    const opts = Array.from(sel.options).map((o) => o.value);
+    expect(opts).toEqual(["random", "sequential", "latency", "quality", "bandwidth", "protocol_weight"]);
+  });
+
+  it("T5-4 B-class: default value is random (not balanced)", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument());
+    const sel = screen.getByTestId("strategy-bclass-Default") as HTMLSelectElement;
+    expect(sel.value).toBe("random");
+  });
+
+  it("T5-4 B-class: changing select fires updateStrategyField", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "strategy_config_put") return Promise.resolve(null);
+      if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument());
+    const sel = screen.getByTestId("strategy-bclass-Default") as HTMLSelectElement;
+    fireEvent.change(sel, { target: { value: "latency" } });
+    expect(sel.value).toBe("latency");
+  });
 });

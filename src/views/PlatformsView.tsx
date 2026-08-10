@@ -475,9 +475,12 @@ export function PlatformsView() {
                     <label className="flex flex-col gap-0.5">
                       <span className="text-[10px] text-muted-foreground">{t("strategy.bClass")}</span>
                       <select className="rounded border bg-background px-1.5 py-1 text-[11px]" value={bClass} onChange={(e) => updateStrategyField(p.name, "b_class", e.target.value)} data-testid={"strategy-bclass-" + p.name}>
-                        <option value="balanced">{t("strategy.balanced")}</option>
-                        <option value="prefer_low_latency">{t("strategy.preferLowLatency")}</option>
-                        <option value="prefer_idle_ip">{t("strategy.preferIdleIp")}</option>
+                        <option value="random">{t("strategy.random")}</option>
+                        <option value="sequential">{t("strategy.sequential")}</option>
+                        <option value="latency">{t("strategy.latency")}</option>
+                        <option value="quality">{t("strategy.quality")}</option>
+                        <option value="bandwidth">{t("strategy.bandwidth")}</option>
+                        <option value="protocol_weight">{t("strategy.protocolWeight")}</option>
                       </select>
                     </label>
                   </div>

@@ -227,6 +227,33 @@ pub fn compute_plan(
     plan
 }
 
+/// Q10 (ADR-0026 scheme c): Build the Resin Account string for a port's
+/// B-class strategy. The account is the lease key Resin binds to an exit
+/// IP. By encoding the strategy tag into the account, the shell controls
+/// B-class selection without forking Resin. Resin treats the account as
+/// an opaque string: `account=""` → random, else → sticky to that account.
+/// Round-robin uses a shell-side counter so each rotation gets a distinct
+/// account; sequential for a single node just maps to `::fixed` (one node
+/// → no rotation needed).
+///
+/// Format: `port-{port}::{strategy_tag}` — e.g. `port-17990::random`,
+/// `port-17991::rr-0`, `port-17992::latency`.
+pub fn account_for_bclass(strategy: StrategyId, port_label: &str) -> String {
+    match strategy {
+        StrategyId::Random => format!("{port_label}::random"),
+        StrategyId::Sequential => format!("{port_label}::fixed"),
+        StrategyId::Latency => format!("{port_label}::latency"),
+        StrategyId::Quality => format!("{port_label}::quality"),
+        StrategyId::Bandwidth => format!("{port_label}::bandwidth"),
+        StrategyId::ProtocolWeight => format!("{port_label}::proto"),
+    }
+}
+
+/// Single-node port: no B-class rotation needed, always sticky.
+pub fn account_for_fixed(port_label: &str) -> String {
+    format!("{port_label}::fixed")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -388,5 +415,30 @@ mod tests {
         assert_eq!(parse_nodes(&v).len(), 0);
         assert_eq!(parse_nodes(&json!([])).len(), 0);
         assert_eq!(parse_nodes(&json!({})).len(), 0);
+    }
+
+    #[test]
+    fn account_for_bclass_random_maps_to_random_tag() {
+        let s = account_for_bclass(StrategyId::Random, "port-17990");
+        assert_eq!(s, "port-17990::random");
+    }
+
+    #[test]
+    fn account_for_bclass_latency_maps_to_latency_tag() {
+        let s = account_for_bclass(StrategyId::Latency, "port-17991");
+        assert_eq!(s, "port-17991::latency");
+    }
+
+    #[test]
+    fn account_for_bclass_sequential_maps_to_fixed_tag() {
+        // Single-node port: no rotation, sticky to one node.
+        let s = account_for_bclass(StrategyId::Sequential, "port-17992");
+        assert_eq!(s, "port-17992::fixed");
+    }
+
+    #[test]
+    fn account_for_fixed_single_lease() {
+        let s = account_for_fixed("port-17993");
+        assert_eq!(s, "port-17993::fixed");
     }
 }
