@@ -1779,6 +1779,7 @@ pub struct PortHealthCheck {
 
 #[tauri::command]
 pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<PortHealthCheck, IpcError> {
+    tracing::info!(port, protocol = ?protocol, "port_health_check: probing port");
     validate_port_segments(port)?;
     let proto = protocol
         .map(|s| s.to_ascii_lowercase())
@@ -1826,7 +1827,7 @@ pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<Po
         vec![0x05, 0x01, 0x02]
     };
     if let Err(e) = stream.write_all(&greeting).await {
-        tracing::trace!(port, proto = %proto, error = %e, "port_health_check: write probe failed");
+        tracing::info!(port, proto = %proto, error = %e, "port_health_check: write probe failed");
         return Ok(PortHealthCheck {
             port,
             reachable: true,

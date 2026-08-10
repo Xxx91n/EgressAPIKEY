@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Route, Plus, Trash2, AlertCircle, CheckCircle2, Loader2, Inbox, ArrowRight } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { ipcProcessRouteAdd, ipcProcessRouteRemove, ipcProcessRouteList } from "../lib/ipc";
+import { translateError } from "../lib/i18n-error";
 
 /// ProcessRouteView: per-process -> lane routing table.
 /// Issue 3+10: rules are PERSISTED server-side via tauri-plugin-store and
@@ -44,8 +45,9 @@ export function ProcessRouteView() {
       setToast({ kind: "ok", msg: t("processRoute.backendSaved") });
       await refreshFromBackend();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setToast({ kind: "err", msg: t("processRoute.conflict", { port: tgt, process: extractBoundProcess(msg) ?? "?" }) });
+      const rawMsg = e instanceof Error ? e.message : (typeof e === "string" ? e : JSON.stringify(e));
+      const displayMsg = translateError(e, t);
+      setToast({ kind: "err", msg: t("processRoute.conflict", { port: tgt, process: extractBoundProcess(rawMsg) ?? "?" }) + " — " + displayMsg });
     } finally {
       setProcess(""); setTargetPort(17990); setBusy(false);
     }

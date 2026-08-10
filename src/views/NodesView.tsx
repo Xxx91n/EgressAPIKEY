@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ShieldCheck, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { ipcNodeList, ipcNodePoolSnapshot, ipcIpReputationSnapshot, type ReputationSnapshot } from "../lib/ipc";
+import { translateError } from "../lib/i18n-error";
 
 /// NodesView — T4-3 collapsible tree by subscription (clash-verge-dev pattern).
 /// Level 1: subscription (foldable) — name + node count + health rate
@@ -95,7 +96,7 @@ export function NodesView() {
       setReputation(rawReputation);
       setLastRefresh(Date.now());
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(translateError(e, t));
     }
     setLoading(false);
   }, []);

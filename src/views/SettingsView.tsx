@@ -5,6 +5,7 @@ import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUplo
 import { openPath } from "@tauri-apps/plugin-opener";
 import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload } from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
+import { translateError } from "../lib/i18n-error";
 import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
 import {
   saveLocale,
@@ -115,7 +116,7 @@ export function SettingsView() {
       const p = await ipcWhiteboxPath().catch(() => whiteboxPath);
       setWhiteboxPath(p);
     } catch (e) {
-      setConfigMsg(String(e));
+      setConfigMsg(translateError(e, t));
     } finally {
       setWhiteboxBusy(false);
     }
@@ -181,7 +182,7 @@ export function SettingsView() {
       await ipcBackupUpload(backupUrl.trim(), backupUser.trim(), backupPass, zipPath);
       setBackupMsg(t("backup.success"));
     } catch (e) {
-      setBackupMsg(t("backup.failed") + ": " + String(e));
+      setBackupMsg(t("backup.failed") + ": " + translateError(e, t));
     } finally {
       setBackupBusy(false);
       setTimeout(() => setBackupMsg(""), 3000);
@@ -202,7 +203,7 @@ export function SettingsView() {
       URL.revokeObjectURL(url);
       setConfigMsg(t("config.exported"));
     } catch (e) {
-      setConfigMsg(String(e));
+      setConfigMsg(translateError(e, t));
     } finally {
       setConfigBusy(false);
       setTimeout(() => setConfigMsg(""), 3000);
@@ -224,7 +225,7 @@ export function SettingsView() {
         const result = await ipcConfigImport(config);
         setConfigMsg(t("config.imported", { platforms: result.platforms_created, subscriptions: result.subscriptions_created }));
       } catch (e) {
-        setConfigMsg(t("config.importError") + ": " + String(e));
+        setConfigMsg(t("config.importError") + ": " + translateError(e, t));
       } finally {
         setConfigBusy(false);
         setTimeout(() => setConfigMsg(""), 5000);
