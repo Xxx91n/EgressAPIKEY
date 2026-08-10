@@ -268,6 +268,7 @@ mod tests {
             account: format!("port-{port}"),
             label: String::new(),
             enabled: true,
+            auth_required: true,
         }
     }
 

@@ -365,6 +365,7 @@ export interface PortMapping {
   account: string;
   label: string;
   enabled: boolean;
+  auth_required: boolean;
 }
 
 function assertPort(port: number): void {
@@ -385,6 +386,7 @@ export async function ipcPortUpsert(m: {
   account?: string;
   label?: string;
   enabled?: boolean;
+  auth_required?: boolean;
 }): Promise<PortMapping> {
   assertPort(m.port);
   const protocol = (m.protocol || "socks5").toLowerCase();
@@ -403,6 +405,7 @@ export async function ipcPortUpsert(m: {
     account,
     label,
     enabled: m.enabled !== false,
+    authRequired: m.auth_required !== false,
   });
 }
 
@@ -420,10 +423,11 @@ export async function ipcPortReload(): Promise<number> {
   return invoke<number>("port_reload");
 }
 
-/// ADR-0021 Q1: SOCKS5 credentials a gateway must present to reach an
+/// ADR-0021 Q1: SOCKS5/HTTP credentials a gateway must present to reach an
 /// entry-port. Username is the port's bound Platform.Account string,
-/// password is the sidecar global proxy_token. `auth_required` is always
-/// true in the thin-shell stack (Resin sets RESIN_PROXY_TOKEN at boot).
+/// password is the sidecar global proxy_token. `auth_required` is read from
+/// the port_mapping row (ADR-0027: per-port auth control via
+/// require_proxy_auth_info).
 export interface PortAuthInfo {
   port: number;
   username: string;

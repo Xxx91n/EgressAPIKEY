@@ -261,7 +261,12 @@ fn spawn_resin_await_healthz(
 
     let api_port = pick_free_loopback_port()?;
     let admin_token = gen_token();
-    let proxy_token = gen_token();
+    // ADR-0027: empty RESIN_PROXY_TOKEN so per-endpoint `require_proxy_auth_info`
+    // controls auth. When proxy_token is empty, Resin skips proxy-auth for
+    // endpoints with require_proxy_auth_info=false, and requires platform.account
+    // credentials for endpoints with require_proxy_auth_info=true. The admin token
+    // still protects the management API independently.
+    let proxy_token = String::new();
 
     let mut cmd = Command::new(binary_path);
     cmd.env("RESIN_AUTH_VERSION", "V1")

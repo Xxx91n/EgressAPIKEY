@@ -1545,6 +1545,7 @@ pub async fn port_upsert(
     account: String,
     label: String,
     enabled: bool,
+    auth_required: bool,
 ) -> Result<resin_core::PortMapping, IpcError> {
     validate_port_mapping(port, &protocol, &platform_name, &account, &label)?;
     let acct = if account.trim().is_empty() {
@@ -1560,6 +1561,7 @@ pub async fn port_upsert(
         account: acct,
         label,
         enabled,
+        auth_required,
     };
     // Step 1: Resin endpoint API CRUD (owns listener lifecycle)
     if enabled {
@@ -1582,6 +1584,7 @@ pub async fn port_upsert(
             "allow_http_forward": allow_http_forward,
             "allow_http_reverse": false,
             "allow_socks5": allow_socks5,
+            "require_proxy_auth_info": auth_required,
         });
         if let Some(ep) = found {
             // PATCH if port exists
@@ -1700,14 +1703,15 @@ pub async fn stream_sensor_snapshot(
 /// the sidecar global proxy token kept in `SidecarHandle.proxy_token`. As long
 /// as the sidecar sets `RESIN_PROXY_TOKEN`, every port requires auth — there
 /// is no per-port no-auth fallback without forking Resin, so `auth_required`
-/// is always true here in the thin-shell stack.
+/// is read from the port_mapping row; ADR-0027: proxy_token is now empty so
+/// per-endpoint `require_proxy_auth_info` controls auth per port.
 #[derive(Debug, Serialize, Clone)]
 pub struct PortAuthInfo {
     /// SOCKS5 username to present = the port's bound Platform.Account string.
     pub username: String,
     /// SOCKS5 password = the sidecar global proxy token (session-stable).
     pub password: String,
-    /// Always true in the thin-shell stack (proxy_token is set at boot).
+    /// Read from the port_mapping row; when false, no credential is needed.
     pub auth_required: bool,
     /// Bound platform name (for GUI display).
     pub platform_name: String,
@@ -1743,13 +1747,18 @@ pub async fn port_auth_info(
     };
     let password = sidecar.proxy_token.clone();
     if password.is_empty() {
-        tracing::warn!("port_auth_info: sidecar proxy_token is empty; the Resin sidecar boot likely failed");
+        // ADR-0027: proxy_token is now intentionally empty so per-endpoint
+        // require_proxy_auth_info controls authentication. This is only a
+        // warning when auth_required is true but the token is empty.
+        if mapping.auth_required {
+            tracing::warn!("port_auth_info: port {} requires auth but proxy_token is empty", port);
+        }
     }
     let _ = forwarder; // forwarder carries the live listener state; not needed for auth-info lookup
     Ok(PortAuthInfo {
         username,
         password,
-        auth_required: true,
+        auth_required: mapping.auth_required,
         platform_name: mapping.platform_name,
         port,
     })

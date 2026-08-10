@@ -21,6 +21,7 @@ pub struct PortMapping {
     pub account: String,
     pub label: String,
     pub enabled: bool,
+    pub auth_required: bool,
 }
 
 #[derive(Clone)]
@@ -52,13 +53,20 @@ impl DbPool {
             .map_err(|e| format!("apply migration v2: {e}"))?;
             tracing::info!(target: "db", "migrated to user_version 2 (port_mappings)");
         }
+        if v < 3 {
+            conn.execute_batch(
+                "ALTER TABLE port_mappings ADD COLUMN auth_required INTEGER NOT NULL DEFAULT 1; PRAGMA user_version = 3;",
+            )
+            .map_err(|e| format!("apply migration v3: {e}"))?;
+            tracing::info!(target: "db", "migrated to user_version 3 (auth_required column)");
+        }
         Ok(())
     }
 
     pub fn list_ports(&self) -> Result<Vec<PortMapping>, String> {
         let conn = self.0.lock();
         let mut stmt = conn
-            .prepare("SELECT port, protocol, platform_name, account, label, enabled FROM port_mappings ORDER BY port")
+            .prepare("SELECT port, protocol, platform_name, account, label, enabled, auth_required FROM port_mappings ORDER BY port")
             .map_err(|e| format!("prepare list_ports: {e}"))?;
         let rows = stmt
             .query_map([], |r| {
@@ -69,6 +77,7 @@ impl DbPool {
                     account: r.get(3)?,
                     label: r.get(4)?,
                     enabled: r.get::<_, i64>(5)? != 0,
+                    auth_required: r.get::<_, i64>(6)? != 0,
                 })
             })
             .map_err(|e| format!("query_map list_ports: {e}"))?;
@@ -82,8 +91,8 @@ impl DbPool {
     pub fn upsert_port(&self, m: &PortMapping) -> Result<(), String> {
         let conn = self.0.lock();
         conn.execute(
-            "INSERT INTO port_mappings (port, protocol, platform_name, account, label, enabled) VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(port) DO UPDATE SET protocol = excluded.protocol, platform_name = excluded.platform_name, account = excluded.account, label = excluded.label, enabled = excluded.enabled",
-            params![m.port, m.protocol, m.platform_name, m.account, m.label, m.enabled as i64],
+            "INSERT INTO port_mappings (port, protocol, platform_name, account, label, enabled, auth_required) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(port) DO UPDATE SET protocol = excluded.protocol, platform_name = excluded.platform_name, account = excluded.account, label = excluded.label, enabled = excluded.enabled, auth_required = excluded.auth_required",
+            params![m.port, m.protocol, m.platform_name, m.account, m.label, m.enabled as i64, m.auth_required as i64],
         )
         .map_err(|e| format!("upsert port_mappings: {e}"))?;
         Ok(())
@@ -108,8 +117,8 @@ impl DbPool {
             .map_err(|e| format!("clear port_mappings: {e}"))?;
         for m in mappings {
             tx.execute(
-                "INSERT INTO port_mappings (port, protocol, platform_name, account, label, enabled) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![m.port, m.protocol, m.platform_name, m.account, m.label, m.enabled],
+                "INSERT INTO port_mappings (port, protocol, platform_name, account, label, enabled, auth_required) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![m.port, m.protocol, m.platform_name, m.account, m.label, m.enabled, m.auth_required],
             ).map_err(|e| format!("insert port_mappings: {e}"))?;
         }
         tx.commit()
@@ -119,7 +128,7 @@ impl DbPool {
         let conn = self.0.lock();
         let row = conn
             .query_row(
-                "SELECT port, protocol, platform_name, account, label, enabled FROM port_mappings WHERE port = ?1",
+                "SELECT port, protocol, platform_name, account, label, enabled, auth_required FROM port_mappings WHERE port = ?1",
                 params![port],
                 |r| {
                     Ok(PortMapping {
@@ -129,6 +138,7 @@ impl DbPool {
                         account: r.get(3)?,
                         label: r.get(4)?,
                         enabled: r.get::<_, i64>(5)? != 0,
+                        auth_required: r.get::<_, i64>(6)? != 0,
                     })
                 },
             )
@@ -152,7 +162,7 @@ mod tests {
         let v: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 2);
+        assert_eq!(v, 3);
         drop(conn);
         drop(pool);
     }
@@ -167,6 +177,7 @@ mod tests {
             account: "port-17990".into(),
             label: "key-A".into(),
             enabled: true,
+            auth_required: true,
         })
         .unwrap();
         pool.upsert_port(&PortMapping {
@@ -176,6 +187,7 @@ mod tests {
             account: "port-17990".into(),
             label: "key-A-updated".into(),
             enabled: false,
+            auth_required: true,
         })
         .unwrap();
         let got = pool.get_port(17990).unwrap().unwrap();
@@ -194,6 +206,7 @@ mod tests {
             account: "p1".into(),
             label: "k1".into(),
             enabled: true,
+            auth_required: true,
         })
         .unwrap();
         pool.upsert_port(&PortMapping {
@@ -203,6 +216,7 @@ mod tests {
             account: "p2".into(),
             label: "k2".into(),
             enabled: true,
+            auth_required: true,
         })
         .unwrap();
         let all = pool.list_ports().unwrap();
@@ -221,6 +235,7 @@ mod tests {
             account: "p3".into(),
             label: "k3".into(),
             enabled: true,
+            auth_required: true,
         })
         .unwrap();
         pool.delete_port(18000).unwrap();
@@ -237,6 +252,7 @@ mod tests {
             account: "a".into(),
             label: "".into(),
             enabled: true,
+            auth_required: true,
         })
         .unwrap();
         pool.replace_ports(&[PortMapping {
@@ -246,6 +262,7 @@ mod tests {
             account: "b".into(),
             label: "x".into(),
             enabled: true,
+            auth_required: true,
         }])
         .unwrap();
         let all = pool.list_ports().unwrap();

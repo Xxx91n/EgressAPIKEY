@@ -45,6 +45,7 @@ export function PlatformsView() {
   const [newProto, setNewProto] = useState<"socks5" | "http">("socks5");
   const [newLabel, setNewLabel] = useState("");
   const [newPlatformName, setNewPlatformName] = useState("Default");
+  const [newAuthRequired, setNewAuthRequired] = useState(true);
   const [platforms, setPlatforms] = useState<PlatformInfoFull[]>([]);
   const [leasesPerPlatform, setLeasesPerPlatform] = useState<Record<string, unknown[]>>({});
   const [draggingPort, setDraggingPort] = useState<number | null>(null);
@@ -230,6 +231,7 @@ export function PlatformsView() {
         account: "port-" + port,
         label: newLabel.trim() || ("entry-" + port),
         enabled: true,
+        auth_required: newAuthRequired,
       });
       setNewLabel("");
       showToast("ok", t("platform.portAddOk"));
@@ -341,6 +343,10 @@ export function PlatformsView() {
               <input className="rounded border bg-background px-2 py-1.5 text-sm" value={newPlatformName} onChange={(e) => setNewPlatformName(e.target.value)} placeholder={t("platform.name")} data-testid="port-platform" />
               <input className="rounded border bg-background px-2 py-1.5 text-sm" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder={t("platform.portLabel")} data-testid="port-label" />
             </div>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="port-auth-toggle">
+              <input type="checkbox" checked={newAuthRequired} onChange={(e) => setNewAuthRequired(e.target.checked)} className="h-3.5 w-3.5" />
+              {t("platform.requireAuth")}
+            </label>
             <button type="button" disabled={busy} onClick={() => void handleAddPort()} className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50" data-testid="port-add">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {t("platform.addPort")}
@@ -398,6 +404,11 @@ export function PlatformsView() {
                 {authInfo[p.port] && p.protocol === "http" && authInfo[p.port].auth_required && (
                   <div className="mt-1 break-all text-[10px] text-muted-foreground/80">
                     {t("platform.httpAuth")}: {authInfo[p.port].username} · {t("platform.passwordMasked")}
+                  </div>
+                )}
+                {authInfo[p.port] && !authInfo[p.port].auth_required && (
+                  <div className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                    {t("platform.noAuthRequired")}
                   </div>
                 )}
               </li>
