@@ -13,6 +13,7 @@ use tauri_plugin_store::StoreExt;
 
 use crate::sidecar::SidecarHandle;
 use resin_core::DbPool;
+use resin_core::IpcError;
 use resin_core::{
     clash_yaml_to_proxies_block, fetch_clash_subscription, parse_public_ips, ReputationClient,
     ReputationProvider, ReputationSnapshot, ResinClient, MAX_LANES,
@@ -54,39 +55,39 @@ fn resin_client(h: &SidecarHandle) -> Result<ResinClient, String> {
 /// Unknown errors pass through verbatim (prefixed with "error." not used —
 /// the frontend treats unknown strings as literal messages). Always logs
 /// the original error to tracing::warn! so debugging is not lost.
-pub fn map_resin_error(raw: &str) -> String {
+pub fn map_resin_error(raw: &str) -> resin_core::IpcError {
     // Log the original error before any mapping.
     tracing::warn!(target: "resin_ipc", raw = raw, "Resin error mapped to i18n");
     // Known Resin error patterns (from DESIGN.md error code table + probed).
     if raw.contains("cannot delete Default platform") {
-        return "error.cannotDeleteDefaultPlatform".to_string();
+        return IpcError::internal("error.cannotDeleteDefaultPlatform");
     }
     if raw.contains("AUTH_REQUIRED") || raw.contains("auth required") {
-        return "error.authRequired".to_string();
+        return IpcError::internal("error.authRequired");
     }
     if raw.contains("AUTH_FAILED") || raw.contains("auth failed") {
-        return "error.authFailed".to_string();
+        return IpcError::internal("error.authFailed");
     }
     if raw.contains("URL_PARSE_ERROR") || raw.contains("url parse") {
-        return "error.urlParse".to_string();
+        return IpcError::internal("error.urlParse");
     }
     if raw.contains("INVALID_PROTOCOL") || raw.contains("invalid protocol") {
-        return "error.invalidProtocol".to_string();
+        return IpcError::internal("error.invalidProtocol");
     }
     if raw.contains("UPSTREAM_CONNECT_FAILED") || raw.contains("upstream connect") {
-        return "error.upstreamConnectFailed".to_string();
+        return IpcError::internal("error.upstreamConnectFailed");
     }
     if raw.contains("UPSTREAM_REQUEST_FAILED") || raw.contains("upstream request") {
-        return "error.upstreamRequestFailed".to_string();
+        return IpcError::internal("error.upstreamRequestFailed");
     }
     if raw.contains("CONFLICT") {
-        return "error.conflict".to_string();
+        return IpcError::internal("error.conflict");
     }
     if raw.contains("not found") || raw.contains("NOT_FOUND") {
-        return "error.notFound".to_string();
+        return IpcError::internal("error.notFound");
     }
     if raw.contains("BAD_REQUEST") || raw.contains("bad request") {
-        return "error.badRequest".to_string();
+        return IpcError::internal("error.badRequest");
     }
     // Bug 3 (ADR-0026 Q6): port bind conflict. Resin returns 409 with a body
     // like `listen on port 17111: bind: Only one usage of each socket address
@@ -95,12 +96,12 @@ pub fn map_resin_error(raw: &str) -> String {
     // and auto-suggest another port. Format: `error.bindConflict:PORT`.
     if raw.contains("bind") && (raw.contains("Only one usage") || raw.contains("EADDRINUSE") || raw.contains("address already in use")) {
         if let Some(port) = extract_port_from_residual(raw) {
-            return format!("error.bindConflict:{}", port);
+            return IpcError::from(format!("error.bindConflict:{}", port));
         }
-        return "error.bindConflict".to_string();
+        return IpcError::internal("error.bindConflict");
     }
     if raw.contains("UNAUTHORIZED") || raw.contains("unauthorized") {
-        return "error.unauthorized".to_string();
+        return IpcError::internal("error.unauthorized");
     }
     // T3-Q2: subscription fetch failure (UA rotation exhausted, likely
     // origin SSL/4xx/5xx). Extract the trailing HTTP status code so the
@@ -113,13 +114,13 @@ pub fn map_resin_error(raw: &str) -> String {
             let after = &tail[http_idx + 5..];
             let code: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
             if !code.is_empty() {
-                return format!("error.subscriptionFetch.{}", code);
+                return IpcError::from(format!("error.subscriptionFetch.{}", code));
             }
         }
-        return "error.subscriptionFetch".to_string();
+        return IpcError::internal("error.subscriptionFetch");
     }
     // Unknown — pass through as literal for the frontend to display.
-    raw.to_string()
+    IpcError::from(raw.to_string())
 }
 
 
@@ -160,7 +161,7 @@ pub struct LaneSnapshot {
 }
 
 #[tauri::command]
-pub async fn gateway_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<LaneSnapshot, String> {
+pub async fn gateway_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<LaneSnapshot, IpcError> {
     let client = resin_client(&sidecar)?;
     let leases = client.active_leases().await.map_err(|e| map_resin_error(&e.to_string()))?;
     let busy = sum_active_leases(&leases);
@@ -255,7 +256,7 @@ fn per_platform_active_from_leases(
 }
 
 #[tauri::command]
-pub async fn platform_add(sidecar: State<'_, SidecarHandle>, name: String) -> Result<(), String> {
+pub async fn platform_add(sidecar: State<'_, SidecarHandle>, name: String) -> Result<(), IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
     client
@@ -269,7 +270,7 @@ pub async fn platform_add(sidecar: State<'_, SidecarHandle>, name: String) -> Re
 pub async fn platform_remove(
     sidecar: State<'_, SidecarHandle>,
     name: String,
-) -> Result<bool, String> {
+) -> Result<bool, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
     let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
@@ -283,7 +284,7 @@ pub async fn platform_remove(
 }
 
 #[tauri::command]
-pub async fn platform_list(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>, String> {
+pub async fn platform_list(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>, IpcError> {
     let client = resin_client(&sidecar)?;
     let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
     Ok(platform_names(&list))
@@ -295,7 +296,7 @@ pub async fn platform_list(sidecar: State<'_, SidecarHandle>) -> Result<Vec<Stri
 #[tauri::command]
 pub async fn platform_list_full(
     sidecar: State<'_, SidecarHandle>,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, IpcError> {
     let client = resin_client(&sidecar)?;
     client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))
 }
@@ -304,7 +305,7 @@ pub async fn platform_list_full(
 pub async fn platform_snapshot(
     sidecar: State<'_, SidecarHandle>,
     name: String,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
     // Resolve platform name -> id, then fetch that platform is routable node list
@@ -325,11 +326,11 @@ pub async fn account_add(
     platform: String,
     id: String,
     lane: usize,
-) -> Result<(), String> {
+) -> Result<(), IpcError> {
     validate_short_name(&platform, "platform")?;
     validate_short_name(&id, "account")?;
     if lane >= MAX_LANES {
-        return Err(format!("lane {lane} out of range (max {})", MAX_LANES - 1));
+        return Err(IpcError::from(format!("lane {lane} out of range (max {})", MAX_LANES - 1)));
     }
     let _client = resin_client(&sidecar)?;
     Ok(())
@@ -341,7 +342,7 @@ pub async fn account_bind_ip(
     platform: String,
     account: String,
     ip: String,
-) -> Result<bool, String> {
+) -> Result<bool, IpcError> {
     validate_short_name(&platform, "platform")?;
     validate_short_name(&account, "account")?;
     validate_ip(&ip)?;
@@ -391,15 +392,15 @@ pub async fn process_route_add(
     app: AppHandle,
     process: String,
     target_port: u16,
-) -> Result<(), String> {
+) -> Result<(), IpcError> {
     validate_short_name(&process, "process")?;
     if target_port < 1024 {
-        return Err(format!(
+        return Err(IpcError::from(format!(
             "process_route_add: port {target_port} out of range (must be >= 1024, got {target_port})"
-        ));
+        )));
     }
     let store = tauri_plugin_store::StoreExt::store(&app, "settings.json")
-        .map_err(|e| format!("store: {e:?}"))?;
+        .map_err(|e| IpcError::from(format!("store: {e:?}")))?;
     let mut rules: Vec<ProcessRouteRule> = store
         .get("processRoutes")
         .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
@@ -419,17 +420,17 @@ pub async fn process_route_add(
     }
     store.set(
         "processRoutes",
-        serde_json::to_value(&rules).map_err(|e| format!("serialize: {e}"))?,
+        serde_json::to_value(&rules).map_err(|e| IpcError::from(format!("serialize: {e}")))?,
     );
-    store.save().map_err(|e| format!("store save: {e:?}"))?;
+    store.save().map_err(|e| IpcError::from(format!("store save: {e:?}")))?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn process_route_remove(app: AppHandle, process: String) -> Result<bool, String> {
+pub async fn process_route_remove(app: AppHandle, process: String) -> Result<bool, IpcError> {
     validate_short_name(&process, "process")?;
     let store = tauri_plugin_store::StoreExt::store(&app, "settings.json")
-        .map_err(|e| format!("store: {e:?}"))?;
+        .map_err(|e| IpcError::from(format!("store: {e:?}")))?;
     let mut rules: Vec<ProcessRouteRule> = store
         .get("processRoutes")
         .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
@@ -439,9 +440,9 @@ pub async fn process_route_remove(app: AppHandle, process: String) -> Result<boo
     if rules.len() != before {
         store.set(
             "processRoutes",
-            serde_json::to_value(&rules).map_err(|e| format!("serialize: {e}"))?,
+            serde_json::to_value(&rules).map_err(|e| IpcError::from(format!("serialize: {e}")))?,
         );
-        store.save().map_err(|e| format!("store save: {e:?}"))?;
+        store.save().map_err(|e| IpcError::from(format!("store save: {e:?}")))?;
         Ok(true)
     } else {
         Ok(false)
@@ -449,9 +450,9 @@ pub async fn process_route_remove(app: AppHandle, process: String) -> Result<boo
 }
 
 #[tauri::command]
-pub async fn process_route_list(app: AppHandle) -> Result<Vec<ProcessRouteRule>, String> {
+pub async fn process_route_list(app: AppHandle) -> Result<Vec<ProcessRouteRule>, IpcError> {
     let store = tauri_plugin_store::StoreExt::store(&app, "settings.json")
-        .map_err(|e| format!("store: {e:?}"))?;
+        .map_err(|e| IpcError::from(format!("store: {e:?}")))?;
     Ok(store
         .get("processRoutes")
         .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
@@ -463,16 +464,16 @@ pub async fn subscription_add(
     sidecar: State<'_, SidecarHandle>,
     name: String,
     url: String,
-) -> Result<(), String> {
+) -> Result<(), IpcError> {
     validate_short_name(&name, "subscription")?;
     if url.trim().is_empty() {
-        return Err("subscription url must be non-empty".to_string());
+        return Err(IpcError::from("subscription url must be non-empty".to_string()));
     }
     if url.len() > KEY_MAX_LEN {
-        return Err("subscription url out of range".to_string());
+        return Err(IpcError::from("subscription url out of range".to_string()));
     }
     if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err("subscription url must start with http:// or https://".to_string());
+        return Err(IpcError::from("subscription url must start with http:// or https://".to_string()));
     }
     let client = resin_client(&sidecar)?;
 
@@ -525,7 +526,7 @@ pub async fn subscription_add(
         }
         Err(e) => {
             tracing::warn!(error = ?e, "subscription_add: Resin POST failed");
-            Err(e.to_string())
+            Err(IpcError::from(e.to_string()))
         }
     }
 }
@@ -534,7 +535,7 @@ pub async fn subscription_add(
 pub async fn subscription_remove(
     sidecar: State<'_, SidecarHandle>,
     name: String,
-) -> Result<bool, String> {
+) -> Result<bool, IpcError> {
     validate_short_name(&name, "subscription")?;
     let client = resin_client(&sidecar)?;
     let list = client
@@ -565,7 +566,7 @@ pub struct SubscriptionSnapshotEntry {
 #[tauri::command]
 pub async fn subscription_list(
     sidecar: State<'_, SidecarHandle>,
-) -> Result<Vec<SubscriptionSnapshotEntry>, String> {
+) -> Result<Vec<SubscriptionSnapshotEntry>, IpcError> {
     let client = resin_client(&sidecar)?;
     let list = client
         .list_subscriptions()
@@ -577,7 +578,7 @@ pub async fn subscription_list(
 #[tauri::command]
 pub async fn node_pool_snapshot(
     sidecar: State<'_, SidecarHandle>,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, IpcError> {
     let client = resin_client(&sidecar)?;
     client.node_pool_snapshot().await.map_err(|e| map_resin_error(&e.to_string()))
 }
@@ -602,7 +603,7 @@ pub async fn platform_update(
     regex_filters: Option<Vec<String>>,
     region_filters: Option<Vec<String>>,
     sticky_ttl: Option<String>,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
     // Resolve name -> id (same pattern as platform_remove).
@@ -616,10 +617,10 @@ pub async fn platform_update(
     let mut body = serde_json::Map::new();
     if let Some(ref policy) = allocation_policy {
         if !ALLOWED_ALLOCATION_POLICIES.contains(&policy.as_str()) {
-            return Err(format!(
+            return Err(IpcError::from(format!(
                 "allocation_policy must be one of {:?}",
                 ALLOWED_ALLOCATION_POLICIES
-            ));
+            )));
         }
         body.insert(
             "allocation_policy".to_string(),
@@ -628,7 +629,7 @@ pub async fn platform_update(
     }
     if let Some(ref filters) = regex_filters {
         if filters.len() > 64 {
-            return Err("regex_filters: too many entries (max 64)".to_string());
+            return Err(IpcError::from("regex_filters: too many entries (max 64)".to_string()));
         }
         let arr: Vec<serde_json::Value> = filters
             .iter()
@@ -650,7 +651,7 @@ pub async fn platform_update(
     // — this is the B->C binding mechanism for the topology canvas.
     if let Some(ref filters) = region_filters {
         if filters.len() > 64 {
-            return Err("region_filters: too many entries (max 64)".to_string());
+            return Err(IpcError::from("region_filters: too many entries (max 64)".to_string()));
         }
         let arr: Vec<serde_json::Value> = filters
             .iter()
@@ -671,7 +672,7 @@ pub async fn platform_update(
     if let Some(ref ttl) = sticky_ttl {
         // Go duration string; cap length to prevent abuse.
         if ttl.len() > 32 || ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-            return Err("sticky_ttl: invalid (max 32 chars, no control)".to_string());
+            return Err(IpcError::from("sticky_ttl: invalid (max 32 chars, no control)".to_string()));
         }
         body.insert(
             "sticky_ttl".to_string(),
@@ -679,7 +680,7 @@ pub async fn platform_update(
         );
     }
     if body.is_empty() {
-        return Err("platform_update: no fields to update".to_string());
+        return Err(IpcError::from("platform_update: no fields to update".to_string()));
     }
     client
         .update_platform(&id, serde_json::Value::Object(body))
@@ -690,7 +691,7 @@ pub async fn platform_update(
 /// GET /api/v1/nodes - return the full node list (the "C category" ip/ip
 /// channels) as raw JSON. The frontend renders egress IPs, health, protocol.
 #[tauri::command]
-pub async fn node_list(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
+pub async fn node_list(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, IpcError> {
     let client = resin_client(&sidecar)?;
     client.list_nodes().await.map_err(|e| map_resin_error(&e.to_string()))
 }
@@ -705,36 +706,36 @@ pub async fn node_list(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::
 pub async fn platform_create_with_fields(
     sidecar: State<'_, SidecarHandle>,
     body: serde_json::Value,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, IpcError> {
     // body must be a JSON object with a non-empty "name".
     let obj = body
         .as_object()
-        .ok_or("platform_create_with_fields: body must be a JSON object")?;
+        .ok_or_else(|| "platform_create_with_fields: body must be a JSON object".to_string())?;
     let name = obj
         .get("name")
         .and_then(|v| v.as_str())
-        .ok_or("platform_create_with_fields: missing 'name' field")?;
+        .ok_or_else(|| "platform_create_with_fields: missing 'name' field".to_string())?;
     validate_short_name(name, "platform")?;
     // If allocation_policy is present, must be one of the allowed enum.
     if let Some(policy) = obj.get("allocation_policy").and_then(|v| v.as_str()) {
         if !ALLOWED_ALLOCATION_POLICIES.contains(&policy) {
-            return Err(format!(
+            return Err(IpcError::from(format!(
                 "allocation_policy must be one of {:?}",
                 ALLOWED_ALLOCATION_POLICIES
-            ));
+            )));
         }
     }
     // If regex_filters present, cap count + per-entry length (mirrors platform_update).
     if let Some(arr) = obj.get("regex_filters").and_then(|v| v.as_array()) {
         if arr.len() > 64 {
-            return Err("regex_filters: too many entries (max 64)".to_string());
+            return Err(IpcError::from("regex_filters: too many entries (max 64)".to_string()));
         }
         for f in arr {
             if let Some(s) = f.as_str() {
                 if s.len() > 253 || s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-                    return Err(
+                    return Err(IpcError::from(
                         "regex_filters: entry invalid (max 253 chars, no control)".to_string()
-                    );
+                    ));
                 }
             }
         }
@@ -742,7 +743,7 @@ pub async fn platform_create_with_fields(
     // If region_filters present, cap each at 16 chars (ISO 3166-1 alpha-2 + negation).
     if let Some(arr) = obj.get("region_filters").and_then(|v| v.as_array()) {
         if arr.len() > 64 {
-            return Err("region_filters: too many entries (max 64)".to_string());
+            return Err(IpcError::from("region_filters: too many entries (max 64)".to_string()));
         }
         for r in arr {
             if let Some(s) = r.as_str() {
@@ -750,7 +751,7 @@ pub async fn platform_create_with_fields(
                     || s.bytes()
                         .any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')
                 {
-                    return Err("region_filter invalid (max 16, no control/space)".to_string());
+                    return Err(IpcError::from("region_filter invalid (max 16, no control/space)".to_string()));
                 }
             }
         }
@@ -758,7 +759,7 @@ pub async fn platform_create_with_fields(
     // If sticky_ttl present, cap at 32 chars + no control (mirrors platform_update).
     if let Some(ttl) = obj.get("sticky_ttl").and_then(|v| v.as_str()) {
         if ttl.len() > 32 || ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-            return Err("sticky_ttl: invalid (max 32 chars, no control)".to_string());
+            return Err(IpcError::from("sticky_ttl: invalid (max 32 chars, no control)".to_string()));
         }
     }
     let client = resin_client(&sidecar)?;
@@ -776,7 +777,7 @@ pub async fn platform_create_with_fields(
 pub async fn platform_leases(
     sidecar: State<'_, SidecarHandle>,
     name: String,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
     let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
@@ -834,23 +835,23 @@ fn subscription_id_for_name(v: &serde_json::Value, want: &str) -> Option<String>
 }
 
 #[tauri::command]
-pub fn tray_refresh_labels(app: AppHandle) -> Result<(), String> {
-    crate::tray::apply_labels(&app).map_err(|e| format!("tray_refresh_labels: {e:?}"))
+pub fn tray_refresh_labels(app: AppHandle) -> Result<(), IpcError> {
+    crate::tray::apply_labels(&app).map_err(|e| IpcError::from(format!("tray_refresh_labels: {e:?}")))
 }
 
 #[tauri::command]
-pub fn get_config_dir(app: AppHandle) -> Result<String, String> {
+pub fn get_config_dir(app: AppHandle) -> Result<String, IpcError> {
     match app.path().app_config_dir() {
         Ok(p) => Ok(p.to_string_lossy().into_owned()),
-        Err(e) => Err(format!("app_config_dir: {e:?}")),
+        Err(e) => Err(IpcError::from(format!("app_config_dir: {e:?}"))),
     }
 }
 
 #[tauri::command]
-pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
+pub fn get_log_dir(app: AppHandle) -> Result<String, IpcError> {
     match app.path().app_log_dir() {
         Ok(p) => Ok(p.to_string_lossy().into_owned()),
-        Err(e) => Err(format!("app_log_dir: {e:?}")),
+        Err(e) => Err(IpcError::from(format!("app_log_dir: {e:?}"))),
     }
 }
 
@@ -858,7 +859,7 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
 /// buffer. Returns the last N lines (oldest still in buffer first) for the
 /// Settings > Logs view. Read-only; no input from the webview.
 #[tauri::command]
-pub fn get_sidecar_logs(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>, String> {
+pub fn get_sidecar_logs(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>, IpcError> {
     Ok(sidecar.log_buf.snapshot())
 }
 
@@ -873,7 +874,7 @@ pub struct SidecarStatus {
 }
 
 #[tauri::command]
-pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarStatus, String> {
+pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarStatus, IpcError> {
     let mode = sidecar.mode.read().map(|m| format!("{:?}", *m)).unwrap_or_else(|_| "Unknown".to_string());
     Ok(SidecarStatus {
         api_port: sidecar.api_port,
@@ -889,15 +890,15 @@ pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarSt
 
 /// Create a zip backup of settings.json + resin state dir, return the temp path.
 #[tauri::command]
-pub async fn backup_create(app: AppHandle) -> Result<String, String> {
+pub async fn backup_create(app: AppHandle) -> Result<String, IpcError> {
     use std::io::Write;
     let path = app.path();
-    let app_data = path.app_data_dir().map_err(|e| e.to_string())?;
+    let app_data = path.app_data_dir().map_err(|e| IpcError::from(e.to_string()))?;
     let settings_path = app_data.join("settings.json");
     let resin_state = app_data.join("resin-state");
     let now = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S").to_string();
     let backups_dir = app_data.join("backups");
-    std::fs::create_dir_all(&backups_dir).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&backups_dir).map_err(|e| IpcError::from(e.to_string()))?;
     // Crypto-random suffix: prevents path-guessing on shared hosts and keeps
     // the backup inside the per-user app_data dir (not world-writable /tmp).
     let mut rand_bytes = [0u8; 8];
@@ -925,34 +926,34 @@ pub async fn backup_create(app: AppHandle) -> Result<String, String> {
     let zip_name = format!("egressapikey-backup-{}-{}.zip", now, suffix);
     let zip_path = backups_dir.join(&zip_name);
 
-    let zip_file = std::fs::File::create(&zip_path).map_err(|e| e.to_string())?;
+    let zip_file = std::fs::File::create(&zip_path).map_err(|e| IpcError::from(e.to_string()))?;
     let mut zip = zip::ZipWriter::new(zip_file);
     let opts = zip::write::FileOptions::default();
 
     // Add settings.json if it exists
     if settings_path.is_file() {
         zip.start_file("settings.json", opts)
-            .map_err(|e| e.to_string())?;
-        let data = std::fs::read(&settings_path).map_err(|e| e.to_string())?;
-        zip.write_all(&data).map_err(|e| e.to_string())?;
+            .map_err(|e| IpcError::from(e.to_string()))?;
+        let data = std::fs::read(&settings_path).map_err(|e| IpcError::from(e.to_string()))?;
+        zip.write_all(&data).map_err(|e| IpcError::from(e.to_string()))?;
     }
     // Add resin state DB if it exists
     let state_db = resin_state.join("state.db");
     if state_db.is_file() {
         zip.start_file("resin-state/state.db", opts)
-            .map_err(|e| e.to_string())?;
-        let data = std::fs::read(&state_db).map_err(|e| e.to_string())?;
-        zip.write_all(&data).map_err(|e| e.to_string())?;
+            .map_err(|e| IpcError::from(e.to_string()))?;
+        let data = std::fs::read(&state_db).map_err(|e| IpcError::from(e.to_string()))?;
+        zip.write_all(&data).map_err(|e| IpcError::from(e.to_string()))?;
     }
     // Add cache DB if it exists
     let cache_db = resin_state.join("cache.db");
     if cache_db.is_file() {
         zip.start_file("resin-state/cache.db", opts)
-            .map_err(|e| e.to_string())?;
-        let data = std::fs::read(&cache_db).map_err(|e| e.to_string())?;
-        zip.write_all(&data).map_err(|e| e.to_string())?;
+            .map_err(|e| IpcError::from(e.to_string()))?;
+        let data = std::fs::read(&cache_db).map_err(|e| IpcError::from(e.to_string()))?;
+        zip.write_all(&data).map_err(|e| IpcError::from(e.to_string()))?;
     }
-    zip.finish().map_err(|e| e.to_string())?;
+    zip.finish().map_err(|e| IpcError::from(e.to_string()))?;
     Ok(zip_path.to_string_lossy().to_string())
 }
 
@@ -965,15 +966,15 @@ pub async fn backup_upload(
     username: String,
     password: String,
     zip_path: String,
-) -> Result<(), String> {
+) -> Result<(), IpcError> {
     if url.trim().is_empty() {
-        return Err("webdav url must not be empty".to_string());
+        return Err(IpcError::from("webdav url must not be empty".to_string()));
     }
     if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err("webdav url must start with http:// or https://".to_string());
+        return Err(IpcError::from("webdav url must start with http:// or https://".to_string()));
     }
     if url.len() > 2048 {
-        return Err("webdav url too long".to_string());
+        return Err(IpcError::from("webdav url too long".to_string()));
     }
 
     // Security: confine zip_path to the per-user app_data/backups dir.
@@ -981,21 +982,21 @@ pub async fn backup_upload(
     // escapes and absolute paths outside app data. Prevents a compromised
     // webview from exfiltrating arbitrary files (e.g. the Resin admin token,
     // settings.json, or system files) to an attacker-controlled WebDAV URL.
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let app_data = app.path().app_data_dir().map_err(|e| IpcError::from(e.to_string()))?;
     let backups_dir = app_data.join("backups");
-    std::fs::create_dir_all(&backups_dir).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&backups_dir).map_err(|e| IpcError::from(e.to_string()))?;
     let canon_backup = std::fs::canonicalize(&backups_dir)
-        .map_err(|e| format!("backups dir not accessible: {e}"))?;
+        .map_err(|e| IpcError::from(format!("backups dir not accessible: {e}")))?;
     let canon_zip =
-        std::fs::canonicalize(&zip_path).map_err(|e| format!("zip path not accessible: {e}"))?;
+        std::fs::canonicalize(&zip_path).map_err(|e| IpcError::from(format!("zip path not accessible: {e}")))?;
     if !canon_zip.starts_with(&canon_backup) {
-        return Err("zip path must be inside the app backups directory".to_string());
+        return Err(IpcError::from("zip path must be inside the app backups directory".to_string()));
     }
     if !canon_zip.is_file() {
-        return Err("zip path is not a file".to_string());
+        return Err(IpcError::from("zip path is not a file".to_string()));
     }
 
-    let data = std::fs::read(&canon_zip).map_err(|e| e.to_string())?;
+    let data = std::fs::read(&canon_zip).map_err(|e| IpcError::from(e.to_string()))?;
     let zip_name = canon_zip
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -1005,7 +1006,7 @@ pub async fn backup_upload(
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| IpcError::from(e.to_string()))?;
     let resp = client
         .put(&webdav_url)
         .basic_auth(&username, Some(&password))
@@ -1016,7 +1017,7 @@ pub async fn backup_upload(
     if resp.status().is_success() {
         Ok(())
     } else {
-        Err(format!("webdav upload failed: HTTP {}", resp.status()))
+        Err(IpcError::from(format!("webdav upload failed: HTTP {}", resp.status())))
     }
 }
 
@@ -1026,18 +1027,18 @@ pub async fn backup_list(
     url: String,
     username: String,
     password: String,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, IpcError> {
     if url.trim().is_empty() {
-        return Err("webdav url must not be empty".to_string());
+        return Err(IpcError::from("webdav url must not be empty".to_string()));
     }
     if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err("webdav url must start with http:// or https://".to_string());
+        return Err(IpcError::from("webdav url must start with http:// or https://".to_string()));
     }
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| IpcError::from(e.to_string()))?;
     let resp = client
         .request(
             reqwest::Method::from_bytes(b"PROPFIND").unwrap(),
@@ -1053,7 +1054,7 @@ pub async fn backup_list(
         .await
         .map_err(|e| map_resin_error(&e.to_string()))?;
     if !resp.status().is_success() {
-        return Err(format!("webdav PROPFIND failed: HTTP {}", resp.status()));
+        return Err(IpcError::from(format!("webdav PROPFIND failed: HTTP {}", resp.status())));
     }
     let body = resp.text().await.map_err(|e| map_resin_error(&e.to_string()))?;
     // Parse <D:href> or <D:displayname> entries
@@ -1096,7 +1097,7 @@ pub fn process_route_conflict_check(
 /// It does NOT contain node data (nodes are derived from subscriptions and
 /// fetched live by the Resin sidecar).
 #[tauri::command]
-pub async fn config_export(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, String> {
+pub async fn config_export(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, IpcError> {
     let client = resin_client(&sidecar)?;
     let platforms = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
     let subscriptions = client
@@ -1149,21 +1150,21 @@ pub async fn config_import(
     app: AppHandle,
     sidecar: State<'_, SidecarHandle>,
     config: serde_json::Value,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, IpcError> {
     // Validate top-level structure
     let platforms = config
         .get("platforms")
         .and_then(|v| v.as_array())
-        .ok_or("config_import: missing 'platforms' array")?;
+        .ok_or_else(|| "config_import: missing 'platforms' array".to_string())?;
     let subscriptions = config
         .get("subscriptions")
         .and_then(|v| v.as_array())
-        .ok_or("config_import: missing 'subscriptions' array")?;
+        .ok_or_else(|| "config_import: missing 'subscriptions' array".to_string())?;
 
     // Cap input size to prevent abuse (AGENTS s7.5: 256KB max)
-    let config_str = serde_json::to_string(&config).map_err(|e| e.to_string())?;
+    let config_str = serde_json::to_string(&config).map_err(|e| IpcError::from(e.to_string()))?;
     if config_str.len() > 262_144 {
-        return Err("config_import: config too large (max 256KB)".to_string());
+        return Err(IpcError::from("config_import: config too large (max 256KB)".to_string()));
     }
 
     // Auto-backup before applying (防呆: always backup before destructive change)
@@ -1363,7 +1364,7 @@ pub struct LeaseEntry {
 /// (key, endpoint) -> distinct egress IP contract is live in the GUI, not just
 /// prose.
 #[tauri::command]
-pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEntry>, String> {
+pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEntry>, IpcError> {
     let client = resin_client(&sidecar)?;
     let raw = client.active_leases().await.map_err(|e| map_resin_error(&e.to_string()))?;
     // Resin returns {"items":[{active_leases:N,"ts":"...","platform_id":""}]}
@@ -1420,10 +1421,10 @@ pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEnt
 pub async fn ip_reputation_snapshot(
     app: AppHandle,
     sidecar: State<'_, SidecarHandle>,
-) -> Result<ReputationSnapshot, String> {
+) -> Result<ReputationSnapshot, IpcError> {
     let store = app
         .store("settings.json")
-        .map_err(|e| format!("settings store: {e}"))?;
+        .map_err(|e| IpcError::from(format!("settings store: {e}")))?;
     let provider_name = store
         .get("ipReputationProvider")
         .and_then(|v| v.as_str().map(str::to_string));
@@ -1461,7 +1462,7 @@ pub async fn ip_reputation_snapshot(
             .collect::<Vec<_>>(),
         50,
     );
-    let reputation = ReputationClient::new().map_err(|e| e.to_string())?;
+    let reputation = ReputationClient::new().map_err(|e| IpcError::from(e.to_string()))?;
     let mut entries = Vec::with_capacity(ips.len());
     for ip in ips {
         match reputation.lookup(provider, api_key.as_deref(), ip).await {
@@ -1526,8 +1527,8 @@ fn validate_port_segments(port: u16) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapping>, String> {
-    db.list_ports()
+pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapping>, IpcError> {
+    db.list_ports().map_err(IpcError::from)
 }
 
 /// Upsert one entry-port via the whitebox config transaction
@@ -1544,7 +1545,7 @@ pub async fn port_upsert(
     account: String,
     label: String,
     enabled: bool,
-) -> Result<resin_core::PortMapping, String> {
+) -> Result<resin_core::PortMapping, IpcError> {
     validate_port_mapping(port, &protocol, &platform_name, &account, &label)?;
     let acct = if account.trim().is_empty() {
         format!("port-{port}")
@@ -1564,7 +1565,7 @@ pub async fn port_upsert(
     if enabled {
         let client = resin_client(&sidecar)?;
         let existing = client.list_endpoints().await
-            .map_err(|e| format!("list_endpoints: {e:?}"))?;
+            .map_err(|e| IpcError::from(format!("list_endpoints: {e:?}")))?;
         let items_arr = existing.get("items")
             .and_then(|v| v.as_array())
             .cloned()
@@ -1586,11 +1587,11 @@ pub async fn port_upsert(
             // PATCH if port exists
             let ep_id = ep.get("id").and_then(|v| v.as_str()).unwrap_or("");
             client.update_endpoint(ep_id, body).await
-                .map_err(|e| format!("update_endpoint: {e:?}"))?;
+                .map_err(|e| IpcError::from(format!("update_endpoint: {e:?}")))?;
         } else {
             // POST if port does not exist (create new listener)
             client.create_endpoint(body).await
-                .map_err(|e| format!("create_endpoint: {e:?}"))?;
+                .map_err(|e| IpcError::from(format!("create_endpoint: {e:?}")))?;
         }
     }
     // Step 2: Shell DB + whitebox metadata (port -> platform_name binding)
@@ -1612,14 +1613,14 @@ pub async fn port_remove(
     forwarder: State<'_, resin_core::PortForwarder>,
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     port: u16,
-) -> Result<bool, String> {
+) -> Result<bool, IpcError> {
     if port < resin_core::MIN_USER_PORT {
-        return Err(format!("port {port} is privileged"));
+        return Err(IpcError::from(format!("port {port} is privileged")));
     }
     // Step 1: Resin endpoint API delete (find by port -> endpoint_id -> DELETE)
     let client = resin_client(&sidecar)?;
     let existing = client.list_endpoints().await
-        .map_err(|e| format!("list_endpoints: {e:?}"))?;
+        .map_err(|e| IpcError::from(format!("list_endpoints: {e:?}")))?;
     let items_arr = existing.get("items")
         .and_then(|v| v.as_array())
         .cloned()
@@ -1632,7 +1633,7 @@ pub async fn port_remove(
                     continue;
                 }
                 let _ = client.delete_endpoint(ep_id).await
-                    .map_err(|e| format!("delete_endpoint: {e:?}"))?;
+                    .map_err(|e| IpcError::from(format!("delete_endpoint: {e:?}")))?;
                 break;
             }
         }
@@ -1647,7 +1648,7 @@ pub async fn port_remove(
 #[tauri::command]
 pub async fn port_running(
     forwarder: State<'_, resin_core::PortForwarder>,
-) -> Result<Vec<u16>, String> {
+) -> Result<Vec<u16>, IpcError> {
     Ok(forwarder.running_ports())
 }
 
@@ -1658,21 +1659,21 @@ pub async fn port_reload(
     db: State<'_, DbPool>,
     forwarder: State<'_, resin_core::PortForwarder>,
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
-) -> Result<usize, String> {
-    whitebox.reload_file(&db, &forwarder).await
+) -> Result<usize, IpcError> {
+    whitebox.reload_file(&db, &forwarder).await.map_err(IpcError::from)
 }
 
 #[tauri::command]
 pub async fn whitebox_path(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
-) -> Result<String, String> {
+) -> Result<String, IpcError> {
     Ok(whitebox.path().display().to_string())
 }
 
 #[tauri::command]
 pub async fn whitebox_get(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
-) -> Result<resin_core::WhiteboxConfig, String> {
+) -> Result<resin_core::WhiteboxConfig, IpcError> {
     Ok(whitebox.snapshot())
 }
 
@@ -1681,14 +1682,14 @@ pub async fn whitebox_reload(
     db: State<'_, DbPool>,
     forwarder: State<'_, resin_core::PortForwarder>,
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
-) -> Result<usize, String> {
-    whitebox.reload_file(&db, &forwarder).await
+) -> Result<usize, IpcError> {
+    whitebox.reload_file(&db, &forwarder).await.map_err(IpcError::from)
 }
 
 #[tauri::command]
 pub async fn stream_sensor_snapshot(
     forwarder: State<'_, resin_core::PortForwarder>,
-) -> Result<resin_core::StreamSensorSnapshot, String> {
+) -> Result<resin_core::StreamSensorSnapshot, IpcError> {
     Ok(forwarder.stream_snapshot())
 }
 
@@ -1720,7 +1721,7 @@ pub async fn port_auth_info(
     db: State<'_, DbPool>,
     forwarder: State<'_, resin_core::PortForwarder>,
     port: u16,
-) -> Result<PortAuthInfo, String> {
+) -> Result<PortAuthInfo, IpcError> {
     // The port_mapping row tells us the bound platform_name + account string.
     let mapping = db
         .list_ports()?
@@ -1775,7 +1776,7 @@ pub struct PortHealthCheck {
 }
 
 #[tauri::command]
-pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<PortHealthCheck, String> {
+pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<PortHealthCheck, IpcError> {
     validate_port_segments(port)?;
     let proto = protocol
         .map(|s| s.to_ascii_lowercase())
@@ -1885,45 +1886,45 @@ pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<Po
 // B-class maps to Resin allocation_policy via the existing platform_update IPC.
 
 #[tauri::command]
-pub async fn strategy_config_get(app: AppHandle) -> Result<serde_json::Value, String> {
+pub async fn strategy_config_get(app: AppHandle) -> Result<serde_json::Value, IpcError> {
     let dir = std::path::PathBuf::from(get_config_dir(app)?);
     let path = dir.join("egressapikey-strategy.json");
     if !path.exists() {
         let default = resin_core::StrategyConfig::default();
-        return serde_json::to_value(&default).map_err(|e| e.to_string());
+        return serde_json::to_value(&default).map_err(|e| IpcError::from(e.to_string()));
     }
-    let raw = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    serde_json::from_str::<serde_json::Value>(&raw).map_err(|e| e.to_string())
+    let raw = std::fs::read_to_string(&path).map_err(|e| IpcError::from(e.to_string()))?;
+    serde_json::from_str::<serde_json::Value>(&raw).map_err(|e| IpcError::from(e.to_string()))
 }
 
 #[tauri::command]
 pub async fn strategy_config_put(
     app: AppHandle,
     config: serde_json::Value,
-) -> Result<(), String> {
+) -> Result<(), IpcError> {
     let dir = std::path::PathBuf::from(get_config_dir(app)?);
     let path = dir.join("egressapikey-strategy.json");
     let typed: resin_core::StrategyConfig =
-        serde_json::from_value(config).map_err(|e| format!("strategy config invalid: {e}"))?;
+        serde_json::from_value(config).map_err(|e| IpcError::from(format!("strategy config invalid: {e}")))?;
     if typed.version != 1 {
-        return Err("strategy config version must be 1".into());
+        return Err(IpcError::internal("strategy config version must be 1"));
     }
     for ps in &typed.platforms {
         if ps.platform_name.is_empty() || ps.platform_name.len() > 128 {
-            return Err("platform_name must be 1..128 chars".to_string());
+            return Err(IpcError::from("platform_name must be 1..128 chars".to_string()));
         }
         if ps.regions.len() > 64 {
-            return Err("regions list too long (max 64)".to_string());
+            return Err(IpcError::from("regions list too long (max 64)".to_string()));
         }
         if ps.subscriptions.len() > 64 {
-            return Err("subscriptions list too long (max 64)".to_string());
+            return Err(IpcError::from("subscriptions list too long (max 64)".to_string()));
         }
         if ps.top_n > 1000 {
-            return Err("top_n too large (max 1000)".to_string());
+            return Err(IpcError::from("top_n too large (max 1000)".to_string()));
         }
     }
-    let json = serde_json::to_string_pretty(&typed).map_err(|e| e.to_string())?;
-    std::fs::write(&path, json).map_err(|e| e.to_string())?;
+    let json = serde_json::to_string_pretty(&typed).map_err(|e| IpcError::from(e.to_string()))?;
+    std::fs::write(&path, json).map_err(|e| IpcError::from(e.to_string()))?;
     Ok(())
 }
 
@@ -1931,19 +1932,19 @@ pub async fn strategy_config_put(
 pub async fn strategy_apply(
     sidecar: State<'_, SidecarHandle>,
     app: AppHandle,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, IpcError> {
     let dir = std::path::PathBuf::from(get_config_dir(app)?);
     let path = dir.join("egressapikey-strategy.json");
     let raw = if path.exists() {
-        std::fs::read_to_string(&path).map_err(|e| e.to_string())?
+        std::fs::read_to_string(&path).map_err(|e| IpcError::from(e.to_string()))?
     } else {
-        serde_json::to_string(&resin_core::StrategyConfig::default()).map_err(|e| e.to_string())?
+        serde_json::to_string(&resin_core::StrategyConfig::default()).map_err(|e| IpcError::from(e.to_string()))?
     };
     let config: resin_core::StrategyConfig =
-        serde_json::from_str(&raw).map_err(|e| format!("strategy config parse error: {e}"))?;
+        serde_json::from_str(&raw).map_err(|e| IpcError::from(format!("strategy config parse error: {e}")))?;
 
     let client = resin_client(&sidecar)?;
-    let nodes_v = client.list_nodes().await.map_err(|e| e.to_string())?;
+    let nodes_v = client.list_nodes().await.map_err(|e| IpcError::from(e.to_string()))?;
     let nodes = resin_core::parse_nodes(&nodes_v);
 
     let plan = resin_core::compute_plan(&config, &nodes);
@@ -1951,7 +1952,7 @@ pub async fn strategy_apply(
     let platforms_arr = applied["platforms"].as_array_mut().unwrap();
 
     for (platform_name, regions) in &plan {
-        let platforms_v = client.list_platforms().await.map_err(|e| e.to_string())?;
+        let platforms_v = client.list_platforms().await.map_err(|e| IpcError::from(e.to_string()))?;
         if let Some(id) = platform_id_for_name(&platforms_v, platform_name) {
             let body = serde_json::json!({"region_filters": regions});
             let _ = client.update_platform(&id, body).await;

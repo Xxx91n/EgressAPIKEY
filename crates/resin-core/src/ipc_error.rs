@@ -83,6 +83,29 @@ impl std::fmt::Display for IpcError {
 }
 
 impl std::error::Error for IpcError {}
+impl From<String> for IpcError {
+    /// Auto-convert String errors so commands using `?` operator with String-returning
+    /// helpers (validate_*, resin_client, map_resin_error) can return Result<T, IpcError>
+    /// without per-call .map_err boilerplate. Ponytail: From impl, not 44 hand edits.
+    fn from(raw: String) -> Self {
+        if raw.contains("bind") && (raw.contains("Only one usage") || raw.contains("CONFLICT")) {
+            if let Some(port) = extract_port(&raw) {
+                return IpcError::bind_conflict(port);
+            }
+        }
+        if raw.contains("must be BALANCED") || raw.contains("InvalidStrategy") {
+            return IpcError::invalid_strategy(&raw, &["random","sequential","latency","quality","bandwidth","protocol_weight"]);
+        }
+        IpcError::internal(&raw)
+    }
+}
+
+impl From<serde_json::Error> for IpcError {
+    fn from(e: serde_json::Error) -> Self {
+        IpcError::internal(&e.to_string())
+    }
+}
+
 
 /// Map a Resin HTTP response (status + body excerpt) to an IpcError variant.
 /// Called by `commands/mod.rs` when `ResinClient::send()` returns a non-2xx.

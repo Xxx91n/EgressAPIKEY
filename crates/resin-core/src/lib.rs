@@ -12,6 +12,7 @@
 
 pub mod db;
 pub mod ipc_error;
+pub use ipc_error::{IpcError, map_resin_error};
 pub mod gateway;
 pub mod ip_reputation;
 pub mod lane;
