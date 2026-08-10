@@ -368,11 +368,11 @@ export function PlatformsView() {
                   {(() => {
                     const h = health[p.port];
                     const a = authInfo[p.port];
-                    const healthIcon = h ? (h.socks5_ok ? <ShieldCheck className="h-3 w-3 text-emerald-500" /> : h.protocol_mismatch ? <ShieldAlert className="h-3 w-3 text-amber-500" /> : <ShieldAlert className="h-3 w-3 text-red-500" />) : null;
+                    const healthIcon = h ? (h.reachable && h.reason === "ok" ? <ShieldCheck className="h-3 w-3 text-emerald-500" /> : h.protocol_mismatch ? <ShieldAlert className="h-3 w-3 text-amber-500" /> : !h.reachable ? <ShieldAlert className="h-3 w-3 text-red-500" /> : <ShieldCheck className="h-3 w-3 text-emerald-500" />) : null;
                     return (
                       <>
                         {healthIcon}
-                        <span>{h ? (h.socks5_ok ? t("platform.healthOk") : h.protocol_mismatch ? t("platform.healthProtocolMismatch") : t("platform.healthUnavailable")) : ""}</span>
+                        <span>{h ? (h.reachable && h.reason === "ok" ? t("platform.healthOk") : h.protocol_mismatch ? t("platform.healthProtocolMismatch") : t("platform.healthUnavailable")) : ""}</span>
                         {h && h.latency_ms > 0 && <span className="text-muted-foreground/70">· {h.latency_ms}ms</span>}
                         {a && (
                           <button
