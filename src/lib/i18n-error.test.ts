@@ -55,4 +55,32 @@ describe("translateError", () => {
     const out = translateError(new Error("Network is unreachable"), t);
     expect(out).toBe("Network is unreachable");
   });
+
+  // T8-Bug2: IpcError objects from Tauri must NOT render as "[object Object]".
+  // Tauri serializes IpcError as {kind, data:{i18n_key,...}}. The old
+  // String(e) path turned this into "[object Object]". translateError now
+  // inlines the object narrowing and extracts i18n_key.
+  it("T8-Bug2: IpcError {kind:Internal, data:{i18n_key}} renders localized msg not [object Object]", () => {
+    const t = makeT({ "error.cannotDeleteDefaultPlatform": "cannot delete Default platform" });
+    const ipcErr = { kind: "Internal", data: { msg: "raw message", i18n_key: "error.cannotDeleteDefaultPlatform" } };
+    const out = translateError(ipcErr, t);
+    expect(out).toBe("cannot delete Default platform");
+    expect(out).not.toBe("[object Object]");
+  });
+
+  it("T8-Bug2: IpcError {kind:BindConflict, data:{port}} renders localized bind conflict", () => {
+    const t = makeT({ "error.bindConflict": "Port already in use" });
+    const ipcErr = { kind: "BindConflict", data: { port: 17111, i18n_key: "error.bindConflict" } };
+    const out = translateError(ipcErr, t);
+    expect(out).toBe("Port already in use");
+    expect(out).not.toBe("[object Object]");
+  });
+
+  it("T8-Bug2: IpcError {kind:ResinUpstream, data:{excerpt}} renders localized upstream error", () => {
+    const t = makeT({ "error.resinUpstream": "Upstream error: {{excerpt}}" });
+    const ipcErr = { kind: "ResinUpstream", data: { status: 503, excerpt: "timeout", i18n_key: "error.resinUpstream" } };
+    const out = translateError(ipcErr, t);
+    expect(out).toBe("Upstream error: timeout");
+    expect(out).not.toBe("[object Object]");
+  });
 });

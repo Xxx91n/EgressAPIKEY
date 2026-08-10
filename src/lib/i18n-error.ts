@@ -15,6 +15,28 @@
 import type { TFunction } from "i18next";
 
 export function translateError(e: unknown, t: TFunction): string {
+  // T8-Bug2: if Tauri rejected with an IpcError object (externally-tagged
+  // serde: {kind, data}), extract the i18n_key before String(e) turns it
+  // into "[object Object]". extractIpcErr is in ipc.ts but we can't import
+  // it here (cycle: ipc.ts imports translateError via PlatformsView). We
+  // inline the narrow so i18n-error.ts stays dependency-free.
+  if (e && typeof e === "object" && "kind" in e && "data" in e) {
+    const data = (e as { data: Record<string, unknown> }).data;
+    const i18nKey = typeof data?.i18n_key === "string" ? data.i18n_key : "";
+    if (i18nKey) {
+      // Gather all interpolation vars from the IpcError data so templates
+      // like "Upstream error: {{excerpt}}" or "Port {{port}} in use" work.
+      const port = typeof data?.port === "number" ? String(data.port) : "";
+      const excerpt = typeof data?.excerpt === "string" ? data.excerpt : "";
+      const vars: Record<string, string> = { port, excerpt, code: excerpt };
+      // t() with interpolation; if the template still has unresolvable
+      // {{...}} placeholders, don't return a partial template.
+      const resolved = t(i18nKey, { defaultValue: "", ...vars });
+      if (resolved && resolved !== i18nKey && !resolved.includes("{{")) return resolved;
+      // Fallback to literal i18n_key.
+      return t(i18nKey, { defaultValue: i18nKey });
+    }
+  }
   const raw = e instanceof Error ? e.message : String(e);
   // map_resin_error keys start with "error." — try the literal key first
   // (per-code translations like "error.subscriptionFetch.525" win here).

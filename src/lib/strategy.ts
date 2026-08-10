@@ -66,6 +66,17 @@ export function strategyToResinPolicy(s: StrategyId | string): AllocationPolicy 
   }
 }
 
+/// Map Resin allocation_policy enum back to shell StrategyId for UI display.
+/// Inverse of strategyToResinPolicy (picks the first shell option for each Resin enum).
+export function mapResinToShell(p: string): StrategyId {
+  switch (p) {
+    case "BALANCED": return "random";
+    case "PREFER_LOW_LATENCY": return "latency";
+    case "PREFER_IDLE_IP": return "sequential";
+    default: return "random";
+  }
+}
+
 /// Validate that a string is a valid shell StrategyId.
 export function isValidStrategyId(s: string): s is StrategyId {
   return (STRATEGY_IDS as readonly string[]).includes(s);

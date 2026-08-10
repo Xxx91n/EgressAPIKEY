@@ -24,7 +24,7 @@ import {
   type PortAuthInfo,
   type PortHealthCheck,
 } from "../lib/ipc";
-import { strategyToI18nKey, STRATEGY_IDS, type StrategyId } from "../lib/strategy";
+import { strategyToI18nKey, strategyToResinPolicy, mapResinToShell, STRATEGY_IDS, type StrategyId } from "../lib/strategy";
 import { loadSplitRatio, saveSplitRatio } from "../lib/settings";
 
 /** Phase 5 / ADR-0012: left = Entry Ports, right = Platforms. Port = identity. */
@@ -154,7 +154,7 @@ export function PlatformsView() {
       const items = Array.isArray(raw) ? raw : ((raw as Record<string, unknown>)?.items ?? []);
       const mapped = (items as Record<string, unknown>[]).map((p) => ({
         name: String(p.name ?? ""),
-        allocationPolicy: String(p.allocation_policy ?? "BALANCED"),
+        allocationPolicy: mapResinToShell(String(p.allocation_policy ?? "BALANCED")),
         regexFilters: Array.isArray(p.regex_filters) ? (p.regex_filters as string[]) : [],
         regionFilters: Array.isArray(p.region_filters) ? (p.region_filters as string[]) : [],
         routableNodeCount: Number(p.routable_node_count ?? 0),
@@ -279,7 +279,7 @@ export function PlatformsView() {
     if (!name) { setCreateFormError(t("platform.createEmptyName")); return; }
     setBusy(true); setCreateFormError(null);
     try {
-      await ipcPlatformCreateWithFields({ name, allocation_policy: createPolicy });
+      await ipcPlatformCreateWithFields({ name, allocation_policy: strategyToResinPolicy(createPolicy) });
       setCreateDialogOpen(false); setCreateName("");
       showToast("ok", t("platform.addOk"));
       await refreshPlatforms();
