@@ -1745,15 +1745,9 @@ pub async fn port_auth_info(
     } else {
         format!("{}.{}", mapping.platform_name, mapping.account)
     };
+    // proxy_token is always non-empty (T8 revert of ADR-0027); port_auth_info
+    // always returns the credential for SOCKS5/HTTP auth in {Platform}.{Account} + token format.
     let password = sidecar.proxy_token.clone();
-    if password.is_empty() {
-        // ADR-0027: proxy_token is now intentionally empty so per-endpoint
-        // require_proxy_auth_info controls authentication. This is only a
-        // warning when auth_required is true but the token is empty.
-        if mapping.auth_required {
-            tracing::warn!("port_auth_info: port {} requires auth but proxy_token is empty", port);
-        }
-    }
     let _ = forwarder; // forwarder carries the live listener state; not needed for auth-info lookup
     Ok(PortAuthInfo {
         username,
