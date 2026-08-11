@@ -292,6 +292,10 @@
     "save": "Simpan",
     "resetBtn": "Reset",
     "saved": "Konfig jaringan disimpan",
-    "reset": "Konfig jaringan direset"
+    "reset": "Konfig jaringan direset",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

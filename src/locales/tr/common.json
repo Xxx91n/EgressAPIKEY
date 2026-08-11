@@ -292,6 +292,10 @@
     "save": "Kaydet",
     "resetBtn": "Sıfırla",
     "saved": "Ağ yapılandırması kaydedildi",
-    "reset": "Ağ yapılandırması sıfırlandı"
+    "reset": "Ağ yapılandırması sıfırlandı",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

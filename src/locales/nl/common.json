@@ -292,6 +292,10 @@
     "save": "Opslaan",
     "resetBtn": "Herstel",
     "saved": "Netwerkconfig opgeslagen",
-    "reset": "Netwerkconfig hersteld"
+    "reset": "Netwerkconfig hersteld",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

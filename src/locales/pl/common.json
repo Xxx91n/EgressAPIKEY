@@ -292,6 +292,10 @@
     "save": "Zapisz",
     "resetBtn": "Resetuj",
     "saved": "Konfig sieci zapisana",
-    "reset": "Konfig sieci zresetowana"
+    "reset": "Konfig sieci zresetowana",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

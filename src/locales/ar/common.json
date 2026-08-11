@@ -292,6 +292,10 @@
     "save": "حفظ",
     "resetBtn": "إعادة تعيين",
     "saved": "تم حفظ تكوين الشبكة",
-    "reset": "تم إعادة تعيين تكوين الشبكة"
+    "reset": "تم إعادة تعيين تكوين الشبكة",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

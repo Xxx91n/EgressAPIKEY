@@ -292,6 +292,10 @@
     "save": "保存",
     "resetBtn": "デフォルトにリセット",
     "saved": "ネットワーク設定を保存しました",
-    "reset": "ネットワーク設定をデフォルトにリセットしました"
+    "reset": "ネットワーク設定をデフォルトにリセットしました",
+    "probeExitIp": "出口IPをプローブ",
+    "exitIpLabel": "出口IP",
+    "probeFailed": "プローブ失敗",
+    "noExitIp": "出口IPなし"
   }
 }

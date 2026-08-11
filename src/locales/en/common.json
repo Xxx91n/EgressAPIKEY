@@ -292,6 +292,10 @@
     "save": "Save",
     "resetBtn": "Reset to Default",
     "saved": "Network config saved",
-    "reset": "Network config reset to defaults"
+    "reset": "Network config reset to defaults",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

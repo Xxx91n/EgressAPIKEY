@@ -292,6 +292,10 @@
     "save": "Сохранить",
     "resetBtn": "Сбросить",
     "saved": "Сетевая конфиг. сохранена",
-    "reset": "Сетевая конфиг. сброшена"
+    "reset": "Сетевая конфиг. сброшена",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

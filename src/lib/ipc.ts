@@ -462,6 +462,23 @@ export async function ipcPortHealthCheck(port: number, protocol?: string): Promi
   return invoke<PortHealthCheck>("port_health_check", { port, protocol: proto });
 }
 
+// T6-4: Exit IP probe — routes a request to 1.1.1.1/cdn-cgi/trace through the
+// given entry port and parses the exit IP from the Cloudflare trace body.
+export interface ExitIpProbe {
+  port: number;
+  protocol: string;
+  exit_ip: string;
+  latency_ms: number;
+  status: number;
+}
+
+export function ipcProbeExitIp(port: number, protocol: string): Promise<ExitIpProbe> {
+  if (port < 1024 || port > 65535) throw new Error(`port ${port} out of range (1024..65535)`);
+  const proto = protocol.toLowerCase();
+  if (proto !== "socks5" && proto !== "http") throw new Error("protocol must be socks5 or http");
+  return invoke<ExitIpProbe>("probe_exit_ip", { port, protocol: proto });
+}
+
 export interface NetworkConfig {
   dns_upstreams?: string[];
   max_idle_conns?: number;

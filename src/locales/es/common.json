@@ -292,6 +292,10 @@
     "save": "Guardar",
     "resetBtn": "Restablecer",
     "saved": "Config de red guardada",
-    "reset": "Config de red restablecida"
+    "reset": "Config de red restablecida",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

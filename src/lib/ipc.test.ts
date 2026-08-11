@@ -25,6 +25,7 @@ import {
   ipChannelList, ipChannelPolicySet, ipChannelCreate, ipChannelDelete,
   ipcPortList, ipcPortUpsert, ipcPortRemove, ipcPortRunning, ipcPortReload,
   ipcPortHealthCheck,
+  ipcProbeExitIp,
   ipcWhiteboxPath, ipcWhiteboxGet, ipcWhiteboxReload,
   ipcIpReputationSnapshot,
   ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
@@ -391,4 +392,28 @@ describe("strategy IPC (T4-4)", () => {
     expect(invokeMock).toHaveBeenCalledWith("strategy_apply", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 });
+});
+
+// T6-4: probe_exit_ip IPC wrapper closed-loop.
+describe("T6-4 ipcProbeExitIp", () => {
+  it("forwards port + protocol to probe_exit_ip invoke", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({ port: 1790, protocol: "http", exit_ip: "1.2.3.4", latency_ms: 50, status: 200 });
+    await ipcProbeExitIp(1790, "http");
+    expect(invokeMock).toHaveBeenCalledWith("probe_exit_ip", expect.objectContaining({ port: 1790, protocol: "http" }));
+  });
+
+  it("rejects invalid protocol before invoke", () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(undefined);
+    expect(() => ipcProbeExitIp(1790, "ftp")).toThrow(/protocol must be socks5 or http/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects out-of-range port before invoke", () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(undefined);
+    expect(() => ipcProbeExitIp(80, "http")).toThrow(/out of range/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
 });

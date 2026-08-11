@@ -292,6 +292,10 @@
     "save": "저장",
     "resetBtn": "기본값으로 재설정",
     "saved": "네트워크 설정 저장됨",
-    "reset": "네트워크 설정이 기본값으로 재설정됨"
+    "reset": "네트워크 설정이 기본값으로 재설정됨",
+    "probeExitIp": "종료 IP 프로브",
+    "exitIpLabel": "종료 IP",
+    "probeFailed": "프로브 실패",
+    "noExitIp": "종료 IP 없음"
   }
 }

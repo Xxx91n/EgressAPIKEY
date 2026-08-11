@@ -292,6 +292,10 @@
     "save": "Speichern",
     "resetBtn": "Zurücksetzen",
     "saved": "Netzwerkkonfig gespeichert",
-    "reset": "Netzwerkkonfig zurückgesetzt"
+    "reset": "Netzwerkkonfig zurückgesetzt",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

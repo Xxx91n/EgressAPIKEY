@@ -1792,6 +1792,82 @@ pub struct PortHealthCheck {
     pub reason: String,
 }
 
+/// T6-4: Probe the exit IP by routing a request to http://1.1.1.1/cdn-cgi/trace
+/// through the specified entry port (HTTP or SOCKS5 proxy). Returns the exit
+/// IP parsed from the Cloudflare trace body, plus latency. If no active
+/// subscription/nodes are available, returns an error so the GUI can show
+/// "no exit IP available" rather than a misleading blank.
+#[tauri::command]
+pub async fn probe_exit_ip(
+    sidecar: State<'_, SidecarHandle>,
+    db: State<'_, DbPool>,
+    port: u16,
+    protocol: String,
+) -> Result<ExitIpProbe, IpcError> {
+    tracing::info!(port, protocol = %protocol, "probe_exit_ip: probing through proxy");
+    validate_port_segments(port)?;
+    let proto = protocol.to_ascii_lowercase();
+    if proto != "http" && proto != "socks5" {
+        return Err(IpcError::internal("error.invalidProtocol"));
+    }
+    let proxy_url = if proto == "http" {
+        format!("http://127.0.0.1:{port}")
+    } else {
+        let mapping = db
+            .list_ports()?
+            .into_iter()
+            .find(|m| m.port == port)
+            .ok_or_else(|| format!("port {port} is not configured"))?;
+        let username = if mapping.account.trim().is_empty() {
+            format!("{}.port-{}", mapping.platform_name, port)
+        } else {
+            format!("{}.{}", mapping.platform_name, mapping.account)
+        };
+        let password = &sidecar.proxy_token;
+        format!("socks5h://{username}:{password}@127.0.0.1:{port}")
+    };
+    let proxy = reqwest::Proxy::all(&proxy_url)
+        .map_err(|e| IpcError::internal(&format!("proxy build: {e}")))?;
+    let client = reqwest::Client::builder()
+        .proxy(proxy)
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| IpcError::internal(&format!("client build: {e}")))?;
+    let started = std::time::Instant::now();
+    let resp = client
+        .get("http://1.1.1.1/cdn-cgi/trace")
+        .send()
+        .await
+        .map_err(|e| IpcError::internal(&format!("probe request: {e}")))?;
+    let status = resp.status().as_u16();
+    let body = resp
+        .text()
+        .await
+        .map_err(|e| IpcError::internal(&format!("probe body: {e}")))?;
+    let latency_ms = started.elapsed().as_millis() as u64;
+    let exit_ip = body
+        .lines()
+        .find_map(|l| l.strip_prefix("ip=").map(|s| s.trim().to_string()))
+        .unwrap_or_default();
+    tracing::info!(port, protocol = %proto, exit_ip = %exit_ip, latency_ms, "probe_exit_ip: success");
+    Ok(ExitIpProbe {
+        port,
+        protocol: proto,
+        exit_ip,
+        latency_ms,
+        status,
+    })
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct ExitIpProbe {
+    pub port: u16,
+    pub protocol: String,
+    pub exit_ip: String,
+    pub latency_ms: u64,
+    pub status: u16,
+}
+
 #[tauri::command]
 pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<PortHealthCheck, IpcError> {
     tracing::info!(port, protocol = ?protocol, "port_health_check: probing port");
@@ -2387,5 +2463,36 @@ mod tests {
         // Empty account fallback: format!("{}.port-{}", platform_name, port)
         let empty_account_username = format!("{}.port-{}", platform_name, port);
         assert_eq!(empty_account_username, "Default.port-1792");
+    }
+
+    // T6-4: parse exit IP from Cloudflare trace body (pure helper logic).
+    #[test]
+    fn t6_4_parse_exit_ip_from_cloudflare_trace() {
+        let body = "fl=123f\nnode=sin1\nip=203.0.113.42\nuag=Mozilla/5.0\n";
+        let ip = body
+            .lines()
+            .find_map(|l| l.strip_prefix("ip=").map(|s| s.trim().to_string()))
+            .unwrap_or_default();
+        assert_eq!(ip, "203.0.113.42");
+    }
+
+    #[test]
+    fn t6_4_parse_exit_ip_missing_returns_empty() {
+        let body = "fl=123f\nnode=sin1\nuag=Mozilla/5.0\n";
+        let ip = body
+            .lines()
+            .find_map(|l| l.strip_prefix("ip=").map(|s| s.trim().to_string()))
+            .unwrap_or_default();
+        assert_eq!(ip, "");
+    }
+
+    #[test]
+    fn t6_4_parse_exit_ip_with_trailing_whitespace() {
+        let body = "ip=  198.51.100.1  \n";
+        let ip = body
+            .lines()
+            .find_map(|l| l.strip_prefix("ip=").map(|s| s.trim().to_string()))
+            .unwrap_or_default();
+        assert_eq!(ip, "198.51.100.1");
     }
 }

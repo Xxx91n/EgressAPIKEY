@@ -292,6 +292,10 @@
     "save": "सहेजें",
     "resetBtn": "रीसेट करें",
     "saved": "नेटवर्क कॉन्फ़िग सहेजा गया",
-    "reset": "नेटवर्क कॉन्फ़िग रीसेट किया गया"
+    "reset": "नेटवर्क कॉन्फ़िग रीसेट किया गया",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

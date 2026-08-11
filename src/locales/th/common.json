@@ -292,6 +292,10 @@
     "save": "บันทึก",
     "resetBtn": "รีเซ็ต",
     "saved": "บันทึกการตั้งค่าเครือข่ายแล้ว",
-    "reset": "รีเซ็ตการตั้งค่าเครือข่ายแล้ว"
+    "reset": "รีเซ็ตการตั้งค่าเครือข่ายแล้ว",
+    "probeExitIp": "Probe Exit IP",
+    "exitIpLabel": "Exit IP",
+    "probeFailed": "Probe failed",
+    "noExitIp": "No exit IP available"
   }
 }

@@ -1,4 +1,4 @@
-//! Binary entrypoint for the EgressAPIKEY desktop shell. Runs the full
+﻿//! Binary entrypoint for the EgressAPIKEY desktop shell. Runs the full
 //! Tauri 2 Builder pipeline: React frontend, resin-core gateway as managed
 //! state, the plugin set the GUI uses, and a system tray.
 
@@ -120,6 +120,7 @@ fn main() {
             commands::port_reload,
             commands::port_auth_info,
             commands::port_health_check,
+            commands::probe_exit_ip,
             commands::whitebox_path,
             commands::whitebox_get,
             commands::whitebox_reload,

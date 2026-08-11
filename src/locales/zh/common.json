@@ -292,6 +292,10 @@
     "save": "保存",
     "resetBtn": "恢复默认",
     "saved": "网络配置已保存",
-    "reset": "网络配置已重置为默认"
+    "reset": "网络配置已重置为默认",
+    "probeExitIp": "探测出口 IP",
+    "exitIpLabel": "出口 IP",
+    "probeFailed": "探测失败",
+    "noExitIp": "无可用出口 IP"
   }
 }
