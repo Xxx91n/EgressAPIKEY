@@ -304,6 +304,8 @@
     "firewallOff": "Firewall is OFF",
     "reqLogTitle": "Request Logs",
     "reqLogEmpty": "No request logs",
-    "noNodes": "No healthy nodes available! Check subscription links and firewall settings."
+    "noNodes": "No healthy nodes available! Check subscription links and firewall settings.",
+    "diagnostics": "Network Diagnostics",
+    "refresh": "Refresh"
   }
 }

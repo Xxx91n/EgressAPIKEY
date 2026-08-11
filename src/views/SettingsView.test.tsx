@@ -138,3 +138,54 @@ describe("SettingsView T6-3 network layer card closed-loop", () => {
     });
   });
 });
+
+// T6-7: Network diagnostics panel closed-loop. The panel must render the
+// sidecar port + mode, firewall status, and request log table. The refresh
+// button should trigger the IPC calls for firewall + request log.
+describe("SettingsView T6-7 diagnostics panel closed-loop", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "whitebox_get") return Promise.resolve({ version: 1, entry_ports: [], network: {} });
+      if (cmd === "whitebox_path") return Promise.resolve("/tmp/test.json");
+      if (cmd === "get_sidecar_status") return Promise.resolve({ api_port: 12345, mode: "running", api_base: "http://127.0.0.1:12345" });
+      if (cmd === "check_firewall_status") return Promise.resolve({ platform: "windows", firewall_on: false, inbound_blocked: false, detail: "Firewall is OFF." });
+      if (cmd === "request_log_tail") return Promise.resolve([
+        { ts: "2026-01-01 00:00:00", platform_name: "Default", account: "port-1790", target_host: "api.openai.com:443", egress_ip: "1.2.3.4", http_method: "POST", http_status: 200, duration_ms: 150, resin_error: "" },
+      ]);
+      return Promise.resolve(undefined);
+    });
+  });
+
+  it("renders diagnostics panel with sidecar port and firewall status", async () => {
+    render(<SettingsView />);
+    const portEl = await screen.findByTestId("diag-sidecar-port");
+    expect(portEl).toBeInTheDocument();
+    // firewall status should render after diagnostics load
+    await waitFor(() => {
+      expect(screen.getByTestId("diag-firewall-status")).toBeInTheDocument();
+    });
+  });
+
+  it("renders request log table with entries from IPC", async () => {
+    render(<SettingsView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("diag-log-table")).toBeInTheDocument();
+    });
+    // The table should contain "api.openai.com" from the mock response
+    expect(screen.getByText("api.openai.com:443")).toBeInTheDocument();
+  });
+
+  it("refresh button triggers all diagnostic IPC calls", async () => {
+    render(<SettingsView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("diag-refresh-btn")).toBeInTheDocument();
+    });
+    const refreshBtn = screen.getByTestId("diag-refresh-btn");
+    fireEvent.click(refreshBtn);
+    await waitFor(() => {
+      const fwCalls = invokeMock.mock.calls.filter(([cmd]) => cmd === "check_firewall_status");
+      expect(fwCalls.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+});

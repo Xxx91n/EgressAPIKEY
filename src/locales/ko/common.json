@@ -304,6 +304,8 @@
     "firewallOff": "방화벽 비활성화",
     "reqLogTitle": "요청 로그",
     "reqLogEmpty": "요청 로그 없음",
-    "noNodes": "사용 가능한 노드가 없습니다! 구독 링크와 방화벽을 확인하세요."
+    "noNodes": "사용 가능한 노드가 없습니다! 구독 링크와 방화벽을 확인하세요.",
+    "diagnostics": "네트워크 진단",
+    "refresh": "새로고침"
   }
 }

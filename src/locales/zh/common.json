@@ -304,6 +304,8 @@
     "firewallOff": "防火墙已关闭",
     "reqLogTitle": "请求日志",
     "reqLogEmpty": "暂无请求日志",
-    "noNodes": "没有可用节点！请检查订阅链接和防火墙设置。"
+    "noNodes": "没有可用节点！请检查订阅链接和防火墙设置。",
+    "diagnostics": "网络诊断",
+    "refresh": "刷新"
   }
 }
