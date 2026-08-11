@@ -479,6 +479,35 @@ export function ipcProbeExitIp(port: number, protocol: string): Promise<ExitIpPr
   return invoke<ExitIpProbe>("probe_exit_ip", { port, protocol: proto });
 }
 
+// T6-5: Firewall status check (Windows-only, read-only).
+export interface FirewallStatus {
+  platform: string;
+  firewall_on: boolean;
+  inbound_blocked: boolean;
+  detail: string;
+}
+
+export function ipcCheckFirewallStatus(): Promise<FirewallStatus> {
+  return invoke<FirewallStatus>("check_firewall_status");
+}
+
+// T6-5: Request log tail from Resin's request_logs SQLite DB.
+export interface RequestLogEntry {
+  ts: string;
+  platform_name: string;
+  account: string;
+  target_host: string;
+  egress_ip: string;
+  http_method: string;
+  http_status: number;
+  duration_ms: number;
+  resin_error: string;
+}
+
+export function ipcRequestLogTail(limit?: number): Promise<RequestLogEntry[]> {
+  return invoke<RequestLogEntry[]>("request_log_tail", limit ? { limit } : {});
+}
+
 export interface NetworkConfig {
   dns_upstreams?: string[];
   max_idle_conns?: number;

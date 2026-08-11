@@ -296,6 +296,12 @@
     "probeExitIp": "出口IPをプローブ",
     "exitIpLabel": "出口IP",
     "probeFailed": "プローブ失敗",
-    "noExitIp": "出口IPなし"
+    "noExitIp": "出口IPなし",
+    "firewallTitle": "ファイアウォール状態",
+    "firewallOn": "ファイアウォール有効",
+    "firewallOff": "ファイアウォール無効",
+    "reqLogTitle": "リクエストログ",
+    "reqLogEmpty": "リクエストログなし",
+    "noNodes": "利用可能なノードがありません！サブスクリプションとファイアウォールを確認してください。"
   }
 }

@@ -296,6 +296,12 @@
     "probeExitIp": "Probe Exit IP",
     "exitIpLabel": "Exit IP",
     "probeFailed": "Probe failed",
-    "noExitIp": "No exit IP available"
+    "noExitIp": "No exit IP available",
+    "firewallTitle": "Firewall Status",
+    "firewallOn": "Firewall is ON",
+    "firewallOff": "Firewall is OFF",
+    "reqLogTitle": "Request Logs",
+    "reqLogEmpty": "No request logs",
+    "noNodes": "No healthy nodes available! Check subscription links and firewall settings."
   }
 }

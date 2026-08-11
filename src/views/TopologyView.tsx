@@ -551,6 +551,12 @@ function TopologyCanvas() {
           <span>{t("topology.sidecarUnhealthy")}</span>
         </div>
       )}
+      {nodeGroups.length === 0 && sidecarStatus !== "unhealthy" && (
+        <div className="mb-2 flex items-center gap-2 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-700 dark:text-amber-300" data-testid="topology-no-nodes-banner">
+          <AlertTriangle size={14} className="shrink-0" />
+          <span>{t("networkLayer.noNodes")}</span>
+        </div>
+      )}
       <div className="flex items-center justify-between px-1 pb-2">
         <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("topology.dragHint")}</span>
         {patching && (

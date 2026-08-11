@@ -121,6 +121,8 @@ fn main() {
             commands::port_auth_info,
             commands::port_health_check,
             commands::probe_exit_ip,
+            commands::check_firewall_status,
+            commands::request_log_tail,
             commands::whitebox_path,
             commands::whitebox_get,
             commands::whitebox_reload,

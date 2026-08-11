@@ -1792,6 +1792,159 @@ pub struct PortHealthCheck {
     pub reason: String,
 }
 
+/// T6-5: Read the last N request log entries from the Resin request_logs
+/// SQLite database in RESIN_LOG_DIR. Returns a JSON array of simplified log
+/// entries (timestamp, platform, account, host, egress_ip, method, status,
+/// duration_ms, error). The GUI diagnostics panel renders this as a table.
+#[derive(Debug, Serialize, Clone)]
+pub struct RequestLogEntry {
+    pub ts: String,
+    pub platform_name: String,
+    pub account: String,
+    pub target_host: String,
+    pub egress_ip: String,
+    pub http_method: String,
+    pub http_status: i64,
+    pub duration_ms: f64,
+    pub resin_error: String,
+}
+
+#[tauri::command]
+pub async fn request_log_tail(
+    app: AppHandle,
+    limit: Option<usize>,
+) -> Result<Vec<RequestLogEntry>, IpcError> {
+    let n = limit.unwrap_or(50).min(200);
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| IpcError::internal(&format!("log dir: {e}")))?
+        .join("resin");
+    tracing::info!(dir = ?log_dir, "request_log_tail: reading Resin logs");
+    // Find the most recent request_logs*.db file
+    let db_path = {
+        let mut latest: Option<(std::time::SystemTime, std::path::PathBuf)> = None;
+        if log_dir.exists() {
+            for entry in std::fs::read_dir(&log_dir)
+                .map_err(|e| IpcError::internal(&format!("read log dir: {e}")))?
+            {
+                if let Ok(e) = entry {
+                    let name = e.file_name();
+                    let name_str = name.to_string_lossy();
+                    if name_str.starts_with("request_logs") && name_str.ends_with(".db") {
+                        let meta = e.metadata().map_err(|err| IpcError::internal(&format!("metadata: {err}")))?;
+                        let mtime = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                        if latest.as_ref().map_or(true, |(t, _)| mtime > *t) {
+                            latest = Some((mtime, e.path()));
+                        }
+                    }
+                }
+            }
+        }
+        latest
+            .map(|(_, p)| p)
+            .ok_or_else(|| IpcError::internal("no request_logs DB found"))?
+    };
+    // Copy DB to temp (WAL may be locked by the live sidecar)
+    let tmp = std::env::temp_dir().join(format!(
+        "egressapikey-reqlog-{}.db",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
+    std::fs::copy(&db_path, &tmp)
+        .map_err(|e| IpcError::internal(&format!("copy db: {e}")))?;
+    // Open read-only and query
+    let conn = rusqlite::Connection::open_with_flags(
+        &tmp,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .map_err(|e| IpcError::internal(&format!("open db: {e}")))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT ts_ns, platform_name, account, target_host, egress_ip,
+                    http_method, http_status, duration_ns, resin_error
+             FROM request_logs ORDER BY ts_ns DESC LIMIT ?1",
+        )
+        .map_err(|e| IpcError::internal(&format!("prepare: {e}")))?;
+    let rows = stmt
+        .query_map([n as i64], |row| {
+            let ts_ns: i64 = row.get(0)?;
+            let secs = ts_ns / 1_000_000_000;
+            let dt = chrono::DateTime::from_timestamp(secs, 0)
+                .map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string())
+                .unwrap_or_default();
+            let duration_ns: i64 = row.get(7)?;
+            Ok(RequestLogEntry {
+                ts: dt,
+                platform_name: row.get(1)?,
+                account: row.get(2)?,
+                target_host: row.get(3)?,
+                egress_ip: row.get(4)?,
+                http_method: row.get(5)?,
+                http_status: row.get(6)?,
+                duration_ms: duration_ns as f64 / 1_000_000.0,
+                resin_error: row.get(8)?,
+            })
+        })
+        .map_err(|e| IpcError::internal(&format!("query: {e}")))?;
+    let mut entries = Vec::new();
+    for row in rows {
+        if let Ok(e) = row {
+            entries.push(e);
+        }
+    }
+    let _ = std::fs::remove_file(&tmp);
+    tracing::info!(count = entries.len(), "request_log_tail: read entries");
+    Ok(entries)
+}
+
+/// T6-5: Check Windows firewall inbound allow status for Resin's listen ports.
+/// Read-only: runs `Get-NetFirewallProfile` to check if firewall is on.
+#[derive(Debug, Serialize, Clone)]
+pub struct FirewallStatus {
+    pub platform: String,
+    pub firewall_on: bool,
+    pub inbound_blocked: bool,
+    pub detail: String,
+}
+
+#[tauri::command]
+pub async fn check_firewall_status() -> Result<FirewallStatus, IpcError> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-Command",
+                "Get-NetFirewallProfile | Select-Object Name, Enabled | ConvertTo-Json"])
+            .output()
+            .map_err(|e| IpcError::internal(&format!("firewall check: {e}")))?;
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let firewall_on = stdout.contains("true");
+        tracing::info!(firewall_on, "check_firewall_status: probed");
+        Ok(FirewallStatus {
+            platform: "windows".into(),
+            firewall_on,
+            inbound_blocked: firewall_on,
+            detail: if firewall_on {
+                "Windows Firewall is ON. If ports are unreachable, add an inbound rule.".into()
+            } else {
+                "Windows Firewall is OFF.".into()
+            },
+        })
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(FirewallStatus {
+            platform: std::env::consts::OS.into(),
+            firewall_on: false,
+            inbound_blocked: false,
+            detail: "Firewall check is Windows-only.".into(),
+        })
+    }
+}
+
 /// T6-4: Probe the exit IP by routing a request to http://1.1.1.1/cdn-cgi/trace
 /// through the specified entry port (HTTP or SOCKS5 proxy). Returns the exit
 /// IP parsed from the Cloudflare trace body, plus latency. If no active

@@ -296,6 +296,12 @@
     "probeExitIp": "探测出口 IP",
     "exitIpLabel": "出口 IP",
     "probeFailed": "探测失败",
-    "noExitIp": "无可用出口 IP"
+    "noExitIp": "无可用出口 IP",
+    "firewallTitle": "防火墙状态",
+    "firewallOn": "防火墙已开启",
+    "firewallOff": "防火墙已关闭",
+    "reqLogTitle": "请求日志",
+    "reqLogEmpty": "暂无请求日志",
+    "noNodes": "没有可用节点！请检查订阅链接和防火墙设置。"
   }
 }

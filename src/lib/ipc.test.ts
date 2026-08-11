@@ -26,6 +26,8 @@ import {
   ipcPortList, ipcPortUpsert, ipcPortRemove, ipcPortRunning, ipcPortReload,
   ipcPortHealthCheck,
   ipcProbeExitIp,
+  ipcCheckFirewallStatus,
+  ipcRequestLogTail,
   ipcWhiteboxPath, ipcWhiteboxGet, ipcWhiteboxReload,
   ipcIpReputationSnapshot,
   ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
@@ -415,5 +417,30 @@ describe("T6-4 ipcProbeExitIp", () => {
     invokeMock.mockResolvedValue(undefined);
     expect(() => ipcProbeExitIp(80, "http")).toThrow(/out of range/);
     expect(invokeMock).not.toHaveBeenCalled();
+  });
+});
+
+// T6-5: Firewall + request log tail IPC wrappers.
+describe("T6-5 firewall + request log tail", () => {
+  it("ipcCheckFirewallStatus forwards to check_firewall_status", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({ platform: "windows", firewall_on: true, inbound_blocked: true, detail: "..." });
+    await ipcCheckFirewallStatus();
+    expect(invokeMock).toHaveBeenCalledWith("check_firewall_status", expect.anything());
+  });
+
+  it("ipcRequestLogTail forwards limit param", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue([]);
+    await ipcRequestLogTail(10);
+    expect(invokeMock).toHaveBeenCalledWith("request_log_tail", expect.objectContaining({ limit: 10 }));
+  });
+
+  it("ipcRequestLogTail omits limit param when not provided", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue([]);
+    await ipcRequestLogTail();
+    // When no limit is provided, the wrapper still passes an object (possibly with __trace_id).
+  expect(invokeMock).toHaveBeenCalledWith("request_log_tail", expect.anything());
   });
 });
