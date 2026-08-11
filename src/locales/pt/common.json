@@ -276,5 +276,6 @@
     "show": "Mostrar Janela",
     "quit": "Sair",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }

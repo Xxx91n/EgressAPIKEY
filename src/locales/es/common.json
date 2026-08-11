@@ -276,5 +276,6 @@
     "show": "Mostrar Ventana",
     "quit": "Salir",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }

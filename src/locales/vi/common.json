@@ -276,5 +276,6 @@
     "show": "Hiện cửa sổ",
     "quit": "Thoát",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }

@@ -276,5 +276,6 @@
     "show": "Tampilkan jendela",
     "quit": "Keluar",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }

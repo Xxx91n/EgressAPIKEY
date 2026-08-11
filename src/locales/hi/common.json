@@ -276,5 +276,6 @@
     "show": "विंडो दिखाएं",
     "quit": "बाहर निकलें",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }

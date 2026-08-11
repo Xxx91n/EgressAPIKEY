@@ -276,5 +276,6 @@
     "show": "창 표시",
     "quit": "종료",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }

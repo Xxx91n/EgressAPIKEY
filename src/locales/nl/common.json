@@ -276,5 +276,6 @@
     "show": "Venster tonen",
     "quit": "Afsluiten",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }

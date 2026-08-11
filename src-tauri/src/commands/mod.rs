@@ -1568,11 +1568,7 @@ pub async fn port_upsert(
         let client = resin_client(&sidecar)?;
         let existing = client.list_endpoints().await
             .map_err(|e| IpcError::from(format!("list_endpoints: {e:?}")))?;
-        let items_arr = existing.get("items")
-            .and_then(|v| v.as_array())
-            .cloned()
-            .unwrap_or_default();
-        let found = items_arr.iter().find(|ep| {
+        let found = items_arr(&existing).iter().find(|ep| {
             ep.get("port").and_then(|p| p.as_u64()) == Some(port as u64)
         });
         let allow_socks5 = proto == "socks5";
@@ -1624,22 +1620,23 @@ pub async fn port_remove(
     let client = resin_client(&sidecar)?;
     let existing = client.list_endpoints().await
         .map_err(|e| IpcError::from(format!("list_endpoints: {e:?}")))?;
-    let items_arr = existing.get("items")
-        .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
-    for ep in items_arr.iter() {
+    let mut endpoint_found = false;
+    for ep in items_arr(&existing).iter() {
         if ep.get("port").and_then(|p| p.as_u64()) == Some(port as u64) {
             if let Some(ep_id) = ep.get("id").and_then(|v| v.as_str()) {
                 if ep_id == "default" {
                     // Don't try to delete the default endpoint (read_only)
                     continue;
                 }
-                let _ = client.delete_endpoint(ep_id).await
+                client.delete_endpoint(ep_id).await
                     .map_err(|e| IpcError::from(format!("delete_endpoint: {e:?}")))?;
+                endpoint_found = true;
                 break;
             }
         }
+    }
+    if !endpoint_found {
+        tracing::warn!("port_remove: no Resin endpoint found for port {port}, proceeding with shell DB cleanup");
     }
     // Step 2: Remove from shell DB + whitebox metadata
     let mut next = whitebox.snapshot();

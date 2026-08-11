@@ -201,8 +201,9 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     });
 
     render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("strategy-panel")).toBeInTheDocument());
-    expect(screen.getByText("No platforms configured")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("platforms-pane")).toBeInTheDocument());
+    // strategy-panel removed: strategy is now inline in platform cards
+    expect(screen.getByText("No platforms configured.")).toBeInTheDocument();
   });
 
   it("T4-4 strategy: shows a strategy row per platform with A-class + B-class selects", async () => {
@@ -216,9 +217,13 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     });
 
     render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("strategy-row-Default")).toBeInTheDocument());
-    expect(screen.getByTestId("strategy-aclass-Default")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
+    // B-class select is in card header (always visible)
     expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument();
+    // Expand the card to reveal A-class inline strategy
+    fireEvent.click(screen.getByTestId("strategy-toggle-Default"));
+    await waitFor(() => expect(screen.getByTestId("strategy-inline-Default")).toBeInTheDocument());
+    expect(screen.getByTestId("strategy-aclass-Default")).toBeInTheDocument();
   });
 
   it("T4-4 strategy: changing A-class to region reveals regionsInput + tag chips after add", async () => {
@@ -232,7 +237,9 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     });
 
     render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("strategy-row-Default")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("strategy-toggle-Default"));
+    await waitFor(() => expect(screen.getByTestId("strategy-aclass-Default")).toBeInTheDocument());
 
     // Change A-class select to region
     fireEvent.change(screen.getByTestId("strategy-aclass-Default"), { target: { value: "region" } });
@@ -263,6 +270,8 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     });
 
     render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("strategy-toggle-Default"));
     await waitFor(() => expect(screen.getByTestId("strategy-apply")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("strategy-apply"));
     await waitFor(() => expect(putCalled).toBe(true));
@@ -300,7 +309,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(sel.value).toBe("random");
   });
 
-  it("T5-4 B-class: changing select fires updateStrategyField", async () => {
+  it("T5-4 B-class: changing select fires platform_update (inline strategy merge)", async () => {
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
@@ -315,7 +324,9 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument());
     const sel = screen.getByTestId("strategy-bclass-Default") as HTMLSelectElement;
     fireEvent.change(sel, { target: { value: "latency" } });
-    expect(sel.value).toBe("latency");
+    // B-class select now PATCHes Resin directly via ipcPlatformUpdate
+    // sel.value stays "random" because the mock platform_list_full doesn't return updated policy
+    await waitFor(() => expect(invokeMock.mock.calls.some((c2) => c2[0] === "platform_update")).toBe(true));
   });
 
   it("Bug4: SOCKS5 port shows SOCKS5 auth credentials when auth_required", async () => {

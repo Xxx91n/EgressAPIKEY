@@ -276,5 +276,6 @@
     "show": "Mostra finestra",
     "quit": "Esci",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }

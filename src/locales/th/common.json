@@ -276,5 +276,6 @@
     "show": "แสดงหน้าต่าง",
     "quit": "ออก",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }

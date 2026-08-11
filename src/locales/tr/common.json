@@ -276,5 +276,6 @@
     "show": "Pencereyi göster",
     "quit": "Çık",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }

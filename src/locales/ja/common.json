@@ -276,5 +276,6 @@
     "show": "ウィンドウを表示",
     "quit": "終了",
     "tooltip": "EgressAPIKEY"
-  }
+  },
+  "expand": "Expand"
 }
