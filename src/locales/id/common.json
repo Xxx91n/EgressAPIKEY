@@ -270,7 +270,9 @@
     "activeLease": "sewa {{account}} → {{egress}}",
     "activeLeases": "Sewa aktif",
     "noLeases": "Tidak ada sewa aktif",
-    "noPorts": "Tidak ada port masuk. Tambahkan di tab Platform."
+    "noPorts": "Tidak ada port masuk. Tambahkan di tab Platform.",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "Tampilkan jendela",

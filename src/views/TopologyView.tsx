@@ -1,4 +1,4 @@
-import { useTranslation } from "react-i18next";
+﻿import { useTranslation } from "react-i18next";
 import {
   ReactFlow, Background, BackgroundVariant, Controls, MiniMap,
   Handle, Position, type Node, type Edge, type Connection, type NodeProps,
@@ -9,13 +9,13 @@ import "@xyflow/react/dist/style.css";
 import { useAppStore } from "../store/appStore";
 import {
   ipcPlatformListFull, ipcNodeList, ipcPlatformUpdate, ipcBackupCreate,
-  ipcLeaseMap, ipcPortList, type LeaseEntry, type PortMapping,
+  ipcLeaseMap, ipcPortList, ipcWhiteboxReload, type LeaseEntry, type PortMapping,
 } from "../lib/ipc";
 import { loadTopologyViewport, saveTopologyViewport } from "../lib/settings";
 import { strategyToI18nKey } from "../lib/strategy";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 /// TopologyView - Phase R2 three-column key-to-egress canvas.
 ///
@@ -313,12 +313,14 @@ function TopologyCanvas() {
   const [nodeGroups, setNodeGroups] = useState<NodeGroup[]>([]);
   const [ports, setPorts] = useState<PortMapping[]>([]);
   const [leases, setLeases] = useState<LeaseEntry[]>([]);
-  const [sidecarStatus, setSidecarStatus] = useState<"healthy" | "unhealthy" | null>(null);
+  const [sidecarStatus, setSidecarStatus] = useState<"healthy" | "unhealthy" | "restarting" | "terminated" | null>(null);
   const [patching, setPatching] = useState(false);
   // Q2-Bug1: ref-based reentry lock so two rapid drags cannot both read a stale
   // region_filters snapshot and race the PATCH (the state update is async; the
   // state flag is not a reliable guard inside the same handler invocation).
   const patchingRef = useRef(false);
+  // T6-6: tracks previous sidecar state for the port rebind sync transition.
+  const sidecarStatusRef = useRef<string | null>(null);
   // P19 item 1: tracks whether we have already restored the saved viewport so
   // the conditional fitView() only runs on first paint when no previous
   // viewport was persisted. Without this gate, ReactFlow fitView() would snap
@@ -332,7 +334,15 @@ function TopologyCanvas() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     listen<string>("sidecar-status", (e) => {
-      setSidecarStatus(e.payload as "healthy" | "unhealthy");
+      const prev = sidecarStatusRef.current;
+      const next = e.payload as "healthy" | "unhealthy" | "restarting" | "terminated";
+      sidecarStatusRef.current = next;
+      setSidecarStatus(next);
+      // T6-6: port rebind sync — when sidecar recovers from restarting -> healthy,
+      // reload the whitebox port mappings so the DB + listeners are re-synced.
+      if (prev === "restarting" && next === "healthy") {
+        void ipcWhiteboxReload().then(() => sync()).catch(() => {});
+      }
     }).then((fn) => { unlisten = fn; }).catch(() => {});
     return () => { if (unlisten) unlisten(); };
   }, []);
@@ -551,7 +561,19 @@ function TopologyCanvas() {
           <span>{t("topology.sidecarUnhealthy")}</span>
         </div>
       )}
-      {nodeGroups.length === 0 && sidecarStatus !== "unhealthy" && (
+      {sidecarStatus === "restarting" && (
+        <div className="mb-2 flex items-center gap-2 rounded-md border border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 px-3 py-2 text-xs text-blue-700 dark:text-blue-300" data-testid="topology-restarting-banner">
+          <Loader2 size={14} className="shrink-0 animate-spin" />
+          <span>{t("topology.sidecarRestarting")}</span>
+        </div>
+      )}
+      {sidecarStatus === "terminated" && (
+        <div className="mb-2 flex items-center gap-2 rounded-md border border-red-500 dark:border-red-700 bg-red-100 dark:bg-red-900/40 px-3 py-2 text-xs text-red-800 dark:text-red-200" data-testid="topology-terminated-banner">
+          <AlertTriangle size={14} className="shrink-0" />
+          <span>{t("topology.sidecarTerminated")}</span>
+        </div>
+      )}
+      {nodeGroups.length === 0 && !sidecarStatus && (
         <div className="mb-2 flex items-center gap-2 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-700 dark:text-amber-300" data-testid="topology-no-nodes-banner">
           <AlertTriangle size={14} className="shrink-0" />
           <span>{t("networkLayer.noNodes")}</span>

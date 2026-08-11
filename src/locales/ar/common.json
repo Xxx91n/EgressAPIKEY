@@ -270,7 +270,9 @@
     "activeLease": "إيجار {{account}} → {{egress}}",
     "activeLeases": "الإيجارات النشطة",
     "noLeases": "لا توجد إيجارات نشطة",
-    "noPorts": "لا توجد منافذ دخول مكونة. أضف واحدًا في علامة تبويب المنصات."
+    "noPorts": "لا توجد منافذ دخول مكونة. أضف واحدًا في علامة تبويب المنصات.",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "إظهار النافذة",

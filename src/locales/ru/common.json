@@ -270,7 +270,9 @@
     "activeLease": "аренда {{account}} → {{egress}}",
     "activeLeases": "Активные аренды",
     "noLeases": "Нет активных аренд",
-    "noPorts": "Входные порты не настроены. Добавьте во вкладке Платформы."
+    "noPorts": "Входные порты не настроены. Добавьте во вкладке Платформы.",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "Показать окно",

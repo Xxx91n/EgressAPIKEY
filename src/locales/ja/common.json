@@ -270,7 +270,9 @@
     "activeLease": "リース {{account}} → {{egress}}",
     "activeLeases": "アクティブリース",
     "noLeases": "アクティブリースなし",
-    "noPorts": "エントリーポートが未設定。プラットフォームタブで追加してください。"
+    "noPorts": "エントリーポートが未設定。プラットフォームタブで追加してください。",
+    "sidecarRestarting": "プロキシサービス再起動中...",
+    "sidecarTerminated": "プロキシサービスが停止しました。アプリを再起動してください。"
   },
   "tray": {
     "show": "ウィンドウを表示",

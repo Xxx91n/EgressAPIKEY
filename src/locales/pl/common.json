@@ -270,7 +270,9 @@
     "activeLease": "dzierżawa {{account}} → {{egress}}",
     "activeLeases": "Aktywne dzierżawy",
     "noLeases": "Brak aktywnych dzierżaw",
-    "noPorts": "Brak skonfigurowanych portów wejściowych. Dodaj w zakładce Platformy."
+    "noPorts": "Brak skonfigurowanych portów wejściowych. Dodaj w zakładce Platformy.",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "Pokaż okno",

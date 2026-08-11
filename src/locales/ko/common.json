@@ -270,7 +270,9 @@
     "activeLease": "리스 {{account}} → {{egress}}",
     "activeLeases": "활성 리스",
     "noLeases": "활성 리스 없음",
-    "noPorts": "입력 포트가 구성되지 않았습니다. 플랫폼 탭에서 추가하세요."
+    "noPorts": "입력 포트가 구성되지 않았습니다. 플랫폼 탭에서 추가하세요.",
+    "sidecarRestarting": "프록시 서비스 재시작 중...",
+    "sidecarTerminated": "프록시 서비스가 중지되었습니다. 앱을 수동으로 재시작하세요."
   },
   "tray": {
     "show": "창 표시",

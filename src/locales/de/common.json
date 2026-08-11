@@ -270,7 +270,9 @@
     "activeLease": "Lease {{account}} → {{egress}}",
     "activeLeases": "Aktive Leases",
     "noLeases": "Keine aktiven Leases",
-    "noPorts": "Keine Eingangsports konfiguriert. Füge einen im Plattformen-Tab hinzu."
+    "noPorts": "Keine Eingangsports konfiguriert. Füge einen im Plattformen-Tab hinzu.",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "Fenster anzeigen",

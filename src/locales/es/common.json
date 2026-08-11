@@ -270,7 +270,9 @@
     "activeLease": "arrendamiento {{account}} → {{egress}}",
     "activeLeases": "Arrendamientos activos",
     "noLeases": "Sin arrendamientos activos",
-    "noPorts": "No hay puertos de entrada configurados. Añade uno en la pestaña Plataformas."
+    "noPorts": "No hay puertos de entrada configurados. Añade uno en la pestaña Plataformas.",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "Mostrar Ventana",

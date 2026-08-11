@@ -270,7 +270,9 @@
     "activeLease": "लीज़ {{account}} → {{egress}}",
     "activeLeases": "सक्रिय लीज़",
     "noLeases": "कोई सक्रिय लीज़ नहीं",
-    "noPorts": "कोई एंट्री पोर्ट कॉन्फ़िगर नहीं। प्लेटफ़ॉर्म टैब में जोड़ें।"
+    "noPorts": "कोई एंट्री पोर्ट कॉन्फ़िगर नहीं। प्लेटफ़ॉर्म टैब में जोड़ें।",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "विंडो दिखाएं",

@@ -270,7 +270,9 @@
     "activeLease": "concessão {{account}} → {{egress}}",
     "activeLeases": "Concessões ativas",
     "noLeases": "Sem concessões ativas",
-    "noPorts": "Sem portas de entrada configuradas. Adicione na aba Plataformas."
+    "noPorts": "Sem portas de entrada configuradas. Adicione na aba Plataformas.",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "Mostrar Janela",

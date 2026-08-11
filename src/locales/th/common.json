@@ -270,7 +270,9 @@
     "activeLease": "สัญญาเช่า {{account}} → {{egress}}",
     "activeLeases": "สัญญาเช่าที่ใช้งานอยู่",
     "noLeases": "ไม่มีสัญญาเช่าที่ใช้งาน",
-    "noPorts": "ยังไม่ได้ตั้งค่าพอร์ตเข้า เพิ่มในแท็บแพลตฟอร์ม"
+    "noPorts": "ยังไม่ได้ตั้งค่าพอร์ตเข้า เพิ่มในแท็บแพลตฟอร์ม",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "แสดงหน้าต่าง",

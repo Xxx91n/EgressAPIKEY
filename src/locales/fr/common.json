@@ -270,7 +270,9 @@
     "activeLease": "bail {{account}} → {{egress}}",
     "activeLeases": "Baux actifs",
     "noLeases": "Aucun bail actif",
-    "noPorts": "Aucun port d'entrée configuré. Ajoutez-en un dans l'onglet Plateformes."
+    "noPorts": "Aucun port d'entrée configuré. Ajoutez-en un dans l'onglet Plateformes.",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "Afficher la Fenêtre",

@@ -270,7 +270,9 @@
     "activeLease": "kira {{account}} → {{egress}}",
     "activeLeases": "Aktif kiralar",
     "noLeases": "Aktif kira yok",
-    "noPorts": "Giriş portu yapılandırılmadı. Platform sekmesinden ekleyin."
+    "noPorts": "Giriş portu yapılandırılmadı. Platform sekmesinden ekleyin.",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "Pencereyi göster",

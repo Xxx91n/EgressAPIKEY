@@ -270,7 +270,9 @@
     "activeLease": "thuê {{account}} → {{egress}}",
     "activeLeases": "Các thuê đang hoạt động",
     "noLeases": "Không có lượt thuê hoạt động",
-    "noPorts": "Chưa cấu hình cổng vào. Thêm trong tab Nền tảng."
+    "noPorts": "Chưa cấu hình cổng vào. Thêm trong tab Nền tảng.",
+    "sidecarRestarting": "Proxy service restarting...",
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
   },
   "tray": {
     "show": "Hiện cửa sổ",
