@@ -32,6 +32,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 // read — same observable behavior as the plugin's CommandEvent, minus the
 // console window.
 use std::process::{Child, Command, Stdio};
+use resin_core::NetworkConfig;
 
 /// Lifecycle state of the Resin sidecar process (ADR-0016 Q1).
 /// Modeled after clash-verge-rev CoreManager RunningMode: a lightweight
@@ -247,6 +248,7 @@ fn spawn_resin_await_healthz(
     cache_dir: &std::path::Path,
     log_dir: &std::path::Path,
     binary_path: &std::path::Path,
+    network: &NetworkConfig,
 ) -> Result<SidecarHandle> {
     std::fs::create_dir_all(state_dir)
         .with_context(|| format!("sidecar: cannot create state_dir {:?}", state_dir))?;
@@ -275,9 +277,32 @@ fn spawn_resin_await_healthz(
         .env("RESIN_PORT", api_port.to_string())
         .env("RESIN_STATE_DIR", state_dir)
         .env("RESIN_CACHE_DIR", cache_dir)
-        .env("RESIN_LOG_DIR", log_dir)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+        .env("RESIN_LOG_DIR", log_dir);
+    // T6-2: inject network-layer env vars from whitebox config
+    if !network.dns_upstreams.is_empty() {
+        let json = serde_json::to_string(&network.dns_upstreams).unwrap_or_default();
+        cmd.env("RESIN_NODE_DNS_UPSTREAMS", &json);
+    }
+    if let Some(v) = network.max_idle_conns {
+        cmd.env("RESIN_PROXY_TRANSPORT_MAX_IDLE_CONNS", v.to_string());
+    }
+    if let Some(v) = network.max_idle_conns_per_host {
+        cmd.env("RESIN_PROXY_TRANSPORT_MAX_IDLE_CONNS_PER_HOST", v.to_string());
+    }
+    if let Some(v) = network.idle_conn_timeout_secs {
+        cmd.env("RESIN_PROXY_TRANSPORT_IDLE_CONN_TIMEOUT", format!("{}s", v));
+    }
+    if let Some(v) = network.probe_timeout_secs {
+        cmd.env("RESIN_PROBE_TIMEOUT", format!("{}s", v));
+    }
+    if let Some(v) = network.probe_concurrency {
+        cmd.env("RESIN_PROBE_CONCURRENCY", v.to_string());
+    }
+    if !network.proxy_bypass.is_empty() {
+        cmd.env("RESIN_PROXY_BYPASS", network.proxy_bypass.join(","));
+    }
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
 
     #[cfg(target_os = "windows")]
     {
@@ -370,7 +395,8 @@ pub fn boot_resin_standalone(
     let cache_dir = state_root.join("resin-cache");
     let log_dir = log_root.join("resin");
     let binary_path = resolve_resin_binary(Some(&binary_dir))?;
-    spawn_resin_await_healthz(&state_dir, &cache_dir, &log_dir, &binary_path)
+    let network = NetworkConfig::default();
+    spawn_resin_await_healthz(&state_dir, &cache_dir, &log_dir, &binary_path, &network)
 }
 
 /// Tauri app entry: resolve per-user app data + log dirs via the Tauri
@@ -387,9 +413,29 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
         .unwrap_or_else(|_| app_data.join("logs"))
         .join("resin");
     let binary_path = resolve_resin_binary(None)?;
-    spawn_resin_await_healthz(&state_dir, &cache_dir, &log_dir, &binary_path)
+    let network = read_network_config(&app_data);
+    spawn_resin_await_healthz(&state_dir, &cache_dir, &log_dir, &binary_path, &network)
 }
 
+
+
+/// T6-2: Read network config from the whitebox JSON file on disk.
+/// Returns NetworkConfig::default() if file is missing or unreadable.
+fn read_network_config(app_data: &std::path::Path) -> NetworkConfig {
+    let path = app_data.join(resin_core::WHITEBOX_CONFIG_FILE);
+    match std::fs::read_to_string(&path) {
+        Ok(text) => {
+            match serde_json::from_str::<resin_core::WhiteboxConfig>(&text) {
+                Ok(cfg) => cfg.network,
+                Err(e) => {
+                    tracing::warn!(error = %e, ?path, "whitebox config parse failed; using default network");
+                    NetworkConfig::default()
+                }
+            }
+        }
+        Err(_) => NetworkConfig::default(),
+    }
+}
 
 /// Generate a loopback-only secret token. Ponytail: use stdrand + Instant
 /// instead of pulling a uuid crate dep — 32 hex chars of entropy from
@@ -643,6 +689,41 @@ mod tests {
     fn shutdown_wait_ms_is_500() {
         assert_eq!(SHUTDOWN_WAIT_MS, 500);
     }
+
+    #[test]
+    fn read_network_config_returns_default_for_missing_file() {
+        let tmp = std::env::temp_dir().join(format!("egressapikey-t6-2-missing-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let cfg = read_network_config(&tmp);
+        assert!(cfg.dns_upstreams.is_empty());
+        assert!(cfg.max_idle_conns.is_none());
+    }
+
+    #[test]
+    fn read_network_config_parses_whitebox_json() {
+        let tmp = std::env::temp_dir().join(format!("egressapikey-t6-2-parse-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let json = r#"{"version":1,"entry_ports":[],"network":{"dns_upstreams":["https://doh.pub/dns-query"],"max_idle_conns":2048}}"#;
+        std::fs::write(tmp.join(resin_core::WHITEBOX_CONFIG_FILE), json).unwrap();
+        let cfg = read_network_config(&tmp);
+        assert_eq!(cfg.dns_upstreams, vec!["https://doh.pub/dns-query".to_string()]);
+        assert_eq!(cfg.max_idle_conns, Some(2048));
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn read_network_config_defaults_on_corrupt_json() {
+        let tmp = std::env::temp_dir().join(format!("egressapikey-t6-2-corrupt-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        std::fs::write(tmp.join(resin_core::WHITEBOX_CONFIG_FILE), "not json").unwrap();
+        let cfg = read_network_config(&tmp);
+        assert!(cfg.dns_upstreams.is_empty());
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
 }
 
 // ---------------------------------------------------------------------------
