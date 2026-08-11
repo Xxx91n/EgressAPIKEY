@@ -28,6 +28,8 @@ pub struct WhiteboxConfig {
     pub version: u8,
     #[serde(default)]
     pub entry_ports: Vec<PortMapping>,
+    #[serde(default)]
+    pub network: NetworkConfig,
 }
 
 impl WhiteboxConfig {
@@ -35,8 +37,36 @@ impl WhiteboxConfig {
         Self {
             version: 1,
             entry_ports,
+            network: NetworkConfig::default(),
         }
     }
+}
+
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
+pub struct NetworkConfig {
+    /// DNS upstream chain for sing-box node resolution.
+    /// Empty = use Resin default DoH failover chain.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dns_upstreams: Vec<String>,
+    /// Max idle connections in proxy transport pool. None = Resin default (1024).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_idle_conns: Option<u32>,
+    /// Max idle connections per host. None = Resin default (64).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_idle_conns_per_host: Option<u32>,
+    /// Idle connection timeout in seconds. None = Resin default (90s).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idle_conn_timeout_secs: Option<u64>,
+    /// Node probe timeout in seconds. None = Resin default (15s).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probe_timeout_secs: Option<u64>,
+    /// Probe concurrency. None = Resin default (1000).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probe_concurrency: Option<u32>,
+    /// Proxy bypass rules. Empty = none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub proxy_bypass: Vec<String>,
 }
 
 /// Validate before the config is made active or persisted.
@@ -67,6 +97,7 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
         }
         validate_text(&port.label, "label")?;
     }
+    validate_network(&config.network)?;
     Ok(())
 }
 
@@ -84,6 +115,37 @@ fn validate_identity(value: &str, field: &str) -> Result<(), String> {
     validate_text(value, field)?;
     if value.chars().any(|ch| ".:/\\@?#%~ ".contains(ch)) {
         return Err(format!("{field} contains Resin-forbidden chars"));
+    }
+    Ok(())
+}
+
+fn validate_network(n: &NetworkConfig) -> Result<(), String> {
+    if !n.dns_upstreams.is_empty() {
+        for (i, up) in n.dns_upstreams.iter().enumerate() {
+            if up.is_empty() {
+                return Err(format!("dns_upstreams[{i}] must not be empty"));
+            }
+            if up.len() > 512 {
+                return Err(format!("dns_upstreams[{i}] too long (max 512)"));
+            }
+        }
+    }
+    if let Some(v) = n.max_idle_conns {
+        if v == 0 { return Err("max_idle_conns must be >= 1".into()); }
+    }
+    if let Some(v) = n.max_idle_conns_per_host {
+        if v == 0 { return Err("max_idle_conns_per_host must be >= 1".into()); }
+    }
+    if let Some(v) = n.probe_concurrency {
+        if v == 0 || v > 10000 { return Err("probe_concurrency must be 1..=10000".into()); }
+    }
+    for (i, b) in n.proxy_bypass.iter().enumerate() {
+        if b.is_empty() {
+            return Err(format!("proxy_bypass[{i}] must not be empty"));
+        }
+        if b.len() > 253 {
+            return Err(format!("proxy_bypass[{i}] too long (max 253)"));
+        }
     }
     Ok(())
 }
@@ -292,6 +354,40 @@ mod tests {
             mapping(17991)
         ]))
         .is_ok());
+    }
+
+    #[test]
+    fn network_validation_rejects_empty_dns_entry() {
+        let mut cfg = WhiteboxConfig::from_ports(vec![]);
+        cfg.network.dns_upstreams = vec!["".to_string()];
+        assert!(validate(&cfg).unwrap_err().contains("dns_upstreams[0] must not be empty"));
+    }
+
+    #[test]
+    fn network_validation_rejects_zero_idle_conns() {
+        let mut cfg = WhiteboxConfig::from_ports(vec![]);
+        cfg.network.max_idle_conns = Some(0);
+        assert!(validate(&cfg).unwrap_err().contains("max_idle_conns must be >= 1"));
+    }
+
+    #[test]
+    fn network_validation_rejects_probe_concurrency_out_of_range() {
+        let mut cfg = WhiteboxConfig::from_ports(vec![]);
+        cfg.network.probe_concurrency = Some(10001);
+        assert!(validate(&cfg).unwrap_err().contains("probe_concurrency must be 1..=10000"));
+    }
+
+    #[test]
+    fn network_validation_accepts_empty_defaults() {
+        let cfg = WhiteboxConfig::from_ports(vec![]);
+        assert!(validate(&cfg).is_ok());
+    }
+
+    #[test]
+    fn network_validation_accepts_valid_dns_chain() {
+        let mut cfg = WhiteboxConfig::from_ports(vec![]);
+        cfg.network.dns_upstreams = vec!["https://doh.pub/dns-query".into(), "local".into()];
+        assert!(validate(&cfg).is_ok());
     }
 
     #[test]
