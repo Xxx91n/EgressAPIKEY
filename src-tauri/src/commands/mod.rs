@@ -148,6 +148,22 @@ fn items_arr<'a>(v: &'a serde_json::Value) -> &'a [serde_json::Value] {
     &[]
 }
 
+/// Find a Resin endpoint ID by port number from the list-endpoints response.
+/// Handles both `{"items":[...]}` wrapper and bare-array shapes.
+/// Skips the read-only `default` endpoint.
+fn find_endpoint_id_by_port(existing: &serde_json::Value, port: u16) -> Option<String> {
+    for ep in items_arr(existing).iter() {
+        if ep.get("port").and_then(|p| p.as_u64()) == Some(port as u64) {
+            if let Some(id) = ep.get("id").and_then(|v| v.as_str()) {
+                if id != "default" {
+                    return Some(id.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 
 #[derive(Debug, Serialize)]
 pub struct LaneSnapshot {
@@ -1568,9 +1584,7 @@ pub async fn port_upsert(
         let client = resin_client(&sidecar)?;
         let existing = client.list_endpoints().await
             .map_err(|e| IpcError::from(format!("list_endpoints: {e:?}")))?;
-        let found = items_arr(&existing).iter().find(|ep| {
-            ep.get("port").and_then(|p| p.as_u64()) == Some(port as u64)
-        });
+        let found = find_endpoint_id_by_port(&existing, port);
         let allow_socks5 = proto == "socks5";
         let allow_http_forward = proto == "http" || proto == "socks5";
         let body = serde_json::json!({
@@ -1582,10 +1596,9 @@ pub async fn port_upsert(
             "allow_socks5": allow_socks5,
             "require_proxy_auth_info": auth_required,
         });
-        if let Some(ep) = found {
+        if let Some(ep_id) = found {
             // PATCH if port exists
-            let ep_id = ep.get("id").and_then(|v| v.as_str()).unwrap_or("");
-            client.update_endpoint(ep_id, body).await
+            client.update_endpoint(&ep_id, body).await
                 .map_err(|e| IpcError::from(format!("update_endpoint: {e:?}")))?;
         } else {
             // POST if port does not exist (create new listener)
@@ -1620,22 +1633,10 @@ pub async fn port_remove(
     let client = resin_client(&sidecar)?;
     let existing = client.list_endpoints().await
         .map_err(|e| IpcError::from(format!("list_endpoints: {e:?}")))?;
-    let mut endpoint_found = false;
-    for ep in items_arr(&existing).iter() {
-        if ep.get("port").and_then(|p| p.as_u64()) == Some(port as u64) {
-            if let Some(ep_id) = ep.get("id").and_then(|v| v.as_str()) {
-                if ep_id == "default" {
-                    // Don't try to delete the default endpoint (read_only)
-                    continue;
-                }
-                client.delete_endpoint(ep_id).await
-                    .map_err(|e| IpcError::from(format!("delete_endpoint: {e:?}")))?;
-                endpoint_found = true;
-                break;
-            }
-        }
-    }
-    if !endpoint_found {
+    if let Some(ep_id) = find_endpoint_id_by_port(&existing, port) {
+        client.delete_endpoint(&ep_id).await
+            .map_err(|e| IpcError::from(format!("delete_endpoint: {e:?}")))?;
+    } else {
         tracing::warn!("port_remove: no Resin endpoint found for port {port}, proceeding with shell DB cleanup");
     }
     // Step 2: Remove from shell DB + whitebox metadata
@@ -2106,6 +2107,35 @@ mod tests {
     fn items_arr_returns_empty_for_non_list_object() {
         let v = json!({ "active_leases": 4 });
         assert!(items_arr(&v).is_empty());
+    }
+
+    #[test]
+    fn find_endpoint_id_by_port_finds_in_items_wrapper() {
+        let v = json!({ "items": [
+            { "id": "default", "port": 0 },
+            { "id": "ep-uuid-1", "port": 1791 },
+            { "id": "ep-uuid-2", "port": 1792 },
+        ], "total": 3 });
+        assert_eq!(find_endpoint_id_by_port(&v, 1791), Some("ep-uuid-1".to_string()));
+        assert_eq!(find_endpoint_id_by_port(&v, 1792), Some("ep-uuid-2".to_string()));
+    }
+
+    #[test]
+    fn find_endpoint_id_by_port_finds_in_bare_array() {
+        let v = json!([{ "id": "ep-abc", "port": 1800 }]);
+        assert_eq!(find_endpoint_id_by_port(&v, 1800), Some("ep-abc".to_string()));
+    }
+
+    #[test]
+    fn find_endpoint_id_by_port_skips_default_endpoint() {
+        let v = json!({ "items": [{ "id": "default", "port": 9999 }] });
+        assert_eq!(find_endpoint_id_by_port(&v, 9999), None);
+    }
+
+    #[test]
+    fn find_endpoint_id_by_port_returns_none_when_port_absent() {
+        let v = json!({ "items": [{ "id": "ep-x", "port": 1111 }] });
+        assert_eq!(find_endpoint_id_by_port(&v, 2222), None);
     }
 
     #[test]
