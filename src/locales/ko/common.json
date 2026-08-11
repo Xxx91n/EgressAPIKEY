@@ -277,5 +277,21 @@
     "quit": "종료",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "네트워크 계층",
+    "dnsUpstreams": "DNS 업스트림",
+    "dnsHint": "한 줄에 하나. 비움 = Resin 기본 DoH 장애 조치 체인.",
+    "maxIdleConns": "최대 유휴 연결",
+    "maxIdleConnsPerHost": "호스트당 최대 유휴",
+    "idleConnTimeout": "유휴 시간 초과 (초)",
+    "probeTimeout": "프로브 시간 초과 (초)",
+    "probeConcurrency": "프로브 동시성",
+    "proxyBypass": "프록시 바이패스",
+    "bypassHint": "한 줄에 하나. 일치하는 도메인은 프록시를 바이패스합니다.",
+    "save": "저장",
+    "resetBtn": "기본값으로 재설정",
+    "saved": "네트워크 설정 저장됨",
+    "reset": "네트워크 설정이 기본값으로 재설정됨"
+  }
 }

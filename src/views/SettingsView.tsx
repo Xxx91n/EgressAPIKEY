@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload } from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload } from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig } from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
@@ -88,6 +88,10 @@ export function SettingsView() {
   // T3-A2: gatewayBind/mihomoApi are dead fields (main.rs L173 drops cfg).
   // Replaced with read-only Resin sidecar actual port display.
   const [sidecarStatus, setSidecarStatus] = useState<SidecarStatus | null>(null);
+  // T6-3: Network-layer whitebox config (DNS + idle + probe + bypass).
+  const [netCfg, setNetCfg] = useState<NetworkConfig>({});
+  const [netBusy, setNetBusy] = useState(false);
+  const [netMsg, setNetMsg] = useState("");
   const [reputationConfig, setReputationConfig] = useState<IpReputationConfig>({ provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" });
   // C2-8: dirty-state tracking — baseline snapshot vs current form values.
   // idiomatic enterprise pattern (minimal baseline+JSON.stringify diff, no RHF dep).
@@ -131,6 +135,8 @@ export function SettingsView() {
     if (status) setSidecarStatus(status);
     setReputationConfig(reputation);
     setBaseline({ reputationConfig: reputation });
+    // T6-3: also load network-layer config from whitebox
+    void ipcWhiteboxGet().then((wb) => setNetCfg(wb.network ?? {})).catch(() => {});
     })();
     return () => { cancelled = true; };
   }, []);
@@ -238,6 +244,27 @@ export function SettingsView() {
  const isDirty = useMemo(() => JSON.stringify({ reputationConfig }) !== JSON.stringify(baseline), [reputationConfig, baseline]);
  const showSaveBar = isDirty || busy || saved;
 
+ // T6-3: Save network-layer config to whitebox JSON.
+  const saveNetwork = async () => {
+    setNetBusy(true);
+    setNetMsg("");
+    try {
+      await ipcWhiteboxSaveNetwork(netCfg);
+      setNetMsg(t("networkLayer.saved"));
+      setTimeout(() => setNetMsg(""), 2000);
+    } catch (e) {
+      setNetMsg(translateError(e, t));
+    } finally {
+      setNetBusy(false);
+    }
+  };
+
+  const resetNetwork = () => {
+    setNetCfg({});
+    setNetMsg(t("networkLayer.reset"));
+    setTimeout(() => setNetMsg(""), 2000);
+  };
+
  const saveAll = async () => {
    setBusy(true);
     try {
@@ -310,6 +337,59 @@ export function SettingsView() {
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           {t("settings.sidecarAutoPort")}
         </p>
+      </SectionCard>
+      <SectionCard icon={<Server size={16} strokeWidth={1.75} />} title={t("networkLayer.title")}>
+        <Field label={t("networkLayer.dnsUpstreams")} hint={t("networkLayer.dnsHint")}>
+          <textarea
+            data-testid="net-dns-upstreams"
+            aria-label={t("networkLayer.dnsUpstreams")}
+            value={(netCfg.dns_upstreams ?? []).join("\n")}
+            onChange={(e) => setNetCfg((c) => ({ ...c, dns_upstreams: e.target.value.split("\n").map((x) => x.trim()).filter(Boolean) }))}
+            rows={3}
+            className={inputCls + " max-w-none font-mono text-xs"}
+            placeholder="https://1.1.1.1/dns-query"
+          />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t("networkLayer.maxIdleConns")}>
+            <input type="number" min={1} data-testid="net-max-idle-conns" aria-label={t("networkLayer.maxIdleConns")} value={netCfg.max_idle_conns ?? ""} onChange={(e) => setNetCfg((c) => ({ ...c, max_idle_conns: e.target.value ? Number(e.target.value) : undefined }))} className={inputCls} />
+          </Field>
+          <Field label={t("networkLayer.maxIdleConnsPerHost")}>
+            <input type="number" min={1} data-testid="net-max-idle-conns-per-host" aria-label={t("networkLayer.maxIdleConnsPerHost")} value={netCfg.max_idle_conns_per_host ?? ""} onChange={(e) => setNetCfg((c) => ({ ...c, max_idle_conns_per_host: e.target.value ? Number(e.target.value) : undefined }))} className={inputCls} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label={t("networkLayer.idleConnTimeout")}>
+            <input type="number" min={1} data-testid="net-idle-conn-timeout" aria-label={t("networkLayer.idleConnTimeout")} value={netCfg.idle_conn_timeout_secs ?? ""} onChange={(e) => setNetCfg((c) => ({ ...c, idle_conn_timeout_secs: e.target.value ? Number(e.target.value) : undefined }))} className={inputCls} />
+          </Field>
+          <Field label={t("networkLayer.probeTimeout")}>
+            <input type="number" min={1} data-testid="net-probe-timeout" aria-label={t("networkLayer.probeTimeout")} value={netCfg.probe_timeout_secs ?? ""} onChange={(e) => setNetCfg((c) => ({ ...c, probe_timeout_secs: e.target.value ? Number(e.target.value) : undefined }))} className={inputCls} />
+          </Field>
+          <Field label={t("networkLayer.probeConcurrency")}>
+            <input type="number" min={1} max={10000} data-testid="net-probe-concurrency" aria-label={t("networkLayer.probeConcurrency")} value={netCfg.probe_concurrency ?? ""} onChange={(e) => setNetCfg((c) => ({ ...c, probe_concurrency: e.target.value ? Number(e.target.value) : undefined }))} className={inputCls} />
+          </Field>
+        </div>
+        <Field label={t("networkLayer.proxyBypass")} hint={t("networkLayer.bypassHint")}>
+          <textarea
+            data-testid="net-proxy-bypass"
+            aria-label={t("networkLayer.proxyBypass")}
+            value={(netCfg.proxy_bypass ?? []).join("\n")}
+            onChange={(e) => setNetCfg((c) => ({ ...c, proxy_bypass: e.target.value.split("\n").map((x) => x.trim()).filter(Boolean) }))}
+            rows={2}
+            className={inputCls + " max-w-none font-mono text-xs"}
+            placeholder="*.local,127.0.0.1"
+          />
+        </Field>
+        <div className="flex items-center gap-2 pt-1">
+          <button data-testid="net-save-btn" onClick={() => void saveNetwork()} disabled={netBusy} className={btnCls}>
+            {netBusy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} strokeWidth={1.75} />}
+            {t("networkLayer.save")}
+          </button>
+          <button data-testid="net-reset-btn" onClick={resetNetwork} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors">
+            {t("networkLayer.resetBtn")}
+          </button>
+          {netMsg ? <span className="text-xs text-zinc-500" data-testid="net-msg">{netMsg}</span> : null}
+        </div>
       </SectionCard>
       <SectionCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("settings.ipReputation")}>
         <Field label={t("settings.ipReputationProvider")} hint={t("settings.ipReputationHelp")}>

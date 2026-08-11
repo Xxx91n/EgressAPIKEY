@@ -277,5 +277,21 @@
     "quit": "Çık",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Ağ katmanı",
+    "dnsUpstreams": "DNS upstream",
+    "dnsHint": "Her satırda bir. Boş = Resin varsayılan DoH zinciri.",
+    "maxIdleConns": "Maks. boş bağlantı",
+    "maxIdleConnsPerHost": "Host başına boş max.",
+    "idleConnTimeout": "Boş zaman aşımı (s)",
+    "probeTimeout": "Sonda zaman aşımı (s)",
+    "probeConcurrency": "Sonda eşzamanlılığı",
+    "proxyBypass": "Proxy atlatma",
+    "bypassHint": "Her satırda bir. Eşleşen alanlar proxy'yi atlatır.",
+    "save": "Kaydet",
+    "resetBtn": "Sıfırla",
+    "saved": "Ağ yapılandırması kaydedildi",
+    "reset": "Ağ yapılandırması sıfırlandı"
+  }
 }

@@ -80,3 +80,61 @@ describe("SettingsView P4 IP reputation settings", () => {
     expect(screen.getByTestId("settings-save-bar")).toBeInTheDocument();
   });
 });
+
+// T6-3: Network layer card closed-loop. The card must render editable fields
+// backed by the WhiteboxConfig.network struct, fire whitebox_save_network on
+// save, and clear all fields on reset-to-default. This proves the GUI -> IPC ->
+// Rust whitebox JSON write path is wired for the 7 network env vars that T6-2
+// injects into the Resin sidecar.
+describe("SettingsView T6-3 network layer card closed-loop", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    // whitebox_get returns empty network config by default
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "whitebox_get") return Promise.resolve({ version: 1, entry_ports: [], network: {} });
+      if (cmd === "whitebox_path") return Promise.resolve("/tmp/test.json");
+      if (cmd === "whitebox_save_network") return Promise.resolve(0);
+      if (cmd === "get_sidecar_status") return Promise.resolve({ api_port: 12345, mode: "running" });
+      return Promise.resolve(undefined);
+    });
+  });
+
+  it("renders network layer card with DNS and numeric fields", async () => {
+    render(<SettingsView />);
+    const dnsField = await screen.findByTestId("net-dns-upstreams");
+    expect(dnsField).toBeInTheDocument();
+    expect(screen.getByTestId("net-max-idle-conns")).toBeInTheDocument();
+    expect(screen.getByTestId("net-probe-timeout")).toBeInTheDocument();
+    expect(screen.getByTestId("net-proxy-bypass")).toBeInTheDocument();
+  });
+
+  it("fires whitebox_save_network with updated DNS config when save clicked", async () => {
+    render(<SettingsView />);
+    const dnsField = await screen.findByTestId("net-dns-upstreams");
+    fireEvent.change(dnsField, { target: { value: "https://1.1.1.1/dns-query\nhttps://8.8.8.8/dns-query" } });
+
+    const saveBtn = screen.getByTestId("net-save-btn");
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      const calls = invokeMock.mock.calls.filter(([cmd]) => cmd === "whitebox_save_network");
+      expect(calls.length).toBe(1);
+      const args = calls[0][1] as { network: { dns_upstreams: string[] } };
+      expect(args.network.dns_upstreams).toEqual(["https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query"]);
+    });
+  });
+
+  it("clears all fields on reset-to-default", async () => {
+    render(<SettingsView />);
+    const dnsField = await screen.findByTestId("net-dns-upstreams");
+    fireEvent.change(dnsField, { target: { value: "https://1.1.1.1/dns-query" } });
+    expect(dnsField).toHaveValue("https://1.1.1.1/dns-query");
+
+    const resetBtn = screen.getByTestId("net-reset-btn");
+    fireEvent.click(resetBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("net-dns-upstreams")).toHaveValue("");
+    });
+  });
+});

@@ -277,5 +277,21 @@
     "quit": "退出",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "网络层",
+    "dnsUpstreams": "DNS 上游",
+    "dnsHint": "每行一个。留空 = 使用 Resin 默认 DoH 故障转移链。",
+    "maxIdleConns": "最大空闲连接数",
+    "maxIdleConnsPerHost": "每主机最大空闲连接",
+    "idleConnTimeout": "空闲超时 (秒)",
+    "probeTimeout": "探测超时 (秒)",
+    "probeConcurrency": "探测并发数",
+    "proxyBypass": "代理绕过",
+    "bypassHint": "每行一个。匹配这些域名的流量绕过代理。",
+    "save": "保存",
+    "resetBtn": "恢复默认",
+    "saved": "网络配置已保存",
+    "reset": "网络配置已重置为默认"
+  }
 }

@@ -277,5 +277,21 @@
     "quit": "終了",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "ネットワーク層",
+    "dnsUpstreams": "DNS 上流",
+    "dnsHint": "1 行 1 つ。空 = Resin デフォルト DoH フェイルオーバーチェーン。",
+    "maxIdleConns": "最大アイドル接続数",
+    "maxIdleConnsPerHost": "ホスト別最大アイドル",
+    "idleConnTimeout": "アイドルタイムアウト (秒)",
+    "probeTimeout": "プローブタイムアウト (秒)",
+    "probeConcurrency": "プローブ同時実行数",
+    "proxyBypass": "プロキシバイパス",
+    "bypassHint": "1 行 1 つ。これらのドメインはプロキシをバイパスします。",
+    "save": "保存",
+    "resetBtn": "デフォルトにリセット",
+    "saved": "ネットワーク設定を保存しました",
+    "reset": "ネットワーク設定をデフォルトにリセットしました"
+  }
 }

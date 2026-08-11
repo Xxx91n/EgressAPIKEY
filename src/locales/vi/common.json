@@ -277,5 +277,21 @@
     "quit": "Thoát",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Tầng mạng",
+    "dnsUpstreams": "DNS thượng nguồn",
+    "dnsHint": "Mỗi dòng một cái. Trống = chuỗi DoH Resin mặc định.",
+    "maxIdleConns": "Kết nối nhàn tối đa",
+    "maxIdleConnsPerHost": "Nhàn mỗi máy chủ tối đa",
+    "idleConnTimeout": "Thời gian chờ (giây)",
+    "probeTimeout": "Thời gian thăm dò (giây)",
+    "probeConcurrency": "Đồng thời thăm dò",
+    "proxyBypass": "Bỏ qua proxy",
+    "bypassHint": "Mỗi dòng một cái. Miền khớp bỏ qua proxy.",
+    "save": "Lưu",
+    "resetBtn": "Đặt lại",
+    "saved": "Đã lưu cấu hình mạng",
+    "reset": "Đã đặt lại cấu hình mạng"
+  }
 }

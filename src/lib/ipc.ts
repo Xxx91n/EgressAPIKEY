@@ -462,9 +462,20 @@ export async function ipcPortHealthCheck(port: number, protocol?: string): Promi
   return invoke<PortHealthCheck>("port_health_check", { port, protocol: proto });
 }
 
+export interface NetworkConfig {
+  dns_upstreams?: string[];
+  max_idle_conns?: number;
+  max_idle_conns_per_host?: number;
+  idle_conn_timeout_secs?: number;
+  probe_timeout_secs?: number;
+  probe_concurrency?: number;
+  proxy_bypass?: string[];
+}
+
 export interface WhiteboxConfig {
   version: number;
   entry_ports: PortMapping[];
+  network?: NetworkConfig;
 }
 
 export async function ipcWhiteboxPath(): Promise<string> {
@@ -476,12 +487,18 @@ export async function ipcWhiteboxGet(): Promise<WhiteboxConfig> {
   return {
     version: Number(raw?.version ?? 1),
     entry_ports: Array.isArray(raw?.entry_ports) ? raw.entry_ports : [],
+    network: raw?.network ?? {},
   };
 }
 
 /** Reload hand-edited egressapikey-ports.json into DB + listeners. */
 export async function ipcWhiteboxReload(): Promise<number> {
   return invoke<number>("whitebox_reload");
+}
+
+/** T6-3: Save network-layer config (DNS + idle + probe + bypass) to whitebox JSON. */
+export function ipcWhiteboxSaveNetwork(network: NetworkConfig): Promise<number> {
+  return invoke<number>("whitebox_save_network", { network });
 }
 
 export interface StreamSensorSnapshot {

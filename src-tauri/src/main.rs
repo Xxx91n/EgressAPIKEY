@@ -123,6 +123,7 @@ fn main() {
             commands::whitebox_path,
             commands::whitebox_get,
             commands::whitebox_reload,
+            commands::whitebox_save_network,
             commands::stream_sensor_snapshot,
                     commands::strategy_config_get,
             commands::strategy_config_put,

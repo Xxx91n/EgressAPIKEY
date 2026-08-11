@@ -277,5 +277,21 @@
     "quit": "Beenden",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Netzwerkebene",
+    "dnsUpstreams": "DNS-Upstreams",
+    "dnsHint": "Eine pro Zeile. Leer = Resin Standard DoH-Failover-Kette.",
+    "maxIdleConns": "Max. Idle-Verbindungen",
+    "maxIdleConnsPerHost": "Idle pro Host max.",
+    "idleConnTimeout": "Idle-Timeout (s)",
+    "probeTimeout": "Probe-Timeout (s)",
+    "probeConcurrency": "Probe-Parallelität",
+    "proxyBypass": "Proxy-Umgehung",
+    "bypassHint": "Eine pro Zeile. Übereinstimmende Domains umgehen den Proxy.",
+    "save": "Speichern",
+    "resetBtn": "Zurücksetzen",
+    "saved": "Netzwerkkonfig gespeichert",
+    "reset": "Netzwerkkonfig zurückgesetzt"
+  }
 }

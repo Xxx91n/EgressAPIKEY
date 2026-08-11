@@ -277,5 +277,21 @@
     "quit": "Quit",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Network Layer",
+    "dnsUpstreams": "DNS Upstreams",
+    "dnsHint": "One per line. Empty = Resin default DoH failover chain.",
+    "maxIdleConns": "Max Idle Connections",
+    "maxIdleConnsPerHost": "Max Idle Per Host",
+    "idleConnTimeout": "Idle Timeout (s)",
+    "probeTimeout": "Probe Timeout (s)",
+    "probeConcurrency": "Probe Concurrency",
+    "proxyBypass": "Proxy Bypass",
+    "bypassHint": "One per line. Domains matching these bypass the proxy.",
+    "save": "Save",
+    "resetBtn": "Reset to Default",
+    "saved": "Network config saved",
+    "reset": "Network config reset to defaults"
+  }
 }

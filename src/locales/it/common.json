@@ -277,5 +277,21 @@
     "quit": "Esci",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Livello di rete",
+    "dnsUpstreams": "DNS upstream",
+    "dnsHint": "Uno per riga. Vuoto = catena DoH Resin predefinita.",
+    "maxIdleConns": "Conn. inattive max",
+    "maxIdleConnsPerHost": "Inattive per host max",
+    "idleConnTimeout": "Timeout inattivo (s)",
+    "probeTimeout": "Timeout sonda (s)",
+    "probeConcurrency": "Concorrenza sonda",
+    "proxyBypass": "Bypass proxy",
+    "bypassHint": "Uno per riga. I domini corrispondenti bypassano il proxy.",
+    "save": "Salva",
+    "resetBtn": "Ripristina",
+    "saved": "Config rete salvata",
+    "reset": "Config rete ripristinata"
+  }
 }

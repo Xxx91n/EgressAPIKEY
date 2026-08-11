@@ -277,5 +277,21 @@
     "quit": "Salir",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Capa de red",
+    "dnsUpstreams": "DNS ascendentes",
+    "dnsHint": "Uno por línea. Vacío = cadena DoH de Resin por defecto.",
+    "maxIdleConns": "Conexiones inactivas máx.",
+    "maxIdleConnsPerHost": "Inactivas por host máx.",
+    "idleConnTimeout": "Tiempo inactivo (s)",
+    "probeTimeout": "Tiempo de sonda (s)",
+    "probeConcurrency": "Concurrencia de sonda",
+    "proxyBypass": "Omitir proxy",
+    "bypassHint": "Uno por línea. Los dominios coincidentes omiten el proxy.",
+    "save": "Guardar",
+    "resetBtn": "Restablecer",
+    "saved": "Config de red guardada",
+    "reset": "Config de red restablecida"
+  }
 }

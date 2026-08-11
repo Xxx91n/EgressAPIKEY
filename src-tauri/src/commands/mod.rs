@@ -1664,6 +1664,20 @@ pub async fn port_reload(
     whitebox.reload_file(&db, &forwarder).await.map_err(IpcError::from)
 }
 
+/// T6-3: Save network-layer config (DNS + idle conns + probe + bypass) to the
+/// whitebox JSON file, atomically updating in-memory state + env injection.
+#[tauri::command]
+pub async fn whitebox_save_network(
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+    network: resin_core::NetworkConfig,
+) -> Result<usize, IpcError> {
+    let mut current = whitebox.snapshot();
+    current.network = network;
+    whitebox.apply(&db, &forwarder, current).await.map_err(IpcError::from)
+}
+
 #[tauri::command]
 pub async fn whitebox_path(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,

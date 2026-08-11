@@ -277,5 +277,21 @@
     "quit": "Afsluiten",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Netwerklaag",
+    "dnsUpstreams": "DNS-upstreams",
+    "dnsHint": "Een per regel. Leeg = Resin standaard DoH-failover-keten.",
+    "maxIdleConns": "Max. inactieve verb.",
+    "maxIdleConnsPerHost": "Inactief per host max.",
+    "idleConnTimeout": "Inactieve timeout (s)",
+    "probeTimeout": "Probe-timeout (s)",
+    "probeConcurrency": "Probe-gelijktijdigheid",
+    "proxyBypass": "Proxy-omzeiling",
+    "bypassHint": "Een per regel. Overeenkomende domeinen omzeilen de proxy.",
+    "save": "Opslaan",
+    "resetBtn": "Herstel",
+    "saved": "Netwerkconfig opgeslagen",
+    "reset": "Netwerkconfig hersteld"
+  }
 }

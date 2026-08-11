@@ -277,5 +277,21 @@
     "quit": "Keluar",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Lapisan jaringan",
+    "dnsUpstreams": "DNS upstream",
+    "dnsHint": "Satu per baris. Kosong = rantai DoH Resin default.",
+    "maxIdleConns": "Maks koneksi idle",
+    "maxIdleConnsPerHost": "Idle per host maks",
+    "idleConnTimeout": "Timeout idle (d)",
+    "probeTimeout": "Timeout probe (d)",
+    "probeConcurrency": "Konkurensi probe",
+    "proxyBypass": "Lewati proxy",
+    "bypassHint": "Satu per baris. Domain yang cocok melewatkan proxy.",
+    "save": "Simpan",
+    "resetBtn": "Reset",
+    "saved": "Konfig jaringan disimpan",
+    "reset": "Konfig jaringan direset"
+  }
 }

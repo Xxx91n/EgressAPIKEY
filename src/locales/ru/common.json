@@ -277,5 +277,21 @@
     "quit": "Выйти",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Сетевой слой",
+    "dnsUpstreams": "DNS-серверы",
+    "dnsHint": "По одному на строку. Пусто = цепочка DoH Resin по умолчанию.",
+    "maxIdleConns": "Макс. неакт. соединений",
+    "maxIdleConnsPerHost": "Неакт. на хост",
+    "idleConnTimeout": "Тайм-аут (с)",
+    "probeTimeout": "Тайм-аут зонда (с)",
+    "probeConcurrency": "Параллельность зонда",
+    "proxyBypass": "Обход прокси",
+    "bypassHint": "По одному на строку. Совпадающие домены обходят прокси.",
+    "save": "Сохранить",
+    "resetBtn": "Сбросить",
+    "saved": "Сетевая конфиг. сохранена",
+    "reset": "Сетевая конфиг. сброшена"
+  }
 }

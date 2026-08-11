@@ -277,5 +277,21 @@
     "quit": "ออก",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "เลเยอร์เครือข่าย",
+    "dnsUpstreams": "DNS อัปสตรีม",
+    "dnsHint": "บรรทัดละหนึ่ง ว่าง = สาย DoH เริ่มต้นของ Resin",
+    "maxIdleConns": "การเชื่อมต่อว่างสูงสุด",
+    "maxIdleConnsPerHost": "ว่างต่อโฮสต์สูงสุด",
+    "idleConnTimeout": "หมดเวลาว่าง (วิ)",
+    "probeTimeout": "หมดเวลาตรวจสอบ (วิ)",
+    "probeConcurrency": "การตรวจสอบพร้อมกัน",
+    "proxyBypass": "ข้ามพร็อกซี",
+    "bypassHint": "บรรทัดละหนึ่ง โดเมนที่ตรงจะข้ามพร็อกซี",
+    "save": "บันทึก",
+    "resetBtn": "รีเซ็ต",
+    "saved": "บันทึกการตั้งค่าเครือข่ายแล้ว",
+    "reset": "รีเซ็ตการตั้งค่าเครือข่ายแล้ว"
+  }
 }

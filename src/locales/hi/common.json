@@ -277,5 +277,21 @@
     "quit": "बाहर निकलें",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "नेटवर्क परत",
+    "dnsUpstreams": "DNS अपस्ट्रीम",
+    "dnsHint": "प्रति पंक्ति एक। खाली = Resin डिफ़ॉल्ट DoH चेन।",
+    "maxIdleConns": "अधिकतम निष्क्रिय कनेक्शन",
+    "maxIdleConnsPerHost": "प्रति होस्ट अधिकतम निष्क्रिय",
+    "idleConnTimeout": "निष्क्रिय समय समाप्ति (सेकंड)",
+    "probeTimeout": "प्रोब समय समाप्ति (सेकंड)",
+    "probeConcurrency": "प्रोब समवर्ती",
+    "proxyBypass": "प्रॉक्सी बायपास",
+    "bypassHint": "प्रति पंक्ति एक। मिलान डोमेन प्रॉक्सी को बायपास करते हैं।",
+    "save": "सहेजें",
+    "resetBtn": "रीसेट करें",
+    "saved": "नेटवर्क कॉन्फ़िग सहेजा गया",
+    "reset": "नेटवर्क कॉन्फ़िग रीसेट किया गया"
+  }
 }

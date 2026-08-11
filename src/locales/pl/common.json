@@ -277,5 +277,21 @@
     "quit": "Zakończ",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Warstwa sieciowa",
+    "dnsUpstreams": "DNS upstream",
+    "dnsHint": "Jeden na linię. Puste = domyślny łańcuch DoH Resin.",
+    "maxIdleConns": "Max bezczyn. połączeń",
+    "maxIdleConnsPerHost": "Bezczyn. na host max",
+    "idleConnTimeout": "Czas bezczyn. (s)",
+    "probeTimeout": "Czas sondy (s)",
+    "probeConcurrency": "Współbieżność sondy",
+    "proxyBypass": "Obejście proxy",
+    "bypassHint": "Jeden na linię. Pasujące domeny omijają proxy.",
+    "save": "Zapisz",
+    "resetBtn": "Resetuj",
+    "saved": "Konfig sieci zapisana",
+    "reset": "Konfig sieci zresetowana"
+  }
 }

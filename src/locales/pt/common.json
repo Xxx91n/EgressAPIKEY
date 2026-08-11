@@ -277,5 +277,21 @@
     "quit": "Sair",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "Camada de rede",
+    "dnsUpstreams": "DNS upstream",
+    "dnsHint": "Um por linha. Vazio = cadeia DoH Resin padrão.",
+    "maxIdleConns": "Conexões ociosas máx.",
+    "maxIdleConnsPerHost": "Ociosas por host máx.",
+    "idleConnTimeout": "Tempo ocioso (s)",
+    "probeTimeout": "Tempo de sonda (s)",
+    "probeConcurrency": "Concorrência de sonda",
+    "proxyBypass": "Ignorar proxy",
+    "bypassHint": "Um por linha. Domínios correspondentes ignoram o proxy.",
+    "save": "Salvar",
+    "resetBtn": "Redefinir",
+    "saved": "Config de rede salva",
+    "reset": "Config de rede redefinida"
+  }
 }

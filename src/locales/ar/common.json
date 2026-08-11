@@ -277,5 +277,21 @@
     "quit": "إنهاء",
     "tooltip": "EgressAPIKEY"
   },
-  "expand": "Expand"
+  "expand": "Expand",
+  "networkLayer": {
+    "title": "طبقة الشبكة",
+    "dnsUpstreams": "خوادم DNS",
+    "dnsHint": "واحد لكل سطر. فارغ = سلسلة DoH الافتراضية لـ Resin.",
+    "maxIdleConns": "أقصى اتصالات خاملة",
+    "maxIdleConnsPerHost": "خاملة لكل مضيف",
+    "idleConnTimeout": "مهلة الخمول (ث)",
+    "probeTimeout": "مهلة الفحص (ث)",
+    "probeConcurrency": "تزامن الفحص",
+    "proxyBypass": "تجاوز الوكيل",
+    "bypassHint": "واحد لكل سطر. النطاقات المطابقة تتجاوز الوكيل.",
+    "save": "حفظ",
+    "resetBtn": "إعادة تعيين",
+    "saved": "تم حفظ تكوين الشبكة",
+    "reset": "تم إعادة تعيين تكوين الشبكة"
+  }
 }
