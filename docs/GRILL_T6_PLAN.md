@@ -1,3 +1,5 @@
+> **Superceded by `docs/GRILL_T6_NETWORK_LAYER_PLAN.md`** (2026-08-12). This earlier plan defined T6 (Q1-Q6) as an architecture-cleanup + unified-bugfix round and is preserved as a historical audit trail only. The live T6 work was re-executed under the Network Layer plan, which re-organized the same Q1-Q5 caps into a clean T6-1 through T6-9 schedule with closed-loop test gates and a handoff doc. Do NOT cite this file as the current plan; cite `docs/GRILL_T6_NETWORK_LAYER_PLAN.md`.
+
 # GRILL T6 PLAN — Architecture Cleanup + Unified Bug Fix
 
 > **Date**: 2026-08-10  
