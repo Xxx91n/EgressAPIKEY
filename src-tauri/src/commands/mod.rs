@@ -1776,8 +1776,10 @@ pub async fn port_auth_info(
     } else {
         format!("{}.{}", mapping.platform_name, mapping.account)
     };
-    // proxy_token is always non-empty (T8 revert of ADR-0027); port_auth_info
-    // always returns the credential for SOCKS5/HTTP auth in {Platform}.{Account} + token format.
+    // T7-fix: proxy_token is now empty (enables no-auth). When auth_required=true,
+    // the password is empty — Resin socks5.go:307 short-circuits the check when
+    // s.token=="" and forward.go:103-115 accepts any credential. The username
+    // (Platform.Account) is still used for routing.
     let password = sidecar.proxy_token.clone();
     let _ = forwarder; // forwarder carries the live listener state; not needed for auth-info lookup
     Ok(PortAuthInfo {
@@ -2077,14 +2079,15 @@ pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<Po
             });
         }
     };
-    // SOCKS5 greeting: version 5, 1 method candidate, method 0x02 (UserPass).
+    // SOCKS5 greeting: version 5, 2 method candidates: NoAuth(0x00) + UserPass(0x02).
+    // With empty proxy_token, Resin accepts either; with non-empty, only UserPass.
     let greeting: Vec<u8> = if proto == "http" {
         // T6-Bug1: HTTP GET probe. Resin's HTTP proxy does NOT support CONNECT
         // tunneling — CONNECT returns 404/error. A plain GET / gets any HTTP
         // response (200/404/400) which proves the port is alive.
         format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n").into_bytes()
     } else {
-        vec![0x05, 0x01, 0x02]
+        vec![0x05, 0x02, 0x00, 0x02]
     };
     if let Err(e) = stream.write_all(&greeting).await {
         tracing::info!(port, proto = %proto, error = %e, "port_health_check: write probe failed");
@@ -2097,7 +2100,7 @@ pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<Po
             reason: "noop_no_reply".into(),
         });
     }
-    // Reply should be exactly 2 bytes: 0x05 0x02 (UserPass chosen). HTTP
+    // Reply should be exactly 2 bytes: 0x05 0x00 (NoAuth) or 0x05 0x02 (UserPass). HTTP
     // listeners reply with an HTTP status line e.g. `HTTP/1.1 400...`.
     let mut buf = [0u8; 16];
     let read = tokio::time::timeout(
@@ -2115,7 +2118,7 @@ pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<Po
             latency_ms: elapsed,
             reason: "ok".into(),
         }),
-        Ok(Ok(n)) if proto == "socks5" && n >= 2 && buf[0] == 0x05 && buf[1] == 0x02 => Ok(PortHealthCheck {
+        Ok(Ok(n)) if proto == "socks5" && n >= 2 && buf[0] == 0x05 && (buf[1] == 0x00 || buf[1] == 0x02) => Ok(PortHealthCheck {
             port,
             reachable: true,
             socks5_ok: true,

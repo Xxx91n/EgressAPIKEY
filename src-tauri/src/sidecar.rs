@@ -266,11 +266,13 @@ fn spawn_resin_await_healthz(
 
     let api_port = pick_free_loopback_port()?;
     let admin_token = gen_token();
-    // ADR-0027 SUPERSEDED: empty proxy_token breaks SOCKS5 for any endpoint
-    // with require_proxy_auth_info=true (Resin socks5.go negotiateMethod
-    // forces UserPass method but the empty token can't authenticate). Revert
-    // to a non-empty proxy_token so SOCKS5/HTTP auth works universally.
-    let proxy_token = gen_token();
+    // T7-fix: empty proxy_token enables no-auth on ports where require_proxy_auth_info=0.
+    // Resin socks5.go:261 — when s.token=="" the OR condition is false, so the
+    // else branch accepts NoAuth(0x00) + UserPass(0x02). forward.go:103 — when
+    // p.token=="" the no-auth path returns nil error directly. ADR-0027 was wrong:
+    // source verification proves empty token is safe (socks5.go:307 short-circuits
+    // the password check, forward.go:103-115 lets no-auth through).
+    let proxy_token = String::new();
 
     let mut cmd = Command::new(binary_path);
     cmd.env("RESIN_AUTH_VERSION", "V1")
