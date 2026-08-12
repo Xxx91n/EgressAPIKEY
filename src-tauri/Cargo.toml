@@ -55,7 +55,7 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-tracing = "0.3"
 parking_lot = { workspace = true }
 once_cell = { workspace = true }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking", "socks"] }
 zip = { version = "0.6", default-features = false, features = ["deflate"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 rusqlite = { workspace = true }
