@@ -206,3 +206,36 @@ mod tests {
         assert_eq!(three, "YWJj");
     }
 }
+
+
+/// Parse the exit IP from a Cloudflare cdn-cgi/trace response body.
+/// Returns the value after "ip=" on the first matching line, trimmed.
+/// Returns empty string if no "ip=" line is found.
+pub fn parse_trace_body_ip(body: &str) -> String {
+    body.lines()
+        .find_map(|l| l.strip_prefix("ip=").map(|s| s.trim().to_string()))
+        .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod trace_tests {
+    use super::parse_trace_body_ip;
+
+    #[test]
+    fn parses_ip_from_cloudflare_trace() {
+        let body = "fl=123f\nh=cloudflare.com\nip=203.0.113.50\ntls=TLSv1.3\n";
+        assert_eq!(parse_trace_body_ip(body), "203.0.113.50");
+    }
+
+    #[test]
+    fn returns_empty_when_no_ip_line() {
+        let body = "fl=123f\nh=cloudflare.com\nvisited=2026-08-12\n";
+        assert_eq!(parse_trace_body_ip(body), "");
+    }
+
+    #[test]
+    fn trims_whitespace_around_ip() {
+        let body = "ip=  198.51.100.1  \n";
+        assert_eq!(parse_trace_body_ip(body), "198.51.100.1");
+    }
+}

@@ -306,6 +306,9 @@
     "reqLogEmpty": "リクエストログなし",
     "noNodes": "利用可能なノードがありません！サブスクリプションとファイアウォールを確認してください。",
     "diagnostics": "ネットワーク診断",
-    "refresh": "更新"
+    "refresh": "更新",
+    "sidecarPid": "サイドカーPID",
+    "healthzLastCheck": "ヘルスチェック最終確認",
+    "ipcLatency": "IPCレイテンシ"
   }
 }

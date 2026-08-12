@@ -306,6 +306,9 @@
     "reqLogEmpty": "暂无请求日志",
     "noNodes": "没有可用节点！请检查订阅链接和防火墙设置。",
     "diagnostics": "网络诊断",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "sidecarPid": "Sidecar 进程号",
+    "healthzLastCheck": "探活最后检查时间",
+    "ipcLatency": "IPC 延迟"
   }
 }

@@ -306,6 +306,9 @@
     "reqLogEmpty": "No request logs",
     "noNodes": "No healthy nodes available! Check subscription links and firewall settings.",
     "diagnostics": "Network Diagnostics",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "sidecarPid": "PID sidecar",
+    "healthzLastCheck": "Ostatnia kontrola healthz",
+    "ipcLatency": "Opóźnienie IPC"
   }
 }

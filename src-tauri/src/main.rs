@@ -156,6 +156,7 @@ fn main() {
                 api_port,
                 admin_token: sidecar.admin_token,
                 proxy_token: proxy_token.clone(),
+                healthz_last_check: std::sync::RwLock::new(String::new()),
             });
             // Port->platform mapping SQLite store (ADR-0012)
             // The multi-port listener reads this to inject X-Resin-Account

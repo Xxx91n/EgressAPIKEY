@@ -306,6 +306,9 @@
     "reqLogEmpty": "요청 로그 없음",
     "noNodes": "사용 가능한 노드가 없습니다! 구독 링크와 방화벽을 확인하세요.",
     "diagnostics": "네트워크 진단",
-    "refresh": "새로고침"
+    "refresh": "새로고침",
+    "sidecarPid": "사이드카 PID",
+    "healthzLastCheck": "헬스체크 마지막 확인",
+    "ipcLatency": "IPC 지연"
   }
 }

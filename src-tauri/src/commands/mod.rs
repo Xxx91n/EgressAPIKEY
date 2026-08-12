@@ -887,15 +887,34 @@ pub struct SidecarStatus {
     pub api_port: u16,
     pub api_base: String,
     pub mode: String,
+    /// T6-7: sidecar process PID (0 if not running).
+    pub pid: u32,
+    /// T6-7: RFC3339 timestamp of the last successful /healthz probe.
+    pub healthz_last_check: String,
+    /// T6-7: round-trip latency of the get_sidecar_status IPC call (microseconds).
+    pub ipc_latency_us: u64,
 }
 
 #[tauri::command]
 pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarStatus, IpcError> {
+    let started = std::time::Instant::now();
     let mode = sidecar.mode.read().map(|m| format!("{:?}", *m)).unwrap_or_else(|_| "Unknown".to_string());
+    // T6-7: extract PID from the child process
+    let pid = sidecar.child.lock().map(|c| {
+        c.as_ref().map(|child| child.id()).unwrap_or(0)
+    }).unwrap_or(0);
+    // T6-7: last healthz check timestamp
+    let healthz_last_check = sidecar.healthz_last_check.read()
+        .map(|g| g.clone())
+        .unwrap_or_default();
+    let ipc_latency_us = started.elapsed().as_micros() as u64;
     Ok(SidecarStatus {
         api_port: sidecar.api_port,
         api_base: sidecar.api_base(),
         mode,
+        pid,
+        healthz_last_check,
+        ipc_latency_us,
     })
 }
 
@@ -1998,10 +2017,7 @@ pub async fn probe_exit_ip(
         .await
         .map_err(|e| IpcError::internal(&format!("probe body: {e}")))?;
     let latency_ms = started.elapsed().as_millis() as u64;
-    let exit_ip = body
-        .lines()
-        .find_map(|l| l.strip_prefix("ip=").map(|s| s.trim().to_string()))
-        .unwrap_or_default();
+    let exit_ip = resin_core::parse_trace_body_ip(&body);
     tracing::info!(port, protocol = %proto, exit_ip = %exit_ip, latency_ms, "probe_exit_ip: success");
     Ok(ExitIpProbe {
         port,

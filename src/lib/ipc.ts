@@ -563,6 +563,12 @@ export interface SidecarStatus {
   api_port: number;
   api_base: string;
   mode: string;
+  /** T6-7: sidecar process PID (0 if not running). */
+  pid: number;
+  /** T6-7: RFC3339 timestamp of the last successful /healthz probe. */
+  healthz_last_check: string;
+  /** T6-7: round-trip latency of the get_sidecar_status IPC call (microseconds). */
+  ipc_latency_us: number;
 }
 
 export async function ipcGetSidecarStatus(): Promise<SidecarStatus> {

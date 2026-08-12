@@ -436,6 +436,21 @@ export function SettingsView() {
             {sidecarStatus ? sidecarStatus.mode : t("settings.sidecarLoading")}
           </p>
         </Field>
+        <Field label={t("networkLayer.sidecarPid")}>
+          <p className="text-sm text-zinc-700 dark:text-zinc-300 font-mono" data-testid="diag-sidecar-pid">
+            {sidecarStatus ? (sidecarStatus.pid || "N/A") : "—"}
+          </p>
+        </Field>
+        <Field label={t("networkLayer.healthzLastCheck")}>
+          <p className="text-sm text-zinc-700 dark:text-zinc-300 font-mono" data-testid="diag-healthz-last-check">
+            {sidecarStatus ? (sidecarStatus.healthz_last_check || "—") : "—"}
+          </p>
+        </Field>
+        <Field label={t("networkLayer.ipcLatency")}>
+          <p className="text-sm text-zinc-700 dark:text-zinc-300 font-mono" data-testid="diag-ipc-latency">
+            {sidecarStatus ? sidecarStatus.ipc_latency_us + " µs" : "—"}
+          </p>
+        </Field>
         {firewallStatus ? (
           <Field label={t("networkLayer.firewallTitle")}>
             <p className={"text-sm " + (firewallStatus.firewall_on ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400")} data-testid="diag-firewall-status">

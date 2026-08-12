@@ -112,6 +112,9 @@ pub struct SidecarHandle {
     /// Resin proxy token. Used by clients that talk to the L7 proxy entry.
     /// Kept here for the Rust-side proxy configurator only.
     pub proxy_token: String,
+    /// T6-7: RFC3339 timestamp of the last successful /healthz probe.
+    /// Updated by spawn_health_poll on every successful poll cycle.
+    pub healthz_last_check: std::sync::RwLock<String>,
 }
 
 impl SidecarHandle {
@@ -360,10 +363,11 @@ fn spawn_resin_await_healthz(
                     log_buf,
                     api_port,
                     admin_token,
-                    proxy_token,
-                });
-            }
-            Ok(r) => { last_err = Some(format!("HTTP {}", r.status())); }
+                   proxy_token,
+                   healthz_last_check: std::sync::RwLock::new(String::new()),
+               });
+           }
+           Ok(r) => { last_err = Some(format!("HTTP {}", r.status())); }
             Err(e) => { last_err = Some(e.to_string()); }
         }
         std::thread::sleep(Duration::from_millis(250));
@@ -500,6 +504,7 @@ mod tests {
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
+            healthz_last_check: std::sync::RwLock::new(String::new()),
         };
         assert_eq!(h.mode(), RunningMode::Running);
     }
@@ -513,6 +518,7 @@ mod tests {
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
+            healthz_last_check: std::sync::RwLock::new(String::new()),
         };
         h.set_mode(RunningMode::NotRunning);
         assert_eq!(h.mode(), RunningMode::NotRunning);
@@ -527,6 +533,7 @@ mod tests {
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
+            healthz_last_check: std::sync::RwLock::new(String::new()),
         };
         // Reboot: NotRunning -> Starting is a valid transition
         h.set_mode(RunningMode::Starting);
@@ -542,6 +549,7 @@ mod tests {
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
+            healthz_last_check: std::sync::RwLock::new(String::new()),
         };
         h.set_mode(RunningMode::Running);
         assert_eq!(h.mode(), RunningMode::Running);
@@ -558,6 +566,7 @@ mod tests {
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
+            healthz_last_check: std::sync::RwLock::new(String::new()),
         };
         h.set_mode(RunningMode::Terminated);
         assert_eq!(h.mode(), RunningMode::Terminated);
@@ -573,6 +582,7 @@ mod tests {
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
+            healthz_last_check: std::sync::RwLock::new(String::new()),
         };
         h.set_mode(RunningMode::Terminated);
         assert_eq!(h.mode(), RunningMode::Terminated);
@@ -593,6 +603,7 @@ mod tests {
             api_port: 0,
             admin_token: String::new(),
             proxy_token: String::new(),
+            healthz_last_check: std::sync::RwLock::new(String::new()),
         };
         h.set_mode(RunningMode::Starting);
         // set_mode writes the new value regardless of validity (warn-only).
@@ -827,6 +838,15 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
                 }
             };
             if healthy {
+                // T6-7: update last-check timestamp for diagnostics panel
+                {
+                    let state = app.state::<SidecarHandle>();
+                    if let Ok(mut guard) = state.healthz_last_check.write() {
+                        *guard = chrono::Utc::now().to_rfc3339();
+                        drop(guard);
+                    }
+                    drop(state);
+                }
                 failures = 0;
                 if !was_healthy {
                     tracing::info!("ghost: sidecar recovered; tray green");

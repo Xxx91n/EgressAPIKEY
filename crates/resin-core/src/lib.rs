@@ -35,7 +35,7 @@ pub use lane::{lane_index, LaneConfig};
 pub use lease::{LeaseId, LeaseTable};
 pub use platform::{Account, Platform, PlatformRegistry};
 pub use port_forwarder::{
-    detect_protocol, resin_identity, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT,
+    detect_protocol, parse_trace_body_ip, resin_identity, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT,
 };
 pub use resin_client::{clash_yaml_to_proxies_block, fetch_clash_subscription, ResinClient};
 pub use strategy::{protocol_weight, strategy_catalog, StrategyId, StrategyInfo};
