@@ -4,7 +4,9 @@
 # See docs/MEMORY_REUSE_DECISION.md path A.
 set -euo pipefail
 # Read version + repo from docs/RESIN_UPSTREAM_MANIFEST.yaml (ADR-0017 T2-6)
-MANIFEST="$(dirname "$0")/../docs/RESIN_UPSTREAM_MANIFEST.yaml"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+MANIFEST="$REPO_ROOT/docs/RESIN_UPSTREAM_MANIFEST.yaml"
 REPO=$(grep '^repo:' "$MANIFEST" | head -1 | sed 's/.*"\(.*\)".*/\1/')
 REL=$(grep '^version:' "$MANIFEST" | head -1 | sed 's/.*"\(.*\)".*/\1/')
 if [ -z "$REPO" ] || [ -z "$REL" ]; then
@@ -20,7 +22,7 @@ case "$triple" in
   *-linux-*) asset="resin-linux-amd64.tar.gz"; ext="" ;;
   *) echo "Resin sidecar unsupported triple: $triple" >&2; exit 2 ;;
 esac
-destdir="src-tauri/binaries"
+destdir="$REPO_ROOT/src-tauri/binaries"
 mkdir -p "$destdir"
 tmpdir="$(mktemp -d)"
 trap "rm -rf $tmpdir" EXIT

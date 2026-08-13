@@ -14,6 +14,10 @@
 # output the portable exe under either (gnu/msvc target triple subdir).
 set -euo pipefail
 
+# T9-2: Anchor to script location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 OS=$(uname -s)
 case $OS in
   Linux*)  NAME=linux ;;
@@ -27,9 +31,32 @@ echo "[build-all] frontend (tsc + vite)"
 npx --no-install tsc -b
 npx --no-install vite build
 
+echo "[build-all] tests (resin-core + vitest + i18n)"
+cargo test -p resin-core --lib --quiet || { echo "[build-all] cargo test failed"; exit 1; }
+npx --no-install vitest run --reporter=dot || { echo "[build-all] vitest failed"; exit 1; }
+node scripts/i18n-check.cjs || { echo "[build-all] i18n check failed"; exit 1; }
+
 echo "[build-all] backend headless compile-guard (resin-core, NOT staged)"
 cargo build --release -p resin-core || { echo "[build-all] resin-core build failed"; exit 1; }
 echo "[build-all] resin-core compiles OK (stub - not staged)"
+
+# T9-5: Stage backend tar.gz
+BACKEND_STAGE="release/${NAME}-backend"
+rm -rf "$BACKEND_STAGE"
+mkdir -p "$BACKEND_STAGE"
+BACKEND_BIN="$(find target "src-tauri/target" -maxdepth 5 -type f -name "resin-core" ! -path "*/deps/*" 2>/dev/null | head -n1 || true)"
+if [ -n "$BACKEND_BIN" ]; then
+  cp "$BACKEND_BIN" "$BACKEND_STAGE/resin-core"
+fi
+# headless binary (from Cargo.toml [[bin]] name = "egressapikey-headless")
+HEADLESS_BIN="$(find target "src-tauri/target" -maxdepth 5 -type f -name "egressapikey-headless*" ! -path "*/deps/*" 2>/dev/null | head -n1 || true)"
+if [ -n "$HEADLESS_BIN" ]; then
+  cp "$HEADLESS_BIN" "$BACKEND_STAGE/"
+fi
+if [ -n "$BACKEND_BIN" ]; then
+  tar -czf "$BACKEND_STAGE.tar.gz" "$BACKEND_STAGE"
+  echo "[build-all] backend staged: $BACKEND_STAGE.tar.gz"
+fi
 
 TAURI_BIN=""
 if command -v tauri >/dev/null 2>&1; then
@@ -63,7 +90,7 @@ rm -rf "$GUI_STAGE"
 mkdir -p "$GUI_STAGE"
 BUNDLES="$(find src-tauri/target target -maxdepth 6 -type f \( -name '*.msi' -o -name '*-setup.exe' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' \) 2>/dev/null || true)"
 for f in $BUNDLES; do cp "$f" "$GUI_STAGE/" 2>/dev/null || true; done
-PORT_BIN="$(find src-tauri/target target -maxdepth 5 -type f \( -name 'EgressAPIKEY' -o -name 'EgressAPIKEY.exe' -o -name 'egressapikey' -o -name 'egressapikey.exe' \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | head -n1 || true)"
+PORT_BIN="$(find src-tauri/target target -maxdepth 5 -type f \( -name 'EgressAPIKEY' -o -name 'EgressAPIKEY.exe' -o \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | head -n1 || true)"
 if [ -z "$PORT_BIN" ]; then echo "[build-all] ERROR: portable GUI binary not found (searched src-tauri/target and target)"; exit 1; fi
 PORT_NAME=EgressAPIKEY
 case $NAME in windows) PORT_NAME=EgressAPIKEY.exe ;; esac
@@ -93,16 +120,46 @@ echo "[build-all] portable GUI staged: $GUI_STAGE/$PORT_NAME"
 if [ -n "$BUNDLES" ] && [ "$(ls -A $GUI_STAGE 2>/dev/null)" ]; then tar -czf "$GUI_STAGE.tar.gz" "$GUI_STAGE"; fi
 echo "[build-all] GUI artifact: $GUI_STAGE ($PORT_NAME + bundles)"
 
-echo "[build-all] flow guard: launching portable exe (windows only)"
-if [ $NAME = windows ]; then
-  $GUI_STAGE/$PORT_NAME &
-  PID=$!
-  sleep 5
-  if kill -0 $PID 2>/dev/null; then
-    echo "[build-all] flow guard OK: portable alive after 5s (pid $PID)"
-    kill $PID 2>/dev/null || true
-  else
-    echo "[build-all] flow guard FAIL: portable exited within 5s"; exit 1
-  fi
-fi
+echo "[build-all] SHA256 checksums"
+for f in "$GUI_STAGE"/*; do
+  [ -f "$f" ] && sha256sum "$f" > "${f}.sha256" 2>/dev/null || true
+done
+
+echo "[build-all] flow guard: launching portable GUI"
+case $NAME in
+  windows)
+    "$GUI_STAGE/$PORT_NAME" &
+    PID=$!; sleep 5
+    if kill -0 $PID 2>/dev/null; then
+      echo "[build-all] flow guard OK: alive after 5s (pid $PID)"
+      kill $PID 2>/dev/null || true
+    else
+      echo "[build-all] flow guard FAIL: exited within 5s"; exit 1
+    fi
+    ;;
+  macos)
+    open -W -n "$GUI_STAGE/$PORT_NAME" &
+    PID=$!; sleep 5
+    if kill -0 $PID 2>/dev/null; then
+      echo "[build-all] flow guard OK: alive after 5s (pid $PID)"
+      kill $PID 2>/dev/null || true
+    else
+      echo "[build-all] flow guard WARN: exited (macOS open may fork)"
+    fi
+    ;;
+  linux)
+    if [ -z "$DISPLAY" ]; then
+      echo "[build-all] flow guard SKIPPED: no DISPLAY on Linux headless"
+    else
+      "$GUI_STAGE/$PORT_NAME" &
+      PID=$!; sleep 5
+      if kill -0 $PID 2>/dev/null; then
+        echo "[build-all] flow guard OK: alive after 5s (pid $PID)"
+        kill $PID 2>/dev/null || true
+      else
+        echo "[build-all] flow guard FAIL: exited within 5s"; exit 1
+      fi
+    fi
+    ;;
+esac
 echo "BUILD-ALL OK"
