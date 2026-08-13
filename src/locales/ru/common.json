@@ -278,7 +278,12 @@
     "noLeases": "Нет активных аренд",
     "noPorts": "Входные порты не настроены. Добавьте во вкладке Платформы.",
     "sidecarRestarting": "Proxy service restarting...",
-    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually.",
+    "zoomIn": "Увеличить",
+    "zoomOut": "Уменьшить",
+    "fitView": "По размеру",
+    "lock": "Заблокировать",
+    "unlock": "Разблокировать"
   },
   "tray": {
     "show": "Показать окно",

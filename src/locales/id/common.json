@@ -278,7 +278,12 @@
     "noLeases": "Tidak ada sewa aktif",
     "noPorts": "Tidak ada port masuk. Tambahkan di tab Platform.",
     "sidecarRestarting": "Proxy service restarting...",
-    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually.",
+    "zoomIn": "Perbesar",
+    "zoomOut": "Perkecil",
+    "fitView": "Sesuaikan tampilan",
+    "lock": "Kunci interaksi",
+    "unlock": "Buka interaksi"
   },
   "tray": {
     "show": "Tampilkan jendela",

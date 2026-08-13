@@ -278,7 +278,12 @@
     "noLeases": "无活跃租约",
     "noPorts": "未配置入口端口。请在平台标签页添加。",
     "sidecarRestarting": "代理服务正在重启...",
-    "sidecarTerminated": "代理服务已停止，请手动重启应用。"
+    "sidecarTerminated": "代理服务已停止，请手动重启应用。",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fitView": "适应视图",
+    "lock": "锁定交互",
+    "unlock": "解锁交互"
   },
   "tray": {
     "show": "显示窗口",

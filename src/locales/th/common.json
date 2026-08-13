@@ -278,7 +278,12 @@
     "noLeases": "ไม่มีสัญญาเช่าที่ใช้งาน",
     "noPorts": "ยังไม่ได้ตั้งค่าพอร์ตเข้า เพิ่มในแท็บแพลตฟอร์ม",
     "sidecarRestarting": "Proxy service restarting...",
-    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually.",
+    "zoomIn": "ซูมเข้า",
+    "zoomOut": "ซูมออก",
+    "fitView": "พอดีหน้าจอ",
+    "lock": "ล็อกการโต้ตอบ",
+    "unlock": "ปลดล็อกการโต้ตอบ"
   },
   "tray": {
     "show": "แสดงหน้าต่าง",

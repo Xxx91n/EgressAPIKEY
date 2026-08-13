@@ -278,7 +278,12 @@
     "noLeases": "कोई सक्रिय लीज़ नहीं",
     "noPorts": "कोई एंट्री पोर्ट कॉन्फ़िगर नहीं। प्लेटफ़ॉर्म टैब में जोड़ें।",
     "sidecarRestarting": "Proxy service restarting...",
-    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually.",
+    "zoomIn": "ज़ूम इन",
+    "zoomOut": "ज़ूम आउट",
+    "fitView": "फिट व्यू",
+    "lock": "इंटरैक्शन लॉक करें",
+    "unlock": "इंटरैक्शन अनलॉक करें"
   },
   "tray": {
     "show": "विंडो दिखाएं",

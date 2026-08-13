@@ -278,7 +278,12 @@
     "noLeases": "Nessuna lease attiva",
     "noPorts": "Nessuna porta di ingresso configurata. Aggiungine una nella scheda Piattaforme.",
     "sidecarRestarting": "Proxy service restarting...",
-    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually.",
+    "zoomIn": "Ingrandisci",
+    "zoomOut": "Riduci",
+    "fitView": "Adatta vista",
+    "lock": "Blocca interazione",
+    "unlock": "Sblocca interazione"
   },
   "tray": {
     "show": "Mostra finestra",

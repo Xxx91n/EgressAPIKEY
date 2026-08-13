@@ -278,7 +278,12 @@
     "noLeases": "활성 리스 없음",
     "noPorts": "입력 포트가 구성되지 않았습니다. 플랫폼 탭에서 추가하세요.",
     "sidecarRestarting": "프록시 서비스 재시작 중...",
-    "sidecarTerminated": "프록시 서비스가 중지되었습니다. 앱을 수동으로 재시작하세요."
+    "sidecarTerminated": "프록시 서비스가 중지되었습니다. 앱을 수동으로 재시작하세요.",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "fitView": "보기 맞춤",
+    "lock": "상호작용 잠금",
+    "unlock": "상호작용 해제"
   },
   "tray": {
     "show": "창 표시",

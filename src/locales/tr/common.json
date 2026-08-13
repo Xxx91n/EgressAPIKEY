@@ -278,7 +278,12 @@
     "noLeases": "Aktif kira yok",
     "noPorts": "Giriş portu yapılandırılmadı. Platform sekmesinden ekleyin.",
     "sidecarRestarting": "Proxy service restarting...",
-    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually.",
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır",
+    "fitView": "Görünümü sığdır",
+    "lock": "Etkileşimi kilitle",
+    "unlock": "Etkileşimi aç"
   },
   "tray": {
     "show": "Pencereyi göster",

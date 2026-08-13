@@ -278,7 +278,12 @@
     "noLeases": "Geen actieve leases",
     "noPorts": "Geen invoerpoorten geconfigureerd. Voeg er een toe op het tabblad Platformen.",
     "sidecarRestarting": "Proxy service restarting...",
-    "sidecarTerminated": "Proxy service terminated. Please restart the app manually."
+    "sidecarTerminated": "Proxy service terminated. Please restart the app manually.",
+    "zoomIn": "Inzoomen",
+    "zoomOut": "Uitzoomen",
+    "fitView": "Weergave aanpassen",
+    "lock": "Interactie vergrendelen",
+    "unlock": "Interactie ontgrendelen"
   },
   "tray": {
     "show": "Venster tonen",
