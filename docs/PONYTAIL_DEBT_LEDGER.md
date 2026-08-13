@@ -1,6 +1,6 @@
 # Ponytail Debt Ledger
 
-Re-verified: 2026-08-12 (post-deletion of stale-tag account_for_bclass/auth_for_fixed). Source-tagged markers are the authoritative scan target: `git grep -rnE '(#|//) ?ponytail:' -- "*.rs" "*.ts" "*.tsx" "*.json"` returns 2 hits.
+Re-verified: 2026-08-13 (post-T7 diagnostics page refactor + clear_os_proxy audit fix). Source-tagged markers are the authoritative scan target: `git grep -rnE '(#|//) ?ponytail:' -- "*.rs" "*.ts" "*.tsx" "*.json"` returns 2 hits (unchanged from 2026-08-12).
 
 | File | Reference | Status | Note |
 |---|---|---|---|
@@ -32,7 +32,7 @@ Re-verified: 2026-08-12 (post-deletion of stale-tag account_for_bclass/auth_for_
 git grep -rnE '(#|//) ?ponytail:' -- '*.rs' '*.ts' '*.tsx' '*.json'
 ```
 
-2 source hits on 2026-08-12 (was 3; the stale-tag on `account_for_bclass` was deleted with the dead code). One keep, one done. No stale markers remain. None blocks the next phase.
+2 source hits on 2026-08-13 (unchanged from 2026-08-12). One keep, one done. No stale markers remain. T7 diff reviewed: DiagnosticsView.tsx (361 lines) — 0 ponytail-review findings, DiagCard reused 6× (valid abstraction). No new ponytail: tags in T7 code. None blocks the next phase.
 
 ## Audit context-mode protocol
 Future passes must load and use ctx_* tools (mcp__context_mode__ctx_batch_execute / ctx_search) as the first operational priority. Raw bytes stay out of the conversation; the scan above is a one-liner for shell, all reads of the hits should go through ctx_search when the surrounding context is needed.

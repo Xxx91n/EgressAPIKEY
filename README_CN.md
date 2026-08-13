@@ -41,6 +41,7 @@ pnpm tauri dev
 
 **节点** 标签页以按订阅源折叠的树形展示（clash-verge-dev 模式）。每个订阅可展开显示其节点，含实时延时（绿 <200ms / 黄 200-500ms / 红 >500ms / 灰超时）、`display_tag`、`region`、健康状态，并附协议权重参考卡（SSE 适用性：http/socks5/vmess=1.0，shadowsocks=0.7，hysteria2/tuic/wireguard=0.1）。平台标签页承载策略引擎面板（ADR-0022）：A 类策略选择哪些 IP 进入平台（手动 / 地区 / 质量分 / 订阅源，受自动探活门控），B 类策略选择端口如何选出口 IP（随机 / 轮询 / 低延时）。白盒配置 `egressapikey-strategy.json`。
 
+**诊断 (Diagnostics)** 标签页是完整的诊断中心（唯一入口，与设置页无冗余）：sidecar 状态卡片（端口/模式/PID/healthz/IPC 延时）、防火墙状态（跨平台：Windows Get-NetFirewallProfile / Linux systemctl-ufw-firewalld / macOS pfctl，均有 5s 超时 + CREATE_NO_WINDOW）、请求日志表（可配置自动轮询，默认 5s，1s-60s 范围）、出口 IP 探测（HTTP+SOCKS5 到 1.1.1.1/cdn-cgi/trace）、端口健康检查（TCP 连接延时）、sidecar 日志缓冲区、日志目录按钮。替代原先拥挤的 Settings > Diagnostics 面板（T7 重构）。
 
 ## 架构
 

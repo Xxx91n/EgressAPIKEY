@@ -35,6 +35,7 @@ The **Platforms** tab is a dual-pane key-to-platform surface:
 
 The **Nodes** tab is a collapsible tree grouped by subscription source (clash-verge-dev pattern). Each subscription expands to show its nodes with real-time latency (green <200ms / yellow 200-500ms / red >500ms / gray timeout), `display_tag`, `region`, and health. Plus a protocol-weight reference card (SSE suitability: http/socks5/vmess=1.0, shadowsocks=0.7, hysteria2/tuic/wireguard=0.1). The Platforms tab hosts the strategy engine panel (ADR-0022): A-class selects which IPs enter a platform (manual / region / quality_score / subscription_source, gated by auto-probe liveness), B-class selects how the port picks an exit IP (random / round-robin / low-latency). Whitebox config at `egressapikey-strategy.json`.
 
+The **Diagnostics** tab is a full diagnostics hub (sole entry point, no redundancy with Settings): sidecar status card (port/mode/PID/healthz/IPC latency), firewall status (cross-platform: Windows Get-NetFirewallProfile / Linux systemctl-ufw-firewalld / macOS pfctl, all with 5s timeout + CREATE_NO_WINDOW), request log table with configurable auto-poll (default 5s, 1s-60s range), exit IP probe (HTTP+SOCKS5 to 1.1.1.1/cdn-cgi/trace), port health check (TCP connect latency), sidecar log buffer, and a log directory button. Replaces the former cramped Settings > Diagnostics panel (T7 refactor).
 
 ## Docs
 
