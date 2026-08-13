@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Local reproduction of the CI matrix. Builds the frontend, then:
-#   - backend headless (resin-core): compile-guard only, NOT staged (P0 stub,
-#     see crates/resin-core/src/bin/resin_core.rs - logs + exits, no listener)
+#   - backend (resin-core): compile-guard + staged to release/${NAME}-backend.tar.gz
+
 #   - GUI installer bundles (msi/nsis setup, deb, AppImage, dmg) -> release/${NAME}-gui/
 #   - GUI portable binary -> release/${NAME}-gui/EgressAPIKEY(.exe)
 # Both GUI paths MUST pass --features custom-protocol (AGENTS.md section 5):
@@ -36,9 +36,9 @@ cargo test -p resin-core --lib --quiet || { echo "[build-all] cargo test failed"
 npx --no-install vitest run --reporter=dot || { echo "[build-all] vitest failed"; exit 1; }
 node scripts/i18n-check.cjs || { echo "[build-all] i18n check failed"; exit 1; }
 
-echo "[build-all] backend headless compile-guard (resin-core, NOT staged)"
+echo "[build-all] backend compile-guard + tar.gz staging (resin-core)"
 cargo build --release -p resin-core || { echo "[build-all] resin-core build failed"; exit 1; }
-echo "[build-all] resin-core compiles OK (stub - not staged)"
+echo "[build-all] resin-core compiles OK"
 
 # T9-5: Stage backend tar.gz
 BACKEND_STAGE="release/${NAME}-backend"

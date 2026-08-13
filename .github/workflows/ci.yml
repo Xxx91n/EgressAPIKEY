@@ -221,7 +221,7 @@ jobs:
             target: aarch64-apple-darwin
             name: macos-gui-portable-arm64
             ubuntuDeps: false
-            bin: egressapikey
+            bin: EgressAPIKEY
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
