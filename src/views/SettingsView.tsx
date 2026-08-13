@@ -137,7 +137,7 @@ export function SettingsView() {
     setReputationConfig(reputation);
     setBaseline({ reputationConfig: reputation });
     // T6-3: also load network-layer config from whitebox
-    void ipcWhiteboxGet().then((wb) => setNetCfg(wb.network ?? {})).catch(() => {});
+    void ipcWhiteboxGet().then((wb) => setNetCfg(wb.network ?? {})).catch((e) => console.warn("[SettingsView] ipcWhiteboxGet failed", e));
     })();
     return () => { cancelled = true; };
   }, []);
@@ -161,7 +161,7 @@ export function SettingsView() {
     await saveLocale(next);
     // Re-localise the OS tray AFTER the persisted lang is flushed so current_lang
     // reads the new value (race fix for tray i18n lag). Best-effort outside Tauri.
-    await invoke("tray_refresh_labels").catch(() => {});
+    await invoke("tray_refresh_labels").catch((e) => console.warn("[SettingsView] tray_refresh_labels failed", e));
   };
 
   const changeTheme = async (next: Theme) => {

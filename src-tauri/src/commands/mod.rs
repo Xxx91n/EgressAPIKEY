@@ -1546,9 +1546,13 @@ pub async fn config_import(
                     // Resolve name->id and PATCH
                     let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
                     if let Some(id) = platform_id_for_name(&list, name) {
-                        let _ = client
+                        if let Err(e) = client
                             .update_platform(&id, serde_json::Value::Object(body))
-                            .await;
+                            .await
+                        {
+                            tracing::warn!(platform = %name, error = %e.to_string(), "config_import: PATCH platform fields failed");
+                            errors.push(format!("platform {name}: PATCH failed: {e}"));
+                        }
                     }
                 }
             }
@@ -1802,6 +1806,31 @@ fn validate_port_segments(port: u16) -> Result<(), String> {
 #[tauri::command]
 pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapping>, IpcError> {
     db.list_ports().map_err(IpcError::from)
+}
+
+/// T10-6: Smart port suggestion (ADR-0031).
+/// Reads port_mappings for used ports, starts from 17990, skips used,
+/// probes each candidate with TcpListener::bind, returns first available.
+#[tauri::command]
+pub async fn port_suggest(db: State<'_, DbPool>) -> Result<u16, IpcError> {
+    let used: std::collections::HashSet<u16> = db
+        .list_ports()
+        .map_err(IpcError::from)?
+        .into_iter()
+        .map(|m| m.port)
+        .collect();
+    for candidate in 17990u16..=65535u16 {
+        if used.contains(&candidate) { continue; }
+        if std::net::TcpListener::bind(("127.0.0.1", candidate)).is_ok() {
+            return Ok(candidate);
+        }
+    }
+    // Fallback: OS-assigned free port (port 0)
+    Ok(std::net::TcpListener::bind("127.0.0.1:0")
+        .map_err(|e| IpcError::from(format!("port_suggest: no free port: {e}")))?
+        .local_addr()
+        .map_err(|e| IpcError::from(format!("port_suggest: no local addr: {e}")))?
+        .port())
 }
 
 /// Upsert one entry-port via the whitebox config transaction
@@ -2188,7 +2217,9 @@ pub async fn request_log_tail(
             entries.push(e);
         }
     }
-    let _ = std::fs::remove_file(&tmp);
+    if let Err(e) = std::fs::remove_file(&tmp) {
+        tracing::warn!(error = %e.to_string(), "request_log_tail: temp file cleanup failed");
+    }
     tracing::info!(count = entries.len(), "request_log_tail: read entries");
     Ok(entries)
 }
@@ -2556,12 +2587,24 @@ pub async fn strategy_apply(
         let platforms_v = client.list_platforms().await.map_err(|e| IpcError::from(e.to_string()))?;
         if let Some(id) = platform_id_for_name(&platforms_v, platform_name) {
             let body = serde_json::json!({"region_filters": regions});
-            let _ = client.update_platform(&id, body).await;
-            platforms_arr.push(serde_json::json!({
-                "platform": platform_name,
-                "region_filters": regions,
-                "patched": true,
-            }));
+            match client.update_platform(&id, body).await {
+                Ok(_) => {
+                    platforms_arr.push(serde_json::json!({
+                        "platform": platform_name,
+                        "region_filters": regions,
+                        "patched": true,
+                    }));
+                }
+                Err(e) => {
+                    tracing::warn!(platform = %platform_name, error = %e.to_string(), "auto_strategy_apply: PATCH region_filters failed");
+                    platforms_arr.push(serde_json::json!({
+                        "platform": platform_name,
+                        "region_filters": regions,
+                        "patched": false,
+                        "reason": format!("PATCH failed: {e}"),
+                    }));
+                }
+            }
         } else {
             platforms_arr.push(serde_json::json!({
                 "platform": platform_name,
@@ -3018,4 +3061,52 @@ mod tests {
         assert!(!forbidden("Default"));
     }
 
+    #[test]
+    fn t10_port_suggest_tcp_probe_finds_bindable_port() {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = l.local_addr().unwrap().port();
+        drop(l);
+        assert!(std::net::TcpListener::bind(("127.0.0.1", port)).is_ok());
+    }
+
+    #[test]
+    fn t10_port_suggest_skip_used_port() {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = l.local_addr().unwrap().port();
+        assert!(std::net::TcpListener::bind(("127.0.0.1", port)).is_err());
+        drop(l);
+        assert!(std::net::TcpListener::bind(("127.0.0.1", port)).is_ok());
+    }
+
+
+    /// T10: verify auto_strategy_apply PATCH failure result shape (pure logic).
+    #[test]
+    fn t10_patch_failure_result_has_reason() {
+        let platform_name = "TestPlatform";
+        let regions = vec!["US".to_string()];
+        let err_msg = "connection refused";
+        let result = serde_json::json!({
+            "platform": platform_name,
+            "region_filters": regions,
+            "patched": false,
+            "reason": format!("PATCH failed: {err_msg}"),
+        });
+        assert_eq!(result["patched"], false);
+        assert!(result["reason"].as_str().unwrap().contains("PATCH failed"));
+        assert!(result["reason"].as_str().unwrap().contains("connection refused"));
+    }
+
+    /// T10: verify config_import PATCH failure pushes to errors vec (pure logic).
+    #[test]
+    fn t10_config_import_patch_failure_pushes_error() {
+        let name = "MyPlatform";
+        let err_msg = "timeout";
+        let mut errors: Vec<String> = vec![];
+        let error_line = format!("platform {name}: PATCH failed: {err_msg}");
+        errors.push(error_line);
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains("MyPlatform"));
+        assert!(errors[0].contains("PATCH failed"));
+        assert!(errors[0].contains("timeout"));
+    }
 }

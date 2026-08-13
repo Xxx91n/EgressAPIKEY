@@ -61,6 +61,9 @@ pub struct PlatformStrategy {
     pub a_class: AClassStrategy,
     /// B-class: how to pick exit IP (maps to Resin allocation_policy).
     pub b_class: StrategyId,
+    /// For manual strategy: list of selected node hashes.
+    #[serde(default)]
+    pub manual_nodes: Vec<String>,
     /// For region strategy: list of allowed region codes.
     #[serde(default)]
     pub regions: Vec<String>,
@@ -279,6 +282,7 @@ mod tests {
             regions: vec!["HK".into(), "JP".into()],
             subscriptions: vec![],
             top_n: 10,
+                    manual_nodes: vec![],
         };
         let healthy: Vec<&NodeSummary> = vec![];
         let regions = a_class_regions(&ps, &healthy);
@@ -300,6 +304,7 @@ mod tests {
             regions: vec!["HK".into(), "JP".into()],
             subscriptions: vec![],
             top_n: 10,
+                    manual_nodes: vec![],
         };
         let regions = a_class_regions(&ps, &healthy);
         assert!(regions.contains(&"HK".to_string()));
@@ -323,6 +328,7 @@ mod tests {
             regions: vec![],
             subscriptions: vec![],
             top_n: 2,
+                    manual_nodes: vec![],
         };
         let regions = a_class_regions(&ps, &healthy);
         // Top 2 by latency: HK (100ms) + JP (150ms)
@@ -346,6 +352,7 @@ mod tests {
             regions: vec![],
             subscriptions: vec!["alpha".into()],
             top_n: 10,
+                    manual_nodes: vec![],
         };
         let regions = a_class_regions(&ps, &healthy);
         assert!(regions.contains(&"HK".to_string()));
@@ -368,7 +375,8 @@ mod tests {
                 regions: vec!["HK".into()],
                 subscriptions: vec![],
                 top_n: 10,
-            }],
+                        manual_nodes: vec![],
+        }],
         };
         let plan = compute_plan(&config, &nodes);
         assert_eq!(plan.get("p1").unwrap(), &vec!["HK".to_string()]);

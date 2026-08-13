@@ -150,7 +150,10 @@
     "socks5Auth": "Utente SOCKS5",
     "splitHint": "Sinistra: porte di ingresso (identità). Trascina una porta su una piattaforma. Destra: piattaforme e lease.",
     "title": "Piattaforme",
-    "unbound": "Non collegato"
+    "unbound": "Non collegato",
+    "leasesPill": "Lease",
+    "nodesPill": "Nodi",
+    "portSuggested": "Suggerito"
   },
   "policy": {
     "balanced": "Bilanciato",
@@ -222,7 +225,13 @@
     "bQuality": "Punteggio qualita IP",
     "circuitBreaker": "Interruttore",
     "circuitBreakerThreshold": "Fallimenti consecutivi max prima dell'isolamento",
-    "stickyTtlHint": "0 = nessuna persistenza (ogni richiesta può usare un IP di uscita diverso); valore più alto lega la stessa chiave API allo stesso IP più a lungo"
+    "stickyTtlHint": "0 = nessuna persistenza (ogni richiesta può usare un IP di uscita diverso); valore più alto lega la stessa chiave API allo stesso IP più a lungo",
+    "aClassTitle": "Selezione nodi",
+    "bClassTitle": "Selezione uscita",
+    "manualSelect": "Seleziona nodi manualmente",
+    "regionSelect": "Seleziona per regione",
+    "subscriptionSelect": "Seleziona per abbonamento",
+    "qualityPreview": "Top 3 nodi"
   },
   "subscription": {
     "title": "Sottoscrizioni",

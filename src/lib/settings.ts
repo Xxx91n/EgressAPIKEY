@@ -304,3 +304,18 @@ export async function saveIpReputationConfig(cfg: IpReputationConfig): Promise<v
     await store().save();
   } catch (e) { console.warn("[settings] reputation save failed:", e); }
 }
+
+// --- T10-3: Port auth default toggle persistence (ADR-0031) ---
+export async function loadPortAuthDefault(): Promise<boolean | null> {
+  try {
+    const v = await store().get<boolean>("portAuthDefault");
+    return typeof v === "boolean" ? v : true; // default true for backward compat
+  } catch { return true; }
+}
+
+export async function savePortAuthDefault(value: boolean): Promise<void> {
+  try {
+    await store().set("portAuthDefault", value);
+    await store().save();
+  } catch (e) { console.warn("[settings] savePortAuthDefault failed:", e); }
+}

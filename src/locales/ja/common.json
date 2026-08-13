@@ -150,7 +150,10 @@
     "socks5Auth": "SOCKS5 ユーザー",
     "splitHint": "左：エントリポート（識別子）。ポートをプラットフォームへドラッグしてバインド。右：プラットフォームとリース。",
     "title": "プラットフォーム",
-    "unbound": "未割当"
+    "unbound": "未割当",
+    "leasesPill": "リース",
+    "nodesPill": "ノード",
+    "portSuggested": "推奨"
   },
   "policy": {
     "balanced": "バランス",
@@ -222,7 +225,13 @@
     "bQuality": "IP品質スコア",
     "circuitBreaker": "サーキットブレーカー",
     "circuitBreakerThreshold": "ノード隔離前の最大連続失敗回数",
-    "stickyTtlHint": "0 = スティッキーなし（各リクエストが異なる出口IPを使用する可能性あり）; 高い値ほど同じAPIキーを同じIPに長くバインド"
+    "stickyTtlHint": "0 = スティッキーなし（各リクエストが異なる出口IPを使用する可能性あり）; 高い値ほど同じAPIキーを同じIPに長くバインド",
+    "aClassTitle": "ノード選択",
+    "bClassTitle": "エグレス選択",
+    "manualSelect": "手動ノード選択",
+    "regionSelect": "地域で選択",
+    "subscriptionSelect": "サブスクリプションで選択",
+    "qualityPreview": "トップ3ノード"
   },
   "subscription": {
     "title": "サブスクリプション",

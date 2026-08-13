@@ -150,7 +150,10 @@
     "socks5Auth": "Người dùng SOCKS5",
     "splitHint": "Trái: cổng vào (định danh). Kéo cổng vào platform. Phải: platform và lease.",
     "title": "Nền tảng",
-    "unbound": "Chưa gắn"
+    "unbound": "Chưa gắn",
+    "leasesPill": "Thuê",
+    "nodesPill": "Nút",
+    "portSuggested": "Đề xuất"
   },
   "policy": {
     "balanced": "Can bang",
@@ -222,7 +225,13 @@
     "bQuality": "Diem chat luong IP",
     "circuitBreaker": "Bộ ngắt mạch",
     "circuitBreakerThreshold": "Số lần thất bại liên tiếp tối đa trước khi cô lập",
-    "stickyTtlHint": "0 = không dính (mỗi yêu cầu có thể sử dụng IP đầu ra khác); giá trị cao hơn liên kết cùng khóa API với cùng IP lâu hơn"
+    "stickyTtlHint": "0 = không dính (mỗi yêu cầu có thể sử dụng IP đầu ra khác); giá trị cao hơn liên kết cùng khóa API với cùng IP lâu hơn",
+    "aClassTitle": "Chọn nút",
+    "bClassTitle": "Chọn lối ra",
+    "manualSelect": "Chọn nút thủ công",
+    "regionSelect": "Chọn theo khu vực",
+    "subscriptionSelect": "Chọn theo đăng ký",
+    "qualityPreview": "Top 3 nút"
   },
   "subscription": {
     "title": "Đăng ký",

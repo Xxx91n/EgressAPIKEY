@@ -150,7 +150,10 @@
     "socks5Auth": "SOCKS5 사용자",
     "splitHint": "왼쪽: 엔트리 포트(식별자). 포트를 플랫폼으로 드래그. 오른쪽: 플랫폼과 리스.",
     "title": "플랫폼",
-    "unbound": "바인드되지 않음"
+    "unbound": "바인드되지 않음",
+    "leasesPill": "리스",
+    "nodesPill": "노드",
+    "portSuggested": "제안"
   },
   "policy": {
     "balanced": "균형",
@@ -222,7 +225,13 @@
     "bQuality": "IP 품질 점수",
     "circuitBreaker": "서킷 브레이커",
     "circuitBreakerThreshold": "노드 격리 전 최대 연속 실패",
-    "stickyTtlHint": "0 = 고정 없음 (각 요청이 다른 출구 IP를 사용할 수 있음); 값이 높을수록 동일한 API 키를 동일한 IP에 더 오래 바인딩"
+    "stickyTtlHint": "0 = 고정 없음 (각 요청이 다른 출구 IP를 사용할 수 있음); 값이 높을수록 동일한 API 키를 동일한 IP에 더 오래 바인딩",
+    "aClassTitle": "노드 선택",
+    "bClassTitle": "이그레스 선택",
+    "manualSelect": "수동 노드 선택",
+    "regionSelect": "지역별 선택",
+    "subscriptionSelect": "구독별 선택",
+    "qualityPreview": "상위 3개 노드"
   },
   "subscription": {
     "title": "구독",

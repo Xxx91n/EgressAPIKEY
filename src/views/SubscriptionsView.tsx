@@ -138,7 +138,7 @@ export function SubscriptionsView() {
       // of the hand-sorted list on subsequent refreshes.
       const newOrder = [...localOrder, n];
       setLocalOrder(newOrder);
-      void saveSubOrder(newOrder).catch(() => {});
+      void saveSubOrder(newOrder).catch((e) => console.warn("[SubscriptionsView] saveSubOrder failed", e));
       await new Promise((r) => setTimeout(r, 50));
       await refreshWithRetry();
       try {
@@ -160,7 +160,7 @@ export function SubscriptionsView() {
       await ipcSubscriptionRemove(subName);
       const newOrder = localOrder.filter((n) => n !== subName);
       setLocalOrder(newOrder);
-      void saveSubOrder(newOrder).catch(() => {});
+      void saveSubOrder(newOrder).catch((e) => console.warn("[SubscriptionsView] saveSubOrder failed", e));
       await refresh();
     } catch { /* local */ }
     setBusy(false);
@@ -205,7 +205,7 @@ export function SubscriptionsView() {
         ? localOrder.map((n) => (n === oldName ? renamed : n))
         : [...localOrder, renamed];
       setLocalOrder(newOrder);
-      void saveSubOrder(newOrder).catch(() => {});
+      void saveSubOrder(newOrder).catch((e) => console.warn("[SubscriptionsView] saveSubOrder failed", e));
       await refreshWithRetry();
       setToast({ kind: "ok", msg: t("subscription.renameOk", { name: renamed }) });
     } catch (e: unknown) {
@@ -223,7 +223,7 @@ export function SubscriptionsView() {
   /// path bypasses applyOrder entirely: serverList goes straight to setLive.
   const handleResetOrder = async () => {
     setLocalOrder([]);
-    void saveSubOrder([]).catch(() => {});
+    void saveSubOrder([]).catch((e) => console.warn("[SubscriptionsView] saveSubOrder failed", e));
     try {
       const serverList = await ipcSubscriptionList();
       setLive(serverList);
@@ -285,7 +285,7 @@ export function SubscriptionsView() {
         dragSrc.current = i;
         const newOrder = next.map((x) => x.name);
         setLocalOrder(newOrder);
-        void saveSubOrder(newOrder).catch(() => {});
+        void saveSubOrder(newOrder).catch((e) => console.warn("[SubscriptionsView] saveSubOrder failed", e));
         return next;
       });
     }

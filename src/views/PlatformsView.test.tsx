@@ -202,48 +202,59 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(screen.getByText("No platforms configured.")).toBeInTheDocument();
   });
 
-  it("T4-4 strategy: shows a strategy row per platform with A-class + B-class selects", async () => {
+  it("T10-1: A/B split card renders with chip-based A-class + B-class panes", async () => {
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
       if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17990", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
       return Promise.resolve(undefined);
     });
 
     render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
-    // B-class select is in card header (always visible)
-    expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument();
-    // Expand the card to reveal A-class inline strategy
-        await waitFor(() => expect(screen.getByTestId("strategy-inline-Default")).toBeInTheDocument());
-    expect(screen.getByTestId("strategy-aclass-Default")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument(), { timeout: 3000 });
+    // T10-1: A/B split layout is always visible (no expand needed)
+    expect(screen.getByTestId("strategy-split-Default")).toBeInTheDocument();
+    // T10-1: A-class chips pane (left, 50%)
+    expect(screen.getByTestId("strategy-aclass-chips-Default")).toBeInTheDocument();
+    // T10-1: B-class chips pane (right, 50%)
+    expect(screen.getByTestId("strategy-bclass-chips-Default")).toBeInTheDocument();
+    // T10-5: leases/nodes pill in right-top (no text summary)
+    expect(screen.getByTestId("platform-stats-pill-Default")).toBeInTheDocument();
   });
 
-  it("T4-4 strategy: changing A-class to region reveals regionsInput + tag chips after add", async () => {
+  it("T10-2: clicking A-class region chip reveals region toggle chips", async () => {
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
       if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([{ display_tag: "HK-1", region: "HK", node_hash: "h1" }, { display_tag: "JP-1", region: "JP", node_hash: "h2" }]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17990", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
       return Promise.resolve(undefined);
     });
 
     render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
-        await waitFor(() => expect(screen.getByTestId("strategy-aclass-Default")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByTestId("strategy-aclass-chips-Default")).toBeInTheDocument(), { timeout: 3000 });
 
-    // Change A-class select to region
-    fireEvent.change(screen.getByTestId("strategy-aclass-Default"), { target: { value: "region" } });
-    await waitFor(() => expect(screen.getByTestId("strategy-regions-input-Default")).toBeInTheDocument());
-
-    // Verify the regions input is visible and accepts text
-    const regInput = screen.getByTestId("strategy-regions-input-Default");
-    expect(regInput).toHaveAttribute("placeholder", "US,SG,JP");
-    fireEvent.change(regInput, { target: { value: "GH" } });
-    expect((regInput as HTMLInputElement).value).toBe("GH");
+    // Click the region A-class chip
+    fireEvent.click(screen.getByTestId("strategy-aclass-region-Default"));
+    // T10-2: region toggle chips should appear (from nodeList distinct regions)
+    await waitFor(() => expect(screen.getByTestId("strategy-region-chips-Default")).toBeInTheDocument(), { timeout: 3000 });
+    // T10-2: HK and JP toggle chips exist
+    expect(screen.getByTestId("strategy-region-chip-HK")).toBeInTheDocument();
+    expect(screen.getByTestId("strategy-region-chip-JP")).toBeInTheDocument();
   });
 
   it("T4-4 strategy: apply button calls strategy_config_put + strategy_apply", async () => {
@@ -271,55 +282,69 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(applyCalled).toBe(true));
   });
 
-  it("T5-4 B-class: selector has 6 StrategyId options (random/sequential/latency/quality/bandwidth/protocol_weight)", async () => {
+  it("T10-1: B-class chip pane shows 6 strategy options as toggle chips", async () => {
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
       if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17990", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
       return Promise.resolve(undefined);
     });
     render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument());
-    const sel = screen.getByTestId("strategy-bclass-Default") as HTMLSelectElement;
-    const opts = Array.from(sel.options).map((o) => o.value);
-    expect(opts).toEqual(["random", "sequential", "latency", "quality", "bandwidth", "protocol_weight"]);
+    await waitFor(() => expect(screen.getByTestId("strategy-bclass-chips-Default")).toBeInTheDocument(), { timeout: 3000 });
+    // 6 B-class chip buttons: one per StrategyId
+    const ids = ["random", "sequential", "latency", "quality", "bandwidth", "protocol_weight"];
+    for (const s of ids) {
+      expect(screen.getByTestId("strategy-bclass-" + s + "-Default")).toBeInTheDocument();
+    }
   });
 
-  it("T5-4 B-class: default value is random (not balanced)", async () => {
+  it("T10-1: B-class default chip (random) has active style", async () => {
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
       if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17990", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
       return Promise.resolve(undefined);
     });
     render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument());
-    const sel = screen.getByTestId("strategy-bclass-Default") as HTMLSelectElement;
-    expect(sel.value).toBe("random");
+    await waitFor(() => expect(screen.getByTestId("strategy-bclass-random-Default")).toBeInTheDocument(), { timeout: 3000 });
+    const randomChip = screen.getByTestId("strategy-bclass-random-Default");
+    expect(randomChip.className).toContain("bg-primary");
   });
 
-  it("T5-4 B-class: changing select fires platform_update (inline strategy merge)", async () => {
+  it("T10-1: clicking B-class latency chip fires platform_update", async () => {
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
       if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
-      if (cmd === "strategy_config_put") return Promise.resolve(null);
-      if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17990", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      if (cmd === "platform_update") return Promise.resolve({ ok: true });
       return Promise.resolve(undefined);
     });
     render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument());
-    const sel = screen.getByTestId("strategy-bclass-Default") as HTMLSelectElement;
-    fireEvent.change(sel, { target: { value: "latency" } });
-    // B-class select now PATCHes Resin directly via ipcPlatformUpdate
-    // sel.value stays "random" because the mock platform_list_full doesn't return updated policy
-    await waitFor(() => expect(invokeMock.mock.calls.some((c2) => c2[0] === "platform_update")).toBe(true));
+    await waitFor(() => expect(screen.getByTestId("strategy-bclass-latency-Default")).toBeInTheDocument(), { timeout: 3000 });
+    fireEvent.click(screen.getByTestId("strategy-bclass-latency-Default"));
+    // T10-1: clicking B-class chip fires platform_update IPC
+    await waitFor(() => expect(invokeMock.mock.calls.some((c2) => c2[0] === "platform_update")).toBe(true), { timeout: 3000 });
   });
 
   it("Bug4: SOCKS5 port shows SOCKS5 auth credentials when auth_required", async () => {
@@ -465,19 +490,22 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(portRow.textContent).toContain("Unbound");
   });
 
-  it("T8-4: strategy-aclass-badge is always visible on platform card (no expand needed)", async () => {
+  it("T10-5: A-class chips pane is always visible (no expand needed)", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([samplePort]);
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
-      if (cmd === "strategy_config_get") return Promise.resolve({ platforms: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
       if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
       if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17990", auth_required: false, proxy_token: "tok", protocol: "socks5" });
       return Promise.resolve(undefined);
     });
     render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
-    expect(screen.getByTestId("strategy-aclass-badge-Default")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument(), { timeout: 3000 });
+    expect(screen.getByTestId("strategy-aclass-chips-Default")).toBeInTheDocument();
   });
 
   it("T8-5: strategy-toggle chevron is NOT present (removed)", async () => {
@@ -495,25 +523,27 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(screen.queryByTestId("strategy-toggle-Default")).toBeNull();
   });
 
-  it("T8-6: region strategy renders with region aClass from config", async () => {
+  it("T10-2: region strategy from config renders region chip toggle with US+JP selected", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([samplePort]);
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
       if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "region", regions: ["US", "JP"] }] });
-      if (cmd === "strategy_config_put") return Promise.resolve(true);
-      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "node_list") return Promise.resolve([{ display_tag: "US-node", region: "US", node_hash: "us1" }, { display_tag: "JP-node", region: "JP", node_hash: "jp1" }]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
       if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17990", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "strategy_config_put") return Promise.resolve(true);
       return Promise.resolve(undefined);
     });
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument(), { timeout: 3000 });
-    // Wait for strategy config to load and aClass select to reflect "region"
-    await waitFor(() => {
-      const select = screen.getByTestId("strategy-aclass-Default") as HTMLSelectElement;
-      expect(select.value).toBe("region");
-    }, { timeout: 3000 });
-    // The region input should be visible
-    expect(screen.getByTestId("strategy-regions-input-Default")).toBeInTheDocument();
+    // T10-2: region chip pane is visible with US+JP from config
+    await waitFor(() => expect(screen.getByTestId("strategy-region-chips-Default")).toBeInTheDocument(), { timeout: 3000 });
+    expect(screen.getByTestId("strategy-region-chip-US")).toBeInTheDocument();
+    expect(screen.getByTestId("strategy-region-chip-JP")).toBeInTheDocument();
+    // US chip should be active (selected) since config has regions: ["US", "JP"]
+    expect(screen.getByTestId("strategy-region-chip-US").className).toContain("bg-blue-500");
   });
 });

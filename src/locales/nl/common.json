@@ -150,7 +150,10 @@
     "socks5Auth": "SOCKS5-gebruiker",
     "splitHint": "Links: invoerpoorten (identiteit). Sleep een poort naar een platform. Rechts: platforms en leases.",
     "title": "Platforms",
-    "unbound": "Niet gekoppeld"
+    "unbound": "Niet gekoppeld",
+    "leasesPill": "Leases",
+    "nodesPill": "Knopen",
+    "portSuggested": "Voorgesteld"
   },
   "policy": {
     "balanced": "Gebalanceerd",
@@ -222,7 +225,13 @@
     "bQuality": "IP-kwaliteitsscore",
     "circuitBreaker": "Stroomonderbreker",
     "circuitBreakerThreshold": "Max opeenvolgende fouten voor isolatie",
-    "stickyTtlHint": "0 = geen vastheid (elk verzoek kan een andere uitgangs-IP gebruiken); hogere waarde bindt dezelfde API-sleutel langer aan dezelfde IP"
+    "stickyTtlHint": "0 = geen vastheid (elk verzoek kan een andere uitgangs-IP gebruiken); hogere waarde bindt dezelfde API-sleutel langer aan dezelfde IP",
+    "aClassTitle": "Knoopselectie",
+    "bClassTitle": "Uitgangselectie",
+    "manualSelect": "Knoopen handmatig selecteren",
+    "regionSelect": "Selecteer per regio",
+    "subscriptionSelect": "Selecteer per abonnement",
+    "qualityPreview": "Top 3 knopen"
   },
   "subscription": {
     "title": "Abonnementen",

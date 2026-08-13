@@ -150,7 +150,10 @@
     "socks5Auth": "SOCKS5 user",
     "splitHint": "Left: entry ports (identity). Drag a port onto a platform to bind. Right: platforms + leases.",
     "title": "Platforms",
-    "unbound": "Unbound"
+    "unbound": "Unbound",
+    "leasesPill": "Leases",
+    "nodesPill": "Nodes",
+    "portSuggested": "Suggested"
   },
   "policy": {
     "balanced": "Balanced",
@@ -222,7 +225,13 @@
     "protocolWeight": "Protocol-weighted",
     "circuitBreaker": "Circuit Breaker",
     "circuitBreakerThreshold": "Max consecutive failures before node isolation",
-    "stickyTtlHint": "0 = no stickiness (every request may use a different exit IP); higher value binds the same API key to the same IP longer"
+    "stickyTtlHint": "0 = no stickiness (every request may use a different exit IP); higher value binds the same API key to the same IP longer",
+    "aClassTitle": "Node Selection",
+    "bClassTitle": "Egress Selection",
+    "manualSelect": "Select nodes manually",
+    "regionSelect": "Select by region",
+    "subscriptionSelect": "Select by subscription",
+    "qualityPreview": "Top-3 nodes"
   },
   "subscription": {
     "title": "Subscriptions",

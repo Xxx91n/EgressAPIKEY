@@ -150,7 +150,10 @@
     "socks5Auth": "مستخدم SOCKS5",
     "splitHint": "اليسار: منافذ الدخول (الهوية). اسحب منفذًا إلى منصة. اليمين: المنصات والإيجارات.",
     "title": "المنصات",
-    "unbound": "غير مرتبط"
+    "unbound": "غير مرتبط",
+    "leasesPill": "عقود إيجار",
+    "nodesPill": "عقد",
+    "portSuggested": "مقترح"
   },
   "policy": {
     "balanced": "متوازن",
@@ -222,7 +225,13 @@
     "bQuality": "تقييم جودة IP",
     "circuitBreaker": "قاطع الدائرة",
     "circuitBreakerThreshold": "أقصى فشل متتالي قبل عزل العقدة",
-    "stickyTtlHint": "0 = بدون ثبابة (كل طلب قد يستخدم IP خروج مختلف); قيمة أعلى تربط نفس مفتاح API بنفس IP لفترة أطول"
+    "stickyTtlHint": "0 = بدون ثبابة (كل طلب قد يستخدم IP خروج مختلف); قيمة أعلى تربط نفس مفتاح API بنفس IP لفترة أطول",
+    "aClassTitle": "اختيار العقد",
+    "bClassTitle": "اختيار المخرج",
+    "manualSelect": "اختيار العقد يدويًا",
+    "regionSelect": "اختيار حسب المنطقة",
+    "subscriptionSelect": "اختيار حسب الاشتراك",
+    "qualityPreview": "أفضل 3 عقد"
   },
   "subscription": {
     "title": "الاشتراكات",

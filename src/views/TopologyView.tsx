@@ -405,7 +405,7 @@ function TopologyCanvas() {
     let unsub: (() => void) | null = null;
     void listen("sidecar-status", (evt) => {
       setSidecarStatus(String((evt as { payload: unknown }).payload ?? ""));
-    }).then((fn) => { unsub = fn as (() => void); }).catch(() => {});
+    }).then((fn) => { unsub = fn as (() => void); }).catch((e) => console.warn("[TopologyView] listen unlisten failed", e));
     return () => { if (unsub) { try { unsub(); } catch { /* ignore */ } } };
   }, [sync]);
 

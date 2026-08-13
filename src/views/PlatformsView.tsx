@@ -20,13 +20,16 @@ import {
   ipcPortRemove,
   ipcPortAuthInfo,
   ipcPortHealthCheck,
+  ipcPortSuggest,
+  ipcNodeList,
+  ipcSubscriptionList,
 
   type PortMapping,
   type PortAuthInfo,
   type PortHealthCheck,
 } from "../lib/ipc";
 import { strategyToI18nKey, strategyToResinPolicy, mapResinToShell, STRATEGY_IDS, type StrategyId } from "../lib/strategy";
-import { loadSplitRatio, saveSplitRatio } from "../lib/settings";
+import { loadSplitRatio, saveSplitRatio, loadPortAuthDefault, savePortAuthDefault } from "../lib/settings";
 
 /** Phase 5 / ADR-0012: left = Entry Ports, right = Platforms. Port = identity. */
 interface PlatformInfoFull {
@@ -37,6 +40,8 @@ interface PlatformInfoFull {
   routableNodeCount: number;
   stickyTtl: string;
 }
+
+interface NodeEntry { display_tag: string; region: string; node_hash: string; }
 
 export function PlatformsView() {
   const { t } = useTranslation();
@@ -67,9 +72,10 @@ export function PlatformsView() {
   // T4-4: strategy panel state.
   const [strategyConfig, setStrategyConfig] = useState<StrategyConfig>({ version: 1, platforms: [] });
   const [strategyBusy, setStrategyBusy] = useState(false);
-  const [strategyRegionsInput, setStrategyRegionsInput] = useState<Record<string, string>>({});
-  const [strategySubsInput, setStrategySubsInput] = useState<Record<string, string>>({});
   const [strategyTopNInput, setStrategyTopNInput] = useState<Record<string, string>>({});
+  // T10-2: node list + subscription list for chip-based A-class selectors.
+  const [nodeList, setNodeList] = useState<NodeEntry[]>([]);
+  const [subList, setSubList] = useState<{ name: string; node_count: number }[]>([]);
   /// Collapsible inline strategy panel: which platform card is expanded.
   const refreshStrategy = useCallback(async () => {
     try {
@@ -104,39 +110,9 @@ export function PlatformsView() {
     finally { setStrategyBusy(false); }
   };
 
-  const handleAddRegion = (platformName: string) => {
-    const input = (strategyRegionsInput[platformName] ?? "").trim();
-    if (!input) return;
-    const regions = input.split(",").map((r) => r.trim().toLowerCase()).filter(Boolean);
-    const existing = strategyConfig.platforms.find((p) => p.platform_name === platformName);
-    const current = existing?.regions ?? [];
-    const merged = [...new Set([...current, ...regions])];
-    updateStrategyField(platformName, "regions", merged);
-    setStrategyRegionsInput((s) => ({ ...s, [platformName]: "" }));
-  };
 
-  const handleAddSub = (platformName: string) => {
-    const input = (strategySubsInput[platformName] ?? "").trim();
-    if (!input) return;
-    const subs = input.split(",").map((s) => s.trim()).filter(Boolean);
-    const existing = strategyConfig.platforms.find((p) => p.platform_name === platformName);
-    const current = existing?.subscriptions ?? [];
-    const merged = [...new Set([...current, ...subs])];
-    updateStrategyField(platformName, "subscriptions", merged);
-    setStrategySubsInput((s) => ({ ...s, [platformName]: "" }));
-  };
 
-  const removeRegion = (platformName: string, region: string) => {
-    const existing = strategyConfig.platforms.find((p) => p.platform_name === platformName);
-    const current = existing?.regions ?? [];
-    updateStrategyField(platformName, "regions", current.filter((r) => r !== region));
-  };
 
-  const removeSub = (platformName: string, sub: string) => {
-    const existing = strategyConfig.platforms.find((p) => p.platform_name === platformName);
-    const current = existing?.subscriptions ?? [];
-    updateStrategyField(platformName, "subscriptions", current.filter((s) => s !== sub));
-  };
 
   const containerRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
@@ -213,7 +189,11 @@ export function PlatformsView() {
   };
 
   useEffect(() => {
-    loadSplitRatio().then((r) => { if (typeof r === "number" && r > 0.15 && r < 0.85) setSplitRatio(r); }).catch(() => {});
+    loadSplitRatio().then((r) => { if (typeof r === "number" && r > 0.15 && r < 0.85) setSplitRatio(r); }).catch((e) => console.warn("[PlatformsView] loadSplitRatio failed", e));
+    loadPortAuthDefault().then((v) => { if (typeof v === "boolean") setNewAuthRequired(v); }).catch((e) => console.warn("[PlatformsView] loadPortAuthDefault failed", e));
+    ipcPortSuggest().then((p) => { setNewPort(String(p)); }).catch((e) => console.warn("[PlatformsView] ipcPortSuggest failed", e));
+    ipcNodeList().then((raw) => { const arr = (Array.isArray(raw) ? raw : ((raw as Record<string, unknown>)?.items ?? [])) as Record<string, unknown>[]; setNodeList(arr.map((n) => ({ display_tag: String(n.display_tag ?? ""), region: String(n.region ?? ""), node_hash: String(n.node_hash ?? "") }))); }).catch((e) => console.warn("[PlatformsView] ipcNodeList failed", e));
+    ipcSubscriptionList().then((subs) => { setSubList(subs.map((s) => ({ name: s.name, node_count: s.node_count }))); }).catch((e) => console.warn("[PlatformsView] ipcSubscriptionList failed", e));
     void refreshPorts().then((list) => { void refreshPortAuthAndHealth(list); });
     void refreshPlatforms();
     void refreshStrategy();
@@ -338,7 +318,7 @@ export function PlatformsView() {
               <input className="rounded border bg-background px-2 py-1.5 text-sm" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder={t("platform.portLabel")} data-testid="port-label" />
             </div>
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="port-auth-toggle">
-              <input type="checkbox" checked={newAuthRequired} onChange={(e) => setNewAuthRequired(e.target.checked)} className="h-3.5 w-3.5" />
+              <input type="checkbox" checked={newAuthRequired} onChange={(e) => { setNewAuthRequired(e.target.checked); void savePortAuthDefault(e.target.checked); }} className="h-3.5 w-3.5" />
               {t("platform.requireAuth")}
             </label>
             <button type="button" disabled={busy} onClick={() => void handleAddPort()} className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50" data-testid="port-add">
@@ -424,14 +404,17 @@ export function PlatformsView() {
               const regions = entry?.regions ?? [];
               const subs = entry?.subscriptions ?? [];
               const topN = entry?.top_n ?? 10;
-                      return (
+              const manualNodes = (entry as Record<string, unknown> | undefined)?.manual_nodes as string[] | undefined ?? [];
+              const distinctRegions = [...new Set(nodeList.map((n) => n.region).filter(Boolean))];
+              const top3Preview = nodeList.slice(0, 3).map((n) => n.display_tag + "(" + n.region + ")").join(", ");
+              return (
                 <li key={p.name} className={"rounded-md border bg-card p-3 " + (dragOverPlatform === p.name ? "ring-2 ring-offset-2 ring-primary scale-[1.02] transition" : "")} onPointerEnter={() => { if (draggingPort != null) setDragOverPlatform(p.name); }} onPointerLeave={() => { if (dragOverPlatform === p.name) setDragOverPlatform(null); }} onPointerUp={() => { if (draggingPort != null) void bindPortToPlatform(draggingPort, p.name); }} data-testid={"platform-card-" + p.name}>
+                  {/* T10-5: card top row ? name + leases/nodes pill + delete, NO B-class summary text */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{p.name}</span>
                       </div>
-                      <div className="mt-1 text-xs text-muted-foreground">{t(strategyToI18nKey(p.allocationPolicy)) + " \u00b7 " + t("platform.leases") + ": " + leases.length + " \u00b7 " + t("platform.routableNodes") + ": " + p.routableNodeCount}</div>
                       {bound.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {bound.map((b) => (
@@ -440,75 +423,126 @@ export function PlatformsView() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <select className="rounded border bg-background px-1 py-0.5 text-[11px]" value={p.allocationPolicy} onChange={(e) => { const policy = e.target.value as StrategyId; void ipcPlatformUpdate(p.name, policy).then(() => refreshPlatforms()).catch((e2) => showToast("err", translateError(e2, t))); }} data-testid={"strategy-bclass-" + p.name}>
-                        {STRATEGY_IDS.map((s) => (<option key={s} value={s}>{t(strategyToI18nKey(s))}</option>))}
-                      </select>
+                    <div className="flex items-center gap-1.5">
+                      {/* T10-5: leases/nodes pill in right-top */}
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground" data-testid={"platform-stats-pill-" + p.name}>
+                        {t("platform.leases") + ": " + leases.length + " \u00b7 " + t("platform.routableNodes") + ": " + p.routableNodeCount}
+                      </span>
                       <button type="button" className="rounded p-1 text-muted-foreground hover:text-red-500" onClick={() => void handleDeletePlatform(p.name)}>
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
-                  <div className="mt-2.5 border-t pt-2" data-testid={"strategy-inline-" + p.name}>
-                        <div className="flex items-center gap-1" data-testid={"strategy-aclass-badge-" + p.name}>
-                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">A:{aClass}{regions.length > 0 ? ` (${regions.length})` : ""}{subs.length > 0 ? ` (${subs.length})` : ""}{aClass === "quality" ? ` top${topN}` : ""}</span>
-                        </div>
-                      <div className="flex items-center justify-between gap-2">
+                  {/* T10-1: A/B left-right split card layout, 50/50 width */}
+                  <div className="mt-2.5 border-t pt-2 flex gap-3" data-testid={"strategy-split-" + p.name}>
+                    {/* Left: A-class strategy (50%) */}
+                    <div className="flex-1 min-w-0" data-testid={"strategy-aclass-pane-" + p.name}>
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
                         <span className="text-[10px] font-medium uppercase text-muted-foreground">{t("strategy.aClass")}</span>
                         <button type="button" disabled={strategyBusy} onClick={() => void handleApplyStrategy()} className="inline-flex items-center gap-1 rounded bg-primary px-2 py-0.5 text-[10px] text-primary-foreground disabled:opacity-50" data-testid="strategy-apply">
                           {strategyBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                           {t("strategy.apply")}
                         </button>
                       </div>
-                      <div className="mt-1.5">
-                        <select className="w-full rounded border bg-background px-1.5 py-1 text-[11px]" value={aClass} onChange={(e) => updateStrategyField(p.name, "a_class", e.target.value)} data-testid={"strategy-aclass-" + p.name}>
-                          <option value="manual">{t("strategy.manual")}</option>
-                          <option value="region">{t("strategy.region")}</option>
-                          <option value="quality">{t("strategy.quality")}</option>
-                          <option value="subscription">{t("strategy.subscription")}</option>
-                        </select>
+                      {/* A-class type selector as ToggleGroup chips */}
+                      <div className="flex flex-wrap gap-1" data-testid={"strategy-aclass-chips-" + p.name}>
+                        {["manual", "region", "quality", "subscription"].map((mode) => (
+                          <button key={mode} type="button" disabled={strategyBusy}
+                            className={"rounded px-2 py-0.5 text-[10px] border transition " + (aClass === mode ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:bg-muted")}
+                            onClick={() => updateStrategyField(p.name, "a_class", mode)}
+                            data-testid={"strategy-aclass-" + mode + "-" + p.name}>
+                            {t("strategy." + mode)}
+                          </button>
+                        ))}
                       </div>
+                      {/* T10-2: A-class mode-specific chip selectors */}
+                      {aClass === "manual" && (
+                        <div className="mt-1.5 flex flex-wrap gap-1 max-h-32 overflow-auto" data-testid={"strategy-manual-chips-" + p.name}>
+                          {nodeList.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.manualSelect")}</span>}
+                          {nodeList.map((n) => {
+                            const selected = manualNodes.includes(n.node_hash);
+                            return (
+                              <button key={n.node_hash} type="button"
+                                className={"rounded px-1.5 py-0.5 text-[10px] border transition " + (selected ? "bg-blue-500 text-white border-blue-500" : "bg-background text-muted-foreground border-border hover:bg-muted")}
+                                onClick={() => {
+                                  const newVal = selected ? manualNodes.filter((h) => h !== n.node_hash) : [...manualNodes, n.node_hash];
+                                  updateStrategyField(p.name, "manual_nodes" as keyof PlatformStrategy, newVal as unknown as string);
+                                }}
+                                data-testid={"strategy-manual-chip-" + n.node_hash}>
+                                {n.display_tag}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                       {aClass === "region" && (
-                        <div className="mt-1.5">
-                          <div className="flex gap-1">
-                            <input className="flex-1 rounded border bg-background px-1.5 py-1 text-[11px]" value={strategyRegionsInput[p.name] ?? ""} onChange={(e) => setStrategyRegionsInput((s) => ({ ...s, [p.name]: e.target.value }))} placeholder={t("strategy.regionsHint")} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddRegion(p.name); } }} data-testid={"strategy-regions-input-" + p.name} />
-                            <button type="button" className="rounded border px-1.5 py-1 text-[11px]" onClick={() => handleAddRegion(p.name)}>+</button>
-                          </div>
-                          {regions.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {regions.map((r) => (
-                                <button key={r} type="button" className="inline-flex items-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px]" onClick={() => removeRegion(p.name, r)}>
-                                  {r} <span className="text-red-500">x</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                        <div className="mt-1.5 flex flex-wrap gap-1" data-testid={"strategy-region-chips-" + p.name}>
+                          {distinctRegions.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.regionSelect")}</span>}
+                          {distinctRegions.map((r) => {
+                            const selected = regions.includes(r);
+                            return (
+                              <button key={r} type="button"
+                                className={"rounded px-1.5 py-0.5 text-[10px] border transition " + (selected ? "bg-blue-500 text-white border-blue-500" : "bg-background text-muted-foreground border-border hover:bg-muted")}
+                                onClick={() => {
+                                  const newVal = selected ? regions.filter((x) => x !== r) : [...regions, r];
+                                  updateStrategyField(p.name, "regions", newVal);
+                                }}
+                                data-testid={"strategy-region-chip-" + r}>
+                                {r}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                       {aClass === "subscription" && (
-                        <div className="mt-1.5">
-                          <div className="flex gap-1">
-                            <input className="flex-1 rounded border bg-background px-1.5 py-1 text-[11px]" value={strategySubsInput[p.name] ?? ""} onChange={(e) => setStrategySubsInput((s) => ({ ...s, [p.name]: e.target.value }))} placeholder={t("strategy.subsHint")} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddSub(p.name); } }} data-testid={"strategy-subs-input-" + p.name} />
-                            <button type="button" className="rounded border px-1.5 py-1 text-[11px]" onClick={() => handleAddSub(p.name)}>+</button>
-                          </div>
-                          {subs.length > 0 && (
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {subs.map((s) => (
-                                <button key={s} type="button" className="inline-flex items-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px]" onClick={() => removeSub(p.name, s)}>
-                                  {s} <span className="text-red-500">x</span>
-                                </button>
-                              ))}
+                        <div className="mt-1.5 flex flex-wrap gap-1" data-testid={"strategy-subs-chips-" + p.name}>
+                          {subList.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.subscriptionSelect")}</span>}
+                          {subList.map((s) => {
+                            const selected = subs.includes(s.name);
+                            return (
+                              <button key={s.name} type="button"
+                                className={"rounded px-1.5 py-0.5 text-[10px] border transition " + (selected ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:bg-muted")}
+                                onClick={() => {
+                                  const newVal = selected ? subs.filter((x) => x !== s.name) : [...subs, s.name];
+                                  updateStrategyField(p.name, "subscriptions", newVal);
+                                }}
+                                data-testid={"strategy-sub-chip-" + s.name}>
+                                {s.name + " (" + s.node_count + ")"}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {aClass === "quality" && (
+                        <div className="mt-1.5 space-y-1" data-testid={"strategy-quality-pane-" + p.name}>
+                          <label className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground">{t("strategy.topN")}</span>
+                            <input type="number" min={1} max={1000} className="w-20 rounded border bg-background px-1.5 py-1 text-[11px]" value={strategyTopNInput[p.name] ?? String(topN)} onChange={(e) => { setStrategyTopNInput((s) => ({ ...s, [p.name]: e.target.value })); updateStrategyField(p.name, "top_n", e.target.value); }} data-testid={"strategy-topn-" + p.name} />
+                          </label>
+                          {top3Preview && (
+                            <div className="text-[10px] text-muted-foreground" data-testid={"strategy-quality-preview-" + p.name}>
+                              {t("strategy.qualityPreview") + ": " + top3Preview}
                             </div>
                           )}
                         </div>
                       )}
-                      {aClass === "quality" && (
-                        <label className="mt-1.5 flex items-center gap-1.5">
-                          <span className="text-[10px] text-muted-foreground">{t("strategy.topN")}</span>
-                          <input type="number" min={1} max={1000} className="w-20 rounded border bg-background px-1.5 py-1 text-[11px]" value={strategyTopNInput[p.name] ?? String(topN)} onChange={(e) => { setStrategyTopNInput((s) => ({ ...s, [p.name]: e.target.value })); updateStrategyField(p.name, "top_n", e.target.value); }} data-testid={"strategy-topn-" + p.name} />
-                        </label>
-                      )}
                     </div>
+                    {/* Right: B-class strategy (50%) */}
+                    <div className="flex-1 min-w-0" data-testid={"strategy-bclass-pane-" + p.name}>
+                      <span className="text-[10px] font-medium uppercase text-muted-foreground block mb-1.5">{t("strategy.bClass")}</span>
+                      {/* T10-1: B-class as ToggleGroup single-select chips */}
+                      <div className="flex flex-wrap gap-1" data-testid={"strategy-bclass-chips-" + p.name}>
+                        {STRATEGY_IDS.map((s) => (
+                          <button key={s} type="button"
+                            className={"rounded px-2 py-0.5 text-[10px] border transition " + (p.allocationPolicy === s ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:bg-muted")}
+                            onClick={() => { void ipcPlatformUpdate(p.name, s).then(() => refreshPlatforms()).catch((e2) => showToast("err", translateError(e2, t))); }}
+                            data-testid={"strategy-bclass-" + s + "-" + p.name}>
+                            {t(strategyToI18nKey(s))}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </li>
               );
             })}

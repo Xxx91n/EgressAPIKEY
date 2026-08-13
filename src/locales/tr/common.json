@@ -150,7 +150,10 @@
     "socks5Auth": "SOCKS5 kullanıcısı",
     "splitHint": "Sol: giriş portları (kimlik). Portu platforma sürükleyin. Sağ: platformlar ve lease.",
     "title": "Platformlar",
-    "unbound": "Bağlı değil"
+    "unbound": "Bağlı değil",
+    "leasesPill": "Kiralananlar",
+    "nodesPill": "Düğümler",
+    "portSuggested": "Önerilen"
   },
   "policy": {
     "balanced": "Dengeli",
@@ -222,7 +225,13 @@
     "bQuality": "IP kalite skoru",
     "circuitBreaker": "Devre Kesici",
     "circuitBreakerThreshold": "İzolasyondan önce maks ardışık hata",
-    "stickyTtlHint": "0 = yapışkanlık yok (her istek farklı bir çıkış IP'si kullanabilir); daha yüksek değer aynı API anahtarını aynı IP'ye daha uzun süre bağlar"
+    "stickyTtlHint": "0 = yapışkanlık yok (her istek farklı bir çıkış IP'si kullanabilir); daha yüksek değer aynı API anahtarını aynı IP'ye daha uzun süre bağlar",
+    "aClassTitle": "Düğüm Seçimi",
+    "bClassTitle": "Çıkış Seçimi",
+    "manualSelect": "Düğümleri manuel seç",
+    "regionSelect": "Bölgeye göre seç",
+    "subscriptionSelect": "Aboneliğe göre seç",
+    "qualityPreview": "İlk 3 düğüm"
   },
   "subscription": {
     "title": "Abonelikler",

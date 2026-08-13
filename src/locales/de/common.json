@@ -150,7 +150,10 @@
     "socks5Auth": "SOCKS5-Benutzer",
     "splitHint": "Links: Einstiegsporte (Identität). Port auf Plattform ziehen. Rechts: Plattformen und Leases.",
     "title": "Plattformen",
-    "unbound": "Ungebunden"
+    "unbound": "Ungebunden",
+    "leasesPill": "Leases",
+    "nodesPill": "Knoten",
+    "portSuggested": "Vorgeschlagen"
   },
   "policy": {
     "balanced": "Ausgeglichen",
@@ -222,7 +225,13 @@
     "bQuality": "IP-Qualitaetsbewertung",
     "circuitBreaker": "Leitungsschutzschalter",
     "circuitBreakerThreshold": "Max aufeinanderfolgende Fehler vor Isolierung",
-    "stickyTtlHint": "0 = keine Klebrigkeit (jede Anfrage kann eine andere Ausgangs-IP verwenden); höherer Wert bindet denselben API-Schlüssel länger an dieselbe IP"
+    "stickyTtlHint": "0 = keine Klebrigkeit (jede Anfrage kann eine andere Ausgangs-IP verwenden); höherer Wert bindet denselben API-Schlüssel länger an dieselbe IP",
+    "aClassTitle": "Knotenauswahl",
+    "bClassTitle": "Ausgangsauswahl",
+    "manualSelect": "Knoten manuell wählen",
+    "regionSelect": "Nach Region wählen",
+    "subscriptionSelect": "Nach Abonnement wählen",
+    "qualityPreview": "Top 3 Knoten"
   },
   "subscription": {
     "title": "Abonnements",

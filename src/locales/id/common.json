@@ -150,7 +150,10 @@
     "socks5Auth": "Pengguna SOCKS5",
     "splitHint": "Kiri: port entri (identitas). Seret port ke platform. Kanan: platform dan lease.",
     "title": "Platform",
-    "unbound": "Tidak terikat"
+    "unbound": "Tidak terikat",
+    "leasesPill": "Sewa",
+    "nodesPill": "Node",
+    "portSuggested": "Disarankan"
   },
   "policy": {
     "balanced": "Seimbang",
@@ -222,7 +225,13 @@
     "bQuality": "Skor kualitas IP",
     "circuitBreaker": "Pemutus Daya",
     "circuitBreakerThreshold": "Kegagalan berurutan maks. sebelum isolasi",
-    "stickyTtlHint": "0 = tanpa lengket (setiap permintaan mungkin menggunakan IP keluar berbeda); nilai lebih tinggi mengikat kunci API yang sama ke IP yang sama lebih lama"
+    "stickyTtlHint": "0 = tanpa lengket (setiap permintaan mungkin menggunakan IP keluar berbeda); nilai lebih tinggi mengikat kunci API yang sama ke IP yang sama lebih lama",
+    "aClassTitle": "Pemilihan Node",
+    "bClassTitle": "Pemilihan Keluar",
+    "manualSelect": "Pilih node manual",
+    "regionSelect": "Pilih berdasarkan wilayah",
+    "subscriptionSelect": "Pilih berdasarkan langganan",
+    "qualityPreview": "3 Node Teratas"
   },
   "subscription": {
     "title": "Langganan",

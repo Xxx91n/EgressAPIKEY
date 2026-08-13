@@ -150,7 +150,10 @@
     "socks5Auth": "Utilisateur SOCKS5",
     "splitHint": "Gauche : ports d’entrée (identité). Glissez un port sur une plateforme. Droite : plateformes et baux.",
     "title": "Plateformes",
-    "unbound": "Non lié"
+    "unbound": "Non lié",
+    "leasesPill": "Baux",
+    "nodesPill": "Nœuds",
+    "portSuggested": "Suggéré"
   },
   "policy": {
     "balanced": "Equilibre",
@@ -222,7 +225,13 @@
     "bQuality": "Score qualite IP",
     "circuitBreaker": "Disjoncteur",
     "circuitBreakerThreshold": "Échecs consécutifs max avant isolement",
-    "stickyTtlHint": "0 = pas de stabilité (chaque requête peut utiliser une IP de sortie différente); valeur plus élevée lie la même clé API à la même IP plus longtemps"
+    "stickyTtlHint": "0 = pas de stabilité (chaque requête peut utiliser une IP de sortie différente); valeur plus élevée lie la même clé API à la même IP plus longtemps",
+    "aClassTitle": "Sélection des nœuds",
+    "bClassTitle": "Sélection de sortie",
+    "manualSelect": "Sélectionner manuellement",
+    "regionSelect": "Sélectionner par région",
+    "subscriptionSelect": "Sélectionner par abonnement",
+    "qualityPreview": "Top 3 nœuds"
   },
   "subscription": {
     "title": "Abonnements",

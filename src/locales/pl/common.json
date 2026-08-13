@@ -150,7 +150,10 @@
     "socks5Auth": "Użytkownik SOCKS5",
     "splitHint": "Lewa: porty wejściowe (tożsamość). Przeciągnij port na platformę. Prawa: platformy i lease.",
     "title": "Platformy",
-    "unbound": "Niepowiązany"
+    "unbound": "Niepowiązany",
+    "leasesPill": "Dzierżawy",
+    "nodesPill": "Węzły",
+    "portSuggested": "Sugerowany"
   },
   "policy": {
     "balanced": "Zrownowazony",
@@ -222,7 +225,13 @@
     "bQuality": "Wynik jakosci IP",
     "circuitBreaker": "Bezpiecznik",
     "circuitBreakerThreshold": "Maks kolejnych błędów przed izolacją",
-    "stickyTtlHint": "0 = brak lepkości (każde żądanie może używać innego IP wyjścia); wyższa wartość wiąże ten sam klucz API z tym samym IP dłużej"
+    "stickyTtlHint": "0 = brak lepkości (każde żądanie może używać innego IP wyjścia); wyższa wartość wiąże ten sam klucz API z tym samym IP dłużej",
+    "aClassTitle": "Wybór węzłów",
+    "bClassTitle": "Wybór wyjścia",
+    "manualSelect": "Wybierz węzły ręcznie",
+    "regionSelect": "Wybierz według regionu",
+    "subscriptionSelect": "Wybierz według subskrypcji",
+    "qualityPreview": "Top 3 węzły"
   },
   "subscription": {
     "title": "Subskrypcje",

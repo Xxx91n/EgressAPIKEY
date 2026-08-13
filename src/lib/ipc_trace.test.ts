@@ -45,3 +45,54 @@ describe("invokeWithTrace trace_id injection", () => {
     expect(args.__trace_id).toBeDefined();
   });
 });
+
+/// T10: Audit — verify no silent .catch(() => {}) remains in source files.
+/// This is a source-level guard: it scans the actual .ts/.tsx files for
+/// the empty-catch pattern and fails if any are found.
+describe("T10 silent catch audit", () => {
+  it("no .catch(() => {}) in src/ source files", async () => {
+    const fs = await import("fs");
+    const path = await import("path");
+    const projectRoot = path.resolve(__dirname, "..", "..");
+
+    function walkDir(dir: string, exts: string[]): string[] {
+      const results: string[] = [];
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules" && entry.name !== "dist") {
+          results.push(...walkDir(full, exts));
+        } else if (entry.isFile() && exts.some(e => entry.name.endsWith(e))) {
+          results.push(full);
+        }
+      }
+      return results;
+    }
+
+    const srcDir = path.join(projectRoot, "src");
+    const files = walkDir(srcDir, [".ts", ".tsx"]);
+    // Match .catch(() => {}) only in code lines (not comments/strings/test files).
+    // Excludes lines starting with /// or // or * (comments).
+    const emptyCatchPattern = /.catch\(\(\)\s*=>\s*\{\s*\}\)/;
+    const violations: string[] = [];
+
+    for (const file of files) {
+      // Skip test files themselves
+      if (file.endsWith(".test.ts") || file.endsWith(".test.tsx")) continue;
+      const fc = fs.readFileSync(file, "utf8");
+      const lines = fc.split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trimStart();
+        // Skip comment lines
+        if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) continue;
+        if (emptyCatchPattern.test(lines[i])) {
+          violations.push(path.relative(projectRoot, file) + ":" + (i + 1));
+        }
+      }
+    }
+
+    if (violations.length > 0) {
+      throw new Error("Empty .catch(() => {}) found at:\n  " + violations.join("\n  "));
+    }
+    expect(violations).toHaveLength(0);
+  });
+});

@@ -205,7 +205,7 @@ export async function ipcAccountBindIp(platform: string, account: string, ip: st
 }
 
 export async function ipcRefreshTray(): Promise<void> {
-  await invoke("tray_refresh_labels").catch(() => {});
+  await invoke("tray_refresh_labels").catch((e) => console.warn("[ipc] tray_refresh_labels failed", e));
 }
 
 export async function ipcGatewaySnapshot(): Promise<LaneSnapshot> {
@@ -379,6 +379,9 @@ function assertPort(port: number): void {
 export async function ipcPortList(): Promise<PortMapping[]> {
   const raw = await invoke<PortMapping[]>("port_list");
   return Array.isArray(raw) ? raw : [];
+}
+export async function ipcPortSuggest(): Promise<number> {
+  return invoke<number>("port_suggest");
 }
 
 export async function ipcPortUpsert(m: {
@@ -598,6 +601,7 @@ export interface PlatformStrategy {
   platform_name: string;
   a_class: "manual" | "region" | "quality" | "subscription";
   b_class: string; // StrategyId serialised as snake_case
+  manual_nodes?: string[];
   regions?: string[];
   subscriptions?: string[];
   top_n?: number;
