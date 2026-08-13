@@ -149,7 +149,8 @@
     "routableNodes": "Node yang dapat dirutekan",
     "socks5Auth": "Pengguna SOCKS5",
     "splitHint": "Kiri: port entri (identitas). Seret port ke platform. Kanan: platform dan lease.",
-    "title": "Platform"
+    "title": "Platform",
+    "unbound": "Tidak terikat"
   },
   "policy": {
     "balanced": "Seimbang",

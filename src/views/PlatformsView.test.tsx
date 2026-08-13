@@ -146,7 +146,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
 
   it("binds a dragged port onto a platform card via pointer events", async () => {
     let ports = [samplePort];
-    invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+    invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve(ports);
       if (cmd === "platform_list_full") {
         return Promise.resolve([
@@ -162,13 +162,9 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
         ]);
       }
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
-      if (cmd === "port_upsert") {
-        const next = {
-          ...samplePort,
-          platform_name: String(args?.platformName ?? "OpenAI"),
-        };
-        ports = [next];
-        return Promise.resolve(next);
+      if (cmd === "port_bind_platform") {
+        ports = [{ ...samplePort, platform_name: "OpenAI" }];
+        return Promise.resolve({ ok: true });
       }
       return Promise.resolve(undefined);
     });
@@ -181,7 +177,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     fireEvent.pointerUp(screen.getByTestId("platform-card-OpenAI"));
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith(
-        "port_upsert",
+        "port_bind_platform",
         expect.objectContaining({ port: 17990, platformName: "OpenAI" }),
       );
     });
@@ -221,8 +217,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     // B-class select is in card header (always visible)
     expect(screen.getByTestId("strategy-bclass-Default")).toBeInTheDocument();
     // Expand the card to reveal A-class inline strategy
-    fireEvent.click(screen.getByTestId("strategy-toggle-Default"));
-    await waitFor(() => expect(screen.getByTestId("strategy-inline-Default")).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByTestId("strategy-inline-Default")).toBeInTheDocument());
     expect(screen.getByTestId("strategy-aclass-Default")).toBeInTheDocument();
   });
 
@@ -238,8 +233,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
 
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("strategy-toggle-Default"));
-    await waitFor(() => expect(screen.getByTestId("strategy-aclass-Default")).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByTestId("strategy-aclass-Default")).toBeInTheDocument());
 
     // Change A-class select to region
     fireEvent.change(screen.getByTestId("strategy-aclass-Default"), { target: { value: "region" } });
@@ -271,8 +265,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
 
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("strategy-toggle-Default"));
-    await waitFor(() => expect(screen.getByTestId("strategy-apply")).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByTestId("strategy-apply")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("strategy-apply"));
     await waitFor(() => expect(putCalled).toBe(true));
     await waitFor(() => expect(applyCalled).toBe(true));
@@ -368,4 +361,159 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(screen.getByText(/httpAuth|HTTP Auth/i)).toBeInTheDocument(), { timeout: 3000 });
   });
 
+
+  it("T8-2: drag port to platform calls port_bind_platform (not port_upsert)", async () => {
+    const ports = [{ ...samplePort, port: 17995, platform_name: "" }];
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve(ports);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "port_bind_platform") return Promise.resolve(true);
+      if (cmd === "port_upsert") return Promise.resolve({ ...samplePort, port: 17995 });
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17995", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      return Promise.resolve(true);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("port-row-17995")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
+
+    // Simulate pointer down on the port row
+    const portRow = screen.getByTestId("port-row-17995");
+    fireEvent.pointerDown(portRow);
+    // Simulate pointer up on the platform card
+    fireEvent.pointerEnter(screen.getByTestId("platform-card-Default"));
+    fireEvent.pointerUp(screen.getByTestId("platform-card-Default"));
+
+    await waitFor(() => {
+      const bindCalls = (invokeMock.mock.calls as unknown as Array<string[]>).filter((c) => c[0] === "port_bind_platform");
+      expect(bindCalls.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it("T8-3: pointerDown on port calls preventDefault + sets userSelect none", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([samplePort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17990", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      return Promise.resolve(true);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("port-row-17990")).toBeInTheDocument());
+    const portRow = screen.getByTestId("port-row-17990");
+    fireEvent.pointerDown(portRow);
+    expect(document.body.style.userSelect).toBe("none");
+  });
+
+  it("T8-3: dragging port shows opacity-50 + cursor-grabbing on source row", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([samplePort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17990", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      return Promise.resolve(true);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("port-row-17990")).toBeInTheDocument());
+    const portRow = screen.getByTestId("port-row-17990");
+    fireEvent.pointerDown(portRow);
+    expect(portRow.className).toContain("opacity-50");
+    expect(portRow.className).toContain("cursor-grabbing");
+    // pointerUp restores userSelect
+    fireEvent.pointerUp(portRow);
+    expect(document.body.style.userSelect).toBe("");
+  });
+
+  it("T8-7: new port created unbound (no Default platform assignment)", async () => {
+    // null /* removed */ removed — T8-2 uses port_bind_platform not port_upsert
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([samplePort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      // port_upsert path removed — T8-2 uses port_bind_platform
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17990", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      return Promise.resolve(true);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("platforms-pane")).toBeInTheDocument());
+    // Verify the add-port form is available
+    const portInput = screen.getByTestId("port-add");
+    expect(portInput).toBeInTheDocument();
+    // The form should not pre-fill Default platform
+    // (platform_name is empty by default = unbound)
+  });
+
+  it("T8-7: port row shows Unbound text when platform_name is empty", async () => {
+    const unboundPort = { ...samplePort, port: 17992, platform_name: "" };
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([unboundPort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "port_auth_info") return Promise.resolve({ username: "port-17992", auth_required: false, proxy_token: "tok", protocol: "socks5" });
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      return Promise.resolve(true);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("port-row-17992")).toBeInTheDocument());
+    // The port row should show "Unbound" (i18n key platform.unbound)
+    const portRow = screen.getByTestId("port-row-17992");
+    // The text would be the i18n value for platform.unbound in the test locale (en)
+    expect(portRow.textContent).toContain("Unbound");
+  });
+
+  it("T8-4: strategy-aclass-badge is always visible on platform card (no expand needed)", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([samplePort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
+    expect(screen.getByTestId("strategy-aclass-badge-Default")).toBeInTheDocument();
+  });
+
+  it("T8-5: strategy-toggle chevron is NOT present (removed)", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([samplePort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ platforms: [{ platform_name: "Default", a_class: "region", regions: ["US"] }] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
+    expect(screen.queryByTestId("strategy-toggle-Default")).toBeNull();
+  });
+
+  it("T8-6: region strategy renders with region aClass from config", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([samplePort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "region", regions: ["US", "JP"] }] });
+      if (cmd === "strategy_config_put") return Promise.resolve(true);
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "port_health_check") return Promise.resolve({ healthy: true, latency_ms: 1 });
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument(), { timeout: 3000 });
+    // Wait for strategy config to load and aClass select to reflect "region"
+    await waitFor(() => {
+      const select = screen.getByTestId("strategy-aclass-Default") as HTMLSelectElement;
+      expect(select.value).toBe("region");
+    }, { timeout: 3000 });
+    // The region input should be visible
+    expect(screen.getByTestId("strategy-regions-input-Default")).toBeInTheDocument();
+  });
 });

@@ -414,6 +414,18 @@ export async function ipcPortRemove(port: number): Promise<boolean> {
   return invoke<boolean>("port_remove", { port });
 }
 
+/// T8-1 (ADR-0029): Bind a port to a platform without touching auth_required.
+/// Calls port_bind_platform IPC (not port_upsert) to avoid auth flip.
+export async function ipcPortBindPlatform(port: number, platformName: string): Promise<boolean> {
+  assertPort(port);
+  // platformName empty = unbind, non-empty = validate short name
+  if (platformName) {
+    assertShortName(platformName, "platform_name");
+  }
+  return invoke("port_bind_platform", { port, platformName });
+}
+
+
 export async function ipcPortRunning(): Promise<number[]> {
   const raw = await invoke<number[]>("port_running");
   return Array.isArray(raw) ? raw : [];

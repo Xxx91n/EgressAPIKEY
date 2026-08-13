@@ -149,7 +149,8 @@
     "routableNodes": "Węzły routowalne",
     "socks5Auth": "Użytkownik SOCKS5",
     "splitHint": "Lewa: porty wejściowe (tożsamość). Przeciągnij port na platformę. Prawa: platformy i lease.",
-    "title": "Platformy"
+    "title": "Platformy",
+    "unbound": "Niepowiązany"
   },
   "policy": {
     "balanced": "Zrownowazony",

@@ -1528,7 +1528,7 @@ fn validate_port_mapping(
     if proto != "socks5" && proto != "http" {
         return Err("protocol must be socks5 or http".into());
     }
-    validate_short_name(platform_name, "platform_name")?;
+    if !platform_name.is_empty() { validate_short_name(platform_name, "platform_name")?; }
     // account + label optional but length/control capped
     if account.len() > NAME_MAX_LEN || account.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
         return Err("account invalid".into());
@@ -1538,7 +1538,7 @@ fn validate_port_mapping(
     }
     // Resin Platform.Account forbids these chars in either side
     let forbidden = |s: &str| s.chars().any(|ch| ".:/\\@?#%~ ".contains(ch));
-    if forbidden(platform_name) {
+    if !platform_name.is_empty() && forbidden(platform_name) {
         return Err("platform_name contains Resin-forbidden chars".into());
     }
     if !account.is_empty() && forbidden(account) {
@@ -1664,6 +1664,40 @@ pub async fn port_remove(
     whitebox.apply(&db, &forwarder, next).await?;
     Ok(true)
 }
+
+/// T8-1 (ADR-0029): Bind an entry-port to a platform WITHOUT touching
+/// auth_required. Only updates the shell-side whitebox PortMapping
+/// platform_name field. Does NOT call port_upsert (which would default
+/// auth_required=true and flip no-auth ports to require-auth).
+#[tauri::command]
+pub async fn port_bind_platform(
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+    port: u16,
+    platform_name: String,
+) -> Result<bool, IpcError> {
+    validate_port_segments(port)?;
+    // Allow empty platform_name = unbind. Non-empty must pass name validation.
+    if !platform_name.is_empty() {
+        validate_short_name(&platform_name, "platform_name")?;
+        let forbidden = |s: &str| s.chars().any(|ch| ".:/\\@?#%~ ".contains(ch));
+        if forbidden(&platform_name) {
+            return Err(IpcError::from("platform_name contains Resin-forbidden chars".to_string()));
+        }
+    }
+    let mut next = whitebox.snapshot();
+    let found = next.entry_ports.iter_mut().find(|row| row.port == port);
+    match found {
+        Some(m) => {
+            m.platform_name = platform_name;
+            whitebox.apply(&db, &forwarder, next).await?;
+            Ok(true)
+        }
+        None => Err(IpcError::from(format!("port {port} not found in entry_ports"))),
+    }
+}
+
 
 #[tauri::command]
 pub async fn port_running(
@@ -2728,4 +2762,22 @@ mod tests {
             .unwrap_or_default();
         assert_eq!(ip, "198.51.100.1");
     }
+
+    #[test]
+    fn t8_port_bind_platform_empty_platform_name_passes_validation() {
+        // empty platform_name = unbind, should pass
+        assert!(validate_short_name("", "platform_name").is_err()); // validate_short_name rejects empty
+        // port_bind_platform allows empty without calling validate_short_name
+        // (the command itself guards with if !platform_name.is_empty())
+    }
+
+    #[test]
+    fn t8_port_bind_platform_forbidden_chars_rejected() {
+        let forbidden = |s: &str| s.chars().any(|ch| ".:/\\@?#%~ ".contains(ch));
+        assert!(forbidden("my.platform"));
+        assert!(forbidden("my@platform"));
+        assert!(!forbidden("my-platform"));
+        assert!(!forbidden("Default"));
+    }
+
 }

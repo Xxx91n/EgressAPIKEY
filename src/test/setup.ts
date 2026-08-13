@@ -53,6 +53,7 @@ beforeAll(async () => {
         "platform.socks5Auth": "SOCKS5 user",
         "platform.passwordMasked": "password: (masked)",
         "platform.httpNoAuth": "HTTP proxy (no authentication)",
+        "platform.unbound": "Unbound",
         "account.id": "Account id",
         "account.lane": "Lane",
         "account.exitIp": "Exit IP",

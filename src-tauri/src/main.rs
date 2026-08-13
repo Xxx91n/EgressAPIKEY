@@ -116,6 +116,7 @@ fn main() {
             commands::port_list,
             commands::port_upsert,
             commands::port_remove,
+            commands::port_bind_platform,
             commands::port_running,
             commands::port_reload,
             commands::port_auth_info,

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Plug, ShieldCheck, ShieldAlert, Copy, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Plug, ShieldCheck, ShieldAlert, Copy } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import {
@@ -16,6 +16,7 @@ import {
   ipcPlatformUpdate,
   ipcPortList,
   ipcPortUpsert,
+  ipcPortBindPlatform,
   ipcPortRemove,
   ipcPortAuthInfo,
   ipcPortHealthCheck,
@@ -70,8 +71,6 @@ export function PlatformsView() {
   const [strategySubsInput, setStrategySubsInput] = useState<Record<string, string>>({});
   const [strategyTopNInput, setStrategyTopNInput] = useState<Record<string, string>>({});
   /// Collapsible inline strategy panel: which platform card is expanded.
-  const [expandedPlatform, setExpandedPlatform] = useState<string | null>(null);
-
   const refreshStrategy = useCallback(async () => {
     try {
       const cfg = await ipcStrategyConfigGet();
@@ -229,7 +228,7 @@ export function PlatformsView() {
       await ipcPortUpsert({
         port,
         protocol: newProto,
-        platform_name: newPlatformName.trim() || "Default",
+        platform_name: newPlatformName.trim(),
         account: "port-" + port,
         label: newLabel.trim() || ("entry-" + port),
         enabled: true,
@@ -262,14 +261,7 @@ export function PlatformsView() {
     if (!row) return;
     setBusy(true);
     try {
-      await ipcPortUpsert({
-        port: row.port,
-        protocol: row.protocol,
-        platform_name: platformName,
-        account: row.account || ("port-" + row.port),
-        label: row.label,
-        enabled: row.enabled,
-      });
+      await ipcPortBindPlatform(port, platformName);
       showToast("ok", t("platform.portBound", { port, platform: platformName }));
       await refreshPortAuthAndHealth(await refreshPorts());
     } catch (e) { showToast("err", translateError(e, t)); }
@@ -357,7 +349,7 @@ export function PlatformsView() {
           <ul className="min-h-0 flex-1 space-y-2 overflow-auto p-3">
             {ports.length === 0 && <li className="text-xs text-muted-foreground">{t("platform.noPorts")}</li>}
             {ports.map((p) => (
-              <li key={p.port} className={"cursor-grab rounded-md border bg-card p-3 text-sm " + (draggingPort === p.port ? "opacity-60" : "")} onPointerDown={() => setDraggingPort(p.port)} data-testid={"port-row-" + p.port}>
+              <li key={p.port} className={"cursor-grab rounded-md border bg-card p-3 text-sm " + (draggingPort === p.port ? "opacity-50 cursor-grabbing" : "")} onPointerDown={(e) => { e.preventDefault(); document.body.style.userSelect = "none"; setDraggingPort(p.port); }} onPointerUp={() => { document.body.style.userSelect = ""; }} data-testid={"port-row-" + p.port}>
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2 font-medium">
@@ -365,7 +357,7 @@ export function PlatformsView() {
                       <span>{":" + p.port}</span>
                       <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase">{p.protocol}</span>
                     </div>
-                    <div className="mt-1 text-xs text-muted-foreground">{(p.label || t("platform.entryPorts")) + " · " + p.platform_name + "." + p.account}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{(p.label || t("platform.entryPorts")) + " · " + (p.platform_name || t("platform.unbound")) + "." + p.account}</div>
                   </div>
                   <button type="button" className="rounded p-1 text-muted-foreground hover:text-red-500" onClick={() => void handleRemovePort(p.port)} aria-label={t("common.delete")}>
                     <Trash2 className="h-4 w-4" />
@@ -420,7 +412,7 @@ export function PlatformsView() {
 
         <div className="w-1.5 cursor-col-resize bg-border hover:bg-primary/40" onPointerDown={onSplitterPointerDown} onPointerMove={onSplitterPointerMove} onPointerUp={onSplitterPointerUp} data-testid="platforms-splitter" />
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-testid="platforms-pane" onPointerUp={() => { if (draggingPort != null && !dragOverPlatform) setDraggingPort(null); }}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-testid="platforms-pane" onPointerUp={() => { if (draggingPort != null) { document.body.style.userSelect = ""; setDraggingPort(null); setDragOverPlatform(null); } }}>
           <div className="border-b px-3 py-2 text-sm font-medium">{t("platform.activated")}</div>
           <ul className="min-h-0 flex-1 space-y-2 overflow-auto p-3">
             {platforms.length === 0 && <li className="text-xs text-muted-foreground">{t("platform.empty")}</li>}
@@ -432,15 +424,11 @@ export function PlatformsView() {
               const regions = entry?.regions ?? [];
               const subs = entry?.subscriptions ?? [];
               const topN = entry?.top_n ?? 10;
-              const isExpanded = expandedPlatform === p.name;
-              return (
-                <li key={p.name} className={"rounded-md border bg-card p-3 " + (dragOverPlatform === p.name ? "ring-2 ring-primary" : "")} onPointerEnter={() => { if (draggingPort != null) setDragOverPlatform(p.name); }} onPointerLeave={() => { if (dragOverPlatform === p.name) setDragOverPlatform(null); }} onPointerUp={() => { if (draggingPort != null) void bindPortToPlatform(draggingPort, p.name); }} data-testid={"platform-card-" + p.name}>
+                      return (
+                <li key={p.name} className={"rounded-md border bg-card p-3 " + (dragOverPlatform === p.name ? "ring-2 ring-offset-2 ring-primary scale-[1.02] transition" : "")} onPointerEnter={() => { if (draggingPort != null) setDragOverPlatform(p.name); }} onPointerLeave={() => { if (dragOverPlatform === p.name) setDragOverPlatform(null); }} onPointerUp={() => { if (draggingPort != null) void bindPortToPlatform(draggingPort, p.name); }} data-testid={"platform-card-" + p.name}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <button type="button" className="rounded p-0.5 text-muted-foreground hover:text-primary" onClick={() => setExpandedPlatform(isExpanded ? null : p.name)} aria-label={isExpanded ? t("common.collapse") : t("common.expand")} data-testid={"strategy-toggle-" + p.name}>
-                          {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                        </button>
                         <span className="font-medium">{p.name}</span>
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">{t(strategyToI18nKey(p.allocationPolicy)) + " \u00b7 " + t("platform.leases") + ": " + leases.length + " \u00b7 " + t("platform.routableNodes") + ": " + p.routableNodeCount}</div>
@@ -461,8 +449,10 @@ export function PlatformsView() {
                       </button>
                     </div>
                   </div>
-                  {isExpanded && (
-                    <div className="mt-2.5 border-t pt-2" data-testid={"strategy-inline-" + p.name}>
+                  <div className="mt-2.5 border-t pt-2" data-testid={"strategy-inline-" + p.name}>
+                        <div className="flex items-center gap-1" data-testid={"strategy-aclass-badge-" + p.name}>
+                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">A:{aClass}{regions.length > 0 ? ` (${regions.length})` : ""}{subs.length > 0 ? ` (${subs.length})` : ""}{aClass === "quality" ? ` top${topN}` : ""}</span>
+                        </div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[10px] font-medium uppercase text-muted-foreground">{t("strategy.aClass")}</span>
                         <button type="button" disabled={strategyBusy} onClick={() => void handleApplyStrategy()} className="inline-flex items-center gap-1 rounded bg-primary px-2 py-0.5 text-[10px] text-primary-foreground disabled:opacity-50" data-testid="strategy-apply">
@@ -519,7 +509,6 @@ export function PlatformsView() {
                         </label>
                       )}
                     </div>
-                  )}
                 </li>
               );
             })}

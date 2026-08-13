@@ -324,6 +324,20 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     await expect(ipcPortReload()).resolves.toBe(2);
     expect(invokeMock).toHaveBeenCalledWith("port_reload", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
+  it("T8-1 ipcPortBindPlatform forwards port + platformName (empty = unbind)", async () => {
+    const { ipcPortBindPlatform } = await import("./ipc");
+    invokeMock.mockResolvedValue(true);
+    const ok = await ipcPortBindPlatform(17990, "Default");
+    expect(invokeMock).toHaveBeenCalledWith("port_bind_platform", expect.objectContaining({ port: 17990, platformName: "Default" }));
+    expect(ok).toBe(true);
+    // unbind = empty string
+    await ipcPortBindPlatform(17990, "");
+    expect(invokeMock).toHaveBeenLastCalledWith("port_bind_platform", expect.objectContaining({ port: 17990, platformName: "" }));
+  });
+  it("T8-1 ipcPortBindPlatform rejects invalid platformName chars", async () => {
+    const { ipcPortBindPlatform } = await import("./ipc");
+    await expect(ipcPortBindPlatform(17990, "bad\x00name")).rejects.toThrow();
+  });
 
   it("ipcPortRemove rejects privileged port before invoke", async () => {
     await expect(ipcPortRemove(443)).rejects.toThrow(/port out of range/);

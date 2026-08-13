@@ -149,7 +149,8 @@
     "routableNodes": "Routeerbare knooppunten",
     "socks5Auth": "SOCKS5-gebruiker",
     "splitHint": "Links: invoerpoorten (identiteit). Sleep een poort naar een platform. Rechts: platforms en leases.",
-    "title": "Platforms"
+    "title": "Platforms",
+    "unbound": "Niet gekoppeld"
   },
   "policy": {
     "balanced": "Gebalanceerd",

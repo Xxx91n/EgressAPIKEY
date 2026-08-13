@@ -149,7 +149,8 @@
     "routableNodes": "Routbare Knoten",
     "socks5Auth": "SOCKS5-Benutzer",
     "splitHint": "Links: Einstiegsporte (Identität). Port auf Plattform ziehen. Rechts: Plattformen und Leases.",
-    "title": "Plattformen"
+    "title": "Plattformen",
+    "unbound": "Ungebunden"
   },
   "policy": {
     "balanced": "Ausgeglichen",

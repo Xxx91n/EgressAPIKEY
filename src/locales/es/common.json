@@ -149,7 +149,8 @@
     "routableNodes": "Nodos enrutables",
     "socks5Auth": "Usuario SOCKS5",
     "splitHint": "Izquierda: puertos de entrada (identidad). Arrastra un puerto a una plataforma. Derecha: plataformas y leases.",
-    "title": "Plataformas"
+    "title": "Plataformas",
+    "unbound": "Sin vincular"
   },
   "policy": {
     "balanced": "Equilibrado",

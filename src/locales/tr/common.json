@@ -149,7 +149,8 @@
     "routableNodes": "Yönlendirilebilir düğümler",
     "socks5Auth": "SOCKS5 kullanıcısı",
     "splitHint": "Sol: giriş portları (kimlik). Portu platforma sürükleyin. Sağ: platformlar ve lease.",
-    "title": "Platformlar"
+    "title": "Platformlar",
+    "unbound": "Bağlı değil"
   },
   "policy": {
     "balanced": "Dengeli",

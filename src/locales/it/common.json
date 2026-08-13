@@ -149,7 +149,8 @@
     "routableNodes": "Nodi instradabili",
     "socks5Auth": "Utente SOCKS5",
     "splitHint": "Sinistra: porte di ingresso (identità). Trascina una porta su una piattaforma. Destra: piattaforme e lease.",
-    "title": "Piattaforme"
+    "title": "Piattaforme",
+    "unbound": "Non collegato"
   },
   "policy": {
     "balanced": "Bilanciato",

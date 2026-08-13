@@ -149,7 +149,8 @@
     "routableNodes": "라우팅 가능 노드",
     "socks5Auth": "SOCKS5 사용자",
     "splitHint": "왼쪽: 엔트리 포트(식별자). 포트를 플랫폼으로 드래그. 오른쪽: 플랫폼과 리스.",
-    "title": "플랫폼"
+    "title": "플랫폼",
+    "unbound": "바인드되지 않음"
   },
   "policy": {
     "balanced": "균형",

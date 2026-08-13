@@ -149,7 +149,8 @@
     "routableNodes": "可路由节点",
     "socks5Auth": "SOCKS5 用户名",
     "splitHint": "左侧：入口端口（身份）。把端口拖到平台即可绑定。右侧：平台与租约。",
-    "title": "平台"
+    "title": "平台",
+    "unbound": "未绑定"
   },
   "policy": {
     "balanced": "均衡",

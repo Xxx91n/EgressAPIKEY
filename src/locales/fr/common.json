@@ -149,7 +149,8 @@
     "routableNodes": "Nœuds routables",
     "socks5Auth": "Utilisateur SOCKS5",
     "splitHint": "Gauche : ports d’entrée (identité). Glissez un port sur une plateforme. Droite : plateformes et baux.",
-    "title": "Plateformes"
+    "title": "Plateformes",
+    "unbound": "Non lié"
   },
   "policy": {
     "balanced": "Equilibre",

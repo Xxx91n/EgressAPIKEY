@@ -149,7 +149,8 @@
     "routableNodes": "Routable nodes",
     "socks5Auth": "SOCKS5 user",
     "splitHint": "Left: entry ports (identity). Drag a port onto a platform to bind. Right: platforms + leases.",
-    "title": "Platforms"
+    "title": "Platforms",
+    "unbound": "Unbound"
   },
   "policy": {
     "balanced": "Balanced",

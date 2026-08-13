@@ -149,7 +149,8 @@
     "routableNodes": "Nós roteáveis",
     "socks5Auth": "Usuário SOCKS5",
     "splitHint": "Esquerda: portas de entrada (identidade). Arraste uma porta para a plataforma. Direita: plataformas e leases.",
-    "title": "Plataformas"
+    "title": "Plataformas",
+    "unbound": "Sem vínculo"
   },
   "policy": {
     "balanced": "Equilibrado",

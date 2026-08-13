@@ -149,7 +149,8 @@
     "routableNodes": "Nút có thể định tuyến",
     "socks5Auth": "Người dùng SOCKS5",
     "splitHint": "Trái: cổng vào (định danh). Kéo cổng vào platform. Phải: platform và lease.",
-    "title": "Nền tảng"
+    "title": "Nền tảng",
+    "unbound": "Chưa gắn"
   },
   "policy": {
     "balanced": "Can bang",
