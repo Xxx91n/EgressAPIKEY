@@ -332,5 +332,19 @@
     "noLogs": "Tidak ada entri log",
     "closeAllConnections": "Tutup semua koneksi",
     "resetKernel": "Reset kernel"
+  },
+  "strategyVerify": {
+    "title": "Verifikasi strategi",
+    "platform": "Platform",
+    "sampleCount": "Jumlah sampel",
+    "run": "Jalankan verifikasi",
+    "latency": "Latensi rata-rata",
+    "uniqueIps": "IP unik",
+    "status": "Status"
+  },
+  "connectionControl": {
+    "title": "Kontrol koneksi",
+    "confirmClose": "Ini akan memutus SEMUA koneksi yang sedang berjalan. Lanjutkan?",
+    "confirmReset": "Ini akan memulai ulang kernel (semua koneksi terputus). Lanjutkan?"
   }
 }

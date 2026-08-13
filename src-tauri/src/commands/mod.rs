@@ -916,6 +916,130 @@ async fn sidecar_restart(
     Ok(())
 }
 
+/// T8-2: Strategy verification — send N probe requests through the Resin
+/// forward proxy entry port bound to a platform, collect the exit IP for
+/// each request, and return a distribution summary. The probe target is
+/// ipify (https://api.ipify.org) which returns the caller's public IP as
+/// plain text. Uses reqwest through the Resin proxy URL format:
+/// http://<api_port>/<proxy_token>/https/api.ipify.org
+///
+/// Returns: { samples: [{ip, latency_ms}], distribution: {ip: count},
+///           avg_latency_ms, unique_ips, strategy: string, platform: string }
+#[tauri::command]
+pub async fn strategy_verify(
+    sidecar: State<'_, SidecarHandle>,
+    platform_name: String,
+    sample_count: u32,
+) -> Result<serde_json::Value, IpcError> {
+    validate_short_name(&platform_name, "platform")?;
+    let n = sample_count.clamp(3, 50);
+    let client = resin_client(&sidecar)?;
+
+    // Get the platform's allocation_policy for display.
+    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
+    let policy = items_arr(&list)
+        .iter()
+        .find(|p| p.get("name").and_then(|v| v.as_str()) == Some(&platform_name))
+        .and_then(|p| p.get("allocation_policy").and_then(|v| v.as_str()))
+        .unwrap_or("unknown")
+        .to_string();
+
+    // Build the proxy URL to ipify through Resin.
+    // Format: http://127.0.0.1:<port>/<proxy_token>/https/api.ipify.org
+    // The proxy_token for the shell is empty (no-auth), so the path is
+    // just the protocol + host. But Resin forward proxy needs the account
+    // header to identify the platform. We send X-Resin-Account = platform_name.
+    let proxy_url = format!(
+        "http://127.0.0.1:{}/https/api.ipify.org",
+        sidecar.api_port
+    );
+    tracing::info!(
+        platform = %platform_name,
+        proxy_url = %proxy_url,
+        samples = n,
+        "T8-2: strategy_verify starting probes"
+    );
+
+    let http = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| IpcError::from(format!("strategy_verify: http client build failed: {e}")))?;
+
+    let mut samples = Vec::new();
+    let mut total_latency = 0u64;
+    let mut distribution: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+
+    for i in 0..n {
+        let start = std::time::Instant::now();
+        let result = http
+            .get(&proxy_url)
+            .header("X-Resin-Account", &platform_name)
+            .send()
+            .await;
+        let latency_ms = start.elapsed().as_millis() as u64;
+        total_latency += latency_ms;
+
+        match result {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    match resp.text().await {
+                        Ok(ip) => {
+                            let ip = ip.trim().to_string();
+                            *distribution.entry(ip.clone()).or_insert(0) += 1;
+                            samples.push(serde_json::json!({
+                                "ip": ip,
+                                "latency_ms": latency_ms,
+                                "status": "ok",
+                            }));
+                        }
+                        Err(e) => {
+                            samples.push(serde_json::json!({
+                                "ip": "",
+                                "latency_ms": latency_ms,
+                                "status": format!("body_read_error: {e}"),
+                            }));
+                        }
+                    }
+                } else {
+                    samples.push(serde_json::json!({
+                        "ip": "",
+                        "latency_ms": latency_ms,
+                        "status": format!("http_{}", resp.status().as_u16()),
+                    }));
+                }
+            }
+            Err(e) => {
+                tracing::warn!(attempt = i, error = %e, "T8-2: probe failed");
+                samples.push(serde_json::json!({
+                    "ip": "",
+                    "latency_ms": latency_ms,
+                    "status": format!("error: {e}"),
+                }));
+            }
+        }
+    }
+
+    let unique_ips = distribution.len();
+    let avg_latency_ms = if n > 0 { total_latency / n as u64 } else { 0 };
+
+    tracing::info!(
+        platform = %platform_name,
+        unique_ips,
+        avg_latency_ms,
+        "T8-2: strategy_verify complete"
+    );
+
+    Ok(serde_json::json!({
+        "platform": platform_name,
+        "strategy": policy,
+        "samples": samples,
+        "distribution": distribution,
+        "avg_latency_ms": avg_latency_ms,
+        "unique_ips": unique_ips,
+        "sample_count": n,
+    }))
+}
+
 fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotEntry> {
     items_arr(v)
         .iter()

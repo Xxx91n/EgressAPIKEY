@@ -332,5 +332,19 @@
     "noLogs": "Geen logvermeldingen",
     "closeAllConnections": "Alle verbindingen sluiten",
     "resetKernel": "Kernel resetten"
+  },
+  "strategyVerify": {
+    "title": "Strategie verificatie",
+    "platform": "Platform",
+    "sampleCount": "Steekproefaantal",
+    "run": "Verificatie uitvoeren",
+    "latency": "Gemiddelde latentie",
+    "uniqueIps": "Unieke IP's",
+    "status": "Status"
+  },
+  "connectionControl": {
+    "title": "Verbindingscontrole",
+    "confirmClose": "Dit verbreekt ALLE actieve verbindingen. Doorgaan?",
+    "confirmReset": "Dit herstart de kernel (alle verbindingen verbroken). Doorgaan?"
   }
 }

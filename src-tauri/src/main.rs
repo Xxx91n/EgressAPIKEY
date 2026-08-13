@@ -110,6 +110,7 @@ fn main() {
             commands::system_config_patch,
             commands::close_all_connections,
             commands::reset_kernel,
+            commands::strategy_verify,
             commands::backup_create,
             commands::backup_upload,
             commands::backup_list,

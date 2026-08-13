@@ -332,5 +332,19 @@
     "noLogs": "Brak wpisów w logach",
     "closeAllConnections": "Zamknij wszystkie połączenia",
     "resetKernel": "Resetuj jądro"
+  },
+  "strategyVerify": {
+    "title": "Weryfikacja strategii",
+    "platform": "Platforma",
+    "sampleCount": "Liczba próbek",
+    "run": "Uruchom weryfikację",
+    "latency": "Średnie opóźnienie",
+    "uniqueIps": "Unikalne IP",
+    "status": "Status"
+  },
+  "connectionControl": {
+    "title": "Kontrola połączenia",
+    "confirmClose": "To spowoduje zerwanie WSZYSTKICH aktywnych połączeń. Kontynuować?",
+    "confirmReset": "To zrestartuje jądro (wszystkie połączenia zerwane). Kontynuować?"
   }
 }

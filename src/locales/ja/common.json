@@ -332,5 +332,19 @@
     "noLogs": "ログエントリなし",
     "closeAllConnections": "全接続を閉じる",
     "resetKernel": "カーネルをリセット"
+  },
+  "strategyVerify": {
+    "title": "戦略検証",
+    "platform": "プラットフォーム",
+    "sampleCount": "サンプル数",
+    "run": "検証を実行",
+    "latency": "平均遅延",
+    "uniqueIps": "ユニークIP数",
+    "status": "ステータス"
+  },
+  "connectionControl": {
+    "title": "接続制御",
+    "confirmClose": "進行中の全接続が切断されます。続行しますか？",
+    "confirmReset": "カーネルを再起動します（全接続が切断されます）。続行しますか？"
   }
 }

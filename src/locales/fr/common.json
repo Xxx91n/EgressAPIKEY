@@ -332,5 +332,19 @@
     "noLogs": "Aucune entrée de journal",
     "closeAllConnections": "Fermer toutes les connexions",
     "resetKernel": "Réinitialiser le noyau"
+  },
+  "strategyVerify": {
+    "title": "Vérification de stratégie",
+    "platform": "Plateforme",
+    "sampleCount": "Nombre d'échantillons",
+    "run": "Lancer la vérification",
+    "latency": "Latence moyenne",
+    "uniqueIps": "IP uniques",
+    "status": "Statut"
+  },
+  "connectionControl": {
+    "title": "Contrôle de connexion",
+    "confirmClose": "Cela coupera TOUTES les connexions en cours. Continuer ?",
+    "confirmReset": "Cela redémarrera le noyau (toutes connexions coupées). Continuer ?"
   }
 }

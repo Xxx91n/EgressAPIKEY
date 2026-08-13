@@ -332,5 +332,19 @@
     "noLogs": "Sem entradas de log",
     "closeAllConnections": "Fechar todas as conexões",
     "resetKernel": "Reiniciar núcleo"
+  },
+  "strategyVerify": {
+    "title": "Verificação de estratégia",
+    "platform": "Plataforma",
+    "sampleCount": "Contagem de amostras",
+    "run": "Executar verificação",
+    "latency": "Latência média",
+    "uniqueIps": "IPs únicos",
+    "status": "Status"
+  },
+  "connectionControl": {
+    "title": "Controle de conexão",
+    "confirmClose": "Isso cortará TODAS as conexões em andamento. Continuar?",
+    "confirmReset": "Isso reiniciará o núcleo (todas as conexões cortadas). Continuar?"
   }
 }

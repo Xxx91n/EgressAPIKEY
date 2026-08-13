@@ -736,3 +736,12 @@ export async function ipcCloseAllConnections(): Promise<void> {
 export async function ipcResetKernel(): Promise<void> {
   return invoke("reset_kernel");
 }
+
+/// T8-2: Strategy verification — probe N requests, collect exit IP + latency.
+export async function ipcStrategyVerify(platformName: string, sampleCount: number): Promise<unknown> {
+  assertShortName(platformName, "platform");
+  if (typeof sampleCount !== "number" || sampleCount < 3 || sampleCount > 50) {
+    throw new Error("sampleCount must be between 3 and 50");
+  }
+  return invoke("strategy_verify", { platformName, sampleCount });
+}

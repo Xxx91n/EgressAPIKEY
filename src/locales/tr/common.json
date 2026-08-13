@@ -332,5 +332,19 @@
     "noLogs": "Kayıt yok",
     "closeAllConnections": "Tüm bağlantıları kapat",
     "resetKernel": "Çekirdeği sıfırla"
+  },
+  "strategyVerify": {
+    "title": "Strateji doğrulama",
+    "platform": "Platform",
+    "sampleCount": "Örnek sayısı",
+    "run": "Doğrulamayı çalıştır",
+    "latency": "Ortalama gecikme",
+    "uniqueIps": "Benzersiz IP",
+    "status": "Durum"
+  },
+  "connectionControl": {
+    "title": "Bağlantı kontrolü",
+    "confirmClose": "Bu tüm aktif bağlantıları kesecek. Devam edilsin mi?",
+    "confirmReset": "Bu çekirdeği yeniden başlatacak (tüm bağlantılar kesilecek). Devam edilsin mi?"
   }
 }

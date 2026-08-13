@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Activity, Stethoscope, Flame, Globe, Server, Loader2, FolderOpen, ArrowRight, Zap } from "lucide-react";
+import { Activity, Stethoscope, Flame, Globe, Server, Loader2, FolderOpen, ArrowRight, Zap } from "lucide-react"; // T8-2/T8-3 added Zap for verify button
 import { openPath } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -9,6 +9,10 @@ import {
   ipcRequestLogTail,
   ipcProbeExitIp,
   ipcPortHealthCheck,
+  ipcPlatformListFull,
+  ipcStrategyVerify,
+  ipcCloseAllConnections,
+  ipcResetKernel,
   type SidecarStatus,
   type FirewallStatus,
   type RequestLogEntry,
@@ -48,6 +52,12 @@ export function DiagnosticsView() {
   const [probeProto, setProbeProto] = useState("http");
   const [probeResult, setProbeResult] = useState<ExitIpProbe | null>(null);
   const [probeBusy, setProbeBusy] = useState(false);
+  // T8-2: Strategy verification state
+  const [platformNames, setPlatformNames] = useState<string[]>([]);
+  const [selectedPlatform, setSelectedPlatform] = useState("");
+  const [sampleCount, setSampleCount] = useState(10);
+  const [verifyResult, setVerifyResult] = useState<Record<string, unknown> | null>(null);
+  const [verifyBusy, setVerifyBusy] = useState(false);
   const [healthPort, setHealthPort] = useState("1790");
   const [healthProto, setHealthProto] = useState("socks5");
   const [healthResult, setHealthResult] = useState<PortHealthCheck | null>(null);
@@ -149,6 +159,49 @@ export function DiagnosticsView() {
     try {
       const dir = await invoke<string>("get_log_dir");
       if (dir) await openPath(dir);
+    } catch { /* not in tauri */ }
+  };
+
+  // T8-2: Load platform names for strategy verify dropdown
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await ipcPlatformListFull();
+        const items = (res as { items?: { name?: string }[] })?.items ?? [];
+        const names = items.map((it) => it.name ?? "").filter(Boolean) as string[];
+        setPlatformNames(names);
+      } catch { /* not in tauri */ }
+    })();
+  }, []);
+
+  // T8-2: Run strategy verification
+  const runStrategyVerify = async () => {
+    if (!selectedPlatform) return;
+    setVerifyBusy(true);
+    setVerifyResult(null);
+    try {
+      const res = await ipcStrategyVerify(selectedPlatform, sampleCount);
+      setVerifyResult(res as Record<string, unknown>);
+    } catch (e) {
+      setVerifyResult({ error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setVerifyBusy(false);
+    }
+  };
+
+  // T8-6: Close all connections (kill sidecar — drops all active TCP)
+  const handleCloseAll = async () => {
+    if (!window.confirm(t("connectionControl.confirmClose"))) return;
+    try {
+      await ipcCloseAllConnections();
+    } catch { /* not in tauri */ }
+  };
+
+  // T8-6: Reset kernel (kill + restart sidecar)
+  const handleResetKernel = async () => {
+    if (!window.confirm(t("connectionControl.confirmReset"))) return;
+    try {
+      await ipcResetKernel();
     } catch { /* not in tauri */ }
   };
 
@@ -355,6 +408,92 @@ export function DiagnosticsView() {
         <FolderOpen size={14} strokeWidth={1.75} />
         {t("diagnostics.openLogDir")}
       </button>
+
+      {/* T8-2: Strategy verification */}
+      <DiagCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("strategyVerify.title")}>
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-2 items-end">
+            <DiagField label={t("strategyVerify.platform")}>
+              <select
+                value={selectedPlatform}
+                onChange={(e) => setSelectedPlatform(e.target.value)}
+                className="rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1 text-xs"
+                data-testid="verify-platform-sel"
+              >
+                {platformNames.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </DiagField>
+            <DiagField label={t("strategyVerify.sampleCount")}>
+              <input
+                type="number"
+                min={3}
+                max={50}
+                value={sampleCount}
+                onChange={(e) => setSampleCount(Number(e.target.value) || 10)}
+                className="rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1 text-xs w-20"
+                data-testid="verify-sample-count"
+              />
+            </DiagField>
+            <button
+              onClick={() => void runStrategyVerify()}
+              disabled={verifyBusy || !selectedPlatform}
+              className={btnCls}
+              data-testid="verify-run-btn"
+            >
+              {verifyBusy ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} strokeWidth={1.75} />}
+              {t("strategyVerify.run")}
+            </button>
+          </div>
+          {verifyResult && (
+            <div className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 p-3 space-y-1" data-testid="verify-result">
+              <div className="flex gap-4 text-xs">
+                <span className="text-zinc-500">{t("diagnostics.portHealth.platform")}: <b className="text-zinc-700 dark:text-zinc-300">{String(verifyResult.platform ?? "-")}</b></span>
+                <span className="text-zinc-500">{t("diagnostics.portHealth.policy")}: <b className="text-zinc-700 dark:text-zinc-300">{String(verifyResult.strategy ?? "-")}</b></span>
+                <span className="text-zinc-500">{t("strategyVerify.uniqueIps")}: <b className="text-zinc-700 dark:text-zinc-300">{String(verifyResult.unique_ips ?? "-")}</b></span>
+                <span className="text-zinc-500">{t("strategyVerify.latency")}: <b className="text-zinc-700 dark:text-zinc-300">{String(verifyResult.avg_latency_ms ?? "-")}ms</b></span>
+              </div>
+              {verifyResult.distribution != null && (
+                <div className="space-y-0.5">
+                  {Object.entries((verifyResult.distribution ?? {}) as Record<string, number>).map(([ip, count]) => (
+                    <div key={ip} className="flex items-center gap-2 text-xs">
+                      <span className="font-mono text-zinc-600 dark:text-zinc-400" key={ip}>{ip}</span>
+                      <div className="flex-1 bg-zinc-200 dark:bg-zinc-800 rounded-full h-2 overflow-hidden">
+                        <div className="bg-blue-500 h-full" style={{ width: `${(count as number) / Number(verifyResult.sample_count ?? 1) * 100}%` }} />
+                      </div>
+                      <span className="text-zinc-400">{String(count)}x</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {verifyResult.error != null && (
+                <p className="text-xs text-red-500">{String(verifyResult.error)}</p>
+              )}
+            </div>
+          )}
+        </div>
+      </DiagCard>
+
+      {/* T8-6: Connection control */}
+      <DiagCard icon={<Flame size={16} strokeWidth={1.75} />} title={t("connectionControl.title")}>
+        <div className="flex gap-2">
+          <button
+            onClick={() => void handleCloseAll()}
+            className="px-3 py-1.5 rounded text-xs font-medium bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/40 text-red-700 dark:text-red-400 transition-colors"
+            data-testid="conn-close-all"
+          >
+            <Flame size={14} strokeWidth={1.75} className="inline mr-1" />
+            {t("diagnostics.closeAllConnections")}
+          </button>
+          <button
+            onClick={() => void handleResetKernel()}
+            className="px-3 py-1.5 rounded text-xs font-medium bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-800/40 text-orange-700 dark:text-orange-400 transition-colors"
+            data-testid="conn-reset-kernel"
+          >
+            <Activity size={14} strokeWidth={1.75} className="inline mr-1" />
+            {t("diagnostics.resetKernel")}
+          </button>
+        </div>
+      </DiagCard>
     </div>
   );
 }

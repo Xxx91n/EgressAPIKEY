@@ -332,5 +332,19 @@
     "noLogs": "No log entries",
     "closeAllConnections": "Close All Connections",
     "resetKernel": "Reset Kernel"
+  },
+  "strategyVerify": {
+    "title": "Strategy Verification",
+    "platform": "Platform",
+    "sampleCount": "Sample Count",
+    "run": "Run Verification",
+    "latency": "Avg Latency",
+    "uniqueIps": "Unique IPs",
+    "status": "Status"
+  },
+  "connectionControl": {
+    "title": "Connection Control",
+    "confirmClose": "This will drop ALL in-flight connections. Continue?",
+    "confirmReset": "This will restart the kernel (all connections dropped). Continue?"
   }
 }

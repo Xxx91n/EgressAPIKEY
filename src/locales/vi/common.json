@@ -332,5 +332,19 @@
     "noLogs": "Không có mục nhật ký",
     "closeAllConnections": "Đóng tất cả kết nối",
     "resetKernel": "Đặt lại kernel"
+  },
+  "strategyVerify": {
+    "title": "Xác minh chiến lược",
+    "platform": "Nền tảng",
+    "sampleCount": "Số mẫu",
+    "run": "Chạy xác minh",
+    "latency": "Độ trễ trung bình",
+    "uniqueIps": "IP duy nhất",
+    "status": "Trạng thái"
+  },
+  "connectionControl": {
+    "title": "Điều khiển kết nối",
+    "confirmClose": "Điều này sẽ ngắt TẤT CẢ kết nối đang diễn ra. Tiếp tục?",
+    "confirmReset": "Điều này sẽ khởi động lại kernel (ngắt tất cả kết nối). Tiếp tục?"
   }
 }

@@ -332,5 +332,19 @@
     "noLogs": "Nessuna voce di log",
     "closeAllConnections": "Chiudi tutte le connessioni",
     "resetKernel": "Resetta kernel"
+  },
+  "strategyVerify": {
+    "title": "Verifica strategia",
+    "platform": "Piattaforma",
+    "sampleCount": "Conteggio campioni",
+    "run": "Esegui verifica",
+    "latency": "Latenza media",
+    "uniqueIps": "IP univoci",
+    "status": "Stato"
+  },
+  "connectionControl": {
+    "title": "Controllo connessione",
+    "confirmClose": "Questo interromperà TUTTE le connessioni in corso. Continuare?",
+    "confirmReset": "Questo riavvierà il kernel (tutte le connessioni interrotte). Continuare?"
   }
 }

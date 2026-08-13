@@ -332,5 +332,19 @@
     "noLogs": "无日志记录",
     "closeAllConnections": "关闭所有连接",
     "resetKernel": "重置内核"
+  },
+  "strategyVerify": {
+    "title": "策略验证",
+    "platform": "平台",
+    "sampleCount": "采样数",
+    "run": "开始验证",
+    "latency": "平均延时",
+    "uniqueIps": "唯一IP数",
+    "status": "状态"
+  },
+  "connectionControl": {
+    "title": "连接控制",
+    "confirmClose": "这将中断所有进行中的连接。继续？",
+    "confirmReset": "这将重启内核（所有连接中断）。继续？"
   }
 }

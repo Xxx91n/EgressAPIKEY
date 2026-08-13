@@ -332,5 +332,19 @@
     "noLogs": "Keine Protokolleinträge",
     "closeAllConnections": "Alle Verbindungen schließen",
     "resetKernel": "Kernel zurücksetzen"
+  },
+  "strategyVerify": {
+    "title": "Strategieüberprüfung",
+    "platform": "Plattform",
+    "sampleCount": "Stichprobenzahl",
+    "run": "Überprüfung starten",
+    "latency": "Ø Latenz",
+    "uniqueIps": "Eindeutige IPs",
+    "status": "Status"
+  },
+  "connectionControl": {
+    "title": "Verbindungskontrolle",
+    "confirmClose": "Dies alle laufenden Verbindungen trennen. Fortfahren?",
+    "confirmReset": "Der Kernel wird neu gestartet (alle Verbindungen getrennt). Fortfahren?"
   }
 }
