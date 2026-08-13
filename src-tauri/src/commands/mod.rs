@@ -894,7 +894,7 @@ async fn sidecar_restart(
 ) -> Result<(), IpcError> {
     // Kill existing child if present.
     {
-        let mut guard = sidecar.child.lock().unwrap();
+        let mut guard = sidecar.child.lock().unwrap_or_else(|e| e.into_inner()); // ponytail: poison-safe, matches AGENTS §7.5 no-panic-in-production
         if let Some(mut child) = guard.take() {
             let _ = child.kill();
             tracing::info!("T8-6: killed existing sidecar child");
