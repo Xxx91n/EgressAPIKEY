@@ -219,7 +219,10 @@
     "latency": "تفضيل أقل زمن وصول",
     "bandwidth": "تفضيل أعلى عرض نطاق",
     "protocolWeight": "مرجح بالبروتوكول",
-    "bQuality": "تقييم جودة IP"
+    "bQuality": "تقييم جودة IP",
+    "circuitBreaker": "قاطع الدائرة",
+    "circuitBreakerThreshold": "أقصى فشل متتالي قبل عزل العقدة",
+    "stickyTtlHint": "0 = بدون ثبابة (كل طلب قد يستخدم IP خروج مختلف); قيمة أعلى تربط نفس مفتاح API بنفس IP لفترة أطول"
   },
   "subscription": {
     "title": "الاشتراكات",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "لا يمكن إعادة التسمية: لم يتم تخزين عنوان URL الأصلي مؤقتًا. أعد استيراد الاشتراك بالاسم الجديد.",
     "resetOrder": "إعادة تعيين الترتيب",
     "duplicate": "الاشتراك \"{{name}}\" موجود بالفعل. اختر اسمًا آخر.",
-    "healthy": "سليم"
+    "healthy": "سليم",
+    "updateInterval": "فترة التحديث"
   },
   "theme": {
     "label": "السمة",
@@ -325,6 +329,8 @@
     "openLogDir": "فتح دليل السجلات",
     "sidecarLogs": "سجلات Sidecar",
     "refresh": "تحديث",
-    "noLogs": "لا توجد سجلات"
+    "noLogs": "لا توجد سجلات",
+    "closeAllConnections": "إغلاق كل الاتصالات",
+    "resetKernel": "إعادة تعيين النواة"
   }
 }

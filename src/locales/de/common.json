@@ -219,7 +219,10 @@
     "latency": "Geringste Latenz bevorzugen",
     "bandwidth": "Hoechste Bandbreite bevorzugen",
     "protocolWeight": "Protokollgewichtet",
-    "bQuality": "IP-Qualitaetsbewertung"
+    "bQuality": "IP-Qualitaetsbewertung",
+    "circuitBreaker": "Leitungsschutzschalter",
+    "circuitBreakerThreshold": "Max aufeinanderfolgende Fehler vor Isolierung",
+    "stickyTtlHint": "0 = keine Klebrigkeit (jede Anfrage kann eine andere Ausgangs-IP verwenden); höherer Wert bindet denselben API-Schlüssel länger an dieselbe IP"
   },
   "subscription": {
     "title": "Abonnements",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "Umbenennen nicht möglich: Original-URL nicht zwischengespeichert. Abonnement mit neuem Namen erneut importieren.",
     "resetOrder": "Sortierung zurücksetzen",
     "duplicate": "Abonnement \"{{name}}\" existiert bereits. Wählen Sie einen anderen Namen.",
-    "healthy": "gesund"
+    "healthy": "gesund",
+    "updateInterval": "Aktualisierungsintervall"
   },
   "theme": {
     "label": "Design",
@@ -325,6 +329,8 @@
     "openLogDir": "Protokollverzeichnis öffnen",
     "sidecarLogs": "Sidecar-Protokoll",
     "refresh": "Aktualisieren",
-    "noLogs": "Keine Protokolleinträge"
+    "noLogs": "Keine Protokolleinträge",
+    "closeAllConnections": "Alle Verbindungen schließen",
+    "resetKernel": "Kernel zurücksetzen"
   }
 }

@@ -219,7 +219,10 @@
     "latency": "Uu tien do tre thap nhat",
     "bandwidth": "Uu tien bang thong cao nhat",
     "protocolWeight": "Trong so giao thuc",
-    "bQuality": "Diem chat luong IP"
+    "bQuality": "Diem chat luong IP",
+    "circuitBreaker": "Bộ ngắt mạch",
+    "circuitBreakerThreshold": "Số lần thất bại liên tiếp tối đa trước khi cô lập",
+    "stickyTtlHint": "0 = không dính (mỗi yêu cầu có thể sử dụng IP đầu ra khác); giá trị cao hơn liên kết cùng khóa API với cùng IP lâu hơn"
   },
   "subscription": {
     "title": "Đăng ký",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "Không thể đổi tên: URL gốc không được lưu tạm. Hãy nhập lại đăng ký bằng tên mới.",
     "resetOrder": "Đặt lại sắp xếp",
     "duplicate": "Đăng ký \"{{name}}\" đã tồn tại. Chọn tên khác.",
-    "healthy": "khỏe"
+    "healthy": "khỏe",
+    "updateInterval": "Khoảng thời gian cập nhật"
   },
   "theme": {
     "label": "Giao diện",
@@ -325,6 +329,8 @@
     "openLogDir": "Mở thư mục nhật ký",
     "sidecarLogs": "Nhật ký Sidecar",
     "refresh": "Làm mới",
-    "noLogs": "Không có mục nhật ký"
+    "noLogs": "Không có mục nhật ký",
+    "closeAllConnections": "Đóng tất cả kết nối",
+    "resetKernel": "Đặt lại kernel"
   }
 }

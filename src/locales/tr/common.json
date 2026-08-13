@@ -219,7 +219,10 @@
     "latency": "En dusuk gecikme tercih",
     "bandwidth": "Yuksek bant genisligi tercih",
     "protocolWeight": "Protokol-agirlikli",
-    "bQuality": "IP kalite skoru"
+    "bQuality": "IP kalite skoru",
+    "circuitBreaker": "Devre Kesici",
+    "circuitBreakerThreshold": "İzolasyondan önce maks ardışık hata",
+    "stickyTtlHint": "0 = yapışkanlık yok (her istek farklı bir çıkış IP'si kullanabilir); daha yüksek değer aynı API anahtarını aynı IP'ye daha uzun süre bağlar"
   },
   "subscription": {
     "title": "Abonelikler",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "Yeniden adlandırılamıyor: orijinal URL önbellekte değil. Aboneliği yeni adla yeniden içe aktarın.",
     "resetOrder": "Sıralamayı sıfırla",
     "duplicate": "Abonelik \"{{name}}\" zaten mevcut. Farklı bir ad seçin.",
-    "healthy": "sağlıklı"
+    "healthy": "sağlıklı",
+    "updateInterval": "Güncelleme aralığı"
   },
   "theme": {
     "label": "Tema",
@@ -325,6 +329,8 @@
     "openLogDir": "Günlük Dizinini Aç",
     "sidecarLogs": "Sidecar Günlükleri",
     "refresh": "Yenile",
-    "noLogs": "Kayıt yok"
+    "noLogs": "Kayıt yok",
+    "closeAllConnections": "Tüm bağlantıları kapat",
+    "resetKernel": "Çekirdeği sıfırla"
   }
 }

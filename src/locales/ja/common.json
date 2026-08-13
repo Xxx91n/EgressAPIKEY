@@ -219,7 +219,10 @@
     "latency": "最低遅延優先",
     "bandwidth": "最高帯域幅優先",
     "protocolWeight": "プロトコル重み付け",
-    "bQuality": "IP品質スコア"
+    "bQuality": "IP品質スコア",
+    "circuitBreaker": "サーキットブレーカー",
+    "circuitBreakerThreshold": "ノード隔離前の最大連続失敗回数",
+    "stickyTtlHint": "0 = スティッキーなし（各リクエストが異なる出口IPを使用する可能性あり）; 高い値ほど同じAPIキーを同じIPに長くバインド"
   },
   "subscription": {
     "title": "サブスクリプション",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "名前変更できません：元の URL がキャッシュされていません。新しい名前で再インポートしてください。",
     "resetOrder": "並び替えをリセット",
     "duplicate": "サブスクリプション \"{{name}}\" は既に存在します。別の名前を選んでください。",
-    "healthy": "正常"
+    "healthy": "正常",
+    "updateInterval": "更新間隔"
   },
   "theme": {
     "label": "テーマ",
@@ -325,6 +329,8 @@
     "openLogDir": "ログディレクトリを開く",
     "sidecarLogs": "サイドカーログ",
     "refresh": "更新",
-    "noLogs": "ログエントリなし"
+    "noLogs": "ログエントリなし",
+    "closeAllConnections": "全接続を閉じる",
+    "resetKernel": "カーネルをリセット"
   }
 }

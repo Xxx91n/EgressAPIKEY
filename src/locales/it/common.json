@@ -219,7 +219,10 @@
     "latency": "Preferisci latenza piu bassa",
     "bandwidth": "Preferisci bandwidth piu alto",
     "protocolWeight": "Ponderato per protocollo",
-    "bQuality": "Punteggio qualita IP"
+    "bQuality": "Punteggio qualita IP",
+    "circuitBreaker": "Interruttore",
+    "circuitBreakerThreshold": "Fallimenti consecutivi max prima dell'isolamento",
+    "stickyTtlHint": "0 = nessuna persistenza (ogni richiesta può usare un IP di uscita diverso); valore più alto lega la stessa chiave API allo stesso IP più a lungo"
   },
   "subscription": {
     "title": "Sottoscrizioni",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "Impossibile rinominare: URL originale non in cache. Reimporta labbonamento con il nuovo nome.",
     "resetOrder": "Ripristina ordine",
     "duplicate": "L'abbonamento \"{{name}}\" esiste già. Scegli un altro nome.",
-    "healthy": "sano"
+    "healthy": "sano",
+    "updateInterval": "Intervallo di aggiornamento"
   },
   "theme": {
     "label": "Tema",
@@ -325,6 +329,8 @@
     "openLogDir": "Apri Directory Log",
     "sidecarLogs": "Log Sidecar",
     "refresh": "Aggiorna",
-    "noLogs": "Nessuna voce di log"
+    "noLogs": "Nessuna voce di log",
+    "closeAllConnections": "Chiudi tutte le connessioni",
+    "resetKernel": "Resetta kernel"
   }
 }

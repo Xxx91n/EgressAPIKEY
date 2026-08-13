@@ -219,7 +219,10 @@
     "latency": "Preferer latence la plus basse",
     "bandwidth": "Preferer la bande passante la plus elevee",
     "protocolWeight": "Pondere par protocole",
-    "bQuality": "Score qualite IP"
+    "bQuality": "Score qualite IP",
+    "circuitBreaker": "Disjoncteur",
+    "circuitBreakerThreshold": "Échecs consécutifs max avant isolement",
+    "stickyTtlHint": "0 = pas de stabilité (chaque requête peut utiliser une IP de sortie différente); valeur plus élevée lie la même clé API à la même IP plus longtemps"
   },
   "subscription": {
     "title": "Abonnements",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "Impossible de renommer : lURL dorigine nest pas en cache. Réimportez labonnement avec le nouveau nom.",
     "resetOrder": "Réinitialiser le tri",
     "duplicate": "L'abonnement \"{{name}}\" existe déjà. Choisissez un autre nom.",
-    "healthy": "sain"
+    "healthy": "sain",
+    "updateInterval": "Intervalle de mise à jour"
   },
   "theme": {
     "label": "Thème",
@@ -325,6 +329,8 @@
     "openLogDir": "Ouvrir le Répertoire des Journaux",
     "sidecarLogs": "Journaux du Sidecar",
     "refresh": "Actualiser",
-    "noLogs": "Aucune entrée de journal"
+    "noLogs": "Aucune entrée de journal",
+    "closeAllConnections": "Fermer toutes les connexions",
+    "resetKernel": "Réinitialiser le noyau"
   }
 }

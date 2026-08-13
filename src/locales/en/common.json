@@ -219,7 +219,10 @@
     "latency": "Prefer lowest latency",
     "bQuality": "IP quality score",
     "bandwidth": "Prefer highest bandwidth",
-    "protocolWeight": "Protocol-weighted"
+    "protocolWeight": "Protocol-weighted",
+    "circuitBreaker": "Circuit Breaker",
+    "circuitBreakerThreshold": "Max consecutive failures before node isolation",
+    "stickyTtlHint": "0 = no stickiness (every request may use a different exit IP); higher value binds the same API key to the same IP longer"
   },
   "subscription": {
     "title": "Subscriptions",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "Cannot rename: original URL not cached. Re-import the subscription with the new name instead.",
     "resetOrder": "Reset sort",
     "duplicate": "Subscription \"{{name}}\" already exists. Choose a different name.",
-    "healthy": "healthy"
+    "healthy": "healthy",
+    "updateInterval": "Update Interval"
   },
   "theme": {
     "label": "Theme",
@@ -325,6 +329,8 @@
     "openLogDir": "Open Log Directory",
     "sidecarLogs": "Sidecar Logs",
     "refresh": "Refresh",
-    "noLogs": "No log entries"
+    "noLogs": "No log entries",
+    "closeAllConnections": "Close All Connections",
+    "resetKernel": "Reset Kernel"
   }
 }

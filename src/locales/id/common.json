@@ -219,7 +219,10 @@
     "latency": "Prefer latensi terendah",
     "bandwidth": "Prefer bandwidth tertinggi",
     "protocolWeight": "Berbobot protokol",
-    "bQuality": "Skor kualitas IP"
+    "bQuality": "Skor kualitas IP",
+    "circuitBreaker": "Pemutus Daya",
+    "circuitBreakerThreshold": "Kegagalan berurutan maks. sebelum isolasi",
+    "stickyTtlHint": "0 = tanpa lengket (setiap permintaan mungkin menggunakan IP keluar berbeda); nilai lebih tinggi mengikat kunci API yang sama ke IP yang sama lebih lama"
   },
   "subscription": {
     "title": "Langganan",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "Tidak dapat mengubah nama: URL asli tidak di-cache. Impor ulang langganan dengan nama baru.",
     "resetOrder": "Atur ulang urutan",
     "duplicate": "Langganan \"{{name}}\" sudah ada. Pilih nama lain.",
-    "healthy": "sehat"
+    "healthy": "sehat",
+    "updateInterval": "Interval pembaruan"
   },
   "theme": {
     "label": "Tema",
@@ -325,6 +329,8 @@
     "openLogDir": "Buka Direktori Log",
     "sidecarLogs": "Log Sidecar",
     "refresh": "Segarkan",
-    "noLogs": "Tidak ada entri log"
+    "noLogs": "Tidak ada entri log",
+    "closeAllConnections": "Tutup semua koneksi",
+    "resetKernel": "Reset kernel"
   }
 }

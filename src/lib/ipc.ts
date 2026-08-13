@@ -96,6 +96,7 @@ export async function ipcPlatformUpdate(
   regexFilters?: string[],
   regionFilters?: string[],
   stickyTtl?: string,
+  circuitBreakerDisabled?: boolean,
 ): Promise<unknown> {
   assertShortName(name, "platform");
   // T6-Bug2: translate shell StrategyId → Resin enum before sending to backend.
@@ -131,6 +132,7 @@ export async function ipcPlatformUpdate(
     regexFilters: regexFilters ?? null,
     regionFilters: regionFilters ?? null,
     stickyTtl: stickyTtl ?? null,
+    passive_circuit_breaker_disabled: circuitBreakerDisabled ?? null,
   });
 }
 
@@ -220,11 +222,11 @@ export interface SubscriptionSnapshotEntry {
   last_checked: string;
 }
 
-export async function ipcSubscriptionAdd(name: string, url: string): Promise<void> {
+export async function ipcSubscriptionAdd(name: string, url: string, updateInterval?: string): Promise<void> {
   assertShortName(name, "subscription");
   if (!url || url.length > 4096) throw new Error("subscription url invalid");
   if (!/^https?:\/\//.test(url)) throw new Error("subscription url must start with http:// or https://");
-  await invoke("subscription_add", { name, url });
+  await invoke("subscription_add", { name, url, updateInterval: updateInterval ?? null });
 }
 
 export async function ipcSubscriptionRemove(name: string): Promise<boolean> {
@@ -706,3 +708,31 @@ export function extractIpcErr(e: unknown): IpcErr {
  export function ipcErrI18nKey(e: unknown): string {
    return extractIpcErr(e).data.i18n_key || "error.internal";
  }
+
+/// T8-1: GET /api/v1/system/config — read system-level config.
+export async function ipcSystemConfigGet(): Promise<unknown> {
+  return invoke("system_config_get");
+}
+
+/// T8-1: PATCH /api/v1/system/config — update system-level config.
+export async function ipcSystemConfigPatch(body: {
+  max_consecutive_failures?: number;
+  [key: string]: unknown;
+}): Promise<unknown> {
+  if (body.max_consecutive_failures !== undefined) {
+    if (typeof body.max_consecutive_failures !== "number" ||
+        body.max_consecutive_failures < 1 || body.max_consecutive_failures > 100) {
+      throw new Error("max_consecutive_failures must be between 1 and 100");
+    }
+  }
+  return invoke("system_config_patch", { body });
+}
+/// T8-6: Close all in-flight connections (kill + restart sidecar).
+export async function ipcCloseAllConnections(): Promise<void> {
+  return invoke("close_all_connections");
+}
+
+/// T8-6: Reset kernel (kill + restart sidecar — same impl, different semantic).
+export async function ipcResetKernel(): Promise<void> {
+  return invoke("reset_kernel");
+}

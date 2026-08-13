@@ -219,7 +219,10 @@
     "latency": "Preferir menor latencia",
     "bandwidth": "Preferir maior largura de banda",
     "protocolWeight": "Ponderado por protocolo",
-    "bQuality": "Pontuacao de qualidade IP"
+    "bQuality": "Pontuacao de qualidade IP",
+    "circuitBreaker": "Disjuntor",
+    "circuitBreakerThreshold": "Falhas consecutivas máx. antes do isolamento",
+    "stickyTtlHint": "0 = sem fixação (cada solicitação pode usar um IP de saída diferente); valor mais alto vincula a mesma chave API ao mesmo IP por mais tempo"
   },
   "subscription": {
     "title": "Assinaturas",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "Não é possível renomear: URL original não está em cache. Reimporte a assinatura com o novo nome.",
     "resetOrder": "Redefinir ordem",
     "duplicate": "A assinatura \"{{name}}\" já existe. Escolha outro nome.",
-    "healthy": "saudável"
+    "healthy": "saudável",
+    "updateInterval": "Intervalo de atualização"
   },
   "theme": {
     "label": "Tema",
@@ -325,6 +329,8 @@
     "openLogDir": "Abrir Diretório de Logs",
     "sidecarLogs": "Logs do Sidecar",
     "refresh": "Atualizar",
-    "noLogs": "Sem entradas de log"
+    "noLogs": "Sem entradas de log",
+    "closeAllConnections": "Fechar todas as conexões",
+    "resetKernel": "Reiniciar núcleo"
   }
 }

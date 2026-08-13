@@ -219,7 +219,10 @@
     "latency": "优选最低延时",
     "bandwidth": "优选最高带宽",
     "protocolWeight": "协议加权",
-    "bQuality": "IP 质量分"
+    "bQuality": "IP 质量分",
+    "circuitBreaker": "熔断器",
+    "circuitBreakerThreshold": "节点隔离前的最大连续失败次数",
+    "stickyTtlHint": "0 = 无黏性（每次请求可能使用不同出口IP）；值越大同一API key绑定同一IP越久"
   },
   "subscription": {
     "title": "订阅",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "无法重命名：未缓存原始订阅 URL。请用新名称重新导入该订阅。",
     "resetOrder": "重置排序",
     "duplicate": "订阅 \"{{name}}\" 已存在，请换一个名称。",
-    "healthy": "健康"
+    "healthy": "健康",
+    "updateInterval": "更新间隔"
   },
   "theme": {
     "label": "主题",
@@ -325,6 +329,8 @@
     "openLogDir": "打开日志目录",
     "sidecarLogs": "Sidecar 日志",
     "refresh": "刷新",
-    "noLogs": "无日志记录"
+    "noLogs": "无日志记录",
+    "closeAllConnections": "关闭所有连接",
+    "resetKernel": "重置内核"
   }
 }

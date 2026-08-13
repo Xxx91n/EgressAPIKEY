@@ -219,7 +219,10 @@
     "latency": "Preferuj najnizsze opoznienie",
     "bandwidth": "Preferuj najwyzsza przepustowosc",
     "protocolWeight": "Wazony protokolem",
-    "bQuality": "Wynik jakosci IP"
+    "bQuality": "Wynik jakosci IP",
+    "circuitBreaker": "Bezpiecznik",
+    "circuitBreakerThreshold": "Maks kolejnych błędów przed izolacją",
+    "stickyTtlHint": "0 = brak lepkości (każde żądanie może używać innego IP wyjścia); wyższa wartość wiąże ten sam klucz API z tym samym IP dłużej"
   },
   "subscription": {
     "title": "Subskrypcje",
@@ -237,7 +240,8 @@
     "renameUrlMissing": "Nie można zmienić nazwy: oryginalny URL nie jest w pamięci podręcznej. Zaimportuj ponownie subskrypcję pod nową nazwą.",
     "resetOrder": "Resetuj sortowanie",
     "duplicate": "Subskrypcja \"{{name}}\" już istnieje. Wybierz inną nazwę.",
-    "healthy": "zdrowy"
+    "healthy": "zdrowy",
+    "updateInterval": "Interwał aktualizacji"
   },
   "theme": {
     "label": "Motyw",
@@ -325,6 +329,8 @@
     "openLogDir": "Otwórz katalog logów",
     "sidecarLogs": "Logi Sidecar",
     "refresh": "Odśwież",
-    "noLogs": "Brak wpisów w logach"
+    "noLogs": "Brak wpisów w logach",
+    "closeAllConnections": "Zamknij wszystkie połączenia",
+    "resetKernel": "Resetuj jądro"
   }
 }

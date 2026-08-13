@@ -338,6 +338,20 @@ impl ResinClient {
         self.send(reqwest::Method::DELETE, &path, None).await
     }
 
+    /// GET /api/v1/system/config — read the system-level configuration
+    /// (max_consecutive_failures, cache_flush_interval, probe_timeout, etc.).
+    /// T8-1: used by the circuit breaker Settings panel to display current values.
+    pub async fn system_config_get(&self) -> Result<Value> {
+        self.send(reqwest::Method::GET, "/system/config", None).await
+    }
+
+    /// PATCH /api/v1/system/config — update system-level configuration.
+    /// T8-1: used to set max_consecutive_failures (circuit breaker threshold).
+    pub async fn system_config_patch(&self, body: Value) -> Result<Value> {
+        self.send(reqwest::Method::PATCH, "/system/config", Some(body)).await
+    }
+
+
 }
 
 /// Fetch a Clash/ClashMeta subscription URL with a clash-family User-Agent.
