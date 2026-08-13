@@ -72,7 +72,8 @@
     "platforms": "प्लेटफ़ॉर्म",
     "processRoute": "प्रक्रिया मार्ग",
     "subscriptions": "सब्सक्रिप्शन",
-    "nodes": "नोड्स"
+    "nodes": "नोड्स",
+    "diagnostics": "निदान"
   },
   "nodes": {
     "title": "नोड पूल",
@@ -310,5 +311,19 @@
     "sidecarPid": "Sidecar PID",
     "healthzLastCheck": "Healthz अंतिम जांच",
     "ipcLatency": "IPC विलंबता"
+  },
+  "diagnostics": {
+    "title": "निदान केंद्र",
+    "sidecarStatus": "Sidecar स्थिति",
+    "firewall": "फ़ायरवॉल",
+    "reqLog": "अनुरोध लॉग",
+    "exitIpProbe": "एग्जिट IP जांच",
+    "portHealth": "पोर्ट स्वास्थ्य जांच",
+    "logs": "लॉग",
+    "pollInterval": "पोल अंतराल",
+    "openLogDir": "लॉग निर्देशिका खोलें",
+    "sidecarLogs": "Sidecar लॉग",
+    "refresh": "ताज़ा करें",
+    "noLogs": "कोई लॉग प्रविष्टि नहीं"
   }
 }

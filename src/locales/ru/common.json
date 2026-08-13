@@ -72,7 +72,8 @@
     "processRoute": "Маршрут процесса",
     "subscriptions": "Подписки",
     "platforms": "Платформы",
-    "nodes": "Узлы"
+    "nodes": "Узлы",
+    "diagnostics": "Диагностика"
   },
   "nodes": {
     "title": "Пул узлов",
@@ -310,5 +311,19 @@
     "sidecarPid": "PID sidecar",
     "healthzLastCheck": "Последняя проверка healthz",
     "ipcLatency": "Задержка IPC"
+  },
+  "diagnostics": {
+    "title": "Центр диагностики",
+    "sidecarStatus": "Статус сайдкара",
+    "firewall": "Брандмауэр",
+    "reqLog": "Журнал запросов",
+    "exitIpProbe": "Проверка IP выхода",
+    "portHealth": "Проверка порта",
+    "logs": "Журналы",
+    "pollInterval": "Интервал опроса",
+    "openLogDir": "Открыть папку журналов",
+    "sidecarLogs": "Журналы сайдкара",
+    "refresh": "Обновить",
+    "noLogs": "Нет записей в журнале"
   }
 }

@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload } from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, ipcCheckFirewallStatus, ipcRequestLogTail, type NetworkConfig, type FirewallStatus, type RequestLogEntry } from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig } from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
@@ -93,9 +93,6 @@ export function SettingsView() {
   const [netBusy, setNetBusy] = useState(false);
   const [netMsg, setNetMsg] = useState("");
   // T6-7: Network diagnostics panel state.
-  const [firewallStatus, setFirewallStatus] = useState<FirewallStatus | null>(null);
-  const [reqLogs, setReqLogs] = useState<RequestLogEntry[]>([]);
-  const [diagBusy, setDiagBusy] = useState(false);
   const [reputationConfig, setReputationConfig] = useState<IpReputationConfig>({ provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" });
   // C2-8: dirty-state tracking — baseline snapshot vs current form values.
   // idiomatic enterprise pattern (minimal baseline+JSON.stringify diff, no RHF dep).
@@ -141,8 +138,6 @@ export function SettingsView() {
     setBaseline({ reputationConfig: reputation });
     // T6-3: also load network-layer config from whitebox
     void ipcWhiteboxGet().then((wb) => setNetCfg(wb.network ?? {})).catch(() => {});
-    // T6-7: also load diagnostics on mount
-    void refreshDiagnostics();
     })();
     return () => { cancelled = true; };
   }, []);
@@ -271,20 +266,7 @@ export function SettingsView() {
     setTimeout(() => setNetMsg(""), 2000);
   };
 
-  // T6-7: Diagnostics panel helpers.
-  const refreshDiagnostics = async () => {
-    setDiagBusy(true);
-    try {
-      const [fw, logs] = await Promise.all([
-        ipcCheckFirewallStatus().catch(() => null),
-        ipcRequestLogTail(20).catch(() => []),
-      ]);
-      if (fw) setFirewallStatus(fw);
-      setReqLogs(Array.isArray(logs) ? logs : []);
-    } finally {
-      setDiagBusy(false);
-    }
-  };
+
 
  const saveAll = async () => {
    setBusy(true);
@@ -425,79 +407,7 @@ export function SettingsView() {
         {reputationConfig.provider === "abuse_ip_db" ? <Field label={t("settings.ipReputationKey")}><input aria-label={t("settings.ipReputationKey")} type="password" autoComplete="off" value={reputationConfig.abuseIpDbApiKey} onChange={(e) => setReputationConfig((current) => ({ ...current, abuseIpDbApiKey: e.target.value }))} className={inputCls} /></Field> : null}
         {reputationConfig.provider === "ip_api" ? <p className="text-xs text-amber-700 dark:text-amber-300">{t("settings.ipApiWarning")}</p> : null}
       </SectionCard>
-      <SectionCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("networkLayer.diagnostics")}>
-        <Field label={t("settings.resinPort")}>
-          <p className="text-sm text-zinc-700 dark:text-zinc-300" data-testid="diag-sidecar-port">
-            {sidecarStatus ? sidecarStatus.api_port : t("settings.sidecarLoading")}
-          </p>
-        </Field>
-        <Field label={t("settings.resinStatus")}>
-          <p className="text-sm text-zinc-700 dark:text-zinc-300" data-testid="diag-sidecar-mode">
-            {sidecarStatus ? sidecarStatus.mode : t("settings.sidecarLoading")}
-          </p>
-        </Field>
-        <Field label={t("networkLayer.sidecarPid")}>
-          <p className="text-sm text-zinc-700 dark:text-zinc-300 font-mono" data-testid="diag-sidecar-pid">
-            {sidecarStatus ? (sidecarStatus.pid || "N/A") : "—"}
-          </p>
-        </Field>
-        <Field label={t("networkLayer.healthzLastCheck")}>
-          <p className="text-sm text-zinc-700 dark:text-zinc-300 font-mono" data-testid="diag-healthz-last-check">
-            {sidecarStatus ? (sidecarStatus.healthz_last_check || "—") : "—"}
-          </p>
-        </Field>
-        <Field label={t("networkLayer.ipcLatency")}>
-          <p className="text-sm text-zinc-700 dark:text-zinc-300 font-mono" data-testid="diag-ipc-latency">
-            {sidecarStatus ? sidecarStatus.ipc_latency_us + " µs" : "—"}
-          </p>
-        </Field>
-        {firewallStatus ? (
-          <Field label={t("networkLayer.firewallTitle")}>
-            <p className={"text-sm " + (firewallStatus.firewall_on ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400")} data-testid="diag-firewall-status">
-              {firewallStatus.firewall_on ? t("networkLayer.firewallOn") : t("networkLayer.firewallOff")}
-            </p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">{firewallStatus.detail}</p>
-          </Field>
-        ) : null}
-        <Field label={t("networkLayer.reqLogTitle")}>
-          <div className="flex items-center gap-2 mb-2">
-            <button data-testid="diag-refresh-btn" onClick={() => void refreshDiagnostics()} disabled={diagBusy} className={btnCls}>
-              {diagBusy ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} strokeWidth={1.75} />}
-              {t("networkLayer.refresh")}
-            </button>
-          </div>
-          {reqLogs.length === 0 ? (
-            <p className="text-xs text-zinc-500" data-testid="diag-no-logs">{t("networkLayer.reqLogEmpty")}</p>
-          ) : (
-            <div className="overflow-x-auto max-h-48 overflow-y-auto rounded-md border border-zinc-200 dark:border-zinc-700" data-testid="diag-log-table">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-zinc-50 dark:bg-zinc-800">
-                  <tr className="text-left text-zinc-500 dark:text-zinc-400">
-                    <th className="px-2 py-1">ts</th>
-                    <th className="px-2 py-1">platform</th>
-                    <th className="px-2 py-1">host</th>
-                    <th className="px-2 py-1">egress_ip</th>
-                    <th className="px-2 py-1">status</th>
-                    <th className="px-2 py-1">ms</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reqLogs.map((log, i) => (
-                    <tr key={i} className="border-t border-zinc-100 dark:border-zinc-800">
-                      <td className="px-2 py-1 font-mono text-zinc-500">{log.ts}</td>
-                      <td className="px-2 py-1">{log.platform_name || "-"}</td>
-                      <td className="px-2 py-1 truncate max-w-32">{log.target_host || "-"}</td>
-                      <td className="px-2 py-1 font-mono">{log.egress_ip || "-"}</td>
-                      <td className="px-2 py-1">{log.http_status || "-"}</td>
-                      <td className="px-2 py-1">{log.duration_ms.toFixed(0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Field>
-      </SectionCard>
+
       <SectionCard icon={<FolderOpen size={16} strokeWidth={1.75} />} title={t("settings.storage")}>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-3">
           <button

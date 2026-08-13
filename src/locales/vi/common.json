@@ -72,7 +72,8 @@
     "platforms": "Nền tảng",
     "processRoute": "Tuyến tiến trình",
     "subscriptions": "Đăng ký",
-    "nodes": "Nút"
+    "nodes": "Nút",
+    "diagnostics": "Chẩn đoán"
   },
   "nodes": {
     "title": "Nhóm nút",
@@ -310,5 +311,19 @@
     "sidecarPid": "PID sidecar",
     "healthzLastCheck": "Kiểm tra sức khỏe cuối cùng",
     "ipcLatency": "Độ trễ IPC"
+  },
+  "diagnostics": {
+    "title": "Trung tâm chẩn đoán",
+    "sidecarStatus": "Trạng thái Sidecar",
+    "firewall": "Tường lửa",
+    "reqLog": "Nhật ký yêu cầu",
+    "exitIpProbe": "Dò IP đầu ra",
+    "portHealth": "Kiểm tra cổng",
+    "logs": "Nhật ký",
+    "pollInterval": "Khoảng thăm dò",
+    "openLogDir": "Mở thư mục nhật ký",
+    "sidecarLogs": "Nhật ký Sidecar",
+    "refresh": "Làm mới",
+    "noLogs": "Không có mục nhật ký"
   }
 }

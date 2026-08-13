@@ -72,7 +72,8 @@
     "platforms": "Piattaforme",
     "processRoute": "Instradamento processi",
     "subscriptions": "Sottoscrizioni",
-    "nodes": "Nodi"
+    "nodes": "Nodi",
+    "diagnostics": "Diagnostica"
   },
   "nodes": {
     "title": "Pool nodi",
@@ -310,5 +311,19 @@
     "sidecarPid": "PID sidecar",
     "healthzLastCheck": "Ultimo controllo salute",
     "ipcLatency": "Latenza IPC"
+  },
+  "diagnostics": {
+    "title": "Centro Diagnostica",
+    "sidecarStatus": "Stato Sidecar",
+    "firewall": "Firewall",
+    "reqLog": "Log Richieste",
+    "exitIpProbe": "Probe IP di Uscita",
+    "portHealth": "Controllo Porta",
+    "logs": "Log",
+    "pollInterval": "Intervallo Polling",
+    "openLogDir": "Apri Directory Log",
+    "sidecarLogs": "Log Sidecar",
+    "refresh": "Aggiorna",
+    "noLogs": "Nessuna voce di log"
   }
 }

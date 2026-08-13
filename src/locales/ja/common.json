@@ -72,7 +72,8 @@
     "processRoute": "プロセスルート",
     "subscriptions": "サブスクリプション",
     "platforms": "プラットフォーム",
-    "nodes": "ノード"
+    "nodes": "ノード",
+    "diagnostics": "診断"
   },
   "nodes": {
     "title": "ノードプール",
@@ -310,5 +311,19 @@
     "sidecarPid": "サイドカーPID",
     "healthzLastCheck": "ヘルスチェック最終確認",
     "ipcLatency": "IPCレイテンシ"
+  },
+  "diagnostics": {
+    "title": "診断センター",
+    "sidecarStatus": "サイドカーステータス",
+    "firewall": "ファイアウォール",
+    "reqLog": "リクエストログ",
+    "exitIpProbe": "出口IPプローブ",
+    "portHealth": "ポートヘルスチェック",
+    "logs": "ログ",
+    "pollInterval": "ポーリング間隔",
+    "openLogDir": "ログディレクトリを開く",
+    "sidecarLogs": "サイドカーログ",
+    "refresh": "更新",
+    "noLogs": "ログエントリなし"
   }
 }

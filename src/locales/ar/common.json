@@ -72,7 +72,8 @@
     "processRoute": "مسار العملية",
     "subscriptions": "الاشتراكات",
     "platforms": "المنصات",
-    "nodes": "العقد"
+    "nodes": "العقد",
+    "diagnostics": "التشخيص"
   },
   "nodes": {
     "title": "تجمع العقد",
@@ -310,5 +311,19 @@
     "sidecarPid": "PID sidecar",
     "healthzLastCheck": "آخر فحص صحة",
     "ipcLatency": "تأخير IPC"
+  },
+  "diagnostics": {
+    "title": "مركز التشخيص",
+    "sidecarStatus": "حالة Sidecar",
+    "firewall": "جدار الحماية",
+    "reqLog": "سجل الطلبات",
+    "exitIpProbe": "فحص عنوان IP للخروج",
+    "portHealth": "فحص صحة المنفذ",
+    "logs": "السجلات",
+    "pollInterval": "فاصل الاستطلاع",
+    "openLogDir": "فتح دليل السجلات",
+    "sidecarLogs": "سجلات Sidecar",
+    "refresh": "تحديث",
+    "noLogs": "لا توجد سجلات"
   }
 }

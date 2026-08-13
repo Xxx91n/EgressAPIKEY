@@ -72,7 +72,8 @@
     "platforms": "แพลตฟอร์ม",
     "processRoute": "เส้นทางโปรเซส",
     "subscriptions": "การสมัครรับข้อมูล",
-    "nodes": "โหนด"
+    "nodes": "โหนด",
+    "diagnostics": "การวินิจฉัย"
   },
   "nodes": {
     "title": "พูลโหนด",
@@ -310,5 +311,19 @@
     "sidecarPid": "PID sidecar",
     "healthzLastCheck": "ตรวจสุขภาพล่าสุด",
     "ipcLatency": "ความหน่วง IPC"
+  },
+  "diagnostics": {
+    "title": "ศูนย์วินิจฉัย",
+    "sidecarStatus": "สถานะ Sidecar",
+    "firewall": "ไฟร์วอลล์",
+    "reqLog": "บันทึกคำขอ",
+    "exitIpProbe": "ตรวจสอบ IP ออก",
+    "portHealth": "ตรวจสอบพอร์ต",
+    "logs": "บันทึก",
+    "pollInterval": "ช่วงการสำรวจ",
+    "openLogDir": "เปิดไดเรกทอรีบันทึก",
+    "sidecarLogs": "บันทึก Sidecar",
+    "refresh": "รีเฟรช",
+    "noLogs": "ไม่มีรายการบันทึก"
   }
 }

@@ -72,7 +72,8 @@
     "platforms": "Platform",
     "processRoute": "Rute proses",
     "subscriptions": "Langganan",
-    "nodes": "Node"
+    "nodes": "Node",
+    "diagnostics": "Diagnostik"
   },
   "nodes": {
     "title": "Pool node",
@@ -310,5 +311,19 @@
     "sidecarPid": "PID sidecar",
     "healthzLastCheck": "Pemeriksaan kesehatan terakhir",
     "ipcLatency": "Latensi IPC"
+  },
+  "diagnostics": {
+    "title": "Pusat Diagnostik",
+    "sidecarStatus": "Status Sidecar",
+    "firewall": "Firewall",
+    "reqLog": "Log Permintaan",
+    "exitIpProbe": "Probe IP Keluar",
+    "portHealth": "Pemeriksaan Port",
+    "logs": "Log",
+    "pollInterval": "Interval Polling",
+    "openLogDir": "Buka Direktori Log",
+    "sidecarLogs": "Log Sidecar",
+    "refresh": "Segarkan",
+    "noLogs": "Tidak ada entri log"
   }
 }

@@ -72,7 +72,8 @@
     "processRoute": "Ruta de proceso",
     "subscriptions": "Suscripciones",
     "platforms": "Plataformas",
-    "nodes": "Nodos"
+    "nodes": "Nodos",
+    "diagnostics": "Diagnóstico"
   },
   "nodes": {
     "title": "Grupo de nodos",
@@ -310,5 +311,19 @@
     "sidecarPid": "PID del sidecar",
     "healthzLastCheck": "Última verificación de salud",
     "ipcLatency": "Latencia IPC"
+  },
+  "diagnostics": {
+    "title": "Centro de Diagnóstico",
+    "sidecarStatus": "Estado del Sidecar",
+    "firewall": "Firewall",
+    "reqLog": "Registro de Solicitudes",
+    "exitIpProbe": "Prueba de IP de Salida",
+    "portHealth": "Verificación de Puerto",
+    "logs": "Registros",
+    "pollInterval": "Intervalo de Sondeo",
+    "openLogDir": "Abrir Directorio de Registros",
+    "sidecarLogs": "Registros del Sidecar",
+    "refresh": "Actualizar",
+    "noLogs": "Sin entradas de registro"
   }
 }

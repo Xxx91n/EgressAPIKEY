@@ -72,7 +72,8 @@
     "processRoute": "프로세스 경로",
     "subscriptions": "구독",
     "platforms": "플랫폼",
-    "nodes": "노드"
+    "nodes": "노드",
+    "diagnostics": "진단"
   },
   "nodes": {
     "title": "노드 풀",
@@ -310,5 +311,19 @@
     "sidecarPid": "사이드카 PID",
     "healthzLastCheck": "헬스체크 마지막 확인",
     "ipcLatency": "IPC 지연"
+  },
+  "diagnostics": {
+    "title": "진단 센터",
+    "sidecarStatus": "사이드카 상태",
+    "firewall": "방화벽",
+    "reqLog": "요청 로그",
+    "exitIpProbe": "출구 IP 프로브",
+    "portHealth": "포트 상태 확인",
+    "logs": "로그",
+    "pollInterval": "폴링 간격",
+    "openLogDir": "로그 디렉토리 열기",
+    "sidecarLogs": "사이드카 로그",
+    "refresh": "새로고침",
+    "noLogs": "로그 항목 없음"
   }
 }

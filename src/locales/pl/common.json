@@ -72,7 +72,8 @@
     "platforms": "Platformy",
     "processRoute": "Trasa procesu",
     "subscriptions": "Subskrypcje",
-    "nodes": "Węzły"
+    "nodes": "Węzły",
+    "diagnostics": "Diagnostyka"
   },
   "nodes": {
     "title": "Pula węzłów",
@@ -310,5 +311,19 @@
     "sidecarPid": "PID sidecar",
     "healthzLastCheck": "Ostatnia kontrola healthz",
     "ipcLatency": "Opóźnienie IPC"
+  },
+  "diagnostics": {
+    "title": "Centrum Diagnostyki",
+    "sidecarStatus": "Status Sidecar",
+    "firewall": "Zapora",
+    "reqLog": "Dziennik Żądań",
+    "exitIpProbe": "Sonda IP wyjścia",
+    "portHealth": "Sprawdzenie portu",
+    "logs": "Logi",
+    "pollInterval": "Interwał odpytywania",
+    "openLogDir": "Otwórz katalog logów",
+    "sidecarLogs": "Logi Sidecar",
+    "refresh": "Odśwież",
+    "noLogs": "Brak wpisów w logach"
   }
 }

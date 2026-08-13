@@ -72,7 +72,8 @@
     "platforms": "Platforms",
     "processRoute": "Process Route",
     "subscriptions": "Subscriptions",
-    "nodes": "Nodes"
+    "nodes": "Nodes",
+    "diagnostics": "Diagnostics"
   },
   "nodes": {
     "title": "Node Pool",
@@ -310,5 +311,19 @@
     "sidecarPid": "Sidecar PID",
     "healthzLastCheck": "Healthz Last Check",
     "ipcLatency": "IPC Latency"
+  },
+  "diagnostics": {
+    "title": "Diagnostics Center",
+    "sidecarStatus": "Sidecar Status",
+    "firewall": "Firewall",
+    "reqLog": "Request Log",
+    "exitIpProbe": "Exit IP Probe",
+    "portHealth": "Port Health Check",
+    "logs": "Logs",
+    "pollInterval": "Poll Interval",
+    "openLogDir": "Open Log Directory",
+    "sidecarLogs": "Sidecar Logs",
+    "refresh": "Refresh",
+    "noLogs": "No log entries"
   }
 }

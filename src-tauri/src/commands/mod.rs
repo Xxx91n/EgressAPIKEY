@@ -1933,14 +1933,27 @@ pub struct FirewallStatus {
 
 #[tauri::command]
 pub async fn check_firewall_status() -> Result<FirewallStatus, IpcError> {
+    // T7-1: enterprise-grade subprocess spawn - tokio::process::Command +
+    // CREATE_NO_WINDOW on Windows + 5s timeout to prevent deadlock and
+    // console window flash. Cross-platform: Linux uses systemctl, macOS
+    // uses pfctl. Pattern from pwm gpt56_sol research.
     #[cfg(target_os = "windows")]
     {
-        use std::process::Command;
-        let output = Command::new("powershell")
-            .args(["-NoProfile", "-Command",
-                "Get-NetFirewallProfile | Select-Object Name, Enabled | ConvertTo-Json"])
-            .output()
-            .map_err(|e| IpcError::internal(&format!("firewall check: {e}")))?;
+        use tokio::process::Command;
+
+        let mut cmd = Command::new("powershell");
+        cmd.args(["-NoProfile", "-Command",
+            "Get-NetFirewallProfile | Select-Object Name, Enabled | ConvertTo-Json"]);
+        cmd.creation_flags(0x08000000u32); // CREATE_NO_WINDOW
+
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            cmd.output(),
+        )
+        .await
+        .map_err(|_| IpcError::internal("firewall check timed out (5s)"))?
+        .map_err(|e| IpcError::internal(&format!("firewall check: {e}")))?;
+
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let firewall_on = stdout.contains("true");
         tracing::info!(firewall_on, "check_firewall_status: probed");
@@ -1955,14 +1968,62 @@ pub async fn check_firewall_status() -> Result<FirewallStatus, IpcError> {
             },
         })
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
     {
-        Ok(FirewallStatus {
-            platform: std::env::consts::OS.into(),
-            firewall_on: false,
-            inbound_blocked: false,
-            detail: "Firewall check is Windows-only.".into(),
-        })
+        use tokio::process::Command;
+
+        // Non-root best-effort: systemctl is-active (distro-dependent),
+        // fallback to /proc/net/ip_tables_names. pwm sonar: ufw/iptables need root.
+        async fn try_detect() -> Option<FirewallStatus> {
+            let out = tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                Command::new("systemctl").args(["is-active", "ufw", "--quiet"]).output(),
+            ).await.ok()?.ok()?;
+            if String::from_utf8_lossy(&out.stdout).trim() == "active" {
+                return Some(FirewallStatus { platform: "linux".into(), firewall_on: true, inbound_blocked: true, detail: "UFW firewall is active.".into() });
+            }
+            let out = tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                Command::new("systemctl").args(["is-active", "firewalld", "--quiet"]).output(),
+            ).await.ok()?.ok()?;
+            if String::from_utf8_lossy(&out.stdout).trim() == "active" {
+                return Some(FirewallStatus { platform: "linux".into(), firewall_on: true, inbound_blocked: true, detail: "firewalld is active.".into() });
+            }
+            if std::path::Path::new("/proc/net/ip_tables_names").exists() {
+                return Some(FirewallStatus { platform: "linux".into(), firewall_on: true, inbound_blocked: true, detail: "iptables tables detected.".into() });
+            }
+            None
+        }
+        match try_detect().await {
+            Some(status) => {
+                tracing::info!(firewall_on = status.firewall_on, "check_firewall_status: probed linux");
+                Ok(status)
+            }
+            None => Ok(FirewallStatus { platform: "linux".into(), firewall_on: false, inbound_blocked: false, detail: "No firewall detected (or insufficient permissions).".into() }),
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use tokio::process::Command;
+
+        let mut cmd = Command::new("pfctl");
+        cmd.args(["-s", "info"]);
+        match tokio::time::timeout(std::time::Duration::from_secs(5), cmd.output()).await {
+            Ok(Ok(output)) => {
+                let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                let firewall_on = stdout.contains("enabled");
+                tracing::info!(firewall_on, "check_firewall_status: probed macos pfctl");
+                Ok(FirewallStatus { platform: "macos".into(), firewall_on, inbound_blocked: firewall_on, detail: if firewall_on { "pf firewall is enabled.".into() } else { "pf firewall appears disabled.".into() } })
+            }
+            _ => {
+                let pf_conf_exists = std::path::Path::new("/etc/pf.conf").exists();
+                Ok(FirewallStatus { platform: "macos".into(), firewall_on: pf_conf_exists, inbound_blocked: pf_conf_exists, detail: if pf_conf_exists { "/etc/pf.conf exists but status uncertain (pfctl needs root).".into() } else { "No pf.conf found; firewall likely disabled.".into() } })
+            }
+        }
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+    {
+        Ok(FirewallStatus { platform: std::env::consts::OS.into(), firewall_on: false, inbound_blocked: false, detail: "Firewall check not supported on this platform.".into() })
     }
 }
 

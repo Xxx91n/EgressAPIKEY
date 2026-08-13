@@ -72,7 +72,8 @@
     "platforms": "Platformlar",
     "processRoute": "Süreç rotası",
     "subscriptions": "Abonelikler",
-    "nodes": "Düğümler"
+    "nodes": "Düğümler",
+    "diagnostics": "Teşhis"
   },
   "nodes": {
     "title": "Düğüm havuzu",
@@ -310,5 +311,19 @@
     "sidecarPid": "Sidecar PID",
     "healthzLastCheck": "Son healthz kontrolü",
     "ipcLatency": "IPC gecikmesi"
+  },
+  "diagnostics": {
+    "title": "Teşhis Merkezi",
+    "sidecarStatus": "Sidecar Durumu",
+    "firewall": "Güvenlik Duvarı",
+    "reqLog": "İstek Günlüğü",
+    "exitIpProbe": "Çıkış IP Sondası",
+    "portHealth": "Port Sağlık Kontrolü",
+    "logs": "Günlükler",
+    "pollInterval": "Anket Aralığı",
+    "openLogDir": "Günlük Dizinini Aç",
+    "sidecarLogs": "Sidecar Günlükleri",
+    "refresh": "Yenile",
+    "noLogs": "Kayıt yok"
   }
 }

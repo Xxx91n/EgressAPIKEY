@@ -72,7 +72,8 @@
     "processRoute": "Routage des processus",
     "subscriptions": "Abonnements",
     "platforms": "Plateformes",
-    "nodes": "Nœuds"
+    "nodes": "Nœuds",
+    "diagnostics": "Diagnostic"
   },
   "nodes": {
     "title": "Pool de nœuds",
@@ -310,5 +311,19 @@
     "sidecarPid": "PID du sidecar",
     "healthzLastCheck": "Dernière vérification santé",
     "ipcLatency": "Latence IPC"
+  },
+  "diagnostics": {
+    "title": "Centre de Diagnostic",
+    "sidecarStatus": "Statut du Sidecar",
+    "firewall": "Pare-feu",
+    "reqLog": "Journal de Requêtes",
+    "exitIpProbe": "Test d'IP de Sortie",
+    "portHealth": "Vérification de Port",
+    "logs": "Journaux",
+    "pollInterval": "Intervalle de Sondage",
+    "openLogDir": "Ouvrir le Répertoire des Journaux",
+    "sidecarLogs": "Journaux du Sidecar",
+    "refresh": "Actualiser",
+    "noLogs": "Aucune entrée de journal"
   }
 }

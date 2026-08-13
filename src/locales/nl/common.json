@@ -72,7 +72,8 @@
     "platforms": "Platforms",
     "processRoute": "Procesroute",
     "subscriptions": "Abonnementen",
-    "nodes": "Nodes"
+    "nodes": "Nodes",
+    "diagnostics": "Diagnostiek"
   },
   "nodes": {
     "title": "Nodepool",
@@ -310,5 +311,19 @@
     "sidecarPid": "Sidecar PID",
     "healthzLastCheck": "Laatste healthz-controle",
     "ipcLatency": "IPC-latentie"
+  },
+  "diagnostics": {
+    "title": "Diagnosecentrum",
+    "sidecarStatus": "Sidecar Status",
+    "firewall": "Firewall",
+    "reqLog": "Verzoeklogboek",
+    "exitIpProbe": "Exit IP-test",
+    "portHealth": "Poort-statuscontrole",
+    "logs": "Logboeken",
+    "pollInterval": "Poll-interval",
+    "openLogDir": "Logboekmap openen",
+    "sidecarLogs": "Sidecar Logboek",
+    "refresh": "Vernieuwen",
+    "noLogs": "Geen logvermeldingen"
   }
 }

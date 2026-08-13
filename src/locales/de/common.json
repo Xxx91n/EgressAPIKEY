@@ -72,7 +72,8 @@
     "processRoute": "Prozessroute",
     "subscriptions": "Abonnements",
     "platforms": "Plattformen",
-    "nodes": "Knoten"
+    "nodes": "Knoten",
+    "diagnostics": "Diagnose"
   },
   "nodes": {
     "title": "Knotenpool",
@@ -310,5 +311,19 @@
     "sidecarPid": "Sidecar-PID",
     "healthzLastCheck": "Letzte Healthz-Prüfung",
     "ipcLatency": "IPC-Latenz"
+  },
+  "diagnostics": {
+    "title": "Diagnosezentrum",
+    "sidecarStatus": "Sidecar-Status",
+    "firewall": "Firewall",
+    "reqLog": "Anforderungsprotokoll",
+    "exitIpProbe": "Exit-IP-Test",
+    "portHealth": "Port-Gesundheitsprüfung",
+    "logs": "Protokolle",
+    "pollInterval": "Abfrageintervall",
+    "openLogDir": "Protokollverzeichnis öffnen",
+    "sidecarLogs": "Sidecar-Protokoll",
+    "refresh": "Aktualisieren",
+    "noLogs": "Keine Protokolleinträge"
   }
 }

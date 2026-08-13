@@ -72,7 +72,8 @@
     "processRoute": "Rota de processo",
     "subscriptions": "Assinaturas",
     "platforms": "Plataformas",
-    "nodes": "Nós"
+    "nodes": "Nós",
+    "diagnostics": "Diagnóstico"
   },
   "nodes": {
     "title": "Pool de nós",
@@ -310,5 +311,19 @@
     "sidecarPid": "PID do sidecar",
     "healthzLastCheck": "Última verificação de saúde",
     "ipcLatency": "Latência IPC"
+  },
+  "diagnostics": {
+    "title": "Centro de Diagnóstico",
+    "sidecarStatus": "Status do Sidecar",
+    "firewall": "Firewall",
+    "reqLog": "Log de Requisições",
+    "exitIpProbe": "Sonda de IP de Saída",
+    "portHealth": "Verificação de Porta",
+    "logs": "Logs",
+    "pollInterval": "Intervalo de Sondagem",
+    "openLogDir": "Abrir Diretório de Logs",
+    "sidecarLogs": "Logs do Sidecar",
+    "refresh": "Atualizar",
+    "noLogs": "Sem entradas de log"
   }
 }

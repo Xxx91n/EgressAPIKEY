@@ -72,7 +72,8 @@
     "processRoute": "进程路由",
     "subscriptions": "订阅",
     "platforms": "平台",
-    "nodes": "节点"
+    "nodes": "节点",
+    "diagnostics": "诊断"
   },
   "nodes": {
     "title": "节点池",
@@ -310,5 +311,19 @@
     "sidecarPid": "Sidecar 进程号",
     "healthzLastCheck": "探活最后检查时间",
     "ipcLatency": "IPC 延迟"
+  },
+  "diagnostics": {
+    "title": "诊断中心",
+    "sidecarStatus": "Sidecar 状态",
+    "firewall": "防火墙",
+    "reqLog": "请求日志",
+    "exitIpProbe": "出口IP探测",
+    "portHealth": "端口健康检查",
+    "logs": "日志",
+    "pollInterval": "轮询间隔",
+    "openLogDir": "打开日志目录",
+    "sidecarLogs": "Sidecar 日志",
+    "refresh": "刷新",
+    "noLogs": "无日志记录"
   }
 }
