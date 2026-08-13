@@ -2312,7 +2312,7 @@ pub async fn strategy_apply(
 
     let plan = resin_core::compute_plan(&config, &nodes);
     let mut applied = serde_json::json!({"platforms": []});
-    let platforms_arr = applied["platforms"].as_array_mut().unwrap();
+    let platforms_arr = applied["platforms"].as_array_mut().expect("platforms initialized as array");
 
     for (platform_name, regions) in &plan {
         let platforms_v = client.list_platforms().await.map_err(|e| IpcError::from(e.to_string()))?;
