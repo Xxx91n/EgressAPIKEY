@@ -947,6 +947,7 @@ async fn clear_os_proxy() -> anyhow::Result<()> {
     {
         use tokio::process::Command;
         let _ = Command::new("reg")
+            .creation_flags(0x08000000u32) // CREATE_NO_WINDOW — suppress console flash
             .args([
                 "add",
                 "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings",
@@ -964,6 +965,7 @@ async fn clear_os_proxy() -> anyhow::Result<()> {
         // Windows builds expose InternetSetOption through this; it is
         // non-fatal if it fails. We log only at debug level.
         let _ = Command::new("rundll32")
+            .creation_flags(0x08000000u32) // CREATE_NO_WINDOW — suppress console flash
             .args(["inetcmpi.dll,InternetSetOption", "39", "0", "0"])
             .output()
             .await;
