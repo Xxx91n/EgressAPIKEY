@@ -69,7 +69,7 @@ interface TopologyState {
   setPorts: (p: PortMapping[]) => void;
 }
 
-const useTopologyStore = create<TopologyState>((set) => ({
+export const useTopologyStore = create<TopologyState>((set) => ({
   platforms: [],
   subGroups: [],
   leases: [],
@@ -164,7 +164,7 @@ export function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 20
 }
 
 // --- T13-3: fixed-edge Handle style (replaces full-area overlay) ---
-const fixedHandleStyle: React.CSSProperties = {
+export const fixedHandleStyle: React.CSSProperties = {
   width: 12,
   height: 12,
   background: "#3b82f699",

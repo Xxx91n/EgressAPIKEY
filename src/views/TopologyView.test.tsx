@@ -9,7 +9,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 
-import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, getSelectedRegions, layoutNodesViaDagre } from "./TopologyView";
+import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, getSelectedRegions, layoutNodesViaDagre, fixedHandleStyle, useTopologyStore } from "./TopologyView";
 
 describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dual badges)", () => {
   beforeEach(() => { invokeMock.mockReset(); });
@@ -397,6 +397,41 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
         const hints = document.querySelectorAll(".text-zinc-400, .text-zinc-500");
         expect(hints.length).toBeGreaterThan(0);
       });
+    });
+  });
+
+
+  describe("T13-3: Handle style is fixed-position (not full-area overlay)", () => {
+    it("fixedHandleStyle has bounded pixel dimensions, not 100%", () => {
+      expect(typeof fixedHandleStyle.width).toBe("number");
+      expect(typeof fixedHandleStyle.height).toBe("number");
+      expect(fixedHandleStyle.width).toBeLessThan(50); // not full-area
+      expect(fixedHandleStyle.height).toBeLessThan(50);
+    });
+
+    it("fixedHandleStyle is visible (no opacity:0)", () => {
+      const opacity = (fixedHandleStyle as any).opacity;
+      expect(opacity).not.toBe(0);
+      expect(fixedHandleStyle.background).toBeDefined();
+      expect(fixedHandleStyle.background).not.toBe("transparent");
+      expect(fixedHandleStyle.background).not.toBe("");
+    });
+  });
+
+  describe("T13-5: zustand shallow skip prevents re-render on same data", () => {
+    it("setPlatforms with shallow-equal array returns empty update (no re-render)", () => {
+      // Import the store directly from TopologyView module
+      const store = useTopologyStore.getState();
+      const item = { id: "p1", name: "A", region_filters: [], regex_filters: [], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" };
+      const sameA = [item];
+      const sameB = [item]; // same object reference → shallow equal
+      // shallow-equal arrays should not cause state change
+      store.setPlatforms(sameA);
+      const stateAfterFirst = useTopologyStore.getState().platforms;
+      store.setPlatforms(sameB);
+      const stateAfterSecond = useTopologyStore.getState().platforms;
+      // same reference means shallow skip worked
+      expect(stateAfterFirst).toBe(stateAfterSecond);
     });
   });
 
