@@ -398,7 +398,8 @@ export async function ipcPortUpsert(m: {
   if (protocol !== "socks5" && protocol !== "http") {
     throw new Error("protocol must be socks5 or http");
   }
-  assertShortName(m.platform_name, "platform_name");
+  // platform_name empty = unbound port (T8-7 ADR-0029). Allow empty.
+  if (m.platform_name) assertShortName(m.platform_name, "platform_name");
   const account = m.account ?? "";
   const label = m.label ?? "";
   if (account.length > 128 || /[\x00-\x1f\x7f]/.test(account)) throw new Error("account invalid");

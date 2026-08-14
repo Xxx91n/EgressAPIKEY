@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Plug, ShieldCheck, ShieldAlert, Copy } from "lucide-react";
+import { Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Plug, ShieldCheck, ShieldAlert, Copy, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import {
@@ -23,7 +23,6 @@ import {
   ipcPortSuggest,
   ipcNodeList,
   ipcSubscriptionList,
-
   type PortMapping,
   type PortAuthInfo,
   type PortHealthCheck,
@@ -46,11 +45,11 @@ interface NodeEntry { display_tag: string; region: string; node_hash: string; }
 export function PlatformsView() {
   const { t } = useTranslation();
   const removePlatform = useAppStore((s) => s.removePlatform);
+  const [bootstrapped, setBootstrapped] = useState(false);
   const [ports, setPorts] = useState<PortMapping[]>([]);
-  const [newPort, setNewPort] = useState("17990");
+  const [newPort, setNewPort] = useState("");
   const [newProto, setNewProto] = useState<"socks5" | "http">("socks5");
   const [newLabel, setNewLabel] = useState("");
-  const [newPlatformName, setNewPlatformName] = useState("Default");
   const [newAuthRequired, setNewAuthRequired] = useState(true);
   const [platforms, setPlatforms] = useState<PlatformInfoFull[]>([]);
   const [leasesPerPlatform, setLeasesPerPlatform] = useState<Record<string, unknown[]>>({});
@@ -63,20 +62,18 @@ export function PlatformsView() {
   const [createName, setCreateName] = useState("");
   const [createPolicy, setCreatePolicy] = useState<StrategyId>("random");
   const [createFormError, setCreateFormError] = useState<string | null>(null);
-  /// ADR-0021 Q1: per-port auth info cache (port -> credentials displayed inline).
   const [authInfo, setAuthInfo] = useState<Record<number, PortAuthInfo>>({});
-  /// ADR-0021 Q1: per-port health probe result (port -> chip color + reason).
   const [health, setHealth] = useState<Record<number, PortHealthCheck>>({});
   const [copiedPort, setCopiedPort] = useState<number | null>(null);
-
-  // T4-4: strategy panel state.
+  const [selectedPort, setSelectedPort] = useState<number | null>(null);
+  const [expandedPortCards, setExpandedPortCards] = useState<Set<number>>(new Set());
   const [strategyConfig, setStrategyConfig] = useState<StrategyConfig>({ version: 1, platforms: [] });
-  const [strategyBusy, setStrategyBusy] = useState(false);
   const [strategyTopNInput, setStrategyTopNInput] = useState<Record<string, string>>({});
-  // T10-2: node list + subscription list for chip-based A-class selectors.
   const [nodeList, setNodeList] = useState<NodeEntry[]>([]);
   const [subList, setSubList] = useState<{ name: string; node_count: number }[]>([]);
-  /// Collapsible inline strategy panel: which platform card is expanded.
+  const [expandedPlatformCards, setExpandedPlatformCards] = useState<Set<string>>(new Set());
+  const [manualSearch, setManualSearch] = useState<Record<string, string>>({});
+
   const refreshStrategy = useCallback(async () => {
     try {
       const cfg = await ipcStrategyConfigGet();
@@ -84,6 +81,27 @@ export function PlatformsView() {
     } catch { /* outside Tauri */ }
   }, []);
 
+  /// T11-4b: per-platform sync. Each chip change immediately PUTs config + PATCHes
+  /// the specific platform's region_filters. No global Apply button.
+  /// T11-4b: per-platform sync. Each chip change immediately PUTs config + PATCHes
+  /// the specific platform's region_filters. No global Apply button.
+  /// Auto-clean: filter out stale platforms not in live Resin platform list.
+  const syncPlatformStrategy = async (_platformName?: string) => {
+    try {
+      // Auto-clean stale platforms from strategyConfig
+      const livePlatforms = await ipcPlatformListFull();
+      const liveItems = (Array.isArray(livePlatforms) ? livePlatforms : ((livePlatforms as Record<string, unknown>)?.items ?? [])) as Record<string, unknown>[];
+      const liveNames = new Set(liveItems.map((p) => String(p.name ?? "")));
+      const cleanedPlatforms = strategyConfig.platforms.filter((p) => liveNames.has(p.platform_name));
+      const cleanedConfig = { ...strategyConfig, platforms: cleanedPlatforms };
+      if (cleanedPlatforms.length !== strategyConfig.platforms.length) {
+        setStrategyConfig(cleanedConfig);
+      }
+      await ipcStrategyConfigPut(cleanedConfig);
+      await ipcStrategyApply();
+      await refreshPlatforms();
+    } catch (e) { showToast("err", translateError(e, t)); }
+  };
 
   const updateStrategyField = (platformName: string, field: keyof PlatformStrategy, value: string | string[]) => {
     setStrategyConfig((prev) => {
@@ -98,21 +116,13 @@ export function PlatformsView() {
     });
   };
 
-  const handleApplyStrategy = async () => {
-    setStrategyBusy(true);
-    try {
-      await ipcStrategyConfigPut(strategyConfig);
-      const result = await ipcStrategyApply();
-      const allPatched = result.platforms.every((p) => p.patched);
-      showToast(allPatched ? "ok" : "err", allPatched ? t("strategy.applyOk") : t("strategy.applyPartial"));
-      await refreshPlatforms();
-    } catch (e) { showToast("err", translateError(e, t)); }
-    finally { setStrategyBusy(false); }
+  /// T11-4b: after updating a strategy field, sync to backend immediately.
+  /// Uses functional update so sync sees the latest state (not stale closure).
+  const updateAndSync = (platformName: string, field: keyof PlatformStrategy, value: string | string[]) => {
+    updateStrategyField(platformName, field, value);
+    // Defer sync to next microtask so setStrategyConfig has flushed
+    void Promise.resolve().then(() => syncPlatformStrategy(platformName));
   };
-
-
-
-
 
   const containerRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
@@ -150,9 +160,6 @@ export function PlatformsView() {
     } catch { /* outside Tauri */ }
   }, []);
 
-  /// ADR-0021 Q1: after each ports refresh, fetch auth-info + health probes
-  /// in parallel. The probes are best-effort (outside Tauri in vitest) so
-  /// the failure path leaves the chip unrendered rather than crashing the view.
   const refreshPortAuthAndHealth = useCallback(async (list: PortMapping[]) => {
     if (list.length === 0) return;
     const [authResults, healthResults] = await Promise.all([
@@ -176,10 +183,8 @@ export function PlatformsView() {
     window.setTimeout(() => setToast(null), 3500);
   };
 
-  /// Copy SOCKS5 credentials `username:password` to the clipboard; show a
-  /// transient "copied" badge on the row so the user has visual feedback.
   const copyCredentials = (port: number, auth: PortAuthInfo) => {
-    const cred = `${auth.username}:${auth.password}`;
+    const cred = auth.username + ":" + auth.password;
     try {
       void navigator.clipboard?.writeText(cred).then(() => {
         setCopiedPort(port);
@@ -188,16 +193,55 @@ export function PlatformsView() {
     } catch { /* clipboard may be unavailable outside https or in vitest */ }
   };
 
+  /// T11-5: bootstrap gate. Load all persisted settings before first render
+  /// so the port form never flashes hardcoded defaults.
   useEffect(() => {
-    loadSplitRatio().then((r) => { if (typeof r === "number" && r > 0.15 && r < 0.85) setSplitRatio(r); }).catch((e) => console.warn("[PlatformsView] loadSplitRatio failed", e));
-    loadPortAuthDefault().then((v) => { if (typeof v === "boolean") setNewAuthRequired(v); }).catch((e) => console.warn("[PlatformsView] loadPortAuthDefault failed", e));
-    ipcPortSuggest().then((p) => { setNewPort(String(p)); }).catch((e) => console.warn("[PlatformsView] ipcPortSuggest failed", e));
-    ipcNodeList().then((raw) => { const arr = (Array.isArray(raw) ? raw : ((raw as Record<string, unknown>)?.items ?? [])) as Record<string, unknown>[]; setNodeList(arr.map((n) => ({ display_tag: String(n.display_tag ?? ""), region: String(n.region ?? ""), node_hash: String(n.node_hash ?? "") }))); }).catch((e) => console.warn("[PlatformsView] ipcNodeList failed", e));
-    ipcSubscriptionList().then((subs) => { setSubList(subs.map((s) => ({ name: s.name, node_count: s.node_count }))); }).catch((e) => console.warn("[PlatformsView] ipcSubscriptionList failed", e));
-    void refreshPorts().then((list) => { void refreshPortAuthAndHealth(list); });
-    void refreshPlatforms();
-    void refreshStrategy();
+    let cancelled = false;
+    (async () => {
+      try {
+        const [ratio, authDefault, suggestedPort] = await Promise.all([
+          loadSplitRatio().catch(() => 0.4),
+          loadPortAuthDefault().catch(() => true),
+          ipcPortSuggest().catch(() => 17990),
+        ]);
+        if (cancelled) return;
+        if (typeof ratio === "number" && ratio > 0.15 && ratio < 0.85) setSplitRatio(ratio);
+        if (typeof authDefault === "boolean") setNewAuthRequired(authDefault);
+        if (typeof suggestedPort === "number") setNewPort(String(suggestedPort));
+
+        const [nodeRaw, subRaw] = await Promise.all([
+          ipcNodeList().catch(() => []),
+          ipcSubscriptionList().catch(() => []),
+        ]);
+        if (cancelled) return;
+        const nodeArr = (Array.isArray(nodeRaw) ? nodeRaw : ((nodeRaw as Record<string, unknown>)?.items ?? [])) as Record<string, unknown>[];
+        setNodeList(nodeArr.map((n) => ({ display_tag: String(n.display_tag ?? ""), region: String(n.region ?? ""), node_hash: String(n.node_hash ?? "") })));
+        setSubList((subRaw as { name: string; node_count: number }[]).map((s) => ({ name: s.name, node_count: s.node_count })));
+
+        const list = await refreshPorts();
+        if (cancelled) return;
+        await Promise.all([refreshPortAuthAndHealth(list), refreshPlatforms(), refreshStrategy()]);
+        if (!cancelled) setBootstrapped(true);
+      } catch {
+        if (!cancelled) setBootstrapped(true);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [refreshPorts, refreshPortAuthAndHealth, refreshPlatforms, refreshStrategy]);
+
+  /// T11-6: keyboard Delete handler for selected port
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedPort != null) {
+        const target = e.target as HTMLElement;
+        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
+        e.preventDefault();
+        void handleRemovePort(selectedPort);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedPort]);
 
   const handleAddPort = async () => {
     const port = Number(newPort);
@@ -208,7 +252,7 @@ export function PlatformsView() {
       await ipcPortUpsert({
         port,
         protocol: newProto,
-        platform_name: newPlatformName.trim(),
+        platform_name: "",
         account: "port-" + port,
         label: newLabel.trim() || ("entry-" + port),
         enabled: true,
@@ -226,10 +270,9 @@ export function PlatformsView() {
     try {
       await ipcPortRemove(port);
       showToast("ok", t("platform.portRemoved"));
-      // Drop the stale health/auth entry so the row does not flash the old
-      // chip when the re-render sees the port gone before the health probe runs.
       setHealth((s) => { const x = { ...s }; delete x[port]; return x; });
       setAuthInfo((s) => { const x = { ...s }; delete x[port]; return x; });
+      if (selectedPort === port) setSelectedPort(null);
       await refreshPortAuthAndHealth(await refreshPorts());
     }
     catch (e) { showToast("err", translateError(e, t)); }
@@ -284,6 +327,40 @@ export function PlatformsView() {
     void saveSplitRatio(splitRatio);
   };
 
+  /// T11-1: toggle platform card expand/collapse
+  const togglePlatformCard = (name: string) => {
+    setExpandedPlatformCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+
+  /// T11-6: toggle port card selection (click same card to deselect)
+  const togglePortSelect = (port: number) => {
+    setSelectedPort((prev) => (prev === port ? null : port));
+  };
+
+  /// T11-8: toggle port card expand/collapse
+  const togglePortCard = (port: number) => {
+    setExpandedPortCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(port)) next.delete(port); else next.add(port);
+      return next;
+    });
+  };
+
+  if (!bootstrapped) {
+    return (
+      <section className="flex h-full w-full flex-col gap-3 p-4" data-testid="platforms-view">
+        <div className="animate-pulse space-y-3">
+          <div className="h-6 w-48 rounded bg-muted" />
+          <div className="h-32 rounded-lg border bg-muted/50" />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="flex h-full w-full flex-col gap-3 p-4" data-testid="platforms-view">
       <header className="flex items-center justify-between gap-2">
@@ -307,86 +384,78 @@ export function PlatformsView() {
       <div ref={containerRef} className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
         <div className="flex min-h-0 flex-col overflow-hidden" style={{ width: (splitRatio * 100) + "%" }} data-testid="ports-pane">
           <div className="border-b px-3 py-2 text-sm font-medium">{t("platform.entryPorts")}</div>
-          <div className="space-y-2 border-b p-3">
-            <div className="grid grid-cols-2 gap-2">
-              <input className="rounded border bg-background px-2 py-1.5 text-sm" value={newPort} onChange={(e) => setNewPort(e.target.value)} placeholder={t("platform.port")} data-testid="port-input" />
-              <select className="rounded border bg-background px-2 py-1.5 text-sm" value={newProto} onChange={(e) => setNewProto(e.target.value as "socks5" | "http")} data-testid="port-protocol">
+          {/* T11-7: compact inline port form — single row */}
+          <div className="border-b p-2">
+            <div className="flex items-center gap-1.5">
+              <input className="w-20 rounded border bg-background px-2 py-1.5 text-sm" value={newPort} onChange={(e) => setNewPort(e.target.value)} placeholder={t("platform.port")} data-testid="port-input" />
+              <select className="w-24 rounded border bg-background px-2 py-1.5 text-sm" value={newProto} onChange={(e) => setNewProto(e.target.value as "socks5" | "http")} data-testid="port-protocol">
                 <option value="socks5">SOCKS5</option>
                 <option value="http">HTTP</option>
               </select>
-              <input className="rounded border bg-background px-2 py-1.5 text-sm" value={newPlatformName} onChange={(e) => setNewPlatformName(e.target.value)} placeholder={t("platform.name")} data-testid="port-platform" />
-              <input className="rounded border bg-background px-2 py-1.5 text-sm" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder={t("platform.portLabel")} data-testid="port-label" />
+              <input className="flex-1 rounded border bg-background px-2 py-1.5 text-sm" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder={t("platform.portLabel")} data-testid="port-label" />
+              <label className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground" data-testid="port-auth-toggle">
+                <input type="checkbox" checked={newAuthRequired} onChange={(e) => { setNewAuthRequired(e.target.checked); void savePortAuthDefault(e.target.checked); }} className="h-3.5 w-3.5" />
+                {t("platform.requireAuth")}
+              </label>
+              <button type="button" disabled={busy} onClick={() => void handleAddPort()} className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50" data-testid="port-add">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              </button>
             </div>
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="port-auth-toggle">
-              <input type="checkbox" checked={newAuthRequired} onChange={(e) => { setNewAuthRequired(e.target.checked); void savePortAuthDefault(e.target.checked); }} className="h-3.5 w-3.5" />
-              {t("platform.requireAuth")}
-            </label>
-            <button type="button" disabled={busy} onClick={() => void handleAddPort()} className="inline-flex w-full items-center justify-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50" data-testid="port-add">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              {t("platform.addPort")}
-            </button>
           </div>
-          <ul className="min-h-0 flex-1 space-y-2 overflow-auto p-3">
+          <ul className="min-h-0 flex-1 space-y-1 overflow-auto p-2">
             {ports.length === 0 && <li className="text-xs text-muted-foreground">{t("platform.noPorts")}</li>}
-            {ports.map((p) => (
-              <li key={p.port} className={"cursor-grab rounded-md border bg-card p-3 text-sm " + (draggingPort === p.port ? "opacity-50 cursor-grabbing" : "")} onPointerDown={(e) => { e.preventDefault(); document.body.style.userSelect = "none"; setDraggingPort(p.port); }} onPointerUp={() => { document.body.style.userSelect = ""; }} data-testid={"port-row-" + p.port}>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2 font-medium">
-                      <Plug className="h-3.5 w-3.5" />
-                      <span>{":" + p.port}</span>
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase">{p.protocol}</span>
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">{(p.label || t("platform.entryPorts")) + " · " + (p.platform_name || t("platform.unbound")) + "." + p.account}</div>
+            {ports.map((p) => {
+              const isSelected = selectedPort === p.port;
+              const isExpanded = expandedPortCards.has(p.port);
+              const h = health[p.port];
+              const a = authInfo[p.port];
+              const healthDot = h ? (h.reachable && h.reason === "ok" || (h.reachable && h.reason === "ok") ? "bg-emerald-500" : "bg-red-500") : "bg-muted-foreground/30";
+              return (
+                <li key={p.port} className={"cursor-grab rounded-md border bg-card text-sm transition " + (draggingPort === p.port ? "opacity-50 cursor-grabbing " : "") + (isSelected ? "ring-2 ring-primary ring-offset-1 " : "") + (isExpanded ? "p-2" : "p-1.5")} onPointerDown={(e) => { e.preventDefault(); document.body.style.userSelect = "none"; setDraggingPort(p.port); }} onPointerUp={() => { document.body.style.userSelect = ""; }} onClick={() => togglePortSelect(p.port)} data-testid={"port-row-" + p.port}>
+                  {/* T11-8: collapsed = single row, expanded = details */}
+                  <div className="flex items-center gap-2">
+                    <button type="button" className="shrink-0 rounded p-0.5 hover:bg-muted" onClick={(e) => { e.stopPropagation(); togglePortCard(p.port); }} data-testid={"port-chevron-" + p.port}>
+                      {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                    </button>
+                    <span className={"h-2 w-2 shrink-0 rounded-full " + healthDot} />
+                    <Plug className="h-3 w-3 shrink-0" />
+                    <span className="font-medium">:{p.port}</span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase">{p.protocol}</span>
+                    {a && !a.auth_required && <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-500" />}
+                    {a && a.auth_required && <ShieldAlert className="h-3 w-3 shrink-0 text-amber-500" />}
+                    <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">{(p.label || t("platform.entryPorts")) + " · " + (p.platform_name || t("platform.unbound"))}</span>
+                    <button type="button" className="shrink-0 rounded p-1 text-muted-foreground hover:text-red-500" onClick={(e) => { e.stopPropagation(); void handleRemovePort(p.port); }} aria-label={t("common.delete")} data-testid={"port-delete-" + p.port}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <button type="button" className="rounded p-1 text-muted-foreground hover:text-red-500" onClick={() => void handleRemovePort(p.port)} aria-label={t("common.delete")}>
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-                {/* ADR-0021 Q1: per-port health chip + SOCKS5 credentials */}
-                <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground" data-testid={"port-auth-" + p.port}>
-                  {(() => {
-                    const h = health[p.port];
-                    const a = authInfo[p.port];
-                    const healthIcon = h ? (h.reachable && h.reason === "ok" ? <ShieldCheck className="h-3 w-3 text-emerald-500" /> : h.protocol_mismatch ? <ShieldAlert className="h-3 w-3 text-amber-500" /> : !h.reachable ? <ShieldAlert className="h-3 w-3 text-red-500" /> : <ShieldCheck className="h-3 w-3 text-emerald-500" />) : null;
-                    return (
-                      <>
-                        {healthIcon}
-                        <span>{h ? (h.reachable && h.reason === "ok" ? t("platform.healthOk") : h.protocol_mismatch ? t("platform.healthProtocolMismatch") : t("platform.healthUnavailable")) : ""}</span>
+                  {/* T11-8: expanded details */}
+                  {isExpanded && (
+                    <div className="mt-1.5 space-y-1 border-t pt-1.5">
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground" data-testid={"port-auth-" + p.port}>
+                        {h && (h.reachable && h.reason === "ok" || (h.reachable && h.reason === "ok") ? <ShieldCheck className="h-3 w-3 text-emerald-500" /> : <ShieldAlert className="h-3 w-3 text-red-500" />)}
+                        <span>{h ? (h.reachable && h.reason === "ok" || (h.reachable && h.reason === "ok") ? t("platform.healthOk") : h.protocol_mismatch ? t("platform.healthProtocolMismatch") : t("platform.healthUnavailable")) : ""}</span>
                         {h && h.latency_ms > 0 && <span className="text-muted-foreground/70">· {h.latency_ms}ms</span>}
                         {a && (
-                          <button
-                            type="button"
-                            className="ml-auto inline-flex items-center gap-1 rounded p-1 hover:text-primary"
-                            onClick={() => copyCredentials(p.port, a)}
-                            aria-label={t("platform.copyCredentials")}
-                            title={t("platform.copyCredentials")}
-                          >
+                          <button type="button" className="ml-auto inline-flex items-center gap-1 rounded p-1 hover:text-primary" onClick={() => copyCredentials(p.port, a)} aria-label={t("platform.copyCredentials")} title={t("platform.copyCredentials")}>
                             <Copy className="h-3 w-3" />
                             {copiedPort === p.port ? t("platform.copied") : ""}
                           </button>
                         )}
-                      </>
-                    );
-                  })()}
-                </div>
-                {authInfo[p.port] && p.protocol === "socks5" && authInfo[p.port].auth_required && (
-                  <div className="mt-1 break-all text-[10px] text-muted-foreground/80">
-                    {t("platform.socks5Auth")}: {authInfo[p.port].username} · {t("platform.passwordMasked")}
-                  </div>
-                )}
-                {authInfo[p.port] && p.protocol === "http" && authInfo[p.port].auth_required && (
-                  <div className="mt-1 break-all text-[10px] text-muted-foreground/80">
-                    {t("platform.httpAuth")}: {authInfo[p.port].username} · {t("platform.passwordMasked")}
-                  </div>
-                )}
-                {authInfo[p.port] && !authInfo[p.port].auth_required && (
-                  <div className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-400">
-                    {t("platform.noAuthRequired")}
-                  </div>
-                )}
-              </li>
-            ))}
+                      </div>
+                      {a && p.protocol === "socks5" && a.auth_required && (
+                        <div className="break-all text-[10px] text-muted-foreground/80">{t("platform.socks5Auth")}: {a.username} · {t("platform.passwordMasked")}</div>
+                      )}
+                      {a && p.protocol === "http" && a.auth_required && (
+                        <div className="break-all text-[10px] text-muted-foreground/80">{t("platform.httpAuth")}: {a.username} · {t("platform.passwordMasked")}</div>
+                      )}
+                      {a && !a.auth_required && (
+                        <div className="text-[10px] text-emerald-600 dark:text-emerald-400">{t("platform.noAuthRequired")}</div>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -394,7 +463,7 @@ export function PlatformsView() {
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-testid="platforms-pane" onPointerUp={() => { if (draggingPort != null) { document.body.style.userSelect = ""; setDraggingPort(null); setDragOverPlatform(null); } }}>
           <div className="border-b px-3 py-2 text-sm font-medium">{t("platform.activated")}</div>
-          <ul className="min-h-0 flex-1 space-y-2 overflow-auto p-3">
+          <ul className="min-h-0 flex-1 space-y-1 overflow-auto p-2">
             {platforms.length === 0 && <li className="text-xs text-muted-foreground">{t("platform.empty")}</li>}
             {platforms.map((p) => {
               const bound = ports.filter((x) => x.platform_name === p.name);
@@ -407,142 +476,174 @@ export function PlatformsView() {
               const manualNodes = (entry as Record<string, unknown> | undefined)?.manual_nodes as string[] | undefined ?? [];
               const distinctRegions = [...new Set(nodeList.map((n) => n.region).filter(Boolean))];
               const top3Preview = nodeList.slice(0, 3).map((n) => n.display_tag + "(" + n.region + ")").join(", ");
+              const isExpanded = expandedPlatformCards.has(p.name);
+              const bClassLabel = t(strategyToI18nKey(p.allocationPolicy as string));
+              const aClassLabel = t("strategy." + aClass);
+              const aBadge = "A:" + aClassLabel + (aClass === "manual" && manualNodes.length > 0 ? "[" + manualNodes.length + "]" : "") + (aClass === "region" && regions.length > 0 ? "[" + regions.length + "]" : "") + (aClass === "subscription" && subs.length > 0 ? "[" + subs.length + "]" : "");
+              const bBadge = "B:" + bClassLabel;
+              const search = manualSearch[p.name] ?? "";
               return (
-                <li key={p.name} className={"rounded-md border bg-card p-3 " + (dragOverPlatform === p.name ? "ring-2 ring-offset-2 ring-primary scale-[1.02] transition" : "")} onPointerEnter={() => { if (draggingPort != null) setDragOverPlatform(p.name); }} onPointerLeave={() => { if (dragOverPlatform === p.name) setDragOverPlatform(null); }} onPointerUp={() => { if (draggingPort != null) void bindPortToPlatform(draggingPort, p.name); }} data-testid={"platform-card-" + p.name}>
-                  {/* T10-5: card top row ? name + leases/nodes pill + delete, NO B-class summary text */}
-                  <div className="flex items-start justify-between gap-2">
+                <li key={p.name} className={"rounded-md border bg-card " + (dragOverPlatform === p.name ? "ring-2 ring-offset-2 ring-primary scale-[1.02] transition " : "") + (isExpanded ? "p-2.5" : "p-2")} onPointerEnter={() => { if (draggingPort != null) setDragOverPlatform(p.name); }} onPointerLeave={() => { if (dragOverPlatform === p.name) setDragOverPlatform(null); }} onPointerUp={() => { if (draggingPort != null) void bindPortToPlatform(draggingPort, p.name); }} data-testid={"platform-card-" + p.name}>
+                  {/* T11-1: collapsed = summary row with A/B badges + chevron */}
+                  <div className="flex items-start justify-between gap-2" onClick={() => togglePlatformCard(p.name)} role="button" data-testid={"platform-card-header-" + p.name}>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
+                        {isExpanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
                         <span className="font-medium">{p.name}</span>
                       </div>
+                      {!isExpanded && (
+                        <div className="ml-5 mt-1 flex flex-wrap gap-1">
+                          <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] text-blue-600 dark:text-blue-400" data-testid={"platform-abadge-" + p.name}>{aBadge}</span>
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary" data-testid={"platform-bbadge-" + p.name}>{bBadge}</span>
+                        </div>
+                      )}
                       {bound.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
+                        <div className="ml-5 mt-1 flex flex-wrap gap-1">
                           {bound.map((b) => (
                             <span key={b.port} className="rounded bg-muted px-1.5 py-0.5 text-[11px]">{":" + b.port + "/" + b.protocol}</span>
                           ))}
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      {/* T10-5: leases/nodes pill in right-top */}
+                    <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground" data-testid={"platform-stats-pill-" + p.name}>
-                        {t("platform.leases") + ": " + leases.length + " \u00b7 " + t("platform.routableNodes") + ": " + p.routableNodeCount}
+                        {t("platform.leases") + ": " + leases.length + " · " + t("platform.routableNodes") + ": " + p.routableNodeCount}
                       </span>
                       <button type="button" className="rounded p-1 text-muted-foreground hover:text-red-500" onClick={() => void handleDeletePlatform(p.name)}>
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
-                  {/* T10-1: A/B left-right split card layout, 50/50 width */}
-                  <div className="mt-2.5 border-t pt-2 flex gap-3" data-testid={"strategy-split-" + p.name}>
-                    {/* Left: A-class strategy (50%) */}
-                    <div className="flex-1 min-w-0" data-testid={"strategy-aclass-pane-" + p.name}>
-                      <div className="flex items-center justify-between gap-1 mb-1.5">
-                        <span className="text-[10px] font-medium uppercase text-muted-foreground">{t("strategy.aClass")}</span>
-                        <button type="button" disabled={strategyBusy} onClick={() => void handleApplyStrategy()} className="inline-flex items-center gap-1 rounded bg-primary px-2 py-0.5 text-[10px] text-primary-foreground disabled:opacity-50" data-testid="strategy-apply">
-                          {strategyBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                          {t("strategy.apply")}
-                        </button>
-                      </div>
-                      {/* A-class type selector as ToggleGroup chips */}
-                      <div className="flex flex-wrap gap-1" data-testid={"strategy-aclass-chips-" + p.name}>
-                        {["manual", "region", "quality", "subscription"].map((mode) => (
-                          <button key={mode} type="button" disabled={strategyBusy}
-                            className={"rounded px-2 py-0.5 text-[10px] border transition " + (aClass === mode ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:bg-muted")}
-                            onClick={() => updateStrategyField(p.name, "a_class", mode)}
-                            data-testid={"strategy-aclass-" + mode + "-" + p.name}>
-                            {t("strategy." + mode)}
-                          </button>
-                        ))}
-                      </div>
-                      {/* T10-2: A-class mode-specific chip selectors */}
-                      {aClass === "manual" && (
-                        <div className="mt-1.5 flex flex-wrap gap-1 max-h-32 overflow-auto" data-testid={"strategy-manual-chips-" + p.name}>
-                          {nodeList.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.manualSelect")}</span>}
-                          {nodeList.map((n) => {
-                            const selected = manualNodes.includes(n.node_hash);
-                            return (
-                              <button key={n.node_hash} type="button"
-                                className={"rounded px-1.5 py-0.5 text-[10px] border transition " + (selected ? "bg-blue-500 text-white border-blue-500" : "bg-background text-muted-foreground border-border hover:bg-muted")}
-                                onClick={() => {
-                                  const newVal = selected ? manualNodes.filter((h) => h !== n.node_hash) : [...manualNodes, n.node_hash];
-                                  updateStrategyField(p.name, "manual_nodes" as keyof PlatformStrategy, newVal as unknown as string);
-                                }}
-                                data-testid={"strategy-manual-chip-" + n.node_hash}>
-                                {n.display_tag}
-                              </button>
-                            );
-                          })}
+                  {/* T11-1: expanded = full A/B split selectors */}
+                  {isExpanded && (
+                    <div className="mt-2 border-t pt-2 flex gap-3" data-testid={"strategy-split-" + p.name}>
+                      {/* Left: A-class strategy (50%) */}
+                      <div className="flex-1 min-w-0" data-testid={"strategy-aclass-pane-" + p.name}>
+                        <div className="mb-1.5">
+                          <span className="text-[10px] font-medium uppercase text-muted-foreground">{t("strategy.aClass")}</span>
                         </div>
-                      )}
-                      {aClass === "region" && (
-                        <div className="mt-1.5 flex flex-wrap gap-1" data-testid={"strategy-region-chips-" + p.name}>
-                          {distinctRegions.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.regionSelect")}</span>}
-                          {distinctRegions.map((r) => {
-                            const selected = regions.includes(r);
-                            return (
-                              <button key={r} type="button"
-                                className={"rounded px-1.5 py-0.5 text-[10px] border transition " + (selected ? "bg-blue-500 text-white border-blue-500" : "bg-background text-muted-foreground border-border hover:bg-muted")}
-                                onClick={() => {
-                                  const newVal = selected ? regions.filter((x) => x !== r) : [...regions, r];
-                                  updateStrategyField(p.name, "regions", newVal);
-                                }}
-                                data-testid={"strategy-region-chip-" + r}>
-                                {r}
-                              </button>
-                            );
-                          })}
+                        {/* A-class type selector chips with T11-2 ring feedback */}
+                        <div className="flex flex-wrap gap-1" data-testid={"strategy-aclass-chips-" + p.name}>
+                          {["manual", "region", "quality", "subscription"].map((mode) => (
+                            <button key={mode} type="button"
+                              className={"rounded px-2 py-0.5 text-[10px] border transition " + (aClass === mode ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary ring-offset-1" : "bg-background text-muted-foreground border-border hover:bg-muted")}
+                              onClick={() => updateAndSync(p.name, "a_class", mode)}
+                              data-testid={"strategy-aclass-" + mode + "-" + p.name}>
+                              {t("strategy." + mode)}
+                            </button>
+                          ))}
                         </div>
-                      )}
-                      {aClass === "subscription" && (
-                        <div className="mt-1.5 flex flex-wrap gap-1" data-testid={"strategy-subs-chips-" + p.name}>
-                          {subList.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.subscriptionSelect")}</span>}
-                          {subList.map((s) => {
-                            const selected = subs.includes(s.name);
-                            return (
-                              <button key={s.name} type="button"
-                                className={"rounded px-1.5 py-0.5 text-[10px] border transition " + (selected ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:bg-muted")}
-                                onClick={() => {
-                                  const newVal = selected ? subs.filter((x) => x !== s.name) : [...subs, s.name];
-                                  updateStrategyField(p.name, "subscriptions", newVal);
-                                }}
-                                data-testid={"strategy-sub-chip-" + s.name}>
-                                {s.name + " (" + s.node_count + ")"}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {aClass === "quality" && (
-                        <div className="mt-1.5 space-y-1" data-testid={"strategy-quality-pane-" + p.name}>
-                          <label className="flex items-center gap-1.5">
-                            <span className="text-[10px] text-muted-foreground">{t("strategy.topN")}</span>
-                            <input type="number" min={1} max={1000} className="w-20 rounded border bg-background px-1.5 py-1 text-[11px]" value={strategyTopNInput[p.name] ?? String(topN)} onChange={(e) => { setStrategyTopNInput((s) => ({ ...s, [p.name]: e.target.value })); updateStrategyField(p.name, "top_n", e.target.value); }} data-testid={"strategy-topn-" + p.name} />
-                          </label>
-                          {top3Preview && (
-                            <div className="text-[10px] text-muted-foreground" data-testid={"strategy-quality-preview-" + p.name}>
-                              {t("strategy.qualityPreview") + ": " + top3Preview}
+                        {/* T11-3: Manual mode with search + hybrid selected-first */}
+                        {aClass === "manual" && (
+                          <div className="mt-1.5 space-y-1" data-testid={"strategy-manual-chips-" + p.name}>
+                            <div className="flex items-center gap-1">
+                              <Search className="h-3 w-3 text-muted-foreground" />
+                              <input className="flex-1 rounded border bg-background px-1.5 py-1 text-[10px]" value={search} onChange={(e) => setManualSearch((s) => ({ ...s, [p.name]: e.target.value }))} placeholder={t("strategy.manualSelect")} data-testid={"strategy-manual-search-" + p.name} />
                             </div>
-                          )}
+                            {nodeList.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.manualSelect")}</span>}
+                            <div className="max-h-32 overflow-auto">
+                              {/* T11-3: selected nodes stay visible at top even when filtered */}
+                              {(() => {
+                                const searchLower = search.toLowerCase();
+                                const selectedNodes = nodeList.filter((n) => manualNodes.includes(n.node_hash));
+                                const unselectedMatching = nodeList.filter((n) => !manualNodes.includes(n.node_hash) && (n.display_tag.toLowerCase().includes(searchLower) || n.region.toLowerCase().includes(searchLower)));
+                                return (
+                                  <>
+                                    {selectedNodes.length > 0 && (
+                                      <div className="mb-1">
+                                        <div className="text-[9px] font-medium uppercase text-muted-foreground">{"Selected (" + selectedNodes.length + ")"}</div>
+                                        <div className="flex flex-wrap gap-1">
+                                          {selectedNodes.map((n) => (
+                                            <button key={n.node_hash} type="button"
+                                              className="rounded px-1.5 py-0.5 text-[10px] border transition bg-blue-500 text-white border-blue-500 ring-2 ring-primary ring-offset-1"
+                                              onClick={() => { const newVal = manualNodes.filter((h) => h !== n.node_hash); updateAndSync(p.name, "manual_nodes" as keyof PlatformStrategy, newVal as unknown as string); }}
+                                              data-testid={"strategy-manual-chip-" + n.node_hash}>
+                                              {n.display_tag}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                    {unselectedMatching.length > 0 && (
+                                      <div className="flex flex-wrap gap-1">
+                                        {unselectedMatching.map((n) => (
+                                          <button key={n.node_hash} type="button"
+                                            className="rounded px-1.5 py-0.5 text-[10px] border transition bg-background text-muted-foreground border-border hover:bg-muted"
+                                            onClick={() => { const newVal = [...manualNodes, n.node_hash]; updateAndSync(p.name, "manual_nodes" as keyof PlatformStrategy, newVal as unknown as string); }}
+                                            data-testid={"strategy-manual-chip-" + n.node_hash}>
+                                            {n.display_tag}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
+                        {aClass === "region" && (
+                          <div className="mt-1.5 flex flex-wrap gap-1" data-testid={"strategy-region-chips-" + p.name}>
+                            {distinctRegions.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.regionSelect")}</span>}
+                            {distinctRegions.map((r) => {
+                              const selected = regions.includes(r);
+                              return (
+                                <button key={r} type="button"
+                                  className={"rounded px-1.5 py-0.5 text-[10px] border transition " + (selected ? "bg-blue-500 text-white border-blue-500 ring-2 ring-primary ring-offset-1" : "bg-background text-muted-foreground border-border hover:bg-muted")}
+                                  onClick={() => { const newVal = selected ? regions.filter((x) => x !== r) : [...regions, r]; updateAndSync(p.name, "regions", newVal); }}
+                                  data-testid={"strategy-region-chip-" + r}>
+                                  {r}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {aClass === "subscription" && (
+                          <div className="mt-1.5 flex flex-wrap gap-1" data-testid={"strategy-subs-chips-" + p.name}>
+                            {subList.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.subscriptionSelect")}</span>}
+                            {subList.map((s) => {
+                              const selected = subs.includes(s.name);
+                              return (
+                                <button key={s.name} type="button"
+                                  className={"rounded px-1.5 py-0.5 text-[10px] border transition " + (selected ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary ring-offset-1" : "bg-background text-muted-foreground border-border hover:bg-muted")}
+                                  onClick={() => { const newVal = selected ? subs.filter((x) => x !== s.name) : [...subs, s.name]; updateAndSync(p.name, "subscriptions", newVal); }}
+                                  data-testid={"strategy-sub-chip-" + s.name}>
+                                  {s.name + " (" + s.node_count + ")"}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {aClass === "quality" && (
+                          <div className="mt-1.5 space-y-1" data-testid={"strategy-quality-pane-" + p.name}>
+                            <label className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-muted-foreground">{t("strategy.topN")}</span>
+                              <input type="number" min={1} max={1000} className="w-20 rounded border bg-background px-1.5 py-1 text-[11px]" value={strategyTopNInput[p.name] ?? String(topN)} onChange={(e) => { setStrategyTopNInput((s) => ({ ...s, [p.name]: e.target.value })); updateAndSync(p.name, "top_n", e.target.value); }} data-testid={"strategy-topn-" + p.name} />
+                            </label>
+                            {top3Preview && (
+                              <div className="text-[10px] text-muted-foreground" data-testid={"strategy-quality-preview-" + p.name}>
+                                {t("strategy.qualityPreview") + ": " + top3Preview}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {/* Right: B-class strategy (50%) */}
+                      <div className="flex-1 min-w-0" data-testid={"strategy-bclass-pane-" + p.name}>
+                        <span className="text-[10px] font-medium uppercase text-muted-foreground block mb-1.5">{t("strategy.bClass")}</span>
+                        <div className="flex flex-wrap gap-1" data-testid={"strategy-bclass-chips-" + p.name}>
+                          {STRATEGY_IDS.map((s) => (
+                            <button key={s} type="button"
+                              className={"rounded px-2 py-0.5 text-[10px] border transition " + (p.allocationPolicy === s ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary ring-offset-1" : "bg-background text-muted-foreground border-border hover:bg-muted")}
+                              onClick={() => { void ipcPlatformUpdate(p.name, s).then(() => refreshPlatforms()).catch((e2) => showToast("err", translateError(e2, t))); }}
+                              data-testid={"strategy-bclass-" + s + "-" + p.name}>
+                              {t(strategyToI18nKey(s))}
+                            </button>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                    {/* Right: B-class strategy (50%) */}
-                    <div className="flex-1 min-w-0" data-testid={"strategy-bclass-pane-" + p.name}>
-                      <span className="text-[10px] font-medium uppercase text-muted-foreground block mb-1.5">{t("strategy.bClass")}</span>
-                      {/* T10-1: B-class as ToggleGroup single-select chips */}
-                      <div className="flex flex-wrap gap-1" data-testid={"strategy-bclass-chips-" + p.name}>
-                        {STRATEGY_IDS.map((s) => (
-                          <button key={s} type="button"
-                            className={"rounded px-2 py-0.5 text-[10px] border transition " + (p.allocationPolicy === s ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground border-border hover:bg-muted")}
-                            onClick={() => { void ipcPlatformUpdate(p.name, s).then(() => refreshPlatforms()).catch((e2) => showToast("err", translateError(e2, t))); }}
-                            data-testid={"strategy-bclass-" + s + "-" + p.name}>
-                            {t(strategyToI18nKey(s))}
-                          </button>
-                        ))}
                       </div>
                     </div>
-                  </div>
+                  )}
                 </li>
               );
             })}

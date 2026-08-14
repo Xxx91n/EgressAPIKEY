@@ -2579,7 +2579,33 @@ pub async fn strategy_apply(
     let nodes_v = client.list_nodes().await.map_err(|e| IpcError::from(e.to_string()))?;
     let nodes = resin_core::parse_nodes(&nodes_v);
 
-    let plan = resin_core::compute_plan(&config, &nodes);
+    // T11-4c: auto-clean stale platforms. Get the live platform list and filter
+    // strategyConfig to only include platforms that still exist in Resin.
+    let live_platforms_v = client.list_platforms().await.map_err(|e| IpcError::from(e.to_string()))?;
+    let live_names: std::collections::HashSet<String> = items_arr(&live_platforms_v)
+        .iter()
+        .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(String::from))
+        .collect();
+    let cleaned_config = resin_core::StrategyConfig {
+        version: config.version,
+        platforms: config.platforms.iter()
+            .filter(|ps| live_names.contains(&ps.platform_name))
+            .cloned()
+            .collect(),
+    };
+    if cleaned_config.platforms.len() != config.platforms.len() {
+        tracing::info!(
+            before = config.platforms.len(),
+            after = cleaned_config.platforms.len(),
+            "strategy_apply: auto-cleaned stale platform entries from strategyConfig"
+        );
+        // Persist the cleaned config back to disk.
+        if let Ok(cleaned_json) = serde_json::to_string_pretty(&cleaned_config) {
+            let _ = std::fs::write(&path, cleaned_json);
+        }
+    }
+
+    let plan = resin_core::compute_plan(&cleaned_config, &nodes);
     let mut applied = serde_json::json!({"platforms": []});
     let platforms_arr = applied["platforms"].as_array_mut().expect("platforms initialized as array");
 

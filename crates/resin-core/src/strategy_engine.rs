@@ -162,7 +162,24 @@ pub fn liveness_filter(nodes: &[NodeSummary]) -> Vec<&NodeSummary> {
 /// the set of region codes that should be PATCHed into region_filters.
 pub fn a_class_regions(strategy: &PlatformStrategy, healthy: &[&NodeSummary]) -> Vec<String> {
     match strategy.a_class {
-        AClassStrategy::Manual => strategy.regions.clone(),
+        AClassStrategy::Manual => {
+            // Map manual_nodes (node hashes) to regions by looking up each hash
+            // in the healthy nodes list. GUI writes manual_nodes, NOT regions.
+            let allowed: HashSet<&str> = strategy.manual_nodes.iter().map(|s| s.as_str()).collect();
+            let mut result: Vec<String> = healthy
+                .iter()
+                .filter_map(|n| {
+                    if allowed.contains(n.node_hash.as_str()) {
+                        Some(n.region.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            result.sort();
+            result.dedup();
+            result
+        }
         AClassStrategy::Region => {
             // Collect all unique regions from healthy nodes that match the config regions
             let allowed: HashSet<&str> = strategy.regions.iter().map(|s| s.as_str()).collect();
@@ -274,19 +291,46 @@ mod tests {
     }
 
     #[test]
-    fn manual_strategy_returns_config_regions() {
+    fn manual_strategy_maps_manual_nodes_to_regions() {
+        // T11-4a: Manual mode maps manual_nodes (hashes) to regions via healthy nodes.
+        // With empty manual_nodes, result is empty (no nodes selected).
+        let nodes = vec![
+            mk_node("h1", "HK", true, None, None),
+            mk_node("h2", "US", true, None, None),
+            mk_node("h3", "JP", true, None, None),
+        ];
+        let healthy: Vec<&NodeSummary> = nodes.iter().collect();
         let ps = PlatformStrategy {
             platform_name: "p1".into(),
             a_class: AClassStrategy::Manual,
             b_class: StrategyId::Random,
-            regions: vec!["HK".into(), "JP".into()],
+            regions: vec![],
             subscriptions: vec![],
             top_n: 10,
-                    manual_nodes: vec![],
+            manual_nodes: vec!["h1".into(), "h3".into()],
         };
-        let healthy: Vec<&NodeSummary> = vec![];
         let regions = a_class_regions(&ps, &healthy);
-        assert_eq!(regions, vec!["HK", "JP"]);
+        assert_eq!(regions, vec!["HK".to_string(), "JP".to_string()]);
+    }
+
+    #[test]
+    fn manual_strategy_empty_nodes_returns_empty() {
+        // T11-4a: Manual mode with no manual_nodes selected returns empty vec.
+        let nodes = vec![
+            mk_node("h1", "HK", true, None, None),
+        ];
+        let healthy: Vec<&NodeSummary> = nodes.iter().collect();
+        let ps = PlatformStrategy {
+            platform_name: "p1".into(),
+            a_class: AClassStrategy::Manual,
+            b_class: StrategyId::Random,
+            regions: vec!["HK".into()],
+            subscriptions: vec![],
+            top_n: 10,
+            manual_nodes: vec![],
+        };
+        let regions = a_class_regions(&ps, &healthy);
+        assert_eq!(regions, Vec::<String>::new());
     }
 
     #[test]
