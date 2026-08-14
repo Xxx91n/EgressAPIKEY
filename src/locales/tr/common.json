@@ -197,7 +197,9 @@
     "resinPort": "Resin Portu",
     "resinStatus": "Resin Durumu",
     "sidecarLoading": "Yukleniyor...",
-    "sidecarAutoPort": "Port Resin sidecar tarafından otomatik atanir."
+    "sidecarAutoPort": "Port Resin sidecar tarafından otomatik atanir.",
+    "lightweightMode": "Hafif mod (bosta WebView'i yok et)",
+    "autoLightweightMinutes": "Otomatik hafif mod (dakika)"
   },
   "strategy": {
     "title": "Çıkış Stratejisi",

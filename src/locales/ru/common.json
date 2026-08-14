@@ -197,7 +197,9 @@
     "resinPort": "Порт Resin",
     "resinStatus": "Статус Resin",
     "sidecarLoading": "Загрузка...",
-    "sidecarAutoPort": "Порт назначается автоматически sidecar Resin."
+    "sidecarAutoPort": "Порт назначается автоматически sidecar Resin.",
+    "lightweightMode": "Лёгкий режим (уничтожить WebView при простое)",
+    "autoLightweightMinutes": "Авто лёгкий режим через (минут)"
   },
   "strategy": {
     "title": "Стратегия выхода",

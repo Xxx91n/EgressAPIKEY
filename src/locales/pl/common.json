@@ -197,7 +197,9 @@
     "resinPort": "Port Resin",
     "resinStatus": "Status Resin",
     "sidecarLoading": "Ładowanie...",
-    "sidecarAutoPort": "Port jest automatycznie przypisywany przez sidecar Resin."
+    "sidecarAutoPort": "Port jest automatycznie przypisywany przez sidecar Resin.",
+    "lightweightMode": "Tryb lekki (zniszcz WebView podczas bezczynnosci)",
+    "autoLightweightMinutes": "Auto tryb lekki po (minutach)"
   },
   "strategy": {
     "title": "Strategia Wyjścia",

@@ -197,7 +197,9 @@
     "resinPort": "พอร์ต Resin",
     "resinStatus": "สถานะ Resin",
     "sidecarLoading": "กำลังโหลด...",
-    "sidecarAutoPort": "พอร์ตถูกกำหนดโดย Resin sidecar โดยอัตโนมัติ"
+    "sidecarAutoPort": "พอร์ตถูกกำหนดโดย Resin sidecar โดยอัตโนมัติ",
+    "lightweightMode": "โหมดเบา (ทำลาย WebView เมื่อไม่ใช้งาน)",
+    "autoLightweightMinutes": "เข้าโหมดเบาอัตโนมาติหลัง (นาที)"
   },
   "strategy": {
     "title": "กลยุทธ์ทางออก",

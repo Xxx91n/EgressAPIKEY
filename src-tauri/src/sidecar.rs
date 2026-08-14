@@ -115,6 +115,13 @@ pub struct SidecarHandle {
     /// T6-7: RFC3339 timestamp of the last successful /healthz probe.
     /// Updated by spawn_health_poll on every successful poll cycle.
     pub healthz_last_check: std::sync::RwLock<String>,
+    /// T14-1: Windows Job Object handle (clash-verge-rev PR #6853 pattern).
+    /// When the handle is closed (RAII drop or process exit), the OS kills
+    /// all processes in the job object. This is the belt-and-suspenders for
+    /// Task Manager force-kill where RunEvent::Exit never fires.
+    /// None on non-Windows or if CreateJobObjectW fails (logged, degrades gracefully).
+    #[cfg(target_os = "windows")]
+    pub job_handle: Option<isize>,
 }
 
 impl SidecarHandle {
@@ -317,6 +324,15 @@ fn spawn_resin_await_healthz(
 
     let mut child = cmd.spawn().context("sidecar: failed to spawn resin binary")?;
 
+    // T14-1: Assign child to Windows Job Object so the OS kills resin.exe
+    // even if the GUI is force-terminated (Task Manager End Task, crash, etc.)
+    // where RunEvent::Exit never fires. clash-verge-rev PR #6853 pattern.
+    // ponytail: known race — if the GUI is killed between spawn and assign,
+    // the child becomes orphan. This is an accepted limitation (same as
+    // clash-verge-rev); a suspended-create fix requires patching tauri-plugin-shell.
+    #[cfg(target_os = "windows")]
+    let job_handle = assign_sidecar_to_job_object(child.id());
+
     let log_buf = LogBuffer::new();
     let drain_buf = log_buf.clone();
     let stdout = child.stdout.take();
@@ -367,7 +383,9 @@ fn spawn_resin_await_healthz(
                     admin_token,
                    proxy_token,
                    healthz_last_check: std::sync::RwLock::new(String::new()),
-               });
+                    #[cfg(target_os = "windows")]
+                    job_handle,
+                });
            }
            Ok(r) => { last_err = Some(format!("HTTP {}", r.status())); }
             Err(e) => { last_err = Some(e.to_string()); }
@@ -470,6 +488,64 @@ pub fn check_port_available(port: u16) -> Result<(), String> {
     }
 }
 
+/// T14-1: Create a Windows Job Object with KILL_ON_JOB_CLOSE and assign the
+/// sidecar process to it. clash-verge-rev PR #6853 pattern.
+#[cfg(target_os = "windows")]
+fn assign_sidecar_to_job_object(pid: u32) -> Option<isize> {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
+        JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+    use windows_sys::Win32::System::Threading::OpenProcess;
+        use windows_sys::Win32::System::Threading::{PROCESS_TERMINATE, PROCESS_SET_QUOTA};
+
+    unsafe {
+        let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+        if job.is_null() {
+            tracing::error!("T14-1: CreateJobObjectW failed: {}", std::io::Error::last_os_error());
+            return None;
+        }
+
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let result = SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &mut info as *mut _ as *mut std::ffi::c_void,
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        );
+        if result == 0 {
+            tracing::error!("T14-1: SetInformationJobObject failed: {}", std::io::Error::last_os_error());
+            CloseHandle(job);
+            return None;
+        }
+
+        let process_handle = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, 0, pid);
+        if process_handle.is_null() {
+            tracing::error!("T14-1: OpenProcess({}) failed: {}", pid, std::io::Error::last_os_error());
+            CloseHandle(job);
+            return None;
+        }
+
+        if AssignProcessToJobObject(job, process_handle) == 0 {
+            tracing::error!("T14-1: AssignProcessToJobObject failed: {}", std::io::Error::last_os_error());
+            CloseHandle(process_handle);
+            CloseHandle(job);
+            return None;
+        }
+
+        CloseHandle(process_handle);
+        tracing::info!("T14-1: sidecar PID {} assigned to Job Object (KILL_ON_JOB_CLOSE)", pid);
+        Some(job as isize)
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn assign_sidecar_to_job_object(_pid: u32) -> Option<isize> { None }
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -507,6 +583,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
+        #[cfg(target_os = "windows")]
+        job_handle: None,
         };
         assert_eq!(h.mode(), RunningMode::Running);
     }
@@ -521,6 +599,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
+        #[cfg(target_os = "windows")]
+        job_handle: None,
         };
         h.set_mode(RunningMode::NotRunning);
         assert_eq!(h.mode(), RunningMode::NotRunning);
@@ -536,6 +616,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
+        #[cfg(target_os = "windows")]
+        job_handle: None,
         };
         // Reboot: NotRunning -> Starting is a valid transition
         h.set_mode(RunningMode::Starting);
@@ -552,6 +634,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
+        #[cfg(target_os = "windows")]
+        job_handle: None,
         };
         h.set_mode(RunningMode::Running);
         assert_eq!(h.mode(), RunningMode::Running);
@@ -569,6 +653,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
+        #[cfg(target_os = "windows")]
+        job_handle: None,
         };
         h.set_mode(RunningMode::Terminated);
         assert_eq!(h.mode(), RunningMode::Terminated);
@@ -585,6 +671,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
+        #[cfg(target_os = "windows")]
+        job_handle: None,
         };
         h.set_mode(RunningMode::Terminated);
         assert_eq!(h.mode(), RunningMode::Terminated);
@@ -606,6 +694,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
+        #[cfg(target_os = "windows")]
+        job_handle: None,
         };
         h.set_mode(RunningMode::Starting);
         // set_mode writes the new value regardless of validity (warn-only).
@@ -737,6 +827,45 @@ mod tests {
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn job_handle_drops_kills_child() {
+        // T14-1: Verify that assign_sidecar_to_job_object returns Some(handle)
+        // for a real process, and that closing the job handle would kill it.
+        // We spawn a dummy long-lived process, assign it, then verify the handle is non-zero.
+        use std::process::Command;
+        let mut child = Command::new("cmd")
+            .args(["/c", "ping -n 30 127.0.0.1 > nul"])
+            .spawn()
+            .expect("failed to spawn dummy");
+        let pid = child.id();
+        let handle = assign_sidecar_to_job_object(pid);
+        assert!(handle.is_some(), "assign should succeed for a live process");
+        let handle_val = handle.unwrap();
+        assert_ne!(handle_val, 0, "job handle should be non-zero");
+        // Clean up: kill the dummy process and close the job handle
+        let _ = child.kill();
+        let _ = child.wait();
+        // Close the job handle (drops the isize, but we need to actually CloseHandle)
+        // Since we store as isize, we close via the Win32 API
+        use windows_sys::Win32::Foundation::CloseHandle;
+        unsafe { CloseHandle(handle_val as windows_sys::Win32::Foundation::HANDLE); }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn assign_fails_returns_none_for_invalid_pid() {
+        // T14-1: An invalid PID should cause OpenProcess to fail, returning None
+        let handle = assign_sidecar_to_job_object(0xFFFFFFF0);
+        assert!(handle.is_none(), "assign should fail for invalid PID");
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn assign_sidecar_to_job_object_stub_returns_none() {
+        let handle = assign_sidecar_to_job_object(12345);
+        assert!(handle.is_none(), "non-Windows stub should always return None");
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -197,7 +197,9 @@
     "resinPort": "Resin पोर्ट",
     "resinStatus": "Resin स्थिति",
     "sidecarLoading": "लोड हो रहा है...",
-    "sidecarAutoPort": "पोर्ट Resin साइडकार द्वारा स्वतः आवंटित किया गया है।"
+    "sidecarAutoPort": "पोर्ट Resin साइडकार द्वारा स्वतः आवंटित किया गया है।",
+    "lightweightMode": "लाइटवेट मोड (नष्क्रिय होने पर WebView नष्ट करें)",
+    "autoLightweightMinutes": "ऑटो लाइटवेट (मिनट)"
   },
   "strategy": {
     "title": "निकास रणनीति",

@@ -6,6 +6,7 @@
 
 use egressapikey_app::{
     build_shared_registry, commands,
+    lightweight::LightweightController,
     sidecar::{boot_resin, spawn_health_poll, SidecarHandle},
     tray::build_tray,
 };
@@ -66,6 +67,7 @@ fn main() {
                 .build(),
         )
         .manage(registry)
+        .manage(LightweightController::default())
         // Closing the main window hides to tray instead of quitting the app
         // (problem 5). The tray "Quit" item is the real exit path; the tray
         // left-click and "Show Window" item restore the hidden window. We
@@ -76,6 +78,27 @@ fn main() {
                 // Best-effort hide; never panic if the window is already gone.
                 let _ = window.hide();
                 api.prevent_close();
+                // T14-2: start the lightweight-mode delay timer after window
+                // hide. If the user does not refocus within N minutes, the
+                // timer fires and destroys the webview to free ~171 MB.
+                if let Some(ctrl) = window.app_handle().try_state::<LightweightController>() {
+                    let app = window.app_handle().clone();
+                    ctrl.try_enter_lightweight(move || {
+                        tracing::info!("T14-2: lightweight timer fired; destroying webview");
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.destroy();
+                        }
+                        egressapikey_app::lightweight::trim_working_set();
+                    });
+                }
+            }
+            if let WindowEvent::Focused(focused) = event {
+                if *focused {
+                    // T14-2: cancel the lightweight-mode delay timer on focus
+                    if let Some(ctrl) = window.app_handle().try_state::<LightweightController>() {
+                        ctrl.try_cancel_lightweight();
+                    }
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -164,6 +187,8 @@ fn main() {
                 admin_token: sidecar.admin_token,
                 proxy_token: proxy_token.clone(),
                 healthz_last_check: std::sync::RwLock::new(String::new()),
+            #[cfg(target_os = "windows")]
+            job_handle: sidecar.job_handle,
             });
             // Port->platform mapping SQLite store (ADR-0012)
             // The multi-port listener reads this to inject X-Resin-Account

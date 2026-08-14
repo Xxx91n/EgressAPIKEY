@@ -197,7 +197,9 @@
     "resinPort": "Cổng Resin",
     "resinStatus": "Trạng thái Resin",
     "sidecarLoading": "Đang tải...",
-    "sidecarAutoPort": "Cổng được sidecar Resin tự động gán."
+    "sidecarAutoPort": "Cổng được sidecar Resin tự động gán.",
+    "lightweightMode": "Chế độ nhẹ (hủy WebView khi nhàn rỗi)",
+    "autoLightweightMinutes": "Tự động chế độ nhẹ sau (phút)"
   },
   "strategy": {
     "title": "Chiến lược Egess",

@@ -197,7 +197,9 @@
     "resinPort": "Resin Poort",
     "resinStatus": "Resin Status",
     "sidecarLoading": "Laden...",
-    "sidecarAutoPort": "Poort wordt automatisch toegewezen door de Resin sidecar."
+    "sidecarAutoPort": "Poort wordt automatisch toegewezen door de Resin sidecar.",
+    "lightweightMode": "Lichtgewichtmodus (vernietig WebView bij inactiviteit)",
+    "autoLightweightMinutes": "Auto lichtgewicht na (minuten)"
   },
   "strategy": {
     "title": "Egress Strategie",

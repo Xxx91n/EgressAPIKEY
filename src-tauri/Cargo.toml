@@ -82,3 +82,14 @@ default = []
 # devUrl, which fails with ERR_CONNECTION_REFUSED on a user machine without
 # the Vite dev server running.
 custom-protocol = ["tauri/custom-protocol"]
+
+# T14-1: Windows Job Object for sidecar orphan prevention (clash-verge-rev PR #6853 pattern).
+# JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE ensures the OS kills resin.exe even if the
+# GUI is force-terminated via Task Manager (RunEvent::Exit never fires).
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+] }

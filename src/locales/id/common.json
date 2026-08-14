@@ -197,7 +197,9 @@
     "resinPort": "Port Resin",
     "resinStatus": "Status Resin",
     "sidecarLoading": "Memuat...",
-    "sidecarAutoPort": "Port ditetapkan otomatis oleh sidecar Resin."
+    "sidecarAutoPort": "Port ditetapkan otomatis oleh sidecar Resin.",
+    "lightweightMode": "Mode ringan (hancurkan WebView saat idle)",
+    "autoLightweightMinutes": "Otomatis ringan setelah (menit)"
   },
   "strategy": {
     "title": "Strategi Egress",

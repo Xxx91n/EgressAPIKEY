@@ -197,7 +197,9 @@
     "resinPort": "منفذ Resin",
     "resinStatus": "حالة Resin",
     "sidecarLoading": "جار التحميل...",
-    "sidecarAutoPort": "تم تعيين المنفذ تلقائيًا بواسطة Resin sidecar."
+    "sidecarAutoPort": "تم تعيين المنفذ تلقائيًا بواسطة Resin sidecar.",
+    "lightweightMode": "الوضع الخفيف (تدمير WebView عند الخمول)",
+    "autoLightweightMinutes": "الوضع الخفيف التلقائي بعد (دقائق)"
   },
   "strategy": {
     "title": "استراتيجية الخروج",

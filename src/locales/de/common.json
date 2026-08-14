@@ -197,7 +197,9 @@
     "resinPort": "Resin-Port",
     "resinStatus": "Resin-Status",
     "sidecarLoading": "Laden...",
-    "sidecarAutoPort": "Port wird vom Resin-Sidecar automatisch zugewiesen."
+    "sidecarAutoPort": "Port wird vom Resin-Sidecar automatisch zugewiesen.",
+    "lightweightMode": "Leichtgewichtmodus (WebView bei Inaktivitat zerstoren)",
+    "autoLightweightMinutes": "Auto Leichtgewicht nach (Minuten)"
   },
   "strategy": {
     "title": "Egress-Strategie",

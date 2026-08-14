@@ -9,6 +9,7 @@
 //! Resin sidecar, so the shell no longer constructs a gateway state instance.
 
 pub mod commands;
+pub mod lightweight;
 pub mod sidecar;
 pub mod trace;
 pub mod tray;
