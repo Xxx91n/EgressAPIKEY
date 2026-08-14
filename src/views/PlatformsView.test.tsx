@@ -205,12 +205,12 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(screen.getByTestId("strategy-region-chip-US").className).toContain("ring-2");
   });
 
-  // T11-3: manual search filters nodes, selected stay visible at top
-  it("T11-3: manual search filters unselected nodes; selected stay visible in Selected section", async () => {
+  // T12-3: manual search filters nodes within subscription-folded groups
+  it("T12-3: manual search shows subscription group headers; selected nodes highlighted blue", async () => {
     const nodes = [
-      { display_tag: "HK-1", region: "HK", node_hash: "h1" },
-      { display_tag: "US-1", region: "US", node_hash: "h2" },
-      { display_tag: "JP-1", region: "JP", node_hash: "h3" },
+      { display_tag: "HK-1", region: "HK", node_hash: "h1", tags: [] },
+      { display_tag: "US-1", region: "US", node_hash: "h2", tags: [] },
+      { display_tag: "JP-1", region: "JP", node_hash: "h3", tags: [] },
     ];
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
@@ -227,14 +227,17 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     render(<PlatformsView />);
     await expandPlatform("Default");
     await waitFor(() => expect(screen.getByTestId("strategy-manual-search-Default")).toBeInTheDocument(), { timeout: 5000 });
-    // Search for US
-    fireEvent.change(screen.getByTestId("strategy-manual-search-Default"), { target: { value: "US" } });
-    // h1 (HK, selected) should still be visible in "Selected" section even though it doesn't match "US"
+    // T12-3: subscription group header visible (default collapsed)
+    const subBtn = await screen.findByTestId("strategy-manual-sub-Default-__untagged__");
+    expect(subBtn).toBeInTheDocument();
+    // Expand the group
+    fireEvent.click(subBtn);
+    // h1 (selected) should be visible with blue styling
     await waitFor(() => expect(screen.getByTestId("strategy-manual-chip-h1")).toBeInTheDocument());
-    // h2 (US, unselected, matches search) should be visible
+    // h2 (unselected) should also be visible
     await waitFor(() => expect(screen.getByTestId("strategy-manual-chip-h2")).toBeInTheDocument());
-    // h3 (JP, unselected, does NOT match "US") should NOT be visible
-    expect(screen.queryByTestId("strategy-manual-chip-h3")).toBeNull();
+    // h3 (unselected) should also be visible
+    await waitFor(() => expect(screen.getByTestId("strategy-manual-chip-h3")).toBeInTheDocument());
   });
 
   // T11-4b: no global Apply button

@@ -40,7 +40,22 @@ interface PlatformInfoFull {
   stickyTtl: string;
 }
 
-interface NodeEntry { display_tag: string; region: string; node_hash: string; }
+interface NodeEntry { display_tag: string; region: string; node_hash: string; tags?: { subscription_name?: string; subscriptionName?: string; tag: string }[]; }
+
+/// T12-3: subscription-folded node grouping (reused from NodesView pattern)
+function platformSubName(n: NodeEntry): string {
+  return n.tags?.[0]?.subscription_name ?? n.tags?.[0]?.subscriptionName ?? n.tags?.[0]?.tag ?? "";
+}
+function platformGroupBySub(nodes: NodeEntry[]): Map<string, NodeEntry[]> {
+  const m = new Map<string, NodeEntry[]>();
+  for (const n of nodes) {
+    const key = platformSubName(n) || "__untagged__";
+    const arr = m.get(key);
+    if (arr) arr.push(n);
+    else m.set(key, [n]);
+  }
+  return m;
+}
 
 export function PlatformsView() {
   const { t } = useTranslation();
@@ -67,12 +82,14 @@ export function PlatformsView() {
   const [copiedPort, setCopiedPort] = useState<number | null>(null);
   const [selectedPort, setSelectedPort] = useState<number | null>(null);
   const [expandedPortCards, setExpandedPortCards] = useState<Set<number>>(new Set());
+  const [hoveredPort, setHoveredPort] = useState<number | null>(null);
   const [strategyConfig, setStrategyConfig] = useState<StrategyConfig>({ version: 1, platforms: [] });
   const [strategyTopNInput, setStrategyTopNInput] = useState<Record<string, string>>({});
   const [nodeList, setNodeList] = useState<NodeEntry[]>([]);
   const [subList, setSubList] = useState<{ name: string; node_count: number }[]>([]);
   const [expandedPlatformCards, setExpandedPlatformCards] = useState<Set<string>>(new Set());
   const [manualSearch, setManualSearch] = useState<Record<string, string>>({});
+  const [manualSubExpanded, setManualSubCollapsed] = useState<Set<string>>(new Set());
 
   const refreshStrategy = useCallback(async () => {
     try {
@@ -215,7 +232,7 @@ export function PlatformsView() {
         ]);
         if (cancelled) return;
         const nodeArr = (Array.isArray(nodeRaw) ? nodeRaw : ((nodeRaw as Record<string, unknown>)?.items ?? [])) as Record<string, unknown>[];
-        setNodeList(nodeArr.map((n) => ({ display_tag: String(n.display_tag ?? ""), region: String(n.region ?? ""), node_hash: String(n.node_hash ?? "") })));
+        setNodeList(nodeArr.map((n) => ({ display_tag: String(n.display_tag ?? ""), region: String(n.region ?? ""), node_hash: String(n.node_hash ?? ""), tags: (n.tags ?? []) as { subscription_name?: string; subscriptionName?: string; tag: string }[] })));
         setSubList((subRaw as { name: string; node_count: number }[]).map((s) => ({ name: s.name, node_count: s.node_count })));
 
         const list = await refreshPorts();
@@ -392,7 +409,7 @@ export function PlatformsView() {
                 <option value="socks5">SOCKS5</option>
                 <option value="http">HTTP</option>
               </select>
-              <input className="flex-1 rounded border bg-background px-2 py-1.5 text-sm" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder={t("platform.portLabel")} data-testid="port-label" />
+              <input className="min-w-0 max-w-[200px] flex-1 rounded border bg-background px-2 py-1.5 text-sm" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder={t("platform.portLabel")} data-testid="port-label" />
               <label className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground" data-testid="port-auth-toggle">
                 <input type="checkbox" checked={newAuthRequired} onChange={(e) => { setNewAuthRequired(e.target.checked); void savePortAuthDefault(e.target.checked); }} className="h-3.5 w-3.5" />
                 {t("platform.requireAuth")}
@@ -406,12 +423,12 @@ export function PlatformsView() {
             {ports.length === 0 && <li className="text-xs text-muted-foreground">{t("platform.noPorts")}</li>}
             {ports.map((p) => {
               const isSelected = selectedPort === p.port;
-              const isExpanded = expandedPortCards.has(p.port);
+              const isExpanded = expandedPortCards.has(p.port) || hoveredPort === p.port;
               const h = health[p.port];
               const a = authInfo[p.port];
               const healthDot = h ? (h.reachable && h.reason === "ok" || (h.reachable && h.reason === "ok") ? "bg-emerald-500" : "bg-red-500") : "bg-muted-foreground/30";
               return (
-                <li key={p.port} className={"cursor-grab rounded-md border bg-card text-sm transition " + (draggingPort === p.port ? "opacity-50 cursor-grabbing " : "") + (isSelected ? "ring-2 ring-primary ring-offset-1 " : "") + (isExpanded ? "p-2" : "p-1.5")} onPointerDown={(e) => { e.preventDefault(); document.body.style.userSelect = "none"; setDraggingPort(p.port); }} onPointerUp={() => { document.body.style.userSelect = ""; }} onClick={() => togglePortSelect(p.port)} data-testid={"port-row-" + p.port}>
+                <li key={p.port} className={"cursor-grab rounded-md border bg-card text-sm transition " + (draggingPort === p.port ? "opacity-50 cursor-grabbing " : "") + (isSelected ? "ring-2 ring-primary ring-offset-1 " : "") + (isExpanded ? "p-2" : "p-1.5")} onPointerDown={(e) => { e.preventDefault(); document.body.style.userSelect = "none"; setDraggingPort(p.port); }} onPointerUp={() => { document.body.style.userSelect = ""; }} onClick={() => togglePortSelect(p.port)} onMouseEnter={() => setHoveredPort(p.port)} onMouseLeave={() => setHoveredPort(null)} data-testid={"port-row-" + p.port}>
                   {/* T11-8: collapsed = single row, expanded = details */}
                   <div className="flex items-center gap-2">
                     <button type="button" className="shrink-0 rounded p-0.5 hover:bg-muted" onClick={(e) => { e.stopPropagation(); togglePortCard(p.port); }} data-testid={"port-chevron-" + p.port}>
@@ -542,41 +559,41 @@ export function PlatformsView() {
                             </div>
                             {nodeList.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.manualSelect")}</span>}
                             <div className="max-h-32 overflow-auto">
-                              {/* T11-3: selected nodes stay visible at top even when filtered */}
+                              {/* T12-3: subscription-folded node list — replaces T11-3 flat Selected/unselected split */}
                               {(() => {
                                 const searchLower = search.toLowerCase();
-                                const selectedNodes = nodeList.filter((n) => manualNodes.includes(n.node_hash));
-                                const unselectedMatching = nodeList.filter((n) => !manualNodes.includes(n.node_hash) && (n.display_tag.toLowerCase().includes(searchLower) || n.region.toLowerCase().includes(searchLower)));
+                                const filtered = nodeList.filter((n) => n.display_tag.toLowerCase().includes(searchLower) || n.region.toLowerCase().includes(searchLower));
+                                const grouped = platformGroupBySub(filtered);
                                 return (
-                                  <>
-                                    {selectedNodes.length > 0 && (
-                                      <div className="mb-1">
-                                        <div className="text-[9px] font-medium uppercase text-muted-foreground">{"Selected (" + selectedNodes.length + ")"}</div>
-                                        <div className="flex flex-wrap gap-1">
-                                          {selectedNodes.map((n) => (
-                                            <button key={n.node_hash} type="button"
-                                              className="rounded px-1.5 py-0.5 text-[10px] border transition bg-blue-500 text-white border-blue-500 ring-2 ring-primary ring-offset-1"
-                                              onClick={() => { const newVal = manualNodes.filter((h) => h !== n.node_hash); updateAndSync(p.name, "manual_nodes" as keyof PlatformStrategy, newVal as unknown as string); }}
-                                              data-testid={"strategy-manual-chip-" + n.node_hash}>
-                                              {n.display_tag}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {unselectedMatching.length > 0 && (
-                                      <div className="flex flex-wrap gap-1">
-                                        {unselectedMatching.map((n) => (
-                                          <button key={n.node_hash} type="button"
-                                            className="rounded px-1.5 py-0.5 text-[10px] border transition bg-background text-muted-foreground border-border hover:bg-muted"
-                                            onClick={() => { const newVal = [...manualNodes, n.node_hash]; updateAndSync(p.name, "manual_nodes" as keyof PlatformStrategy, newVal as unknown as string); }}
-                                            data-testid={"strategy-manual-chip-" + n.node_hash}>
-                                            {n.display_tag}
+                                  <div className="space-y-1">
+                                    {Array.from(grouped.entries()).map(([subName, nodes]) => {
+                                      const subSelected = nodes.filter((n) => manualNodes.includes(n.node_hash));
+                                      return (
+                                        <div key={subName} className="rounded border border-border/50">
+                                          <button type="button" className="flex w-full items-center gap-1 px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-muted rounded-t" onClick={(e) => { e.stopPropagation(); setManualSubCollapsed((s) => { const ns = new Set(s); if (ns.has(subName)) ns.delete(subName); else ns.add(subName); return ns; }); }} data-testid={"strategy-manual-sub-" + p.name + "-" + subName}>
+                                            {manualSubExpanded.has(subName) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                            <span className="font-medium">{subName === "__untagged__" ? t("strategy.untagged") : subName}</span>
+                                            <span className="text-muted-foreground/60">{"(" + nodes.length + (subSelected.length > 0 ? " / " + subSelected.length + " selected" : "") + ")"}</span>
                                           </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </>
+                                          {manualSubExpanded.has(subName) && (
+                                            <div className="flex flex-wrap gap-1 px-1.5 pb-1.5">
+                                              {nodes.map((n) => {
+                                                const selected = manualNodes.includes(n.node_hash);
+                                                return (
+                                                  <button key={n.node_hash} type="button"
+                                                    className={"rounded px-1.5 py-0.5 text-[10px] border transition " + (selected ? "bg-blue-500 text-white border-blue-500 ring-2 ring-primary ring-offset-1" : "bg-background text-muted-foreground border-border hover:bg-muted")}
+                                                    onClick={() => { const newVal = selected ? manualNodes.filter((h) => h !== n.node_hash) : [...manualNodes, n.node_hash]; updateAndSync(p.name, "manual_nodes" as keyof PlatformStrategy, newVal as unknown as string); }}
+                                                    data-testid={"strategy-manual-chip-" + n.node_hash}>
+                                                    {n.display_tag}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 );
                               })()}
                             </div>

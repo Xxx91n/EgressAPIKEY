@@ -41,6 +41,7 @@ src-tauri/binaries/resin*
 
 # temp
 .codex-tmp/
+nul
 
 # secrets & env
 .env
