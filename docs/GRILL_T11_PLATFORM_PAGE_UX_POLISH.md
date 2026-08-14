@@ -56,9 +56,9 @@
 | T11-2 | Chip ring feedback | PlatformsView.tsx | 1 vitest | T11-1 |
 | T11-3 | Manual node search + hybrid | PlatformsView.tsx | 2 vitest | T11-1 |
 | T11-5 | Port form bootstrap gate | PlatformsView.tsx | 1 vitest | none |
-| T11-6 | Port card toggle select | PlatformsView.tsx | 2 vitest | T11-5 |
+| ~~T11-6~~ | ~~Port card toggle select~~ (REMOVED in T13: blue ring selection deleted) | PlatformsView.tsx | N/A | N/A |
 | T11-7 | Port form compact inline | PlatformsView.tsx | 1 vitest | T11-5 |
-| T11-8 | Port card collapsible | PlatformsView.tsx | 2 vitest | T11-6 |
+| T11-8 | Port card collapsible | PlatformsView.tsx | 2 vitest | (T11-6 removed) |
 | T11-9 | i18n 18 locales | src/locales/*/common.json | i18n:check | all UI |
 | T11-10 | Build + smoke + chunk hash | build-all.ps1 | hard close-loop | all |
 

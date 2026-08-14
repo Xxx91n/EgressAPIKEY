@@ -49,7 +49,7 @@ Add `bootstrapped: boolean` state, initialized to `false`. Render a skeleton/div
 
 ### Q6 — Port card toggle select (A)
 
-`selectedPort: number | null` state. Click a port card toggles selection. Selected card shows `ring-2 ring-primary`. When a port is selected, pressing Delete/Backspace triggers `handleDeletePort`. Clicking the same card again deselects.
+`~~selectedPort~~ (REMOVED in T13): number | null` state. Click a port card toggles selection. Selected card shows `ring-2 ring-primary`. When a port is selected, pressing Delete/Backspace triggers `handleDeletePort`. Clicking the same card again deselects.
 
 ### Q7 — Port form compact inline (A)
 
@@ -62,7 +62,7 @@ Matches Q1 pattern. Collapsed: single row — `port/proto` + health dot + auth i
 ## Consequences
 
 - **Positive**: cleaner UX, no stale-platform errors, no default flash, better space utilization, keyboard-friendly port management
-- **Negative**: more state management in PlatformsView (bootstrapped, selectedPort, expanded card sets) — mitigated by keeping each concern in its own useState
+- **Negative**: more state management in PlatformsView (bootstrapped, ~~selectedPort~~ (REMOVED in T13), expanded card sets) — mitigated by keeping each concern in its own useState
 - **Risk**: per-platform sync means more PATCH calls to Resin — but each is a single platform PATCH, lighter than the old batch apply
 
 ## Status: ACCEPTED
