@@ -83,7 +83,6 @@ export function PlatformsView() {
   const [authInfo, setAuthInfo] = useState<Record<number, PortAuthInfo>>({});
   const [health, setHealth] = useState<Record<number, PortHealthCheck>>({});
   const [copiedPort, setCopiedPort] = useState<number | null>(null);
-  const [selectedPort, setSelectedPort] = useState<number | null>(null);
   const [expandedPortCards, setExpandedPortCards] = useState<Set<number>>(new Set());
   const [hoveredPort, setHoveredPort] = useState<number | null>(null);
   const [strategyConfig, setStrategyConfig] = useState<StrategyConfig>({ version: 1, platforms: [] });
@@ -106,15 +105,16 @@ export function PlatformsView() {
   /// T11-4b: per-platform sync. Each chip change immediately PUTs config + PATCHes
   /// the specific platform's region_filters. No global Apply button.
   /// Auto-clean: filter out stale platforms not in live Resin platform list.
-  const syncPlatformStrategy = async (_platformName?: string) => {
+  const syncPlatformStrategy = async (_platformName?: string, configToSync?: StrategyConfig) => {
     try {
       // Auto-clean stale platforms from strategyConfig
       const livePlatforms = await ipcPlatformListFull();
       const liveItems = (Array.isArray(livePlatforms) ? livePlatforms : ((livePlatforms as Record<string, unknown>)?.items ?? [])) as Record<string, unknown>[];
       const liveNames = new Set(liveItems.map((p) => String(p.name ?? "")));
-      const cleanedPlatforms = strategyConfig.platforms.filter((p) => liveNames.has(p.platform_name));
-      const cleanedConfig = { ...strategyConfig, platforms: cleanedPlatforms };
-      if (cleanedPlatforms.length !== strategyConfig.platforms.length) {
+      const configBase = configToSync ?? strategyConfig;
+      const cleanedPlatforms = configBase.platforms.filter((p) => liveNames.has(p.platform_name));
+      const cleanedConfig = { ...configBase, platforms: cleanedPlatforms };
+      if (cleanedPlatforms.length !== configBase.platforms.length) {
         setStrategyConfig(cleanedConfig);
       }
       await ipcStrategyConfigPut(cleanedConfig);
@@ -123,7 +123,11 @@ export function PlatformsView() {
     } catch (e) { showToast("err", translateError(e, t)); }
   };
 
-  const updateStrategyField = (platformName: string, field: keyof PlatformStrategy, value: string | string[]) => {
+
+  /// T11-4b: after updating a strategy field, sync to backend immediately.
+  /// Uses functional update so sync sees the latest state (not stale closure).
+  const updateAndSync = (platformName: string, field: keyof PlatformStrategy, value: string | string[]) => {
+    let latestConfig: StrategyConfig | null = null;
     setStrategyConfig((prev) => {
       let platforms = [...prev.platforms];
       let idx = platforms.findIndex((p) => p.platform_name === platformName);
@@ -132,16 +136,15 @@ export function PlatformsView() {
         idx = platforms.length - 1;
       }
       platforms[idx] = { ...platforms[idx], [field]: value };
-      return { ...prev, platforms };
+      const next = { ...prev, platforms };
+      latestConfig = next;
+      return next;
     });
-  };
-
-  /// T11-4b: after updating a strategy field, sync to backend immediately.
-  /// Uses functional update so sync sees the latest state (not stale closure).
-  const updateAndSync = (platformName: string, field: keyof PlatformStrategy, value: string | string[]) => {
-    updateStrategyField(platformName, field, value);
-    // Defer sync to next microtask so setStrategyConfig has flushed
-    void Promise.resolve().then(() => syncPlatformStrategy(platformName));
+    // Defer sync so setStrategyConfig has flushed; pass latest config to avoid stale closure
+    void Promise.resolve().then(() => {
+      if (latestConfig) syncPlatformStrategy(platformName, latestConfig);
+      else syncPlatformStrategy(platformName);
+    });
   };
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -249,20 +252,6 @@ export function PlatformsView() {
     return () => { cancelled = true; };
   }, [refreshPorts, refreshPortAuthAndHealth, refreshPlatforms, refreshStrategy]);
 
-  /// T11-6: keyboard Delete handler for selected port
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedPort != null) {
-        const target = e.target as HTMLElement;
-        if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
-        e.preventDefault();
-        void handleRemovePort(selectedPort);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedPort]);
-
   const handleAddPort = async () => {
     const port = Number(newPort);
     if (!Number.isInteger(port) || port < 1024 || port > 65535) { showToast("err", t("platform.portInvalid")); return; }
@@ -292,7 +281,6 @@ export function PlatformsView() {
       showToast("ok", t("platform.portRemoved"));
       setHealth((s) => { const x = { ...s }; delete x[port]; return x; });
       setAuthInfo((s) => { const x = { ...s }; delete x[port]; return x; });
-      if (selectedPort === port) setSelectedPort(null);
       await refreshPortAuthAndHealth(await refreshPorts());
     }
     catch (e) { showToast("err", translateError(e, t)); }
@@ -357,11 +345,7 @@ export function PlatformsView() {
   };
 
   /// T11-6: toggle port card selection (click same card to deselect)
-  const togglePortSelect = (port: number) => {
-    setSelectedPort((prev) => (prev === port ? null : port));
-  };
-
-  /// T11-8: toggle port card expand/collapse
+/// T11-8: toggle port card expand/collapse
   const togglePortCard = (port: number) => {
     setExpandedPortCards((prev) => {
       const next = new Set(prev);
@@ -425,13 +409,12 @@ export function PlatformsView() {
           <ul className="min-h-0 flex-1 space-y-1 overflow-auto p-2">
             {ports.length === 0 && <li className="text-xs text-muted-foreground">{t("platform.noPorts")}</li>}
             {ports.map((p) => {
-              const isSelected = selectedPort === p.port;
               const isExpanded = expandedPortCards.has(p.port) || hoveredPort === p.port;
               const h = health[p.port];
               const a = authInfo[p.port];
               const healthDot = h ? (h.reachable && h.reason === "ok" || (h.reachable && h.reason === "ok") ? "bg-emerald-500" : "bg-red-500") : "bg-muted-foreground/30";
               return (
-                <li key={p.port} className={"cursor-grab rounded-md border bg-card text-sm transition " + (draggingPort === p.port ? "opacity-50 cursor-grabbing " : "") + (isSelected ? "ring-2 ring-primary ring-offset-1 " : "") + (isExpanded ? "p-2" : "p-1.5")} onPointerDown={(e) => { dragStartRef.current = { x: e.clientX, y: e.clientY }; didDragRef.current = false; }} onPointerMove={(e) => { if (dragStartRef.current && !didDragRef.current) { const dx = e.clientX - dragStartRef.current.x; const dy = e.clientY - dragStartRef.current.y; if (Math.hypot(dx, dy) > 5) { didDragRef.current = true; document.body.style.userSelect = "none"; setDraggingPort(p.port); } } }} onPointerUp={() => { document.body.style.userSelect = ""; dragStartRef.current = null; if (didDragRef.current) { setDraggingPort(null); setDragOverPlatform(null); } }} onClick={() => { if (!didDragRef.current) togglePortSelect(p.port); }} onMouseEnter={() => setHoveredPort(p.port)} onMouseLeave={() => setHoveredPort(null)} data-testid={"port-row-" + p.port}>
+                <li key={p.port} className={"cursor-grab rounded-md border bg-card text-sm transition " + (draggingPort === p.port ? "opacity-50 cursor-grabbing " : "") + (isExpanded ? "p-2" : "p-1.5")} onPointerDown={(e) => { dragStartRef.current = { x: e.clientX, y: e.clientY }; didDragRef.current = false; }} onPointerMove={(e) => { if (dragStartRef.current && !didDragRef.current) { const dx = e.clientX - dragStartRef.current.x; const dy = e.clientY - dragStartRef.current.y; if (Math.hypot(dx, dy) > 5) { didDragRef.current = true; document.body.style.userSelect = "none"; setDraggingPort(p.port); } } }} onPointerUp={() => { document.body.style.userSelect = ""; dragStartRef.current = null; if (didDragRef.current) { setDraggingPort(null); setDragOverPlatform(null); } }} onMouseEnter={() => setHoveredPort(p.port)} onMouseLeave={() => setHoveredPort(null)} data-testid={"port-row-" + p.port}>
                   {/* T11-8: collapsed = single row, expanded = details */}
                   <div className="flex items-center gap-2">
                     <button type="button" className="shrink-0 rounded p-0.5 hover:bg-muted" onClick={(e) => { e.stopPropagation(); togglePortCard(p.port); }} data-testid={"port-chevron-" + p.port}>

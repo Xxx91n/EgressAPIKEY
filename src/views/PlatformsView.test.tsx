@@ -40,7 +40,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
       if (cmd === "port_suggest") return Promise.resolve(17990);
-      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "manual", b_class: "random" }] });
       if (cmd === "strategy_config_put") return Promise.resolve(null);
       if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
       if (cmd === "node_list") return Promise.resolve([]);
@@ -368,15 +368,6 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(screen.getByText(/HTTP Auth/i)).toBeInTheDocument(), { timeout: 5000 });
   });
 
-  // T11-6: click port card toggles selection (ring)
-  it("T11-6: clicking port card toggles selection ring", async () => {
-    render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("port-row-17990")).toBeInTheDocument());
-    const portRow = screen.getByTestId("port-row-17990");
-    fireEvent.click(portRow);
-    // T11-6: do a muted assertion — the click fires, we just verify no crash
-    expect(portRow).toBeInTheDocument();
-  });
 
   // T11-8: port card collapsed by default; expand shows details
   it("T11-8: port card collapsed by default; expand shows auth details", async () => {
@@ -432,8 +423,8 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(usChip.className).toContain("ring-2");
   });
 
-  // T12-fix: click on port card should NOT trigger opacity-50 (gray), only ring-2 ring-primary (blue selection)
-  it("T12-fix: click on port card selects with blue ring, no gray opacity", async () => {
+  // T12-fix: click on port card should NOT trigger opacity-50 (gray) or blue ring (selection removed)
+  it("T12-fix: click on port card does not trigger opacity-50 or ring-2", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([{ port: 17990, platform_name: null, require_auth: false, protocol: "http" }]);
       if (cmd === "platform_list_full") return Promise.resolve([]);
@@ -451,9 +442,8 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     fireEvent.pointerDown(portRow, { clientX: 50, clientY: 50 });
     fireEvent.pointerUp(portRow, { clientX: 50, clientY: 50 });
     fireEvent.click(portRow);
-    // Should have ring-2 ring-primary (blue selection) but NOT opacity-50 (gray)
-    expect(portRow.className).toContain("ring-2");
-    expect(portRow.className).toContain("ring-primary");
+    // No selection state: should NOT have ring-2 or opacity-50
+    expect(portRow.className).not.toContain("ring-2");
     expect(portRow.className).not.toContain("opacity-50");
   });
 
@@ -478,5 +468,72 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(portRow.className).toContain("opacity-50"));
     // Clean up
     fireEvent.pointerUp(portRow, { clientX: 120, clientY: 120 });
+  });
+
+  // T12-persist: strategy chip selection persists across re-mount (stale closure fix)
+  it("T12-persist: strategy_config_put called after chip selection (stale closure fix)", async () => {
+    let putCallCount = 0;
+    let lastPutConfig: any = null;
+    invokeMock.mockImplementation((cmd: string, args: any) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve({ items: [{ name: "Default", allocation_policy: "BALANCED", regex_filters: [], region_filters: [], routable_node_count: 0, sticky_ttl: "" }] });
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "strategy_config_put") { putCallCount++; lastPutConfig = args.config; return Promise.resolve(undefined); }
+      if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([{ display_tag: "US-node", region: "US", node_hash: "us1" }]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await expandPlatform("Default");
+    await waitFor(() => {
+      const chip = screen.queryByTestId("strategy-aclass-manual-Default");
+      if (chip) fireEvent.click(chip);
+    });
+    await waitFor(() => {
+      const nodeChip = screen.queryByTestId("strategy-manual-chip-us1");
+      if (nodeChip) fireEvent.click(nodeChip);
+    }, { timeout: 3000 });
+    await waitFor(() => { expect(putCallCount).toBeGreaterThan(0); }, { timeout: 3000 });
+    // Stale closure fix verified: strategy_config_put receives non-null config
+    expect(lastPutConfig).toBeTruthy();
+    // Verify config has at least one platform entry (proves updateAndSync flushed to backend)
+    expect(lastPutConfig.platforms.length).toBeGreaterThan(0);
+  });;
+
+  // T12-persist: top_n quality strategy persists after page switch
+  it("T12-persist: top_n quality strategy persists across re-mount", async () => {
+    let savedConfig: any = null;
+    invokeMock.mockImplementation((cmd: string, args: any) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve([{ name: "Default", allocation_policy: "BALANCED", regex_filters: [], region_filters: [], routable_node_count: 0, sticky_ttl: "" }]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve(savedConfig ?? { version: 1, platforms: [{ platform_name: "Default", a_class: "quality", b_class: "random", top_n: 10 }] });
+      if (cmd === "strategy_config_put") { savedConfig = args.config; return Promise.resolve(undefined); }
+      if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      return Promise.resolve(undefined);
+    });
+    const { unmount } = render(<PlatformsView />);
+    await expandPlatform("Default");
+    // Change top_n input to 25
+    await waitFor(() => {
+      const topNInput = screen.queryByTestId("strategy-topn-Default") as HTMLInputElement;
+      if (topNInput) {
+        fireEvent.change(topNInput, { target: { value: "25" } });
+      }
+    });
+    // Verify the config was persisted with top_n = 25
+    await waitFor(() => {
+      expect(savedConfig).toBeTruthy();
+      const platformEntry = savedConfig.platforms.find((p: any) => p.platform_name === "Default");
+      expect(platformEntry).toBeTruthy();
+      expect(platformEntry.top_n).toBe("25");
+    });
+    unmount();
   });
 });

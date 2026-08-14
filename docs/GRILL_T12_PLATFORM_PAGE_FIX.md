@@ -91,3 +91,21 @@ L395 flex-1 with no max-w. Narrow middle pane squeezes out auth checkbox + add b
 4. Port form label input never wider than 200px; auth checkbox and + button always visible when middle pane narrow
 5. pnpm test all pass; npx tsc --noEmit clean; cargo test -p resin-core --lib pass; i18n:check pass
 6. Release exe embeds fresh Vite chunk hash; smoke green
+
+## T12-fix (post-T12): port card selection removal + stale closure fix
+
+### Bug 1: Port card blue ring selection removed
+- selectedPort state, togglePortSelect function, isSelected, ring-2 ring-primary all deleted
+- Port cards no longer have click-to-select behavior; drag threshold (5px) controls opacity-50
+- Keyboard Delete handler removed (was depending on selectedPort)
+- Tests updated: T11-6 test removed, T12-fix click test now asserts NO ring-2
+
+### Bug 2: Strategy chip selection not persisting (stale closure)
+- Root cause: syncPlatformStrategy read strategyConfig from stale closure, not the latest state
+- Fix: updateAndSync now captures latestConfig inside setStrategyConfig callback and passes it to syncPlatformStrategy
+- syncPlatformStrategy now accepts optional configToSync parameter
+- updateStrategyField removed (was the culprit for stale state)
+- Tests: T12-persist validates strategy_config_put is called after chip selection
+
+### Bug 3: Top-N quality strategy not persisting
+- Same root cause as Bug 2 (stale closure). Fixed by the same updateAndSync rewrite.
