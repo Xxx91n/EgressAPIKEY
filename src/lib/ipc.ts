@@ -750,3 +750,26 @@ export async function ipcStrategyVerify(platformName: string, sampleCount: numbe
   }
   return invoke("strategy_verify", { platformName, sampleCount });
 }
+
+/// T14-8: get lightweight mode config {enabled, delay_minutes}.
+export async function ipcLightweightGet(): Promise<{ enabled: boolean; delay_minutes: number }> {
+  try {
+    const r = await invoke("lightweight_get") as { enabled: boolean; delay_minutes: number };
+    return r;
+  } catch {
+    // Outside Tauri (vitest) — return defaults
+    return { enabled: true, delay_minutes: 10 };
+  }
+}
+
+/// T14-8: set lightweight mode config (enabled + delay_minutes).
+export async function ipcLightweightSet(enabled: boolean, delayMinutes: number): Promise<void> {
+  if (typeof delayMinutes !== "number" || delayMinutes < 1 || delayMinutes > 1440) {
+    throw new Error("delayMinutes must be 1..=1440");
+  }
+  try {
+    await invoke("lightweight_set", { enabled, delayMinutes });
+  } catch (e) {
+    // Outside Tauri — swallow
+  }
+}

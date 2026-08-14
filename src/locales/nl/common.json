@@ -199,7 +199,10 @@
     "sidecarLoading": "Laden...",
     "sidecarAutoPort": "Poort wordt automatisch toegewezen door de Resin sidecar.",
     "lightweightMode": "Lichtgewichtmodus (vernietig WebView bij inactiviteit)",
-    "autoLightweightMinutes": "Auto lichtgewicht na (minuten)"
+    "autoLightweightMinutes": "Auto lichtgewicht na (minuten)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "Egress Strategie",

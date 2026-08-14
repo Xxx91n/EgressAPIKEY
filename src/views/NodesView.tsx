@@ -1,8 +1,10 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ShieldCheck, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { ipcNodeList, ipcNodePoolSnapshot, ipcIpReputationSnapshot, type ReputationSnapshot } from "../lib/ipc";
 import { translateError } from "../lib/i18n-error";
+import { usePoll } from "../hooks/usePoll";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 /// NodesView — T4-3 collapsible tree by subscription (clash-verge-dev pattern).
 /// Level 1: subscription (foldable) — name + node count + health rate
@@ -101,11 +103,8 @@ export function NodesView() {
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    void refresh();
-    const id = setInterval(refresh, 10000);
-    return () => clearInterval(id);
-  }, [refresh]);
+  // T14-3: usePoll replaces manual setInterval
+  usePoll(refresh, { intervalMs: 10000, fireImmediately: true, pauseWhenHidden: true });
 
   const healthyCount = nodes.filter(isHealthy).length;
   const grouped = useMemo(() => groupBySub(nodes), [nodes]);
@@ -241,33 +240,16 @@ export function NodesView() {
                   <span className={subHealthRate > 80 ? "text-xs text-green-600 dark:text-green-400" : subHealthRate > 50 ? "text-xs text-yellow-600 dark:text-yellow-400" : "text-xs text-red-600 dark:text-red-400"}>{tKeys("nodes.healthRate", { rate: subHealthRate })}</span>
                 </button>
                 {!isCollapsed && (
-                  <div className="divide-y divide-zinc-50 dark:divide-zinc-900">
-                    {items.map((n, i) => {
-                      const healthy = isHealthy(n);
-                      const hash = n.node_hash ?? ("n-" + i);
-                      const expanded = expandedRows.has(hash);
-                      const lat = n.reference_latency_ms ?? null;
-                      return (
-                        <div key={hash}>
-                          <div onClick={() => toggleRow(hash)} className="flex items-center gap-3 px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer text-sm">
-                            <span className={healthy ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{healthy ? "\u2713" : "\u2717"}</span>
-                            <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100 flex-1 truncate">{n.display_tag ?? n.name ?? n.node_hash?.slice(0, 12) ?? "-"}</span>
-                            <span className="text-xs text-zinc-500 dark:text-zinc-400 w-16 text-center">{n.region ?? "-"}</span>
-                            <span className={"text-xs font-mono w-20 text-right " + latencyColor(lat)}>{latencyLabel(lat, t)}</span>
-                          </div>
-                          {expanded && (
-                            <div className="px-8 py-1.5 bg-zinc-50/50 dark:bg-zinc-900/30 text-xs text-zinc-500 dark:text-zinc-400 space-y-0.5">
-                              <div>{"node_hash: " + (n.node_hash ?? "-")}</div>
-                              <div>{"egress_ip: " + (n.egress_ip ?? "-")}</div>
-                              <div>{"failure_count: " + (n.failure_count ?? 0)}</div>
-                              <div>{"circuit_open: " + (n.circuit_open_since ?? "no")}</div>
-                              {n.tags && n.tags.length > 0 && <div>{"tags: " + n.tags.map((tg) => tg.tag).join(", ")}</div>}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <VirtualNodeList
+                    items={items}
+                    expandedRows={expandedRows}
+                    toggleRow={toggleRow}
+                    isHealthy={isHealthy}
+                    latencyColor={latencyColor}
+                    latencyLabel={latencyLabel}
+                    t={t}
+                    maxH={400}
+                  />
                 )}
               </div>
             );
@@ -280,6 +262,98 @@ export function NodesView() {
           {t("nodes.lastRefresh", { time: new Date(lastRefresh).toLocaleTimeString() })}
         </div>
       )}
+    </div>
+  );
+}
+
+
+/// T14-7: Virtualized node list — only renders visible rows (20-50) instead of all 295+
+/// T14-7: Threshold below which we skip virtualization (jsdom/no-scroll context + small lists)
+const VIRTUAL_THRESHOLD = 50;
+
+function VirtualNodeList({
+  items, expandedRows, toggleRow, isHealthy, latencyColor, latencyLabel, t, maxH = 400,
+}: {
+  items: NodeItem[];
+  expandedRows: Set<string>;
+  toggleRow: (h: string) => void;
+  isHealthy: (n: NodeItem) => boolean;
+  latencyColor: (lat: number | null) => string;
+  latencyLabel: (lat: number | null, t: (k: string, o?: Record<string, unknown>) => string) => string;
+  t: (k: string, o?: Record<string, unknown>) => string;
+  maxH?: number;
+}) {
+  // T14-7: for small lists (< 50 items), render normally without virtualizer overhead
+  // (also ensures compatibility with jsdom test environment where scroll measurements are 0)
+  if (items.length < VIRTUAL_THRESHOLD) {
+    return (
+      <div className="divide-y divide-zinc-50 dark:divide-zinc-900">
+        {items.map((n, i) => {
+          const healthy = isHealthy(n);
+          const hash = n.node_hash ?? ("n-" + i);
+          const expanded = expandedRows.has(hash);
+          const lat = n.reference_latency_ms ?? null;
+          return (
+            <div key={hash}>
+              <div onClick={() => toggleRow(hash)} className="flex items-center gap-3 px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer text-sm">
+                <span className={healthy ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{healthy ? "\u2713" : "\u2717"}</span>
+                <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100 flex-1 truncate">{n.display_tag ?? n.name ?? n.node_hash?.slice(0, 12) ?? "-"}</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400 w-16 text-center">{n.region ?? "-"}</span>
+                <span className={"text-xs font-mono w-20 text-right " + latencyColor(lat)}>{latencyLabel(lat, t)}</span>
+              </div>
+              {expanded && (
+                <div className="px-8 py-1.5 bg-zinc-50/50 dark:bg-zinc-900/30 text-xs text-zinc-500 dark:text-zinc-400 space-y-0.5">
+                  <div>{"node_hash: " + (n.node_hash ?? "-")}</div>
+                  <div>{"egress_ip: " + (n.egress_ip ?? "-")}</div>
+                  <div>{"failure_count: " + (n.failure_count ?? 0)}</div>
+                  <div>{"circuit_open: " + (n.circuit_open_since ?? "no")}</div>
+                  {n.tags && n.tags.length > 0 && <div>{"tags: " + n.tags.map((tg) => tg.tag).join(", ")}</div>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  // T14-7: for large lists (>= 50 items), use virtualization
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    estimateSize: () => 36,
+    getScrollElement: () => scrollRef.current,
+    overscan: 5,
+  });
+  return (
+    <div ref={scrollRef} style={{ maxHeight: maxH, overflow: "auto" }} className="divide-y divide-zinc-50 dark:divide-zinc-900">
+      <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+        {virtualizer.getVirtualItems().map((vRow) => {
+          const n = items[vRow.index];
+          const healthy = isHealthy(n);
+          const hash = n.node_hash ?? ("n-" + vRow.index);
+          const expanded = expandedRows.has(hash);
+          const lat = n.reference_latency_ms ?? null;
+          return (
+            <div key={hash} style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vRow.start}px)` }}>
+              <div onClick={() => toggleRow(hash)} className="flex items-center gap-3 px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer text-sm">
+                <span className={healthy ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>{healthy ? "\u2713" : "\u2717"}</span>
+                <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100 flex-1 truncate">{n.display_tag ?? n.name ?? n.node_hash?.slice(0, 12) ?? "-"}</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400 w-16 text-center">{n.region ?? "-"}</span>
+                <span className={"text-xs font-mono w-20 text-right " + latencyColor(lat)}>{latencyLabel(lat, t)}</span>
+              </div>
+              {expanded && (
+                <div className="px-8 py-1.5 bg-zinc-50/50 dark:bg-zinc-900/30 text-xs text-zinc-500 dark:text-zinc-400 space-y-0.5">
+                  <div>{"node_hash: " + (n.node_hash ?? "-")}</div>
+                  <div>{"egress_ip: " + (n.egress_ip ?? "-")}</div>
+                  <div>{"failure_count: " + (n.failure_count ?? 0)}</div>
+                  <div>{"circuit_open: " + (n.circuit_open_since ?? "no")}</div>
+                  {n.tags && n.tags.length > 0 && <div>{"tags: " + n.tags.map((tg) => tg.tag).join(", ")}</div>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

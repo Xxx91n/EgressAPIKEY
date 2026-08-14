@@ -11,7 +11,7 @@
 //!
 //! Ponytail: std AtomicU8 for state, std thread for delay timer. No new crate.
 
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -45,8 +45,8 @@ pub struct LightweightController {
     /// The pending delay timer thread. None when no timer is active.
     /// We hold a JoinHandle so we can interrupt the sleep on focus.
     timer: Mutex<Option<std::thread::JoinHandle<()>>>,
-    /// Configured delay in minutes (default 10).
-    delay_minutes: u32,
+    /// Configured delay in minutes (default 10). T14-8: AtomicU32 for runtime IPC updates.
+    delay_minutes: AtomicU32,
 }
 
 impl Default for LightweightController {
@@ -54,7 +54,7 @@ impl Default for LightweightController {
         Self {
             state: AtomicU8::new(LightweightState::Normal as u8),
             timer: Mutex::new(None),
-            delay_minutes: 10,
+            delay_minutes: AtomicU32::new(10),
         }
     }
 }
@@ -65,7 +65,7 @@ impl LightweightController {
         Self {
             state: AtomicU8::new(LightweightState::Normal as u8),
             timer: Mutex::new(None),
-            delay_minutes: delay_minutes.max(1),
+            delay_minutes: AtomicU32::new(delay_minutes.max(1)),
         }
     }
 
@@ -89,7 +89,7 @@ impl LightweightController {
         if prev.is_err() {
             return false;
         }
-        let delay = Duration::from_secs((self.delay_minutes as u64) * 60);
+        let delay = Duration::from_secs((self.delay_minutes.load(Ordering::Relaxed) as u64) * 60);
         let state_ptr = self as *const Self as usize;
         let handle = std::thread::spawn(move || {
             std::thread::sleep(delay);
@@ -151,7 +151,12 @@ impl LightweightController {
 
     /// Get the configured delay in minutes (for the Settings UI).
     pub fn delay_minutes(&self) -> u32 {
-        self.delay_minutes
+        self.delay_minutes.load(Ordering::Relaxed)
+    }
+
+    /// T14-8: update delay at runtime (from IPC config change).
+    pub fn set_delay_minutes(&self, minutes: u32) {
+        self.delay_minutes.store(minutes, Ordering::Relaxed);
     }
 }
 

@@ -199,7 +199,10 @@
     "sidecarLoading": "Ładowanie...",
     "sidecarAutoPort": "Port jest automatycznie przypisywany przez sidecar Resin.",
     "lightweightMode": "Tryb lekki (zniszcz WebView podczas bezczynnosci)",
-    "autoLightweightMinutes": "Auto tryb lekki po (minutach)"
+    "autoLightweightMinutes": "Auto tryb lekki po (minutach)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "Strategia Wyjścia",

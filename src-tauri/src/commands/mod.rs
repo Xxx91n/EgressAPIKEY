@@ -2643,6 +2643,38 @@ pub async fn strategy_apply(
     Ok(applied)
 }
 
+/// T14-8: get lightweight mode config (enabled + delay_minutes).
+/// Reads from tauri-plugin-store settings.json — returns {enabled, delay_minutes}.
+#[tauri::command]
+pub async fn lightweight_get(app: AppHandle) -> Result<serde_json::Value, IpcError> {
+    let store = app.store("settings.json").map_err(|e| IpcError::from(e.to_string()))?;
+    let enabled: bool = store.get("lightweightEnabled").unwrap_or(serde_json::Value::Bool(true)).as_bool().unwrap_or(true);
+    let delay: u32 = store.get("lightweightDelayMinutes").and_then(|v| v.as_u64()).unwrap_or(10) as u32;
+    Ok(serde_json::json!({ "enabled": enabled, "delay_minutes": delay }))
+}
+
+/// T14-8: set lightweight mode config (enabled + delay_minutes).
+/// Persists to settings.json + updates the live LightweightController.
+#[tauri::command]
+pub async fn lightweight_set(
+    app: AppHandle,
+    enabled: bool,
+    delay_minutes: u32,
+) -> Result<(), IpcError> {
+    if delay_minutes == 0 || delay_minutes > 1440 {
+        return Err(IpcError::from("delay_minutes must be 1..=1440".to_string()));
+    }
+    let store = app.store("settings.json").map_err(|e| IpcError::from(e.to_string()))?;
+    store.set("lightweightEnabled", serde_json::Value::Bool(enabled));
+    store.set("lightweightDelayMinutes", serde_json::json!(delay_minutes));
+    store.save().map_err(|e| IpcError::from(e.to_string()))?;
+    // Update the live controller if it's managed
+    if let Some(ctrl) = app.try_state::<crate::lightweight::LightweightController>() {
+        ctrl.set_delay_minutes(delay_minutes);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

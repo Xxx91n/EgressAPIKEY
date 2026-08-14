@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { saveView, saveProcessRoutes } from "../lib/settings";
 
 /// One Platform + its accounts (Resin Platform/Account model).
@@ -152,3 +153,7 @@ export const useAppStore = create<AppState>((set) => ({
   setLocale: (locale) => set({ locale }),
   setTheme: (theme) => set({ theme }),
 }));
+
+/// T14-4: re-export useShallow for ergonomic multi-field selection
+/// Usage: const { field1, field2 } = useAppStore(useShallow((s) => ({ field1: s.field1, field2: s.field2 })))
+export { useShallow };

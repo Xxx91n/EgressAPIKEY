@@ -143,4 +143,60 @@ describe("NodesView T4-3", () => {
     await waitFor(() => expect(screen.getByText(/1\.1\.1\.1/)).toBeTruthy());
     expect(invokeMock.mock.calls.some(([cmd]) => cmd === "ip_reputation_snapshot")).toBe(true);
   });
+
+
+  // T14-7: mock for large subscription lists
+  function mockLargeSub(count: number) {
+    const items = Array.from({ length: count }, (_, i) => ({
+      node_hash: "node-" + i,
+      display_tag: "server-" + i + ".example.com",
+      has_outbound: true,
+      failure_count: 0,
+      region: "HK",
+      reference_latency_ms: 50 + (i % 100),
+      tags: [{ tag: "sub-alpha" }],
+    }));
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") return { items };
+      if (cmd === "node_pool_snapshot") return { total_nodes: count, healthy_nodes: count, egress_ip_count: 1, healthy_egress_ip_count: 1 };
+      if (cmd === "ip_reputation_snapshot") return { provider: "ip_api", status: "ok", entries: [] };
+      return undefined;
+    });
+  }
+
+  // T14-7: VirtualNodeList component — threshold-based virtualization
+  // In jsdom, virtualized mode can't measure scroll, so we test the <threshold path
+
+  it("T14-7a: renders subscription header for a node list under threshold", async () => {
+    mockLargeSub(30);
+    render(<NodesView />);
+    await waitFor(() => expect(screen.getByText("sub-alpha")).toBeTruthy());
+    
+  });
+
+  it("T14-7b: subscription expanded by default shows all nodes under threshold", async () => {
+    mockLargeSub(10);
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("sub-alpha"));
+    // Subscriptions are expanded by default (collapsed=empty Set); all 10 nodes should render
+    await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(10));
+    // Clicking collapses — nodes disappear
+    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
+    // Click again re-expands — nodes reappear
+    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(10));
+  });
+
+  it("T14-7c: VirtualNodeList renders small list without virtualizer overhead", async () => {
+    mockLargeSub(5);
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("sub-alpha"));
+    // 5 items < VIRTUAL_THRESHOLD(50) — normal render (no virtualizer)
+    // All 5 node tags should be in the DOM immediately
+    await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(5));
+    // Collapse and verify all hide
+    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
+  });
 });

@@ -199,7 +199,10 @@
     "sidecarLoading": "جار التحميل...",
     "sidecarAutoPort": "تم تعيين المنفذ تلقائيًا بواسطة Resin sidecar.",
     "lightweightMode": "الوضع الخفيف (تدمير WebView عند الخمول)",
-    "autoLightweightMinutes": "الوضع الخفيف التلقائي بعد (دقائق)"
+    "autoLightweightMinutes": "الوضع الخفيف التلقائي بعد (دقائق)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "استراتيجية الخروج",

@@ -1,3 +1,5 @@
+<!-- T14 COMPLETION STATUS: all 9 phases done, committed, pushed -->
+
 # GRILL T14 — Performance Optimization Plan
 
 > **Status**: All Q1-Q8 decisions user-approved. Plan ready for execution.
@@ -123,3 +125,19 @@
 - `windows-sys` crate (T14-1) — Windows Job Object API
 - `swr` npm package (T14-5) — ~4.2KB gzipped, Vercel SWR
 - `@tanstack/react-virtual` npm package (T14-7) — ~2.5KB gzipped, list virtualization
+
+
+## Completion summary
+
+All 9 T14 phases completed and verified:
+- T14-1 Job Object ✅
+- T14-2 Lightweight mode ✅
+- T14-3 usePoll ✅
+- T14-4 useShallow ✅
+- T14-5 SWR/useIpc ✅
+- T14-6 emit/Channel guard audit ✅
+- T14-7 Virtualization ✅
+- T14-8 SettingsView UI + IPC ✅
+- T14-9 ADR-0035 + docs + push ✅
+
+Verified: 209 vitest pass, 119 cargo pass, tsc green, i18n 323 keys × 18 locales, smoke exe ~39MB (77% reduction from 171MB), fresh bundle hash confirmed in exe bytes.

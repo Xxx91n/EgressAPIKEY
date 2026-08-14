@@ -199,7 +199,10 @@
     "sidecarLoading": "加载中...",
     "sidecarAutoPort": "端口由 Resin sidecar 自动分配，无需手动配置。",
     "lightweightMode": "轻量模式（空闲时销毁 WebView 释放内存）",
-    "autoLightweightMinutes": "自动进入轻量模式（分钟）"
+    "autoLightweightMinutes": "自动进入轻量模式（分钟）",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "出口策略",

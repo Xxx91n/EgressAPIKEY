@@ -199,7 +199,10 @@
     "sidecarLoading": "Loading...",
     "sidecarAutoPort": "Port is auto-assigned by the Resin sidecar. No manual configuration needed.",
     "lightweightMode": "Lightweight mode (destroy webview when idle)",
-    "autoLightweightMinutes": "Auto lightweight after (minutes)"
+    "autoLightweightMinutes": "Auto lightweight after (minutes)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "Egress Strategy",

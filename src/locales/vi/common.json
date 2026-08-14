@@ -199,7 +199,10 @@
     "sidecarLoading": "Đang tải...",
     "sidecarAutoPort": "Cổng được sidecar Resin tự động gán.",
     "lightweightMode": "Chế độ nhẹ (hủy WebView khi nhàn rỗi)",
-    "autoLightweightMinutes": "Tự động chế độ nhẹ sau (phút)"
+    "autoLightweightMinutes": "Tự động chế độ nhẹ sau (phút)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "Chiến lược Egess",

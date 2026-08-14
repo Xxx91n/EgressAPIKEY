@@ -199,7 +199,10 @@
     "sidecarLoading": "Memuat...",
     "sidecarAutoPort": "Port ditetapkan otomatis oleh sidecar Resin.",
     "lightweightMode": "Mode ringan (hancurkan WebView saat idle)",
-    "autoLightweightMinutes": "Otomatis ringan setelah (menit)"
+    "autoLightweightMinutes": "Otomatis ringan setelah (menit)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "Strategi Egress",

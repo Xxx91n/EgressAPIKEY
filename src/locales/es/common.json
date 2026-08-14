@@ -199,7 +199,10 @@
     "sidecarLoading": "Cargando...",
     "sidecarAutoPort": "El puerto lo asigna el sidecar de Resin.",
     "lightweightMode": "Modo ligero (destruir WebView cuando esta inactivo)",
-    "autoLightweightMinutes": "Auto ligero despues de (minutos)"
+    "autoLightweightMinutes": "Auto ligero despues de (minutos)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "Estrategia de Salida",

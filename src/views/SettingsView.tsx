@@ -1,9 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useMemo, useState } from "react";
-import { Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload } from "lucide-react";
+
+  import { useEffect, useMemo, useState } from "react";
+import {Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap} from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig } from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet} from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
@@ -80,6 +81,11 @@ export function SettingsView() {
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const [saved, setSaved] = useState(false);
+  // T14-8: lightweight mode config
+  const [lightweightEnabled, setLightweightEnabled] = useState(true);
+  const [lightweightDelay, setLightweightDelay] = useState(10);
+  useEffect(() => { ipcLightweightGet().then(r => { setLightweightEnabled(r.enabled); setLightweightDelay(r.delay_minutes); }); }, []);
+  useEffect(() => { ipcLightweightSet(lightweightEnabled, lightweightDelay); }, [lightweightEnabled, lightweightDelay]);
   const [busy, setBusy] = useState(false);
   // Network settings (problem 6 parity): loaded from tauri-plugin-store on
   // mount, persisted via the Save button. The Rust shell reads these keys
@@ -406,6 +412,34 @@ export function SettingsView() {
         {reputationConfig.provider === "ip_quality_score" ? <Field label={t("settings.ipReputationKey")}><input aria-label={t("settings.ipReputationKey")} type="password" autoComplete="off" value={reputationConfig.ipQualityScoreApiKey} onChange={(e) => setReputationConfig((current) => ({ ...current, ipQualityScoreApiKey: e.target.value }))} className={inputCls} /></Field> : null}
         {reputationConfig.provider === "abuse_ip_db" ? <Field label={t("settings.ipReputationKey")}><input aria-label={t("settings.ipReputationKey")} type="password" autoComplete="off" value={reputationConfig.abuseIpDbApiKey} onChange={(e) => setReputationConfig((current) => ({ ...current, abuseIpDbApiKey: e.target.value }))} className={inputCls} /></Field> : null}
         {reputationConfig.provider === "ip_api" ? <p className="text-xs text-amber-700 dark:text-amber-300">{t("settings.ipApiWarning")}</p> : null}
+      </SectionCard>
+      <SectionCard icon={<Zap size={16} strokeWidth={1.75} />} title={t("settings.lightweightMode")}>
+        <Field label={t("settings.lightweightMode")} hint="">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              data-testid="lightweight-enabled"
+              checked={lightweightEnabled}
+              onChange={(e) => setLightweightEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-600"
+            />
+            <span className="text-sm text-zinc-600 dark:text-zinc-400">{lightweightEnabled ? t("settings.lightweightEnabled") : t("settings.lightweightDisabled")}</span>
+          </label>
+        </Field>
+        {lightweightEnabled && (
+          <Field label={t("settings.autoLightweightMinutes")}>
+            <input
+              type="number"
+              min={1}
+              max={1440}
+              data-testid="lightweight-delay"
+              value={lightweightDelay}
+              onChange={(e) => setLightweightDelay(Math.max(1, Math.min(1440, parseInt(e.target.value) || 10)))}
+              className="w-24 px-2 py-1 text-sm rounded border border-zinc-300 dark:border-zinc-600 bg-transparent"
+            />
+            <span className="text-xs text-zinc-400 ml-2">{t("settings.lightweightHint")}</span>
+          </Field>
+        )}
       </SectionCard>
 
       <SectionCard icon={<FolderOpen size={16} strokeWidth={1.75} />} title={t("settings.storage")}>

@@ -101,8 +101,7 @@ fn main() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::gateway_snapshot,
+        .invoke_handler(tauri::generate_handler![commands::gateway_snapshot,
             commands::tray_refresh_labels,
             // #7: open config / log directory buttons in Settings.
             commands::get_config_dir,
@@ -161,7 +160,9 @@ fn main() {
                     commands::strategy_config_get,
             commands::strategy_config_put,
             commands::strategy_apply,
-])
+            commands::lightweight_get,
+            commands::lightweight_set,
+        ])
         .setup(|app| {
             build_tray(app.handle())?;
 

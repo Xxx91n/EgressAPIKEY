@@ -19,6 +19,7 @@ import { strategyToI18nKey, mapResinToShell, type StrategyId, type AllocationPol
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
 import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock } from "lucide-react";
+import { usePoll } from "../hooks/usePoll";
 
 /// TopologyView T13 — Canvas V2: strategy-driven dagre layout + flash fix + zustand cache.
 ///   A (Entry proxy port) --> B (Platforms) --strategy match--> C (IP channels / nodes)
@@ -417,22 +418,17 @@ function TopologyCanvas() {
     setReady(true); // T13-4: setReady after sync so data is present before show
   }, [setPlatforms, setSubGroups, setLeases, setPorts]);
 
-  // T13-5: mount + 5s poll + visibilitychange
+  // T14-3: usePoll replaces setInterval + visibilitychange boilerplate
+  usePoll(sync, { intervalMs: 5000, fireImmediately: true, pauseWhenHidden: true });
+
+  // Keep the sidecar-status event listener (not covered by usePoll)
   useEffect(() => {
-    void sync();
-    const interval = setInterval(() => void sync(), 5000);
     let unsub: (() => void) | null = null;
     void listen("sidecar-status", (evt) => {
       setSidecarStatus(String((evt as { payload: unknown }).payload ?? ""));
     }).then((fn) => { unsub = fn as (() => void); }).catch((e) => console.warn("[TopologyView] listen failed", e));
-    const onVis = () => { if (document.visibilityState === "visible") void sync(); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => {
-      clearInterval(interval);
-      if (unsub) { try { unsub(); } catch { /* ignore */ } }
-      document.removeEventListener("visibilitychange", onVis);
-    };
-  }, [sync]);
+    return () => { if (unsub) { try { unsub(); } catch { /* ignore */ } } };
+  }, []);
 
   const onMoveEnd: OnMoveEnd = useCallback((_evt, viewport) => {
     if (!ready) return;

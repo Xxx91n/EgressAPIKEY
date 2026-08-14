@@ -199,7 +199,10 @@
     "sidecarLoading": "Загрузка...",
     "sidecarAutoPort": "Порт назначается автоматически sidecar Resin.",
     "lightweightMode": "Лёгкий режим (уничтожить WebView при простое)",
-    "autoLightweightMinutes": "Авто лёгкий режим через (минут)"
+    "autoLightweightMinutes": "Авто лёгкий режим через (минут)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "Стратегия выхода",

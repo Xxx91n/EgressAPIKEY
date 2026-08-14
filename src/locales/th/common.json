@@ -199,7 +199,10 @@
     "sidecarLoading": "กำลังโหลด...",
     "sidecarAutoPort": "พอร์ตถูกกำหนดโดย Resin sidecar โดยอัตโนมัติ",
     "lightweightMode": "โหมดเบา (ทำลาย WebView เมื่อไม่ใช้งาน)",
-    "autoLightweightMinutes": "เข้าโหมดเบาอัตโนมาติหลัง (นาที)"
+    "autoLightweightMinutes": "เข้าโหมดเบาอัตโนมาติหลัง (นาที)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "กลยุทธ์ทางออก",

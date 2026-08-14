@@ -199,7 +199,10 @@
     "sidecarLoading": "로딩 중...",
     "sidecarAutoPort": "포트는 Resin 사이드카에 의해 자동 할당됩니다.",
     "lightweightMode": "경량 모드 (유휴시 WebView 파괴)",
-    "autoLightweightMinutes": "자동 경량 모드 (분)"
+    "autoLightweightMinutes": "자동 경량 모드 (분)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "이그레스 전략",

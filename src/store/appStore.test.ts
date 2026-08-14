@@ -52,4 +52,29 @@ describe("appStore", () => {
     useAppStore.getState().setView("settings");
     expect(useAppStore.getState().view).toBe("settings");
   });
+
+  // T14-4: shallow selector export + getState pattern (hooks cannot call outside React render)
+  it("useShallow is re-exported from appStore", async () => {
+    const mod = await import("./appStore");
+    expect(typeof mod.useShallow).toBe("function");
+  });
+
+  it("individual selector pattern returns correct slices via getState", () => {
+    useAppStore.setState({
+      platforms: [{ name: "p1", accounts: [], regexFilters: null, regionFilters: null, allocationPolicy: "BALANCED", routableNodeCount: 0, stickyTtl: "" }],
+      processRoutes: [],
+      subscriptions: [],
+      locale: "ja",
+    });
+    const s = useAppStore.getState();
+    expect(s.locale).toBe("ja");
+    expect(s.platforms.length).toBe(1);
+  });
+
+  it("store updates trigger correct getState re-read", () => {
+    useAppStore.setState({ ...useAppStore.getState(), locale: "ko" });
+    expect(useAppStore.getState().locale).toBe("ko");
+    useAppStore.setState({ ...useAppStore.getState(), locale: "en" });
+    expect(useAppStore.getState().locale).toBe("en");
+  });
 });

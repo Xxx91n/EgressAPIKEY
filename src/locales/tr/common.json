@@ -199,7 +199,10 @@
     "sidecarLoading": "Yukleniyor...",
     "sidecarAutoPort": "Port Resin sidecar tarafından otomatik atanir.",
     "lightweightMode": "Hafif mod (bosta WebView'i yok et)",
-    "autoLightweightMinutes": "Otomatik hafif mod (dakika)"
+    "autoLightweightMinutes": "Otomatik hafif mod (dakika)",
+    "lightweightEnabled": "Enabled — webview destroyed when idle",
+    "lightweightDisabled": "Disabled",
+    "lightweightHint": "minutes of inactivity before destroying webview"
   },
   "strategy": {
     "title": "Çıkış Stratejisi",
