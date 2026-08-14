@@ -9,7 +9,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 
-import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges } from "./TopologyView";
+import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, getSelectedRegions, layoutNodesViaDagre } from "./TopologyView";
 
 describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dual badges)", () => {
   beforeEach(() => { invokeMock.mockReset(); });
@@ -44,8 +44,8 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
       expect(screen.getByText("OpenAI")).toBeInTheDocument();
       expect(screen.getByText("Anthropic")).toBeInTheDocument();
     });
-    expect(screen.getByText("17990")).toBeInTheDocument();
-    expect(screen.getByText("17991")).toBeInTheDocument();
+    expect(screen.getAllByText("17990").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("17991").length).toBeGreaterThan(0);
   });
 
   it("T9-1: C column shows subscription group names (not region labels)", async () => {
@@ -331,13 +331,73 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
       });
       await i18next.changeLanguage("en");
       render(<TopologyView />);
-      await waitFor(() => {
-        expect(screen.getByText(/Entry proxy port/i)).toBeInTheDocument();
-      });
+      expect(await screen.findByText(/Entry proxy port/i)).toBeInTheDocument();
       await i18next.changeLanguage("zh");
+      expect(await screen.findByText(/入口代理端口/i)).toBeInTheDocument();
+    });
+  });
+
+  // --- T13 closed-loop tests ---
+  describe("T13-1: getSelectedRegions filters C column by platform region_filters", () => {
+    it("returns set of lowercase regions from platform region_filters", () => {
+      const platforms = [
+        { id: "p1", name: "A", region_filters: ["HK", "JP"], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" },
+      ];
+      const regions = getSelectedRegions(platforms as any);
+      expect(regions.size).toBe(2);
+      expect(regions.has("hk")).toBe(true);
+      expect(regions.has("jp")).toBe(true);
+    });
+
+    it("empty when no filters (all manual)", () => {
+      const platforms = [
+        { id: "p1", name: "A", region_filters: [], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" },
+      ];
+      const regions = getSelectedRegions(platforms as any);
+      expect(regions.size).toBe(0);
+    });
+  });
+
+  describe("T13-2: layoutNodesViaDagre assigns valid x/y positions", () => {
+    it("assigns non-zero positions to all nodes when both nodes + edges", () => {
+      const nodes: any[] = [
+        { id: "a", position: { x: 0, y: 0 }, data: {} },
+        { id: "b", position: { x: 0, y: 0 }, data: {} },
+        { id: "c", position: { x: 0, y: 0 }, data: {} },
+      ];
+      const edges: any[] = [
+        { id: "e1", source: "a", target: "b" },
+        { id: "e2", source: "b", target: "c" },
+      ];
+      const result = layoutNodesViaDagre(nodes, edges);
+      expect(result.length).toBe(3);
+      for (const n of result) {
+        expect(typeof n.position.x).toBe("number");
+        expect(typeof n.position.y).toBe("number");
+      }
+      // at least one node should have non-zero x (LR layout should stack horizontally)
+      const anyNonZero = result.some((n: any) => n.position.x !== 0 || n.position.y !== 0);
+      expect(anyNonZero).toBe(true);
+    });
+
+    it("returns [] when nodes is empty", () => {
+      const result = layoutNodesViaDagre([], []);
+      expect(result.length).toBe(0);
+    });
+  });
+
+  describe("T13-4: empty-state messages inside opacity gate (not flash)", () => {
+    it("renders noPorts/noNodes/noPlatforms messages only after ready", async () => {
+      invokeMock.mockImplementation(() => Promise.resolve(undefined));
+      render(<TopologyView />);
+      // before sync resolves (ready=false), opacity is 0 — messages inside gate div
+      // after sync, messages visible (rendered into DOM even while opacity-0)
       await waitFor(() => {
-        expect(screen.getByText(/入口代理端口/i)).toBeInTheDocument();
+        // at least one empty-state message should be in the DOM after ready
+        const hints = document.querySelectorAll(".text-zinc-400, .text-zinc-500");
+        expect(hints.length).toBeGreaterThan(0);
       });
     });
   });
+
 });

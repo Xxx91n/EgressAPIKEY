@@ -15,7 +15,7 @@ import {
   ipcLeaseMap, ipcPortList, type LeaseEntry, type PortMapping,
 } from "../lib/ipc";
 import { loadTopologyViewport, saveTopologyViewport } from "../lib/settings";
-import { strategyToI18nKey, mapResinToShell } from "../lib/strategy";
+import { strategyToI18nKey, mapResinToShell, type StrategyId, type AllocationPolicy } from "../lib/strategy";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
 import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock } from "lucide-react";
@@ -81,7 +81,7 @@ const useTopologyStore = create<TopologyState>((set) => ({
 }));
 
 // --- T13-1: helper — get selected regions from all platforms ---
-function getSelectedRegions(platforms: PlatformFull[]): Set<string> {
+export function getSelectedRegions(platforms: PlatformFull[]): Set<string> {
   const set = new Set<string>();
   for (const p of platforms) {
     for (const r of p.region_filters ?? []) set.add(r.toLowerCase());
@@ -143,7 +143,7 @@ function parsePlatforms(raw: unknown): PlatformFull[] {
 }
 
 // --- T13-2: dagre auto-layout helper ---
-function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 200, nodeHeight = 100): Node[] {
+export function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 200, nodeHeight = 100): Node[] {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", ranksep: 80, nodesep: 40, marginx: 20, marginy: 20 });
   g.setDefaultEdgeLabel(() => ({}));
@@ -179,14 +179,14 @@ function EntryPortNode({ data }: NodeProps) {
     <div className="relative rounded-lg border border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-950/50 px-4 py-3 text-xs min-w-[140px] max-w-[200px]">
       <Handle type="source" position={Position.Right} style={fixedHandleStyle} />
       <div className="font-semibold text-blue-700 dark:text-blue-300">
-        {typeof d.port === "number" ? String(d.port) : String(d.label)}
+        {typeof d.port === "number" && d.port > 0 ? String(d.port) : String(d.label)}
       </div>
       <div className="text-blue-600/70 dark:text-blue-400/70 mt-0.5 text-[10px]">
         {typeof d.protocol === "string" ? d.protocol : ""}
       </div>
       {typeof d.boundPlatform === "string" && d.boundPlatform && (
         <div className="mt-1 text-[10px] text-blue-500/60 dark:text-blue-400/60 font-mono">
-          -> {d.boundPlatform}
+          {"->"} {d.boundPlatform}
           {typeof d.account === "string" && d.account ? " * " + d.account : ""}
         </div>
       )}
@@ -234,7 +234,7 @@ function PlatformNode({ data }: NodeProps) {
         <div className="mt-1.5 flex flex-col gap-0.5">
           {leases.slice(0, 3).map((l, i) => (
             <div key={"lease-" + i} className="text-[9px] text-zinc-500 dark:text-zinc-400 truncate">
-              <span className="font-mono">{(l.account || "").slice(0, 14)}</span> -> <span className="font-mono" title={l.target_domain}>{(l.egress_ip || "").slice(0, 22) || "---"}</span>
+              <span className="font-mono">{(l.account || "").slice(0, 14)}</span> {"->"} <span className="font-mono" title={l.target_domain}>{(l.egress_ip || "").slice(0, 22) || "---"}</span>
             </div>
           ))}
         </div>
@@ -250,7 +250,6 @@ function SubscriptionGroupNode({ data }: NodeProps) {
     display_tag: string; region: string; healthy: boolean; latencyColor: string;
   }>;
   const unboundCount = typeof d.unboundCount === "number" ? d.unboundCount : 0;
-  const collapsed = typeof d.collapsed === "boolean" ? d.collapsed : true;
   return (
     <div className="relative rounded-lg border border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 px-4 py-3 text-xs min-w-[180px] max-w-[280px]">
       <Handle type="target" position={Position.Left} style={fixedHandleStyle} />
@@ -294,13 +293,18 @@ export function removeRegionFilter(current: string[] | null, region: string): st
 export async function patchAndSyncOnce(args: {
   platName: string; current: string[] | null; region: string; mode: "add" | "remove";
   sync: () => Promise<void>; backup?: () => Promise<void>;
+  ipcUpdate?: (platName: string, policy: StrategyId | AllocationPolicy | undefined, regex: string[] | undefined, regions: string[]) => Promise<void>;
 }): Promise<{ patched: boolean; next: string[] }> {
-  const { platName, current, region, mode, sync, backup } = args;
+  const { platName, current, region, mode, sync, backup, ipcUpdate } = args;
   let next: string[];
   if (mode === "add") next = addRegionFilter(current, region);
   else next = removeRegionFilter(current, region);
+  // idempotent skip for add: region already bound means no PATCH needed
+  const curArr = current ?? [];
+  if (mode === "add" && curArr.includes(region)) return { patched: false, next: curArr };
   if (backup) { try { await backup(); } catch { /* swallow */ } }
-  await ipcPlatformUpdate(platName, undefined, undefined, next);
+  const updater = ipcUpdate ?? ((n: string, _p: StrategyId | AllocationPolicy | undefined, _r: string[] | undefined, regs: string[]) => ipcPlatformUpdate(n, _p, _r, regs));
+  await updater(platName, undefined, undefined, next);
   await sync();
   return { patched: true, next };
 }
@@ -462,6 +466,7 @@ function TopologyCanvas() {
       list.push({
         id: "entry-port-" + p.port,
         type: "entryPort",
+        position: { x: 0, y: 0 },
         data: { port: p.port, protocol: p.protocol, label: p.label, boundPlatform: p.platform_name, account: p.account },
       });
     });
@@ -469,6 +474,7 @@ function TopologyCanvas() {
       list.push({
         id: "entry-port",
         type: "entryPort",
+        position: { x: 0, y: 0 },
         data: { label: t("topology.entryPort"), port: 0, protocol: "", boundPlatform: "", account: "" },
       });
     }
@@ -490,6 +496,7 @@ function TopologyCanvas() {
       list.push({
         id: "platform-" + p.name,
         type: "platform",
+        position: { x: 0, y: 0 },
         data: {
           label: p.name, sub,
           leases: pidLeases,
@@ -537,6 +544,7 @@ function TopologyCanvas() {
       list.push({
         id: "subgroup-" + g.subscriptionName,
         type: "subscriptionGroup",
+        position: { x: 0, y: 0 },
         data: { label: g.subscriptionName, sub, nodes: nodeRows, unboundCount },
       });
     });
