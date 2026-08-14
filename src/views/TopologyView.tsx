@@ -18,7 +18,7 @@ import { loadTopologyViewport, saveTopologyViewport } from "../lib/settings";
 import { strategyToI18nKey, mapResinToShell, type StrategyId, type AllocationPolicy } from "../lib/strategy";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
-import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock } from "lucide-react";
+import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock, Home } from "lucide-react";
 import { usePoll } from "../hooks/usePoll";
 
 /// TopologyView T13 — Canvas V2: strategy-driven dagre layout + flash fix + zustand cache.
@@ -210,17 +210,17 @@ function PlatformNode({ data }: NodeProps) {
       <Handle type="source" position={Position.Right} style={fixedHandleStyle} />
       <div className="font-semibold text-zinc-800 dark:text-zinc-100">{String(d.label)}</div>
       {typeof d.sub === "string" && d.sub && <div className="text-zinc-500 dark:text-zinc-400 mt-1 text-[10px] whitespace-pre-line">{d.sub}</div>}
-      {bClassLabel && (
+      {aClassLabel && (
         <div className="mt-1.5 flex items-center gap-1">
-          <span className="rounded bg-blue-100 dark:bg-blue-900/40 px-1.5 py-0.5 text-[9px] text-blue-600 dark:text-blue-400 font-medium">
-            B: {bClassLabel}
+          <span className="rounded bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">
+            A: {aClassLabel}
           </span>
         </div>
       )}
-      {aClassLabel && (
+      {bClassLabel && (
         <div className="mt-0.5 flex items-center gap-1">
-          <span className="rounded bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">
-            A: {aClassLabel}
+          <span className="rounded bg-blue-100 dark:bg-blue-900/40 px-1.5 py-0.5 text-[9px] text-blue-600 dark:text-blue-400 font-medium">
+            B: {bClassLabel}
           </span>
         </div>
       )}
@@ -251,20 +251,51 @@ function SubscriptionGroupNode({ data }: NodeProps) {
     display_tag: string; region: string; healthy: boolean; latencyColor: string;
   }>;
   const unboundCount = typeof d.unboundCount === "number" ? d.unboundCount : 0;
+  const regionStats = (Array.isArray(d.regionStats) ? d.regionStats : []) as Array<{
+    region: string; count: number;
+  }>;
+  const [expanded, setExpanded] = useState(false);
+  const MAX_VISIBLE = 10;
+  const visibleNodes = expanded ? nodes.slice(0, MAX_VISIBLE) : [];
+  const moreCount = nodes.length - MAX_VISIBLE;
   return (
     <div className="relative rounded-lg border border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 px-4 py-3 text-xs min-w-[180px] max-w-[280px]">
       <Handle type="target" position={Position.Left} style={fixedHandleStyle} />
-      <div className="font-semibold text-emerald-700 dark:text-emerald-300">{String(d.label)}</div>
+      <div className="flex items-center justify-between">
+        <div className="font-semibold text-emerald-700 dark:text-emerald-300">{String(d.label)}</div>
+        {nodes.length > 0 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            className="text-[9px] text-emerald-500 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-200 cursor-pointer"
+          >
+            {expanded ? "▼" : "▶"}
+          </button>
+        )}
+      </div>
       {typeof d.sub === "string" && d.sub && <div className="text-emerald-600/70 dark:text-emerald-400/70 mt-1 text-[10px]">{d.sub}</div>}
-      {nodes.length > 0 && (
+      {/* T14-3: region stats summary (collapsed view) */}
+      {regionStats.length > 0 && !expanded && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {regionStats.map((rs, i) => (
+            <span key={"rs-" + i} className="rounded bg-emerald-100 dark:bg-emerald-900/40 px-1 py-0.5 text-[9px] text-emerald-700 dark:text-emerald-300 font-mono">
+              {rs.region}({rs.count})
+            </span>
+          ))}
+        </div>
+      )}
+      {/* T14-3: expanded node list (max 10) */}
+      {expanded && visibleNodes.length > 0 && (
         <div className="mt-2 flex flex-col gap-0.5">
-          {nodes.map((n, i) => (
+          {visibleNodes.map((n, i) => (
             <div key={"node-" + i} className="flex items-center gap-1.5 text-[10px]">
               <span className={"inline-block h-1.5 w-1.5 rounded-full " + n.latencyColor} />
               <span className="text-zinc-600 dark:text-zinc-300 font-mono truncate">{n.display_tag}</span>
               <span className="text-zinc-400 dark:text-zinc-500 text-[9px]">{n.region}</span>
             </div>
           ))}
+          {moreCount > 0 && (
+            <div className="mt-0.5 text-[9px] text-zinc-400 dark:text-zinc-500">+{moreCount} more</div>
+          )}
         </div>
       )}
       {unboundCount > 0 && (
@@ -276,7 +307,33 @@ function SubscriptionGroupNode({ data }: NodeProps) {
   );
 }
 
-const nodeTypes = { entryPort: EntryPortNode, platform: PlatformNode, subscriptionGroup: SubscriptionGroupNode };
+
+/// T14-4: Custom node: Region group (C column region view) — aggregates by region
+function RegionGroupNode({ data }: NodeProps) {
+  const d = data as Record<string, unknown>;
+  const total = typeof d.total === "number" ? d.total : 0;
+  const healthy = typeof d.healthy === "number" ? d.healthy : 0;
+  const subs = (Array.isArray(d.subs) ? d.subs : []) as string[];
+  return (
+    <div className="relative rounded-lg border border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/50 px-4 py-3 text-xs min-w-[140px] max-w-[200px]">
+      <Handle type="target" position={Position.Left} style={fixedHandleStyle} />
+      <div className="font-semibold text-amber-700 dark:text-amber-300">{String(d.label)}</div>
+      <div className="mt-1 text-[10px] text-amber-600/70 dark:text-amber-400/70">
+        {healthy}/{total} healthy
+      </div>
+      {subs.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-0.5">
+          {subs.slice(0, 3).map((s, i) => (
+            <span key={"sub-" + i} className="text-[9px] text-zinc-500 dark:text-zinc-400 truncate">{s}</span>
+          ))}
+          {subs.length > 3 && <span className="text-[9px] text-zinc-400">+{subs.length - 3}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const nodeTypes = { entryPort: EntryPortNode, platform: PlatformNode, subscriptionGroup: SubscriptionGroupNode, regionGroup: RegionGroupNode };
 
 async function backupBeforeEdit(): Promise<void> {
   try { await ipcBackupCreate(); } catch { /* best-effort */ }
@@ -361,12 +418,29 @@ export function buildEdges(
 }
 
 /// T13-5: Custom CanvasControls with i18n tooltips.
-function CanvasControls() {
+function CanvasControls({ viewMode, setViewMode }: { viewMode: "subscription" | "region"; setViewMode: (m: "subscription" | "region") => void }) {
   const { t } = useTranslation();
   const reactFlow = useReactFlow();
   const [locked, setLocked] = useState(false);
   return (
     <div className="absolute bottom-2 left-2 z-10 flex flex-col gap-1">
+      {/* T14-5: segmented toggle for C column view mode */}
+      <div className="flex gap-0.5 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-0.5">
+        <button
+          title={t("topology.viewSubscription")}
+          onClick={() => setViewMode("subscription")}
+          className={"rounded px-1.5 py-1 text-[9px] font-medium " + (viewMode === "subscription" ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300" : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700")}
+        >
+          {t("topology.viewSubscription")}
+        </button>
+        <button
+          title={t("topology.viewRegion")}
+          onClick={() => setViewMode("region")}
+          className={"rounded px-1.5 py-1 text-[9px] font-medium " + (viewMode === "region" ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300" : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700")}
+        >
+          {t("topology.viewRegion")}
+        </button>
+      </div>
       <button title={t("topology.zoomIn")} onClick={() => reactFlow.zoomIn()} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700">
         <ZoomIn size={14} />
       </button>
@@ -375,6 +449,10 @@ function CanvasControls() {
       </button>
       <button title={t("topology.fitView")} onClick={() => reactFlow.fitView({ maxZoom: 1 })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700">
         <Maximize size={14} />
+      </button>
+      {/* T14-5: reset to world center {x:0, y:0, zoom:1} */}
+      <button title={t("topology.resetCenter")} onClick={() => reactFlow.setViewport({ x: 0, y: 0, zoom: 1 })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+        <Home size={14} />
       </button>
       <button title={locked ? t("topology.unlock") : t("topology.lock")} onClick={() => setLocked(!locked)} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700">
         {locked ? <Lock size={14} /> : <Unlock size={14} />}
@@ -399,6 +477,7 @@ function TopologyCanvas() {
   const setPorts = useTopologyStore((s) => s.setPorts);
 
   const [sidecarStatus, setSidecarStatus] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"subscription" | "region">("subscription");
   const [ready, setReady] = useState(false);
   const patchingRef = useRef(false);
 
@@ -487,7 +566,7 @@ function TopologyCanvas() {
       const sub = [filters, routable].filter(Boolean).join("\n");
       const shellStrategy = mapResinToShell(p.allocation_policy ?? "BALANCED");
       const bClassLabel = t(strategyToI18nKey(shellStrategy));
-      const aClassLabel = (p.region_filters?.length ?? 0) > 0 ? "region:" + p.region_filters!.join(",").toUpperCase() : "manual";
+      const aClassLabel = (p.region_filters?.length ?? 0) > 0 ? t("topology.aClassRegion", { regions: p.region_filters!.join(",").toUpperCase() }) : t("strategy.manual");
       const pidLeases = (leasesByPid.get(p.id) ?? []).slice(0, 3);
       list.push({
         id: "platform-" + p.name,
@@ -521,6 +600,18 @@ function TopologyCanvas() {
         return selectedRegions.has(region);
       });
       const unboundCount = g.nodes.length - filteredNodes.length;
+      // T14-3: compute region stats for collapsed view
+      const regionStatsMap = new Map<string, number>();
+      for (const n of g.nodes) {
+        let r = "other";
+        if (n.region) r = n.region.toLowerCase();
+        else if (Array.isArray(n.tags)) {
+          const rt = n.tags.find((t2) => t2.tag && t2.tag.length <= 3);
+          if (rt) r = rt.tag!.toLowerCase();
+        }
+        regionStatsMap.set(r, (regionStatsMap.get(r) ?? 0) + 1);
+      }
+      const regionStatsArr = [...regionStatsMap.entries()].sort((a, b) => b[1] - a[1]).map(([region, count]) => ({ region: region.toUpperCase(), count }));
       const nodeRows = filteredNodes.map((n) => {
         const isHealthy = (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
         let region = "other";
@@ -541,17 +632,62 @@ function TopologyCanvas() {
         id: "subgroup-" + g.subscriptionName,
         type: "subscriptionGroup",
         position: { x: 0, y: 0 },
-        data: { label: g.subscriptionName, sub, nodes: nodeRows, unboundCount },
+        data: { label: g.subscriptionName, sub, nodes: nodeRows, unboundCount, regionStats: regionStatsArr },
       });
     });
+    // T14-4: region view mode — build region group nodes
+    if (viewMode === "region") {
+      const regionMap = new Map<string, { total: number; healthy: number; subs: Set<string> }>();
+      for (const g of subGroups) {
+        for (const n of g.nodes) {
+          let r = "other";
+          if (n.region) r = n.region.toLowerCase();
+          else if (Array.isArray(n.tags)) {
+            const rt = n.tags.find((t2) => t2.tag && t2.tag.length <= 3);
+            if (rt) r = rt.tag!.toLowerCase();
+          }
+          const entry = regionMap.get(r) ?? { total: 0, healthy: 0, subs: new Set<string>() };
+          entry.total++;
+          if ((n.failure_count ?? 0) === 0 && n.has_outbound !== false) entry.healthy++;
+          entry.subs.add(g.subscriptionName);
+          regionMap.set(r, entry);
+        }
+      }
+      for (const [region, info] of regionMap) {
+        list.push({
+          id: "regiongroup-" + region,
+          type: "regionGroup",
+          position: { x: 0, y: 0 },
+          data: { label: region.toUpperCase(), total: info.total, healthy: info.healthy, subs: [...info.subs] },
+        });
+      }
+    }
     return list;
-  }, [platforms, subGroups, leases, ports, t, i18n.isInitialized, i18n.language, selectedRegions]);
+  }, [platforms, subGroups, leases, ports, t, i18n.isInitialized, i18n.language, selectedRegions, viewMode]);
 
   // T13-2: build edges first, then dagre layout both
   const edges: Edge[] = useMemo(() => {
+    if (viewMode === "region") {
+      // T14-4: in region view, edges connect platforms to region groups
+      const list: Edge[] = [];
+      for (const p of platforms) {
+        for (const port of ports) {
+          if (port.platform_name === p.name) {
+            list.push({ id: "e-port-" + port.port + "-" + p.name, source: "entry-port-" + port.port, target: "platform-" + p.name, animated: true });
+          }
+        }
+        if (ports.length === 0) {
+          list.push({ id: "e-entry-" + p.name, source: "entry-port", target: "platform-" + p.name, animated: true });
+        }
+        for (const r of p.region_filters ?? []) {
+          list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "region:" + r, deletable: false });
+        }
+      }
+      return list;
+    }
     const adapted = subGroups.map((g) => ({ subscriptionName: g.subscriptionName, regions: g.regions }));
     return buildEdges(platforms, adapted, ports) as Edge[];
-  }, [platforms, subGroups, ports]);
+  }, [platforms, subGroups, ports, viewMode, ports]);
 
   // T13-2: dagre auto-layout — compute positions
   const nodes: Node[] = useMemo(() => {
@@ -648,7 +784,7 @@ function TopologyCanvas() {
           defaultEdgeOptions={{ type: "smoothstep", animated: true, style: { fontSize: 10 } }}
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
-          <CanvasControls />
+          <CanvasControls viewMode={viewMode} setViewMode={setViewMode} />
           <MiniMap pannable zoomable />
         </ReactFlow>
       </div>

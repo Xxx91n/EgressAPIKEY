@@ -297,7 +297,11 @@
     "zoomOut": "ज़ूम आउट",
     "fitView": "फिट व्यू",
     "lock": "इंटरैक्शन लॉक करें",
-    "unlock": "इंटरैक्शन अनलॉक करें"
+    "unlock": "इंटरैक्शन अनलॉक करें",
+    "aClassRegion": "क्षेत्र: {{regions}}",
+    "resetCenter": "केंद्र में रीसेट",
+    "viewSubscription": "सब्सक्रिप्शन",
+    "viewRegion": "क्षेत्र"
   },
   "tray": {
     "show": "विंडो दिखाएं",

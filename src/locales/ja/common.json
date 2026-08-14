@@ -297,7 +297,11 @@
     "zoomOut": "ズームアウト",
     "fitView": "全体表示",
     "lock": "インタラクションをロック",
-    "unlock": "インタラクションを解除"
+    "unlock": "インタラクションを解除",
+    "aClassRegion": "地域: {{regions}}",
+    "resetCenter": "センターにリセット",
+    "viewSubscription": "サブスクリプション",
+    "viewRegion": "地域"
   },
   "tray": {
     "show": "ウィンドウを表示",

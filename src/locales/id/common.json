@@ -297,7 +297,11 @@
     "zoomOut": "Perkecil",
     "fitView": "Sesuaikan tampilan",
     "lock": "Kunci interaksi",
-    "unlock": "Buka interaksi"
+    "unlock": "Buka interaksi",
+    "aClassRegion": "Wilayah: {{regions}}",
+    "resetCenter": "Reset ke tengah",
+    "viewSubscription": "Langganan",
+    "viewRegion": "Wilayah"
   },
   "tray": {
     "show": "Tampilkan jendela",

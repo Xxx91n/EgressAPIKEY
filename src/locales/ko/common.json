@@ -297,7 +297,11 @@
     "zoomOut": "축소",
     "fitView": "보기 맞춤",
     "lock": "상호작용 잠금",
-    "unlock": "상호작용 해제"
+    "unlock": "상호작용 해제",
+    "aClassRegion": "지역: {{regions}}",
+    "resetCenter": "중심으로 재설정",
+    "viewSubscription": "구독",
+    "viewRegion": "지역"
   },
   "tray": {
     "show": "창 표시",

@@ -297,7 +297,11 @@
     "zoomOut": "Zoom out",
     "fitView": "Fit view",
     "lock": "Lock interaction",
-    "unlock": "Unlock interaction"
+    "unlock": "Unlock interaction",
+    "aClassRegion": "Region: {{regions}}",
+    "resetCenter": "Reset to center",
+    "viewSubscription": "Subscriptions",
+    "viewRegion": "Regions"
   },
   "tray": {
     "show": "Show Window",

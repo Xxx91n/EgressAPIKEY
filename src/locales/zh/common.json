@@ -297,7 +297,11 @@
     "zoomOut": "缩小",
     "fitView": "适应视图",
     "lock": "锁定交互",
-    "unlock": "解锁交互"
+    "unlock": "解锁交互",
+    "aClassRegion": "地区: {{regions}}",
+    "resetCenter": "回到世界中心",
+    "viewSubscription": "订阅",
+    "viewRegion": "地区"
   },
   "tray": {
     "show": "显示窗口",

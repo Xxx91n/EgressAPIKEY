@@ -297,7 +297,11 @@
     "zoomOut": "ซูมออก",
     "fitView": "พอดีหน้าจอ",
     "lock": "ล็อกการโต้ตอบ",
-    "unlock": "ปลดล็อกการโต้ตอบ"
+    "unlock": "ปลดล็อกการโต้ตอบ",
+    "aClassRegion": "ภูมิภาค: {{regions}}",
+    "resetCenter": "รีเซ็ตไปยังศูนย์กลาง",
+    "viewSubscription": "การสมัครรับข้อมูล",
+    "viewRegion": "ภูมิภาค"
   },
   "tray": {
     "show": "แสดงหน้าต่าง",

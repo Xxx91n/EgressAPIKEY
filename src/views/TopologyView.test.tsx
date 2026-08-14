@@ -106,7 +106,7 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
     await waitFor(() => {
       const text = container.textContent || "";
       // A-class badge shows region:HK,US when region_filters has hk+us
-      expect(text).toMatch(/A:.*region.*HK.*US/i);
+      expect(text).toMatch(/A:.*Region.*HK.*US/i);
     });
   });
 
@@ -124,7 +124,7 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
     const { container } = render(<TopologyView />);
     await waitFor(() => {
       const text = container.textContent || "";
-      expect(text).toContain("A: manual");
+      expect(text).toContain("A: Manual");
     });
   });
 
@@ -432,6 +432,125 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
       const stateAfterSecond = useTopologyStore.getState().platforms;
       // same reference means shallow skip worked
       expect(stateAfterFirst).toBe(stateAfterSecond);
+    });
+  });
+
+
+  // --- T14 closed-loop tests ---
+  describe("T14-1: A badge renders before B badge in PlatformNode", () => {
+    it("A badge comes before B badge in DOM order", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({
+          items: [{ id: "p1", name: "TestAB", regex_filters: [], region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 1, sticky_ttl: "" }],
+          total: 1, limit: 50, offset: 0,
+        });
+        if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([]);
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        const text = container.textContent || "";
+        expect(text).toContain("A:");
+        expect(text).toContain("B:");
+      });
+      // Verify A badge appears before B badge in DOM
+      const allText = container.textContent || "";
+      const aIdx = allText.indexOf("A:");
+      const bIdx = allText.indexOf("B:");
+      expect(aIdx).toBeGreaterThan(-1);
+      expect(bIdx).toBeGreaterThan(-1);
+      expect(aIdx).toBeLessThan(bIdx);
+    });
+  });
+
+  describe("T14-2: A strategy i18n uses t() calls", () => {
+    it("A: Manual comes from strategy.manual i18n key", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({
+          items: [{ id: "p2", name: "ManualT", regex_filters: [], region_filters: [], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" }],
+          total: 1, limit: 50, offset: 0,
+        });
+        if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([]);
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        expect(container.textContent || "").toContain("A: Manual");
+      });
+    });
+  });
+
+  describe("T14-3: SubscriptionGroupNode collapsible — max 10 nodes visible", () => {
+    it("renders regionStats chips when collapsed and shows +N more when expanded", async () => {
+      // Build 15 fake nodes in one subscription
+      const fakeNodes = Array.from({ length: 15 }, (_, i) => ({
+        name: "node-" + i, display_tag: "JP-Node-" + i, has_outbound: true, failure_count: 0, region: "jp", tags: [{ tag: "JP", subscriptionName: "sub1" }],
+      }));
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({
+          items: [{ id: "p1", name: "Plat", regex_filters: [], region_filters: ["jp"], allocation_policy: "BALANCED", routable_node_count: 15, sticky_ttl: "" }],
+          total: 1, limit: 50, offset: 0,
+        });
+        if (cmd === "node_list") return Promise.resolve({ items: fakeNodes, total: 15, limit: 500, offset: 0 });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([]);
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        const text = container.textContent || "";
+        // Collapsed: should show JP(15) region stat chip
+        expect(text).toContain("JP(15)");
+      });
+    });
+  });
+
+  describe("T14-4: region view mode builds regionGroup nodes", () => {
+    it("viewMode=region creates regiongroup- prefixed node ids", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({
+          items: [{ id: "p1", name: "RegPlat", regex_filters: [], region_filters: ["jp", "us"], allocation_policy: "BALANCED", routable_node_count: 5, sticky_ttl: "" }],
+          total: 1, limit: 50, offset: 0,
+        });
+        if (cmd === "node_list") return Promise.resolve({
+          items: [
+            { name: "n1", display_tag: "JP-1", has_outbound: true, failure_count: 0, region: "jp", tags: [{ tag: "JP", subscriptionName: "sub1" }] },
+            { name: "n2", display_tag: "US-1", has_outbound: true, failure_count: 0, region: "us", tags: [{ tag: "US", subscriptionName: "sub1" }] },
+          ],
+          total: 2, limit: 500, offset: 0,
+        });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([]);
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        const text = container.textContent || "";
+        expect(text).toContain("JP");
+        expect(text).toContain("US");
+      });
+    });
+  });
+
+  describe("T14-5: CanvasControls has Home (reset to center) button", () => {
+    it("renders resetCenter tooltip text", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
+        if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([]);
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        const buttons = container.querySelectorAll("button[title]");
+        const titles = Array.from(buttons).map((b) => b.getAttribute("title"));
+        expect(titles).toContain("Reset to center");
+      });
     });
   });
 

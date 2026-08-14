@@ -297,7 +297,11 @@
     "zoomOut": "تصغير",
     "fitView": "ملاءمة العرض",
     "lock": "قفل التفاعل",
-    "unlock": "فتح التفاعل"
+    "unlock": "فتح التفاعل",
+    "aClassRegion": "المنطقة: {{regions}}",
+    "resetCenter": "إعادة إلى المركز",
+    "viewSubscription": "الاشتراكات",
+    "viewRegion": "المناطق"
   },
   "tray": {
     "show": "إظهار النافذة",

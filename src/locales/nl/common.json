@@ -297,7 +297,11 @@
     "zoomOut": "Uitzoomen",
     "fitView": "Weergave aanpassen",
     "lock": "Interactie vergrendelen",
-    "unlock": "Interactie ontgrendelen"
+    "unlock": "Interactie ontgrendelen",
+    "aClassRegion": "Regio: {{regions}}",
+    "resetCenter": "Naar centrum",
+    "viewSubscription": "Abonnementen",
+    "viewRegion": "Regio's"
   },
   "tray": {
     "show": "Venster tonen",

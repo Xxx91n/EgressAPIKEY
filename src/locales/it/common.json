@@ -297,7 +297,11 @@
     "zoomOut": "Riduci",
     "fitView": "Adatta vista",
     "lock": "Blocca interazione",
-    "unlock": "Sblocca interazione"
+    "unlock": "Sblocca interazione",
+    "aClassRegion": "Regione: {{regions}}",
+    "resetCenter": "Reimposta al centro",
+    "viewSubscription": "Abbonamenti",
+    "viewRegion": "Regioni"
   },
   "tray": {
     "show": "Mostra finestra",

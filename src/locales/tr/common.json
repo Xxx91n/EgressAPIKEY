@@ -297,7 +297,11 @@
     "zoomOut": "Uzaklaştır",
     "fitView": "Görünümü sığdır",
     "lock": "Etkileşimi kilitle",
-    "unlock": "Etkileşimi aç"
+    "unlock": "Etkileşimi aç",
+    "aClassRegion": "Bölge: {{regions}}",
+    "resetCenter": "Merkeze sıfırla",
+    "viewSubscription": "Abonelikler",
+    "viewRegion": "Bölgeler"
   },
   "tray": {
     "show": "Pencereyi göster",

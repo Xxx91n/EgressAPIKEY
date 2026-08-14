@@ -297,7 +297,11 @@
     "zoomOut": "Thu nhỏ",
     "fitView": "Vừa khung",
     "lock": "Khóa tương tác",
-    "unlock": "Mở khóa tương tác"
+    "unlock": "Mở khóa tương tác",
+    "aClassRegion": "Khu vực: {{regions}}",
+    "resetCenter": "Đặt lại về trung tâm",
+    "viewSubscription": "Đăng ký",
+    "viewRegion": "Khu vực"
   },
   "tray": {
     "show": "Hiện cửa sổ",

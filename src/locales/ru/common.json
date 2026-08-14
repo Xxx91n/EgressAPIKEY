@@ -297,7 +297,11 @@
     "zoomOut": "Уменьшить",
     "fitView": "По размеру",
     "lock": "Заблокировать",
-    "unlock": "Разблокировать"
+    "unlock": "Разблокировать",
+    "aClassRegion": "Регион: {{regions}}",
+    "resetCenter": "Сбросить к центру",
+    "viewSubscription": "Подписки",
+    "viewRegion": "Регионы"
   },
   "tray": {
     "show": "Показать окно",
