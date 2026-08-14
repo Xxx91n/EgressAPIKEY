@@ -117,6 +117,26 @@ else
 fi
 
 echo "[build-all] portable GUI staged: $GUI_STAGE/$PORT_NAME"
+
+# --- Chunk hash verification (AGENTS §5 hard close-loop) ---
+# Verify the latest Vite chunk hash from dist/assets/ is embedded in the exe bytes.
+# This catches the stale-bundle bug: cargo build --release reuses old dist/ if
+# pnpm build wasn't run first, embedding outdated frontend in the exe.
+VITE_CHUNK=$(ls dist/assets/index-*.js 2>/dev/null | head -1 | sed 's/.*index-//;s/\.js//')
+if [ -z "$VITE_CHUNK" ]; then
+  echo "[build-all] WARN: no index-*.js found in dist/assets — frontend may not be built"
+fi
+if [ -n "$VITE_CHUNK" ] && [ -f "$GUI_STAGE/$PORT_NAME" ]; then
+  # strings may not exist on minimal Linux or macOS; grep -a treats binary as text
+  if (strings "$GUI_STAGE/$PORT_NAME" 2>/dev/null || grep -a -o . "$GUI_STAGE/$PORT_NAME" 2>/dev/null) | grep -q "$VITE_CHUNK"; then
+    echo "[build-all] chunk-hash OK: index-$VITE_CHUNK found in exe"
+  else
+    echo "[build-all] ERROR: chunk-hash MISMATCH — index-$VITE_CHUNK NOT found in exe!"
+    echo "[build-all] The staged binary has a STALE frontend bundle."
+    echo "[build-all] Run pnpm build before cargo build, or use scripts/build-all.sh which does both."
+    exit 1
+  fi
+fi
 if [ -n "$BUNDLES" ] && [ "$(ls -A $GUI_STAGE 2>/dev/null)" ]; then tar -czf "$GUI_STAGE.tar.gz" "$GUI_STAGE"; fi
 echo "[build-all] GUI artifact: $GUI_STAGE ($PORT_NAME + bundles)"
 

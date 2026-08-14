@@ -75,6 +75,25 @@ if(-not $portBin) { Write-Error "[build-all] ERROR: portable GUI binary not foun
 Copy-Item $portBin.FullName "$GUI_STAGE/EgressAPIKEY.exe" -Force
 Write-Host "[build-all] portable GUI staged: $GUI_STAGE/EgressAPIKEY.exe"
 
+
+# --- Chunk hash verification (AGENTS §5 hard close-loop) ---
+# Verify the latest Vite chunk hash from dist/assets/ is embedded in the exe bytes.
+# This catches the stale-bundle bug: cargo build --release reuses old dist/ if
+# pnpm build wasn't run first, embedding outdated frontend in the exe.
+$chunkFiles = Get-ChildItem "dist/assets/index-*.js" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($chunkFiles) {
+    $chunkHash = $chunkFiles.BaseName -replace 'index-', ''
+    $exeBytes = [System.IO.File]::ReadAllBytes("$GUI_STAGE/EgressAPIKEY.exe")
+    $exeStr = [System.Text.Encoding]::ASCII.GetString($exeBytes)
+    if ($exeStr -match [regex]::Escape($chunkHash)) {
+        Write-Host "[build-all] chunk-hash OK: index-$chunkHash found in exe"
+    } else {
+        Write-Error "[build-all] ERROR: chunk-hash MISMATCH — index-$chunkHash NOT found in exe! Stale bundle."
+        exit 1
+    }
+} else {
+    Write-Host "[build-all] WARN: no index-*.js found in dist/assets"
+}
 # Copy sidecar binary (resin) next to portable exe
 $sidecarSrc = Get-ChildItem -Path "src-tauri/binaries" -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^resin-" } | Select-Object -First 1
 if($sidecarSrc) {
