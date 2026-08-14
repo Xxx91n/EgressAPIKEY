@@ -69,6 +69,9 @@ export function PlatformsView() {
   const [platforms, setPlatforms] = useState<PlatformInfoFull[]>([]);
   const [leasesPerPlatform, setLeasesPerPlatform] = useState<Record<string, unknown[]>>({});
   const [draggingPort, setDraggingPort] = useState<number | null>(null);
+  // Drag threshold: opacity-50 only after pointer moves >5px, not on click
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const didDragRef = useRef(false);
   const [dragOverPlatform, setDragOverPlatform] = useState<string | null>(null);
   const [splitRatio, setSplitRatio] = useState(0.4);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
@@ -428,7 +431,7 @@ export function PlatformsView() {
               const a = authInfo[p.port];
               const healthDot = h ? (h.reachable && h.reason === "ok" || (h.reachable && h.reason === "ok") ? "bg-emerald-500" : "bg-red-500") : "bg-muted-foreground/30";
               return (
-                <li key={p.port} className={"cursor-grab rounded-md border bg-card text-sm transition " + (draggingPort === p.port ? "opacity-50 cursor-grabbing " : "") + (isSelected ? "ring-2 ring-primary ring-offset-1 " : "") + (isExpanded ? "p-2" : "p-1.5")} onPointerDown={(e) => { e.preventDefault(); document.body.style.userSelect = "none"; setDraggingPort(p.port); }} onPointerUp={() => { document.body.style.userSelect = ""; }} onClick={() => togglePortSelect(p.port)} onMouseEnter={() => setHoveredPort(p.port)} onMouseLeave={() => setHoveredPort(null)} data-testid={"port-row-" + p.port}>
+                <li key={p.port} className={"cursor-grab rounded-md border bg-card text-sm transition " + (draggingPort === p.port ? "opacity-50 cursor-grabbing " : "") + (isSelected ? "ring-2 ring-primary ring-offset-1 " : "") + (isExpanded ? "p-2" : "p-1.5")} onPointerDown={(e) => { dragStartRef.current = { x: e.clientX, y: e.clientY }; didDragRef.current = false; }} onPointerMove={(e) => { if (dragStartRef.current && !didDragRef.current) { const dx = e.clientX - dragStartRef.current.x; const dy = e.clientY - dragStartRef.current.y; if (Math.hypot(dx, dy) > 5) { didDragRef.current = true; document.body.style.userSelect = "none"; setDraggingPort(p.port); } } }} onPointerUp={() => { document.body.style.userSelect = ""; dragStartRef.current = null; if (didDragRef.current) { setDraggingPort(null); setDragOverPlatform(null); } }} onClick={() => { if (!didDragRef.current) togglePortSelect(p.port); }} onMouseEnter={() => setHoveredPort(p.port)} onMouseLeave={() => setHoveredPort(null)} data-testid={"port-row-" + p.port}>
                   {/* T11-8: collapsed = single row, expanded = details */}
                   <div className="flex items-center gap-2">
                     <button type="button" className="shrink-0 rounded p-0.5 hover:bg-muted" onClick={(e) => { e.stopPropagation(); togglePortCard(p.port); }} data-testid={"port-chevron-" + p.port}>

@@ -160,7 +160,10 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("port-row-17990")).toBeInTheDocument());
     await waitFor(() => expect(screen.getByTestId("platform-card-OpenAI")).toBeInTheDocument());
-    fireEvent.pointerDown(screen.getByTestId("port-row-17990"));
+    // Drag threshold: pointerDown records start, pointerMove >5px starts drag, pointerEnter on platform + pointerUp binds
+    const portEl = screen.getByTestId("port-row-17990") as HTMLElement;
+    fireEvent.pointerDown(portEl, { clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(portEl, { clientX: 110, clientY: 110 });
     fireEvent.pointerEnter(screen.getByTestId("platform-card-OpenAI"));
     fireEvent.pointerUp(screen.getByTestId("platform-card-OpenAI"));
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("port_bind_platform", expect.objectContaining({ port: 17990, platformName: "OpenAI" })));
@@ -427,5 +430,53 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(screen.getByTestId("strategy-region-chips-Default")).toBeInTheDocument(), { timeout: 5000 });
     const usChip = screen.getByTestId("strategy-region-chip-US");
     expect(usChip.className).toContain("ring-2");
+  });
+
+  // T12-fix: click on port card should NOT trigger opacity-50 (gray), only ring-2 ring-primary (blue selection)
+  it("T12-fix: click on port card selects with blue ring, no gray opacity", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([{ port: 17990, platform_name: null, require_auth: false, protocol: "http" }]);
+      if (cmd === "platform_list_full") return Promise.resolve([]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17991);
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("port-row-17990")).toBeInTheDocument());
+    const portRow = screen.getByTestId("port-row-17990");
+    // Click WITHOUT drag: pointerDown + pointerUp at same position (no move >5px)
+    fireEvent.pointerDown(portRow, { clientX: 50, clientY: 50 });
+    fireEvent.pointerUp(portRow, { clientX: 50, clientY: 50 });
+    fireEvent.click(portRow);
+    // Should have ring-2 ring-primary (blue selection) but NOT opacity-50 (gray)
+    expect(portRow.className).toContain("ring-2");
+    expect(portRow.className).toContain("ring-primary");
+    expect(portRow.className).not.toContain("opacity-50");
+  });
+
+  // T12-fix: drag beyond 5px threshold triggers opacity-50 (gray)
+  it("T12-fix: drag beyond threshold triggers opacity-50 gray", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([{ port: 17991, platform_name: null, require_auth: false, protocol: "http" }]);
+      if (cmd === "platform_list_full") return Promise.resolve([]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17992);
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("port-row-17991")).toBeInTheDocument());
+    const portRow = screen.getByTestId("port-row-17991");
+    // Drag BEYOND threshold: pointerDown + pointerMove >5px => opacity-50
+    fireEvent.pointerDown(portRow, { clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(portRow, { clientX: 120, clientY: 120 });
+    await waitFor(() => expect(portRow.className).toContain("opacity-50"));
+    // Clean up
+    fireEvent.pointerUp(portRow, { clientX: 120, clientY: 120 });
   });
 });
