@@ -162,6 +162,8 @@ fn main() {
             commands::strategy_apply,
             commands::lightweight_get,
             commands::lightweight_set,
+            commands::set_log_level,
+            commands::get_log_level,
         ])
         .setup(|app| {
             build_tray(app.handle())?;

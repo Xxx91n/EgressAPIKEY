@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { usePoll } from "../hooks/usePoll";
 import { useTranslation } from "react-i18next";
 import { Activity, Stethoscope, Flame, Globe, Server, Loader2, FolderOpen, ArrowRight, Zap } from "lucide-react"; // T8-2/T8-3 added Zap for verify button
 import { openPath } from "@tauri-apps/plugin-opener";
@@ -62,8 +63,6 @@ export function DiagnosticsView() {
   const [healthProto, setHealthProto] = useState("socks5");
   const [healthResult, setHealthResult] = useState<PortHealthCheck | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   // Load poll interval from settings
   useEffect(() => {
     (async () => {
@@ -100,29 +99,8 @@ export function DiagnosticsView() {
     }
   };
 
-  // Auto-poll with visibilitychange pause
-  useEffect(() => {
-    refreshDiagnostics();
-    let cancelled = false;
-
-    const startPolling = () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      intervalRef.current = setInterval(() => {
-        if (!cancelled && !document.hidden) refreshDiagnostics();
-      }, pollInterval);
-    };
-    startPolling();
-
-    const onVisibility = () => { /* visibilitychange just gates the interval */ };
-    document.addEventListener("visibilitychange", onVisibility);
-
-    return () => {
-      cancelled = true;
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pollInterval]);
+  // T15-1: usePoll replaces hand-rolled setInterval + visibilitychange.
+  usePoll(refreshDiagnostics, { intervalMs: pollInterval, fireImmediately: true });
 
   // Exit IP probe
   const handleProbe = async () => {

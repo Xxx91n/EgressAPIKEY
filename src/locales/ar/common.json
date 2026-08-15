@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "الوضع الخفيف التلقائي بعد (دقائق)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "مستوى السجل",
+    "logLevelError": "خطأ",
+    "logLevelWarn": "تحذير",
+    "logLevelInfo": "معلومات",
+    "logLevelDebug": "تصحيح"
   },
   "strategy": {
     "title": "استراتيجية الخروج",

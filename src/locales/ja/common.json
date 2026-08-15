@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "自動ライトウェイトモード（分）",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "ログレベル",
+    "logLevelError": "エラー",
+    "logLevelWarn": "警告",
+    "logLevelInfo": "情報",
+    "logLevelDebug": "デバッグ"
   },
   "strategy": {
     "title": "エグレス戦略",

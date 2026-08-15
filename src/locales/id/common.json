@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "Otomatis ringan setelah (menit)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "Tingkat log",
+    "logLevelError": "Kesalahan",
+    "logLevelWarn": "Peringatan",
+    "logLevelInfo": "Info",
+    "logLevelDebug": "Debug"
   },
   "strategy": {
     "title": "Strategi Egress",

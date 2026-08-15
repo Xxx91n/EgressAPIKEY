@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "ऑटो लाइटवेट (मिनट)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "लॉग स्तर",
+    "logLevelError": "त्रुटि",
+    "logLevelWarn": "चेतावनी",
+    "logLevelInfo": "जानकारी",
+    "logLevelDebug": "डिबग"
   },
   "strategy": {
     "title": "निकास रणनीति",

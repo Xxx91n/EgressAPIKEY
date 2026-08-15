@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "자동 경량 모드 (분)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "로그 레벨",
+    "logLevelError": "오류",
+    "logLevelWarn": "경고",
+    "logLevelInfo": "정보",
+    "logLevelDebug": "디버그"
   },
   "strategy": {
     "title": "이그레스 전략",

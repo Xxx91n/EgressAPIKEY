@@ -773,3 +773,14 @@ export async function ipcLightweightSet(enabled: boolean, delayMinutes: number):
     // Outside Tauri — swallow
   }
 }
+
+export async function ipcSetLogLevel(level: string): Promise<string> {
+  if (!["error", "warn", "info", "debug"].includes(level)) {
+    throw new Error("invalid log level: must be error/warn/info/debug");
+  }
+  return invoke<string>("set_log_level", { level });
+}
+
+export async function ipcGetLogLevel(): Promise<string> {
+  return invoke<string>("get_log_level");
+}

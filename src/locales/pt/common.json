@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "Auto leve apos (minutos)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "Nível de log",
+    "logLevelError": "Erro",
+    "logLevelWarn": "Aviso",
+    "logLevelInfo": "Informação",
+    "logLevelDebug": "Depuração"
   },
   "strategy": {
     "title": "Estratégia de Saída",

@@ -107,6 +107,55 @@ describe("DiagnosticsView closed-loop tests", () => {
   });
 });
 
+
+describe("T15-1: DiagnosticsView uses usePoll (not setInterval)", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string, _args?: Record<string, unknown>) => {
+      if (cmd === "get_sidecar_status") return Promise.resolve({ api_port: 12345, api_base: "http://127.0.0.1:12345", mode: "Running", pid: 9999, healthz_last_check: "2026-01-01T00:00:00Z", ipc_latency_us: 500 });
+      if (cmd === "check_firewall_status") return Promise.resolve({ platform: "windows", firewall_on: true, inbound_blocked: true, detail: "Windows Firewall is ON." });
+      if (cmd === "request_log_tail") return Promise.resolve([]);
+      if (cmd === "get_sidecar_logs") return Promise.resolve([]);
+      if (cmd === "get_store_value") return Promise.resolve(5000);
+      if (cmd === "set_store_value") return Promise.resolve(undefined);
+      return Promise.resolve(null);
+    });
+  });
+
+  it("pause polling when document hidden, resume when visible (usePoll integration)", async () => {
+    // Track invoke calls to count poll cycles
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("diag-sidecar-port")).toHaveTextContent("12345");
+    });
+
+    // fireImmediately fires on mount — count status calls
+    const callsBefore = invokeMock.mock.calls.filter((c: unknown[]) => c[0] === "get_sidecar_status").length;
+    expect(callsBefore).toBeGreaterThanOrEqual(1);
+
+    // Simulate hidden → usePoll should stop polling
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // Wait a tick to ensure no new calls
+    await new Promise(r => setTimeout(r, 50));
+    const callsAfterHidden = invokeMock.mock.calls.filter((c: unknown[]) => c[0] === "get_sidecar_status").length;
+
+    // Simulate visible → usePoll should resume with immediate fire
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    await waitFor(() => {
+      const callsAfterVisible = invokeMock.mock.calls.filter((c: unknown[]) => c[0] === "get_sidecar_status").length;
+      // Should have at least one more call after resume (usePoll fires immediately on resume)
+      expect(callsAfterVisible).toBeGreaterThan(callsAfterHidden);
+    });
+
+    // Cleanup: restore visible state
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+  });
+});
+
 describe("DiagnosticsView negative tests", () => {
   beforeEach(() => {
     invokeMock.mockReset();

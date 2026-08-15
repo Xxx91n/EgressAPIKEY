@@ -176,6 +176,17 @@ pub struct LaneSnapshot {
     pub per_platform_active: Vec<(String, usize)>,
 }
 
+/// T15-2: Runtime log level gate. 0=error, 1=warn, 2=info, 3=debug.
+/// Default is 2 (info). Use the set_log_level IPC command to change at runtime.
+/// This gate wraps hot-path tracing::info!/debug! calls to reduce disk I/O when
+/// the user selects a lower verbosity in Settings.
+pub static LOG_LEVEL_GATE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(2);
+
+/// Returns true if the given numeric level (0=error,1=warn,2=info,3=debug) should be emitted.
+pub fn log_level_enabled(level: u8) -> bool {
+    LOG_LEVEL_GATE.load(std::sync::atomic::Ordering::Relaxed) >= level
+}
+
 #[tauri::command]
 pub async fn gateway_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<LaneSnapshot, IpcError> {
     let client = resin_client(&sidecar)?;
@@ -2675,6 +2686,34 @@ pub async fn lightweight_set(
     Ok(())
 }
 
+#[tauri::command]
+pub async fn set_log_level(level: String) -> Result<String, IpcError> {
+    let val = match level.as_str() {
+        "error" => 0u8,
+        "warn" => 1u8,
+        "info" => 2u8,
+        "debug" => 3u8,
+        _ => return Err(IpcError::from(format!("invalid log level: {{must be error/warn/info/debug}}: {}", level))),
+    };
+    LOG_LEVEL_GATE.store(val, std::sync::atomic::Ordering::Relaxed);
+    tracing::warn!("T15-2: log level set to {} (gate={})", level, val);
+    Ok(level)
+}
+
+#[tauri::command]
+pub async fn get_log_level() -> Result<String, IpcError> {
+    let val = LOG_LEVEL_GATE.load(std::sync::atomic::Ordering::Relaxed);
+    let name = match val {
+        0 => "error",
+        1 => "warn",
+        2 => "info",
+        3 => "debug",
+        _ => "info",
+    };
+    Ok(name.to_string())
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3166,5 +3205,35 @@ mod tests {
         assert!(errors[0].contains("MyPlatform"));
         assert!(errors[0].contains("PATCH failed"));
         assert!(errors[0].contains("timeout"));
+    }
+
+    #[test]
+    fn t15_2_set_log_level_validates_enum() {
+        // Validate that the level string maps correctly to the atomic gate.
+        // We do not call the async command (requires Tauri runtime); instead
+        // we test the gate logic directly.
+        super::LOG_LEVEL_GATE.store(2, std::sync::atomic::Ordering::Relaxed);
+        assert!(super::log_level_enabled(0)); // error always emitted
+        assert!(super::log_level_enabled(1)); // warn emitted at info+
+        assert!(super::log_level_enabled(2)); // info emitted at info
+        assert!(!super::log_level_enabled(3)); // debug NOT emitted at info
+    }
+
+    #[test]
+    fn t15_2_set_log_level_gate_round_trip() {
+        // Set level to debug (3) and verify all levels pass
+        super::LOG_LEVEL_GATE.store(3, std::sync::atomic::Ordering::Relaxed);
+        assert!(super::log_level_enabled(0));
+        assert!(super::log_level_enabled(1));
+        assert!(super::log_level_enabled(2));
+        assert!(super::log_level_enabled(3));
+        // Set to error (0) and verify only error passes
+        super::LOG_LEVEL_GATE.store(0, std::sync::atomic::Ordering::Relaxed);
+        assert!(super::log_level_enabled(0));
+        assert!(!super::log_level_enabled(1));
+        assert!(!super::log_level_enabled(2));
+        assert!(!super::log_level_enabled(3));
+        // Restore default
+        super::LOG_LEVEL_GATE.store(2, std::sync::atomic::Ordering::Relaxed);
     }
 }

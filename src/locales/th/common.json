@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "เข้าโหมดเบาอัตโนมาติหลัง (นาที)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "ระดับบันทึก",
+    "logLevelError": "ข้อผิดพลาด",
+    "logLevelWarn": "คำเตือน",
+    "logLevelInfo": "ข้อมูล",
+    "logLevelDebug": "ดีบัก"
   },
   "strategy": {
     "title": "กลยุทธ์ทางออก",

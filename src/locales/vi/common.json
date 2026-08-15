@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "Tự động chế độ nhẹ sau (phút)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "Cấp nhật ký",
+    "logLevelError": "Lỗi",
+    "logLevelWarn": "Cảnh báo",
+    "logLevelInfo": "Thông tin",
+    "logLevelDebug": "Gỡ lỗi"
   },
   "strategy": {
     "title": "Chiến lược Egess",

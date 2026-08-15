@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "Auto tryb lekki po (minutach)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "Poziom logowania",
+    "logLevelError": "Błąd",
+    "logLevelWarn": "Ostrzeżenie",
+    "logLevelInfo": "Info",
+    "logLevelDebug": "Debug"
   },
   "strategy": {
     "title": "Strategia Wyjścia",

@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
   import { useEffect, useMemo, useState, useRef } from "react";
 import {Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap} from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet} from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel} from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
@@ -84,7 +84,16 @@ export function SettingsView() {
   // T14-8: lightweight mode config (RISK-4 debounce + RISK-5 loadedRef skip mount save)
   const [lightweightEnabled, setLightweightEnabled] = useState(true);
   const [lightweightDelay, setLightweightDelay] = useState(10);
+  const [logLevel, setLogLevel] = useState<string>("info");
   const lightweightLoadedRef = useRef(false);
+  // T15-2: fetch current log level on mount
+  useEffect(() => {
+    ipcGetLogLevel().then(l => setLogLevel(l)).catch(() => { /* not in tauri */ });
+  }, []);
+  const handleLogLevelChange = async (level: string) => {
+    setLogLevel(level);
+    try { await ipcSetLogLevel(level); } catch { /* not in tauri */ }
+  };
   const lightweightSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     ipcLightweightGet().then(r => {
@@ -458,6 +467,22 @@ export function SettingsView() {
             <span className="text-xs text-zinc-400 ml-2">{t("settings.lightweightHint")}</span>
           </Field>
         )}
+      </SectionCard>
+
+      <SectionCard icon={<ScrollText size={16} strokeWidth={1.75} />} title={t("settings.logLevel")}>
+        <Field label={t("settings.logLevel")} hint="">
+          <select
+            data-testid="log-level-select"
+            value={logLevel}
+            onChange={(e) => void handleLogLevelChange(e.target.value)}
+            className="px-3 py-1.5 text-sm rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800"
+          >
+            <option value="error">{t("settings.logLevelError")}</option>
+            <option value="warn">{t("settings.logLevelWarn")}</option>
+            <option value="info">{t("settings.logLevelInfo")}</option>
+            <option value="debug">{t("settings.logLevelDebug")}</option>
+          </select>
+        </Field>
       </SectionCard>
 
       <SectionCard icon={<FolderOpen size={16} strokeWidth={1.75} />} title={t("settings.storage")}>

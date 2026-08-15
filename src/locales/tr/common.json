@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "Otomatik hafif mod (dakika)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "Günlük seviyesi",
+    "logLevelError": "Hata",
+    "logLevelWarn": "Uyarı",
+    "logLevelInfo": "Bilgi",
+    "logLevelDebug": "Hata ayıkla"
   },
   "strategy": {
     "title": "Çıkış Stratejisi",

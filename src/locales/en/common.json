@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "Auto lightweight after (minutes)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "Log Level",
+    "logLevelError": "Error",
+    "logLevelWarn": "Warning",
+    "logLevelInfo": "Info",
+    "logLevelDebug": "Debug"
   },
   "strategy": {
     "title": "Egress Strategy",

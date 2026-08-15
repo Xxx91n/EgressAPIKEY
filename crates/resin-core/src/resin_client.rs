@@ -28,6 +28,7 @@
 //!     as a canonical UUID so encoding is a no-op in practice, but we encode
 //!     defensively in case a caller passes a non-canonical form.
 
+use std::sync::OnceLock;
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 use url::Url;
@@ -47,6 +48,23 @@ pub struct ResinClient {
 
 const API_PREFIX: &str = "/api/v1";
 
+/// T15-4: Shared reqwest::Client reused across all ResinClient instances.
+/// The IPC layer constructs a fresh ResinClient per call (one per Tauri
+/// command), but reqwest::Client owns a connection pool + TLS context.
+/// Reusing a single Client avoids building a new pool per IPC call.
+/// Ponytail: std::sync::OnceLock (Rust stdlib, zero new deps).
+static SHARED_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+fn shared_client() -> &'static reqwest::Client {
+    SHARED_CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(8))
+            .build()
+            .expect("resin_client: cannot build shared reqwest::Client")
+    })
+}
+
+
 impl ResinClient {
     /// Construct a new client from a 127.0.0.1 base URL + admin token.
     /// We reject non-loopback bases defensively even though the only caller
@@ -60,10 +78,8 @@ impl ResinClient {
                 "resin_client: base host '{host}' is not loopback; rejected (SSRF guard)"
             ));
         }
-        let http = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(8))
-            .build()
-            .context("resin_client: cannot build reqwest::Client")?;
+        // T15-4: reuse the shared reqwest::Client (connection pool + TLS).
+        let http = shared_client().clone();
         Ok(Self {
             base: url,
             admin_token,
@@ -1103,4 +1119,13 @@ mod tests {
 
     }
 
+
+    #[test]
+    fn t15_4_shared_client_returns_same_instance() {
+        // Two calls to shared_client() must return pointers to the same Client.
+        let a = shared_client();
+        let b = shared_client();
+        // Pointer equality: same address = same Client
+        assert!(std::ptr::eq(a, b), "shared_client() returned different Client instances");
+    }
 }

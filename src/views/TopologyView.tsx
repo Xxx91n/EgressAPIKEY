@@ -4,7 +4,7 @@ import {
   Handle, Position, type Node, type Edge, type Connection, type NodeProps,
   useReactFlow, ReactFlowProvider, type OnMoveEnd,
 } from "@xyflow/react";
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, memo } from "react";
 import { create } from "zustand";
 import { shallow } from "zustand/shallow";
 import dagre from "dagre";
@@ -189,7 +189,7 @@ export const fixedHandleStyle: React.CSSProperties = {
 };
 
 /// Custom node: Entry port (A column).
-function EntryPortNode({ data }: NodeProps) {
+const EntryPortNode = memo(function EntryPortNode({ data }: NodeProps) {
   const d = data as Record<string, unknown>;
   return (
     <div className="relative rounded-lg border border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-950/50 px-4 py-3 text-xs min-w-[140px] max-w-[200px]">
@@ -209,9 +209,10 @@ function EntryPortNode({ data }: NodeProps) {
     </div>
   );
 }
+);
 
 /// Custom node: Platform (B column) with dual A+B strategy badges.
-function PlatformNode({ data }: NodeProps) {
+const PlatformNode = memo(function PlatformNode({ data }: NodeProps) {
   const d = data as Record<string, unknown>;
   const leases = (Array.isArray(d.leases) ? d.leases : []) as Array<{
     account: string; egress_ip: string; target_domain: string;
@@ -258,9 +259,10 @@ function PlatformNode({ data }: NodeProps) {
     </div>
   );
 }
+);
 
 /// T13-1: Custom node: Subscription group (C column) — only shows selected nodes.
-function SubscriptionGroupNode({ data }: NodeProps) {
+const SubscriptionGroupNode = memo(function SubscriptionGroupNode({ data }: NodeProps) {
   const d = data as Record<string, unknown>;
   const nodes = (Array.isArray(d.nodes) ? d.nodes : []) as Array<{
     display_tag: string; region: string; healthy: boolean; latencyColor: string;
@@ -321,10 +323,11 @@ function SubscriptionGroupNode({ data }: NodeProps) {
     </div>
   );
 }
+);
 
 
 /// T14-4: Custom node: Region group (C column region view) — aggregates by region
-function RegionGroupNode({ data }: NodeProps) {
+const RegionGroupNode = memo(function RegionGroupNode({ data }: NodeProps) {
   const d = data as Record<string, unknown>;
   const total = typeof d.total === "number" ? d.total : 0;
   const healthy = typeof d.healthy === "number" ? d.healthy : 0;
@@ -347,6 +350,7 @@ function RegionGroupNode({ data }: NodeProps) {
     </div>
   );
 }
+);
 
 const nodeTypes = { entryPort: EntryPortNode, platform: PlatformNode, subscriptionGroup: SubscriptionGroupNode, regionGroup: RegionGroupNode };
 

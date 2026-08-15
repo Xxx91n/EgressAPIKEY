@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "Авто лёгкий режим через (минут)",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "Уровень журнала",
+    "logLevelError": "Ошибка",
+    "logLevelWarn": "Предупреждение",
+    "logLevelInfo": "Информация",
+    "logLevelDebug": "Отладка"
   },
   "strategy": {
     "title": "Стратегия выхода",

@@ -202,7 +202,12 @@
     "autoLightweightMinutes": "自动进入轻量模式（分钟）",
     "lightweightEnabled": "Enabled — webview destroyed when idle",
     "lightweightDisabled": "Disabled",
-    "lightweightHint": "minutes of inactivity before destroying webview"
+    "lightweightHint": "minutes of inactivity before destroying webview",
+    "logLevel": "日志级别",
+    "logLevelError": "错误",
+    "logLevelWarn": "警告",
+    "logLevelInfo": "信息",
+    "logLevelDebug": "调试"
   },
   "strategy": {
     "title": "出口策略",
