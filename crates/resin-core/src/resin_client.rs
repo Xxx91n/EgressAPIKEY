@@ -64,7 +64,6 @@ fn shared_client() -> &'static reqwest::Client {
     })
 }
 
-
 impl ResinClient {
     /// Construct a new client from a 127.0.0.1 base URL + admin token.
     /// We reject non-loopback bases defensively even though the only caller

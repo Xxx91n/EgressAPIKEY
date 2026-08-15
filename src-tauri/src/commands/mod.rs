@@ -178,8 +178,8 @@ pub struct LaneSnapshot {
 
 /// T15-2: Runtime log level gate. 0=error, 1=warn, 2=info, 3=debug.
 /// Default is 2 (info). Use the set_log_level IPC command to change at runtime.
-/// This gate wraps hot-path tracing::info!/debug! calls to reduce disk I/O when
-/// the user selects a lower verbosity in Settings.
+/// Wired into spawn_health_poll per-cycle tracing::debug! on /healthz success,
+/// so a user who sets level<debug in Settings suppresses the per-cycle noise.
 pub static LOG_LEVEL_GATE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(2);
 
 /// Returns true if the given numeric level (0=error,1=warn,2=info,3=debug) should be emitted.

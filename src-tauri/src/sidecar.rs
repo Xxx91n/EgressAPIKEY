@@ -958,7 +958,12 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
             // not need the admin token for the health probe.
             let _admin = &snapshot.1; // admin token unused here; dusted to keep it in scope
             let healthy = match client.get(&url).send().await {
-                Ok(r) if r.status().is_success() => true,
+                Ok(r) if r.status().is_success() => {
+                if crate::commands::log_level_enabled(3) {
+                    tracing::debug!("ghost: /healthz ok (per-cycle, gated by T15-2 log level >=debug)");
+                }
+                true
+            },
                 Ok(r) => {
                     tracing::warn!("ghost: /healthz status {}", r.status());
                     false
