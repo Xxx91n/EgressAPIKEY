@@ -13,8 +13,9 @@ import { useAppStore } from "../store/appStore";
 import {
   ipcPlatformListFull, ipcNodeList, ipcPlatformUpdate, ipcBackupCreate,
   ipcLeaseMap, ipcPortList, type LeaseEntry, type PortMapping,
+  ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
 } from "../lib/ipc";
-import { loadTopologyViewport, saveTopologyViewport } from "../lib/settings";
+import { loadTopologyState, saveTopologyState, type TopologyState as T15TopologyState } from "../lib/settings";
 import { strategyToI18nKey, mapResinToShell, type StrategyId, type AllocationPolicy } from "../lib/strategy";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
@@ -165,10 +166,14 @@ export function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 20
     g.setEdge(e.source, e.target);
   }
   dagre.layout(g);
+  // T15-4: offset all nodes so graph center aligns to coordinate origin (0,0)
+  const graphLabel = g.graph() as { width?: number; height?: number };
+  const offsetX = (graphLabel.width ?? 0) / 2;
+  const offsetY = (graphLabel.height ?? 0) / 2;
   return nodes.map((n) => {
     const pos = g.node(n.id);
     if (pos) {
-      return { ...n, position: { x: pos.x - nodeWidth / 2, y: pos.y - nodeHeight / 2 } };
+      return { ...n, position: { x: pos.x - nodeWidth / 2 - offsetX, y: pos.y - nodeHeight / 2 - offsetY } };
     }
     return n;
   });
@@ -428,10 +433,9 @@ export function buildEdges(
 }
 
 /// T13-5: Custom CanvasControls with i18n tooltips.
-function CanvasControls({ viewMode, setViewMode }: { viewMode: "subscription" | "region"; setViewMode: (m: "subscription" | "region") => void }) {
+function CanvasControls({ viewMode, setViewMode, locked, setLocked }: { viewMode: "subscription" | "region"; setViewMode: (m: "subscription" | "region") => void; locked: boolean; setLocked: (l: boolean) => void; }) {
   const { t } = useTranslation();
   const reactFlow = useReactFlow();
-  const [locked, setLocked] = useState(false);
   return (
     <div className="absolute bottom-2 left-2 z-10 flex flex-col gap-1">
       {/* T14-5: segmented toggle for C column view mode */}
@@ -451,20 +455,20 @@ function CanvasControls({ viewMode, setViewMode }: { viewMode: "subscription" | 
           {t("topology.viewRegion")}
         </button>
       </div>
-      <button title={t("topology.zoomIn")} onClick={() => reactFlow.zoomIn()} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+      <button title={t("topology.zoomIn")} onClick={() => reactFlow.zoomIn()} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
         <ZoomIn size={14} />
       </button>
-      <button title={t("topology.zoomOut")} onClick={() => reactFlow.zoomOut()} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+      <button title={t("topology.zoomOut")} onClick={() => reactFlow.zoomOut()} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
         <ZoomOut size={14} />
       </button>
-      <button title={t("topology.fitView")} onClick={() => reactFlow.fitView({ maxZoom: 1 })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+      <button title={t("topology.fitView")} onClick={() => reactFlow.fitView({ maxZoom: 1 })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
         <Maximize size={14} />
       </button>
       {/* T14-5: reset to world center {x:0, y:0, zoom:1} */}
-      <button title={t("topology.resetCenter")} onClick={() => reactFlow.setViewport({ x: 0, y: 0, zoom: 1 })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+      <button title={t("topology.resetCenter")} onClick={() => reactFlow.setViewport({ x: 0, y: 0, zoom: 1 })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
         <Home size={14} />
       </button>
-      <button title={locked ? t("topology.unlock") : t("topology.lock")} onClick={() => setLocked(!locked)} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700">
+      <button title={locked ? t("topology.unlock") : t("topology.lock")} onClick={() => setLocked(!locked)} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
         {locked ? <Lock size={14} /> : <Unlock size={14} />}
       </button>
     </div>
@@ -488,6 +492,11 @@ function TopologyCanvas() {
 
   const [sidecarStatus, setSidecarStatus] = useState<string>("");
   const [viewMode, setViewMode] = useState<"subscription" | "region">("subscription");
+  const [locked, setLocked] = useState(false);
+  // T15-3: persist viewMode to topologyState
+  const handleSetViewMode = useCallback((m: "subscription" | "region") => {
+    setViewMode(m);
+  }, []);
   const [ready, setReady] = useState(false);
   const patchingRef = useRef(false);
 
@@ -519,18 +528,31 @@ function TopologyCanvas() {
     return () => { if (unsub) { try { unsub(); } catch { /* ignore */ } } };
   }, []);
 
+  // T15-3: persist viewMode + locked when they change (but only after ready to avoid overriding onInit load)
+  useEffect(() => {
+    if (!ready) return;
+    void (async () => {
+      try {
+        const ts = await loadTopologyState() as T15TopologyState | null;
+        await saveTopologyState({ x: ts?.x ?? 0, y: ts?.y ?? 0, zoom: ts?.zoom ?? 1, viewMode, locked });
+      } catch { /* vitest */ }
+    })();
+  }, [viewMode, locked, ready]);
+
   const onMoveEnd: OnMoveEnd = useCallback((_evt, viewport) => {
     if (!ready) return;
     if (!viewport || typeof viewport.x !== "number" || typeof viewport.y !== "number" || typeof viewport.zoom !== "number") return;
-    try { void saveTopologyViewport({ x: viewport.x, y: viewport.y, zoom: viewport.zoom }); } catch { /* vitest */ }
-  }, [ready]);
+    try { void saveTopologyState({ x: viewport.x, y: viewport.y, zoom: viewport.zoom, viewMode, locked }); } catch { /* vitest */ }
+  }, [ready, viewMode, locked]);
 
   const onInit = useCallback((_instance: unknown) => {
     void (async () => {
       try {
-        const vp = await loadTopologyViewport();
-        if (vp && typeof vp.x === "number" && typeof vp.y === "number" && typeof vp.zoom === "number") {
-          reactFlow.setViewport({ x: vp.x, y: vp.y, zoom: vp.zoom });
+        const ts = await loadTopologyState();
+        if (ts) {
+          reactFlow.setViewport({ x: ts.x, y: ts.y, zoom: ts.zoom });
+          setViewMode(ts.viewMode);
+          setLocked(ts.locked);
         } else {
           requestAnimationFrame(() => { try { reactFlow.fitView({ maxZoom: 1 }); } catch { /* vitest */ } });
         }
@@ -601,6 +623,8 @@ function TopologyCanvas() {
       const sub = [healthLabel, regionsLabel].filter(Boolean).join(" * ");
       // T13-1: filter node rows — only show nodes in selected regions
       const filteredNodes = g.nodes.filter((n) => selectedRegions.has(getNodeRegion(n)));
+      // T15-1: hide subscription group entirely if no nodes are selected by any platform
+      if (filteredNodes.length === 0) return;
       const unboundCount = g.nodes.length - filteredNodes.length;
       // T14-3: compute region stats for collapsed view
       const regionStatsMap = new Map<string, number>();
@@ -681,6 +705,21 @@ function TopologyCanvas() {
     return layoutNodesViaDagre(rawNodes, edges);
   }, [rawNodes, edges]);
 
+  
+  // T15-5: update platform region_filters via strategyConfig JSON pipeline (not direct Resin PATCH)
+  const patchRegionViaStrategyConfig = useCallback(async (platName: string, nextRegions: string[]) => {
+    const cfg = await ipcStrategyConfigGet();
+    let entry = cfg.platforms.find((p) => p.platform_name === platName);
+    if (!entry) {
+      entry = { platform_name: platName, a_class: "region", b_class: "random", regions: nextRegions };
+      cfg.platforms.push(entry);
+    } else {
+      entry.regions = nextRegions;
+    }
+    await ipcStrategyConfigPut(cfg);
+    await ipcStrategyApply();
+  }, []);
+
   const onConnect = useCallback(async (conn: Connection) => {
     if (!conn.source.startsWith("platform-")) return;
     const isSub = conn.target.startsWith("subgroup-");
@@ -706,11 +745,11 @@ function TopologyCanvas() {
     }
     try {
       await backupBeforeEdit();
-      await ipcPlatformUpdate(platName, undefined, undefined, next);
+      await patchRegionViaStrategyConfig(platName, next);
       await sync();
     } catch { /* swallow */ }
     patchingRef.current = false;
-  }, [platforms, subGroups, sync]);
+  }, [platforms, subGroups, sync, patchRegionViaStrategyConfig]);
 
   const onEdgesDelete = useCallback(async (delEdges: Edge[]) => {
     for (const e of delEdges) {
@@ -737,12 +776,12 @@ function TopologyCanvas() {
       }
       try {
         await backupBeforeEdit();
-        await ipcPlatformUpdate(platName, undefined, undefined, next);
+        await patchRegionViaStrategyConfig(platName, next);
         await sync();
       } catch { /* swallow */ }
       patchingRef.current = false;
     }
-  }, [platforms, subGroups, sync]);
+  }, [platforms, subGroups, sync, patchRegionViaStrategyConfig]);
 
   return (
     <section className="flex h-full flex-col p-3">
@@ -793,7 +832,7 @@ function TopologyCanvas() {
           defaultEdgeOptions={{ type: "smoothstep", animated: true, style: { fontSize: 10 } }}
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
-          <CanvasControls viewMode={viewMode} setViewMode={setViewMode} />
+          <CanvasControls viewMode={viewMode} setViewMode={handleSetViewMode} locked={locked} setLocked={setLocked} />
           <MiniMap pannable zoomable />
         </ReactFlow>
       </div>

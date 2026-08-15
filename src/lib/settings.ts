@@ -177,26 +177,44 @@ export async function saveWebdavConfig(url: string, username: string, password: 
 // the exact spot they left. Ponytail: persisted as a single small object,
 // re-applied on mount via useReactFlow().setViewport before data lands so the
 // fitView() call (now gated behind "no saved viewport") doesn't fight it.
-export interface TopologyViewport {
+export interface TopologyState {
   x: number;
   y: number;
   zoom: number;
+  viewMode: "subscription" | "region";
+  locked: boolean;
 }
+/// Backward compat alias.
+export type TopologyViewport = Pick<TopologyState, "x" | "y" | "zoom">;
 
-export async function loadTopologyViewport(): Promise<TopologyViewport | null> {
+export async function loadTopologyState(): Promise<TopologyState | null> {
   try {
-    const v = await store().get<TopologyViewport>("topologyViewport");
-    return v && typeof v.x === "number" && typeof v.y === "number" && typeof v.zoom === "number"
-      ? { x: v.x, y: v.y, zoom: v.zoom }
-      : null;
+    const v = await store().get<TopologyState>("topologyState");
+    if (!v || typeof v.x !== "number" || typeof v.y !== "number" || typeof v.zoom !== "number")
+      return null;
+    return {
+      x: v.x, y: v.y, zoom: v.zoom,
+      viewMode: v.viewMode === "region" ? "region" : "subscription",
+      locked: v.locked === true,
+    };
   } catch { return null; }
 }
+/// Backward compat: load only viewport portion.
+export async function loadTopologyViewport(): Promise<TopologyViewport | null> {
+  const s = await loadTopologyState();
+  return s ? { x: s.x, y: s.y, zoom: s.zoom } : null;
+}
 
-export async function saveTopologyViewport(vp: TopologyViewport): Promise<void> {
+export async function saveTopologyState(s: TopologyState): Promise<void> {
   try {
-    await store().set("topologyViewport", vp);
+    await store().set("topologyState", s);
     await store().save();
   } catch (e) { console.warn("[settings] save failed:", e); }
+}
+/// Backward compat: save only viewport portion (merges with existing state).
+export async function saveTopologyViewport(vp: TopologyViewport): Promise<void> {
+  const existing = await loadTopologyState();
+  await saveTopologyState({ ...existing, ...vp, viewMode: existing?.viewMode ?? "subscription", locked: existing?.locked ?? false });
 }
 
 // --- P19 item 6: Subscription list drag-order override ---
