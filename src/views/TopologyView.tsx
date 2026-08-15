@@ -127,6 +127,16 @@ function parseSubscriptionGroups(raw: unknown): SubscriptionGroup[] {
   return groups.sort((a, b) => a.subscriptionName.localeCompare(b.subscriptionName));
 }
 
+// T14-audit: extract region from a node — deduplicated from 6 inline copies
+function getNodeRegion(n: NodeItem): string {
+  if (n.region) return n.region.toLowerCase();
+  if (Array.isArray(n.tags)) {
+    const rt = n.tags.find((t) => t.tag && t.tag.length <= 3);
+    if (rt) return rt.tag!.toLowerCase();
+  }
+  return "other";
+}
+
 function parsePlatforms(raw: unknown): PlatformFull[] {
   if (!raw || typeof raw !== "object") return [];
   const v = raw as Record<string, unknown>;
@@ -590,36 +600,18 @@ function TopologyCanvas() {
         : "";
       const sub = [healthLabel, regionsLabel].filter(Boolean).join(" * ");
       // T13-1: filter node rows — only show nodes in selected regions
-      const filteredNodes = g.nodes.filter((n) => {
-        let region = "other";
-        if (n.region) region = n.region.toLowerCase();
-        else if (Array.isArray(n.tags)) {
-          const rt = n.tags.find((t2) => t2.tag && t2.tag.length <= 3);
-          if (rt) region = rt.tag!.toLowerCase();
-        }
-        return selectedRegions.has(region);
-      });
+      const filteredNodes = g.nodes.filter((n) => selectedRegions.has(getNodeRegion(n)));
       const unboundCount = g.nodes.length - filteredNodes.length;
       // T14-3: compute region stats for collapsed view
       const regionStatsMap = new Map<string, number>();
       for (const n of g.nodes) {
-        let r = "other";
-        if (n.region) r = n.region.toLowerCase();
-        else if (Array.isArray(n.tags)) {
-          const rt = n.tags.find((t2) => t2.tag && t2.tag.length <= 3);
-          if (rt) r = rt.tag!.toLowerCase();
-        }
+        const r = getNodeRegion(n);
         regionStatsMap.set(r, (regionStatsMap.get(r) ?? 0) + 1);
       }
       const regionStatsArr = [...regionStatsMap.entries()].sort((a, b) => b[1] - a[1]).map(([region, count]) => ({ region: region.toUpperCase(), count }));
       const nodeRows = filteredNodes.map((n) => {
         const isHealthy = (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
-        let region = "other";
-        if (n.region) region = n.region.toLowerCase();
-        else if (Array.isArray(n.tags)) {
-          const rt = n.tags.find((t2) => t2.tag && t2.tag.length <= 3);
-          if (rt) region = rt.tag!.toLowerCase();
-        }
+        const region = getNodeRegion(n).toUpperCase();
         const latencyColor = isHealthy ? "bg-emerald-500" : "bg-red-500";
         return {
           display_tag: n.display_tag || n.name || "node",
@@ -640,12 +632,7 @@ function TopologyCanvas() {
       const regionMap = new Map<string, { total: number; healthy: number; subs: Set<string> }>();
       for (const g of subGroups) {
         for (const n of g.nodes) {
-          let r = "other";
-          if (n.region) r = n.region.toLowerCase();
-          else if (Array.isArray(n.tags)) {
-            const rt = n.tags.find((t2) => t2.tag && t2.tag.length <= 3);
-            if (rt) r = rt.tag!.toLowerCase();
-          }
+          const r = getNodeRegion(n);
           const entry = regionMap.get(r) ?? { total: 0, healthy: 0, subs: new Set<string>() };
           entry.total++;
           if ((n.failure_count ?? 0) === 0 && n.has_outbound !== false) entry.healthy++;
@@ -687,7 +674,7 @@ function TopologyCanvas() {
     }
     const adapted = subGroups.map((g) => ({ subscriptionName: g.subscriptionName, regions: g.regions }));
     return buildEdges(platforms, adapted, ports) as Edge[];
-  }, [platforms, subGroups, ports, viewMode, ports]);
+  }, [platforms, subGroups, ports, viewMode]);
 
   // T13-2: dagre auto-layout — compute positions
   const nodes: Node[] = useMemo(() => {
@@ -695,19 +682,30 @@ function TopologyCanvas() {
   }, [rawNodes, edges]);
 
   const onConnect = useCallback(async (conn: Connection) => {
-    if (!conn.source.startsWith("platform-") || !conn.target.startsWith("subgroup-")) return;
+    if (!conn.source.startsWith("platform-")) return;
+    const isSub = conn.target.startsWith("subgroup-");
+    const isRegion = conn.target.startsWith("regiongroup-");
+    if (!isSub && !isRegion) return;
     if (patchingRef.current) return;
     patchingRef.current = true;
     const platName = conn.source.slice("platform-".length);
-    const subName = conn.target.slice("subgroup-".length);
     const plat = platforms.find((p) => p.name === platName);
     if (!plat) { patchingRef.current = false; return; }
-    const sg = subGroups.find((g) => g.subscriptionName === subName);
-    if (!sg) { patchingRef.current = false; return; }
+    let next: string[];
+    if (isSub) {
+      const subName = conn.target.slice("subgroup-".length);
+      const sg = subGroups.find((g) => g.subscriptionName === subName);
+      if (!sg) { patchingRef.current = false; return; }
+      const newRegions = sg.regions.filter((r) => !(plat.region_filters ?? []).includes(r));
+      next = [...(plat.region_filters ?? []), ...newRegions];
+    } else {
+      // region view: target is regiongroup-<region>
+      const region = conn.target.slice("regiongroup-".length);
+      if (region.startsWith("-")) { patchingRef.current = false; return; }
+      next = addRegionFilter(plat.region_filters, region);
+    }
     try {
       await backupBeforeEdit();
-      const newRegions = sg.regions.filter((r) => !(plat.region_filters ?? []).includes(r));
-      const next = [...(plat.region_filters ?? []), ...newRegions];
       await ipcPlatformUpdate(platName, undefined, undefined, next);
       await sync();
     } catch { /* swallow */ }
@@ -717,17 +715,28 @@ function TopologyCanvas() {
   const onEdgesDelete = useCallback(async (delEdges: Edge[]) => {
     for (const e of delEdges) {
       if (e.deletable === false) continue;
-      if (!e.source.startsWith("platform-") || !e.target.startsWith("subgroup-")) continue;
+      if (!e.source.startsWith("platform-")) continue;
+      const isSub = e.target.startsWith("subgroup-");
+      const isRegion = e.target.startsWith("regiongroup-");
+      if (!isSub && !isRegion) continue;
       if (patchingRef.current) continue;
       patchingRef.current = true;
       const platName = e.source.slice("platform-".length);
-      const subName = e.target.slice("subgroup-".length);
       const plat = platforms.find((p) => p.name === platName);
-      const sg = subGroups.find((g) => g.subscriptionName === subName);
-      if (!plat || !sg) { patchingRef.current = false; continue; }
+      if (!plat) { patchingRef.current = false; continue; }
+      let next: string[];
+      if (isSub) {
+        const subName = e.target.slice("subgroup-".length);
+        const sg = subGroups.find((g) => g.subscriptionName === subName);
+        if (!sg) { patchingRef.current = false; continue; }
+        next = (plat.region_filters ?? []).filter((r) => !sg.regions.includes(r));
+      } else {
+        // region view: remove the single region
+        const region = e.target.slice("regiongroup-".length);
+        next = removeRegionFilter(plat.region_filters, region);
+      }
       try {
         await backupBeforeEdit();
-        const next = (plat.region_filters ?? []).filter((r) => !sg.regions.includes(r));
         await ipcPlatformUpdate(platName, undefined, undefined, next);
         await sync();
       } catch { /* swallow */ }

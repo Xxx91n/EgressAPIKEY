@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 
-  import { useEffect, useMemo, useState , useRef} from "react";
+  import { useEffect, useMemo, useState, useRef } from "react";
 import {Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap} from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet} from "../lib/ipc";
