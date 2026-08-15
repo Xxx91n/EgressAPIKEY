@@ -982,6 +982,7 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
                 if !was_healthy {
                     tracing::info!("ghost: sidecar recovered; tray green");
                     let _ = mark_tray_status(&app, true);
+                    // T14-6: emit payload <100B ("healthy" = 8 bytes), no Channel needed
                     let _ = app.emit(STATUS_EVENT, "healthy");
                     was_healthy = true;
                 }
@@ -993,6 +994,7 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
                         "ghost: sidecar unhealthy after {failures} failures; marking tray red + clearing OS proxy"
                     );
                     let _ = mark_tray_status(&app, false);
+                    // T14-6: emit payload <100B ("unhealthy" = 10 bytes), no Channel needed
                     let _ = app.emit(STATUS_EVENT, "unhealthy");
                     if let Err(e) = clear_os_proxy().await {
                         tracing::warn!("ghost: clear_os_proxy error: {e}");
@@ -1012,6 +1014,7 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
                         if let Some(state) = app.try_state::<SidecarHandle>() {
                             state.set_mode(RunningMode::Terminated);
                         }
+                        // T14-6: emit payload <100B ("terminated" = 11 bytes), no Channel needed
                         let _ = app.emit(STATUS_EVENT, "terminated");
                     } else {
                         let backoff = crash_backoff_ms(crash_count - 1);
@@ -1019,6 +1022,7 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
                             "ghost: crash attempt {}/{}, backing off {}ms before next poll",
                             crash_count, MAX_CRASH_RESTARTS, backoff
                         );
+                        // T14-6: emit payload <100B ("restarting" = 12 bytes), no Channel needed
                         let _ = app.emit(STATUS_EVENT, "restarting");
                         tokio::time::sleep(std::time::Duration::from_millis(backoff)).await;
                     }

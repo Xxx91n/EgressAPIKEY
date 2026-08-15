@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 
-  import { useEffect, useMemo, useState } from "react";
+  import { useEffect, useMemo, useState , useRef} from "react";
 import {Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap} from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet} from "../lib/ipc";
@@ -81,11 +81,29 @@ export function SettingsView() {
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const [saved, setSaved] = useState(false);
-  // T14-8: lightweight mode config
+  // T14-8: lightweight mode config (RISK-4 debounce + RISK-5 loadedRef skip mount save)
   const [lightweightEnabled, setLightweightEnabled] = useState(true);
   const [lightweightDelay, setLightweightDelay] = useState(10);
-  useEffect(() => { ipcLightweightGet().then(r => { setLightweightEnabled(r.enabled); setLightweightDelay(r.delay_minutes); }); }, []);
-  useEffect(() => { ipcLightweightSet(lightweightEnabled, lightweightDelay); }, [lightweightEnabled, lightweightDelay]);
+  const lightweightLoadedRef = useRef(false);
+  const lightweightSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    ipcLightweightGet().then(r => {
+      setLightweightEnabled(r.enabled);
+      setLightweightDelay(r.delay_minutes);
+      // mark as loaded AFTER state is set so the save effect can skip the first cycle
+      setTimeout(() => { lightweightLoadedRef.current = true; }, 0);
+    });
+  }, []);
+  useEffect(() => {
+    // RISK-5: skip the first save cycle after load (writes same value back = redundant)
+    if (!lightweightLoadedRef.current) return;
+    // RISK-4: debounce 500ms so rapid keystrokes don't each trigger an IPC + file save
+    if (lightweightSaveRef.current) clearTimeout(lightweightSaveRef.current);
+    lightweightSaveRef.current = setTimeout(() => {
+      ipcLightweightSet(lightweightEnabled, lightweightDelay);
+    }, 500);
+    return () => { if (lightweightSaveRef.current) clearTimeout(lightweightSaveRef.current); };
+  }, [lightweightEnabled, lightweightDelay]);
   const [busy, setBusy] = useState(false);
   // Network settings (problem 6 parity): loaded from tauri-plugin-store on
   // mount, persisted via the Save button. The Rust shell reads these keys
