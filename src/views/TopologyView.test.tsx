@@ -632,14 +632,43 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T15-3: topologyState persistence via loadTopologyState", () => {
-    it("loadTopologyState returns viewMode and locked fields", async () => {
-      // This is a unit test of the settings module, but we test via TopologyView onInit
-      // by mocking the store to return a topologyState object with viewMode and locked
-      const { loadTopologyState } = await import("../lib/settings");
-      // The actual settings module uses tauri-plugin-store which is mocked in setup.ts
-      // Just verify the function exists and is callable
-      expect(typeof loadTopologyState).toBe("function");
+  describe("T15-3: topologyState persistence round-trip", () => {
+    it("saveTopologyState then loadTopologyState restores viewMode and locked", async () => {
+      // Reconfigure the global LazyStore mock to use an in-memory map for a real round-trip.
+      const db = new Map<string, unknown>();
+      const { LazyStore } = await import("@tauri-apps/plugin-store");
+      vi.mocked(LazyStore).mockImplementation((() => ({
+        get: vi.fn(async (k: string) => db.get(k) ?? null),
+        set: vi.fn(async (k: string, v: unknown) => { db.set(k, v); }),
+        save: vi.fn(async () => {}),
+      })) as never);
+
+      const settingsMod = await import("../lib/settings");
+      const ts = { x: 100, y: -50, zoom: 1.25, viewMode: "region" as const, locked: true };
+      await settingsMod.saveTopologyState(ts);
+      const loaded = await settingsMod.loadTopologyState();
+      expect(loaded).not.toBeNull();
+      expect(loaded!.viewMode).toBe("region");
+      expect(loaded!.locked).toBe(true);
+      expect(loaded!.zoom).toBe(1.25);
+    });
+
+    it("loadTopologyState falls back to legacy topologyViewport key", async () => {
+      const db = new Map<string, unknown>();
+      db.set("topologyViewport", { x: 10, y: 20, zoom: 0.5 });
+      const { LazyStore } = await import("@tauri-apps/plugin-store");
+      vi.mocked(LazyStore).mockImplementation((() => ({
+        get: vi.fn(async (k: string) => db.get(k) ?? null),
+        set: vi.fn(async () => {}),
+        save: vi.fn(async () => {}),
+      })) as never);
+
+      const settingsMod = await import("../lib/settings");
+      const loaded = await settingsMod.loadTopologyState();
+      expect(loaded).not.toBeNull();
+      expect(loaded!.x).toBe(10);
+      expect(loaded!.viewMode).toBe("subscription"); // legacy default when not "region"
+      expect(loaded!.locked).toBe(false); // legacy default
     });
   });
 
@@ -664,11 +693,14 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T15-5: onConnect routes through strategyConfig not direct PATCH", () => {
-    it("patchRegionViaStrategyConfig calls strategy_config_get then strategy_config_put then strategy_apply", async () => {
+  describe("T15-5: onConnect routes through strategyConfig not direct PATCH (ADR-0036)", () => {
+    it("strategy_config_put is invoked on canvas data flow; platform_update is NOT invoked", async () => {
+      const invokedCmds: string[] = [];
+      const origImpl = invokeMock.getMockImplementation();
       invokeMock.mockImplementation((cmd: string) => {
+        invokedCmds.push(cmd);
         if (cmd === "platform_list_full") return Promise.resolve({
-          items: [{ id: "p1", name: "TestPlat", regex_filters: [], region_filters: [], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" }],
+          items: [{ id: "p1", name: "TestPlat", regex_filters: [], region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" }],
           total: 1, limit: 50, offset: 0,
         });
         if (cmd === "node_list") return Promise.resolve({
@@ -677,23 +709,70 @@ describe("T15-3: React.memo canvas node optimization", () => {
         });
         if (cmd === "lease_map") return Promise.resolve([]);
         if (cmd === "port_list") return Promise.resolve([]);
-        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "TestPlat", a_class: "region", b_class: "random", regions: ["hk"] }] });
         if (cmd === "strategy_config_put") return Promise.resolve(undefined);
-        if (cmd === "strategy_apply") return Promise.resolve({ applied: 0, errors: [] });
+        if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
         if (cmd === "backup_create") return Promise.resolve(undefined);
         return Promise.resolve(undefined);
       });
-      const { container } = render(<TopologyView />);
 
-      // We can't directly simulate a drag-connect in jsdom, but we verify the IPC plumbing:
-      // after render, strategy_config_get should have been called (during sync or initial load)
+      const { container } = render(<TopologyView />);
       await waitFor(() => {
-        // At minimum the topology should render
         expect(container.textContent || "").toContain("TestPlat");
       });
-      // Verify the mock is set up to accept strategy_config calls
-      expect(invokeMock).toBeDefined();
+
+      // After sync(), strategy_config_get MUST have been called (ADR-0036 single source of truth)
+      expect(invokedCmds).toContain("strategy_config_get");
+      // platform_update MUST NOT be called during sync (strategyConfig is the pipeline, not direct Resin PATCH)
+      expect(invokedCmds).not.toContain("platform_update");
+
+      if (origImpl) invokeMock.mockImplementation(origImpl);
+    });
+
+    it("whitebox strategyConfig regions override Resin platform region_filters in canvas", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({
+          items: [{ id: "p1", name: "WBPlat", regex_filters: [], region_filters: ["us"], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" }],
+          total: 1, limit: 50, offset: 0,
+        });
+        if (cmd === "node_list") return Promise.resolve({
+          items: [
+            { name: "us-01", display_tag: "US-01", has_outbound: true, failure_count: 0, region: "us", tags: [{ tag: "US", subscriptionName: "s1" }] },
+            { name: "jp-01", display_tag: "JP-01", has_outbound: true, failure_count: 0, region: "jp", tags: [{ tag: "JP", subscriptionName: "s1" }] },
+          ],
+          total: 2, limit: 500, offset: 0,
+        });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([]);
+        // Whitebox JSON says regions=["jp"] even though Resin platform still shows ["us"]
+        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "WBPlat", a_class: "region", b_class: "random", regions: ["jp"] }] });
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        expect(container.textContent || "").toContain("WBPlat");
+      });
+      // Canvas should reflect strategyConfig regions (jp) not Resin platform regions (us)
+      // The A-class badge should show JP (from strategyConfig) not US (from Resin)
+      await waitFor(() => {
+        expect(container.textContent || "").toContain("JP");
+      });
+    });
+  
+  describe("T15-4-anti-flash: empty-state messages do not appear before ready=true", () => {
+    it("noPorts/noNodes/noPlatforms messages absent before sync resolves", async () => {
+      // Block all IPC so sync() never resolves (ready stays false initially)
+      invokeMock.mockImplementation(() => new Promise(() => {}));
+      const { container } = render(<TopologyView />);
+      // Before ready, opacity gate hides canvas AND empty-state messages should NOT be in DOM
+      await new Promise((r) => setTimeout(r, 50));
+      const text = container.textContent || "";
+      // The empty-state messages are i18n keys translated in setup; check they are absent
+      // (these messages only render inside the ready-gated section)
+      expect(text).not.toContain("No platforms configured");
+      expect(text).not.toContain("未加载节点");
     });
   });
+});
 
 });

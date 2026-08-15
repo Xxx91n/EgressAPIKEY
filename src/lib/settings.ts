@@ -189,7 +189,14 @@ export type TopologyViewport = Pick<TopologyState, "x" | "y" | "zoom">;
 
 export async function loadTopologyState(): Promise<TopologyState | null> {
   try {
-    const v = await store().get<TopologyState>("topologyState");
+    let v = await store().get<TopologyState>("topologyState");
+    // T15-review migration: if topologyState absent, fall back to legacy topologyViewport key
+    if (!v) {
+      const legacy = await store().get<TopologyState>("topologyViewport");
+      if (legacy && typeof legacy.x === "number" && typeof legacy.y === "number" && typeof legacy.zoom === "number") {
+        v = { x: legacy.x, y: legacy.y, zoom: legacy.zoom, viewMode: legacy.viewMode === "region" ? "region" : "subscription", locked: legacy.locked === true };
+      }
+    }
     if (!v || typeof v.x !== "number" || typeof v.y !== "number" || typeof v.zoom !== "number")
       return null;
     return {

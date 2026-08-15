@@ -497,22 +497,30 @@ function TopologyCanvas() {
   const [sidecarStatus, setSidecarStatus] = useState<string>("");
   const [viewMode, setViewMode] = useState<"subscription" | "region">("subscription");
   const [locked, setLocked] = useState(false);
-  // T15-3: persist viewMode to topologyState
-  const handleSetViewMode = useCallback((m: "subscription" | "region") => {
-    setViewMode(m);
-  }, []);
   const [ready, setReady] = useState(false);
   const patchingRef = useRef(false);
 
   const sync = useCallback(async () => {
     try {
-      const [pRaw, nRaw, lRaw, ptRaw] = await Promise.all([
+      const [pRaw, nRaw, lRaw, ptRaw, cfgRaw] = await Promise.all([
         ipcPlatformListFull(),
         ipcNodeList(),
         ipcLeaseMap(),
         ipcPortList(),
+        ipcStrategyConfigGet().catch(() => null),
       ]);
-      setPlatforms(parsePlatforms(pRaw));
+      let plats = parsePlatforms(pRaw);
+      // T15-sp6 (ADR-0036): strategyConfig JSON is the single source of truth for region_filters.
+      // Merge strategyConfig regions over Resin platform.region_filters so the canvas reflects
+      // whitebox edits even before strategy_apply PATCHes Resin.
+      if (cfgRaw && Array.isArray(cfgRaw.platforms)) {
+        const map = new Map<string, string[]>();
+        for (const ps of cfgRaw.platforms) {
+          if (ps.platform_name && Array.isArray(ps.regions)) map.set(ps.platform_name, ps.regions);
+        }
+        plats = plats.map((p) => map.has(p.name) ? { ...p, region_filters: map.get(p.name)! } : p);
+      }
+      setPlatforms(plats);
       setSubGroups(parseSubscriptionGroups(nRaw));
       setLeases(lRaw as LeaseEntry[]);
       setPorts(ptRaw as PortMapping[]);
@@ -830,13 +838,13 @@ function TopologyCanvas() {
           onMoveEnd={onMoveEnd}
           onInit={onInit}
           colorMode={colorMode}
-          nodesConnectable
-          nodesDraggable
+          nodesConnectable={!locked}
+          nodesDraggable={!locked}
           connectionRadius={40}
           defaultEdgeOptions={{ type: "smoothstep", animated: true, style: { fontSize: 10 } }}
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
-          <CanvasControls viewMode={viewMode} setViewMode={handleSetViewMode} locked={locked} setLocked={setLocked} />
+          <CanvasControls viewMode={viewMode} setViewMode={setViewMode} locked={locked} setLocked={setLocked} />
           <MiniMap pannable zoomable />
         </ReactFlow>
       </div>
