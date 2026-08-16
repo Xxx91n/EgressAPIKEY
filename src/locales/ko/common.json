@@ -207,7 +207,11 @@
     "logLevelError": "오류",
     "logLevelWarn": "경고",
     "logLevelInfo": "정보",
-    "logLevelDebug": "디버그"
+    "logLevelDebug": "디버그",
+    "strategyConfig": "전략 설정",
+    "strategyConfigPath": "경로",
+    "strategyConfigReload": "디스크에서 다시 로드",
+    "strategyReloaded": "{{patched}} 플랫폼 적용, {{errors}} 오류"
   },
   "strategy": {
     "title": "이그레스 전략",
@@ -306,7 +310,12 @@
     "aClassRegion": "지역: {{regions}}",
     "resetCenter": "중심으로 재설정",
     "viewSubscription": "구독",
-    "viewRegion": "지역"
+    "viewRegion": "지역",
+    "expandNodes": "펼치기",
+    "collapseNodes": "접기",
+    "aClassManual": "수동 선택",
+    "aClassQuality": "품질 Top-{{n}}",
+    "aClassSubscription": "구독: {{subs}}"
   },
   "tray": {
     "show": "창 표시",

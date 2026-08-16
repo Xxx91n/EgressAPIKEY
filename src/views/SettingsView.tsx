@@ -2,9 +2,9 @@ import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 
   import { useEffect, useMemo, useState, useRef } from "react";
-import {Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap} from "lucide-react";
+import {Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap, RefreshCw} from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel} from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, type StrategyApplyResult} from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
@@ -141,9 +141,15 @@ export function SettingsView() {
   const [configBusy, setConfigBusy] = useState(false);
   // surface it. Swallow errors (vitest, sidecar not running, IPC not registered).
   const [configMsg, setConfigMsg] = useState("");
+  // T15-v3-4: strategy config reload surface (ADR-0039 SS5)
+  const [strategyConfigPath, setStrategyConfigPath] = useState("");
+  const [strategyBusy, setStrategyBusy] = useState(false);
+  const [strategyMsg, setStrategyMsg] = useState("");
 
   useEffect(() => {
     void ipcWhiteboxPath().then(setWhiteboxPath).catch(() => setWhiteboxPath(""));
+    // T15-v3-4: load strategy config path (config_dir + egressapikey-strategy.json)
+    void invoke<string>("get_config_dir").then((dir) => setStrategyConfigPath(dir + "/egressapikey-strategy.json")).catch(() => setStrategyConfigPath(""));
   }, []);
 
   async function reloadWhitebox() {
@@ -157,6 +163,21 @@ export function SettingsView() {
       setConfigMsg(translateError(e, t));
     } finally {
       setWhiteboxBusy(false);
+    }
+  }
+
+  // T15-v3-4: reload strategy config from disk (whitebox edit loop, ADR-0039 SS5)
+  async function reloadStrategyConfig() {
+    setStrategyBusy(true);
+    try {
+      const result: StrategyApplyResult = await ipcStrategyApply();
+      const patched = result.platforms.filter((p) => p.patched).length;
+      const errors = result.platforms.filter((p) => !p.patched).length;
+      setStrategyMsg(t("settings.strategyReloaded", { patched, errors }));
+    } catch (e) {
+      setStrategyMsg(translateError(e, t));
+    } finally {
+      setStrategyBusy(false);
     }
   }
 
@@ -570,6 +591,28 @@ export function SettingsView() {
           </button>
           {configBusy ? <Loader2 size={14} className="animate-spin text-zinc-400" /> : null}
           {configMsg ? <span className="text-xs text-zinc-500">{configMsg}</span> : null}
+        </div>
+      </SectionCard>
+      {/* T15-v3-4: Strategy config reload surface (ADR-0039 SS5) */}
+      <SectionCard icon={<RefreshCw size={16} strokeWidth={1.75} />} title={t("settings.strategyConfig")}>
+        <div className="flex flex-col gap-2">
+          {strategyConfigPath && (
+            <div className="text-xs text-zinc-500 dark:text-zinc-400 font-mono truncate">
+              {t("settings.strategyConfigPath")}: {strategyConfigPath}
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              data-testid="settings-strategy-reload"
+              onClick={() => void reloadStrategyConfig()}
+              disabled={strategyBusy}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {strategyBusy ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} strokeWidth={1.75} />}
+              {t("settings.strategyConfigReload")}
+            </button>
+            {strategyMsg ? <span className="text-xs text-zinc-500">{strategyMsg}</span> : null}
+          </div>
         </div>
       </SectionCard>
       {showSaveBar && (

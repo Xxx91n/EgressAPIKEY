@@ -207,7 +207,11 @@
     "logLevelError": "Kesalahan",
     "logLevelWarn": "Peringatan",
     "logLevelInfo": "Info",
-    "logLevelDebug": "Debug"
+    "logLevelDebug": "Debug",
+    "strategyConfig": "Konfigurasi strategi",
+    "strategyConfigPath": "Jalur",
+    "strategyConfigReload": "Muat ulang dari disk",
+    "strategyReloaded": "Diterapkan {{patched}} platform, {{errors}} kesalahan"
   },
   "strategy": {
     "title": "Strategi Egress",
@@ -306,7 +310,12 @@
     "aClassRegion": "Wilayah: {{regions}}",
     "resetCenter": "Reset ke tengah",
     "viewSubscription": "Langganan",
-    "viewRegion": "Wilayah"
+    "viewRegion": "Wilayah",
+    "expandNodes": "Buka",
+    "collapseNodes": "Tutup",
+    "aClassManual": "Pilihan manual",
+    "aClassQuality": "Kualitas Top-{{n}}",
+    "aClassSubscription": "Langganan: {{subs}}"
   },
   "tray": {
     "show": "Tampilkan jendela",

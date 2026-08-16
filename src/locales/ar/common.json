@@ -207,7 +207,11 @@
     "logLevelError": "خطأ",
     "logLevelWarn": "تحذير",
     "logLevelInfo": "معلومات",
-    "logLevelDebug": "تصحيح"
+    "logLevelDebug": "تصحيح",
+    "strategyConfig": "تكوين الاستراتيجية",
+    "strategyConfigPath": "المسار",
+    "strategyConfigReload": "إعادة تحميل من القرص",
+    "strategyReloaded": "تم تطبيق {{patched}} منصات، {{errors}} أخطاء"
   },
   "strategy": {
     "title": "استراتيجية الخروج",
@@ -306,7 +310,12 @@
     "aClassRegion": "المنطقة: {{regions}}",
     "resetCenter": "إعادة إلى المركز",
     "viewSubscription": "الاشتراكات",
-    "viewRegion": "المناطق"
+    "viewRegion": "المناطق",
+    "expandNodes": "توسيع",
+    "collapseNodes": "طي",
+    "aClassManual": "اختيار يدوي",
+    "aClassQuality": "جودة Top-{{n}}",
+    "aClassSubscription": "اشتراك: {{subs}}"
   },
   "tray": {
     "show": "إظهار النافذة",

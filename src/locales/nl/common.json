@@ -207,7 +207,11 @@
     "logLevelError": "Fout",
     "logLevelWarn": "Waarschuwing",
     "logLevelInfo": "Info",
-    "logLevelDebug": "Debug"
+    "logLevelDebug": "Debug",
+    "strategyConfig": "Strategie-config",
+    "strategyConfigPath": "Pad",
+    "strategyConfigReload": "Van schijf herladen",
+    "strategyReloaded": "{{patched}} platforms toegepast, {{errors}} fouten"
   },
   "strategy": {
     "title": "Egress Strategie",
@@ -306,7 +310,12 @@
     "aClassRegion": "Regio: {{regions}}",
     "resetCenter": "Naar centrum",
     "viewSubscription": "Abonnementen",
-    "viewRegion": "Regio's"
+    "viewRegion": "Regio's",
+    "expandNodes": "Uitklappen",
+    "collapseNodes": "Inklappen",
+    "aClassManual": "Handmatige selectie",
+    "aClassQuality": "Kwaliteit Top-{{n}}",
+    "aClassSubscription": "Abonnement: {{subs}}"
   },
   "tray": {
     "show": "Venster tonen",

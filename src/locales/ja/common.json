@@ -207,7 +207,11 @@
     "logLevelError": "エラー",
     "logLevelWarn": "警告",
     "logLevelInfo": "情報",
-    "logLevelDebug": "デバッグ"
+    "logLevelDebug": "デバッグ",
+    "strategyConfig": "戦略設定",
+    "strategyConfigPath": "パス",
+    "strategyConfigReload": "ディスクから再読込",
+    "strategyReloaded": "{{patched}} プラットフォーム適用、{{errors}} エラー"
   },
   "strategy": {
     "title": "エグレス戦略",
@@ -306,7 +310,12 @@
     "aClassRegion": "地域: {{regions}}",
     "resetCenter": "センターにリセット",
     "viewSubscription": "サブスクリプション",
-    "viewRegion": "地域"
+    "viewRegion": "地域",
+    "expandNodes": "展開",
+    "collapseNodes": "折りたたむ",
+    "aClassManual": "手動選択",
+    "aClassQuality": "品質 Top-{{n}}",
+    "aClassSubscription": "サブスクリプション: {{subs}}"
   },
   "tray": {
     "show": "ウィンドウを表示",

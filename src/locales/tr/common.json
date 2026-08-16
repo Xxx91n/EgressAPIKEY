@@ -207,7 +207,11 @@
     "logLevelError": "Hata",
     "logLevelWarn": "Uyarı",
     "logLevelInfo": "Bilgi",
-    "logLevelDebug": "Hata ayıkla"
+    "logLevelDebug": "Hata ayıkla",
+    "strategyConfig": "Strateji yapılandırması",
+    "strategyConfigPath": "Yol",
+    "strategyConfigReload": "Diskten yeniden yükle",
+    "strategyReloaded": "{{patched}} platform uygulandı, {{errors}} hata"
   },
   "strategy": {
     "title": "Çıkış Stratejisi",
@@ -306,7 +310,12 @@
     "aClassRegion": "Bölge: {{regions}}",
     "resetCenter": "Merkeze sıfırla",
     "viewSubscription": "Abonelikler",
-    "viewRegion": "Bölgeler"
+    "viewRegion": "Bölgeler",
+    "expandNodes": "Genişlet",
+    "collapseNodes": "Daralt",
+    "aClassManual": "Manuel seçim",
+    "aClassQuality": "Kalite Top-{{n}}",
+    "aClassSubscription": "Abonelik: {{subs}}"
   },
   "tray": {
     "show": "Pencereyi göster",

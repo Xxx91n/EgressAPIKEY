@@ -207,7 +207,11 @@
     "logLevelError": "त्रुटि",
     "logLevelWarn": "चेतावनी",
     "logLevelInfo": "जानकारी",
-    "logLevelDebug": "डिबग"
+    "logLevelDebug": "डिबग",
+    "strategyConfig": "रणनीति कॉन्फ़िग",
+    "strategyConfigPath": "पथ",
+    "strategyConfigReload": "डिस्क से पुनः लोड",
+    "strategyReloaded": "{{patched}} प्लेटफ़ॉर्म लागू, {{errors}} त्रुटियाँ"
   },
   "strategy": {
     "title": "निकास रणनीति",
@@ -306,7 +310,12 @@
     "aClassRegion": "क्षेत्र: {{regions}}",
     "resetCenter": "केंद्र में रीसेट",
     "viewSubscription": "सब्सक्रिप्शन",
-    "viewRegion": "क्षेत्र"
+    "viewRegion": "क्षेत्र",
+    "expandNodes": "विस्तार",
+    "collapseNodes": "संक्चित",
+    "aClassManual": "मैनुअल चयन",
+    "aClassQuality": "गुणवत्ता Top-{{n}}",
+    "aClassSubscription": "सदस्यता: {{subs}}"
   },
   "tray": {
     "show": "विंडो दिखाएं",

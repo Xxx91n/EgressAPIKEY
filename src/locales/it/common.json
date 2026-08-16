@@ -207,7 +207,11 @@
     "logLevelError": "Errore",
     "logLevelWarn": "Avviso",
     "logLevelInfo": "Info",
-    "logLevelDebug": "Debug"
+    "logLevelDebug": "Debug",
+    "strategyConfig": "Config strategia",
+    "strategyConfigPath": "Percorso",
+    "strategyConfigReload": "Ricarica dal disco",
+    "strategyReloaded": "Applicate {{patched}} piattaforme, {{errors}} errori"
   },
   "strategy": {
     "title": "Strategia di Uscita",
@@ -306,7 +310,12 @@
     "aClassRegion": "Regione: {{regions}}",
     "resetCenter": "Reimposta al centro",
     "viewSubscription": "Abbonamenti",
-    "viewRegion": "Regioni"
+    "viewRegion": "Regioni",
+    "expandNodes": "Espandi",
+    "collapseNodes": "Comprimi",
+    "aClassManual": "Selezione manuale",
+    "aClassQuality": "Qualità Top-{{n}}",
+    "aClassSubscription": "Abbonamento: {{subs}}"
   },
   "tray": {
     "show": "Mostra finestra",

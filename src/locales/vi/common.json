@@ -207,7 +207,11 @@
     "logLevelError": "Lỗi",
     "logLevelWarn": "Cảnh báo",
     "logLevelInfo": "Thông tin",
-    "logLevelDebug": "Gỡ lỗi"
+    "logLevelDebug": "Gỡ lỗi",
+    "strategyConfig": "Cấu hình chiến lược",
+    "strategyConfigPath": "Đường dẫn",
+    "strategyConfigReload": "Tải lại từ đĩa",
+    "strategyReloaded": "Đã áp dụng {{patched}} nền tảng, {{errors}} lỗi"
   },
   "strategy": {
     "title": "Chiến lược Egess",
@@ -306,7 +310,12 @@
     "aClassRegion": "Khu vực: {{regions}}",
     "resetCenter": "Đặt lại về trung tâm",
     "viewSubscription": "Đăng ký",
-    "viewRegion": "Khu vực"
+    "viewRegion": "Khu vực",
+    "expandNodes": "Mở rộng",
+    "collapseNodes": "Thu gọn",
+    "aClassManual": "Chọn thủ công",
+    "aClassQuality": "Chất lượng Top-{{n}}",
+    "aClassSubscription": "Đăng ký: {{subs}}"
   },
   "tray": {
     "show": "Hiện cửa sổ",

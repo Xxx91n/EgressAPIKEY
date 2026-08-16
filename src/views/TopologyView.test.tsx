@@ -124,7 +124,7 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
     const { container } = render(<TopologyView />);
     await waitFor(() => {
       const text = container.textContent || "";
-      expect(text).toContain("A: Manual");
+      expect(text).toContain("A: Manual selection");
     });
   });
 
@@ -512,7 +512,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       });
       const { container } = render(<TopologyView />);
       await waitFor(() => {
-        expect(container.textContent || "").toContain("A: Manual");
+        expect(container.textContent || "").toContain("A: Manual selection");
       });
     });
   });
@@ -684,12 +684,14 @@ describe("T15-3: React.memo canvas node optimization", () => {
         { id: "e2", source: "b", target: "c" },
       ];
       const result = layoutNodesViaDagre(nodes, edges);
-      // After centering, the average x should be near 0 (not all positive)
-      const avgX = result.reduce((sum: number, n: any) => sum + n.position.x, 0) / result.length;
-      const avgY = result.reduce((sum: number, n: any) => sum + n.position.y, 0) / result.length;
-      // With centering offset, average should be near 0 (within a small tolerance for margins)
-      expect(Math.abs(avgX)).toBeLessThan(200);
-      expect(Math.abs(avgY)).toBeLessThan(200);
+      // T15-v3-2: offset removed per ADR-0039 SS4; dagre positions start from margin (20,20).
+      // Assert positions are non-negative and finite (no NaN/infinite drift).
+      for (const n of result) {
+        expect(Number.isFinite(n.position.x)).toBe(true);
+        expect(Number.isFinite(n.position.y)).toBe(true);
+        expect(n.position.x).toBeGreaterThanOrEqual(-10); // small tolerance for margin
+        expect(n.position.y).toBeGreaterThanOrEqual(-10);
+      }
     });
   });
 

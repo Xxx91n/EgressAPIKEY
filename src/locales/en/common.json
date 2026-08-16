@@ -207,7 +207,11 @@
     "logLevelError": "Error",
     "logLevelWarn": "Warning",
     "logLevelInfo": "Info",
-    "logLevelDebug": "Debug"
+    "logLevelDebug": "Debug",
+    "strategyConfig": "Strategy config",
+    "strategyConfigPath": "Path",
+    "strategyConfigReload": "Reload from disk",
+    "strategyReloaded": "Applied {{patched}} platforms, {{errors}} errors"
   },
   "strategy": {
     "title": "Egress Strategy",
@@ -306,7 +310,12 @@
     "aClassRegion": "Region: {{regions}}",
     "resetCenter": "Reset to center",
     "viewSubscription": "Subscriptions",
-    "viewRegion": "Regions"
+    "viewRegion": "Regions",
+    "expandNodes": "Expand",
+    "collapseNodes": "Collapse",
+    "aClassManual": "Manual selection",
+    "aClassQuality": "Quality Top-{{n}}",
+    "aClassSubscription": "Subscription: {{subs}}"
   },
   "tray": {
     "show": "Show Window",

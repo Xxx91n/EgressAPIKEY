@@ -207,7 +207,11 @@
     "logLevelError": "Erreur",
     "logLevelWarn": "Avertissement",
     "logLevelInfo": "Information",
-    "logLevelDebug": "Débogage"
+    "logLevelDebug": "Débogage",
+    "strategyConfig": "Config de stratégie",
+    "strategyConfigPath": "Chemin",
+    "strategyConfigReload": "Recharger du disque",
+    "strategyReloaded": "Appliqué {{patched}} plateformes, {{errors}} erreurs"
   },
   "strategy": {
     "title": "Stratégie de Sortie",
@@ -306,7 +310,12 @@
     "aClassRegion": "Région: {{regions}}",
     "resetCenter": "Réinitialiser au centre",
     "viewSubscription": "Abonnements",
-    "viewRegion": "Régions"
+    "viewRegion": "Régions",
+    "expandNodes": "Déplier",
+    "collapseNodes": "Replier",
+    "aClassManual": "Sélection manuelle",
+    "aClassQuality": "Qualité Top-{{n}}",
+    "aClassSubscription": "Abonnement: {{subs}}"
   },
   "tray": {
     "show": "Afficher la Fenêtre",

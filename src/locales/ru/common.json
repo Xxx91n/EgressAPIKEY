@@ -207,7 +207,11 @@
     "logLevelError": "Ошибка",
     "logLevelWarn": "Предупреждение",
     "logLevelInfo": "Информация",
-    "logLevelDebug": "Отладка"
+    "logLevelDebug": "Отладка",
+    "strategyConfig": "Конфиг стратегии",
+    "strategyConfigPath": "Путь",
+    "strategyConfigReload": "Перезагрузить с диска",
+    "strategyReloaded": "Применено {{patched}} платформ, {{errors}} ошибок"
   },
   "strategy": {
     "title": "Стратегия выхода",
@@ -306,7 +310,12 @@
     "aClassRegion": "Регион: {{regions}}",
     "resetCenter": "Сбросить к центру",
     "viewSubscription": "Подписки",
-    "viewRegion": "Регионы"
+    "viewRegion": "Регионы",
+    "expandNodes": "Развернуть",
+    "collapseNodes": "Свернуть",
+    "aClassManual": "Ручной выбор",
+    "aClassQuality": "Качество Top-{{n}}",
+    "aClassSubscription": "Подписка: {{subs}}"
   },
   "tray": {
     "show": "Показать окно",

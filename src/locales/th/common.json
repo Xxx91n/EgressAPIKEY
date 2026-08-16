@@ -207,7 +207,11 @@
     "logLevelError": "ข้อผิดพลาด",
     "logLevelWarn": "คำเตือน",
     "logLevelInfo": "ข้อมูล",
-    "logLevelDebug": "ดีบัก"
+    "logLevelDebug": "ดีบัก",
+    "strategyConfig": "การตั้งค่ากลยุทธ์",
+    "strategyConfigPath": "เส้นทาง",
+    "strategyConfigReload": "โหลดใหม่จากดิสก์",
+    "strategyReloaded": "ใช้งาน {{patched}} แพลตฟอร์ม, {{errors}} ข้อผิดพลาด"
   },
   "strategy": {
     "title": "กลยุทธ์ทางออก",
@@ -306,7 +310,12 @@
     "aClassRegion": "ภูมิภาค: {{regions}}",
     "resetCenter": "รีเซ็ตไปยังศูนย์กลาง",
     "viewSubscription": "การสมัครรับข้อมูล",
-    "viewRegion": "ภูมิภาค"
+    "viewRegion": "ภูมิภาค",
+    "expandNodes": "ขยาย",
+    "collapseNodes": "ยุบ",
+    "aClassManual": "เลือกด้วยตนเอง",
+    "aClassQuality": "คุณภาพ Top-{{n}}",
+    "aClassSubscription": "การสมัครสมาชิก: {{subs}}"
   },
   "tray": {
     "show": "แสดงหน้าต่าง",

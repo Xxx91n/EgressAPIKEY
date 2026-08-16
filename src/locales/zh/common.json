@@ -207,7 +207,11 @@
     "logLevelError": "错误",
     "logLevelWarn": "警告",
     "logLevelInfo": "信息",
-    "logLevelDebug": "调试"
+    "logLevelDebug": "调试",
+    "strategyConfig": "策略配置",
+    "strategyConfigPath": "路径",
+    "strategyConfigReload": "从磁盘重新加载",
+    "strategyReloaded": "已应用 {{patched}} 个平台，{{errors}} 个错误"
   },
   "strategy": {
     "title": "出口策略",
@@ -306,7 +310,12 @@
     "aClassRegion": "地区: {{regions}}",
     "resetCenter": "回到世界中心",
     "viewSubscription": "订阅",
-    "viewRegion": "地区"
+    "viewRegion": "地区",
+    "expandNodes": "展开",
+    "collapseNodes": "折叠",
+    "aClassManual": "手动选择",
+    "aClassQuality": "质量 Top-{{n}}",
+    "aClassSubscription": "订阅: {{subs}}"
   },
   "tray": {
     "show": "显示窗口",

@@ -39,6 +39,12 @@ interface PlatformFull {
   allocation_policy: string;
   routable_node_count: number;
   sticky_ttl: string;
+  // T15-v3-3: strategyConfig read-side fields (ADR-0036 read-side, ADR-0039 SS2)
+  aClass?: string;              // strategyConfig a_class: manual | region | quality | subscription
+  bClass?: string;             // strategyConfig b_class (shell StrategyId snake_case)
+  manualNodes?: string[];      // strategyConfig manual_nodes
+  subscriptionNames?: string[]; // strategyConfig subscriptions
+  topN?: number;               // strategyConfig top_n
 }
 
 interface NodeItem {
@@ -166,14 +172,12 @@ export function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 20
     g.setEdge(e.source, e.target);
   }
   dagre.layout(g);
-  // T15-4: offset all nodes so graph center aligns to coordinate origin (0,0)
-  const graphLabel = g.graph() as { width?: number; height?: number };
-  const offsetX = (graphLabel.width ?? 0) / 2;
-  const offsetY = (graphLabel.height ?? 0) / 2;
+  // T15-v3-2: authoritative dagre → ReactFlow position formula (pos.x - nodeWidth/2 only).
+  // The graphLabel.width/2 subtraction was a known offset-drift bug (ADR-0039 SS4).
   return nodes.map((n) => {
     const pos = g.node(n.id);
     if (pos) {
-      return { ...n, position: { x: pos.x - nodeWidth / 2 - offsetX, y: pos.y - nodeHeight / 2 - offsetY } };
+      return { ...n, position: { x: pos.x - nodeWidth / 2, y: pos.y - nodeHeight / 2 } };
     }
     return n;
   });
@@ -327,24 +331,58 @@ const SubscriptionGroupNode = memo(function SubscriptionGroupNode({ data }: Node
 
 
 /// T14-4: Custom node: Region group (C column region view) — aggregates by region
+/// T15-v3-1: Region group (C column region view) — fold contract mirroring SubscriptionGroupNode.
+/// Collapsed by default: summary card with region label + healthy/total badge + sub chip.
+/// Expandable on click: per-node rows (max 10 visible + "+N more").
 const RegionGroupNode = memo(function RegionGroupNode({ data }: NodeProps) {
+  const { t } = useTranslation();
   const d = data as Record<string, unknown>;
   const total = typeof d.total === "number" ? d.total : 0;
   const healthy = typeof d.healthy === "number" ? d.healthy : 0;
   const subs = (Array.isArray(d.subs) ? d.subs : []) as string[];
+  const nodes = (Array.isArray(d.nodes) ? d.nodes : []) as Array<{
+    display_tag: string; region: string; healthy: boolean; latencyColor: string;
+  }>;
+  const [expanded, setExpanded] = useState(false);
+  const MAX_VISIBLE = 10;
+  const visibleNodes = expanded ? nodes.slice(0, MAX_VISIBLE) : [];
+  const moreCount = nodes.length - MAX_VISIBLE;
   return (
-    <div className="relative rounded-lg border border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/50 px-4 py-3 text-xs min-w-[140px] max-w-[200px]">
+    <div className="relative rounded-lg border border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/50 px-4 py-3 text-xs min-w-[160px] max-w-[240px]">
       <Handle type="target" position={Position.Left} style={fixedHandleStyle} />
-      <div className="font-semibold text-amber-700 dark:text-amber-300">{String(d.label)}</div>
-      <div className="mt-1 text-[10px] text-amber-600/70 dark:text-amber-400/70">
-        {healthy}/{total} healthy
+      <div className="flex items-center justify-between">
+        <div className="font-semibold text-amber-700 dark:text-amber-300">{String(d.label)}</div>
+        {nodes.length > 0 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            className="text-[9px] text-amber-500 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-200 cursor-pointer"
+          >
+            {expanded ? t("topology.collapseNodes") : t("topology.expandNodes")}
+          </button>
+        )}
       </div>
-      {subs.length > 0 && (
+      <div className="mt-1 text-[10px] text-amber-600/70 dark:text-amber-400/70">
+        {healthy}/{total} {t("topology.healthy")}
+      </div>
+      {!expanded && subs.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-0.5">
           {subs.slice(0, 3).map((s, i) => (
             <span key={"sub-" + i} className="text-[9px] text-zinc-500 dark:text-zinc-400 truncate">{s}</span>
           ))}
           {subs.length > 3 && <span className="text-[9px] text-zinc-400">+{subs.length - 3}</span>}
+        </div>
+      )}
+      {expanded && visibleNodes.length > 0 && (
+        <div className="mt-2 flex flex-col gap-0.5">
+          {visibleNodes.map((n, i) => (
+            <div key={"node-" + i} className="flex items-center gap-1.5 text-[10px]">
+              <span className={"inline-block h-1.5 w-1.5 rounded-full " + n.latencyColor} />
+              <span className="text-zinc-600 dark:text-zinc-300 font-mono truncate">{n.display_tag}</span>
+            </div>
+          ))}
+          {moreCount > 0 && (
+            <div className="mt-0.5 text-[9px] text-zinc-400 dark:text-zinc-500">+{moreCount} more</div>
+          )}
         </div>
       )}
     </div>
@@ -513,12 +551,25 @@ function TopologyCanvas() {
       // T15-sp6 (ADR-0036): strategyConfig JSON is the single source of truth for region_filters.
       // Merge strategyConfig regions over Resin platform.region_filters so the canvas reflects
       // whitebox edits even before strategy_apply PATCHes Resin.
+      // T15-v3-3 (ADR-0039 SS2): merge ALL strategyConfig fields, not just regions.
       if (cfgRaw && Array.isArray(cfgRaw.platforms)) {
-        const map = new Map<string, string[]>();
+        const map = new Map<string, Record<string, unknown>>();
         for (const ps of cfgRaw.platforms) {
-          if (ps.platform_name && Array.isArray(ps.regions)) map.set(ps.platform_name, ps.regions);
+          if (ps.platform_name) map.set(ps.platform_name, ps as unknown as Record<string, unknown>);
         }
-        plats = plats.map((p) => map.has(p.name) ? { ...p, region_filters: map.get(p.name)! } : p);
+        plats = plats.map((p) => {
+          const ps = map.get(p.name);
+          if (!ps) return p;
+          return {
+            ...p,
+            region_filters: Array.isArray(ps.regions) ? ps.regions as string[] : p.region_filters,
+            aClass: typeof ps.a_class === "string" ? ps.a_class : undefined,
+            bClass: typeof ps.b_class === "string" ? ps.b_class : undefined,
+            manualNodes: Array.isArray(ps.manual_nodes) ? ps.manual_nodes as string[] : undefined,
+            subscriptionNames: Array.isArray(ps.subscriptions) ? ps.subscriptions as string[] : undefined,
+            topN: typeof ps.top_n === "number" ? ps.top_n : undefined,
+          };
+        });
       }
       setPlatforms(plats);
       setSubGroups(parseSubscriptionGroups(nRaw));
@@ -608,9 +659,28 @@ function TopologyCanvas() {
       const filters = p.regex_filters?.length ? t("topology.filters", { filters: p.regex_filters.join(", ") }) : "";
       const routable = t("topology.routable", { count: p.routable_node_count });
       const sub = [filters, routable].filter(Boolean).join("\n");
-      const shellStrategy = mapResinToShell(p.allocation_policy ?? "BALANCED");
-      const bClassLabel = t(strategyToI18nKey(shellStrategy));
-      const aClassLabel = (p.region_filters?.length ?? 0) > 0 ? t("topology.aClassRegion", { regions: p.region_filters!.join(",").toUpperCase() }) : t("strategy.manual");
+      // T15-v3-3: strategy badge reads strategyConfig first (ADR-0039 SS2).
+      // B-class: prefer strategyConfig b_class; fall back to Resin allocation_policy mapping.
+      const shellStrategy = p.bClass ?? mapResinToShell(p.allocation_policy ?? "BALANCED");
+      const bClassLabel = t(strategyToI18nKey(shellStrategy as ReturnType<typeof mapResinToShell>));
+      // A-class: switch on strategyConfig a_class (not just region_filters length).
+      const aClassLabel = (() => {
+        switch (p.aClass ?? "manual") {
+          case "region":
+            return (p.region_filters?.length ?? 0) > 0 ? t("topology.aClassRegion", { regions: p.region_filters!.join(",").toUpperCase() }) : t("topology.aClassManual");
+          case "quality":
+            return t("topology.aClassQuality", { n: p.topN ?? 10 });
+          case "subscription":
+            return t("topology.aClassSubscription", { subs: (p.subscriptionNames ?? []).join(",") });
+          case "manual":
+          default:
+            // Fallback: if region_filters exist but aClass is unset, show Region badge.
+            if ((p.region_filters?.length ?? 0) > 0) {
+              return t("topology.aClassRegion", { regions: p.region_filters!.join(",").toUpperCase() });
+            }
+            return t("topology.aClassManual");
+        }
+      })();
       const pidLeases = (leasesByPid.get(p.id) ?? []).slice(0, 3);
       list.push({
         id: "platform-" + p.name,
@@ -665,23 +735,32 @@ function TopologyCanvas() {
     });
     // T14-4: region view mode — build region group nodes
     if (viewMode === "region") {
-      const regionMap = new Map<string, { total: number; healthy: number; subs: Set<string> }>();
+      const regionMap = new Map<string, { total: number; healthy: number; subs: Set<string>; nodeRows: Array<{ display_tag: string; region: string; healthy: boolean; latencyColor: string }> }>();
       for (const g of subGroups) {
         for (const n of g.nodes) {
           const r = getNodeRegion(n);
-          const entry = regionMap.get(r) ?? { total: 0, healthy: 0, subs: new Set<string>() };
+          const entry = regionMap.get(r) ?? { total: 0, healthy: 0, subs: new Set<string>(), nodeRows: [] };
           entry.total++;
           if ((n.failure_count ?? 0) === 0 && n.has_outbound !== false) entry.healthy++;
           entry.subs.add(g.subscriptionName);
+          const isHealthy = (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
+          const latencyColor = isHealthy ? "bg-emerald-500" : "bg-red-500";
+          entry.nodeRows.push({
+            display_tag: n.display_tag || n.name || "node",
+            region: r.toUpperCase(),
+            healthy: isHealthy,
+            latencyColor,
+          });
           regionMap.set(r, entry);
         }
       }
       for (const [region, info] of regionMap) {
+        const filteredNodeRows = selectedRegions.has(region) ? info.nodeRows : [];
         list.push({
           id: "regiongroup-" + region,
           type: "regionGroup",
           position: { x: 0, y: 0 },
-          data: { label: region.toUpperCase(), total: info.total, healthy: info.healthy, subs: [...info.subs] },
+          data: { label: region.toUpperCase(), total: info.total, healthy: info.healthy, subs: [...info.subs], nodes: filteredNodeRows },
         });
       }
     }
