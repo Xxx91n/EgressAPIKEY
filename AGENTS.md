@@ -706,3 +706,18 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 - **Tests**: 225 vitest pass / 16 files (unchanged total — 4 test assertions updated: manual label "A: Manual" -> "A: Manual selection"; dagre centering assertion replaced by finite-position check since centering offset was removed). tsc clean; cargo `resin-core --lib` 120 pass (Rust untouched).
 - **Hard close-loop (§5)**: `pnpm build` -> Vite chunk hash `CbEJnK0B` embedded in `release/windows-gui/EgressAPIKEY.exe` at byte offset 11078901 (Node `Buffer.indexOf` verified). Release exe 13.69MB + `resin.exe` 37.93MB sidecar staged. Smoke: PID 3012 alive, MainWindowTitle=EgressAPIKEY, WS 33.8MB, resin child PID 11668 WS 49.4MB.
 - **ADR-0036 addendum**: the read side of the strategyConfig pipeline (how the canvas consumes the JSON) is now specified by ADR-0039 SS2. The write side (`strategy_config_put` + `strategy_apply`) remains unchanged. No reversal of the write-side decision.
+
+### 58. T16 - canvas region filter + port drag-bind + MiniMap i18n
+
+- **T16-1 (region viewMode filter guard)**: `TopologyView.tsx` region viewMode `for (const [region, info] of regionMap)` loop now guards with `if (!selectedRegions.has(region)) continue;` before pushing a `regiongroup-` node. Mirrors the existing subscription viewMode filter. Unselected regions no longer appear as dead cards under the entry-port nodes, fixing the "莫名多出来一堆节点卡片" bug.
+- **T16-2 (entry-port → platform drag-bind)**: `onConnect` now has a new branch at the top: when `conn.source.startsWith("entry-port-")` and `conn.target.startsWith("platform-")`, it extracts the port number + platform name, calls `ipcPortBindPlatform(portNum, platName)` then `sync()`. Reuses the existing Rust `port_bind_platform` IPC command + TS wrapper. No new IPC needed. The `patchingRef` reentry lock guards this branch too.
+- **T16-3 (MiniMap i18n tooltip + nodeColor)**: `<MiniMap>` wrapped in `<div title={t("topology.minimapHint")}>` for a localized hover tooltip. Added `nodeColor` function coloring nodes by type: entryPort=#3b82f6 (blue), platform=#a855f7 (purple), subscriptionGroup=#22c55e (green), regionGroup=#f59e0b (amber). Added `maskColor="rgba(15, 23, 42, 0.7)"` for a dark viewport overlay. Zero new dependency — all built-in ReactFlow 12 MiniMap props.
+- **T16-4 (open strategy config button)**: New button below `<CanvasControls>` at bottom-left of the canvas. Uses `ipcGetConfigDir()` + dynamic `import("@tauri-apps/plugin-opener")` + `openPath(dir + "/egressapikey-strategy.json")` to open the whitebox strategy config file in the OS default editor. i18n key: `topology.openStrategyConfig` x18 locales.
+- **i18n**: 2 new keys (`topology.minimapHint` + `topology.openStrategyConfig`) across all 18 base locales. `pnpm i18n:check` = 343 keys / 18 locales (was 341 + 2 new = 343).
+- **Tests**: 225 vitest pass / 16 files, tsc green, i18n:check green.
+- **Build**: `pnpm build` green (TopologyView chunk hash `BYsV6O77`), `cargo build --release -p egressapikey-app --features custom-protocol` green (4m40s). Exe staged at `release/windows-gui/EgressAPIKEY.exe` 13.07MB. Chunk hash `BYsV6O77` verified in exe bytes.
+- **Smoke**: PID 7008 alive, `MainWindowTitle=EgressAPIKEY`, WS 33.9MB, resin child PID 12128 WS 49.4MB.
+- **ADR**: [ADR-0040](docs/adr/0040-canvas-region-filter-port-bind-minimap.md) — 3-section decision record (S1 region filter / S2 port drag-bind / S3 MiniMap i18n), each with rejected alternatives + consequences.
+- **CONTEXT.md**: added terms `selectedRegions`, `port_bind_platform`, `MiniMap`; `viewMode` de-duped (original definition retained).
+- **Codegraph**: 1 modified file synced (51 nodes).
+- **Commit**: `745837e` on `codex/rust-port`, pushed.
