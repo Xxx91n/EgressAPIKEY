@@ -9,7 +9,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 
-import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, getSelectedRegions, layoutNodesViaDagre, fixedHandleStyle, useTopologyStore, dedupNodesByHash } from "./TopologyView";
+import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, getSelectedRegions, layoutNodesViaDagre, fixedHandleStyle, useTopologyStore, dedupNodesByHash, buildCColumnGroups } from "./TopologyView";
 
 describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dual badges)", () => {
   beforeEach(() => { invokeMock.mockReset(); });
@@ -780,32 +780,86 @@ describe("T15-3: React.memo canvas node optimization", () => {
   describe("T17-1 (ADR-0041 S1): viewMode guard on subGroup loop", () => {
     beforeEach(() => { invokeMock.mockReset(); });
 
-    it("T17-1a: region viewMode does not render subscription group nodes (happy)", async () => {
-      invokeMock.mockImplementation((cmd: string) => {
-        if (cmd === "platform_list_full") return Promise.resolve({
-          items: [{ id: "p1", name: "OpenAI", regex_filters: [], region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 1, sticky_ttl: "" }],
-          total: 1, limit: 50, offset: 0,
-        });
-        if (cmd === "node_list") return Promise.resolve({
-          items: [
-            { name: "hk-01", display_tag: "HK-01", node_hash: "h1", has_outbound: true, failure_count: 0, tags: [{ tag: "HK", subscriptionName: "my-sub" }] },
-            { name: "hk-02", display_tag: "HK-02", node_hash: "h2", has_outbound: true, failure_count: 0, tags: [{ tag: "HK", subscriptionName: "my-sub" }] },
-          ],
-          total: 2, limit: 500, offset: 0,
-        });
-        if (cmd === "lease_map") return Promise.resolve([]);
-        if (cmd === "port_list") return Promise.resolve([]);
-        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "OpenAI", a_class: "region", b_class: "random", regions: ["hk"] }] });
-        return Promise.resolve(undefined);
-      });
-      const { container } = render(<TopologyView />);
-      await waitFor(() => { expect(container.textContent || "").toContain("OpenAI"); });
-      // The region viewMode is the DEFAULT? Actually default is subscription in TopologyView.
-      // Need to check we're in region view. The view toggle button "topology.viewRegion" has
-      // title=translated text. To switch viewMode in test we need to click it or persist a
-      // pre-saved state. The store is reset between tests so default = "subscription".
-      // We assert that in DEFAULT subscription viewMode the sub label appears.
-      expect(container.textContent || "").toContain("my-sub");
+    it("T17-1a: region viewMode does not render subscription group nodes (ADR-0041 S1)", async () => {
+      // T17-audit: assertion strategy switched from ReactFlow-rendered DOM textContent to
+      // a direct call of the extracted `buildCColumnGroups` pure helper. Reason (atomcode
+      // research + local evidence): under jsdom, ReactFlow only reliably stampedes entry-port
+      // + platform nodes; subscriptionGroup/regionGroup custom-node DOM does not render, so
+      // either `textContent` or class-based DOM assertion is unreliable (the failing variant
+      // saw `my-sub` survive in region viewMode because RegionGroupNode renders the sub name
+      // as an inline chip). The S1 contract "subGroup push block gated by viewMode !==
+      // subscription" is now verifiable at the helper layer: the helper is the exact code
+      // that mutated the list inside rawNodes useMemo before extraction, so asserting its
+      // outputs pins the same guard LiveView exercised.
+      //
+      // Defensive double-cover kept: a pre-populated `topologyState` with viewMode=region is
+      // set so future vitest versions that DO fire ReactFlow onInit in jsdom converge to
+      // region viewMode as well; this does not affect the helper-call assertions below.
+      const db = new Map<string, unknown>();
+      db.set("topologyState", { x: 0, y: 0, zoom: 1, viewMode: "region", locked: false });
+      const { LazyStore } = await import("@tauri-apps/plugin-store");
+      vi.mocked(LazyStore).mockImplementation((() => ({
+        get: vi.fn(async (k: string) => db.get(k) ?? null),
+        set: vi.fn(async (k: string, v: unknown) => { db.set(k, v); }),
+        save: vi.fn(async () => {}),
+      })) as never);
+
+      try {
+        // Mounted TopologyView is still rendered so the IPC mock path is exercised AND a
+        // future vitest that fires onInit under jsdom finds an already-region viewMode —
+        // regression coverage for the previous "boot flash" class of bugs. We do not assert on
+        // the rendered DOM here: under jsdom, ReactFlow only reliably renders the entry-port
+        // node, so platform + C-column custom-node DOM is missing and a textContent anchor
+        // would hang. The S1 contract assertions below are pure-helper-output checks.
+        void render(<TopologyView />);
+        await Promise.resolve();
+
+        // Test fixture mirrors the node_list mock shape so the helper sees exactly the data
+        // the canvas would feed it: 2 healthy HK nodes from subscription "my-sub", all in
+        // region "hk" which the platform selects.
+        const subGroups = [
+          {
+            subscriptionName: "my-sub",
+            nodes: [
+              { name: "hk-01", display_tag: "HK-01", node_hash: "h1", has_outbound: true, failure_count: 0, region: "hk", tags: [{ tag: "HK", subscriptionName: "my-sub" }] },
+              { name: "hk-02", display_tag: "HK-02", node_hash: "h2", has_outbound: true, failure_count: 0, region: "hk", tags: [{ tag: "HK", subscriptionName: "my-sub" }] },
+            ],
+            healthy: 2,
+            total: 2,
+            regions: ["hk"],
+          },
+        ] as unknown as Parameters<typeof buildCColumnGroups>[1];
+        const selectedRegions = new Set<string>(["hk"]);
+        const t = i18next.t.bind(i18next) as (key: string, opts?: Record<string, unknown>) => string;
+
+        // S1 contract, viewMode = subscription (default): subscriptionGroup node IS pushed.
+        const subNodes = buildCColumnGroups("subscription", subGroups, selectedRegions, t);
+        const subGroupEntries = subNodes.filter((n) => (n.id ?? "").startsWith("subgroup-"));
+        expect(subGroupEntries.length).toBe(1);
+        expect(subGroupEntries[0].id).toBe("subgroup-my-sub");
+        // Sanity: region nodes are never built under subscription viewMode.
+        const regionEntriesInSub = subNodes.filter((n) => (n.id ?? "").startsWith("regiongroup-"));
+        expect(regionEntriesInSub.length).toBe(0);
+
+        // S1 contract, viewMode = region (flipped by the CanvasControls region button /
+        // pre-populated topologyState above): subscriptionGroup node is NOT pushed (the early
+        // return at L723 of the helper fires), and the region group for "hk" IS pushed
+        // because selectedRegions contains "hk" (T16-1 selectedRegions gate).
+        const regionNodes = buildCColumnGroups("region", subGroups, selectedRegions, t);
+        const subGroupEntriesInRegion = regionNodes.filter((n) => (n.id ?? "").startsWith("subgroup-"));
+        expect(subGroupEntriesInRegion.length).toBe(0);
+        const regionGroupEntries = regionNodes.filter((n) => (n.id ?? "").startsWith("regiongroup-"));
+        expect(regionGroupEntries.length).toBe(1);
+        expect(regionGroupEntries[0].id).toBe("regiongroup-hk");
+      } finally {
+        // Restore the default LazyStore mock factory (setup.ts) so T17-1b and later tests
+        // stay clean. Default returns null for every get.
+        vi.mocked(LazyStore).mockImplementation((() => ({
+          get: vi.fn(async () => null),
+          set: vi.fn(async () => {}),
+          save: vi.fn(async () => {}),
+        })) as never);
+      }
     });
 
     it("T17-1b: subscription viewMode still renders subGroup labels (regression guard)", async () => {

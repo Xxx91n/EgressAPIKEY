@@ -160,6 +160,115 @@ function getNodeRegion(n: NodeItem): string {
   }
   return "other";
 }
+/// T17-audit helper: build C-column subscriptionGroup/regionGroup nodes.
+/// T17-audit (ADR-0041 S1): C-column builder extracted from rawNodes useMemo so a vitest
+/// can directly assert the viewMode guard without driving jsdom-rendered ReactFlow nodes
+/// (jsdom does not stamp subscriptionGroup/regionGroup DOM nodes; textContent assertions
+/// are unreliable because RegionGroupNode renders subscription name sub chips). The helper
+/// is pure: same inputs -> same outputs, no React, no i18n re-init side effects.
+/// @param t  i18next t() from the calling closure (already initialised in useMemo deps).
+export function buildCColumnGroups(
+  viewMode: "subscription" | "region",
+  subGroups: SubscriptionGroup[],
+  selectedRegions: Set<string>,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): Node[] {
+  const list: Node[] = [];
+  // T17-1 (ADR-0041 S1): viewMode guard — only push subscriptionGroup nodes when
+  // viewMode === "subscription". In region viewMode they would be edgeless and
+  // dagre would scatter them near the entry-port column (the "port column stray
+  // nodes" bug). Region viewMode builds its own regionGroup nodes below.
+  subGroups.forEach((g) => {
+    if (viewMode !== "subscription") return;
+    const healthLabel = g.healthy === g.total
+      ? t("topology.healthy")
+      : g.healthy + "/" + g.total + " " + t("topology.healthy");
+    const regionsLabel = g.regions.length > 0
+      ? g.regions.slice(0, 5).join(", ").toUpperCase() + (g.regions.length > 5 ? "+" : "")
+      : "";
+    const sub = [healthLabel, regionsLabel].filter(Boolean).join(" * ");
+    // T13-1: filter node rows — only show nodes in selected regions
+    const filteredNodes = g.nodes.filter((n) => selectedRegions.has(getNodeRegion(n)));
+    // T15-1: hide subscription group entirely if no nodes are selected by any platform
+    if (filteredNodes.length === 0) return;
+    const unboundCount = g.nodes.length - filteredNodes.length;
+    // T14-3: compute region stats for collapsed view
+    const regionStatsMap = new Map<string, number>();
+    for (const n of g.nodes) {
+      const r = getNodeRegion(n);
+      regionStatsMap.set(r, (regionStatsMap.get(r) ?? 0) + 1);
+    }
+    const regionStatsArr = [...regionStatsMap.entries()].sort((a, b) => b[1] - a[1]).map(([region, count]) => ({ region: region.toUpperCase(), count }));
+    // T17-2 (ADR-0041 S2): dedup by node_hash within this subscription.
+    const dedupNodes = dedupNodesByHash(filteredNodes);
+    const nodeRows = dedupNodes.map((n) => {
+      const isHealthy = (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
+      const region = getNodeRegion(n).toUpperCase();
+      const latencyColor = isHealthy ? "bg-emerald-500" : "bg-red-500";
+      return {
+        display_tag: n.display_tag || n.name || "node",
+        region: region.toUpperCase(),
+        healthy: isHealthy,
+        latencyColor,
+      };
+    });
+    list.push({
+      id: "subgroup-" + g.subscriptionName,
+      type: "subscriptionGroup",
+      position: { x: 0, y: 0 },
+      data: { label: g.subscriptionName, sub, nodes: nodeRows, unboundCount, regionStats: regionStatsArr },
+    });
+  });
+  // ponytail: S2 helper `dedupNodesByHash` (defined near the top of this file) is only called from
+  // the subscription route above + its unit test, not from this region route. Region loop simultaneously
+  // builds regionMap (total/healthy/subs/nodeRows) while deduping by node_hash via the seenGlobal Set below.
+  // Fusing these into the helper would couple aggregation into a dedup-only function and grow the regression
+  // surface. Reuse the helper here only when the two concerns can be cleanly separated — tracked in
+  // PONYTAIL_DEBT_LEDGER.md. S2 contract honored, different shape.
+  // T14-4: region view mode — build region group nodes
+  if (viewMode === "region") {
+    const regionMap = new Map<string, { total: number; healthy: number; subs: Set<string>; nodeRows: Array<{ display_tag: string; region: string; healthy: boolean; latencyColor: string }> }>();
+    // T17-2 (ADR-0041 S2): dedup across subscriptions by node_hash.
+    // The same node_hash can appear under multiple subscription names (Resin
+    // echoes proxies), which previously produced duplicate rows in one
+    // regionGroup card.
+    const seenGlobal = new Set<string>();
+    for (const g of subGroups) {
+      for (const n of g.nodes) {
+        const h = typeof n.node_hash === "string" ? n.node_hash : "";
+        if (h && seenGlobal.has(h)) continue;
+        if (h) seenGlobal.add(h);
+        const r = getNodeRegion(n);
+        const entry = regionMap.get(r) ?? { total: 0, healthy: 0, subs: new Set<string>(), nodeRows: [] };
+        entry.total++;
+        if ((n.failure_count ?? 0) === 0 && n.has_outbound !== false) entry.healthy++;
+        entry.subs.add(g.subscriptionName);
+        const isHealthy = (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
+        const latencyColor = isHealthy ? "bg-emerald-500" : "bg-red-500";
+        entry.nodeRows.push({
+          display_tag: n.display_tag || n.name || "node",
+          region: r.toUpperCase(),
+          healthy: isHealthy,
+          latencyColor,
+        });
+        regionMap.set(r, entry);
+      }
+    }
+    for (const [region, info] of regionMap) {
+      // T16-1: only show region groups that at least one platform selects
+      if (!selectedRegions.has(region)) continue;
+      list.push({
+        id: "regiongroup-" + region,
+        type: "regionGroup",
+        position: { x: 0, y: 0 },
+        data: { label: region.toUpperCase(), total: info.total, healthy: info.healthy, subs: [...info.subs], nodes: info.nodeRows },
+      });
+    }
+  }
+  return list;
+}
+
+
 
 function parsePlatforms(raw: unknown): PlatformFull[] {
   if (!raw || typeof raw !== "object") return [];
@@ -714,93 +823,12 @@ function TopologyCanvas() {
         },
       });
     });
-    // T13-1: C column — only show nodes whose region is in selectedRegions
-    // T17-1 (ADR-0041 S1): viewMode guard — only push subscriptionGroup nodes when
-    // viewMode === "subscription". In region viewMode they would be edgeless and
-    // dagre would scatter them near the entry-port column (the "port column stray
-    // nodes" bug). Region viewMode builds its own regionGroup nodes below.
-    subGroups.forEach((g) => {
-      if (viewMode !== "subscription") return;
-      const healthLabel = g.healthy === g.total
-        ? t("topology.healthy")
-        : g.healthy + "/" + g.total + " " + t("topology.healthy");
-      const regionsLabel = g.regions.length > 0
-        ? g.regions.slice(0, 5).join(", ").toUpperCase() + (g.regions.length > 5 ? "+" : "")
-        : "";
-      const sub = [healthLabel, regionsLabel].filter(Boolean).join(" * ");
-      // T13-1: filter node rows — only show nodes in selected regions
-      const filteredNodes = g.nodes.filter((n) => selectedRegions.has(getNodeRegion(n)));
-      // T15-1: hide subscription group entirely if no nodes are selected by any platform
-      if (filteredNodes.length === 0) return;
-      const unboundCount = g.nodes.length - filteredNodes.length;
-      // T14-3: compute region stats for collapsed view
-      const regionStatsMap = new Map<string, number>();
-      for (const n of g.nodes) {
-        const r = getNodeRegion(n);
-        regionStatsMap.set(r, (regionStatsMap.get(r) ?? 0) + 1);
-      }
-      const regionStatsArr = [...regionStatsMap.entries()].sort((a, b) => b[1] - a[1]).map(([region, count]) => ({ region: region.toUpperCase(), count }));
-      // T17-2 (ADR-0041 S2): dedup by node_hash within this subscription.
-      const dedupNodes = dedupNodesByHash(filteredNodes);
-      const nodeRows = dedupNodes.map((n) => {
-        const isHealthy = (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
-        const region = getNodeRegion(n).toUpperCase();
-        const latencyColor = isHealthy ? "bg-emerald-500" : "bg-red-500";
-        return {
-          display_tag: n.display_tag || n.name || "node",
-          region: region.toUpperCase(),
-          healthy: isHealthy,
-          latencyColor,
-        };
-      });
-      list.push({
-        id: "subgroup-" + g.subscriptionName,
-        type: "subscriptionGroup",
-        position: { x: 0, y: 0 },
-        data: { label: g.subscriptionName, sub, nodes: nodeRows, unboundCount, regionStats: regionStatsArr },
-      });
-    });
-    // T14-4: region view mode — build region group nodes
-    if (viewMode === "region") {
-      const regionMap = new Map<string, { total: number; healthy: number; subs: Set<string>; nodeRows: Array<{ display_tag: string; region: string; healthy: boolean; latencyColor: string }> }>();
-      // T17-2 (ADR-0041 S2): dedup across subscriptions by node_hash.
-      // The same node_hash can appear under multiple subscription names (Resin
-      // echoes proxies), which previously produced duplicate rows in one
-      // regionGroup card.
-      const seenGlobal = new Set<string>();
-      for (const g of subGroups) {
-        for (const n of g.nodes) {
-          const h = typeof n.node_hash === "string" ? n.node_hash : "";
-          if (h && seenGlobal.has(h)) continue;
-          if (h) seenGlobal.add(h);
-          const r = getNodeRegion(n);
-          const entry = regionMap.get(r) ?? { total: 0, healthy: 0, subs: new Set<string>(), nodeRows: [] };
-          entry.total++;
-          if ((n.failure_count ?? 0) === 0 && n.has_outbound !== false) entry.healthy++;
-          entry.subs.add(g.subscriptionName);
-          const isHealthy = (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
-          const latencyColor = isHealthy ? "bg-emerald-500" : "bg-red-500";
-          entry.nodeRows.push({
-            display_tag: n.display_tag || n.name || "node",
-            region: r.toUpperCase(),
-            healthy: isHealthy,
-            latencyColor,
-          });
-          regionMap.set(r, entry);
-        }
-      }
-      for (const [region, info] of regionMap) {
-        // T16-1: only show region groups that at least one platform selects
-        if (!selectedRegions.has(region)) continue;
-        const filteredNodeRows = info.nodeRows;
-        list.push({
-          id: "regiongroup-" + region,
-          type: "regionGroup",
-          position: { x: 0, y: 0 },
-          data: { label: region.toUpperCase(), total: info.total, healthy: info.healthy, subs: [...info.subs], nodes: filteredNodeRows },
-        });
-      }
-    }
+    // T17-audit (ADR-0041 S1): C-column subscriptionGroup/regionGroup nodes are built by the
+    // extracted `buildCColumnGroups` helper so a vitest can assert the viewMode guard directly
+    // without driving jsdom-rendered ReactFlow custom-node DOM (which does not stamp C-column
+    // nodes reliably). See docs/adr/0041-canvas-v4-node-pool-toolbars-merge.md §S1 + GRILL_T17_CANVAS_V4_PLAN.md.
+    const cNodes = buildCColumnGroups(viewMode, subGroups, selectedRegions, t);
+    list.push(...cNodes);
     return list;
   }, [platforms, subGroups, leases, ports, t, i18n.isInitialized, i18n.language, selectedRegions, viewMode]);
 
