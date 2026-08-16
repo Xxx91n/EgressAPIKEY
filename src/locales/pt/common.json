@@ -315,7 +315,9 @@
     "collapseNodes": "Recolher",
     "aClassManual": "Seleção manual",
     "aClassQuality": "Qualidade Top-{{n}}",
-    "aClassSubscription": "Assinatura: {{subs}}"
+    "aClassSubscription": "Assinatura: {{subs}}",
+    "minimapHint": "Mini-mapa: desloque a visão geral da tela. As cores correspondem ao tipo de nó.",
+    "openStrategyConfig": "Abrir configuração de estratégia"
   },
   "tray": {
     "show": "Mostrar Janela",

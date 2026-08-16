@@ -315,7 +315,9 @@
     "collapseNodes": "Collapse",
     "aClassManual": "Manual selection",
     "aClassQuality": "Quality Top-{{n}}",
-    "aClassSubscription": "Subscription: {{subs}}"
+    "aClassSubscription": "Subscription: {{subs}}",
+    "minimapHint": "Mini-map: pan the canvas overview. Node colors match node types.",
+    "openStrategyConfig": "Open strategy config"
   },
   "tray": {
     "show": "Show Window",

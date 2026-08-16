@@ -315,7 +315,9 @@
     "collapseNodes": "Replier",
     "aClassManual": "Sélection manuelle",
     "aClassQuality": "Qualité Top-{{n}}",
-    "aClassSubscription": "Abonnement: {{subs}}"
+    "aClassSubscription": "Abonnement: {{subs}}",
+    "minimapHint": "Mini-carte : déplacez la vue d'ensemble du canevas. Les couleurs correspondent au type de nœud.",
+    "openStrategyConfig": "Ouvrir la configuration de stratégie"
   },
   "tray": {
     "show": "Afficher la Fenêtre",

@@ -315,7 +315,9 @@
     "collapseNodes": "Zuklappen",
     "aClassManual": "Manuelle Auswahl",
     "aClassQuality": "Qualität Top-{{n}}",
-    "aClassSubscription": "Abonnement: {{subs}}"
+    "aClassSubscription": "Abonnement: {{subs}}",
+    "minimapHint": "Mini-Map: Verschieben Sie die Canvas-Übersicht. Knotenfarben entsprechen dem Knotentyp.",
+    "openStrategyConfig": "Strategiekonfiguration öffnen"
   },
   "tray": {
     "show": "Fenster anzeigen",

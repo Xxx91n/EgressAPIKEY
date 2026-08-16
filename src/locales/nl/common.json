@@ -315,7 +315,9 @@
     "collapseNodes": "Inklappen",
     "aClassManual": "Handmatige selectie",
     "aClassQuality": "Kwaliteit Top-{{n}}",
-    "aClassSubscription": "Abonnement: {{subs}}"
+    "aClassSubscription": "Abonnement: {{subs}}",
+    "minimapHint": "Mini-map: verplaats het canvasoverzicht. Nodekleuren komen overeen met het knooptype.",
+    "openStrategyConfig": "Strategieconfiguratie openen"
   },
   "tray": {
     "show": "Venster tonen",

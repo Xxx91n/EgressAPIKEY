@@ -315,7 +315,9 @@
     "collapseNodes": "संक्चित",
     "aClassManual": "मैनुअल चयन",
     "aClassQuality": "गुणवत्ता Top-{{n}}",
-    "aClassSubscription": "सदस्यता: {{subs}}"
+    "aClassSubscription": "सदस्यता: {{subs}}",
+    "minimapHint": "मिनी-मैप: कैनवास ओवरव्यू को पैन करें। नोड रंग नोड प्रकार से मेल खाते हैं।",
+    "openStrategyConfig": "रणनीति कॉन्फ़िगरेशन खोलें"
   },
   "tray": {
     "show": "विंडो दिखाएं",

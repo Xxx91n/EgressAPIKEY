@@ -36,10 +36,25 @@
   that offset drifts as the node count grows. The Home button (setViewport({x:0,y:0,zoom:1})) plus fitView
   on onInit are the two canonical framing primitives. See ADR-0039 S4.
 
+### Canvas interactions
+
+- **selectedRegions** - the set of regions that at least one platform has bound via
+  region_filters. Computed by getSelectedRegions(platforms). Controls which region
+  group nodes appear in region viewMode; unselected regions are not rendered.
+- **port_bind_platform** - the IPC command that persists a port-to-platform binding
+  to the SQLite port_mappings table. Called when the user drags a connection from
+  an entry-port node to a platform node on the canvas.
+- **MiniMap** - the ReactFlow overview component in the bottom-right of the canvas.
+  Shows a scaled-down SVG of all nodes with a viewport rectangle. nodeColor
+  distinguishes node types (blue=entryPort, purple=platform, green=subscriptionGroup,
+  amber=regionGroup).
+
 ## IPC and files
 
 - strategy_config_get / strategy_config_put / strategy_apply - the three IPC commands that form the
   whitebox-JSON pipeline. Read, write, and propagate-to-Resin respectively.
+- port_bind_platform - persists a port-to-platform binding to the
+  SQLite port_mappings table. Called from canvas drag (entry-port -> platform).
 - backup_create - called before any canvas drag-edit, so every whitebox-write traces to a restorable snapshot.
 - The strategy JSON path is surfaced in Settings together with the network-whitebox path; both are read-only
   copy + reload after external edit surfaces, not in-app text editors. See ADR-0039 S5.

@@ -14,6 +14,7 @@ import {
   ipcPlatformListFull, ipcNodeList, ipcPlatformUpdate, ipcBackupCreate,
   ipcLeaseMap, ipcPortList, type LeaseEntry, type PortMapping,
   ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
+  ipcPortBindPlatform, ipcGetConfigDir,
 } from "../lib/ipc";
 import { loadTopologyState, saveTopologyState, type TopologyState as T15TopologyState } from "../lib/settings";
 import { strategyToI18nKey, mapResinToShell, type StrategyId, type AllocationPolicy } from "../lib/strategy";
@@ -753,7 +754,9 @@ function TopologyCanvas() {
         }
       }
       for (const [region, info] of regionMap) {
-        const filteredNodeRows = selectedRegions.has(region) ? info.nodeRows : [];
+        // T16-1: only show region groups that at least one platform selects
+        if (!selectedRegions.has(region)) continue;
+        const filteredNodeRows = info.nodeRows;
         list.push({
           id: "regiongroup-" + region,
           type: "regionGroup",
@@ -810,6 +813,20 @@ function TopologyCanvas() {
   }, []);
 
   const onConnect = useCallback(async (conn: Connection) => {
+    // T16-2: entry-port → platform drag-bind
+    if (conn.source.startsWith("entry-port-") && conn.target.startsWith("platform-")) {
+      const portNum = parseInt(conn.source.slice("entry-port-".length), 10);
+      const platName = conn.target.slice("platform-".length);
+      if (!Number.isFinite(portNum) || portNum <= 0) return;
+      if (patchingRef.current) return;
+      patchingRef.current = true;
+      try {
+        await ipcPortBindPlatform(portNum, platName);
+        await sync();
+      } catch { /* swallow */ }
+      patchingRef.current = false;
+      return;
+    }
     if (!conn.source.startsWith("platform-")) return;
     const isSub = conn.target.startsWith("subgroup-");
     const isRegion = conn.target.startsWith("regiongroup-");
@@ -922,7 +939,35 @@ function TopologyCanvas() {
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
           <CanvasControls viewMode={viewMode} setViewMode={setViewMode} locked={locked} setLocked={setLocked} />
-          <MiniMap pannable zoomable />
+        <button
+          className="absolute bottom-20 left-4 z-10 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          title={t("topology.openStrategyConfig")}
+          onClick={async () => {
+            try {
+              const dir = await ipcGetConfigDir();
+              const { openPath } = await import("@tauri-apps/plugin-opener");
+              await openPath(dir + "/egressapikey-strategy.json");
+            } catch { /* swallow */ }
+          }}
+        >
+          {t("topology.openStrategyConfig")}
+        </button>
+          <div title={t("topology.minimapHint")}>
+          <MiniMap
+            pannable
+            zoomable
+            nodeColor={(n: Node) => {
+              switch (n.type) {
+                case "entryPort": return "#3b82f6";
+                case "platform": return "#a855f7";
+                case "subscriptionGroup": return "#22c55e";
+                case "regionGroup": return "#f59e0b";
+                default: return "#94a3b8";
+              }
+            }}
+            maskColor="rgba(15, 23, 42, 0.7)"
+          />
+        </div>
         </ReactFlow>
       </div>
     </section>

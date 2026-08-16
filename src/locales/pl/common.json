@@ -315,7 +315,9 @@
     "collapseNodes": "Zwiń",
     "aClassManual": "Ręczny wybór",
     "aClassQuality": "Jakość Top-{{n}}",
-    "aClassSubscription": "Subskrypcja: {{subs}}"
+    "aClassSubscription": "Subskrypcja: {{subs}}",
+    "minimapHint": "Mini-mapa: przesuń przegląd obszaru roboczego. Kolory węzłów odpowiadają typom węzłów.",
+    "openStrategyConfig": "Otwórz konfigurację strategii"
   },
   "tray": {
     "show": "Pokaż okno",

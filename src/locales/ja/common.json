@@ -315,7 +315,9 @@
     "collapseNodes": "折りたたむ",
     "aClassManual": "手動選択",
     "aClassQuality": "品質 Top-{{n}}",
-    "aClassSubscription": "サブスクリプション: {{subs}}"
+    "aClassSubscription": "サブスクリプション: {{subs}}",
+    "minimapHint": "ミニマップ：キャンバス概要をパンできます。ノードの色は種別に対応。",
+    "openStrategyConfig": "戦略設定を開く"
   },
   "tray": {
     "show": "ウィンドウを表示",

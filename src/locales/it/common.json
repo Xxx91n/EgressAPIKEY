@@ -315,7 +315,9 @@
     "collapseNodes": "Comprimi",
     "aClassManual": "Selezione manuale",
     "aClassQuality": "Qualità Top-{{n}}",
-    "aClassSubscription": "Abbonamento: {{subs}}"
+    "aClassSubscription": "Abbonamento: {{subs}}",
+    "minimapHint": "Mini-mappa: sposta la panoramica del canvas. I colori corrispondono al tipo di nodo.",
+    "openStrategyConfig": "Apri configurazione strategia"
   },
   "tray": {
     "show": "Mostra finestra",

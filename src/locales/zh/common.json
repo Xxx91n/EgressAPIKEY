@@ -315,7 +315,9 @@
     "collapseNodes": "折叠",
     "aClassManual": "手动选择",
     "aClassQuality": "质量 Top-{{n}}",
-    "aClassSubscription": "订阅: {{subs}}"
+    "aClassSubscription": "订阅: {{subs}}",
+    "minimapHint": "缩略图：拖动可平移画布概览。节点颜色对应节点类型。",
+    "openStrategyConfig": "打开策略配置"
   },
   "tray": {
     "show": "显示窗口",

@@ -315,7 +315,9 @@
     "collapseNodes": "Tutup",
     "aClassManual": "Pilihan manual",
     "aClassQuality": "Kualitas Top-{{n}}",
-    "aClassSubscription": "Langganan: {{subs}}"
+    "aClassSubscription": "Langganan: {{subs}}",
+    "minimapHint": "Mini-map: geser gambar ringkas kanvas. Warna node sesuai jenis node.",
+    "openStrategyConfig": "Buka konfigurasi strategi"
   },
   "tray": {
     "show": "Tampilkan jendela",

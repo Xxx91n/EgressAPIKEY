@@ -315,7 +315,9 @@
     "collapseNodes": "ยุบ",
     "aClassManual": "เลือกด้วยตนเอง",
     "aClassQuality": "คุณภาพ Top-{{n}}",
-    "aClassSubscription": "การสมัครสมาชิก: {{subs}}"
+    "aClassSubscription": "การสมัครสมาชิก: {{subs}}",
+    "minimapHint": "มินิแมพ: เลื่อนภาพรวมแคนวาส สีของโหนดตรงกับประเภทโหนด",
+    "openStrategyConfig": "เปิดการกำหนดค่ากลยุทธ์"
   },
   "tray": {
     "show": "แสดงหน้าต่าง",

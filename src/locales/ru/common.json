@@ -315,7 +315,9 @@
     "collapseNodes": "Свернуть",
     "aClassManual": "Ручной выбор",
     "aClassQuality": "Качество Top-{{n}}",
-    "aClassSubscription": "Подписка: {{subs}}"
+    "aClassSubscription": "Подписка: {{subs}}",
+    "minimapHint": "Мини-карта: перемещайте обзор холста. Цвета узлов соответствуют типам узлов.",
+    "openStrategyConfig": "Открыть конфигурацию стратегии"
   },
   "tray": {
     "show": "Показать окно",

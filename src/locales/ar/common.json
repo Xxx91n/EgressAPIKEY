@@ -315,7 +315,9 @@
     "collapseNodes": "طي",
     "aClassManual": "اختيار يدوي",
     "aClassQuality": "جودة Top-{{n}}",
-    "aClassSubscription": "اشتراك: {{subs}}"
+    "aClassSubscription": "اشتراك: {{subs}}",
+    "minimapHint": "خريطة مصغرة: حرّك نظرة عامة على اللوحة. ألوان العقد تتطابق مع نوع العقدة.",
+    "openStrategyConfig": "فتح تكوين الاستراتيجية"
   },
   "tray": {
     "show": "إظهار النافذة",

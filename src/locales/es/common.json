@@ -315,7 +315,9 @@
     "collapseNodes": "Contraer",
     "aClassManual": "Selección manual",
     "aClassQuality": "Calidad Top-{{n}}",
-    "aClassSubscription": "Suscripción: {{subs}}"
+    "aClassSubscription": "Suscripción: {{subs}}",
+    "minimapHint": "Mini-mapa: desplaza la vista general del lienzo. Los colores coinciden con el tipo de nodo.",
+    "openStrategyConfig": "Abrir configuración de estrategia"
   },
   "tray": {
     "show": "Mostrar Ventana",

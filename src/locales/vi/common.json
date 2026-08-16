@@ -315,7 +315,9 @@
     "collapseNodes": "Thu gọn",
     "aClassManual": "Chọn thủ công",
     "aClassQuality": "Chất lượng Top-{{n}}",
-    "aClassSubscription": "Đăng ký: {{subs}}"
+    "aClassSubscription": "Đăng ký: {{subs}}",
+    "minimapHint": "Bản đồ nhỏ: di chuyển tổng quan canvas. Màu nút tương ứng loại nút.",
+    "openStrategyConfig": "Mở cấu hình chiến lược"
   },
   "tray": {
     "show": "Hiện cửa sổ",

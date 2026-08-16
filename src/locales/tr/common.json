@@ -315,7 +315,9 @@
     "collapseNodes": "Daralt",
     "aClassManual": "Manuel seçim",
     "aClassQuality": "Kalite Top-{{n}}",
-    "aClassSubscription": "Abonelik: {{subs}}"
+    "aClassSubscription": "Abonelik: {{subs}}",
+    "minimapHint": "Mini-harita: tuval özetini kaydırın. Düğüm renkleri düğüm türüne karşılık gelir.",
+    "openStrategyConfig": "Strateji yapılandırmasını aç"
   },
   "tray": {
     "show": "Pencereyi göster",
