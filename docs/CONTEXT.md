@@ -47,7 +47,19 @@
 - **MiniMap** - the ReactFlow overview component in the bottom-right of the canvas.
   Shows a scaled-down SVG of all nodes with a viewport rectangle. nodeColor
   distinguishes node types (blue=entryPort, purple=platform, green=subscriptionGroup,
-  amber=regionGroup).
+  amber=regionGroup). The localized hover tooltip is delivered via the ariaLabel prop
+  (SVG <title>), not a <div title> wrapper which has zero hit-test height over an
+  absolutely positioned child. See ADR-0041 S3.
+- **aggregationColumn** - the single C column in the canonical topology. Holds exactly
+  one node type per viewMode: subscriptionGroup nodes when viewMode="subscription",
+  regionGroup nodes when viewMode="region". The subGroups build loop is gated by
+  viewMode === "subscription" and the regionMap loop by viewMode === "region",
+  enforcing one-node-per-entity invariant (Kiali-style). See ADR-0041 S1.
+- **nodePool** - the conceptual set of resolved exit nodes from /api/v1/nodes. The
+  canvas renders an aggregation of the pool; the same underlying node_hash appears
+  only once in any rendered row, regardless of how many subscriptions reference it.
+  Dedup happens via Set<node_hash> at both the region path and subscription path.
+  See ADR-0041 S2.
 
 ## IPC and files
 

@@ -20,7 +20,7 @@ import { loadTopologyState, saveTopologyState, type TopologyState as T15Topology
 import { strategyToI18nKey, mapResinToShell, type StrategyId, type AllocationPolicy } from "../lib/strategy";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
-import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock, Home } from "lucide-react";
+import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock, Home, FileCog } from "lucide-react";
 import { usePoll } from "../hooks/usePoll";
 
 /// TopologyView T13 — Canvas V2: strategy-driven dagre layout + flash fix + zustand cache.
@@ -132,6 +132,23 @@ function parseSubscriptionGroups(raw: unknown): SubscriptionGroup[] {
     groups.push({ subscriptionName, nodes, healthy, total: nodes.length, regions });
   }
   return groups.sort((a, b) => a.subscriptionName.localeCompare(b.subscriptionName));
+}
+
+/// T17-2 (ADR-0041 S2): dedup a list of nodes by node_hash.
+/// - Empty/missing node_hash means "best-effort keep" (no dedup).
+/// - Returns a stable-order array with duplicates removed; first occurrence wins.
+/// Exported so a vitest can assert the contract without driving the DOM.
+export function dedupNodesByHash<T extends { node_hash?: string }>(nodes: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const n of nodes) {
+    const h = typeof n.node_hash === "string" ? n.node_hash : "";
+    if (!h) { out.push(n); continue; }
+    if (seen.has(h)) continue;
+    seen.add(h);
+    out.push(n);
+  }
+  return out;
 }
 
 // T14-audit: extract region from a node — deduplicated from 6 inline copies
@@ -513,6 +530,10 @@ function CanvasControls({ viewMode, setViewMode, locked, setLocked }: { viewMode
       <button title={locked ? t("topology.unlock") : t("topology.lock")} onClick={() => setLocked(!locked)} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
         {locked ? <Lock size={14} /> : <Unlock size={14} />}
       </button>
+      {/* T17-4 (ADR-0041 S4): openStrategyConfig merged into toolbar (was standalone absolute button) */}
+      <button title={t("topology.openStrategyConfig")} onClick={async () => { try { const dir = await ipcGetConfigDir(); const { openPath } = await import("@tauri-apps/plugin-opener"); await openPath(dir + "/egressapikey-strategy.json"); } catch { /* swallow */ } }} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
+        <FileCog size={14} />
+      </button>
     </div>
   );
 }
@@ -694,7 +715,12 @@ function TopologyCanvas() {
       });
     });
     // T13-1: C column — only show nodes whose region is in selectedRegions
+    // T17-1 (ADR-0041 S1): viewMode guard — only push subscriptionGroup nodes when
+    // viewMode === "subscription". In region viewMode they would be edgeless and
+    // dagre would scatter them near the entry-port column (the "port column stray
+    // nodes" bug). Region viewMode builds its own regionGroup nodes below.
     subGroups.forEach((g) => {
+      if (viewMode !== "subscription") return;
       const healthLabel = g.healthy === g.total
         ? t("topology.healthy")
         : g.healthy + "/" + g.total + " " + t("topology.healthy");
@@ -714,7 +740,9 @@ function TopologyCanvas() {
         regionStatsMap.set(r, (regionStatsMap.get(r) ?? 0) + 1);
       }
       const regionStatsArr = [...regionStatsMap.entries()].sort((a, b) => b[1] - a[1]).map(([region, count]) => ({ region: region.toUpperCase(), count }));
-      const nodeRows = filteredNodes.map((n) => {
+      // T17-2 (ADR-0041 S2): dedup by node_hash within this subscription.
+      const dedupNodes = dedupNodesByHash(filteredNodes);
+      const nodeRows = dedupNodes.map((n) => {
         const isHealthy = (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
         const region = getNodeRegion(n).toUpperCase();
         const latencyColor = isHealthy ? "bg-emerald-500" : "bg-red-500";
@@ -735,8 +763,16 @@ function TopologyCanvas() {
     // T14-4: region view mode — build region group nodes
     if (viewMode === "region") {
       const regionMap = new Map<string, { total: number; healthy: number; subs: Set<string>; nodeRows: Array<{ display_tag: string; region: string; healthy: boolean; latencyColor: string }> }>();
+      // T17-2 (ADR-0041 S2): dedup across subscriptions by node_hash.
+      // The same node_hash can appear under multiple subscription names (Resin
+      // echoes proxies), which previously produced duplicate rows in one
+      // regionGroup card.
+      const seenGlobal = new Set<string>();
       for (const g of subGroups) {
         for (const n of g.nodes) {
+          const h = typeof n.node_hash === "string" ? n.node_hash : "";
+          if (h && seenGlobal.has(h)) continue;
+          if (h) seenGlobal.add(h);
           const r = getNodeRegion(n);
           const entry = regionMap.get(r) ?? { total: 0, healthy: 0, subs: new Set<string>(), nodeRows: [] };
           entry.total++;
@@ -939,23 +975,10 @@ function TopologyCanvas() {
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
           <CanvasControls viewMode={viewMode} setViewMode={setViewMode} locked={locked} setLocked={setLocked} />
-        <button
-          className="absolute bottom-20 left-4 z-10 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-          title={t("topology.openStrategyConfig")}
-          onClick={async () => {
-            try {
-              const dir = await ipcGetConfigDir();
-              const { openPath } = await import("@tauri-apps/plugin-opener");
-              await openPath(dir + "/egressapikey-strategy.json");
-            } catch { /* swallow */ }
-          }}
-        >
-          {t("topology.openStrategyConfig")}
-        </button>
-          <div title={t("topology.minimapHint")}>
           <MiniMap
             pannable
             zoomable
+            ariaLabel={t("topology.minimapHint")}
             nodeColor={(n: Node) => {
               switch (n.type) {
                 case "entryPort": return "#3b82f6";
@@ -967,7 +990,6 @@ function TopologyCanvas() {
             }}
             maskColor="rgba(15, 23, 42, 0.7)"
           />
-        </div>
         </ReactFlow>
       </div>
     </section>
