@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
   import { useEffect, useMemo, useState, useRef } from "react";
 import {Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap, RefreshCw} from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, type StrategyApplyResult} from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, ipcGetConfigDir, type StrategyApplyResult} from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
@@ -149,7 +149,7 @@ export function SettingsView() {
   useEffect(() => {
     void ipcWhiteboxPath().then(setWhiteboxPath).catch(() => setWhiteboxPath(""));
     // T15-v3-4: load strategy config path (config_dir + egressapikey-strategy.json)
-    void invoke<string>("get_config_dir").then((dir) => setStrategyConfigPath(dir + "/egressapikey-strategy.json")).catch(() => setStrategyConfigPath(""));
+    void ipcGetConfigDir().then((dir) => setStrategyConfigPath(dir + "/egressapikey-strategy.json")).catch(() => setStrategyConfigPath(""));
   }, []);
 
   async function reloadWhitebox() {
@@ -335,7 +335,7 @@ export function SettingsView() {
 
   const openDir = async (which: "config" | "log") => {
     try {
-      const dir = await invoke<string>(which === "config" ? "get_config_dir" : "get_log_dir");
+      const dir = which === "config" ? await ipcGetConfigDir() : await invoke<string>("get_log_dir");
       if (dir) await openPath(dir);
     } catch {
       /* not in tauri (vitest) or path unresolved — no-op */

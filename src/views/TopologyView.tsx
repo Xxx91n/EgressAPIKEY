@@ -42,7 +42,6 @@ interface PlatformFull {
   // T15-v3-3: strategyConfig read-side fields (ADR-0036 read-side, ADR-0039 SS2)
   aClass?: string;              // strategyConfig a_class: manual | region | quality | subscription
   bClass?: string;             // strategyConfig b_class (shell StrategyId snake_case)
-  manualNodes?: string[];      // strategyConfig manual_nodes
   subscriptionNames?: string[]; // strategyConfig subscriptions
   topN?: number;               // strategyConfig top_n
 }
@@ -565,7 +564,6 @@ function TopologyCanvas() {
             region_filters: Array.isArray(ps.regions) ? ps.regions as string[] : p.region_filters,
             aClass: typeof ps.a_class === "string" ? ps.a_class : undefined,
             bClass: typeof ps.b_class === "string" ? ps.b_class : undefined,
-            manualNodes: Array.isArray(ps.manual_nodes) ? ps.manual_nodes as string[] : undefined,
             subscriptionNames: Array.isArray(ps.subscriptions) ? ps.subscriptions as string[] : undefined,
             topN: typeof ps.top_n === "number" ? ps.top_n : undefined,
           };

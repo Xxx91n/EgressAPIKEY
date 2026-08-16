@@ -608,6 +608,10 @@ export interface PlatformStrategy {
   top_n?: number;
 }
 
+export async function ipcGetConfigDir(): Promise<string> {
+  return invoke<string>("get_config_dir");
+}
+
 export interface StrategyConfig {
   version: number;
   platforms: PlatformStrategy[];
