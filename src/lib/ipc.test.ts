@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 /// Issue 1: closed-loop coverage for the IPC boundary. We mock
 /// @tauri-apps/api/core's invoke and verify:
@@ -466,5 +466,68 @@ describe("T6-5 firewall + request log tail", () => {
     await ipcRequestLogTail();
     // When no limit is provided, the wrapper still passes an object (possibly with __trace_id).
   expect(invokeMock).toHaveBeenCalledWith("request_log_tail", expect.anything());
+  });
+});
+
+
+// --- T17 dual-mode tests (isTauri=false → fetch fallback) ---
+describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
+  let originalTauriInternals: unknown;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    // Save the stub set by setup.ts beforeAll, then unset it for fetch-mode tests
+    originalTauriInternals = (globalThis as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS;
+    (globalThis as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS = undefined;
+    // Provide a mock fetch; restore in afterEach
+    fetchMock = vi.fn();
+    (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    // Restore the Tauri stub so other suites keep going through the Tauri invoke path
+    (globalThis as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS = originalTauriInternals;
+  });
+
+  it("platform_add forwards POST /api/v1/platforms via fetch when isTauri=false", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    await ipcPlatformAdd("openai");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/v1/platforms");
+    expect((init as RequestInit).method).toBe("POST");
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body.name).toBe("openai");
+    // __trace_id must NOT be injected for the fetch path (only Tauri uses it)
+    expect(body.__trace_id).toBeUndefined();
+  });
+
+  it("platform_list forwards GET /api/v1/platforms via fetch when isTauri=false", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ items: [{ name: "a" }, { name: "b" }] }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const r = await ipcPlatformList() as unknown;
+    // fetch path returns Resin's raw {items:[...]} shape — not the processed string[]
+    // the Tauri command returns (Rust extracts names server-side).
+    expect(r).toEqual({ items: [{ name: "a" }, { name: "b" }] });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/v1/platforms");
+    expect((init as RequestInit).method).toBe("GET");
+  });
+
+  it("an unmapped command throws a helpful error (no silent fallback)", async () => {
+    // We exercise the internal invoke() helper directly with an unmapped command name.
+    // tray_refresh_labels' TS wrapper swallows errors (.catch), so test the lower layer.
+    // Direct require avoids TS exports barrier; this is a vitest-only inline assertion.
+    const { invoke: _rawInvoke } = await import("./ipc") as never;
+    // We can't easily access the non-exported invoke, so exercise via a wrapper that
+    // forwards an unmapped command name. ipcStrategyApply is NOT in CMD_TO_HTTP,
+    // so it will hit the "no HTTP route mapping" path.
+    await expect(ipcStrategyApply()).rejects.toThrow(/no HTTP route mapping/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fetch 4xx/5xx throws an error with status + a body excerpt", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("upstream conflict", { status: 409, headers: { "Content-Type": "text/plain" } }));
+    await expect(ipcPlatformAdd("openai")).rejects.toThrow(/409.*upstream conflict/);
   });
 });

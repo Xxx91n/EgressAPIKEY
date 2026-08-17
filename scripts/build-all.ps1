@@ -31,8 +31,8 @@ cargo build --release -p resin-core
 if($LASTEXITCODE -ne 0) { Write-Error "resin-core build failed"; exit 1 }
 Write-Host "[build-all] resin-core compiles OK"
 Write-Host "[build-all] headless binary (egressapikey-headless)"
-cargo build --release -p egressapikey-app --bin egressapikey-headless
-if($LASTEXITCODE -ne 0) { Write-Host "[build-all] WARNING: headless binary build failed (non-fatal, GUI-only)" }
+cargo build --release -p egressapikey-app --bin egressapikey-headless --features headless
+if($LASTEXITCODE -ne 0) { Write-Error "[build-all] FATAL: headless binary build failed"; exit 1 }
 
 # --- 3. Host triple ---
 $triple = (& rustc -vV | Select-String "^host:" | ForEach-Object { ($_ -split "\s+")[1] })
@@ -103,18 +103,36 @@ if($sidecarSrc) {
   Write-Host "[build-all] WARNING: sidecar binary not found - portable GUI will panic at boot"
 }
 
-# Copy headless binary (npm-server) - exact name match, exclude deps/ to avoid underscore variant
+# --- 5b. Stage headless backend (release/windows-backend/ self-contained) ---
+$BACKEND_STAGE = "release/windows-backend"
+if(Test-Path $BACKEND_STAGE) { Remove-Item $BACKEND_STAGE -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $BACKEND_STAGE | Out-Null
+
+# Copy headless binary
 $headlessBin = Get-ChildItem -Path "src-tauri/target","target" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq "egressapikey-headless.exe" -and $_.FullName -match "release" -and $_.FullName -notmatch "[\\\\/]deps[\\\\/]" } | Select-Object -First 1
 if($headlessBin) {
-  $npmDir = "$GUI_STAGE/npm-server"
-  New-Item -ItemType Directory -Force -Path $npmDir | Out-Null
-  Copy-Item $headlessBin.FullName "$npmDir/egressapikey-headless.exe" -Force
-  Write-Host "[build-all] headless binary staged: $npmDir/egressapikey-headless.exe"
+  Copy-Item $headlessBin.FullName "$BACKEND_STAGE/egressapikey-headless.exe" -Force
+  Write-Host "[build-all] headless binary staged: $BACKEND_STAGE/egressapikey-headless.exe"
 } else {
-  Write-Host "[build-all] WARNING: headless binary not found (egressapikey-headless.exe not built yet)"
+  Write-Error "[build-all] FATAL: headless binary not found (build failed?)"; exit 1
 }
 
-# --- 6. SHA256 checksums ---
+# Copy dist/ (frontend static assets)
+if(Test-Path "dist") {
+  Copy-Item "dist" "$BACKEND_STAGE/dist" -Recurse -Force
+  Write-Host "[build-all] headless dist staged: $BACKEND_STAGE/dist/"
+} else {
+  Write-Error "[build-all] FATAL: dist/ not found (frontend build failed?)"; exit 1
+}
+
+# Copy resin sidecar binary
+$sidecarBackend = Get-ChildItem -Path "src-tauri/binaries" -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^resin-" } | Select-Object -First 1
+if($sidecarBackend) {
+  Copy-Item $sidecarBackend.FullName "$BACKEND_STAGE/resin.exe" -Force
+  Write-Host "[build-all] headless sidecar staged: $BACKEND_STAGE/resin.exe"
+} else {
+  Write-Host "[build-all] WARNING: resin sidecar binary not found - headless will fail to boot resin"
+}
 $checksumFile = "$GUI_STAGE/SHA256.txt"
 $hashes = @()
 foreach($f in Get-ChildItem $GUI_STAGE -File) {

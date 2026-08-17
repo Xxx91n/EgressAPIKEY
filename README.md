@@ -22,6 +22,29 @@ pnpm tauri dev
 - **SSE session stickiness** — stream locks node until completion, auto-switches on failure
 - **Zero adaptation** — OmniRoute users change one proxy address; client code unchanged
 - **Backup safety** — backups write into the per-user app data dir (not the shared system temp), with a path-confinement guard so a compromised webview cannot exfiltrate arbitrary files via the WebDAV upload path
+
+## Headless server
+
+The same control surface (Platforms, Subscriptions, Nodes, Topology) is
+available in a browser without the Tauri desktop shell — useful for Linux
+servers, Docker containers, or a remote VPS:
+
+```bash
+npm install -g @egressapikey/server
+egressapikey-server
+# → open http://127.0.0.1:14200/ in any browser
+```
+
+The launcher spawns the Rust `egressapikey-headless` binary, which starts
+the Resin Go sidecar, serves the prebuilt React SPA, and proxies
+`/api/v1/*` + `/metrics/*` to the local Resin control plane with the
+admin bearer injected server-side — the browser never sees the token.
+SSE / WebSocket streams pass through via `Body::from_stream`.
+
+- Docs: [`docs/HEADLESS_DEPLOYMENT.md`](docs/HEADLESS_DEPLOYMENT.md) (systemd unit, env table, TLS reverse proxy) and [`docs/HEADLESS_RUNBOOK.md`](docs/HEADLESS_RUNBOOK.md) (logs, health, shutdown, troubleshooting)
+- ADR: [`docs/adr/0043-headless-server-build-separation.md`](docs/adr/0043-headless-server-build-separation.md) (source relocation + `required-features = ["headless"]` gating + CI job split)
+- Release artifact: `release/<os>-backend/` — self-contained directory with `egressapikey-headless` + `dist/` + `resin` siblings
+
 ## Platform & IP-channel routing
 
 The **Topology** tab is a three-column key-to-egress canvas (entry port → platforms → IP channels):

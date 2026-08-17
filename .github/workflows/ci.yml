@@ -58,8 +58,8 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # 3. Headless backend matrix: resin-core per-OS binary + docs tarball,
-  #    used by users who only want the proxy without the GUI shell.
+# 3. Headless backend matrix: egressapikey-headless binary + dist/ + resin sidecar,
+#    self-contained release for users who want the proxy without the GUI shell.
   backend:
     name: backend headless (${{ matrix.name }})
     needs: verify
@@ -90,17 +90,42 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
+          key: server-${{ matrix.target }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: corepack enable
       - name: Build backend binary
-        run: cargo build --release --target ${{ matrix.target }} -p resin-core
+        run: cargo build --release --target ${{ matrix.target }} -p egressapikey-app --bin egressapikey-headless --features headless
       - name: Package backend
         shell: bash
         run: |
           set -e
+          # Fetch resin sidecar binary (headless stage is self-contained)
+          bash scripts/fetch_resin.sh
+          corepack enable
+          # Install deps + build frontend dist (headless serves the SPA)
+          pnpm install --frozen-lockfile
+          pnpm build
           mkdir -p release
           STAGE="release/${{ matrix.name }}-backend"
           mkdir -p "$STAGE"
-          cp "target/${{ matrix.target }}/release/resin-core" "$STAGE/" 2>/dev/null || \
-            cp "target/${{ matrix.target }}/release/resin-core.exe" "$STAGE/" 2>/dev/null || true
+          # Copy headless binary (with or without .exe suffix)
+          cp "target/${{ matrix.target }}/release/egressapikey-headless" "$STAGE/" 2>/dev/null || \
+            cp "target/${{ matrix.target }}/release/egressapikey-headless.exe" "$STAGE/" 2>/dev/null || {
+              echo "::error::headless binary not found"; exit 1; }
+          # Copy dist/ (frontend static assets)
+          cp -r dist "$STAGE/dist"
+          # Copy resin sidecar
+          TRIPLE="${{ matrix.target }}"
+          SIDECAR_BIN="$(ls src-tauri/binaries/resin-*${TRIPLE}* 2>/dev/null | head -1 || true)"
+          if [ -n "$SIDECAR_BIN" ]; then
+            cp "$SIDECAR_BIN" "$STAGE/resin${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
+          else
+            echo "::warning::resin sidecar not found — headless will fail to boot resin"
+          fi
+          # Include docs
           cp -r docs "$STAGE/docs" 2>/dev/null || true
           tar -czf "$STAGE.tar.gz" "$STAGE"
           ls -lh "$STAGE.tar.gz"

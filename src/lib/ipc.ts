@@ -4,6 +4,62 @@
  */
 import { invoke as _invoke, Channel } from "@tauri-apps/api/core";
 
+// --- T17 dual-mode: isTauri detection + cmd → REST route map (ADR-0043 Q2=A) ---
+// In the Tauri webview we use the native invoke(). In a plain browser
+// (headless npm server) we fall back to fetch("/api/v1/...") which the
+// headless axum reverse-proxy forwards to the local Resin sidecar.
+function isTauri(): boolean {
+  return typeof window !== "undefined" &&
+    !!(window as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS;
+}
+
+// Maps Tauri command names to the HTTP route the headless reverse-proxy exposes.
+// Entries with undefined are Tauri-only (tray/desktop features with no headless surface).
+type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
+interface HttpRoute { method: HttpMethod; path: string; }
+const CMD_TO_HTTP: Record<string, HttpRoute | undefined> = {
+  // Platforms
+  platform_add:            { method: "POST",   path: "/api/v1/platforms" },
+  platform_remove:         { method: "DELETE", path: "/api/v1/platforms" }, // needs name → id; done by a list+match in fetch mode
+  platform_list:           { method: "GET",    path: "/api/v1/platforms" },
+  platform_list_full:      { method: "GET",    path: "/api/v1/platforms" },
+  platform_snapshot:      { method: "GET",    path: "/api/v1/platforms" },
+  platform_update:        { method: "PATCH",  path: "/api/v1/platforms" }, // name → id lookup before patch
+  platform_create_with_fields: { method: "POST", path: "/api/v1/platforms" },
+  platform_leases:        { method: "GET",    path: "/api/v1/platforms" },
+  // Subscriptions + nodes
+  subscription_add:       { method: "POST",   path: "/api/v1/subscriptions" },
+  subscription_remove:    { method: "DELETE", path: "/api/v1/subscriptions" },
+  subscription_list:      { method: "GET",    path: "/api/v1/subscriptions" },
+  node_list:              { method: "GET",    path: "/api/v1/nodes" },
+  node_pool_snapshot:     { method: "GET",    path: "/api/v1/metrics/snapshots/node-pool" },
+  // Port + gateway mirrors
+  gateway_snapshot:       { method: "GET",    path: "/api/v1/metrics/realtime/leases" },
+  request_log_tail:        { method: "GET",    path: "/api/v1/metrics/realtime/leases" },
+  // Config / whitebox / system pass through the same /api/v1/* prefix
+  config_export:          { method: "GET",    path: "/api/v1/config/export" },
+  config_import:          { method: "POST",   path: "/api/v1/config/import" },
+  system_config_get:      { method: "GET",    path: "/api/v1/system/config" },
+  system_config_patch:    { method: "PATCH",  path: "/api/v1/system/config" },
+};
+
+async function invokeHttp<T>(route: HttpRoute, args?: Record<string, unknown>): Promise<T> {
+  const init: RequestInit = {
+    method: route.method,
+    headers: { "Content-Type": "application/json" },
+  };
+  if (route.method !== "GET" && args) {
+    init.body = JSON.stringify(args);
+  }
+  const r = await fetch(route.path, init);
+  if (!r.ok) {
+    const body = await r.text().catch(() => "");
+    throw new Error(`IPC ${route.method} ${route.path} -> ${r.status}: ${body.slice(0, 256)}`);
+  }
+  if (r.status === 204) return undefined as T;
+  return (await r.json()) as T;
+}
+
 const NAME_MAX = 128;
 
 // --- Phase 5-1: trace_id passthrough (ADR-0026 Q1-Q5) ---
@@ -16,10 +72,17 @@ function genTraceId(): string {
 
 async function invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const traceId = genTraceId();
-  const enriched = { ...(args ?? {}), __trace_id: traceId };
   if (typeof console !== "undefined" && console.debug) {
     console.debug(`[trace_id=${traceId}] ipc.${cmd}`);
   }
+  if (!isTauri()) {
+    const route = CMD_TO_HTTP[cmd];
+    if (!route) {
+      throw new Error(`[ipc] command ${cmd} has no HTTP route mapping (Tauri-only in headless mode)`);
+    }
+    return invokeHttp<T>(route, args);
+  }
+  const enriched = { ...(args ?? {}), __trace_id: traceId };
   return _invoke<T>(cmd, enriched);
 }
 

@@ -50,6 +50,8 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 }));
 
 beforeAll(async () => {
+  // T17 dual-mode: stub Tauri internals so isTauri() returns true in jsdom
+  (globalThis as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS = {};
   await i18next.use(initReactI18next).init({
     resources: {
       en: { translation: {

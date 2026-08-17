@@ -18,7 +18,9 @@ path = "src/main.rs"
 
 [[bin]]
 name = "egressapikey-headless"
-path = "src/bin/headless.rs"
+path = "src/headless_main.rs"
+required-features = ["headless"]
+
 
 [dependencies]
 resin-core = { path = "../crates/resin-core" }
@@ -82,6 +84,7 @@ default = []
 # devUrl, which fails with ERR_CONNECTION_REFUSED on a user machine without
 # the Vite dev server running.
 custom-protocol = ["tauri/custom-protocol"]
+headless = []
 
 # T14-1: Windows Job Object for sidecar orphan prevention (clash-verge-rev PR #6853 pattern).
 # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE ensures the OS kills resin.exe even if the

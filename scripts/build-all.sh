@@ -38,27 +38,43 @@ node scripts/i18n-check.cjs || { echo "[build-all] i18n check failed"; exit 1; }
 
 echo "[build-all] backend compile-guard + tar.gz staging (resin-core)"
 cargo build --release -p resin-core || { echo "[build-all] resin-core build failed"; exit 1; }
+echo "[build-all] headless binary (egressapikey-headless --features headless)"
+cargo build --release -p egressapikey-app --bin egressapikey-headless --features headless || { echo "[build-all] FATAL: headless binary build failed"; exit 1; }
 echo "[build-all] resin-core compiles OK"
 
-# T9-5: Stage backend tar.gz
+# --- Stage backend (release/${NAME}-backend self-contained: headless exe + dist/ + resin sidecar) ---
 BACKEND_STAGE="release/${NAME}-backend"
 rm -rf "$BACKEND_STAGE"
 mkdir -p "$BACKEND_STAGE"
-BACKEND_BIN="$(find target "src-tauri/target" -maxdepth 5 -type f -name "resin-core" ! -path "*/deps/*" 2>/dev/null | head -n1 || true)"
-if [ -n "$BACKEND_BIN" ]; then
-  cp "$BACKEND_BIN" "$BACKEND_STAGE/resin-core"
-fi
-# headless binary (from Cargo.toml [[bin]] name = "egressapikey-headless")
+
+# Copy headless binary
 HEADLESS_BIN="$(find target "src-tauri/target" -maxdepth 5 -type f -name "egressapikey-headless*" ! -path "*/deps/*" 2>/dev/null | head -n1 || true)"
 if [ -n "$HEADLESS_BIN" ]; then
   cp "$HEADLESS_BIN" "$BACKEND_STAGE/"
-fi
-if [ -n "$BACKEND_BIN" ]; then
-  tar -czf "$BACKEND_STAGE.tar.gz" "$BACKEND_STAGE"
-  echo "[build-all] backend staged: $BACKEND_STAGE.tar.gz"
+  echo "[build-all] headless binary staged: $BACKEND_STAGE/"
+else
+  echo "[build-all] FATAL: headless binary not found (build failed?)"; exit 1
 fi
 
-TAURI_BIN=""
+# Copy dist/ (frontend static assets)
+if [ -d "dist" ]; then
+  cp -r dist "$BACKEND_STAGE/dist"
+  echo "[build-all] headless dist staged: $BACKEND_STAGE/dist/"
+else
+  echo "[build-all] FATAL: dist/ not found (frontend build failed?)"; exit 1
+fi
+
+# Copy resin sidecar binary into backend stage
+SIDECAR_BIN="$(ls src-tauri/binaries/resin-*$TRIPLE* 2>/dev/null | head -1 || true)"
+if [ -n "$SIDECAR_BIN" ]; then
+  cp "$SIDECAR_BIN" "$BACKEND_STAGE/resin"
+  echo "[build-all] headless sidecar staged: $BACKEND_STAGE/resin"
+else
+  echo "[build-all] WARNING: resin sidecar not found — headless will fail to boot"
+fi
+
+tar -czf "$BACKEND_STAGE.tar.gz" "$BACKEND_STAGE"
+echo "[build-all] backend staged: $BACKEND_STAGE.tar.gz"
 if command -v tauri >/dev/null 2>&1; then
   TAURI_BIN=tauri
 elif [ -x node_modules/.bin/tauri ]; then

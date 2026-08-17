@@ -28,6 +28,23 @@ pnpm tauri dev
 - **SSE 会话粘性** —— 流式传输期间锁定节点，断开后自动切换
 - **零适配侵入** —— OmniRoute 用户只需改一处代理地址；客户端代码无需修改
 - **备份安全** —— 备份写入用户专属 app data 目录（不落共享系统临时目录），且上传路径有目录越界防护，防止被攻陷的 webview 借 WebDAV 上传路径窃取任意文件
+
+## 无头服务器
+
+同一套控制台（平台 / 订阅 / 节点 / 拓扑画布）可不安装 Tauri 桌面壳，直接以浏览器访问，适用于 Linux 服务器、Docker 容器或远程 VPS：
+
+```bash
+npm install -g @egressapikey/server
+egressapikey-server
+# → 在任意浏览器打开 http://127.0.0.1:14200/
+```
+
+launcher 会拉起 Rust `egressapikey-headless` 二进制，它启动 Resin Go 侧车、托管预构建的 React SPA，并将 `/api/v1/*` 与 `/metrics/*` 反代到本地 Resin 控制面 —— admin bearer 由服务端注入，浏览器永远看不到该令牌。SSE / WebSocket 流通过 `Body::from_stream` 透传。
+
+- 文档：[`docs/HEADLESS_DEPLOYMENT.md`](docs/HEADLESS_DEPLOYMENT.md)（systemd unit、环境变量表、TLS 反代）与 [`docs/HEADLESS_RUNBOOK.md`](docs/HEADLESS_RUNBOOK.md)（日志、健康检查、优雅退出、故障排查）
+- 决策记录：[`docs/adr/0043-headless-server-build-separation.md`](docs/adr/0043-headless-server-build-separation.md)（源码搬迁 + `required-features = ["headless"]` 门禁 + CI 任务拆分）
+- 发布产物：`release/<os>-backend/` —— 自包含目录，`egressapikey-headless` + `dist/` + `resin` 同级
+
 ## 平台与 IP 通道路由
 
 **拓扑** 标签页是三列 key→出口 画布（入口代理端口 → 平台 → IP 通道）：
