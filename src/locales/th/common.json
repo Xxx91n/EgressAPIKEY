@@ -153,7 +153,11 @@
     "unbound": "ไม่ผูกไว้",
     "leasesPill": "สัญญาเช่า",
     "nodesPill": "โหนด",
-    "portSuggested": "แนะนำ"
+    "portSuggested": "แนะนำ",
+    "portEnabled": "เปิดการใช้งานพอร์ต",
+    "portDisabled": "ปิดการใช้งานพอร์ต",
+    "enablePort": "เปิดพอร์ต",
+    "disablePort": "ปิดพอร์ต"
   },
   "policy": {
     "balanced": "สมดุล",
@@ -317,7 +321,14 @@
     "aClassQuality": "คุณภาพ Top-{{n}}",
     "aClassSubscription": "การสมัครสมาชิก: {{subs}}",
     "minimapHint": "มินิแมพ: เลื่อนภาพรวมแคนวาส สีของโหนดตรงกับประเภทโหนด",
-    "openStrategyConfig": "เปิดการกำหนดค่ากลยุทธ์"
+    "openStrategyConfig": "เปิดการกำหนดค่ากลยุทธ์",
+    "portAlive": "ใช้งานได้",
+    "portDegraded": "ช้าลง",
+    "portDead": "ไม่ทำงาน",
+    "portRestarting": "กำลังรีสตาร์ท",
+    "portAuthRequired": "ต้องมีการยืนยันตัวตน",
+    "portAuthNotRequired": "ไม่ต้องยืนยันตัวตน",
+    "portDisabled": "ปิดอยู่"
   },
   "tray": {
     "show": "แสดงหน้าต่าง",

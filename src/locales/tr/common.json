@@ -153,7 +153,11 @@
     "unbound": "Bağlı değil",
     "leasesPill": "Kiralananlar",
     "nodesPill": "Düğümler",
-    "portSuggested": "Önerilen"
+    "portSuggested": "Önerilen",
+    "portEnabled": "Port etkin",
+    "portDisabled": "Port devre dışı",
+    "enablePort": "Portu etkinleştir",
+    "disablePort": "Portu devre dışı bırak"
   },
   "policy": {
     "balanced": "Dengeli",
@@ -317,7 +321,14 @@
     "aClassQuality": "Kalite Top-{{n}}",
     "aClassSubscription": "Abonelik: {{subs}}",
     "minimapHint": "Mini-harita: tuval özetini kaydırın. Düğüm renkleri düğüm türüne karşılık gelir.",
-    "openStrategyConfig": "Strateji yapılandırmasını aç"
+    "openStrategyConfig": "Strateji yapılandırmasını aç",
+    "portAlive": "Aktif",
+    "portDegraded": "Bozuk",
+    "portDead": "Ölü",
+    "portRestarting": "Yeniden başlatılıyor",
+    "portAuthRequired": "Kimlik doğrulaması gerekli",
+    "portAuthNotRequired": "Kimlik doğrulaması yok",
+    "portDisabled": "Devre dışı"
   },
   "tray": {
     "show": "Pencereyi göster",

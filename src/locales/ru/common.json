@@ -153,7 +153,11 @@
     "unbound": "Не привязан",
     "leasesPill": "Лизы",
     "nodesPill": "Узлы",
-    "portSuggested": "Предложено"
+    "portSuggested": "Предложено",
+    "portEnabled": "Порт включён",
+    "portDisabled": "Порт отключён",
+    "enablePort": "Включить порт",
+    "disablePort": "Отключить порт"
   },
   "policy": {
     "balanced": "Сбалансированный",
@@ -317,7 +321,14 @@
     "aClassQuality": "Качество Top-{{n}}",
     "aClassSubscription": "Подписка: {{subs}}",
     "minimapHint": "Мини-карта: перемещайте обзор холста. Цвета узлов соответствуют типам узлов.",
-    "openStrategyConfig": "Открыть конфигурацию стратегии"
+    "openStrategyConfig": "Открыть конфигурацию стратегии",
+    "portAlive": "Работает",
+    "portDegraded": "Деградация",
+    "portDead": "Недоступен",
+    "portRestarting": "Перезапуск",
+    "portAuthRequired": "Требуется аутентификация",
+    "portAuthNotRequired": "Без аутентификации",
+    "portDisabled": "Отключено"
   },
   "tray": {
     "show": "Показать окно",

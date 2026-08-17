@@ -18,9 +18,20 @@ class ResizeObserverPolyfill {
 
 const invokeMock = vi.fn<(cmd: string, args?: Record<string, unknown>) => Promise<unknown>>();
 
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (...args: unknown[]) => invokeMock(args[0] as string, args[1] as Record<string, unknown> | undefined),
-}));
+// T18: stub Tauri Channel<T> — Channel class defined INSIDE the vi.mock factory
+// so it survives vitest vi.mock hoisting.
+vi.mock("@tauri-apps/api/core", () => {
+  class ChannelStub<T = unknown> {
+    onmessage: ((msg: T) => void) | null = null;
+    constructor() { (globalThis as unknown as { __lastChannel: ChannelStub<T> }).__lastChannel = this; }
+    __emit(msg: T) { if (this.onmessage) this.onmessage(msg); }
+    __close() { this.onmessage = null; }
+  }
+  return {
+    invoke: (...args: unknown[]) => invokeMock(args[0] as string, args[1] as Record<string, unknown> | undefined),
+    Channel: ChannelStub,
+  };
+});
 
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn(async () => () => {}),
@@ -64,6 +75,10 @@ beforeAll(async () => {
         "platform.portDuplicate": "Port already exists",
         "platform.portAddOk": "Entry port added",
         "platform.portRemoved": "Entry port removed",
+        "platform.portEnabled": "Port enabled",
+        "platform.portDisabled": "Port disabled",
+        "platform.enablePort": "Enable port",
+        "platform.disablePort": "Disable port",
         "platform.portBound": "Bound :{{port}} to {{platform}}",
         "platform.noPorts": "No entry ports yet",
         "platform.port": "Port",
@@ -154,6 +169,13 @@ beforeAll(async () => {
         "topology.collapseNodes": "Collapse",
         "topology.openStrategyConfig": "Open strategy config",
         "topology.minimapHint": "Mini-map: pan the canvas overview. Node colors match node types.",
+        "topology.portAlive": "Alive",
+        "topology.portDegraded": "Degraded",
+        "topology.portDead": "Dead",
+        "topology.portRestarting": "Restarting",
+        "topology.portAuthRequired": "Authentication required",
+        "topology.portAuthNotRequired": "No authentication",
+        "topology.portDisabled": "Disabled",
         "topology.zoomIn": "Zoom in",
         "topology.zoomOut": "Zoom out",
         "topology.fitView": "Fit view",

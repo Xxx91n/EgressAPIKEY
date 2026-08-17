@@ -18,6 +18,7 @@ import {
   ipcPortUpsert,
   ipcPortBindPlatform,
   ipcPortRemove,
+  ipcPortToggle,
   ipcPortAuthInfo,
   ipcPortHealthCheck,
   ipcPortSuggest,
@@ -287,6 +288,16 @@ export function PlatformsView() {
     finally { setBusy(false); }
   };
 
+  const handleTogglePort = async (port: number, enabled: boolean) => {
+    setBusy(true);
+    try {
+      await ipcPortToggle(port, enabled);
+      showToast("ok", enabled ? t("platform.portEnabled") : t("platform.portDisabled"));
+      await refreshPortAuthAndHealth(await refreshPorts());
+    } catch (e) { showToast("err", translateError(e, t)); }
+    finally { setBusy(false); }
+  };
+
   const bindPortToPlatform = async (port: number, platformName: string) => {
     const row = ports.find((p) => p.port === port);
     if (!row) return;
@@ -423,7 +434,19 @@ export function PlatformsView() {
                     <span className={"h-2 w-2 shrink-0 rounded-full " + healthDot} />
                     <Plug className="h-3 w-3 shrink-0" />
                     <span className="font-medium">:{p.port}</span>
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] uppercase">{p.protocol}</span>
+                    <span className={"rounded px-1.5 py-0.5 text-[10px] uppercase " + (p.enabled ? "bg-muted" : "bg-muted/40 opacity-60")}>{p.protocol}</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={p.enabled}
+                      aria-label={p.enabled ? t("platform.disablePort") : t("platform.enablePort")}
+                      title={p.enabled ? t("platform.disablePort") : t("platform.enablePort")}
+                      data-testid={"port-toggle-" + p.port}
+                      onClick={(e) => { e.stopPropagation(); void handleTogglePort(p.port, !p.enabled); }}
+                      className={"relative inline-flex h-3.5 w-6 shrink-0 cursor-pointer items-center rounded-full transition " + (p.enabled ? "bg-emerald-500" : "bg-muted-foreground/40")}
+                    >
+                      <span className={"inline-block h-2.5 w-2.5 transform rounded-full bg-white shadow transition " + (p.enabled ? "translate-x-3" : "translate-x-0.5")} />
+                    </button>
                     {a && !a.auth_required && <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-500" />}
                     {a && a.auth_required && <ShieldAlert className="h-3 w-3 shrink-0 text-amber-500" />}
                     <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">{(p.label || t("platform.entryPorts")) + " · " + (p.platform_name || t("platform.unbound"))}</span>

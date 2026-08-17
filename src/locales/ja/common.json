@@ -153,7 +153,11 @@
     "unbound": "未割当",
     "leasesPill": "リース",
     "nodesPill": "ノード",
-    "portSuggested": "推奨"
+    "portSuggested": "推奨",
+    "portEnabled": "ポート有効",
+    "portDisabled": "ポート無効",
+    "enablePort": "ポートを有効化",
+    "disablePort": "ポートを無効化"
   },
   "policy": {
     "balanced": "バランス",
@@ -317,7 +321,14 @@
     "aClassQuality": "品質 Top-{{n}}",
     "aClassSubscription": "サブスクリプション: {{subs}}",
     "minimapHint": "ミニマップ：キャンバス概要をパンできます。ノードの色は種別に対応。",
-    "openStrategyConfig": "戦略設定を開く"
+    "openStrategyConfig": "戦略設定を開く",
+    "portAlive": "正常",
+    "portDegraded": "低下",
+    "portDead": "停止",
+    "portRestarting": "再起動中",
+    "portAuthRequired": "認証が必要",
+    "portAuthNotRequired": "認証不要",
+    "portDisabled": "無効"
   },
   "tray": {
     "show": "ウィンドウを表示",

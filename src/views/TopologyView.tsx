@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import i18n from "i18next";
 import {
   ReactFlow, Background, BackgroundVariant, MiniMap,
   Handle, Position, type Node, type Edge, type Connection, type NodeProps,
@@ -15,6 +16,7 @@ import {
   ipcLeaseMap, ipcPortList, type LeaseEntry, type PortMapping,
   ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
   ipcPortBindPlatform, ipcGetConfigDir,
+  ipcWatchPortHealth, type PortHealthEntry,
 } from "../lib/ipc";
 import { loadTopologyState, saveTopologyState, type TopologyState as T15TopologyState } from "../lib/settings";
 import { strategyToI18nKey, mapResinToShell, type StrategyId, type AllocationPolicy } from "../lib/strategy";
@@ -22,6 +24,9 @@ import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
 import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock, Home, FileCog } from "lucide-react";
 import { usePoll } from "../hooks/usePoll";
+
+/// T18: translate helper for use inside memoized nodes (no React context).
+const tFn = (k: string) => i18n.t(k);
 
 /// TopologyView T13 — Canvas V2: strategy-driven dagre layout + flash fix + zustand cache.
 ///   A (Entry proxy port) --> B (Platforms) --strategy match--> C (IP channels / nodes)
@@ -71,10 +76,12 @@ interface TopologyState {
   subGroups: SubscriptionGroup[];
   leases: LeaseEntry[];
   ports: PortMapping[];
+  portHealth: Record<number, PortHealthEntry>;
   setPlatforms: (p: PlatformFull[]) => void;
   setSubGroups: (s: SubscriptionGroup[]) => void;
   setLeases: (l: LeaseEntry[]) => void;
   setPorts: (p: PortMapping[]) => void;
+  setPortHealth: (m: Record<number, PortHealthEntry>) => void;
 }
 
 export const useTopologyStore = create<TopologyState>((set) => ({
@@ -82,10 +89,12 @@ export const useTopologyStore = create<TopologyState>((set) => ({
   subGroups: [],
   leases: [],
   ports: [],
+  portHealth: {},
   setPlatforms: (p) => set((s) => (shallow(s.platforms, p) ? {} : { platforms: p })),
   setSubGroups: (sg) => set((s) => (shallow(s.subGroups, sg) ? {} : { subGroups: sg })),
   setLeases: (l) => set((s) => (shallow(s.leases, l) ? {} : { leases: l })),
   setPorts: (p) => set((s) => (shallow(s.ports, p) ? {} : { ports: p })),
+  setPortHealth: (m) => set((s) => (shallow(s.portHealth, m) ? {} : { portHealth: m })),
 }));
 
 // --- T13-1: helper — get selected regions from all platforms ---
@@ -321,11 +330,37 @@ export const fixedHandleStyle: React.CSSProperties = {
 /// Custom node: Entry port (A column).
 const EntryPortNode = memo(function EntryPortNode({ data }: NodeProps) {
   const d = data as Record<string, unknown>;
+  const port = typeof d.port === "number" ? d.port : 0;
+  const healthState = typeof d.healthState === "string" ? (d.healthState as "alive" | "degraded" | "dead" | "restarting") : "alive";
+  const authRequired = typeof d.authRequired === "boolean" ? d.authRequired : false;
+  const enabled = typeof d.enabled === "boolean" ? d.enabled : true;
+  // T18-S1: 4-state chip — alive=green, degraded=amber, dead=red+grayed, restarting=blue pulse
+  const dot: Record<string, string> = {
+    alive: "bg-emerald-500",
+    degraded: "bg-amber-500",
+    dead: "bg-red-500",
+    restarting: "bg-blue-500 animate-pulse",
+  };
+  const healthLabelKey: Record<string, string> = {
+    alive: "topology.portAlive",
+    degraded: "topology.portDegraded",
+    dead: "topology.portDead",
+    restarting: "topology.portRestarting",
+  };
+  const OpacityClass = enabled ? "" : "opacity-50";
   return (
-    <div className="relative rounded-lg border border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-950/50 px-4 py-3 text-xs min-w-[140px] max-w-[200px]">
+    <div className={`relative rounded-lg border border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-950/50 px-4 py-3 text-xs min-w-[140px] max-w-[200px] ${OpacityClass}`}>
       <Handle type="source" position={Position.Right} style={fixedHandleStyle} />
-      <div className="font-semibold text-blue-700 dark:text-blue-300">
-        {typeof d.port === "number" && d.port > 0 ? String(d.port) : String(d.label)}
+      <div className="flex items-center gap-1.5">
+        <span title={tFn(healthLabelKey[healthState])} className={`inline-block w-2 h-2 rounded-full ${dot[healthState]}`} />
+        <span className="font-semibold text-blue-700 dark:text-blue-300">
+          {port > 0 ? String(port) : String(d.label)}
+        </span>
+        {authRequired ? (
+          <Lock className="w-3 h-3 text-blue-500/70 dark:text-blue-400/70" aria-label={tFn("topology.portAuthRequired")} />
+        ) : (
+          <Unlock className="w-3 h-3 text-emerald-500/70 dark:text-emerald-400/70" aria-label={tFn("topology.portAuthNotRequired")} />
+        )}
       </div>
       <div className="text-blue-600/70 dark:text-blue-400/70 mt-0.5 text-[10px]">
         {typeof d.protocol === "string" ? d.protocol : ""}
@@ -334,6 +369,11 @@ const EntryPortNode = memo(function EntryPortNode({ data }: NodeProps) {
         <div className="mt-1 text-[10px] text-blue-500/60 dark:text-blue-400/60 font-mono">
           {"->"} {d.boundPlatform}
           {typeof d.account === "string" && d.account ? " * " + d.account : ""}
+        </div>
+      )}
+      {!enabled && (
+        <div className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
+          {tFn("topology.portDisabled")}
         </div>
       )}
     </div>
@@ -661,6 +701,8 @@ function TopologyCanvas() {
   const setSubGroups = useTopologyStore((s) => s.setSubGroups);
   const setLeases = useTopologyStore((s) => s.setLeases);
   const setPorts = useTopologyStore((s) => s.setPorts);
+  const portHealth = useTopologyStore((s) => s.portHealth);
+  const setPortHealth = useTopologyStore((s) => s.setPortHealth);
 
   const [sidecarStatus, setSidecarStatus] = useState<string>("");
   const [viewMode, setViewMode] = useState<"subscription" | "region">("subscription");
@@ -720,6 +762,16 @@ function TopologyCanvas() {
     return () => { if (unsub) { try { unsub(); } catch { /* ignore */ } } };
   }, []);
 
+  // T18-S1: subscribe to port health batch snapshots; update per-port health map.
+  useEffect(() => {
+    const unsub = ipcWatchPortHealth((snap) => {
+      const next: Record<number, PortHealthEntry> = {};
+      for (const e of snap.entries) next[e.port] = e;
+      setPortHealth(next);
+    }, (err) => console.warn("[TopologyView] port health stream error", err));
+    return () => { try { unsub(); } catch { /* ignore */ } };
+  }, [setPortHealth]);
+
   // T15-3: persist viewMode + locked when they change (but only after ready to avoid overriding onInit load)
   useEffect(() => {
     if (!ready) return;
@@ -762,11 +814,18 @@ function TopologyCanvas() {
     if (!i18n.isInitialized || !i18n.language) return [];
     const list: Node[] = [];
     ports.forEach((p) => {
+      const he = portHealth[p.port];
       list.push({
         id: "entry-port-" + p.port,
         type: "entryPort",
         position: { x: 0, y: 0 },
-        data: { port: p.port, protocol: p.protocol, label: p.label, boundPlatform: p.platform_name, account: p.account },
+        data: {
+          port: p.port, protocol: p.protocol, label: p.label,
+          boundPlatform: p.platform_name, account: p.account,
+          healthState: he?.state ?? "alive",
+          authRequired: p.auth_required,
+          enabled: p.enabled,
+        },
       });
     });
     if (ports.length === 0) {
@@ -830,7 +889,7 @@ function TopologyCanvas() {
     const cNodes = buildCColumnGroups(viewMode, subGroups, selectedRegions, t);
     list.push(...cNodes);
     return list;
-  }, [platforms, subGroups, leases, ports, t, i18n.isInitialized, i18n.language, selectedRegions, viewMode]);
+  }, [platforms, subGroups, leases, ports, t, i18n.isInitialized, i18n.language, selectedRegions, viewMode, portHealth]);
 
   // T13-2: build edges first, then dagre layout both
   const edges: Edge[] = useMemo(() => {

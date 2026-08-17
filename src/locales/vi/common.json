@@ -153,7 +153,11 @@
     "unbound": "Chưa gắn",
     "leasesPill": "Thuê",
     "nodesPill": "Nút",
-    "portSuggested": "Đề xuất"
+    "portSuggested": "Đề xuất",
+    "portEnabled": "Cổng đã bật",
+    "portDisabled": "Cổng đã tắt",
+    "enablePort": "Bật cổng",
+    "disablePort": "Tắt cổng"
   },
   "policy": {
     "balanced": "Can bang",
@@ -317,7 +321,14 @@
     "aClassQuality": "Chất lượng Top-{{n}}",
     "aClassSubscription": "Đăng ký: {{subs}}",
     "minimapHint": "Bản đồ nhỏ: di chuyển tổng quan canvas. Màu nút tương ứng loại nút.",
-    "openStrategyConfig": "Mở cấu hình chiến lược"
+    "openStrategyConfig": "Mở cấu hình chiến lược",
+    "portAlive": "Hoạt động",
+    "portDegraded": "Suy giảm",
+    "portDead": "Chết",
+    "portRestarting": "Đang khởi động lại",
+    "portAuthRequired": "Yêu cầu xác thực",
+    "portAuthNotRequired": "Không cần xác thực",
+    "portDisabled": "Tắt"
   },
   "tray": {
     "show": "Hiện cửa sổ",

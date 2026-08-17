@@ -153,7 +153,11 @@
     "unbound": "Tidak terikat",
     "leasesPill": "Sewa",
     "nodesPill": "Node",
-    "portSuggested": "Disarankan"
+    "portSuggested": "Disarankan",
+    "portEnabled": "Port diaktifkan",
+    "portDisabled": "Port dinonaktifkan",
+    "enablePort": "Aktifkan port",
+    "disablePort": "Nonaktifkan port"
   },
   "policy": {
     "balanced": "Seimbang",
@@ -317,7 +321,14 @@
     "aClassQuality": "Kualitas Top-{{n}}",
     "aClassSubscription": "Langganan: {{subs}}",
     "minimapHint": "Mini-map: geser gambar ringkas kanvas. Warna node sesuai jenis node.",
-    "openStrategyConfig": "Buka konfigurasi strategi"
+    "openStrategyConfig": "Buka konfigurasi strategi",
+    "portAlive": "Aktif",
+    "portDegraded": "Menurun",
+    "portDead": "Mati",
+    "portRestarting": "Memulai ulang",
+    "portAuthRequired": "Diperlukan otentikasi",
+    "portAuthNotRequired": "Tanpa otentikasi",
+    "portDisabled": "Dinonaktifkan"
   },
   "tray": {
     "show": "Tampilkan jendela",

@@ -153,7 +153,11 @@
     "unbound": "Non collegato",
     "leasesPill": "Lease",
     "nodesPill": "Nodi",
-    "portSuggested": "Suggerito"
+    "portSuggested": "Suggerito",
+    "portEnabled": "Porta abilitata",
+    "portDisabled": "Porta disabilitata",
+    "enablePort": "Abilita porta",
+    "disablePort": "Disabilita porta"
   },
   "policy": {
     "balanced": "Bilanciato",
@@ -317,7 +321,14 @@
     "aClassQuality": "Qualità Top-{{n}}",
     "aClassSubscription": "Abbonamento: {{subs}}",
     "minimapHint": "Mini-mappa: sposta la panoramica del canvas. I colori corrispondono al tipo di nodo.",
-    "openStrategyConfig": "Apri configurazione strategia"
+    "openStrategyConfig": "Apri configurazione strategia",
+    "portAlive": "Attivo",
+    "portDegraded": "Degradato",
+    "portDead": "Morto",
+    "portRestarting": "Riavvio",
+    "portAuthRequired": "Autenticazione richiesta",
+    "portAuthNotRequired": "Nessuna autenticazione",
+    "portDisabled": "Disabilitato"
   },
   "tray": {
     "show": "Mostra finestra",

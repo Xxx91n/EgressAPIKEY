@@ -70,3 +70,12 @@
 - backup_create - called before any canvas drag-edit, so every whitebox-write traces to a restorable snapshot.
 - The strategy JSON path is surfaced in Settings together with the network-whitebox path; both are read-only
   copy + reload after external edit surfaces, not in-app text editors. See ADR-0039 S5.
+
+## T18 — Canvas + Pipeline Sync (ADR-0042)
+
+- **portHealthChip** - the 4-state visual indicator on EntryPortNode showing port liveness: alive (green), degraded (amber), dead (red + card grayed), restarting (blue pulse). Driven by the Rust-side watch_port_health Channel batch probe (sing-box urltest pattern: single ticker + concurrency cap 10 + atomic reentry guard + TTL skip + exponential backoff). Not tied to the 5s sync() poll; disabled ports are skipped. See ADR-0042 S1.
+- **portEnabled** - the whitebox egressapikey-ports.json enabled field that controls whether PortForwarder listens on the port. Truth source for port on/off; Resin endpoint untouched. Toggled from PlatformsView switch; canvas EntryPortNode shows grayed + lock when disabled. See ADR-0042 S2.
+- **bClassParams** - optional per-platform B-strategy parameters (round_robin_n, latency_threshold_ms, quality_score) stored in strategyConfig JSON. PlatformNode B badge renders them via i18n template interpolation. Whitebox editable. See ADR-0042 S3.
+- **manualMode** - the A-class strategy where the user manually selects specific node hashes (not regions). Canvas drag stays group-level; manual selection is via expanded card node-row checkbox. Checkbox toggles node_hash in strategyConfig manual_nodes; strategy_engine maps manual_nodes to regions to PATCH Resin region_filters. No leaf-node handles on canvas (ReactFlow group-no-handle paradigm). See ADR-0042 S4.
+- **configEntry** - the right-top floating toolbar on canvas with a FileCog dropdown to open egressapikey-ports.json or egressapikey-strategy.json in the OS default editor. Replaces the left-bottom FileCog. See ADR-0042 S5.
+- **whiteboxRestorePorts** - the post-boot_resin logic that rebuilds Resin endpoints from whitebox egressapikey-ports.json on every Resin restart. For each enabled entry_port: POST /api/v1/endpoints (skip on 409 Conflict). Closes the whitebox-is-truth-source loop. See ADR-0042 S6.

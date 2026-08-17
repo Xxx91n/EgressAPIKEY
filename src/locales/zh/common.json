@@ -153,7 +153,11 @@
     "unbound": "未绑定",
     "leasesPill": "租约",
     "nodesPill": "节点",
-    "portSuggested": "建议"
+    "portSuggested": "建议",
+    "portEnabled": "端口已启用",
+    "portDisabled": "端口已停用",
+    "enablePort": "启用端口",
+    "disablePort": "停用端口"
   },
   "policy": {
     "balanced": "均衡",
@@ -317,7 +321,14 @@
     "aClassQuality": "质量 Top-{{n}}",
     "aClassSubscription": "订阅: {{subs}}",
     "minimapHint": "缩略图：拖动可平移画布概览。节点颜色对应节点类型。",
-    "openStrategyConfig": "打开策略配置"
+    "openStrategyConfig": "打开策略配置",
+    "portAlive": "正常",
+    "portDegraded": "降级",
+    "portDead": "失效",
+    "portRestarting": "重启中",
+    "portAuthRequired": "需要认证",
+    "portAuthNotRequired": "无需认证",
+    "portDisabled": "已停用"
   },
   "tray": {
     "show": "显示窗口",

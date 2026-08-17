@@ -4,9 +4,20 @@ import i18next from "i18next";
 
 // Mock the IPC module so we control the platform/node data the canvas sees.
 const invokeMock = vi.fn<(cmd: string, args?: Record<string, unknown>) => Promise<unknown>>();
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (...args: unknown[]) => invokeMock(args[0] as string, args[1] as Record<string, unknown> | undefined),
-}));
+// T18: file-scoped core mock must ALSO export Channel for watch_port_health streaming tests.
+// Channel class defined INSIDE the factory to remain valid after vitest vi.mock hoisting.
+vi.mock("@tauri-apps/api/core", () => {
+  class ChannelStub<T = unknown> {
+    onmessage: ((msg: T) => void) | null = null;
+    constructor() { (globalThis as unknown as { __lastChannel: ChannelStub<T> }).__lastChannel = this; }
+    __emit(msg: T) { if (this.onmessage) this.onmessage(msg); }
+    __close() { this.onmessage = null; }
+  }
+  return {
+    invoke: (...args: unknown[]) => invokeMock(args[0] as string, args[1] as Record<string, unknown> | undefined),
+    Channel: ChannelStub,
+  };
+});
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 
 import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, getSelectedRegions, layoutNodesViaDagre, fixedHandleStyle, useTopologyStore, dedupNodesByHash, buildCColumnGroups } from "./TopologyView";
@@ -973,6 +984,82 @@ describe("T15-3: React.memo canvas node optimization", () => {
       const hits = Array.from(anyTitled).filter((el) => (el.getAttribute("title") || "").match(/^(topology.minimapHint|Mini-map|$)/));
       // No container should use the raw key as its title attribute (that would indicate the wrapper never read t())
       expect(hits.filter((el) => el.getAttribute("title") === "topology.minimapHint")).toHaveLength(0);
+    });
+  });
+
+  describe("T18-1 (ADR-0042 S1): port health chip — 4-state + authRequired + disabled", () => {
+    it("T18-1a: entry port renders Alive green dot when watch_port_health emits alive snapshot", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
+        if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([
+          { port: 17001, protocol: "socks5", platform_name: "P1", account: "acc", label: "L1", enabled: true, auth_required: false },
+        ]);
+        if (cmd === "watch_port_health") return Promise.resolve(undefined);
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      // Wait for the EntryPortNode to render
+      await waitFor(() => {
+        expect(container.textContent || "").toMatch(/17001/);
+      });
+      // Emit a snapshot via the stubbed channel
+      const stub = (globalThis as unknown as { __lastChannel: { __emit: (m: unknown) => void } }).__lastChannel;
+      stub.__emit({ revision: 1, entries: [{ port: 17001, state: "alive", reachable: true, fails: 0, latency_ms: 10, interval_secs: 5 }] });
+      // After emit, the title attribute on the health dot should be "Alive"
+      await waitFor(() => {
+        const dot = container.querySelector('span[title="Alive"]');
+        expect(dot).toBeTruthy();
+        expect(dot?.className).toContain("bg-emerald-500");
+      });
+    });
+
+    it("T18-1b: entry port renders Dead red dot and Disabled overlay when enabled=false", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
+        if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([
+          { port: 17002, protocol: "http", platform_name: "", account: "", label: "Pool2", enabled: false, auth_required: false },
+        ]);
+        if (cmd === "watch_port_health") return Promise.resolve(undefined);
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        expect(container.textContent || "").toMatch(/17002/);
+      });
+      // emit Dead snapshot
+      const stub = (globalThis as unknown as { __lastChannel: { __emit: (m: unknown) => void } }).__lastChannel;
+      stub.__emit({ revision: 2, entries: [{ port: 17002, state: "dead", reachable: false, fails: 5, latency_ms: null, interval_secs: 300 }] });
+      // Disabled text is shown (i18n "Disabled")
+      await waitFor(() => {
+        expect(container.textContent || "").toMatch(/Disabled/);
+      });
+      // dead dot should be red (bg-red-500)
+      const dot = container.querySelector('span[title="Dead"]');
+      expect(dot).toBeTruthy();
+      expect(dot?.className).toContain("bg-red-500");
+    });
+
+    it("T18-1c: entry port Lock icon aria-label=i18n(portAuthRequired) when auth_required=true", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
+        if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([
+          { port: 17003, protocol: "socks5", platform_name: "P3", account: "acc3", label: "L3", enabled: true, auth_required: true },
+        ]);
+        if (cmd === "watch_port_health") return Promise.resolve(undefined);
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        expect(container.textContent || "").toMatch(/17003/);
+      });
+      const lockEl = container.querySelector('svg[aria-label="Authentication required"]');
+      expect(lockEl).toBeTruthy();
     });
   });
 

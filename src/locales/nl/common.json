@@ -153,7 +153,11 @@
     "unbound": "Niet gekoppeld",
     "leasesPill": "Leases",
     "nodesPill": "Knopen",
-    "portSuggested": "Voorgesteld"
+    "portSuggested": "Voorgesteld",
+    "portEnabled": "Poort ingeschakeld",
+    "portDisabled": "Poort uitgeschakeld",
+    "enablePort": "Poort inschakelen",
+    "disablePort": "Poort uitschakelen"
   },
   "policy": {
     "balanced": "Gebalanceerd",
@@ -317,7 +321,14 @@
     "aClassQuality": "Kwaliteit Top-{{n}}",
     "aClassSubscription": "Abonnement: {{subs}}",
     "minimapHint": "Mini-map: verplaats het canvasoverzicht. Nodekleuren komen overeen met het knooptype.",
-    "openStrategyConfig": "Strategieconfiguratie openen"
+    "openStrategyConfig": "Strategieconfiguratie openen",
+    "portAlive": "Actief",
+    "portDegraded": "Gedegradeerd",
+    "portDead": "Dood",
+    "portRestarting": "Herstarten",
+    "portAuthRequired": "Verificatie vereist",
+    "portAuthNotRequired": "Geen verificatie",
+    "portDisabled": "Uitgeschakeld"
   },
   "tray": {
     "show": "Venster tonen",

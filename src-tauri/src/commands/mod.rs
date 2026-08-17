@@ -1943,6 +1943,55 @@ pub async fn port_remove(
     Ok(true)
 }
 
+/// T18-S2 (ADR-0042): Toggle enabled flag on an entry-port without
+/// re-POST/Create or DELETE. Patches the Resin endpoint `{enabled: bool}`
+/// (Resin v1.2.0 supports `enabled` on PATCH — `inactive` keeps the record)
+/// then persists the same flag into the shell whitebox `entry_ports[].enabled`
+/// so the whitebox is the authoritative record. The listener is NOT removed
+/// from Resin's DB when toggled off, so toggled back on is a PATCH only.
+#[tauri::command]
+pub async fn port_toggle(
+    sidecar: State<'_, SidecarHandle>,
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+    port: u16,
+    enabled: bool,
+) -> Result<resin_core::PortMapping, IpcError> {
+    validate_port_segments(port)?;
+    // Step 1: Resin endpoint PATCH {enabled} — find endpoint by port.
+    let client = resin_client(&sidecar)?;
+    let existing = client.list_endpoints().await
+        .map_err(|e| IpcError::from(format!("list_endpoints: {e:?}")))?;
+    match find_endpoint_id_by_port(&existing, port) {
+        Some(ep_id) => {
+            let body = serde_json::json!({ "enabled": enabled });
+            client.update_endpoint(&ep_id, body).await
+                .map_err(|e| IpcError::from(format!("update_endpoint (toggle): {e:?}")))?;
+            tracing::info!(target: "ipc.port_toggle", port, enabled, %ep_id, "endpoint patched");
+        }
+        None => {
+            // Port was never created at Resin (or was DELETEd). Toggling off is
+            // a no-op; toggling on without an endpoint record is impossible —
+            // the user must re-create via port_upsert. Log and proceed to
+            // update the shell whitebox enabled flag so the GUI still reflects
+            // the requested state.
+            tracing::warn!(target: "ipc.port_toggle", port, enabled, "no Resin endpoint for port; only updating shell whitebox");
+        }
+    }
+    // Step 2: Update shell DB + whitebox metadata.
+    let mut next = whitebox.snapshot();
+    let row = next.entry_ports.iter_mut().find(|r| r.port == port);
+    if let Some(r) = row {
+        r.enabled = enabled;
+        let m = r.clone();
+        whitebox.apply(&db, &forwarder, next).await?;
+        Ok(m)
+    } else {
+        Err(IpcError::from(format!("port_toggle: port {port} not in whitebox")))
+    }
+}
+
 /// T8-1 (ADR-0029): Bind an entry-port to a platform WITHOUT touching
 /// auth_required. Only updates the shell-side whitebox PortMapping
 /// platform_name field. Does NOT call port_upsert (which would default
@@ -2712,6 +2761,56 @@ pub async fn get_log_level() -> Result<String, IpcError> {
     };
     Ok(name.to_string())
 }
+
+
+// --- T18 Phase 1: Port health batch probe (ADR-0042 S1) ---------------------
+//
+// A single watch_port_health command drives the background Tokio task that
+// probes every enabled entry-port concurrently (cap 10) and streams
+// PortHealthSnapshot down the Tauri ipc::Channel. The shared paused flag is
+// toggled by WindowEvent::Focused in main.rs (tab-hidden pause pattern).
+// Disabled ports (PortMapping.enabled=false) are filtered out by the ports_fn
+// closure before probing, matching S2's "whitebox enabled is truth source".
+
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
+/// Shared pause flag managed by main.rs and read by every watch_port_health task.
+#[derive(Clone)]
+pub struct PortHealthPaused(pub Arc<AtomicBool>);
+
+impl PortHealthPaused {
+    pub fn new(start_paused: bool) -> Self {
+        Self(Arc::new(AtomicBool::new(start_paused)))
+    }
+}
+
+/// T18 Phase 1: stream port-health snapshots down a Tauri Channel. One Tokio
+/// task per invocation; it ends when the channel is closed (frontend unmount).
+#[tauri::command]
+pub async fn watch_port_health(
+    on_event: tauri::ipc::Channel<resin_core::PortHealthSnapshot>,
+    db: State<'_, DbPool>,
+    paused: State<'_, PortHealthPaused>,
+) -> Result<(), IpcError> {
+    // ports_fn snapshot is taken from the shell DB so the watcher retries the
+    // latest port set on every tick (new ports appear, deleted ports drop out
+    // without restarting the watcher). Disabled ports are filtered here.
+    let db_clone: DbPool = db.inner().clone();
+    let ports_fn = move || {
+        db_clone.list_ports().unwrap_or_default().into_iter().filter(|m| m.enabled).collect::<Vec<_>>()
+    };
+    // Translate the Tauri Channel into the emit closure resin_core expects.
+    let channel_clone = on_event.clone();
+    let emit = move |snap: resin_core::PortHealthSnapshot| -> Result<(), ()> {
+        // send() returns Err if the webview has dropped the channel; that ends the watcher.
+        channel_clone.send(snap).map_err(|_| ())
+    };
+    let paused_arc = paused.inner().0.clone();
+    resin_core::port_health::spawn_watcher(ports_fn, emit, paused_arc);
+    Ok(())
+}
+
 
 
 #[cfg(test)]

@@ -153,7 +153,11 @@
     "unbound": "Unbound",
     "leasesPill": "Leases",
     "nodesPill": "Nodes",
-    "portSuggested": "Suggested"
+    "portSuggested": "Suggested",
+    "portEnabled": "Port enabled",
+    "portDisabled": "Port disabled",
+    "enablePort": "Enable port",
+    "disablePort": "Disable port"
   },
   "policy": {
     "balanced": "Balanced",
@@ -317,7 +321,14 @@
     "aClassQuality": "Quality Top-{{n}}",
     "aClassSubscription": "Subscription: {{subs}}",
     "minimapHint": "Mini-map: pan the canvas overview. Node colors match node types.",
-    "openStrategyConfig": "Open strategy config"
+    "openStrategyConfig": "Open strategy config",
+    "portAlive": "Alive",
+    "portDegraded": "Degraded",
+    "portDead": "Dead",
+    "portRestarting": "Restarting",
+    "portAuthRequired": "Authentication required",
+    "portAuthNotRequired": "No authentication",
+    "portDisabled": "Disabled"
   },
   "tray": {
     "show": "Show Window",

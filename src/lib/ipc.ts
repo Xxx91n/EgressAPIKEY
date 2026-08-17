@@ -2,7 +2,7 @@
  * Re3 IPC bridge: typed wrappers over Tauri commands exposing the Resin
  * Platform/Account registry. TS-layer validation per AGENTS s7.6.
  */
-import { invoke as _invoke } from "@tauri-apps/api/core";
+import { invoke as _invoke, Channel } from "@tauri-apps/api/core";
 
 const NAME_MAX = 128;
 
@@ -420,6 +420,15 @@ export async function ipcPortRemove(port: number): Promise<boolean> {
   return invoke<boolean>("port_remove", { port });
 }
 
+/// T18-S2 (ADR-0042): Toggle enabled flag on an entry-port without
+/// touching any other field. Patches the Resin endpoint `{enabled: bool}`
+/// and persists the flag into the shell whitebox. The entry-port's other
+/// fields (protocol, platform_name, account, auth_required) are preserved.
+export async function ipcPortToggle(port: number, enabled: boolean): Promise<PortMapping> {
+  assertPort(port);
+  return invoke<PortMapping>("port_toggle", { port, enabled });
+}
+
 /// T8-1 (ADR-0029): Bind a port to a platform without touching auth_required.
 /// Calls port_bind_platform IPC (not port_upsert) to avoid auth flip.
 export async function ipcPortBindPlatform(port: number, platformName: string): Promise<boolean> {
@@ -478,6 +487,51 @@ export async function ipcPortHealthCheck(port: number, protocol?: string): Promi
   const proto = (protocol ?? "socks5").toLowerCase();
   if (proto !== "socks5" && proto !== "http") throw new Error("protocol must be socks5 or http");
   return invoke<PortHealthCheck>("port_health_check", { port, protocol: proto });
+}
+
+// T18 Phase 1: streaming port health. One Tauri Channel<PortHealthSnapshot>
+// per TopologyCanvas mount; the Rust side spawns a single Tokio task that
+// probes every enabled entry-port concurrently (cap 10) and streams
+// snapshots down this channel. The watcher ends when the channel is closed.
+export type PortHealthState = "alive" | "degraded" | "dead" | "restarting";
+
+export interface PortHealthEntry {
+  port: number;
+  state: PortHealthState;
+  reachable: boolean;
+  fails: number;
+  latency_ms: number | null;
+  interval_secs: number;
+}
+
+export interface PortHealthSnapshot {
+  revision: number;
+  entries: PortHealthEntry[];
+}
+
+/// Subscribe to port-health snapshots. Returns an unsubscribe function that
+/// closes the channel (the Rust task ends on its next emit).
+export function ipcWatchPortHealth(
+  onSnapshot: (snap: PortHealthSnapshot) => void,
+  onError?: (err: unknown) => void,
+): () => void {
+  const channel = new Channel<PortHealthSnapshot>();
+  channel.onmessage = (snap) => {
+    try { onSnapshot(snap); }
+    catch (e) { if (onError) onError(e); }
+  };
+  // Stream commands bypass the trace_id wrapper — stream spans have no single
+  // call boundary; the watcher itself logs via tracing::info! per tick.
+  Promise.resolve(_invoke("watch_port_health", { onEvent: channel })).catch((e) => {
+    if (onError) onError(e);
+  });
+  return () => {
+    // Best-effort: Tauri 2 Channel has no explicit close; the Rust task
+    // ends on its next emit when the webview GCs the JS Channel object.
+    // To force a prompt stop, we null the handler so any in-flight message
+    // becomes a no-op.
+    channel.onmessage = () => {};
+  };
 }
 
 // T6-4: Exit IP probe — routes a request to 1.1.1.1/cdn-cgi/trace through the

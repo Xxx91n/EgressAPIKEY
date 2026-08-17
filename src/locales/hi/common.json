@@ -153,7 +153,11 @@
     "unbound": "अबद्ध",
     "leasesPill": "लीज़",
     "nodesPill": "नोड",
-    "portSuggested": "सुझाया गया"
+    "portSuggested": "सुझाया गया",
+    "portEnabled": "पोर्ट सक्रिय",
+    "portDisabled": "पोर्ट अक्षम",
+    "enablePort": "पोर्ट सक्रिय करें",
+    "disablePort": "पोर्ट अक्षम करें"
   },
   "policy": {
     "balanced": "संतुलित",
@@ -317,7 +321,14 @@
     "aClassQuality": "गुणवत्ता Top-{{n}}",
     "aClassSubscription": "सदस्यता: {{subs}}",
     "minimapHint": "मिनी-मैप: कैनवास ओवरव्यू को पैन करें। नोड रंग नोड प्रकार से मेल खाते हैं।",
-    "openStrategyConfig": "रणनीति कॉन्फ़िगरेशन खोलें"
+    "openStrategyConfig": "रणनीति कॉन्फ़िगरेशन खोलें",
+    "portAlive": "सक्रिय",
+    "portDegraded": "क्षीण",
+    "portDead": "निष्क्रिय",
+    "portRestarting": "पुनः आरंभ",
+    "portAuthRequired": "प्रमाणीकरण आवश्यक",
+    "portAuthNotRequired": "प्रमाणीकरण रहित",
+    "portDisabled": "अक्षम"
   },
   "tray": {
     "show": "विंडो दिखाएं",

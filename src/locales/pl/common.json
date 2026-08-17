@@ -153,7 +153,11 @@
     "unbound": "Niepowiązany",
     "leasesPill": "Dzierżawy",
     "nodesPill": "Węzły",
-    "portSuggested": "Sugerowany"
+    "portSuggested": "Sugerowany",
+    "portEnabled": "Port włączony",
+    "portDisabled": "Port wyłączony",
+    "enablePort": "Włącz port",
+    "disablePort": "Wyłącz port"
   },
   "policy": {
     "balanced": "Zrownowazony",
@@ -317,7 +321,14 @@
     "aClassQuality": "Jakość Top-{{n}}",
     "aClassSubscription": "Subskrypcja: {{subs}}",
     "minimapHint": "Mini-mapa: przesuń przegląd obszaru roboczego. Kolory węzłów odpowiadają typom węzłów.",
-    "openStrategyConfig": "Otwórz konfigurację strategii"
+    "openStrategyConfig": "Otwórz konfigurację strategii",
+    "portAlive": "Aktywny",
+    "portDegraded": "Niedoładny",
+    "portDead": "Martwy",
+    "portRestarting": "Restartowanie",
+    "portAuthRequired": "Wymagane uwierzytelnienie",
+    "portAuthNotRequired": "Bez uwierzytelnienia",
+    "portDisabled": "Wyłączony"
   },
   "tray": {
     "show": "Pokaż okno",

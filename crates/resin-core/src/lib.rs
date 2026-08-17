@@ -20,6 +20,8 @@ pub mod lease;
 pub mod mihomo;
 pub mod platform;
 pub mod port_forwarder;
+pub mod port_health;
+
 pub mod resin_client;
 pub mod strategy;
 pub mod strategy_engine;
@@ -42,6 +44,7 @@ pub use strategy::{protocol_weight, strategy_catalog, StrategyId, StrategyInfo};
 pub use strategy_engine::{a_class_regions, compute_plan, liveness_filter, parse_nodes, AClassStrategy, PlatformStrategy, StrategyConfig, NodeSummary};
 pub use stream_sensor::{classify_http_headers, StreamKind, StreamSensor, StreamSensorSnapshot};
 pub use tdewma::TdEwma;
+pub use port_health::{adaptive_interval, HealthState, PortHealthEntry, PortHealthSnapshot};
 pub use whitebox_config::{NetworkConfig,
     validate as validate_whitebox_config, WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE,
 };

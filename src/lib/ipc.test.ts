@@ -23,7 +23,8 @@ import {
   ipcPlatformUpdate, ipcNodeList,
   ipcPlatformCreateWithFields, ipcPlatformLeases,
   ipChannelList, ipChannelPolicySet, ipChannelCreate, ipChannelDelete,
-  ipcPortList, ipcPortUpsert, ipcPortRemove, ipcPortRunning, ipcPortReload,
+  ipcPortList, ipcPortUpsert,
+  ipcPortToggle, ipcPortRemove, ipcPortRunning, ipcPortReload,
   ipcPortHealthCheck,
   ipcProbeExitIp,
   ipcCheckFirewallStatus,
@@ -274,6 +275,15 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     expect(invokeMock).toHaveBeenCalledWith("port_list", expect.objectContaining({ __trace_id: expect.any(String) }));
     invokeMock.mockResolvedValueOnce(null);
     expect(await ipcPortList()).toEqual([]);
+  });
+
+  // T18-S2 (ADR-0042): port_toggle IPC forwards to Rust command with port + enabled; not privileged port.
+  it("ipcPortToggle forwards port + enabled to port_toggle and rejects privileged port", async () => {
+    invokeMock.mockResolvedValueOnce({ port: 17991, protocol: "socks5", platform_name: "Default", account: "port-17991", label: "k", enabled: false, auth_required: false });
+    await ipcPortToggle(17991, false);
+    expect(invokeMock).toHaveBeenCalledWith("port_toggle", expect.objectContaining({ port: 17991, enabled: false }));
+    invokeMock.mockClear();
+    await expect(ipcPortToggle(80, true)).rejects.toThrow(/out of range/);
   });
 
   it("ipcPortUpsert validates range/protocol and forwards camelCase args", async () => {

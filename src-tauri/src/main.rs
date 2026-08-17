@@ -99,6 +99,10 @@ fn main() {
                         ctrl.try_cancel_lightweight();
                     }
                 }
+                // T18 Phase 1: pause port-health batch probe while the window is unfocused.
+                if let Some(p) = window.app_handle().try_state::<commands::PortHealthPaused>() {
+                    p.0.store(!*focused, std::sync::atomic::Ordering::Relaxed);
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![commands::gateway_snapshot,
@@ -143,12 +147,14 @@ fn main() {
             commands::port_list,
             commands::port_suggest,
             commands::port_upsert,
+            commands::port_toggle,
             commands::port_remove,
             commands::port_bind_platform,
             commands::port_running,
             commands::port_reload,
             commands::port_auth_info,
             commands::port_health_check,
+            commands::watch_port_health,
             commands::probe_exit_ip,
             commands::check_firewall_status,
             commands::request_log_tail,
@@ -278,6 +284,8 @@ fn main() {
                 }
             }
             app.manage(forwarder);
+            // T18 Phase 1: shared pause flag for watch_port_health batch probe.
+            app.manage(commands::PortHealthPaused::new(false));
             // G3: Ghost safety-net - /healthz poll every 3s, 3 consecutive
             // failures flip the tray red, clear OS system proxy if any, and
             // emit a sidecar-status "unhealthy" event to the webview. When

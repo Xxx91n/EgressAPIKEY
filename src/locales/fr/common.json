@@ -153,7 +153,11 @@
     "unbound": "Non lié",
     "leasesPill": "Baux",
     "nodesPill": "Nœuds",
-    "portSuggested": "Suggéré"
+    "portSuggested": "Suggéré",
+    "portEnabled": "Port activé",
+    "portDisabled": "Port désactivé",
+    "enablePort": "Activer le port",
+    "disablePort": "Désactiver le port"
   },
   "policy": {
     "balanced": "Equilibre",
@@ -317,7 +321,14 @@
     "aClassQuality": "Qualité Top-{{n}}",
     "aClassSubscription": "Abonnement: {{subs}}",
     "minimapHint": "Mini-carte : déplacez la vue d'ensemble du canevas. Les couleurs correspondent au type de nœud.",
-    "openStrategyConfig": "Ouvrir la configuration de stratégie"
+    "openStrategyConfig": "Ouvrir la configuration de stratégie",
+    "portAlive": "Actif",
+    "portDegraded": "Dégradé",
+    "portDead": "Mort",
+    "portRestarting": "Red&eacute;marre",
+    "portAuthRequired": "Authentification requise",
+    "portAuthNotRequired": "Aucune authentification",
+    "portDisabled": "Désactivé"
   },
   "tray": {
     "show": "Afficher la Fenêtre",

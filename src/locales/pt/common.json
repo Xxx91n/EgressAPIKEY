@@ -153,7 +153,11 @@
     "unbound": "Sem vínculo",
     "leasesPill": "Concessões",
     "nodesPill": "Nós",
-    "portSuggested": "Sugerido"
+    "portSuggested": "Sugerido",
+    "portEnabled": "Porta ativada",
+    "portDisabled": "Porta desativada",
+    "enablePort": "Ativar porta",
+    "disablePort": "Desativar porta"
   },
   "policy": {
     "balanced": "Equilibrado",
@@ -317,7 +321,14 @@
     "aClassQuality": "Qualidade Top-{{n}}",
     "aClassSubscription": "Assinatura: {{subs}}",
     "minimapHint": "Mini-mapa: desloque a visão geral da tela. As cores correspondem ao tipo de nó.",
-    "openStrategyConfig": "Abrir configuração de estratégia"
+    "openStrategyConfig": "Abrir configuração de estratégia",
+    "portAlive": "Ativo",
+    "portDegraded": "Degradado",
+    "portDead": "Morto",
+    "portRestarting": "Reiniciando",
+    "portAuthRequired": "Autenticação necessária",
+    "portAuthNotRequired": "Sem autenticação",
+    "portDisabled": "Desativado"
   },
   "tray": {
     "show": "Mostrar Janela",
