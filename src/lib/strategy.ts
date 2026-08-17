@@ -81,3 +81,37 @@ export function mapResinToShell(p: string): StrategyId {
 export function isValidStrategyId(s: string): s is StrategyId {
   return (STRATEGY_IDS as readonly string[]).includes(s);
 }
+
+/// T18-3 (ADR-0042 S3): B-class strategy badge label with parameter interpolation.
+/// Picks the per-strategy i18n key and selects the relevant param value.
+/// `t` is the i18next translate function. When params are absent, falls back to
+/// the short strategy name (strategy.<id>) so the badge still renders the label.
+export function bClassLabel(
+  strategy: string,
+  params: { round_robin_n?: number; latency_threshold_ms?: number; quality_score?: number; bandwidth_weight?: number } | undefined,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  switch (strategy) {
+    case "random":
+      return t("strategy.bParamsRandom");
+    case "sequential":
+      return t("strategy.bParamsSequential", { n: params?.round_robin_n ?? 0 });
+    case "latency":
+      return t("strategy.bParamsLatency", { threshold: params?.latency_threshold_ms ?? 0 });
+    case "quality":
+      return t("strategy.bParamsQuality", { score: params?.quality_score ?? 0 });
+    case "bandwidth":
+      return t("strategy.bParamsBandwidth", { weight: params?.bandwidth_weight ?? 0 });
+    case "protocol_weight":
+      return t("strategy.bParamsProtocolWeight");
+    // Back-compat: Resin-native values from older code paths.
+    case "BALANCED":
+      return t("strategy.bParamsRandom");
+    case "PREFER_LOW_LATENCY":
+      return t("strategy.bParamsLatency", { threshold: params?.latency_threshold_ms ?? 0 });
+    case "PREFER_IDLE_IP":
+      return t("strategy.bParamsQuality", { score: params?.quality_score ?? 0 });
+    default:
+      return strategy;
+  }
+}

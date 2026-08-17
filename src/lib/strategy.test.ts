@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { strategyToI18nKey, strategyToResinPolicy, STRATEGY_IDS, isValidStrategyId } from "./strategy";
+import { strategyToI18nKey, strategyToResinPolicy, STRATEGY_IDS, isValidStrategyId, bClassLabel } from "./strategy";
 
 describe("strategyToI18nKey", () => {
   it("maps shell StrategyId values to strategy.* i18n keys", () => {
@@ -88,5 +88,67 @@ describe("mapResinToShell (T8-Bug3)", () => {
       const back = strategyToResinPolicy(shell);
       expect(back).toBe(p);
     }
+  });
+});
+
+
+// T18-3 (ADR-0042 S3): bClassLabel strategy badge with parameter interpolation.
+describe("bClassLabel (T18-3)", () => {
+  // Simple stub translator mirroring the en locale strategy.* keys.
+  const t = (key: string, opts?: Record<string, unknown>): string => {
+    const map: Record<string, string> = {
+      "strategy.bParamsRandom": "Random",
+      "strategy.bParamsSequential": "Sequential (N={{n}})",
+      "strategy.bParamsLatency": "Latency (<{{threshold}}ms)",
+      "strategy.bParamsQuality": "Quality (\u2265{{score}})",
+      "strategy.bParamsBandwidth": "Bandwidth (\u00d7{{weight}})",
+      "strategy.bParamsProtocolWeight": "Protocol Weight",
+    };
+    let out = map[key] ?? key;
+    if (opts) {
+      for (const [k, v] of Object.entries(opts)) {
+        out = out.replace(new RegExp("{{" + k + "}}", "g"), String(v));
+      }
+    }
+    return out;
+  };
+
+  it("renders Random for random strategy", () => {
+    expect(bClassLabel("random", undefined, t)).toBe("Random");
+  });
+
+  it("renders Sequential (N=5) with round_robin_n param", () => {
+    expect(bClassLabel("sequential", { round_robin_n: 5 }, t)).toBe("Sequential (N=5)");
+  });
+
+  it("renders Latency (<200ms) with latency_threshold_ms param", () => {
+    expect(bClassLabel("latency", { latency_threshold_ms: 200 }, t)).toBe("Latency (<200ms)");
+  });
+
+  it("renders Quality (\u226580) with quality_score param", () => {
+    expect(bClassLabel("quality", { quality_score: 80 }, t)).toBe("Quality (\u226580)");
+  });
+
+  it("renders Bandwidth (\u00d73) with bandwidth_weight param", () => {
+    expect(bClassLabel("bandwidth", { bandwidth_weight: 3 }, t)).toBe("Bandwidth (\u00d73)");
+  });
+
+  it("renders Protocol Weight for protocol_weight strategy", () => {
+    expect(bClassLabel("protocol_weight", undefined, t)).toBe("Protocol Weight");
+  });
+
+  it("uses default 0 when params are omitted (no crash, badge still renders)", () => {
+    expect(bClassLabel("sequential", undefined, t)).toBe("Sequential (N=0)");
+    expect(bClassLabel("latency", undefined, t)).toBe("Latency (<0ms)");
+  });
+
+  it("back-compat: Resin-native BALANCED maps to strategy.bParamsRandom", () => {
+    expect(bClassLabel("BALANCED", undefined, t)).toBe("Random");
+    expect(bClassLabel("PREFER_LOW_LATENCY", { latency_threshold_ms: 50 }, t)).toBe("Latency (<50ms)");
+    expect(bClassLabel("PREFER_IDLE_IP", { quality_score: 70 }, t)).toBe("Quality (\u226570)");
+  });
+
+  it("unknown strategy value passes through as-is", () => {
+    expect(bClassLabel("UNKNOWN_STRAT", undefined, t)).toBe("UNKNOWN_STRAT");
   });
 });

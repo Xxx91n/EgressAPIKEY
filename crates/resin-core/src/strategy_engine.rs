@@ -52,6 +52,36 @@ impl AClassStrategy {
     }
 }
 
+/// T18-3 (ADR-0042 S3): B-class strategy parameters (shell-side whitebox only).
+///
+/// These are display-only parameters surfaced on the canvas platform card badge.
+/// Resin v1.2.0 only accepts `allocation_policy` enum; the per-strategy params
+/// are shell-side hints for the GUI (round-robin N, latency threshold ms, quality
+/// score floor, bandwidth weight). Kept optional so older configs without these
+/// fields still deserialize.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BClassParams {
+    #[serde(default)]
+    pub round_robin_n: Option<u32>,
+    #[serde(default)]
+    pub latency_threshold_ms: Option<u32>,
+    #[serde(default)]
+    pub quality_score: Option<u32>,
+    #[serde(default)]
+    pub bandwidth_weight: Option<u32>,
+}
+
+impl Default for BClassParams {
+    fn default() -> Self {
+        Self {
+            round_robin_n: None,
+            latency_threshold_ms: None,
+            quality_score: None,
+            bandwidth_weight: None,
+        }
+    }
+}
+
 /// Per-platform strategy config entry.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PlatformStrategy {
@@ -73,6 +103,9 @@ pub struct PlatformStrategy {
     /// For quality strategy: max number of nodes to include.
     #[serde(default = "default_quality_top_n")]
     pub top_n: usize,
+    /// T18-3: B-class strategy parameters for GUI badge interpolation.
+    #[serde(default)]
+    pub b_class_params: BClassParams,
 }
 
 fn default_quality_top_n() -> usize {
@@ -308,6 +341,7 @@ mod tests {
             subscriptions: vec![],
             top_n: 10,
             manual_nodes: vec!["h1".into(), "h3".into()],
+                    b_class_params: BClassParams::default(),
         };
         let regions = a_class_regions(&ps, &healthy);
         assert_eq!(regions, vec!["HK".to_string(), "JP".to_string()]);
@@ -328,6 +362,7 @@ mod tests {
             subscriptions: vec![],
             top_n: 10,
             manual_nodes: vec![],
+                    b_class_params: BClassParams::default(),
         };
         let regions = a_class_regions(&ps, &healthy);
         assert_eq!(regions, Vec::<String>::new());
@@ -349,6 +384,7 @@ mod tests {
             subscriptions: vec![],
             top_n: 10,
                     manual_nodes: vec![],
+                    b_class_params: BClassParams::default(),
         };
         let regions = a_class_regions(&ps, &healthy);
         assert!(regions.contains(&"HK".to_string()));
@@ -373,6 +409,7 @@ mod tests {
             subscriptions: vec![],
             top_n: 2,
                     manual_nodes: vec![],
+                    b_class_params: BClassParams::default(),
         };
         let regions = a_class_regions(&ps, &healthy);
         // Top 2 by latency: HK (100ms) + JP (150ms)
@@ -397,6 +434,7 @@ mod tests {
             subscriptions: vec!["alpha".into()],
             top_n: 10,
                     manual_nodes: vec![],
+                    b_class_params: BClassParams::default(),
         };
         let regions = a_class_regions(&ps, &healthy);
         assert!(regions.contains(&"HK".to_string()));
@@ -420,6 +458,7 @@ mod tests {
                 subscriptions: vec![],
                 top_n: 10,
                         manual_nodes: vec![],
+                    b_class_params: BClassParams::default(),
         }],
         };
         let plan = compute_plan(&config, &nodes);
@@ -440,6 +479,62 @@ mod tests {
         assert_eq!(parse_nodes(&v).len(), 0);
         assert_eq!(parse_nodes(&json!([])).len(), 0);
         assert_eq!(parse_nodes(&json!({})).len(), 0);
+    }
+
+
+    #[test]
+    fn b_class_params_serde_roundtrip() {
+        use serde_json::json;
+        let ps = PlatformStrategy {
+            platform_name: "p1".into(),
+            a_class: AClassStrategy::Manual,
+            b_class: crate::strategy::StrategyId::Sequential,
+            manual_nodes: vec![],
+            regions: vec![],
+            subscriptions: vec![],
+            top_n: 10,
+            b_class_params: BClassParams {
+                round_robin_n: Some(5),
+                latency_threshold_ms: Some(200),
+                quality_score: None,
+                bandwidth_weight: Some(2),
+            },
+        };
+        let v = serde_json::to_value(&ps).unwrap();
+        assert_eq!(v["b_class_params"]["round_robin_n"], json!(5));
+        assert_eq!(v["b_class_params"]["latency_threshold_ms"], json!(200));
+        assert!(v["b_class_params"]["quality_score"].is_null());
+        assert_eq!(v["b_class_params"]["bandwidth_weight"], json!(2));
+        // Round-trip back
+        let back: PlatformStrategy = serde_json::from_value(v).unwrap();
+        assert_eq!(back.b_class_params.round_robin_n, Some(5));
+        assert_eq!(back.b_class_params.bandwidth_weight, Some(2));
+    }
+
+    #[test]
+    fn b_class_params_default_all_none() {
+        let p = BClassParams::default();
+        assert!(p.round_robin_n.is_none());
+        assert!(p.latency_threshold_ms.is_none());
+        assert!(p.quality_score.is_none());
+        assert!(p.bandwidth_weight.is_none());
+    }
+
+    #[test]
+    fn b_class_params_omitted_field_deserializes_to_none() {
+        use serde_json::json;
+        // Config written before T18-3 has no b_class_params field — must default.
+        let raw = json!({
+            "platform_name": "p1",
+            "a_class": "manual",
+            "b_class": "random",
+            "manual_nodes": [],
+            "regions": [],
+            "subscriptions": [],
+            "top_n": 10
+        });
+        let ps: PlatformStrategy = serde_json::from_value(raw).unwrap();
+        assert_eq!(ps.b_class_params, BClassParams::default());
     }
 
 }

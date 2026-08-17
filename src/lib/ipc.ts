@@ -652,6 +652,15 @@ export async function ipcGetSidecarStatus(): Promise<SidecarStatus> {
 // Strategy Engine (T4-4 / ADR-0022) — whitebox per-platform strategy config.
 // ---------------------------------------------------------------------------
 
+/// T18-3 (ADR-0042 S3): B-class strategy parameters (shell-side whitebox only).
+/// Mirrors Rust `crates/resin-core/src/strategy_engine.rs::BClassParams`.
+export interface BClassParams {
+  round_robin_n?: number;
+  latency_threshold_ms?: number;
+  quality_score?: number;
+  bandwidth_weight?: number;
+}
+
 export interface PlatformStrategy {
   platform_name: string;
   a_class: "manual" | "region" | "quality" | "subscription";
@@ -660,6 +669,7 @@ export interface PlatformStrategy {
   regions?: string[];
   subscriptions?: string[];
   top_n?: number;
+  b_class_params?: BClassParams;
 }
 
 export async function ipcGetConfigDir(): Promise<string> {
