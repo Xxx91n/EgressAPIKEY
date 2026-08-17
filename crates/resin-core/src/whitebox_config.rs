@@ -289,6 +289,13 @@ impl WhiteboxConfigStore {
     }
 }
 
+/// T18-6 (ADR-0042 S6): Filter entry_ports to only enabled entries for
+/// Resin endpoint restore on startup. Pure helper so it is unit-testable
+/// without a live Resin sidecar.
+pub fn enabled_entries_for_restore(entry_ports: &[PortMapping]) -> Vec<&PortMapping> {
+    entry_ports.iter().filter(|m| m.enabled).collect()
+}
+
 async fn apply_ports(
     db: &DbPool,
     _forwarder: &PortForwarder,
@@ -402,5 +409,18 @@ mod tests {
         assert_eq!(loaded, config);
         assert!(!path.with_extension("json.tmp").exists());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn enabled_entries_for_restore_filters_disabled() {
+        let ports = vec![
+            PortMapping { port: 17990, protocol: "socks5".into(), platform_name: "Default".into(), account: "".into(), label: "".into(), enabled: true, auth_required: true },
+            PortMapping { port: 17991, protocol: "http".into(), platform_name: "Default".into(), account: "".into(), label: "".into(), enabled: false, auth_required: true },
+            PortMapping { port: 17992, protocol: "socks5".into(), platform_name: "OpenAI".into(), account: "port-17992".into(), label: "".into(), enabled: true, auth_required: false },
+        ];
+        let enabled = enabled_entries_for_restore(&ports);
+        assert_eq!(enabled.len(), 2);
+        assert_eq!(enabled[0].port, 17990);
+        assert_eq!(enabled[1].port, 17992);
     }
 }

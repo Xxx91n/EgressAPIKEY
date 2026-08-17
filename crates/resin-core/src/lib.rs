@@ -47,6 +47,7 @@ pub use tdewma::TdEwma;
 pub use port_health::{adaptive_interval, HealthState, PortHealthEntry, PortHealthSnapshot};
 pub use whitebox_config::{NetworkConfig,
     validate as validate_whitebox_config, WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE,
+    enabled_entries_for_restore,
 };
 
 /// Re-export canonical config for the whole core.

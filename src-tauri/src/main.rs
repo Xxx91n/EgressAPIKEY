@@ -255,6 +255,17 @@ fn main() {
                         store_watch.watch_apply(db_wb, fwd_wb).await;
                     });
                     tracing::info!(path = %store.path().display(), "whitebox config opened");
+                    // T18-6 (ADR-0042 S6): async restore Resin endpoints from whitebox.
+                    // Non-blocking: failures log only, never fail startup.
+                    let store_restore = store.clone();
+                    let handle_restore = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Some(sidecar) = handle_restore.try_state::<SidecarHandle>() {
+                            if let Err(e) = commands::restore_ports_from_whitebox(&sidecar, &store_restore).await {
+                                tracing::warn!(error = %e, "T18-6: Resin port restore from whitebox failed; endpoints may be missing until user re-saves");
+                            }
+                        }
+                    });
                     app.manage(store);
                 }
                 Err(e) => {

@@ -164,6 +164,60 @@ fn find_endpoint_id_by_port(existing: &serde_json::Value, port: u16) -> Option<S
     None
 }
 
+/// T18-6 (ADR-0042 S6): Restore Resin endpoints from whitebox config on startup.
+/// Spawns-safe: failures log only, never fail the app. Skips ports already in Resin (409 Conflict).
+pub async fn restore_ports_from_whitebox(
+    sidecar: &SidecarHandle,
+    whitebox: &resin_core::WhiteboxConfigStore,
+) -> Result<(), String> {
+    let cfg = whitebox.snapshot();
+    let enabled = resin_core::enabled_entries_for_restore(&cfg.entry_ports);
+    if enabled.is_empty() {
+        tracing::info!("T18-6: no enabled entry_ports to restore");
+        return Ok(());
+    }
+    let client = resin_client(sidecar)?;
+    let existing = client.list_endpoints().await
+        .map_err(|e| format!("list_endpoints: {e:?}"))?;
+    let mut restored = 0u32;
+    let mut skipped = 0u32;
+    for m in enabled {
+        if find_endpoint_id_by_port(&existing, m.port).is_some() {
+            skipped += 1;
+            continue;
+        }
+        let proto = m.protocol.trim().to_ascii_lowercase();
+        let allow_socks5 = proto == "socks5";
+        let allow_http_forward = proto == "http" || proto == "socks5";
+        let body = serde_json::json!({
+            "port": m.port,
+            "allow_management": false,
+            "allow_proxy": true,
+            "allow_http_forward": allow_http_forward,
+            "allow_http_reverse": false,
+            "allow_socks5": allow_socks5,
+            "require_proxy_auth_info": m.auth_required,
+        });
+        match client.create_endpoint(body).await {
+            Ok(_) => {
+                restored += 1;
+                tracing::info!(port = m.port, "T18-6: restored Resin endpoint from whitebox");
+            }
+            Err(e) => {
+                let msg = format!("{e:?}");
+                if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage") {
+                    skipped += 1;
+                    tracing::info!(port = m.port, "T18-6: port already in Resin; skipping");
+                } else {
+                    tracing::warn!(port = m.port, error = %msg, "T18-6: restore failed; user can re-save in GUI");
+                }
+            }
+        }
+    }
+    tracing::info!(restored, skipped, "T18-6: whitebox port restore complete");
+    Ok(())
+}
+
 
 #[derive(Debug, Serialize)]
 pub struct LaneSnapshot {
