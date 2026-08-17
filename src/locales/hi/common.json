@@ -324,6 +324,7 @@
     "expandNodes": "विस्तार",
     "collapseNodes": "संक्चित",
     "aClassManual": "मैनुअल चयन",
+    "aClassManualCount": "मैन्युअल ({{n}} नोड्स)",
     "aClassQuality": "गुणवत्ता Top-{{n}}",
     "aClassSubscription": "सदस्यता: {{subs}}",
     "minimapHint": "मिनी-मैप: कैनवास ओवरव्यू को पैन करें। नोड रंग नोड प्रकार से मेल खाते हैं।",

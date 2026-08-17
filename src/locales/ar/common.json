@@ -324,6 +324,7 @@
     "expandNodes": "توسيع",
     "collapseNodes": "طي",
     "aClassManual": "اختيار يدوي",
+    "aClassManualCount": "يدوي ({{n}} عقد)",
     "aClassQuality": "جودة Top-{{n}}",
     "aClassSubscription": "اشتراك: {{subs}}",
     "minimapHint": "خريطة مصغرة: حرّك نظرة عامة على اللوحة. ألوان العقد تتطابق مع نوع العقدة.",

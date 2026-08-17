@@ -181,7 +181,7 @@ beforeAll(async () => {
         "topology.fitView": "Fit view",
         "topology.lock": "Lock canvas",
         "topology.unlock": "Unlock canvas",
-        "topology.aClassManual": "Manual selection",
+        "topology.aClassManualCount": "Manual ({{n}} nodes)", "topology.aClassManual": "Manual selection",
         "topology.aClassQuality": "Quality Top-{{n}}",
         "topology.aClassSubscription": "Subscription: {{subs}}",
         "settings.strategyConfig": "Strategy config",

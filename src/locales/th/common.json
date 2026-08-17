@@ -324,6 +324,7 @@
     "expandNodes": "ขยาย",
     "collapseNodes": "ยุบ",
     "aClassManual": "เลือกด้วยตนเอง",
+    "aClassManualCount": "ด้วยตนเอง ({{n}} โหนด)",
     "aClassQuality": "คุณภาพ Top-{{n}}",
     "aClassSubscription": "การสมัครสมาชิก: {{subs}}",
     "minimapHint": "มินิแมพ: เลื่อนภาพรวมแคนวาส สีของโหนดตรงกับประเภทโหนด",

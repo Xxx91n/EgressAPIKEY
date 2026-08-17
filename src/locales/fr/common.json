@@ -324,6 +324,7 @@
     "expandNodes": "Déplier",
     "collapseNodes": "Replier",
     "aClassManual": "Sélection manuelle",
+    "aClassManualCount": "Manuel ({{n}} noeuds)",
     "aClassQuality": "Qualité Top-{{n}}",
     "aClassSubscription": "Abonnement: {{subs}}",
     "minimapHint": "Mini-carte : déplacez la vue d'ensemble du canevas. Les couleurs correspondent au type de nœud.",

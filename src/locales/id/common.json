@@ -324,6 +324,7 @@
     "expandNodes": "Buka",
     "collapseNodes": "Tutup",
     "aClassManual": "Pilihan manual",
+    "aClassManualCount": "Manual ({{n}} node)",
     "aClassQuality": "Kualitas Top-{{n}}",
     "aClassSubscription": "Langganan: {{subs}}",
     "minimapHint": "Mini-map: geser gambar ringkas kanvas. Warna node sesuai jenis node.",

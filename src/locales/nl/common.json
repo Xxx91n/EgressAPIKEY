@@ -324,6 +324,7 @@
     "expandNodes": "Uitklappen",
     "collapseNodes": "Inklappen",
     "aClassManual": "Handmatige selectie",
+    "aClassManualCount": "Handmatig ({{n}} knooppunten)",
     "aClassQuality": "Kwaliteit Top-{{n}}",
     "aClassSubscription": "Abonnement: {{subs}}",
     "minimapHint": "Mini-map: verplaats het canvasoverzicht. Nodekleuren komen overeen met het knooptype.",

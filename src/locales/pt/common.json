@@ -324,6 +324,7 @@
     "expandNodes": "Expandir",
     "collapseNodes": "Recolher",
     "aClassManual": "Seleção manual",
+    "aClassManualCount": "Manual ({{n}} nós)",
     "aClassQuality": "Qualidade Top-{{n}}",
     "aClassSubscription": "Assinatura: {{subs}}",
     "minimapHint": "Mini-mapa: desloque a visão geral da tela. As cores correspondem ao tipo de nó.",

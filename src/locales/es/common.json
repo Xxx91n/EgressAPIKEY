@@ -324,6 +324,7 @@
     "expandNodes": "Expandir",
     "collapseNodes": "Contraer",
     "aClassManual": "Selección manual",
+    "aClassManualCount": "Manual ({{n}} nodos)",
     "aClassQuality": "Calidad Top-{{n}}",
     "aClassSubscription": "Suscripción: {{subs}}",
     "minimapHint": "Mini-mapa: desplaza la vista general del lienzo. Los colores coinciden con el tipo de nodo.",

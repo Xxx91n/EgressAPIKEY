@@ -324,6 +324,7 @@
     "expandNodes": "Rozwiń",
     "collapseNodes": "Zwiń",
     "aClassManual": "Ręczny wybór",
+    "aClassManualCount": "Ręcznie ({{n}} węzłów)",
     "aClassQuality": "Jakość Top-{{n}}",
     "aClassSubscription": "Subskrypcja: {{subs}}",
     "minimapHint": "Mini-mapa: przesuń przegląd obszaru roboczego. Kolory węzłów odpowiadają typom węzłów.",

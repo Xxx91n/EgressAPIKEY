@@ -324,6 +324,7 @@
     "expandNodes": "展开",
     "collapseNodes": "折叠",
     "aClassManual": "手动选择",
+    "aClassManualCount": "手动（{{n}} 个节点）",
     "aClassQuality": "质量 Top-{{n}}",
     "aClassSubscription": "订阅: {{subs}}",
     "minimapHint": "缩略图：拖动可平移画布概览。节点颜色对应节点类型。",

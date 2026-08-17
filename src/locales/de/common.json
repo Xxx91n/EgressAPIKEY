@@ -324,6 +324,7 @@
     "expandNodes": "Aufklappen",
     "collapseNodes": "Zuklappen",
     "aClassManual": "Manuelle Auswahl",
+    "aClassManualCount": "Manuell ({{n}} Knoten)",
     "aClassQuality": "Qualität Top-{{n}}",
     "aClassSubscription": "Abonnement: {{subs}}",
     "minimapHint": "Mini-Map: Verschieben Sie die Canvas-Übersicht. Knotenfarben entsprechen dem Knotentyp.",

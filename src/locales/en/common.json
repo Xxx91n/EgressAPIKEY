@@ -324,6 +324,7 @@
     "expandNodes": "Expand",
     "collapseNodes": "Collapse",
     "aClassManual": "Manual selection",
+    "aClassManualCount": "Manual ({{n}} nodes)",
     "aClassQuality": "Quality Top-{{n}}",
     "aClassSubscription": "Subscription: {{subs}}",
     "minimapHint": "Mini-map: pan the canvas overview. Node colors match node types.",

@@ -324,6 +324,7 @@
     "expandNodes": "Mở rộng",
     "collapseNodes": "Thu gọn",
     "aClassManual": "Chọn thủ công",
+    "aClassManualCount": "Thủ công ({{n}} nút)",
     "aClassQuality": "Chất lượng Top-{{n}}",
     "aClassSubscription": "Đăng ký: {{subs}}",
     "minimapHint": "Bản đồ nhỏ: di chuyển tổng quan canvas. Màu nút tương ứng loại nút.",

@@ -324,6 +324,7 @@
     "expandNodes": "Genişlet",
     "collapseNodes": "Daralt",
     "aClassManual": "Manuel seçim",
+    "aClassManualCount": "Manuel ({{n}} düğüm)",
     "aClassQuality": "Kalite Top-{{n}}",
     "aClassSubscription": "Abonelik: {{subs}}",
     "minimapHint": "Mini-harita: tuval özetini kaydırın. Düğüm renkleri düğüm türüne karşılık gelir.",

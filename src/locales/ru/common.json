@@ -324,6 +324,7 @@
     "expandNodes": "Развернуть",
     "collapseNodes": "Свернуть",
     "aClassManual": "Ручной выбор",
+    "aClassManualCount": "Вручную ({{n}} узлов)",
     "aClassQuality": "Качество Top-{{n}}",
     "aClassSubscription": "Подписка: {{subs}}",
     "minimapHint": "Мини-карта: перемещайте обзор холста. Цвета узлов соответствуют типам узлов.",

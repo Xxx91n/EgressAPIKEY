@@ -324,6 +324,7 @@
     "expandNodes": "Espandi",
     "collapseNodes": "Comprimi",
     "aClassManual": "Selezione manuale",
+    "aClassManualCount": "Manuale ({{n}} nodi)",
     "aClassQuality": "Qualità Top-{{n}}",
     "aClassSubscription": "Abbonamento: {{subs}}",
     "minimapHint": "Mini-mappa: sposta la panoramica del canvas. I colori corrispondono al tipo di nodo.",

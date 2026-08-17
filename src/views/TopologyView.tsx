@@ -52,6 +52,7 @@ interface PlatformFull {
   subscriptionNames?: string[]; // strategyConfig subscriptions
   topN?: number;               // strategyConfig top_n
   bClassParams?: BClassParams;  // T18-3: strategyConfig b_class_params
+  manualNodes?: string[];        // T18-4: strategyConfig manual_nodes
 }
 
 interface NodeItem {
@@ -742,6 +743,7 @@ function TopologyCanvas() {
             subscriptionNames: Array.isArray(ps.subscriptions) ? ps.subscriptions as string[] : undefined,
             topN: typeof ps.top_n === "number" ? ps.top_n : undefined,
             bClassParams: (ps.b_class_params && typeof ps.b_class_params === "object") ? ps.b_class_params as BClassParams : undefined,
+            manualNodes: Array.isArray(ps.manual_nodes) ? ps.manual_nodes as string[] : undefined,
           };
         });
       }
@@ -865,6 +867,10 @@ function TopologyCanvas() {
             return t("topology.aClassSubscription", { subs: (p.subscriptionNames ?? []).join(",") });
           case "manual":
           default:
+            // T18-4: Show manual_nodes count when available.
+            if (Array.isArray(p.manualNodes) && p.manualNodes.length > 0) {
+              return t("topology.aClassManualCount", { n: p.manualNodes.length });
+            }
             // Fallback: if region_filters exist but aClass is unset, show Region badge.
             if ((p.region_filters?.length ?? 0) > 0) {
               return t("topology.aClassRegion", { regions: p.region_filters!.join(",").toUpperCase() });

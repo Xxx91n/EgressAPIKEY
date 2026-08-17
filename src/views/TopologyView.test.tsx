@@ -1061,6 +1061,29 @@ describe("T15-3: React.memo canvas node optimization", () => {
       const lockEl = container.querySelector('svg[aria-label="Authentication required"]');
       expect(lockEl).toBeTruthy();
     });
+
+    it("T18-4 (ADR-0042 S4): A badge shows Manual (N nodes) when strategyConfig.manual_nodes is non-empty", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({
+          items: [{ id: "p1", name: "platManual", allocation_policy: "BALANCED", routable_node_count: 0, region_filters: null, regex_filters: null, sticky_ttl: "0s" }],
+          total: 1, limit: 50, offset: 0,
+        });
+        if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
+        if (cmd === "lease_map") return Promise.resolve({ items: [{ active_leases: 0, platform_id: "" }] });
+        if (cmd === "port_list") return Promise.resolve([]);
+        if (cmd === "strategy_config_get") return Promise.resolve({
+          version: 1,
+          platforms: [{ platform_name: "platManual", a_class: "manual", b_class: "random", manual_nodes: ["h1", "h2"] }],
+        });
+        if (cmd === "watch_port_health") return Promise.resolve(undefined);
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        // Badge text rendered as "A: Manual (2 nodes)" (L404-405 TopologyView)
+        expect(container.textContent || "").toMatch(/A: Manual \(2 nodes\)/);
+      });
+    });
   });
 
   describe("T17-4 (ADR-0041 S4): openStrategyConfig button merged into CanvasControls toolbar", () => {

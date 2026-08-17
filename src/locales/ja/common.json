@@ -324,6 +324,7 @@
     "expandNodes": "展開",
     "collapseNodes": "折りたたむ",
     "aClassManual": "手動選択",
+    "aClassManualCount": "手動 ({{n}}ノード)",
     "aClassQuality": "品質 Top-{{n}}",
     "aClassSubscription": "サブスクリプション: {{subs}}",
     "minimapHint": "ミニマップ：キャンバス概要をパンできます。ノードの色は種別に対応。",
