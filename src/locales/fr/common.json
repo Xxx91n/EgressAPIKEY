@@ -328,6 +328,8 @@
     "aClassQuality": "Qualité Top-{{n}}",
     "aClassSubscription": "Abonnement: {{subs}}",
     "minimapHint": "Mini-carte : déplacez la vue d'ensemble du canevas. Les couleurs correspondent au type de nœud.",
+    "openConfig": "Ouvrir config",
+    "openPortsConfig": "Ouvrir config des ports",
     "openStrategyConfig": "Ouvrir la configuration de stratégie",
     "portAlive": "Actif",
     "portDegraded": "Dégradé",

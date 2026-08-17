@@ -328,6 +328,8 @@
     "aClassQuality": "Качество Top-{{n}}",
     "aClassSubscription": "Подписка: {{subs}}",
     "minimapHint": "Мини-карта: перемещайте обзор холста. Цвета узлов соответствуют типам узлов.",
+    "openConfig": "Открыть конфигурацию",
+    "openPortsConfig": "Открыть конфигурацию портов",
     "openStrategyConfig": "Открыть конфигурацию стратегии",
     "portAlive": "Работает",
     "portDegraded": "Деградация",

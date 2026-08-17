@@ -328,6 +328,8 @@
     "aClassQuality": "Jakość Top-{{n}}",
     "aClassSubscription": "Subskrypcja: {{subs}}",
     "minimapHint": "Mini-mapa: przesuń przegląd obszaru roboczego. Kolory węzłów odpowiadają typom węzłów.",
+    "openConfig": "Otwórz konfigurację",
+    "openPortsConfig": "Otwórz konfigurację portów",
     "openStrategyConfig": "Otwórz konfigurację strategii",
     "portAlive": "Aktywny",
     "portDegraded": "Niedoładny",

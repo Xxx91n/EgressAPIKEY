@@ -328,6 +328,8 @@
     "aClassQuality": "Kalite Top-{{n}}",
     "aClassSubscription": "Abonelik: {{subs}}",
     "minimapHint": "Mini-harita: tuval özetini kaydırın. Düğüm renkleri düğüm türüne karşılık gelir.",
+    "openConfig": "Yapılandırmayı aç",
+    "openPortsConfig": "Port yapılandırmasını aç",
     "openStrategyConfig": "Strateji yapılandırmasını aç",
     "portAlive": "Aktif",
     "portDegraded": "Bozuk",

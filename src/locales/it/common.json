@@ -328,6 +328,8 @@
     "aClassQuality": "Qualità Top-{{n}}",
     "aClassSubscription": "Abbonamento: {{subs}}",
     "minimapHint": "Mini-mappa: sposta la panoramica del canvas. I colori corrispondono al tipo di nodo.",
+    "openConfig": "Apri configurazione",
+    "openPortsConfig": "Apri configurazione porte",
     "openStrategyConfig": "Apri configurazione strategia",
     "portAlive": "Attivo",
     "portDegraded": "Degradato",

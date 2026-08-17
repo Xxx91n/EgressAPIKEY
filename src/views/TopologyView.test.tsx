@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import i18next from "i18next";
 
 // Mock the IPC module so we control the platform/node data the canvas sees.
@@ -1087,7 +1087,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
   describe("T17-4 (ADR-0041 S4): openStrategyConfig button merged into CanvasControls toolbar", () => {
-    it("T17-4a: CanvasControls container contains a title=openStrategyConfig button (i18n translated)", async () => {
+    it("T17-4a/T18-5a (ADR-0042 S5): ConfigToolbar toggle button title=i18n(openConfig) at top-right and dropdown expands 2 options", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
         if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
@@ -1096,14 +1096,56 @@ describe("T15-3: React.memo canvas node optimization", () => {
         return Promise.resolve(undefined);
       });
       const { container } = render(<TopologyView />);
-      // The translated label from en/common.json openStrategyConfig: "Open strategy config"
       await waitFor(() => {
-        const labeled = container.querySelector('button[title="Open strategy config"]') as HTMLButtonElement | null;
-        expect(labeled).toBeTruthy();
-        // It should be inside the CanvasControls container (absolute bottom-2 left-2 toolbar)
-        // The CanvasControls root div has className "absolute bottom-2 left-2 ..."
-        const parent = labeled?.closest('div.absolute.bottom-2.left-2');
+        const toggle = container.querySelector('button[title="Open config"]') as HTMLButtonElement | null;
+        expect(toggle).toBeTruthy();
+        // Must live in the right-top ConfigToolbar container, not the bottom-left CanvasControls
+        const parent = toggle?.closest('div.absolute.top-2.right-2');
         expect(parent).toBeTruthy();
+      });
+      // Click the toggle to open the dropdown
+      const toggle = container.querySelector('button[title="Open config"]') as HTMLButtonElement;
+      await act(async () => { toggle.click(); });
+      await waitFor(() => {
+        // Dropdown shows the two config file options as buttons
+        const options = container.querySelectorAll("button.text-left");
+        const texts = Array.from(options).map((b) => b.textContent || "");
+        expect(texts).toContain("Open ports config");
+        expect(texts).toContain("Open strategy config");
+      });
+    });
+
+    it("T18-5b (ADR-0042 S5): clicking Open ports config dropdown option closes the dropdown", async () => {
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
+        if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([]);
+        if (cmd === "get_config_dir") return Promise.resolve("C:/fake-config-dir");
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      // Open the dropdown
+      await waitFor(() => {
+        const toggle = container.querySelector('button[title="Open config"]') as HTMLButtonElement | null;
+        expect(toggle).toBeTruthy();
+      });
+      const toggle = container.querySelector('button[title="Open config"]') as HTMLButtonElement;
+      await act(async () => { toggle.click(); });
+      // Verify the Open ports config option appears
+      await waitFor(() => {
+        const options = container.querySelectorAll("button.text-left");
+        const opt = Array.from(options).find((b) => (b.textContent || "").includes("Open ports config"));
+        expect(opt).toBeTruthy();
+      });
+      // Click the Open ports config option — openCfg calls ipcGetConfigDir then dynamically imports opener (swallowed if unavailable in test).
+      // The dropdown should close and toggle again reopens it.
+      const opt = Array.from(container.querySelectorAll("button.text-left")).find((b) => (b.textContent || "").includes("Open ports config")) as HTMLButtonElement;
+      await act(async () => { opt.click(); });
+      // After click, dropdown closed (open=false). The dropdown content div no longer rendered.
+      await waitFor(() => {
+        const dropdownContent = container.querySelector("div.absolute.top-9.right-0");
+        expect(dropdownContent).toBeNull();
       });
     });
 

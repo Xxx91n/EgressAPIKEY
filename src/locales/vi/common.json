@@ -328,6 +328,8 @@
     "aClassQuality": "Chất lượng Top-{{n}}",
     "aClassSubscription": "Đăng ký: {{subs}}",
     "minimapHint": "Bản đồ nhỏ: di chuyển tổng quan canvas. Màu nút tương ứng loại nút.",
+    "openConfig": "Mở cấu hình",
+    "openPortsConfig": "Mở cấu hình cổng",
     "openStrategyConfig": "Mở cấu hình chiến lược",
     "portAlive": "Hoạt động",
     "portDegraded": "Suy giảm",

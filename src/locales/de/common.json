@@ -328,6 +328,8 @@
     "aClassQuality": "Qualität Top-{{n}}",
     "aClassSubscription": "Abonnement: {{subs}}",
     "minimapHint": "Mini-Map: Verschieben Sie die Canvas-Übersicht. Knotenfarben entsprechen dem Knotentyp.",
+    "openConfig": "Konfiguration öffnen",
+    "openPortsConfig": "Port-Konfiguration öffnen",
     "openStrategyConfig": "Strategiekonfiguration öffnen",
     "portAlive": "Aktiv",
     "portDegraded": "Degradiert",

@@ -328,6 +328,8 @@
     "aClassQuality": "品質 Top-{{n}}",
     "aClassSubscription": "サブスクリプション: {{subs}}",
     "minimapHint": "ミニマップ：キャンバス概要をパンできます。ノードの色は種別に対応。",
+    "openConfig": "設定を開く",
+    "openPortsConfig": "ポート設定を開く",
     "openStrategyConfig": "戦略設定を開く",
     "portAlive": "正常",
     "portDegraded": "低下",

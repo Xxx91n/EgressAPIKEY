@@ -328,6 +328,8 @@
     "aClassQuality": "质量 Top-{{n}}",
     "aClassSubscription": "订阅: {{subs}}",
     "minimapHint": "缩略图：拖动可平移画布概览。节点颜色对应节点类型。",
+    "openConfig": "打开配置",
+    "openPortsConfig": "打开端口配置",
     "openStrategyConfig": "打开策略配置",
     "portAlive": "正常",
     "portDegraded": "降级",

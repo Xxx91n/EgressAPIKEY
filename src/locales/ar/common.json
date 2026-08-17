@@ -328,6 +328,8 @@
     "aClassQuality": "جودة Top-{{n}}",
     "aClassSubscription": "اشتراك: {{subs}}",
     "minimapHint": "خريطة مصغرة: حرّك نظرة عامة على اللوحة. ألوان العقد تتطابق مع نوع العقدة.",
+    "openConfig": "فتح التكوين",
+    "openPortsConfig": "فتح تكوين المنافذ",
     "openStrategyConfig": "فتح تكوين الاستراتيجية",
     "portAlive": "نشط",
     "portDegraded": "متدهور",

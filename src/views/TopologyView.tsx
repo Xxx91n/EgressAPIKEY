@@ -23,7 +23,7 @@ import { mapResinToShell, bClassLabel as bClassLabelFn, type StrategyId, type Al
 import type { BClassParams } from "../lib/ipc";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
-import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock, Home, FileCog } from "lucide-react";
+import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock, Home, FileCog, ChevronDown } from "lucide-react";
 import { usePoll } from "../hooks/usePoll";
 
 /// T18: translate helper for use inside memoized nodes (no React context).
@@ -682,14 +682,58 @@ function CanvasControls({ viewMode, setViewMode, locked, setLocked }: { viewMode
       <button title={locked ? t("topology.unlock") : t("topology.lock")} onClick={() => setLocked(!locked)} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
         {locked ? <Lock size={14} /> : <Unlock size={14} />}
       </button>
-      {/* T17-4 (ADR-0041 S4): openStrategyConfig merged into toolbar (was standalone absolute button) */}
-      <button title={t("topology.openStrategyConfig")} onClick={async () => { try { const dir = await ipcGetConfigDir(); const { openPath } = await import("@tauri-apps/plugin-opener"); await openPath(dir + "/egressapikey-strategy.json"); } catch { /* swallow */ } }} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
-        <FileCog size={14} />
-      </button>
     </div>
   );
 }
 
+
+function ConfigToolbar() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as unknown as globalThis.Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+  const openCfg = async (file: string) => {
+    setOpen(false);
+    try {
+      const dir = await ipcGetConfigDir();
+      const { openPath } = await import("@tauri-apps/plugin-opener");
+      await openPath(dir + "/" + file);
+    } catch { /* swallow */ }
+  };
+  return (
+    <div ref={ref} className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1">
+      <button
+        title={t("topology.openConfig")}
+        onClick={() => setOpen(!open)}
+        className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-1 text-[10px] font-medium w-fit self-center"
+      >
+        <FileCog size={14} />
+        <ChevronDown size={10} />
+      </button>
+      {open && (
+        <div className="absolute top-9 right-0 w-44 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-lg z-20">
+          <button
+            onClick={() => openCfg("egressapikey-ports.json")}
+            className="block w-full text-left px-3 py-1.5 text-[10px] text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+          >
+            {t("topology.openPortsConfig")}
+          </button>
+          <button
+            onClick={() => openCfg("egressapikey-strategy.json")}
+            className="block w-full text-left px-3 py-1.5 text-[10px] text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 border-t border-zinc-200 dark:border-zinc-700"
+          >
+            {t("topology.openStrategyConfig")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 function TopologyCanvas() {
   const { t, i18n } = useTranslation();
   const reactFlow = useReactFlow();
@@ -1071,6 +1115,7 @@ function TopologyCanvas() {
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1.4} />
           <CanvasControls viewMode={viewMode} setViewMode={setViewMode} locked={locked} setLocked={setLocked} />
+          <ConfigToolbar />
           <MiniMap
             pannable
             zoomable

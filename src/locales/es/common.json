@@ -328,6 +328,8 @@
     "aClassQuality": "Calidad Top-{{n}}",
     "aClassSubscription": "Suscripción: {{subs}}",
     "minimapHint": "Mini-mapa: desplaza la vista general del lienzo. Los colores coinciden con el tipo de nodo.",
+    "openConfig": "Abrir configuración",
+    "openPortsConfig": "Abrir config de puertos",
     "openStrategyConfig": "Abrir configuración de estrategia",
     "portAlive": "Activo",
     "portDegraded": "Degradado",

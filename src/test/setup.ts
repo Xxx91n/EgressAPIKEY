@@ -167,6 +167,8 @@ beforeAll(async () => {
         "topology.viewRegion": "Regions",
         "topology.expandNodes": "Expand",
         "topology.collapseNodes": "Collapse",
+        "topology.openConfig": "Open config",
+        "topology.openPortsConfig": "Open ports config",
         "topology.openStrategyConfig": "Open strategy config",
         "topology.minimapHint": "Mini-map: pan the canvas overview. Node colors match node types.",
         "topology.portAlive": "Alive",

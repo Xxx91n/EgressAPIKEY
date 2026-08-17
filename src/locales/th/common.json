@@ -328,6 +328,8 @@
     "aClassQuality": "คุณภาพ Top-{{n}}",
     "aClassSubscription": "การสมัครสมาชิก: {{subs}}",
     "minimapHint": "มินิแมพ: เลื่อนภาพรวมแคนวาส สีของโหนดตรงกับประเภทโหนด",
+    "openConfig": "เปิดการตั้งค่า",
+    "openPortsConfig": "เปิดการตั้งค่าพอร์ต",
     "openStrategyConfig": "เปิดการกำหนดค่ากลยุทธ์",
     "portAlive": "ใช้งานได้",
     "portDegraded": "ช้าลง",

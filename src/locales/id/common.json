@@ -328,6 +328,8 @@
     "aClassQuality": "Kualitas Top-{{n}}",
     "aClassSubscription": "Langganan: {{subs}}",
     "minimapHint": "Mini-map: geser gambar ringkas kanvas. Warna node sesuai jenis node.",
+    "openConfig": "Buka konfigurasi",
+    "openPortsConfig": "Buka konfigurasi port",
     "openStrategyConfig": "Buka konfigurasi strategi",
     "portAlive": "Aktif",
     "portDegraded": "Menurun",

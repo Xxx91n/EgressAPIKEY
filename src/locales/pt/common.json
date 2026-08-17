@@ -328,6 +328,8 @@
     "aClassQuality": "Qualidade Top-{{n}}",
     "aClassSubscription": "Assinatura: {{subs}}",
     "minimapHint": "Mini-mapa: desloque a visão geral da tela. As cores correspondem ao tipo de nó.",
+    "openConfig": "Abrir configuração",
+    "openPortsConfig": "Abrir config de portas",
     "openStrategyConfig": "Abrir configuração de estratégia",
     "portAlive": "Ativo",
     "portDegraded": "Degradado",

@@ -328,6 +328,8 @@
     "aClassQuality": "Kwaliteit Top-{{n}}",
     "aClassSubscription": "Abonnement: {{subs}}",
     "minimapHint": "Mini-map: verplaats het canvasoverzicht. Nodekleuren komen overeen met het knooptype.",
+    "openConfig": "Configuratie openen",
+    "openPortsConfig": "Poortconfiguratie openen",
     "openStrategyConfig": "Strategieconfiguratie openen",
     "portAlive": "Actief",
     "portDegraded": "Gedegradeerd",

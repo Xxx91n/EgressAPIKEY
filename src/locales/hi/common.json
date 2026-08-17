@@ -328,6 +328,8 @@
     "aClassQuality": "गुणवत्ता Top-{{n}}",
     "aClassSubscription": "सदस्यता: {{subs}}",
     "minimapHint": "मिनी-मैप: कैनवास ओवरव्यू को पैन करें। नोड रंग नोड प्रकार से मेल खाते हैं।",
+    "openConfig": "विन्यास खोलें",
+    "openPortsConfig": "पोर्ट विन्यास खोलें",
     "openStrategyConfig": "रणनीति कॉन्फ़िगरेशन खोलें",
     "portAlive": "सक्रिय",
     "portDegraded": "क्षीण",
