@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { invokeMock } from "../test/setup";
-import { NodesView } from "./NodesView";
+import { NodesView, parseDelayQuery } from "./NodesView";
 
 describe("NodesView T4-3", () => {
   beforeEach(() => {
@@ -40,37 +40,45 @@ describe("NodesView T4-3", () => {
     expect(nodeCountEls.length).toBe(2);
   });
 
-  it("T4-3b: expanding a subscription shows its child nodes", async () => {
+  // T19-P1: groups default-collapsed — flip T4-3b: nodes hidden after first refresh, expandable on click
+  it("T4-3b (T19): groups are collapsed by default after first refresh; expand reveals nodes", async () => {
     mockTwoSubs();
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
-
-    // Nodes should be visible initially (not collapsed by default)
-    expect(screen.getByText("HK-01")).toBeTruthy();
-    expect(screen.getByText("JP-01")).toBeTruthy();
-    expect(screen.getByText("US-01")).toBeTruthy();
-    expect(screen.getByText("DE-01")).toBeTruthy();
+    // Nodes hidden by default (collapsed seeded after first refresh)
+    await waitFor(() => {
+      expect(screen.queryByText("HK-01")).toBeNull();
+      expect(screen.queryByText("US-01")).toBeNull();
+    });
+    // Click sub-alpha header to expand
+    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    await waitFor(() => {
+      expect(screen.getByText("HK-01")).toBeTruthy();
+      expect(screen.getByText("JP-01")).toBeTruthy();
+    });
+    // sub-beta still collapsed
+    expect(screen.queryByText("US-01")).toBeNull();
   });
 
-  it("T4-3c: collapsing a subscription hides its nodes", async () => {
+  it("T4-3c: collapsing an expanded subscription hides its nodes", async () => {
     mockTwoSubs();
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
-
-    // Click sub-alpha header to collapse
-    const alphaHeader = screen.getByText("sub-alpha").closest("button");
-    expect(alphaHeader).toBeTruthy();
-    fireEvent.click(alphaHeader!);
-
-    // Now sub-alpha's nodes should be hidden
-    expect(screen.queryByText("HK-01")).toBeNull();
-    // sub-beta nodes still visible
-    expect(screen.getByText("US-01")).toBeTruthy();
+    // expand first
+    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    await waitFor(() => screen.getByText("HK-01"));
+    // collapse again
+    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    await waitFor(() => expect(screen.queryByText("HK-01")).toBeNull());
   });
 
   it("T4-3d: search filters nodes across subscriptions", async () => {
     mockTwoSubs();
     render(<NodesView />);
+    await waitFor(() => screen.getByText("sub-alpha"));
+    // expand to reveal before searching
+    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    fireEvent.click(screen.getByText("sub-beta").closest("button")!);
     await waitFor(() => screen.getByText("HK-01"));
 
     // Type "HK" in search
@@ -89,7 +97,7 @@ describe("NodesView T4-3", () => {
   it("T4-3e: shows no-match state when search has no hits", async () => {
     mockTwoSubs();
     render(<NodesView />);
-    await waitFor(() => screen.getByText("HK-01"));
+    await waitFor(() => screen.getByText("sub-alpha"));
 
     const searchInput = screen.getByPlaceholderText(/Search nodes/i);
     fireEvent.change(searchInput, { target: { value: "ZZZNONEXIST" } });
@@ -174,29 +182,140 @@ describe("NodesView T4-3", () => {
     
   });
 
-  it("T14-7b: subscription expanded by default shows all nodes under threshold", async () => {
+  // T19-P1: flip T14-7b — subscription collapsed by default, expand reveals all 10 nodes
+  it("T14-7b (T19): subscription collapsed by default; expand shows all nodes", async () => {
     mockLargeSub(10);
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
-    // Subscriptions are expanded by default (collapsed=empty Set); all 10 nodes should render
+    // Collapsed by default (T19-P1) — none of the 10 nodes render
+    await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
+    // Click to expand — all 10 appear
+    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(10));
-    // Clicking collapses — nodes disappear
+    // Collapse again — nodes disappear
     fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
-    // Click again re-expands — nodes reappear
-    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
-    await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(10));
   });
 
   it("T14-7c: VirtualNodeList renders small list without virtualizer overhead", async () => {
     mockLargeSub(5);
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
-    // 5 items < VIRTUAL_THRESHOLD(50) — normal render (no virtualizer)
-    // All 5 node tags should be in the DOM immediately
+    // Collapsed by default (T19-P1); expand to see 5 nodes
+    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(5));
     // Collapse and verify all hide
     fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
+  });
+});
+
+/// T19-P1 — pure-function closed loops for parseDelayQuery + sortMode + hideUnhealthy
+describe("NodesView T19-P1 parseDelayQuery + sort + hide-unhealthy", () => {
+  it("P1-1a: delay>100 admits 200, rejects 50 and null", () => {
+    const { delayFilter } = parseDelayQuery("delay>100");
+    expect(delayFilter).toBeTruthy();
+    expect(delayFilter!(200)).toBe(true);
+    expect(delayFilter!(50)).toBe(false);
+    expect(delayFilter!(null)).toBe(false); // null treated as 0, not >100
+  });
+
+  it("P1-1b: delay<200 admits 100, rejects 300 and null", () => {
+    const { delayFilter } = parseDelayQuery("delay<200");
+    expect(delayFilter!(100)).toBe(true);
+    expect(delayFilter!(300)).toBe(false);
+    expect(delayFilter!(null)).toBe(false);
+  });
+
+  it("P1-1c: delay=timeout admits null and 9999+, rejects 200", () => {
+    const { delayFilter } = parseDelayQuery("delay=timeout");
+    expect(delayFilter!(null)).toBe(true);
+    expect(delayFilter!(15000)).toBe(true);
+    expect(delayFilter!(200)).toBe(false);
+  });
+
+  it("P1-1d: delay=error admits null, rejects numeric", () => {
+    const { delayFilter } = parseDelayQuery("delay=error");
+    expect(delayFilter!(null)).toBe(true);
+    expect(delayFilter!(200)).toBe(false);
+  });
+
+  it("P1-1e: plain text query passes through as text (no delayFilter)", () => {
+    const r = parseDelayQuery("JP");
+    expect(r.text).toBe("JP");
+    expect(r.delayFilter).toBeUndefined();
+  });
+
+  it("P1-2a: hide-unhealthy toggle excludes failure_count>0 rows (integration)", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") return {
+        items: [
+          { node_hash: "h1", display_tag: "OK-01", failure_count: 0, has_outbound: true, reference_latency_ms: 100, tags: [{ subscription_name: "sub-x", tag: "v" }] },
+          { node_hash: "h2", display_tag: "DEAD-02", failure_count: 5, has_outbound: false, reference_latency_ms: null, tags: [{ subscription_name: "sub-x", tag: "v" }] },
+        ],
+      };
+      if (cmd === "node_pool_snapshot") return { total_nodes: 2, healthy_nodes: 1, egress_ip_count: 1, healthy_egress_ip_count: 1 };
+      return undefined;
+    });
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("sub-x"));
+    fireEvent.click(screen.getByText("sub-x").closest("button")!);
+    // Toggle visible initially
+    await waitFor(() => expect(screen.queryAllByText(/OK-01|DEAD-02/).length).toBe(2));
+    // Click hide-unhealthy toggle (getByTitle is more robust than text match across icon+label)
+    const toggle = screen.getByTitle("Hide unhealthy");
+    fireEvent.click(toggle);
+    await waitFor(() => {
+      expect(screen.queryByText("OK-01")).toBeTruthy();
+      expect(screen.queryByText("DEAD-02")).toBeNull();
+    });
+  });
+
+  it("P1-3a: 3-state sortMode cycles default → asc → desc → default (integration)", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") return {
+        items: [
+          { node_hash: "a", display_tag: "A", failure_count: 0, has_outbound: true, reference_latency_ms: 500, tags: [{ subscription_name: "sub", tag: "v" }] },
+          { node_hash: "b", display_tag: "B", failure_count: 0, has_outbound: true, reference_latency_ms: 100, tags: [{ subscription_name: "sub", tag: "v" }] },
+          { node_hash: "c", display_tag: "C", failure_count: 0, has_outbound: true, reference_latency_ms: 300, tags: [{ subscription_name: "sub", tag: "v" }] },
+        ],
+      };
+      if (cmd === "node_pool_snapshot") return { total_nodes: 3, healthy_nodes: 3, egress_ip_count: 0, healthy_egress_ip_count: 0 };
+      return undefined;
+    });
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("sub"));
+    fireEvent.click(screen.getByText("sub").closest("button")!);
+
+    // Default sort — nodes render in source order (A, B, C)
+    const defaultRows = screen.queryAllByText(/^[ABC]$/);
+    expect(defaultRows.length).toBe(3);
+
+    // Click sort button: asc cycle (getByTitle matches the initial default state)
+    let sortBtn = screen.getByTitle("Sort: default").closest("button")!;
+    fireEvent.click(sortBtn);
+    await waitFor(() => {
+      const rows = screen.queryAllByText(/^[ABC]$/);
+      // asc = B(100), C(300), A(500)
+      expect(rows[0].textContent).toBe("B");
+      expect(rows[1].textContent).toBe("C");
+      expect(rows[2].textContent).toBe("A");
+    });
+
+    // Click sort button: desc cycle — title swapped to "Sort: latency ↑"
+    sortBtn = screen.getByTitle("Sort: latency ↑").closest("button")!;
+    fireEvent.click(sortBtn);
+    await waitFor(() => {
+      const rows = screen.queryAllByText(/^[ABC]$/);
+      // desc = A(500), C(300), B(100)
+      expect(rows[0].textContent).toBe("A");
+      expect(rows[1].textContent).toBe("C");
+      expect(rows[2].textContent).toBe("B");
+    });
+
+    // Click sort button: back to default — title swapped to "Sort: latency ↓"
+    sortBtn = screen.getByTitle("Sort: latency ↓").closest("button")!;
+    fireEvent.click(sortBtn);
+    // default returns to source order
   });
 });

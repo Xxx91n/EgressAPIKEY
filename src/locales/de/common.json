@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% fehlerfrei",
     "noMatch": "Keine passenden Knoten.",
     "untagged": "Ungruppiert",
-    "timeout": "Zeitüberschreitung"
+    "timeout": "Zeitüberschreitung",
+    "hideUnhealthy": "Defekte Knoten ausblenden",
+    "sortDefault": "Sortieren: Standard",
+    "sortLatencyAsc": "Sortieren: Latenz ↑",
+    "sortLatencyDesc": "Sortieren: Latenz ↓",
+    "delayFilterHint": "Verwende delay>100 oder delay=timeout"
   },
   "platform": {
     "accounts": "Konten",

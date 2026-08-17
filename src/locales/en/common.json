@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% healthy",
     "noMatch": "No nodes match search.",
     "untagged": "Ungrouped",
-    "timeout": "timeout"
+    "timeout": "timeout",
+    "hideUnhealthy": "Hide unhealthy",
+    "sortDefault": "Sort: default",
+    "sortLatencyAsc": "Sort: latency ↑",
+    "sortLatencyDesc": "Sort: latency ↓",
+    "delayFilterHint": "Use delay>100 or delay=timeout"
   },
   "platform": {
     "accounts": "Accounts",

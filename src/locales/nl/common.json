@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% gezond",
     "noMatch": "Geen overeenkomende knopen.",
     "untagged": "Ongesorteerd",
-    "timeout": "time-out"
+    "timeout": "time-out",
+    "hideUnhealthy": "Ongezonde knooppunten verbergen",
+    "sortDefault": "Sorteren: standaard",
+    "sortLatencyAsc": "Sorteren: latentie ↑",
+    "sortLatencyDesc": "Sorteren: latentie ↓",
+    "delayFilterHint": "Gebruik delay>100 of delay=timeout"
   },
   "platform": {
     "accounts": "Accounts",

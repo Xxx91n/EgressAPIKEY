@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% แข็งแรง",
     "noMatch": "ไม่มีโหนดที่ตรงกัน.",
     "untagged": "ไม่ได้จัดกลุ่ม",
-    "timeout": "หมดเวลา"
+    "timeout": "หมดเวลา",
+    "hideUnhealthy": "ซ่อนโหนดที่ไม่ปกติ",
+    "sortDefault": "จัดเรียง: ค่าเริ่มต้น",
+    "sortLatencyAsc": "จัดเรียง: ความหน่วง ↑",
+    "sortLatencyDesc": "จัดเรียง: ความหน่วง ↓",
+    "delayFilterHint": "ใช้ delay>100 หรือ delay=timeout"
   },
   "platform": {
     "accounts": "บัญชี",

@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% sprawnych",
     "noMatch": "Brak pasujących węzłów.",
     "untagged": "Bez grupy",
-    "timeout": "limit czasu"
+    "timeout": "limit czasu",
+    "hideUnhealthy": "Ukryj wadliwe węzły",
+    "sortDefault": "Sortuj: domyślnie",
+    "sortLatencyAsc": "Sortuj: opóźnienie ↑",
+    "sortLatencyDesc": "Sortuj: opóźnienie ↓",
+    "delayFilterHint": "Użyj delay>100 lub delay=timeout"
   },
   "platform": {
     "accounts": "Konta",

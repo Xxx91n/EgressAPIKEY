@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% sağlıklı",
     "noMatch": "Eşleşen düğüm yok.",
     "untagged": "Grupsuz",
-    "timeout": "zaman aşımı"
+    "timeout": "zaman aşımı",
+    "hideUnhealthy": "Sağlıksız düğümleri gizle",
+    "sortDefault": "Sırala: varsayılan",
+    "sortLatencyAsc": "Sırala: gecikme ↑",
+    "sortLatencyDesc": "Sırala: gecikme ↓",
+    "delayFilterHint": "delay>100 veya delay=timeout kullanın"
   },
   "platform": {
     "accounts": "Hesaplar",

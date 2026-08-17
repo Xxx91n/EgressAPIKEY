@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% saludable",
     "noMatch": "Sin nodos coincidentes.",
     "untagged": "Sin agrupar",
-    "timeout": "tiempo agotado"
+    "timeout": "tiempo agotado",
+    "hideUnhealthy": "Ocultar nodos inactivos",
+    "sortDefault": "Ordenar: por defecto",
+    "sortLatencyAsc": "Ordenar: latencia ↑",
+    "sortLatencyDesc": "Ordenar: latencia ↓",
+    "delayFilterHint": "Usa delay>100 o delay=timeout"
   },
   "platform": {
     "accounts": "Cuentas",

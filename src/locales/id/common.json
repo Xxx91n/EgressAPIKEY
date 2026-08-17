@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% sehat",
     "noMatch": "Tidak ada node cocok.",
     "untagged": "Tidak dikelompokkan",
-    "timeout": "waktu habis"
+    "timeout": "waktu habis",
+    "hideUnhealthy": "Sembunyikan node tidak sehat",
+    "sortDefault": "Urutkan: default",
+    "sortLatencyAsc": "Urutkan: latensi ↑",
+    "sortLatencyDesc": "Urutkan: latensi ↓",
+    "delayFilterHint": "Gunakan delay>100 atau delay=timeout"
   },
   "platform": {
     "accounts": "Akun",

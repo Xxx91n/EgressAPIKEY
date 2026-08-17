@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% 정상",
     "noMatch": "일치하는 노드 없음.",
     "untagged": "미분류",
-    "timeout": "시간 초과"
+    "timeout": "시간 초과",
+    "hideUnhealthy": "비정상 노드 숨기기",
+    "sortDefault": "정렬: 기본",
+    "sortLatencyAsc": "정렬: 지연 ↑",
+    "sortLatencyDesc": "정렬: 지연 ↓",
+    "delayFilterHint": "delay>100 또는 delay=timeout 사용"
   },
   "platform": {
     "accounts": "계정",

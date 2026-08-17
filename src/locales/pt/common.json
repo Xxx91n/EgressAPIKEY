@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% saudáveis",
     "noMatch": "Sem nós correspondentes.",
     "untagged": "Sem grupo",
-    "timeout": "tempo esgotado"
+    "timeout": "tempo esgotado",
+    "hideUnhealthy": "Ocultar nós inativos",
+    "sortDefault": "Ordenar: padrão",
+    "sortLatencyAsc": "Ordenar: latência ↑",
+    "sortLatencyDesc": "Ordenar: latência ↓",
+    "delayFilterHint": "Use delay>100 ou delay=timeout"
   },
   "platform": {
     "accounts": "Contas",

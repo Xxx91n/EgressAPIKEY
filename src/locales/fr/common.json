@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% sains",
     "noMatch": "Aucun nœud correspondant.",
     "untagged": "Non groupés",
-    "timeout": "délai dépassé"
+    "timeout": "délai dépassé",
+    "hideUnhealthy": "Masquer les nœuds défectueux",
+    "sortDefault": "Trier : par défaut",
+    "sortLatencyAsc": "Trier : latence ↑",
+    "sortLatencyDesc": "Trier : latence ↓",
+    "delayFilterHint": "Utilisez delay>100 ou delay=timeout"
   },
   "platform": {
     "accounts": "Comptes",

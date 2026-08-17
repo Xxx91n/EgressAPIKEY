@@ -1,12 +1,14 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ShieldCheck, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ShieldCheck, ChevronDown, ChevronRight, Search, HeartPulse, ArrowDownUp, ArrowUp, ArrowDown } from "lucide-react";
 import { ipcNodeList, ipcNodePoolSnapshot, ipcIpReputationSnapshot, type ReputationSnapshot } from "../lib/ipc";
 import { translateError } from "../lib/i18n-error";
 import { usePoll } from "../hooks/usePoll";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 /// NodesView — T4-3 collapsible tree by subscription (clash-verge-dev pattern).
+/// T19-P1: groups default-collapsed (seed-all after first refresh), hide-unhealthy toggle,
+///        3-state latency sort, clash-verge-style delay>N / delay=timeout search syntax.
 /// Level 1: subscription (foldable) — name + node count + health rate
 /// Level 2: nodes — display_tag / region / latency(ms) / health
 /// Latency color: <200ms green, 200-500ms yellow, >500ms red, timeout/null gray
@@ -73,6 +75,37 @@ function isHealthy(n: NodeItem): boolean {
   return (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
 }
 
+/// T19-P1 — clash-verge-style delay> search syntax. Returns:
+///   { text: substring to match against tag/region/sub, delayFilter?: predicate on latency }
+export function parseDelayQuery(q: string): { text: string; delayFilter?: (ms: number | null) => boolean } {
+  const trimmed = q.trim();
+  // Match delay>N / delay<N / delay=timeout / delay=error (case-insensitive)
+  const m = trimmed.match(/^delays*(>|<|=)s*(timeout|error|\d+)$/i);
+  if (!m) return { text: trimmed };
+  const op = m[1];
+  const rhs = m[2].toLowerCase();
+  if (op === "=" && rhs === "timeout") {
+    return { text: "", delayFilter: (ms) => ms == null || (ms ?? 0) > 9999 };
+  }
+  if (op === "=" && rhs === "error") {
+    return { text: "", delayFilter: (ms) => ms == null };
+  }
+  const n = Number(rhs);
+  if (Number.isNaN(n)) return { text: trimmed };
+  if (op === ">") return { text: "", delayFilter: (ms) => (ms ?? 0) > n };
+  if (op === "<") return { text: "", delayFilter: (ms) => ms != null && ms < n };
+  // delay=N same as delay=N (exact) — admit only exact value
+  return { text: "", delayFilter: (ms) => ms === n };
+}
+
+type SortMode = "default" | "asc" | "desc";
+
+/// T19-P1 — latency rank for sort. null/timeout = Infinity (sort last in asc, first in desc).
+function latencyRank(ms: number | null | undefined): number {
+  if (ms == null || ms > 9999) return Number.POSITIVE_INFINITY;
+  return ms;
+}
+
 export function NodesView() {
   const { t } = useTranslation();
   const [nodes, setNodes] = useState<NodeItem[]>([]);
@@ -84,6 +117,12 @@ export function NodesView() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  /// T19-P1 — hide-unhealthy toggle (default false, user opt-in)
+  const [hideUnhealthy, setHideUnhealthy] = useState(false);
+  /// T19-P1 — 3-state latency sort cyclistate
+  const [sortMode, setSortMode] = useState<SortMode>("default");
+  /// T19-P1 — seed-once flag so we default-collapse only after the first refresh, not on every poll
+  const seededRef = useRef(false);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -109,21 +148,41 @@ export function NodesView() {
   const healthyCount = nodes.filter(isHealthy).length;
   const grouped = useMemo(() => groupBySub(nodes), [nodes]);
 
+  // T19-P1: seed collapsed Set with every sub name after the first refresh (default-collapse)
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (grouped.size === 0) return;
+    seededRef.current = true;
+    setCollapsed(new Set([...grouped.keys()]));
+  }, [grouped]);
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return grouped;
-    const q = search.toLowerCase();
+    const { text, delayFilter } = parseDelayQuery(search);
+    const q = text.toLowerCase();
     const m = new Map<string, NodeItem[]>();
     for (const [sub, items] of grouped) {
-      const matched = items.filter((n) =>
-        (n.display_tag ?? n.name ?? "").toLowerCase().includes(q) ||
-        (n.region ?? "").toLowerCase().includes(q) ||
-        (n.egress_ip ?? "").toLowerCase().includes(q) ||
-        sub.toLowerCase().includes(q)
-      );
-      if (matched.length > 0) m.set(sub, matched);
+      let row = items;
+      if (hideUnhealthy) row = row.filter(isHealthy);
+      if (delayFilter) row = row.filter((n) => delayFilter(n.reference_latency_ms ?? null));
+      if (q) {
+        row = row.filter((n) =>
+          (n.display_tag ?? n.name ?? "").toLowerCase().includes(q) ||
+          (n.region ?? "").toLowerCase().includes(q) ||
+          (n.egress_ip ?? "").toLowerCase().includes(q) ||
+          sub.toLowerCase().includes(q)
+        );
+      }
+      if (sortMode !== "default") {
+        row = [...row].sort((a, b) => {
+          const ra = latencyRank(a.reference_latency_ms ?? null);
+          const rb = latencyRank(b.reference_latency_ms ?? null);
+          return sortMode === "asc" ? ra - rb : rb - ra;
+        });
+      }
+      if (row.length > 0) m.set(sub, row);
     }
     return m;
-  }, [grouped, search]);
+  }, [grouped, search, hideUnhealthy, sortMode]);
 
   function toggleSub(sub: string) {
     setCollapsed((prev) => {
@@ -139,6 +198,10 @@ export function NodesView() {
       if (next.has(hash)) next.delete(hash); else next.add(hash);
       return next;
     });
+  }
+
+  function cycleSort() {
+    setSortMode((m) => (m === "default" ? "asc" : m === "asc" ? "desc" : "default"));
   }
 
   const subEntries = [...filtered.entries()];
@@ -201,17 +264,39 @@ export function NodesView() {
       </div>
 
       {nodes.length > 0 && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 max-w-md">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("nodes.search")}
+              placeholder={t("nodes.search") + " — " + t("nodes.delayFilterHint")}
               className="w-full pl-9 pr-3 py-1.5 text-sm rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
+          {/* T19-P1 — hide-unhealthy toggle (HeartPulse icon, clash-verge-style) */}
+          <button
+            onClick={() => setHideUnhealthy((v) => !v)}
+            title={t("nodes.hideUnhealthy")}
+            className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded border transition-colors ${
+              hideUnhealthy
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
+                : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            }`}
+          >
+            <HeartPulse size={13} />
+            {t("nodes.hideUnhealthy")}
+          </button>
+          {/* T19-P1 — 3-state latency sort (ArrowUp/Down/Default) */}
+          <button
+            onClick={cycleSort}
+            title={sortMode === "default" ? t("nodes.sortDefault") : sortMode === "asc" ? t("nodes.sortLatencyAsc") : t("nodes.sortLatencyDesc")}
+            className="flex items-center gap-1 px-2.5 py-1 text-xs rounded border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          >
+            {sortMode === "asc" ? <ArrowUp size={13} /> : sortMode === "desc" ? <ArrowDown size={13} /> : <ArrowDownUp size={13} />}
+            {sortMode === "default" ? t("nodes.sortDefault") : sortMode === "asc" ? t("nodes.sortLatencyAsc") : t("nodes.sortLatencyDesc")}
+          </button>
           <button onClick={() => setCollapsed(new Set())} className="text-xs px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300">{t("nodes.expandAll")}</button>
           <button onClick={() => setCollapsed(new Set([...filtered.keys()]))} className="text-xs px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300">{t("nodes.collapseAll")}</button>
         </div>

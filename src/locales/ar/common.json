@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% سليم",
     "noMatch": "لا توجد عقد مطابقة.",
     "untagged": "غير مصنف",
-    "timeout": "انتهاء المهلة"
+    "timeout": "انتهاء المهلة",
+    "hideUnhealthy": "إخفاء العقد غير السليمة",
+    "sortDefault": "ترتيب: افتراضي",
+    "sortLatencyAsc": "ترتيب: زمن الاستجابة ↑",
+    "sortLatencyDesc": "ترتيب: زمن الاستجابة ↓",
+    "delayFilterHint": "استخدم delay>100 أو delay=timeout"
   },
   "platform": {
     "accounts": "الحسابات",

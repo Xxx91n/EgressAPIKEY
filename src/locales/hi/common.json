@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% स्वस्थ",
     "noMatch": "कोई मेल नहीं।",
     "untagged": "अवर्गीकृत",
-    "timeout": "समय समाप्त"
+    "timeout": "समय समाप्त",
+    "hideUnhealthy": "अस्वस्थ नोड छिपाएं",
+    "sortDefault": "क्रमबद्ध: डिफ़ॉल्ट",
+    "sortLatencyAsc": "क्रमबद्ध: विलंबता ↑",
+    "sortLatencyDesc": "क्रमबद्ध: विलंबता ↓",
+    "delayFilterHint": "delay>100 या delay=timeout का उपयोग करें"
   },
   "platform": {
     "accounts": "खाते",

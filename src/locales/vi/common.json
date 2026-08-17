@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% khỏe mạnh",
     "noMatch": "Không có nút phù hợp.",
     "untagged": "Chưa phân nhóm",
-    "timeout": "hết giờ"
+    "timeout": "hết giờ",
+    "hideUnhealthy": "Ẩn nút không hoạt động",
+    "sortDefault": "Sắp xếp: mặc định",
+    "sortLatencyAsc": "Sắp xếp: độ trễ ↑",
+    "sortLatencyDesc": "Sắp xếp: độ trễ ↓",
+    "delayFilterHint": "Dùng delay>100 hoặc delay=timeout"
   },
   "platform": {
     "accounts": "Tài khoản",

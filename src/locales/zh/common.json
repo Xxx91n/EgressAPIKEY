@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% 健康",
     "noMatch": "没有匹配的节点。",
     "untagged": "未分组",
-    "timeout": "超时"
+    "timeout": "超时",
+    "hideUnhealthy": "隐藏无效节点",
+    "sortDefault": "排序：默认",
+    "sortLatencyAsc": "排序：延迟 ↑",
+    "sortLatencyDesc": "排序：延迟 ↓",
+    "delayFilterHint": "可用 delay>100 或 delay=timeout"
   },
   "platform": {
     "accounts": "账号",

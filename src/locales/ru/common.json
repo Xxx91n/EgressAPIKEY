@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% исправно",
     "noMatch": "Нет совпадений.",
     "untagged": "Без группы",
-    "timeout": "тайм-аут"
+    "timeout": "тайм-аут",
+    "hideUnhealthy": "Скрыть неработающие узлы",
+    "sortDefault": "Сортировка: по умолчанию",
+    "sortLatencyAsc": "Сортировка: задержка ↑",
+    "sortLatencyDesc": "Сортировка: задержка ↓",
+    "delayFilterHint": "Используйте delay>100 или delay=timeout"
   },
   "platform": {
     "accounts": "Аккаунты",

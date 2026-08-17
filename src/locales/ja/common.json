@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% 正常",
     "noMatch": "一致するノードがありません。",
     "untagged": "未分類",
-    "timeout": "タイムアウト"
+    "timeout": "タイムアウト",
+    "hideUnhealthy": "不良ノードを非表示",
+    "sortDefault": "並び替え：既定",
+    "sortLatencyAsc": "並び替え：レイテンシ ↑",
+    "sortLatencyDesc": "並び替え：レイテンシ ↓",
+    "delayFilterHint": "delay>100 や delay=timeout が使えます"
   },
   "platform": {
     "accounts": "アカウント",

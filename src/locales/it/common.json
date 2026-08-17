@@ -101,7 +101,12 @@
     "healthRate": "{{rate}}% sani",
     "noMatch": "Nessun nodo corrispondente.",
     "untagged": "Non raggruppati",
-    "timeout": "timeout"
+    "timeout": "timeout",
+    "hideUnhealthy": "Nascondi nodi guasti",
+    "sortDefault": "Ordina: predefinito",
+    "sortLatencyAsc": "Ordina: latenza ↑",
+    "sortLatencyDesc": "Ordina: latenza ↓",
+    "delayFilterHint": "Usa delay>100 o delay=timeout"
   },
   "platform": {
     "accounts": "Account",
