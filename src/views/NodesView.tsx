@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ShieldCheck, ChevronDown, ChevronRight, Search, HeartPulse, ArrowDownUp, ArrowUp, ArrowDown } from "lucide-react";
 import { ipcNodeList, ipcNodePoolSnapshot, ipcIpReputationSnapshot, ipcSubscriptionRefresh, ipcNodeProbe, type ReputationSnapshot } from "../lib/ipc";
+import { loadNodeProbe, batchChunkSize } from "../lib/settings";
 import { translateError } from "../lib/i18n-error";
 import { usePoll } from "../hooks/usePoll";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -129,7 +130,8 @@ export function NodesView() {
   const [probeInflight, setProbeInflight] = useState<Set<string>>(new Set());
   /// T19-P3 — optimistic per-node probe result overlay: hash -> {latency?, egress_ip?, region?, ts}
   const [probeResults, setProbeResults] = useState<Map<string, { latency?: number; egress_ip?: string; region?: string }>>(new Map());
-
+  /// T19-P4 — per-sub batch probe inflight (sub name -> boolean)
+  const [batchInflight, setBatchInflight] = useState<Set<string>>(new Set());
   const refresh = useCallback(async () => {
     setError(null);
     try {
@@ -188,6 +190,40 @@ export function NodesView() {
     }
   }, [t]);
 
+  /// T19-P4 — batch latency probe: chunk by concurrency, Promise.allSettled, shell-side timeout guard
+  const handleBatchProbe = useCallback(async (subName: string, items: ReadonlyArray<{ node_hash?: string }>) => {
+    if (subName === "__untagged__" || items.length === 0) return;
+    setBatchInflight(prev => new Set(prev).add(subName));
+    try {
+      const cfg = await loadNodeProbe();
+      const chunkSize = batchChunkSize(cfg.concurrency, items.length);
+      const hashes = items.map(n => n.node_hash).filter((h): h is string => typeof h === "string");
+      let done = 0;
+      for (let i = 0; i < hashes.length; i += chunkSize) {
+        const chunk = hashes.slice(i, i + chunkSize);
+        await Promise.allSettled(
+          chunk.map(async (hash) => {
+            const probe = ipcNodeProbe(hash, "latency");
+            const timeout = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("timeout")), cfg.timeout_ms)
+            );
+            try {
+              await Promise.race([probe, timeout]);
+            } catch {
+              // individual probe timeout/error — continue batch
+            }
+            done++;
+          })
+        );
+      }
+      // Re-sync to show updated latency values
+      await refresh();
+    } catch (e) {
+      console.warn("[NodesView] batchProbe failed:", e);
+    } finally {
+      setBatchInflight(prev => { const s = new Set(prev); s.delete(subName); return s; });
+    }
+  }, [refresh]);
 
   // T14-3: usePoll replaces manual setInterval
   usePoll(refresh, { intervalMs: 10000, fireImmediately: true, pauseWhenHidden: true });
@@ -378,7 +414,15 @@ export function NodesView() {
                   >
                     <RefreshCw size={12} className={refreshingSub.has(sub) ? "animate-spin text-zinc-500 dark:text-zinc-400" : "text-zinc-500 dark:text-zinc-400"} />
                   </button>
-                </button>
+
+                    <button
+                      title={batchInflight.has(sub) ? t("nodes.batchProbing", { done: 0, total: items.length }) : t("nodes.batchProbe")}
+                      onClick={(e) => { e.stopPropagation(); handleBatchProbe(sub, items); }}
+                      disabled={sub === "__untagged__" || batchInflight.has(sub) || refreshingSub.has(sub)}
+                      className="ml-1 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Activity size={12} className={batchInflight.has(sub) ? "animate-spin text-zinc-500 dark:text-zinc-400" : "text-zinc-500 dark:text-zinc-400"} />
+                    </button>                </button>
                 {!isCollapsed && (
                   <VirtualNodeList
                     items={items}

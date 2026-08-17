@@ -20,7 +20,7 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 }));
 
 // Import AFTER the mock so the module reads the mocked LazyStore.
-import { loadKeyCandidates, saveKeyCandidates, type KeyCandidate } from "./settings";
+import { loadKeyCandidates, saveKeyCandidates, type KeyCandidate, loadNodeProbe, saveNodeProbe, batchChunkSize, type NodeProbeConfig } from "./settings";
 
 beforeEach(() => backing.clear());
 
@@ -63,5 +63,55 @@ describe("C2-3: keyCandidates persist round-trip through settings.json#keyCandid
     const got = await loadKeyCandidates();
     expect(Array.isArray(got)).toBe(true);
     expect(got).toHaveLength(0);
+  });
+});
+
+describe("T19-P4: batchChunkSize pure helper (clash-verge-rev hard cap)", () => {
+  it("returns min(concurrency, itemCount, 10) when all > 1", () => {
+    expect(batchChunkSize(20, 50)).toBe(10); // capped at 10
+    expect(batchChunkSize(5, 50)).toBe(5);   // concurrency is the limit
+    expect(batchChunkSize(20, 3)).toBe(3);   // item count is the limit
+  });
+
+  it("returns 1 when concurrency or itemCount is 0/1", () => {
+    expect(batchChunkSize(0, 50)).toBe(1);   // concurrency 0 → floor at 1
+    expect(batchChunkSize(50, 0)).toBe(1);   // itemCount 0 → floor at 1
+    expect(batchChunkSize(1, 1)).toBe(1);    // both 1
+  });
+
+  it("caps at 10 even when concurrency and itemCount are very large", () => {
+    expect(batchChunkSize(100, 100)).toBe(10);
+    expect(batchChunkSize(1000, 10000)).toBe(10);
+  });
+});
+
+describe("T19-P4: nodeProbe config round-trip through settings.json#nodeProbe", () => {
+  it("saveNodeProbe then loadNodeProbe returns clamped values", async () => {
+    const cfg: NodeProbeConfig = { concurrency: 15, timeout_ms: 8000, batch_on_load: true };
+    await saveNodeProbe(cfg);
+    const got = await loadNodeProbe();
+    expect(got.concurrency).toBe(15);
+    expect(got.timeout_ms).toBe(8000);
+    expect(got.batch_on_load).toBe(true);
+  });
+
+  it("loadNodeProbe clamps concurrency to 1-50 range", async () => {
+    await saveNodeProbe({ concurrency: 100, timeout_ms: 10000, batch_on_load: false });
+    const got = await loadNodeProbe();
+    expect(got.concurrency).toBe(50);
+  });
+
+  it("loadNodeProbe clamps timeout_ms to 1000-30000 range", async () => {
+    await saveNodeProbe({ concurrency: 10, timeout_ms: 500, batch_on_load: false });
+    const got = await loadNodeProbe();
+    expect(got.timeout_ms).toBe(1000);
+  });
+
+  it("loadNodeProbe returns defaults when store key is unset", async () => {
+    backing.delete("nodeProbe");
+    const got = await loadNodeProbe();
+    expect(got.concurrency).toBe(10);
+    expect(got.timeout_ms).toBe(10000);
+    expect(got.batch_on_load).toBe(false);
   });
 });

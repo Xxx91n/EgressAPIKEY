@@ -4,7 +4,9 @@ import { invoke } from "@tauri-apps/api/core";
   import { useEffect, useMemo, useState, useRef } from "react";
 import {Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap, RefreshCw} from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, ipcGetConfigDir, type StrategyApplyResult} from "../lib/ipc";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, ipcGetConfigDir,
+  ipcSystemConfigGet,
+  ipcSystemConfigPatch, type StrategyApplyResult} from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
@@ -16,6 +18,9 @@ import {
   loadIpReputationConfig,
   saveIpReputationConfig,
   type IpReputationConfig,
+  loadNodeProbe,
+  saveNodeProbe,
+  type NodeProbeConfig,
 } from "../lib/settings";
 
 const LOCALES: Locale[] = ["en", "zh", "es", "fr", "de", "ja", "ko", "ru", "pt", "it", "nl", "pl", "tr", "ar", "vi", "th", "id", "hi"];
@@ -146,12 +151,33 @@ export function SettingsView() {
   const [strategyBusy, setStrategyBusy] = useState(false);
   const [strategyMsg, setStrategyMsg] = useState("");
 
+  // T19-P4: node probe config (shell-local)
+  const [probeCfg, setProbeCfg] = useState<NodeProbeConfig>({ concurrency: 10, timeout_ms: 10000, batch_on_load: false });
+  const [probeBusy, setProbeBusy] = useState(false);
+  // T19-P4: Resin hot-update probe params (system_config)
+  const [resinMaxFailures, setResinMaxFailures] = useState<number>(3);
+  const [resinLatencyInterval, setResinLatencyInterval] = useState<string>("1h");
+  const [resinLatencyUrl, setResinLatencyUrl] = useState<string>("");
+  const [resinProbeBusy, setResinProbeBusy] = useState(false);
   useEffect(() => {
     void ipcWhiteboxPath().then(setWhiteboxPath).catch(() => setWhiteboxPath(""));
     // T15-v3-4: load strategy config path (config_dir + egressapikey-strategy.json)
     void ipcGetConfigDir().then((dir) => setStrategyConfigPath(dir + "/egressapikey-strategy.json")).catch(() => setStrategyConfigPath(""));
   }, []);
 
+  // T19-P4: load node probe + resin probe config on mount
+  useEffect(() => {
+    void (async () => {
+      const cfg = await loadNodeProbe();
+      setProbeCfg(cfg);
+      try {
+        const raw = await ipcSystemConfigGet() as Record<string, unknown>;
+        if (typeof raw.max_consecutive_failures === "number") setResinMaxFailures(raw.max_consecutive_failures);
+        if (typeof raw.max_latency_test_interval === "string") setResinLatencyInterval(raw.max_latency_test_interval);
+        if (typeof raw.latency_test_url === "string") setResinLatencyUrl(raw.latency_test_url);
+      } catch { /* sidecar not running or vitest */ }
+    })();
+  }, []);
   async function reloadWhitebox() {
     setWhiteboxBusy(true);
     try {
@@ -333,6 +359,26 @@ export function SettingsView() {
     } finally { setBusy(false); }
   };
 
+  // T19-P4: save node probe config to settings.json
+  const saveProbeCfg = async () => {
+    setProbeBusy(true);
+    try {
+      await saveNodeProbe(probeCfg);
+    } finally { setProbeBusy(false); }
+  };
+  // T19-P4: save Resin hot-update probe params via PATCH /system/config
+  const saveResinProbe = async () => {
+    setResinProbeBusy(true);
+    try {
+      await ipcSystemConfigPatch({
+        max_consecutive_failures: resinMaxFailures,
+        max_latency_test_interval: resinLatencyInterval,
+        latency_test_url: resinLatencyUrl || undefined,
+      });
+    } catch (e) {
+      console.warn("[SettingsView] resin probe save failed:", e);
+    } finally { setResinProbeBusy(false); }
+  };
   const openDir = async (which: "config" | "log") => {
     try {
       const dir = which === "config" ? await ipcGetConfigDir() : await invoke<string>("get_log_dir");
@@ -613,6 +659,87 @@ export function SettingsView() {
             </button>
             {strategyMsg ? <span className="text-xs text-zinc-500">{strategyMsg}</span> : null}
           </div>
+        </div>
+      </SectionCard>
+      <SectionCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("settings.nodeProbeTitle")}>
+        <div className="space-y-3">
+          <Field label={t("settings.nodeProbeConcurrency")}>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={probeCfg.concurrency}
+              onChange={(e) => setProbeCfg(prev => ({ ...prev, concurrency: Math.max(1, Math.min(50, Number(e.target.value) || 1)) }))}
+              className={inputCls}
+            />
+          </Field>
+          <Field label={t("settings.nodeProbeTimeout")}>
+            <input
+              type="number"
+              min={1000}
+              max={30000}
+              step={500}
+              value={probeCfg.timeout_ms}
+              onChange={(e) => setProbeCfg(prev => ({ ...prev, timeout_ms: Math.max(1000, Math.min(30000, Number(e.target.value) || 1000)) }))}
+              className={inputCls}
+            />
+          </Field>
+          <Field label={t("settings.nodeProbeBatchOnLoad")}>
+            <input
+              type="checkbox"
+              checked={probeCfg.batch_on_load}
+              onChange={(e) => setProbeCfg(prev => ({ ...prev, batch_on_load: e.target.checked }))}
+              className="h-4 w-4 rounded border-zinc-300"
+            />
+          </Field>
+          <button
+            onClick={() => void saveProbeCfg()}
+            disabled={probeBusy}
+            className={btnCls + " disabled:opacity-40"}
+          >
+            {probeBusy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {t("settings.save")}
+          </button>
+        </div>
+      </SectionCard>
+      <SectionCard icon={<Server size={16} strokeWidth={1.75} />} title={t("settings.resinProbeTitle")}>
+        <div className="space-y-3">
+          <Field label={t("settings.resinMaxFailures")}>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={resinMaxFailures}
+              onChange={(e) => setResinMaxFailures(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+              className={inputCls}
+            />
+          </Field>
+          <Field label={t("settings.resinLatencyInterval")}>
+            <input
+              type="text"
+              value={resinLatencyInterval}
+              onChange={(e) => setResinLatencyInterval(e.target.value)}
+              className={inputCls}
+              placeholder="1h"
+            />
+          </Field>
+          <Field label={t("settings.resinLatencyTestUrl")}>
+            <input
+              type="text"
+              value={resinLatencyUrl}
+              onChange={(e) => setResinLatencyUrl(e.target.value)}
+              className={inputCls}
+              placeholder="https://www.gstatic.com/generate_204"
+            />
+          </Field>
+          <button
+            onClick={() => void saveResinProbe()}
+            disabled={resinProbeBusy}
+            className={btnCls + " disabled:opacity-40"}
+          >
+            {resinProbeBusy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            {t("settings.save")}
+          </button>
         </div>
       </SectionCard>
       {showSaveBar && (

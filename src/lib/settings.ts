@@ -344,3 +344,41 @@ export async function savePortAuthDefault(value: boolean): Promise<void> {
     await store().save();
   } catch (e) { console.warn("[settings] savePortAuthDefault failed:", e); }
 }
+
+// --- T19-P4: Node batch probe config (ADR-0044 S4) ---
+// Persisted in settings.json#nodeProbe; shell-local, controls batch probe UX.
+export interface NodeProbeConfig {
+  concurrency: number;   // 1-50, but capped to min(concurrency, items, 10) at runtime
+  timeout_ms: number;    // 1000-30000, shell-side timeout guard (Resin has its own 15s)
+  batch_on_load: boolean; // default false = manual only (user choice "甲")
+}
+
+export async function loadNodeProbe(): Promise<NodeProbeConfig> {
+  try {
+    const v = await store().get<Partial<NodeProbeConfig>>("nodeProbe");
+    return {
+      concurrency: typeof v?.concurrency === "number" ? Math.max(1, Math.min(50, v.concurrency)) : 10,
+      timeout_ms: typeof v?.timeout_ms === "number" ? Math.max(1000, Math.min(30000, v.timeout_ms)) : 10000,
+      batch_on_load: typeof v?.batch_on_load === "boolean" ? v.batch_on_load : false,
+    };
+  } catch {
+    return { concurrency: 10, timeout_ms: 10000, batch_on_load: false };
+  }
+}
+
+export async function saveNodeProbe(cfg: NodeProbeConfig): Promise<void> {
+  try {
+    await store().set("nodeProbe", {
+      concurrency: Math.max(1, Math.min(50, Math.floor(cfg.concurrency))),
+      timeout_ms: Math.max(1000, Math.min(30000, Math.floor(cfg.timeout_ms))),
+      batch_on_load: cfg.batch_on_load,
+    });
+    await store().save();
+  } catch (e) { console.warn("[settings] saveNodeProbe failed:", e); }
+}
+
+/// Pure helper: batch chunk size = min(concurrency, itemCount, 10) — clash-verge-rev hard cap.
+/// Exported for vitest coverage.
+export function batchChunkSize(configured: number, itemCount: number): number {
+  return Math.max(1, Math.min(configured, itemCount, 10));
+}
