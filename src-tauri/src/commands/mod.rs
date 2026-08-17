@@ -638,6 +638,69 @@ pub async fn subscription_remove(
     Ok(true)
 }
 
+/// T19-P2: refresh a subscription's content by re-fetching the user's url
+/// and PATCHing the Resin subscription content (source_type=local is immutable).
+/// The shell owns the fetch (clash-family UA bypasses provider 403) + the
+/// flow->block YAML convert (Resin's Go YAML parser rejects flow-style).
+/// The user-visible url is stored as Resin subscription metadata at create
+/// time; we re-read it from the list endpoint (POST body forbids url for
+/// local-type) and re-fetch + re-convert + PATCH the content field.
+#[tauri::command]
+pub async fn subscription_refresh(
+    sidecar: State<'_, SidecarHandle>,
+    name: String,
+) -> Result<u64, IpcError> {
+    validate_short_name(&name, "subscription")?;
+    let client = resin_client(&sidecar)?;
+    let list = client
+        .list_subscriptions()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))?;
+    let items = items_arr(&list);
+    let entry = items
+        .iter()
+        .find(|p| p.get("name").and_then(|n| n.as_str()) == Some(&name))
+        .ok_or_else(|| IpcError::from(format!("subscription not found: {name}")))?;
+    let id = entry
+        .get("id")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| IpcError::from("subscription missing id".to_string()))?
+        .to_string();
+    let url = entry
+        .get("url")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    if url.is_empty() || (!url.starts_with("http://") && !url.starts_with("https://")) {
+        return Err(IpcError::from(
+            "subscription has no http(s) url to re-fetch".to_string(),
+        ));
+    }
+    tracing::info!(subscription = %name, id = %id, url = %url, "subscription_refresh: re-fetching clash yaml");
+    let yaml = fetch_clash_subscription(&url).await.map_err(|e| {
+        tracing::warn!(error = ?e, "subscription_refresh: fetch failed");
+        map_resin_error(&e.to_string())
+    })?;
+    tracing::info!(bytes = yaml.len(), "subscription_refresh: converting to proxies-only block");
+    let block = clash_yaml_to_proxies_block(&yaml).map_err(|e| {
+        tracing::warn!(error = ?e, "subscription_refresh: convert failed");
+        IpcError::from(e.to_string())
+    })?;
+    tracing::info!(block_bytes = block.len(), "subscription_refresh: PATCHing content to Resin");
+    let updated = client
+        .refresh_subscription_content(&id, block)
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))?;
+    // Return the post-refresh node_count so the UI can show a toast without
+    // needing a second list round trip.
+    let node_count = updated
+        .get("node_count")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    tracing::info!(subscription = %name, node_count, "subscription_refresh: Resin accepted updated content");
+    Ok(node_count)
+}
+
 #[derive(Debug, Serialize)]
 pub struct SubscriptionSnapshotEntry {
     pub name: String,
@@ -793,6 +856,48 @@ pub async fn platform_update(
 pub async fn node_list(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, IpcError> {
     let client = resin_client(&sidecar)?;
     client.list_nodes().await.map_err(|e| map_resin_error(&e.to_string()))
+}
+
+/// T19-P3: pure input validation for node_probe. Exposed as a module-level
+/// free fn so the command body and the unit tests share one implementation
+/// without a Tauri runtime. Returns an owned String for ergonomic mapping
+/// to IpcError::from in the command body.
+fn validate_node_probe_inputs(node_hash: &str, kind: &str) -> Result<(), String> {
+    if node_hash.is_empty() || node_hash.len() > 128 {
+        return Err("node_hash length out of range (1..=128)".to_string());
+    }
+    if node_hash.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+        return Err("node_hash contains control characters".to_string());
+    }
+    if kind != "egress" && kind != "latency" {
+        return Err("kind must be egress or latency".to_string());
+    }
+    Ok(())
+}
+
+/// T19-P3: on-demand node probe. Forwards to Resin's native
+/// POST /api/v1/nodes/{hash}/actions/probe-egress or .../probe-latency
+/// (v1.2.0 HandleProbeEgress/HandleProbeLatency). The shell validates the
+/// node_hash (length <= 128, no control chars) and kind (in {"egress",
+/// "latency"}) at the IPC boundary so a hostile webview can't POST to an
+/// arbitrary hash path. Resin returns {egress_ip, region, latency_ewma_ms}
+/// for egress and {latency_ewma_ms} for latency; the shell forwards the JSON
+/// body verbatim to the webview.
+#[tauri::command]
+pub async fn node_probe(
+    sidecar: State<'_, SidecarHandle>,
+    node_hash: String,
+    kind: String,
+) -> Result<serde_json::Value, IpcError> {
+    validate_node_probe_inputs(&node_hash, &kind)
+        .map_err(IpcError::from)?;
+    let client = resin_client(&sidecar)?;
+    let result = if kind == "egress" {
+        client.probe_node_egress(&node_hash).await
+    } else {
+        client.probe_node_latency(&node_hash).await
+    };
+    result.map_err(|e| map_resin_error(&e.to_string()))
 }
 
 /// POST /api/v1/platforms with the full create schema (P21 Milestone B).
@@ -3388,5 +3493,27 @@ mod tests {
         assert!(!super::log_level_enabled(3));
         // Restore default
         super::LOG_LEVEL_GATE.store(2, std::sync::atomic::Ordering::Relaxed);
+    }
+
+
+    #[test]
+    fn node_probe_validates_kind_rejects_unknown_and_accepts_known() {
+        assert!(super::validate_node_probe_inputs("abc123", "egress").is_ok());
+        assert!(super::validate_node_probe_inputs("abc123", "latency").is_ok());
+        assert!(super::validate_node_probe_inputs("abc123", "bogus").is_err());
+        assert!(super::validate_node_probe_inputs("abc123", "").is_err());
+    }
+
+    #[test]
+    fn node_probe_rejects_empty_and_control_chars_in_hash() {
+        assert!(super::validate_node_probe_inputs("", "latency").is_err());
+        assert!(super::validate_node_probe_inputs("bad\nhash", "latency").is_err());
+        assert!(super::validate_node_probe_inputs("bad\0hash", "egress").is_err());
+        // 129 chars > 128 cap
+        let long = "a".repeat(129);
+        assert!(super::validate_node_probe_inputs(&long, "latency").is_err());
+        // 128 chars OK
+        let exact = "a".repeat(128);
+        assert!(super::validate_node_probe_inputs(&exact, "latency").is_ok());
     }
 }

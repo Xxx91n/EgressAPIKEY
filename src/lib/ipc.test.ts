@@ -19,8 +19,10 @@ vi.mock("@tauri-apps/api/core", () => ({
 import {
   ipcPlatformAdd, ipcPlatformRemove, ipcPlatformList,
   ipcSubscriptionAdd, ipcSubscriptionRemove, ipcSubscriptionList,
+  ipcSubscriptionRefresh,
   ipcProcessRouteAdd, ipcProcessRouteRemove, ipcProcessRouteList,
   ipcPlatformUpdate, ipcNodeList,
+  ipcNodeProbe,
   ipcPlatformCreateWithFields, ipcPlatformLeases,
   ipChannelList, ipChannelPolicySet, ipChannelCreate, ipChannelDelete,
   ipcPortList, ipcPortUpsert,
@@ -82,6 +84,37 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockResolvedValue([{ name: "n", node_count: 7 }]);
     const r = await ipcSubscriptionList();
     expect(r).toEqual([{ name: "n", node_count: 7 }]);
+  });
+
+  it("T19-P2: ipcSubscriptionRefresh forwards name and resolves node_count", async () => {
+    invokeMock.mockResolvedValue(42);
+    const r = await ipcSubscriptionRefresh("main");
+    expect(r).toBe(42);
+    expect(invokeMock).toHaveBeenCalledWith("subscription_refresh", expect.objectContaining({ name: "main" }));
+  });
+
+  it("T19-P2: ipcSubscriptionRefresh validates name length", async () => {
+    await expect(ipcSubscriptionRefresh("")).rejects.toThrow(/subscription invalid/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("T19-P3: ipcNodeProbe forwards hash + kind for latency", async () => {
+    invokeMock.mockResolvedValue({ latency_ewma_ms: 89 });
+    const r = (await ipcNodeProbe("abc123", "latency")) as { latency_ewma_ms: number };
+    expect(r.latency_ewma_ms).toBe(89);
+    expect(invokeMock).toHaveBeenCalledWith("node_probe", expect.objectContaining({ nodeHash: "abc123", kind: "latency" }));
+  });
+
+  it("T19-P3: ipcNodeProbe forwards hash + kind for egress", async () => {
+    invokeMock.mockResolvedValue({ egress_ip: "1.2.3.4", region: "us", latency_ewma_ms: 12 });
+    const r = (await ipcNodeProbe("abc123", "egress")) as { egress_ip: string };
+    expect(r.egress_ip).toBe("1.2.3.4");
+    expect(invokeMock).toHaveBeenCalledWith("node_probe", expect.objectContaining({ nodeHash: "abc123", kind: "egress" }));
+  });
+
+  it("T19-P3: ipcNodeProbe rejects control chars in hash (TS guard)", async () => {
+    await expect(ipcNodeProbe("bad\x01hash", "latency")).rejects.toThrow(/node_hash invalid/);
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it("process_route_add rejects port 50 (out of range: below 1024)", async () => {

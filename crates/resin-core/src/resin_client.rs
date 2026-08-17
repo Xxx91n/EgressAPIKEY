@@ -267,15 +267,28 @@ impl ResinClient {
             .await
     }
 
-    /// DELETE /subscriptions/{id} - remove a subscription (204 -> Null).
-    pub async fn delete_subscription(&self, id: &str) -> Result<Value> {
-        let path = format!("/subscriptions/{}", urlencoding(id));
-        self.send(reqwest::Method::DELETE, &path, None).await
-    }
+   /// DELETE /subscriptions/{id} - remove a subscription (204 -> Null).
+   pub async fn delete_subscription(&self, id: &str) -> Result<Value> {
+       let path = format!("/subscriptions/{}", urlencoding(id));
+       self.send(reqwest::Method::DELETE, &path, None).await
+   }
 
-    /// PATCH /api/v1/platforms/{id} - update platform fields (allocation_policy,
-    /// regex_filters, region_filters, sticky_ttl, etc). Resin validates the
-    /// body and returns 400 with a descriptive error for invalid enum values.
+   /// PATCH /api/v1/subscriptions/{id} - refresh a local subscription's content.
+   /// Resin v1.2.0 exposes PATCH /subscriptions/{id} (HandleUpdateSubscription):
+   /// a constrained partial-patch (NOT RFC 7396; null values rejected). The
+   /// `content` field is allowed for source_type=local subscriptions; changing
+   /// it triggers an async re-parse inside Resin. `source_type` is immutable
+   /// after create, so the caller must NOT include it in the body.
+   /// Used by T19-P2 node-pool per-group refresh button.
+   pub async fn refresh_subscription_content(&self, id: &str, content: String) -> Result<Value> {
+       let path = format!("/subscriptions/{}", urlencoding(id));
+       let body = serde_json::json!({ "content": content });
+       self.send(reqwest::Method::PATCH, &path, Some(body)).await
+   }
+
+   /// PATCH /api/v1/platforms/{id} - update platform fields (allocation_policy,
+   /// regex_filters, region_filters, sticky_ttl, etc). Resin validates the
+   /// body and returns 400 with a descriptive error for invalid enum values.
     /// Used by the topology canvas hot-switch (Phase R1/R2).
     pub async fn update_platform(&self, id: &str, body: Value) -> Result<Value> {
         let path = format!("/platforms/{}", urlencoding(id));
@@ -292,14 +305,34 @@ impl ResinClient {
             .await
     }
 
-    /// GET /api/v1/nodes?platform_id=<id>&limit=500 - the routable node list
-    /// for a single platform (Resin DESIGN.md "list nodes" with platform_id filter).
-    pub async fn list_nodes_for_platform(&self, platform_id: &str) -> Result<Value> {
-        let path = format!("/nodes?limit=500&platform_id={}", platform_id);
-        self.send_read(&path).await
-    }
+   /// GET /api/v1/nodes?platform_id=<id>&limit=500 - the routable node list
+   /// for a single platform (Resin DESIGN.md "list nodes" with platform_id filter).
+   pub async fn list_nodes_for_platform(&self, platform_id: &str) -> Result<Value> {
+       let path = format!("/nodes?limit=500&platform_id={}", platform_id);
+       self.send_read(&path).await
+   }
 
-    /// POST /api/v1/platforms with the full create schema (P21 Milestone B).
+   /// POST /api/v1/nodes/{hash}/actions/probe-egress - on-demand egress probe
+   /// (Resin v1.2.0 HandleProbeEgress). Requests cloudflare.com/cdn-cgi/trace
+   /// through the node, returns {egress_ip, region, latency_ewma_ms}. Resin
+   /// updates the node's egress_ip + TD-EWMA + routing as a side effect.
+   /// Used by T19-P3 node-pool per-card probe button.
+   pub async fn probe_node_egress(&self, node_hash: &str) -> Result<Value> {
+       let path = format!("/nodes/{}/actions/probe-egress", urlencoding(node_hash));
+       self.send(reqwest::Method::POST, &path, None).await
+   }
+
+   /// POST /api/v1/nodes/{hash}/actions/probe-latency - on-demand latency probe
+   /// (Resin v1.2.0 HandleProbeLatency). Requests latency_test_url (default
+   /// https://www.gstatic.com/generate_204) through the node, returns
+   /// {latency_ewma_ms}. Resin updates the node's TD-EWMA for that domain.
+   /// Used by T19-P3 node-pool per-card probe button.
+   pub async fn probe_node_latency(&self, node_hash: &str) -> Result<Value> {
+       let path = format!("/nodes/{}/actions/probe-latency", urlencoding(node_hash));
+       self.send(reqwest::Method::POST, &path, None).await
+   }
+
+   /// POST /api/v1/platforms with the full create schema (P21 Milestone B).
     /// Accepts a free-form body (serde_json::Value) so the GUI form can pass
     /// exactly the fields Resin DESIGN.md lists for platform creation:
     ///   name (required), sticky_ttl, regex_filters, region_filters,
@@ -1111,16 +1144,88 @@ mod tests {
             .await;
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
-        let result = c.list_platforms().await;
-        assert!(result.is_err(), "404 should error without retry");
-        // Should be called exactly once (no retry on 4xx)
-        m.assert_async().await;
+       let result = c.list_platforms().await;
+       assert!(result.is_err(), "404 should error without retry");
+       // Should be called exactly once (no retry on 4xx)
+       m.assert_async().await;
 
-    }
+   }
 
+   #[tokio::test]
+   async fn mockito_refresh_subscription_content_patches_local_content() {
+       // T19-P2: PATCH /subscriptions/{id} with {content} body -> 200 updated object.
+       let mut server = mockito::Server::new_async().await;
+       let m = server
+           .mock("PATCH", "/api/v1/subscriptions/sub-uuid-1")
+           .match_header("authorization", "Bearer testtok")
+           .match_body(r#"{"content":"proxies:\n  - {name: n1}"}"#)
+           .with_status(200)
+           .with_header("content-type", "application/json")
+           .with_body(r#"{"id":"sub-uuid-1","name":"main","source_type":"local","node_count":1}"#)
+           .expect(1)
+           .create_async()
+           .await;
+       let base = server.url();
+       let c = ResinClient::new(&base, "testtok".into()).unwrap();
+       let out = c
+           .refresh_subscription_content("sub-uuid-1", "proxies:\n  - {name: n1}".to_string())
+           .await
+           .expect("refresh_subscription_content should succeed");
+       assert_eq!(out["id"], "sub-uuid-1");
+       assert_eq!(out["node_count"], 1);
+       m.assert_async().await;
+   }
 
-    #[test]
-    fn t15_4_shared_client_returns_same_instance() {
+   #[tokio::test]
+   async fn mockito_probe_node_egress_returns_egress_ip_region_latency() {
+       // T19-P3: POST /nodes/{hash}/actions/probe-egress -> {egress_ip, region, latency_ewma_ms}.
+       let mut server = mockito::Server::new_async().await;
+       let m = server
+           .mock("POST", "/api/v1/nodes/abc123/actions/probe-egress")
+           .match_header("authorization", "Bearer testtok")
+           .with_status(200)
+           .with_header("content-type", "application/json")
+           .with_body(r#"{"egress_ip":"203.0.113.1","region":"us","latency_ewma_ms":123.45}"#)
+           .expect(1)
+           .create_async()
+           .await;
+       let base = server.url();
+       let c = ResinClient::new(&base, "testtok".into()).unwrap();
+       let out = c
+           .probe_node_egress("abc123")
+           .await
+           .expect("probe_node_egress should succeed");
+       assert_eq!(out["egress_ip"], "203.0.113.1");
+       assert_eq!(out["region"], "us");
+       assert_eq!(out["latency_ewma_ms"], 123.45);
+       m.assert_async().await;
+   }
+
+   #[tokio::test]
+   async fn mockito_probe_node_latency_returns_latency_ewma_ms() {
+       // T19-P3: POST /nodes/{hash}/actions/probe-latency -> {latency_ewma_ms}.
+       let mut server = mockito::Server::new_async().await;
+       let m = server
+           .mock("POST", "/api/v1/nodes/abc123/actions/probe-latency")
+           .match_header("authorization", "Bearer testtok")
+           .with_status(200)
+           .with_header("content-type", "application/json")
+           .with_body(r#"{"latency_ewma_ms":89.12}"#)
+           .expect(1)
+           .create_async()
+           .await;
+       let base = server.url();
+       let c = ResinClient::new(&base, "testtok".into()).unwrap();
+       let out = c
+           .probe_node_latency("abc123")
+           .await
+           .expect("probe_node_latency should succeed");
+       assert_eq!(out["latency_ewma_ms"], 89.12);
+       m.assert_async().await;
+   }
+
+   #[test]
+   fn t15_4_shared_client_returns_same_instance() {
         // Two calls to shared_client() must return pointers to the same Client.
         let a = shared_client();
         let b = shared_client();

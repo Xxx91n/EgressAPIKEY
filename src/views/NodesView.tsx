@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ShieldCheck, ChevronDown, ChevronRight, Search, HeartPulse, ArrowDownUp, ArrowUp, ArrowDown } from "lucide-react";
-import { ipcNodeList, ipcNodePoolSnapshot, ipcIpReputationSnapshot, type ReputationSnapshot } from "../lib/ipc";
+import { ipcNodeList, ipcNodePoolSnapshot, ipcIpReputationSnapshot, ipcSubscriptionRefresh, ipcNodeProbe, type ReputationSnapshot } from "../lib/ipc";
 import { translateError } from "../lib/i18n-error";
 import { usePoll } from "../hooks/usePoll";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -123,6 +123,12 @@ export function NodesView() {
   const [sortMode, setSortMode] = useState<SortMode>("default");
   /// T19-P1 — seed-once flag so we default-collapse only after the first refresh, not on every poll
   const seededRef = useRef(false);
+  /// T19-P2 — per-subscription refresh inflight set (button spinner state)
+  const [refreshingSub, setRefreshingSub] = useState<Set<string>>(new Set());
+  /// T19-P3 — per-node probe inflight set (key = hash|kind so both kinds can run concurrently)
+  const [probeInflight, setProbeInflight] = useState<Set<string>>(new Set());
+  /// T19-P3 — optimistic per-node probe result overlay: hash -> {latency?, egress_ip?, region?, ts}
+  const [probeResults, setProbeResults] = useState<Map<string, { latency?: number; egress_ip?: string; region?: string }>>(new Map());
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -141,6 +147,47 @@ export function NodesView() {
     }
     setLoading(false);
   }, []);
+  const handleRefreshSub = useCallback(async (subName: string) => {
+    if (subName === "__untagged__") return; // no url to re-fetch
+    setRefreshingSub(prev => new Set(prev).add(subName));
+    try {
+      const count = await ipcSubscriptionRefresh(subName);
+      // Re-read node list to reflect new nodes
+      await refresh();
+      // surfaced via toast-like inline state: we just refresh; user sees updated count in header
+      // Ponytail: no toast lib; the refresh button spinner + quiet update is enough feedback. (i18n toast is P5.)
+      void count;
+    } catch (e) {
+      setError(translateError(e, t));
+    } finally {
+      setRefreshingSub(prev => { const s = new Set(prev); s.delete(subName); return s; });
+    }
+  }, [refresh, t]);
+
+  const handleProbeNode = useCallback(async (hash: string, kind: "egress" | "latency") => {
+    const key = hash + "|" + kind;
+    setProbeInflight(prev => new Set(prev).add(key));
+    try {
+      const res = await ipcNodeProbe(hash, kind);
+      setProbeResults(prev => {
+        const m = new Map(prev);
+        const cur = m.get(hash) ?? {};
+        if (kind === "egress") {
+          const r = res as { egress_ip?: string; region?: string; latency_ewma_ms?: number };
+          m.set(hash, { ...cur, egress_ip: r.egress_ip, region: r.region, latency: r.latency_ewma_ms ?? cur.latency });
+        } else {
+          const r = res as { latency_ewma_ms: number };
+          m.set(hash, { ...cur, latency: r.latency_ewma_ms });
+        }
+        return m;
+      });
+    } catch (e) {
+      setError(translateError(e, t));
+    } finally {
+      setProbeInflight(prev => { const s = new Set(prev); s.delete(key); return s; });
+    }
+  }, [t]);
+
 
   // T14-3: usePoll replaces manual setInterval
   usePoll(refresh, { intervalMs: 10000, fireImmediately: true, pauseWhenHidden: true });
@@ -323,6 +370,14 @@ export function NodesView() {
                   <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 flex-1 truncate">{displayName}</span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">{tKeys("nodes.nodeCount", { count: items.length })}</span>
                   <span className={subHealthRate > 80 ? "text-xs text-green-600 dark:text-green-400" : subHealthRate > 50 ? "text-xs text-yellow-600 dark:text-yellow-400" : "text-xs text-red-600 dark:text-red-400"}>{tKeys("nodes.healthRate", { rate: subHealthRate })}</span>
+                  <button
+                    title={refreshingSub.has(sub) ? t("nodes.refreshingSub") : t("nodes.refreshSub")}
+                    onClick={(e) => { e.stopPropagation(); handleRefreshSub(sub); }}
+                    disabled={sub === "__untagged__" || refreshingSub.has(sub)}
+                    className="ml-1 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw size={12} className={refreshingSub.has(sub) ? "animate-spin text-zinc-500 dark:text-zinc-400" : "text-zinc-500 dark:text-zinc-400"} />
+                  </button>
                 </button>
                 {!isCollapsed && (
                   <VirtualNodeList
@@ -334,6 +389,9 @@ export function NodesView() {
                     latencyLabel={latencyLabel}
                     t={t}
                     maxH={400}
+                    onProbe={handleProbeNode}
+                    probeInflight={probeInflight}
+                    probeResults={probeResults}
                   />
                 )}
               </div>
@@ -358,6 +416,7 @@ const VIRTUAL_THRESHOLD = 50;
 
 function VirtualNodeList({
   items, expandedRows, toggleRow, isHealthy, latencyColor, latencyLabel, t, maxH = 400,
+  onProbe, probeInflight, probeResults,
 }: {
   items: NodeItem[];
   expandedRows: Set<string>;
@@ -367,6 +426,9 @@ function VirtualNodeList({
   latencyLabel: (lat: number | null, t: (k: string, o?: Record<string, unknown>) => string) => string;
   t: (k: string, o?: Record<string, unknown>) => string;
   maxH?: number;
+  onProbe?: (hash: string, kind: "egress" | "latency") => void;
+  probeInflight?: Set<string>;
+  probeResults?: Map<string, { latency?: number; egress_ip?: string; region?: string }>;
 }) {
   // T14-7: for small lists (< 50 items), render normally without virtualizer overhead
   // (also ensures compatibility with jsdom test environment where scroll measurements are 0)
@@ -385,11 +447,33 @@ function VirtualNodeList({
                 <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100 flex-1 truncate">{n.display_tag ?? n.name ?? n.node_hash?.slice(0, 12) ?? "-"}</span>
                 <span className="text-xs text-zinc-500 dark:text-zinc-400 w-16 text-center">{n.region ?? "-"}</span>
                 <span className={"text-xs font-mono w-20 text-right " + latencyColor(lat)}>{latencyLabel(lat, t)}</span>
+                {onProbe && n.node_hash && (
+                  <span className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      title={t("nodes.probeLatency")}
+                      onClick={(e) => { e.stopPropagation(); onProbe(n.node_hash!, "latency"); }}
+                      disabled={probeInflight?.has(n.node_hash + "|latency")}
+                      className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Activity size={12} className={probeInflight?.has(n.node_hash + "|latency") ? "animate-spin text-blue-500" : "text-zinc-400 dark:text-zinc-500"} />
+                    </button>
+                    <button
+                      title={t("nodes.probeEgress")}
+                      onClick={(e) => { e.stopPropagation(); onProbe(n.node_hash!, "egress"); }}
+                      disabled={probeInflight?.has(n.node_hash + "|egress")}
+                      className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Globe size={12} className={probeInflight?.has(n.node_hash + "|egress") ? "animate-spin text-emerald-500" : "text-zinc-400 dark:text-zinc-500"} />
+                    </button>
+                  </span>
+                )}
               </div>
               {expanded && (
                 <div className="px-8 py-1.5 bg-zinc-50/50 dark:bg-zinc-900/30 text-xs text-zinc-500 dark:text-zinc-400 space-y-0.5">
                   <div>{"node_hash: " + (n.node_hash ?? "-")}</div>
-                  <div>{"egress_ip: " + (n.egress_ip ?? "-")}</div>
+                  <div>{"egress_ip: " + (n.egress_ip ?? (probeResults?.get(hash)?.egress_ip ?? "-"))}</div>
+                  {probeResults?.get(hash)?.region && <div>{"probe.region: " + probeResults.get(hash)!.region}</div>}
+                  {probeResults?.get(hash)?.latency != null && <div>{"probe.latency: " + Math.round(probeResults.get(hash)!.latency!) + "ms"}</div>}
                   <div>{"failure_count: " + (n.failure_count ?? 0)}</div>
                   <div>{"circuit_open: " + (n.circuit_open_since ?? "no")}</div>
                   {n.tags && n.tags.length > 0 && <div>{"tags: " + n.tags.map((tg) => tg.tag).join(", ")}</div>}
@@ -425,11 +509,33 @@ function VirtualNodeList({
                 <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100 flex-1 truncate">{n.display_tag ?? n.name ?? n.node_hash?.slice(0, 12) ?? "-"}</span>
                 <span className="text-xs text-zinc-500 dark:text-zinc-400 w-16 text-center">{n.region ?? "-"}</span>
                 <span className={"text-xs font-mono w-20 text-right " + latencyColor(lat)}>{latencyLabel(lat, t)}</span>
+                {onProbe && n.node_hash && (
+                  <span className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      title={t("nodes.probeLatency")}
+                      onClick={(e) => { e.stopPropagation(); onProbe(n.node_hash!, "latency"); }}
+                      disabled={probeInflight?.has(n.node_hash + "|latency")}
+                      className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Activity size={12} className={probeInflight?.has(n.node_hash + "|latency") ? "animate-spin text-blue-500" : "text-zinc-400 dark:text-zinc-500"} />
+                    </button>
+                    <button
+                      title={t("nodes.probeEgress")}
+                      onClick={(e) => { e.stopPropagation(); onProbe(n.node_hash!, "egress"); }}
+                      disabled={probeInflight?.has(n.node_hash + "|egress")}
+                      className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <Globe size={12} className={probeInflight?.has(n.node_hash + "|egress") ? "animate-spin text-emerald-500" : "text-zinc-400 dark:text-zinc-500"} />
+                    </button>
+                  </span>
+                )}
               </div>
               {expanded && (
                 <div className="px-8 py-1.5 bg-zinc-50/50 dark:bg-zinc-900/30 text-xs text-zinc-500 dark:text-zinc-400 space-y-0.5">
                   <div>{"node_hash: " + (n.node_hash ?? "-")}</div>
-                  <div>{"egress_ip: " + (n.egress_ip ?? "-")}</div>
+                  <div>{"egress_ip: " + (n.egress_ip ?? (probeResults?.get(hash)?.egress_ip ?? "-"))}</div>
+                  {probeResults?.get(hash)?.region && <div>{"probe.region: " + probeResults.get(hash)!.region}</div>}
+                  {probeResults?.get(hash)?.latency != null && <div>{"probe.latency: " + Math.round(probeResults.get(hash)!.latency!) + "ms"}</div>}
                   <div>{"failure_count: " + (n.failure_count ?? 0)}</div>
                   <div>{"circuit_open: " + (n.circuit_open_since ?? "no")}</div>
                   {n.tags && n.tags.length > 0 && <div>{"tags: " + n.tags.map((tg) => tg.tag).join(", ")}</div>}

@@ -305,6 +305,35 @@ export async function ipcNodePoolSnapshot(): Promise<{ total_nodes: number; heal
   return invoke("node_pool_snapshot");
 }
 
+/// T19-P2: refresh a subscription by re-fetching its url and PATCHing content.
+/// Resin-side endpoint is subscription_refresh; returns the post-refresh node count.
+export async function ipcSubscriptionRefresh(name: string): Promise<number> {
+  assertShortName(name, "subscription");
+  return invoke<number>("subscription_refresh", { name });
+}
+
+/// T19-P3: on-demand per-node probe. kind is "egress" or "latency". Returns
+/// {egress_ip, region, latency_ewma_ms} for egress and {latency_ewma_ms} for
+/// latency. The TS boundary validates hash length + kind membership so a
+/// buggy caller can't POST to an arbitrary node path.
+export interface NodeProbeEgressResult {
+  egress_ip: string;
+  region?: string;
+  latency_ewma_ms?: number;
+}
+export interface NodeProbeLatencyResult {
+  latency_ewma_ms: number;
+}
+export async function ipcNodeProbe(
+  hash: string,
+  kind: "egress" | "latency"
+): Promise<NodeProbeEgressResult | NodeProbeLatencyResult> {
+  if (!hash || hash.length > 128 || /[\x00-\x1f\x7f]/.test(hash)) {
+    throw new Error("node_hash invalid (1..128 chars, no control)");
+  }
+  return invoke("node_probe", { nodeHash: hash, kind });
+}
+
 
 export type ReputationProvider = "ip_quality_score" | "abuse_ip_db" | "ip_api";
 export interface ReputationEntry {
