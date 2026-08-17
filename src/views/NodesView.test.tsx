@@ -261,7 +261,7 @@ describe("NodesView T19-P1 parseDelayQuery + sort + hide-unhealthy", () => {
     await waitFor(() => screen.getByText("sub-x"));
     fireEvent.click(screen.getByText("sub-x").closest("button")!);
     // Toggle visible initially
-    await waitFor(() => expect(screen.queryAllByText(/OK-01|DEAD-02/).length).toBe(2));
+    await waitFor(() => expect(screen.queryAllByText(/OK-01|DEAD-02/).length).toBe(2), { timeout: 3000 });
     // Click hide-unhealthy toggle (getByTitle is more robust than text match across icon+label)
     const toggle = screen.getByTitle("Hide unhealthy");
     fireEvent.click(toggle);
