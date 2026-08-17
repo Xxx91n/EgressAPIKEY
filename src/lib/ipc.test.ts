@@ -530,4 +530,51 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
     fetchMock.mockResolvedValueOnce(new Response("upstream conflict", { status: 409, headers: { "Content-Type": "text/plain" } }));
     await expect(ipcPlatformAdd("openai")).rejects.toThrow(/409.*upstream conflict/);
   });
+  // --- T17-audit-fix: name-based contract verified (BFF translation is server-side) ---
+  // The SPA continues to send the business name in the JSON body to the
+  // collection URL; the headless BFF (proxy_to_resin) resolves name -> id in
+  // Rust before forwarding. These tests pin the SPA side of the contract so
+  // a refactor of the BFF layer never silently breaks the frontend shape.
+  it("platform_remove sends DELETE /api/v1/platforms with body {name} (BFF resolves id server-side)", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await ipcPlatformRemove("openai");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/v1/platforms");
+    expect((init as RequestInit).method).toBe("DELETE");
+    // Body carries the business name; the BFF proxy reads it and rewrites.
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body.name).toBe("openai");
+    expect(body.__trace_id).toBeUndefined();
+  });
+
+  it("subscription_remove sends DELETE /api/v1/subscriptions with body {name} (BFF resolves id server-side)", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await ipcSubscriptionRemove("n");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/v1/subscriptions");
+    expect((init as RequestInit).method).toBe("DELETE");
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body.name).toBe("n");
+  });
+
+  it("platform_update sends PATCH /api/v1/platforms with body {name, allocation_policy} (BFF resolves id server-side, strips name)", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    await ipcPlatformUpdate("openai", "BALANCED", undefined, undefined, undefined);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/v1/platforms");
+    expect((init as RequestInit).method).toBe("PATCH");
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body.name).toBe("openai");
+    // SPA sends camelCase IPC keys; the headless BFF (proxy_to_resin)
+    // rewrites to Resin snake_case AFTER this fetch (server-side contract).
+    expect(body.allocationPolicy).toBe("BALANCED");
+    expect(body.regexFilters).toBeNull();
+    expect(body.regionFilters).toBeNull();
+    expect(body.stickyTtl).toBeNull();
+    expect(body.passive_circuit_breaker_disabled).toBeNull();
+  });
+
 });

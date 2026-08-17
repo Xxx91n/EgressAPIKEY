@@ -68,3 +68,32 @@ The project ships a Tauri 2 desktop GUI (EgressAPIKEY.exe) and a headless HTTP s
 - **code-server** (npm.md): OS dependency table + install->URL->credentials 3-line closure + PATH troubleshooting
 - **mihomo** (wiki.metacubex.one): systemd unit template (Restart=always, LimitNOFILE, ExecReload=kill -HUP, journalctl)
 - **Diataxis** (diataxis.fr): tutorials/how-to/reference/explanation 4 quadrants — the industry-standard doc structure
+
+---
+
+## Audit follow-up (T17-audit-fix)
+
+The original T17 marked P6 and P10 as checked but a deeper code-level diff audit (against the GRILL plan acceptance criteria no false positives) found three real defects that the original 4 vitest assertions did NOT cover:
+
+1. **platform_remove / subscription_remove / platform_update fetch path broken (high severity).** The SPA's invokeHttp fallback sent DELETE /api/v1/platforms with body {name:"X"} and PATCH with a full camelCase body. The headless axum reverse-proxy (proxy_to_resin) was a pure forwarder — it forwarded the body-bearing collection DELETE verbatim to Resin, which expects DELETE /api/v1/platforms/{id} (path-param, no body). Resin returned 404/405 and the SPA's mutate calls silently failed in headless mode. The Tauri mode worked because the Rust IPC commands (platform_remove, platform_update, subscription_remove) do a list+match name-to-id translation in Rust before forwarding — but the headless mode bypassed those commands entirely.
+2. **patch-body key shape not equivalent (medium).** The SPA TS wrapper ipcPlatformUpdate sends camelCase IPC keys (allocationPolicy, regexFilters, ...) and the Tauri Rust command rewrites them to Resin's snake_case form. The headless path forwarded camelCase — Resin would have rejected the PATCH even with a working id.
+3. **Vitest P10 false positive.** The 4 T17 dual-mode assertions only exercised platform_add (POST collection) + platform_list (GET collection) — the two trivially-correct routes. Zero coverage for the three broken DELETE/PATCH routes. The no-false-positives P10 criterion was a false claim on the mutation surface that actually mattered.
+
+**Fix (industrial pattern B — BFF/agent-side translation, per atomcode research).** The headless axum proxy now does the same list+match name-to-id resolution the Tauri Rust commands do, BEFORE forwarding, for the three known translation routes. The SPA frontend contract stays name-based in both modes; resolve+mutate are atomic in one process (no client-side TOCTOU). Industry prior art surfaced by atomcode: Kong request-transformer (transform before upstream), AWS API Gateway mapping templates, LiteLLM (admin uses UUID, alias resolved server-side), Vaultwarden (read by name, mutate by UUID). Pattern C (name-based upstream) was rejected because Resin v1.2.0 has no name endpoints and we don't fork the upstream Go binary.
+
+**Changes.**
+- src-tauri/src/headless_main.rs: proxy_to_resin now aggregates the body (64 MiB cap) and a new translate_request dispatcher rewrites (method, path, body) into the path-param form when needed. New pure helpers items_arr, id_for_name, url_encode_segment, rewrite_patch_body_snake_case — extracted as pure functions so unit tests can lock the contract without spinning up reqwest.
+- src/lib/ipc.test.ts: 3 new T17-audit vitest assertions pin the SPA-side contract (frontend continues to send the business name in the JSON body to the collection URL; the server-side BFF resolves name->id after this fetch).
+- src-tauri/src/headless_main.rs cfg(test) module bff_translate_tests: 12 cargo unit tests covering items-wrapper vs bare-array resolution, empty-id rejection, URL encode behaviour, PATCH name stripping + camelCase to snake_case translation, null-field drop, enum/length validation, and empty/non-object body rejection.
+
+**Verification.**
+- cargo test -p egressapikey-app --bin egressapikey-headless --features headless -> 12 passed.
+- npx vitest run -> 255 passed (was 252; +3 audit assertions).
+- npx tsc --noEmit clean.
+- npm run i18n:check -> 363 keys / 18 locales match.
+- cargo build --release -p egressapikey-app --bin egressapikey-headless --features headless -> 4.7MB exe staged at release/windows-backend/egressapikey-headless.exe.
+- Smoke: launched the binary, process ALIVE, GET / -> 200, GET /api/v1/platforms (proxied to Resin sidecar) -> 200.
+
+**Audit trail preservation.** The original Phase 3 table (P6/P10 marked as done) is left intact above for the per-phase status snapshot; this section is the authoritative current truth. Following AGENTS.md section 6/10 directive: do NOT rewrite historical status rows into the new truth — leave them and add the follow-up.
+
+**Ponytail.** No new crates. The BFF layer is ~140 LoC added to headless_main.rs (a single match on three routes + a pure rewriter), and the existing axum/reqwest/serde_json/bytes deps already present in the headless Cargo.toml cover it. The frontend (src/lib/ipc.ts invokeHttp, CMD_TO_HTTP) is unchanged — the translation lives where the Rust IPC commands already live.
