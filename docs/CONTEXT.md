@@ -79,3 +79,7 @@
 - **manualMode** - the A-class strategy where the user manually selects specific node hashes (not regions). Canvas drag stays group-level; manual selection is via expanded card node-row checkbox. Checkbox toggles node_hash in strategyConfig manual_nodes; strategy_engine maps manual_nodes to regions to PATCH Resin region_filters. No leaf-node handles on canvas (ReactFlow group-no-handle paradigm). See ADR-0042 S4.
 - **configEntry** - the right-top floating toolbar on canvas with a FileCog dropdown to open egressapikey-ports.json or egressapikey-strategy.json in the OS default editor. Replaces the left-bottom FileCog. See ADR-0042 S5.
 - **whiteboxRestorePorts** - the post-boot_resin logic that rebuilds Resin endpoints from whitebox egressapikey-ports.json on every Resin restart. For each enabled entry_port: POST /api/v1/endpoints (skip on 409 Conflict). Closes the whitebox-is-truth-source loop. See ADR-0042 S6.
+
+## headless binary
+
+The standalone HTTP server binary (egressapikey-headless) that serves the React dist/ and reverse-proxies /api/v1/* to the Resin Go sidecar. No Tauri plugins, no webview, no OS proxy management. Spawned by @egressapikey/server npm launcher (launcher.cjs) or run directly. VPS-deployable. Distinct from the GUI binary (EgressAPIKEY.exe) which embeds the same frontend via tauri::generate_context! and uses Tauri IPC instead of HTTP fetch.
