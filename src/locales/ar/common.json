@@ -58,7 +58,12 @@
     "bindConflict": "المنفذ {{port}} مستخدم بالفعل",
     "invalidStrategy": "قيمة استراتيجية غير صالحة: {{value}}. مقبول: {{accepted}}",
     "resinUpstream": "أعاد الخادم HTTP {{status}}: {{excerpt}}",
-    "internal": "حدث خطأ داخلي"
+    "internal": "حدث خطأ داخلي",
+    "action": {
+      "changePort": "تغيير المنفذ",
+      "viewDocs": "عرض الوثائق",
+      "retry": "إعادة المحاولة"
+    }
   },
   "log": {
     "title": "السجلات",

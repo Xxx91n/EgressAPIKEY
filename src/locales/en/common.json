@@ -58,7 +58,12 @@
     "bindConflict": "Port {{port}} is already in use by another process",
     "invalidStrategy": "Invalid strategy value: {{value}}. Accepted: {{accepted}}",
     "resinUpstream": "Backend returned HTTP {{status}}: {{excerpt}}",
-    "internal": "An internal error occurred"
+    "internal": "An internal error occurred",
+    "action": {
+      "changePort": "Change port",
+      "viewDocs": "View docs",
+      "retry": "Retry"
+    }
   },
   "log": {
     "title": "Logs",

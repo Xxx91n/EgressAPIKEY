@@ -58,7 +58,12 @@
     "bindConflict": "Port {{port}} sudah digunakan",
     "invalidStrategy": "Nilai strategi tidak valid: {{value}}. Diterima: {{accepted}}",
     "resinUpstream": "Backend mengembalikan HTTP {{status}}: {{excerpt}}",
-    "internal": "Terjadi kesalahan internal"
+    "internal": "Terjadi kesalahan internal",
+    "action": {
+      "changePort": "Ganti port",
+      "viewDocs": "Lihat docs",
+      "retry": "Coba lagi"
+    }
   },
   "log": {
     "title": "Log",

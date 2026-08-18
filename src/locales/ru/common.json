@@ -58,7 +58,12 @@
     "bindConflict": "Порт {{port}} уже занят",
     "invalidStrategy": "Недопустимое значение стратегии: {{value}}. Принято: {{accepted}}",
     "resinUpstream": "Бэкенд вернул HTTP {{status}}: {{excerpt}}",
-    "internal": "Произошла внутренняя ошибка"
+    "internal": "Произошла внутренняя ошибка",
+    "action": {
+      "changePort": "Сменить порт",
+      "viewDocs": "Документация",
+      "retry": "Повторить"
+    }
   },
   "log": {
     "title": "Журнал",

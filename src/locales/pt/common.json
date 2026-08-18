@@ -58,7 +58,12 @@
     "bindConflict": "A porta {{port}} ja esta em uso",
     "invalidStrategy": "Valor de estrategia invalido: {{value}}. Aceito: {{accepted}}",
     "resinUpstream": "O backend retornou HTTP {{status}}: {{excerpt}}",
-    "internal": "Ocorreu um erro interno"
+    "internal": "Ocorreu um erro interno",
+    "action": {
+      "changePort": "Mudar porta",
+      "viewDocs": "Ver docs",
+      "retry": "Tentar de novo"
+    }
   },
   "log": {
     "title": "Registros",

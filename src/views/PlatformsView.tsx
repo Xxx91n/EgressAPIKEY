@@ -27,6 +27,7 @@ import {
   type PortMapping,
   type PortAuthInfo,
   type PortHealthCheck,
+  extractIpcErr,
 } from "../lib/ipc";
 import { strategyToI18nKey, strategyToResinPolicy, mapResinToShell, STRATEGY_IDS, type StrategyId } from "../lib/strategy";
 import { loadSplitRatio, saveSplitRatio, loadPortAuthDefault, savePortAuthDefault } from "../lib/settings";
@@ -75,7 +76,7 @@ export function PlatformsView() {
   const didDragRef = useRef(false);
   const [dragOverPlatform, setDragOverPlatform] = useState<string | null>(null);
   const [splitRatio, setSplitRatio] = useState(0.4);
-  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
+  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string; action?: { label: string; onClick: () => void } } | null>(null);
   const [busy, setBusy] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -202,8 +203,8 @@ export function PlatformsView() {
     setHealth(healthMap);
   }, []);
 
-  const showToast = (kind: "ok" | "err", msg: string) => {
-    setToast({ kind, msg });
+  const showToast = (kind: "ok" | "err", msg: string, action?: { label: string; onClick: () => void }) => {
+    setToast({ kind, msg, action });
     window.setTimeout(() => setToast(null), 3500);
   };
 
@@ -271,7 +272,17 @@ export function PlatformsView() {
       setNewLabel("");
       showToast("ok", t("platform.portAddOk"));
       await refreshPortAuthAndHealth(await refreshPorts());
-    } catch (e) { showToast("err", translateError(e, t)); }
+    } catch (e) {
+      const ipcErr = extractIpcErr(e);
+      if (ipcErr.kind === "BindConflict") {
+        showToast("err", translateError(e, t), {
+          label: t("error.action.changePort"),
+          onClick: () => { void ipcPortSuggest().then((p) => { setNewPort(String(p)); }).catch(() => {}); },
+        });
+      } else {
+        showToast("err", translateError(e, t));
+      }
+    }
     finally { setBusy(false); }
   };
 
@@ -393,6 +404,14 @@ export function PlatformsView() {
         <div className={"flex items-center gap-2 rounded-md border px-3 py-2 text-sm " + (toast.kind === "ok" ? "border-emerald-500/40 bg-emerald-500/10" : "border-red-500/40 bg-red-500/10")} data-testid="platforms-toast">
           {toast.kind === "ok" ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
           <span>{toast.msg}</span>
+          {toast.action && (
+            <button
+              className="ml-auto rounded border border-current/20 px-2 py-0.5 text-xs font-medium hover:bg-current/10"
+              onClick={() => { toast.action!.onClick(); setToast(null); }}
+            >
+              {toast.action.label}
+            </button>
+          )}
         </div>
       )}
 

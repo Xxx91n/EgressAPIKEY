@@ -58,7 +58,12 @@
     "bindConflict": "ポート{{port}}は既に使用されています",
     "invalidStrategy": "無効な戦略値: {{value}}。承認済み: {{accepted}}",
     "resinUpstream": "バックエンドが HTTP {{status}} を返しました: {{excerpt}}",
-    "internal": "内部エラーが発生しました"
+    "internal": "内部エラーが発生しました",
+    "action": {
+      "changePort": "ポート変更",
+      "viewDocs": "ドキュメント",
+      "retry": "再試行"
+    }
   },
   "log": {
     "title": "ログ",

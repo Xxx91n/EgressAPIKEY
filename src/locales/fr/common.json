@@ -58,7 +58,12 @@
     "bindConflict": "Le port {{port}} est deja utilise",
     "invalidStrategy": "Valeur de strategie invalide: {{value}}. Accepte: {{accepted}}",
     "resinUpstream": "Le backend a renvoye HTTP {{status}}: {{excerpt}}",
-    "internal": "Une erreur interne s'est produite"
+    "internal": "Une erreur interne s'est produite",
+    "action": {
+      "changePort": "Changer de port",
+      "viewDocs": "Voir docs",
+      "retry": "Réessayer"
+    }
   },
   "log": {
     "title": "Journaux",

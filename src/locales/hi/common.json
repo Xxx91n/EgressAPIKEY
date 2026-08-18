@@ -58,7 +58,12 @@
     "bindConflict": "पोर्ट {{port}} पहले से उपयोग में है",
     "invalidStrategy": "अमान्य रणनीति मान: {{value}}। स्वीकृत: {{accepted}}",
     "resinUpstream": "बैकएंड ने HTTP {{status}} लौटाया: {{excerpt}}",
-    "internal": "एक आंतरिक त्रुटि उत्पन्न हुई"
+    "internal": "एक आंतरिक त्रुटि उत्पन्न हुई",
+    "action": {
+      "changePort": "पोर्ट बदलें",
+      "viewDocs": "दस्तावेज़ देखें",
+      "retry": "पुनः प्रयास"
+    }
   },
   "log": {
     "title": "लॉग",

@@ -58,7 +58,12 @@
     "bindConflict": "Poort {{port}} is al in gebruik",
     "invalidStrategy": "Ongeldige strategiewaarde: {{value}}. Geaccepteerd: {{accepted}}",
     "resinUpstream": "Backend gaf HTTP {{status}} terug: {{excerpt}}",
-    "internal": "Er is een interne fout opgetreden"
+    "internal": "Er is een interne fout opgetreden",
+    "action": {
+      "changePort": "Poort wijzigen",
+      "viewDocs": "Bekijk docs",
+      "retry": "Opnieuw"
+    }
   },
   "log": {
     "title": "Logs",

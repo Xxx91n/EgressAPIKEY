@@ -58,7 +58,12 @@
     "bindConflict": "พอร์ต {{port}} ถูกใช้งานแล้ว",
     "invalidStrategy": "ค่ากลยุทธ์ไม่ถูกต้อง: {{value}}. ยอมรับ: {{accepted}}",
     "resinUpstream": "แบ็กเอนด์ส่งกลับ HTTP {{status}}: {{excerpt}}",
-    "internal": "เกิดข้อผิดพลาดภายใน"
+    "internal": "เกิดข้อผิดพลาดภายใน",
+    "action": {
+      "changePort": "เปลี่ยนพอร์ต",
+      "viewDocs": "ดูเอกสาร",
+      "retry": "ลองอีกครั้ง"
+    }
   },
   "log": {
     "title": "บันทึก",

@@ -58,7 +58,12 @@
     "bindConflict": "Port {{port}} zaten kullaniliyor",
     "invalidStrategy": "Gecersiz strateji degeri: {{value}}. Kabul edilen: {{accepted}}",
     "resinUpstream": "Backend HTTP {{status}} dondurdu: {{excerpt}}",
-    "internal": "Bir dahili hata olustu"
+    "internal": "Bir dahili hata olustu",
+    "action": {
+      "changePort": "Port değiştir",
+      "viewDocs": "Belgeleri gör",
+      "retry": "Tekrar dene"
+    }
   },
   "log": {
     "title": "Günlükler",

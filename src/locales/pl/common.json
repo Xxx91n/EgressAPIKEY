@@ -58,7 +58,12 @@
     "bindConflict": "Port {{port}} jest juz uzywany",
     "invalidStrategy": "Nieprawidlowa wartosc strategii: {{value}}. Zaakceptowane: {{accepted}}",
     "resinUpstream": "Backend zwrocil HTTP {{status}}: {{excerpt}}",
-    "internal": "Wystapil wewnetrzny blad"
+    "internal": "Wystapil wewnetrzny blad",
+    "action": {
+      "changePort": "Zmień port",
+      "viewDocs": "Zobacz docs",
+      "retry": "Ponów"
+    }
   },
   "log": {
     "title": "Logi",

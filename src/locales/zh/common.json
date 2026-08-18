@@ -58,7 +58,12 @@
     "bindConflict": "端口 {{port}} 已被其他进程占用",
     "invalidStrategy": "无效策略值: {{value}}。可接受: {{accepted}}",
     "resinUpstream": "后端返回 HTTP {{status}}: {{excerpt}}",
-    "internal": "发生内部错误"
+    "internal": "发生内部错误",
+    "action": {
+      "changePort": "换端口",
+      "viewDocs": "查看文档",
+      "retry": "重试"
+    }
   },
   "log": {
     "title": "日志",

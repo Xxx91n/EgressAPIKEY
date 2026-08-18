@@ -3312,6 +3312,105 @@ mod tests {
         assert_eq!(extract_port_from_residual("port 443"), Some(443));
     }
 
+    /// T20-Q5: map_resin_error(raw: &str) branch coverage — 14 branches.
+    #[test]
+    fn map_resin_error_cannot_delete_default() {
+        let e = map_resin_error("cannot delete Default platform");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.cannotDeleteDefaultPlatform"));
+    }
+
+    #[test]
+    fn map_resin_error_auth_required() {
+        let e = map_resin_error("AUTH_REQUIRED: token missing");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.authRequired"));
+    }
+
+    #[test]
+    fn map_resin_error_auth_failed() {
+        let e = map_resin_error("AUTH_FAILED: bad token");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.authFailed"));
+    }
+
+    #[test]
+    fn map_resin_error_url_parse() {
+        let e = map_resin_error("URL_PARSE_ERROR: invalid URL");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.urlParse"));
+    }
+
+    #[test]
+    fn map_resin_error_invalid_protocol() {
+        let e = map_resin_error("INVALID_PROTOCOL: ftp not supported");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.invalidProtocol"));
+    }
+
+    #[test]
+    fn map_resin_error_upstream_connect_failed() {
+        let e = map_resin_error("UPSTREAM_CONNECT_FAILED: connection refused");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.upstreamConnectFailed"));
+    }
+
+    #[test]
+    fn map_resin_error_upstream_request_failed() {
+        let e = map_resin_error("UPSTREAM_REQUEST_FAILED: 502 bad gateway");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.upstreamRequestFailed"));
+    }
+
+    #[test]
+    fn map_resin_error_bind_conflict_with_port() {
+        let e = map_resin_error("listen on port 17111: bind: Only one usage of each socket address");
+        // From<String> for IpcError extracts port and returns BindConflict or Internal with bindConflict key
+        assert!(format!("{e}").contains("bind conflict") || format!("{e}").contains("17111"));
+    }
+
+    #[test]
+    fn map_resin_error_bind_conflict_without_port() {
+        let e = map_resin_error("bind: address already in use (no port number)");
+        assert!(format!("{e}").contains("bind conflict") || format!("{e}").contains("bindConflict"));
+    }
+
+    #[test]
+    fn map_resin_error_conflict() {
+        let e = map_resin_error("CONFLICT: resource already exists");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.conflict"));
+    }
+
+    #[test]
+    fn map_resin_error_not_found() {
+        let e = map_resin_error("platform not found");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.notFound"));
+    }
+
+    #[test]
+    fn map_resin_error_bad_request() {
+        let e = map_resin_error("BAD_REQUEST: missing field");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.badRequest"));
+    }
+
+    #[test]
+    fn map_resin_error_unauthorized() {
+        let e = map_resin_error("UNAUTHORIZED: no admin token");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.unauthorized"));
+    }
+
+    #[test]
+    fn map_resin_error_unknown_passes_through() {
+        let e = map_resin_error("some completely unknown error string");
+        // Unknown errors go to From<String> which creates Internal
+        assert!(matches!(e, IpcError::Internal { .. }));
+    }
+
+    /// T20-Q5: extract_port_from_residual boundary tests
+    #[test]
+    fn extract_port_from_residual_edge_cases() {
+        // Port at boundary values
+        assert_eq!(extract_port_from_residual("port 0"), Some(0));
+        assert_eq!(extract_port_from_residual("port 65535"), Some(65535));
+        // No port keyword
+        assert_eq!(extract_port_from_residual("no digits here"), None);
+        // Multiple numbers — takes first after "port "
+        assert_eq!(extract_port_from_residual("port 8080 and 9090"), Some(8080));
+    }
+
     /// T6-Bug4: bind conflict match must fire BEFORE the generic CONFLICT match.
     /// Resin port bind errors return HTTP 409 whose status text is "Conflict",
     /// which would be caught by the generic CONFLICT guard if it came first.

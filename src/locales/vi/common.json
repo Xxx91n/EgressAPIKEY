@@ -58,7 +58,12 @@
     "bindConflict": "Port {{port}} da duoc su dung",
     "invalidStrategy": "Gia tri chien luoc khong hop le: {{value}}. Chap nhan: {{accepted}}",
     "resinUpstream": "Backend tra ve HTTP {{status}}: {{excerpt}}",
-    "internal": "Da xay ra loi noi bo"
+    "internal": "Da xay ra loi noi bo",
+    "action": {
+      "changePort": "Đổi cổng",
+      "viewDocs": "Xem tài liệu",
+      "retry": "Thử lại"
+    }
   },
   "log": {
     "title": "Nhật ký",

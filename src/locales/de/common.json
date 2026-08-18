@@ -58,7 +58,12 @@
     "bindConflict": "Port {{port}} wird bereits verwendet",
     "invalidStrategy": "Ungueltiger Strategiewert: {{value}}. Akzeptiert: {{accepted}}",
     "resinUpstream": "Backend gab HTTP {{status}} zurueck: {{excerpt}}",
-    "internal": "Es ist ein interner Fehler aufgetreten"
+    "internal": "Es ist ein interner Fehler aufgetreten",
+    "action": {
+      "changePort": "Port wechseln",
+      "viewDocs": "Docs anzeigen",
+      "retry": "Wiederholen"
+    }
   },
   "log": {
     "title": "Protokolle",
