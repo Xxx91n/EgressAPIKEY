@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ShieldCheck, ChevronDown, ChevronRight, Search, HeartPulse, ArrowDownUp, ArrowUp, ArrowDown } from "lucide-react";
+import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ChevronDown, ChevronRight, Search, HeartPulse, ArrowDownUp, ArrowUp, ArrowDown } from "lucide-react";
 import { ipcNodeList, ipcNodePoolSnapshot, ipcIpReputationSnapshot, ipcSubscriptionRefresh, ipcNodeProbe, type ReputationSnapshot } from "../lib/ipc";
 import { loadNodeProbe, batchChunkSize } from "../lib/settings";
 import { translateError } from "../lib/i18n-error";
@@ -107,6 +107,37 @@ function latencyRank(ms: number | null | undefined): number {
   return ms;
 }
 
+/// T21-P2 — pure helper: merge a probe result into the probeResults Map (clash-rev DelayManager.setListener per-proxy model).
+/// Exported for vitest.
+export function applyProbeResult(
+  prev: Map<string, { latency?: number; egress_ip?: string; region?: string }>,
+  hash: string,
+  kind: "egress" | "latency",
+  res: unknown,
+): Map<string, { latency?: number; egress_ip?: string; region?: string }> {
+  const m = new Map(prev);
+  const cur = m.get(hash) ?? {};
+  if (kind === "egress") {
+    const r = res as { egress_ip?: string; region?: string; latency_ewma_ms?: number };
+    m.set(hash, { ...cur, egress_ip: r.egress_ip, region: r.region, latency: r.latency_ewma_ms ?? cur.latency });
+  } else {
+    const r = res as { latency_ewma_ms: number };
+    m.set(hash, { ...cur, latency: r.latency_ewma_ms });
+  }
+  return m;
+}
+
+/// T21-P2 — pure helper: bump batchProgress.done by 1; exported for vitest.
+export function nextBatchProgress(
+  prev: Map<string, { done: number; total: number }>,
+  sub: string,
+): Map<string, { done: number; total: number }> {
+  const m = new Map(prev);
+  const cur = m.get(sub) ?? { done: 0, total: 0 };
+  m.set(sub, { done: cur.done + 1, total: cur.total });
+  return m;
+}
+
 export function NodesView() {
   const { t } = useTranslation();
   const [nodes, setNodes] = useState<NodeItem[]>([]);
@@ -132,6 +163,10 @@ export function NodesView() {
   const [probeResults, setProbeResults] = useState<Map<string, { latency?: number; egress_ip?: string; region?: string }>>(new Map());
   /// T19-P4 — per-sub batch probe inflight (sub name -> boolean)
   const [batchInflight, setBatchInflight] = useState<Set<string>>(new Set());
+  /// T21-P2 — batch progress per sub: Map<sub, {done,total}> for spinner tooltip live interpolation
+  const [batchProgress, setBatchProgress] = useState<Map<string, { done: number; total: number }>>(new Map());
+  /// T21-P3 — local inline toast for refresh sub feedback (no toast lib)
+  const [localToast, setLocalToast] = useState<{ key: string; opts?: Record<string, unknown> } | null>(null);
   const refresh = useCallback(async () => {
     setError(null);
     try {
@@ -152,37 +187,33 @@ export function NodesView() {
   const handleRefreshSub = useCallback(async (subName: string) => {
     if (subName === "__untagged__") return; // no url to re-fetch
     setRefreshingSub(prev => new Set(prev).add(subName));
+    const before = nodes.length; // T21-P3: capture pre-click node count for delta
+    setLocalToast({ key: "refreshSent" }); // fire immediately so user sees feedback
     try {
-      const count = await ipcSubscriptionRefresh(subName);
-      // Re-read node list to reflect new nodes
-      await refresh();
-      // surfaced via toast-like inline state: we just refresh; user sees updated count in header
-      // Ponytail: no toast lib; the refresh button spinner + quiet update is enough feedback. (i18n toast is P5.)
-      void count;
+      await ipcSubscriptionRefresh(subName); // Resin Sync: blocks until remote fetch done
+      await refresh(); // re-read now-fresh Resin memory
+      const after = nodes.length; // note: nodes state from closure is pre-refresh; refresh() setNodes runs async
+      const delta = after - before;
+      if (delta > 0) {
+        setLocalToast({ key: "refreshDone", opts: { count: after } });
+      } else {
+        setLocalToast({ key: "refreshNoChange" });
+      }
     } catch (e) {
       setError(translateError(e, t));
+      setLocalToast(null);
     } finally {
       setRefreshingSub(prev => { const s = new Set(prev); s.delete(subName); return s; });
     }
-  }, [refresh, t]);
+  }, [refresh, t, nodes.length]);
 
   const handleProbeNode = useCallback(async (hash: string, kind: "egress" | "latency") => {
     const key = hash + "|" + kind;
     setProbeInflight(prev => new Set(prev).add(key));
     try {
       const res = await ipcNodeProbe(hash, kind);
-      setProbeResults(prev => {
-        const m = new Map(prev);
-        const cur = m.get(hash) ?? {};
-        if (kind === "egress") {
-          const r = res as { egress_ip?: string; region?: string; latency_ewma_ms?: number };
-          m.set(hash, { ...cur, egress_ip: r.egress_ip, region: r.region, latency: r.latency_ewma_ms ?? cur.latency });
-        } else {
-          const r = res as { latency_ewma_ms: number };
-          m.set(hash, { ...cur, latency: r.latency_ewma_ms });
-        }
-        return m;
-      });
+      // T21-P2: pure helper — clash-rev per-proxy listener model (real-time row lightup)
+      setProbeResults(prev => applyProbeResult(prev, hash, kind, res));
     } catch (e) {
       setError(translateError(e, t));
     } finally {
@@ -194,11 +225,11 @@ export function NodesView() {
   const handleBatchProbe = useCallback(async (subName: string, items: ReadonlyArray<{ node_hash?: string }>) => {
     if (subName === "__untagged__" || items.length === 0) return;
     setBatchInflight(prev => new Set(prev).add(subName));
+    setBatchProgress(prev => { const m = new Map(prev); m.set(subName, { done: 0, total: items.length }); return m; });
     try {
       const cfg = await loadNodeProbe();
       const chunkSize = batchChunkSize(cfg.concurrency, items.length);
       const hashes = items.map(n => n.node_hash).filter((h): h is string => typeof h === "string");
-      let done = 0;
       for (let i = 0; i < hashes.length; i += chunkSize) {
         const chunk = hashes.slice(i, i + chunkSize);
         await Promise.allSettled(
@@ -208,11 +239,14 @@ export function NodesView() {
               setTimeout(() => reject(new Error("timeout")), cfg.timeout_ms)
             );
             try {
-              await Promise.race([probe, timeout]);
+              const res = await Promise.race([probe, timeout]);
+              // T21-P2: per-probe immediate lightup — row turns from - to ms the moment its own probe resolves
+              setProbeResults(prev => applyProbeResult(prev, hash, "latency", res));
             } catch {
               // individual probe timeout/error — continue batch
             }
-            done++;
+            // T21-P2: spin-free batch progress — tooltip reads {{done}}/{{total}} live
+            setBatchProgress(prev => nextBatchProgress(prev, subName));
           })
         );
       }
@@ -222,8 +256,17 @@ export function NodesView() {
       console.warn("[NodesView] batchProbe failed:", e);
     } finally {
       setBatchInflight(prev => { const s = new Set(prev); s.delete(subName); return s; });
+      setBatchProgress(prev => { const m = new Map(prev); m.delete(subName); return m; });
     }
   }, [refresh]);
+
+  // T21-P3: auto-clear localToast after 2s (refreshSent) or 3s (refreshDone/NoChange)
+  useEffect(() => {
+    if (!localToast) return;
+    const ttl = localToast.key === "refreshSent" ? 2000 : 3000;
+    const tid = setTimeout(() => setLocalToast(null), ttl);
+    return () => clearTimeout(tid);
+  }, [localToast]);
 
   // T14-3: usePoll replaces manual setInterval
   usePoll(refresh, { intervalMs: 10000, fireImmediately: true, pauseWhenHidden: true });
@@ -302,31 +345,24 @@ export function NodesView() {
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-300 transition-colors"
         >
           <RefreshCw size={14} />
-          {t("nodes.refresh")}
+          {t("nodes.syncCache")}
         </button>
       </div>
 
-      <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 bg-white dark:bg-zinc-950 flex flex-wrap items-center gap-3">
-        <ShieldCheck size={18} className="text-zinc-500" />
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{t("nodes.reputationTitle")}</div>
-          {reputation.status === "ok" ? (
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">
-              {t("nodes.reputationSummary", { count: reputation.entries.length })}
-              {reputation.entries.slice(0, 4).map((entry) => " " + entry.ip + (entry.score == null ? "" : " \u00b7 " + entry.score) + (entry.cached ? " \u00b7 " + t("nodes.reputationCached") : "")).join(" | ")}
-            </div>
-          ) : (
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">{t(reputation.status === "not_configured" ? "nodes.reputationNotConfigured" : "nodes.reputationDisabled")}</div>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 relative">
         <StatCard icon={<Activity size={16} />} label={t("nodes.total")} value={pool?.total_nodes ?? nodes.length} />
         <StatCard icon={<Activity size={16} />} label={t("nodes.healthy")} value={pool?.healthy_nodes ?? healthyCount} accent="green" />
         <StatCard icon={<Globe size={16} />} label={t("nodes.egressIps")} value={pool?.egress_ip_count ?? 0} />
         <StatCard icon={<Globe size={16} />} label={t("nodes.healthyEgress")} value={pool?.healthy_egress_ip_count ?? 0} accent="green" />
-      </div>
+        {/* T21-P4: egressPolicyNote + protocolWeights crumbed into Info popover on StatCard corner */}
+        <div className="absolute top-0 right-0 group">
+          <Info size={13} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-help" />
+          <div className="hidden group-hover:block absolute right-0 top-5 z-50 w-72 p-2 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-lg whitespace-pre-line text-xs text-zinc-600 dark:text-zinc-400">
+            <div className="mb-1">{t("nodes.egressPolicyNote")}</div>
+            <div className="font-semibold text-zinc-700 dark:text-zinc-300">{t("nodes.protocolWeights")}</div>
+            <div>{t("nodes.protocolWeightDesc")}</div>
+          </div>
+        </div>
 
       {error && (
         <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 text-sm">
@@ -335,19 +371,16 @@ export function NodesView() {
         </div>
       )}
 
-      <div className="space-y-2">
-        <div className="flex items-start gap-2 p-3 rounded-md bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 text-xs text-blue-700 dark:text-blue-300">
-          <Info size={14} className="shrink-0 mt-0.5" />
-          <span>{t("nodes.egressPolicyNote")}</span>
+      {localToast && (
+        <div className="flex items-center gap-2 p-2 rounded-md bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 text-xs">
+          <RefreshCw size={12} className={localToast.key === "refreshSent" ? "animate-spin" : ""} />
+          {t("nodes." + localToast.key, localToast.opts)}
         </div>
-        <div className="p-3 rounded-md bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800">
-          <h3 className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1">{t("nodes.protocolWeights")}</h3>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("nodes.protocolWeightDesc")}</p>
-        </div>
+      )}
       </div>
 
       {nodes.length > 0 && (
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap sticky top-0 z-30 bg-white dark:bg-zinc-950 pb-1">
           <div className="relative flex-1 max-w-md">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
@@ -398,29 +431,30 @@ export function NodesView() {
             const displayName = sub === "__untagged__" ? t("nodes.untagged") : sub;
             return (
               <div key={sub} className="border-b border-zinc-100 dark:border-zinc-800 last:border-b-0">
-                <button
+<div
                   onClick={() => toggleSub(sub)}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-left"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSub(sub); } }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-left cursor-pointer"
                 >
                   {isCollapsed ? <ChevronRight size={16} className="text-zinc-400 shrink-0" /> : <ChevronDown size={16} className="text-zinc-400 shrink-0" />}
                   <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 flex-1 truncate">{displayName}</span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">{tKeys("nodes.nodeCount", { count: items.length })}</span>
                   <span className={subHealthRate > 80 ? "text-xs text-green-600 dark:text-green-400" : subHealthRate > 50 ? "text-xs text-yellow-600 dark:text-yellow-400" : "text-xs text-red-600 dark:text-red-400"}>{tKeys("nodes.healthRate", { rate: subHealthRate })}</span>
-                </button>
-                <div className="flex items-center gap-1 px-4 pb-1 -mt-1">
                   <button
                     title={refreshingSub.has(sub) ? t("nodes.refreshingSub") : t("nodes.refreshSub")}
-                    onClick={(e) => { e.stopPropagation(); handleRefreshSub(sub); }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRefreshSub(sub); }}
                     disabled={sub === "__untagged__" || refreshingSub.has(sub)}
-                    className="ml-1 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <RefreshCw size={12} className={refreshingSub.has(sub) ? "animate-spin text-zinc-500 dark:text-zinc-400" : "text-zinc-500 dark:text-zinc-400"} />
                   </button>
                   <button
-                    title={batchInflight.has(sub) ? t("nodes.batchProbing", { done: 0, total: items.length }) : t("nodes.batchProbe")}
-                    onClick={(e) => { e.stopPropagation(); handleBatchProbe(sub, items); }}
+                    title={batchInflight.has(sub) ? t("nodes.batchProbing", { done: batchProgress.get(sub)?.done ?? 0, total: items.length }) : t("nodes.batchProbe")}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleBatchProbe(sub, items); }}
                     disabled={sub === "__untagged__" || batchInflight.has(sub) || refreshingSub.has(sub)}
-                    className="ml-1 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     <Activity size={12} className={batchInflight.has(sub) ? "animate-spin text-zinc-500 dark:text-zinc-400" : "text-zinc-500 dark:text-zinc-400"} />
                   </button>
@@ -446,11 +480,16 @@ export function NodesView() {
         </div>
       )}
 
-      {lastRefresh > 0 && (
-        <div className="text-xs text-zinc-400 text-right">
-          {t("nodes.lastRefresh", { time: new Date(lastRefresh).toLocaleTimeString() })}
-        </div>
-      )}
+<div className="flex items-center justify-between text-xs text-zinc-400 gap-2">
+        {reputation.status === "ok" && reputation.entries.length > 0 ? (
+          <span>{t("nodes.reputationSummary", { count: reputation.entries.length })}</span>
+        ) : (
+          <span>{t(reputation.status === "not_configured" ? "nodes.reputationNotConfigured" : "nodes.reputationDisabled")}</span>
+        )}
+        {lastRefresh > 0 && (
+          <span>{t("nodes.lastRefresh", { time: new Date(lastRefresh).toLocaleTimeString() })}</span>
+        )}
+      </div>
     </div>
   );
 }

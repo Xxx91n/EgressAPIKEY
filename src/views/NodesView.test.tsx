@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { invokeMock } from "../test/setup";
-import { NodesView, parseDelayQuery } from "./NodesView";
+import { NodesView, parseDelayQuery, applyProbeResult, nextBatchProgress } from "./NodesView";
 
 describe("NodesView T4-3", () => {
   beforeEach(() => {
@@ -51,7 +51,7 @@ describe("NodesView T4-3", () => {
       expect(screen.queryByText("US-01")).toBeNull();
     });
     // Click sub-alpha header to expand
-    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
     await waitFor(() => {
       expect(screen.getByText("HK-01")).toBeTruthy();
       expect(screen.getByText("JP-01")).toBeTruthy();
@@ -65,10 +65,10 @@ describe("NodesView T4-3", () => {
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
     // expand first
-    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
     await waitFor(() => screen.getByText("HK-01"));
     // collapse again
-    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
     await waitFor(() => expect(screen.queryByText("HK-01")).toBeNull());
   });
 
@@ -77,8 +77,8 @@ describe("NodesView T4-3", () => {
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
     // expand to reveal before searching
-    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
-    fireEvent.click(screen.getByText("sub-beta").closest("button")!);
+    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
+    fireEvent.click(screen.getByText("sub-beta").closest("[role='button']")!);
     await waitFor(() => screen.getByText("HK-01"));
 
     // Type "HK" in search
@@ -148,7 +148,7 @@ describe("NodesView T4-3", () => {
       return undefined;
     });
     render(<NodesView />);
-    await waitFor(() => expect(screen.getByText(/1\.1\.1\.1/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/live egress IPs checked/i)).toBeTruthy());
     expect(invokeMock.mock.calls.some(([cmd]) => cmd === "ip_reputation_snapshot")).toBe(true);
   });
 
@@ -190,10 +190,10 @@ describe("NodesView T4-3", () => {
     // Collapsed by default (T19-P1) — none of the 10 nodes render
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
     // Click to expand — all 10 appear
-    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(10));
     // Collapse again — nodes disappear
-    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
   });
 
@@ -202,10 +202,10 @@ describe("NodesView T4-3", () => {
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
     // Collapsed by default (T19-P1); expand to see 5 nodes
-    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(5));
     // Collapse and verify all hide
-    fireEvent.click(screen.getByText("sub-alpha").closest("button")!);
+    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
   });
 });
@@ -259,7 +259,7 @@ describe("NodesView T19-P1 parseDelayQuery + sort + hide-unhealthy", () => {
     });
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-x"));
-    fireEvent.click(screen.getByText("sub-x").closest("button")!);
+    fireEvent.click(screen.getByText("sub-x").closest("[role='button']")!);
     // Toggle visible initially
     await waitFor(() => expect(screen.queryAllByText(/OK-01|DEAD-02/).length).toBe(2), { timeout: 3000 });
     // Click hide-unhealthy toggle (getByTitle is more robust than text match across icon+label)
@@ -285,7 +285,7 @@ describe("NodesView T19-P1 parseDelayQuery + sort + hide-unhealthy", () => {
     });
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub"));
-    fireEvent.click(screen.getByText("sub").closest("button")!);
+    fireEvent.click(screen.getByText("sub").closest("[role='button']")!);
 
     // Default sort — nodes render in source order (A, B, C)
     const defaultRows = screen.queryAllByText(/^[ABC]$/);
@@ -389,5 +389,57 @@ describe("NodesView T19-P4 batch probe timeout + batch_on_load=false gate", () =
     await new Promise((r) => setTimeout(r, 50));
     const probeCalls = invokeMock.mock.calls.filter(([c]) => c === "node_probe");
     expect(probeCalls).toHaveLength(0);
+  });
+});
+describe("NodesView T21 pure helpers + layout + tooltip sync", () => {
+  // T21-P2: applyProbeResult — pure helper move (clash-rev DelayManager.setListener model)
+  it("T21-1a: applyProbeResult — latency merge into empty Map", () => {
+    const m = applyProbeResult(new Map(), "hash-a", "latency", { latency_ewma_ms: 42 });
+    const e = m.get("hash-a");
+    expect(e).toBeTruthy();
+    expect(e?.latency).toBe(42);
+  });
+
+  it("T21-1b: applyProbeResult — egress probe carries egress_ip + region + latency_ewma_ms", () => {
+    const prev = new Map([["h", { latency: 10 }]]);
+    const m = applyProbeResult(prev, "h", "egress", { egress_ip: "8.8.8.8", region: "US", latency_ewma_ms: 77 });
+    const e = m.get("h");
+    expect(e?.egress_ip).toBe("8.8.8.8");
+    expect(e?.region).toBe("US");
+    expect(e?.latency).toBe(77); // overwrites prior 10
+  });
+
+  it("T21-1c: nextBatchProgress — increments done; keeps total; preserves other subs", () => {
+    const seed = new Map([["other-sub", { done: 5, total: 10 }], ["cur", { done: 2, total: 4 }]]);
+    const m = nextBatchProgress(seed, "cur");
+    expect(m.get("cur")).toEqual({ done: 3, total: 4 });
+    expect(m.get("other-sub")).toEqual({ done: 5, total: 10 }); // untouched sibling
+  });
+
+  // T21-P1: top-right "Re-sync backend node snapshot" tooltip + outer <div role=button> inline layout
+  it("T21-2a: top-right refresh button title is nodes.syncCache", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") return { items: [] };
+      if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
+      return undefined;
+    });
+    render(<NodesView />);
+    await waitFor(() => expect(screen.getByRole("button", { name: /Re-sync backend/i })).toBeTruthy());
+  });
+
+  it("T21-3a: sub-group header is <div role=button>, not nested <button> (no spec violation)", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") return { items: [
+        { node_hash: "h1", display_tag: "X", region: "HK", failure_count: 0, has_outbound: true, tags: [{ subscription_name: "sub1", tag: "v" }] },
+      ] };
+      if (cmd === "node_pool_snapshot") return { total_nodes: 1, healthy_nodes: 1, egress_ip_count: 1, healthy_egress_ip_count: 1 };
+      return undefined;
+    });
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("sub1"));
+    const header = screen.getByText("sub1").closest("[role='button']");
+    expect(header).toBeTruthy(); // outer switch is div not button (no nested <button>)
+    // Refresh (RefreshCw size=12) and Batch (Activity size=12) IconButtons are inside this div
+    expect(header?.querySelectorAll("button").length).toBeGreaterThanOrEqual(2);
   });
 });
