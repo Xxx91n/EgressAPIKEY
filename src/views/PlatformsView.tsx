@@ -279,6 +279,16 @@ export function PlatformsView() {
           label: t("error.action.changePort"),
           onClick: () => { void ipcPortSuggest().then((p) => { setNewPort(String(p)); }).catch(() => {}); },
         });
+      } else if (ipcErr.kind === "InvalidStrategy") {
+        showToast("err", translateError(e, t), {
+          label: t("error.action.viewDocs"),
+          onClick: () => { window.open("https://github.com/Aworker/EgressAPIKEY/blob/main/docs/STRATEGY.md", "_blank"); },
+        });
+      } else if (ipcErr.kind === "ResinUpstream") {
+        showToast("err", translateError(e, t), {
+          label: t("error.action.retry"),
+          onClick: () => { void handleAddPort(); },
+        });
       } else {
         showToast("err", translateError(e, t));
       }

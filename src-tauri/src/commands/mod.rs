@@ -3358,14 +3358,15 @@ mod tests {
     #[test]
     fn map_resin_error_bind_conflict_with_port() {
         let e = map_resin_error("listen on port 17111: bind: Only one usage of each socket address");
-        // From<String> for IpcError extracts port and returns BindConflict or Internal with bindConflict key
-        assert!(format!("{e}").contains("bind conflict") || format!("{e}").contains("17111"));
+        // Must resolve to BindConflict variant with port 17111
+        assert!(matches!(e, IpcError::BindConflict { ref port, .. } if *port == Some(17111)));
     }
 
     #[test]
     fn map_resin_error_bind_conflict_without_port() {
         let e = map_resin_error("bind: address already in use (no port number)");
-        assert!(format!("{e}").contains("bind conflict") || format!("{e}").contains("bindConflict"));
+        // Must resolve to BindConflict variant (no port extracted)
+        assert!(matches!(e, IpcError::BindConflict { port: None, .. }));
     }
 
     #[test]
