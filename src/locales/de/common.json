@@ -54,7 +54,6 @@
     "notFound": "Nicht gefunden",
     "badRequest": "Ungueltige Anfrage",
     "unauthorized": "Nicht autorisiert",
-    "subscriptionFetch": "Abrufen der Abonnement-Quelle fehlgeschlagen (HTTP {{code}})",
     "bindConflict": "Port {{port}} wird bereits verwendet",
     "invalidStrategy": "Ungueltiger Strategiewert: {{value}}. Akzeptiert: {{accepted}}",
     "resinUpstream": "Backend gab HTTP {{status}} zurueck: {{excerpt}}",

@@ -54,7 +54,6 @@
     "notFound": "未找到",
     "badRequest": "请求格式错误",
     "unauthorized": "未授权",
-    "subscriptionFetch": "订阅源拉取失败 (HTTP {{code}})",
     "bindConflict": "端口 {{port}} 已被其他进程占用",
     "invalidStrategy": "无效策略值: {{value}}。可接受: {{accepted}}",
     "resinUpstream": "后端返回 HTTP {{status}}: {{excerpt}}",

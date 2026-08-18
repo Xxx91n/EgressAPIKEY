@@ -54,7 +54,6 @@
     "notFound": "Nie znaleziono",
     "badRequest": "Nieprawidlowe zadanie",
     "unauthorized": "Nieautoryzowany",
-    "subscriptionFetch": "Nie udało się pobrać źródła subskrypcji (HTTP {{code}})",
     "bindConflict": "Port {{port}} jest juz uzywany",
     "invalidStrategy": "Nieprawidlowa wartosc strategii: {{value}}. Zaakceptowane: {{accepted}}",
     "resinUpstream": "Backend zwrocil HTTP {{status}}: {{excerpt}}",

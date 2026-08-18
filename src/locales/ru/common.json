@@ -54,7 +54,6 @@
     "notFound": "Не найдено",
     "badRequest": "Неверный запрос",
     "unauthorized": "Не авторизован",
-    "subscriptionFetch": "Не удалось получить источник подписки (HTTP {{code}})",
     "bindConflict": "Порт {{port}} уже занят",
     "invalidStrategy": "Недопустимое значение стратегии: {{value}}. Принято: {{accepted}}",
     "resinUpstream": "Бэкенд вернул HTTP {{status}}: {{excerpt}}",

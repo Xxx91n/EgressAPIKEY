@@ -54,7 +54,6 @@
     "notFound": "नहीं मिला",
     "badRequest": "अमान्य अनुरोध",
     "unauthorized": "अनधिकृत",
-    "subscriptionFetch": "सब्स्क्रिप्शन स्रोत लाना विफल (HTTP {{code}})",
     "bindConflict": "पोर्ट {{port}} पहले से उपयोग में है",
     "invalidStrategy": "अमान्य रणनीति मान: {{value}}। स्वीकृत: {{accepted}}",
     "resinUpstream": "बैकएंड ने HTTP {{status}} लौटाया: {{excerpt}}",

@@ -54,7 +54,6 @@
     "notFound": "Khong tim thay",
     "badRequest": "Yeu cau khong hop le",
     "unauthorized": "Khong duoc uy quyen",
-    "subscriptionFetch": "Lấy nguồn đăng ký thất bại (HTTP {{code}})",
     "bindConflict": "Port {{port}} da duoc su dung",
     "invalidStrategy": "Gia tri chien luoc khong hop le: {{value}}. Chap nhan: {{accepted}}",
     "resinUpstream": "Backend tra ve HTTP {{status}}: {{excerpt}}",

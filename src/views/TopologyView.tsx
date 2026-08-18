@@ -236,7 +236,7 @@ export function buildCColumnGroups(
   // builds regionMap (total/healthy/subs/nodeRows) while deduping by node_hash via the seenGlobal Set below.
   // Fusing these into the helper would couple aggregation into a dedup-only function and grow the regression
   // surface. Reuse the helper here only when the two concerns can be cleanly separated — tracked in
-  // PONYTAIL_DEBT_LEDGER.md. S2 contract honored, different shape.
+  // docs/PONYTAIL_DEBT_LEDGER.md. S2 contract honored, different shape.
   // T14-4: region view mode — build region group nodes
   if (viewMode === "region") {
     const regionMap = new Map<string, { total: number; healthy: number; subs: Set<string>; nodeRows: Array<{ display_tag: string; region: string; healthy: boolean; latencyColor: string }> }>();

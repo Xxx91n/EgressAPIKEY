@@ -54,7 +54,6 @@
     "notFound": "Bulunamadi",
     "badRequest": "Gecersiz istek",
     "unauthorized": "Yetkisiz",
-    "subscriptionFetch": "Abonelik kaynağı getirme başarısız (HTTP {{code}})",
     "bindConflict": "Port {{port}} zaten kullaniliyor",
     "invalidStrategy": "Gecersiz strateji degeri: {{value}}. Kabul edilen: {{accepted}}",
     "resinUpstream": "Backend HTTP {{status}} dondurdu: {{excerpt}}",

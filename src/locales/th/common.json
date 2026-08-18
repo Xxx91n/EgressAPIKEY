@@ -54,7 +54,6 @@
     "notFound": "ไม่พบ",
     "badRequest": "คำขอไม่ถูกต้อง",
     "unauthorized": "ไม่ได้รับอนุญาต",
-    "subscriptionFetch": "ดึงแหล่งสมัครรับข้อมูลล้มเหลว (HTTP {{code}})",
     "bindConflict": "พอร์ต {{port}} ถูกใช้งานแล้ว",
     "invalidStrategy": "ค่ากลยุทธ์ไม่ถูกต้อง: {{value}}. ยอมรับ: {{accepted}}",
     "resinUpstream": "แบ็กเอนด์ส่งกลับ HTTP {{status}}: {{excerpt}}",

@@ -54,7 +54,6 @@
     "notFound": "見つかりません",
     "badRequest": "不正なリクエスト",
     "unauthorized": "未認証",
-    "subscriptionFetch": "サブスクリプション ソースの取得に失敗しました (HTTP {{code}})",
     "bindConflict": "ポート{{port}}は既に使用されています",
     "invalidStrategy": "無効な戦略値: {{value}}。承認済み: {{accepted}}",
     "resinUpstream": "バックエンドが HTTP {{status}} を返しました: {{excerpt}}",

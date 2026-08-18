@@ -54,7 +54,6 @@
     "notFound": "Not found",
     "badRequest": "Bad request",
     "unauthorized": "Unauthorized",
-    "subscriptionFetch": "Subscription source fetch failed (HTTP {{code}})",
     "bindConflict": "Port {{port}} is already in use by another process",
     "invalidStrategy": "Invalid strategy value: {{value}}. Accepted: {{accepted}}",
     "resinUpstream": "Backend returned HTTP {{status}}: {{excerpt}}",

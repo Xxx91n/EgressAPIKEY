@@ -406,6 +406,8 @@ export function NodesView() {
                   <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 flex-1 truncate">{displayName}</span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">{tKeys("nodes.nodeCount", { count: items.length })}</span>
                   <span className={subHealthRate > 80 ? "text-xs text-green-600 dark:text-green-400" : subHealthRate > 50 ? "text-xs text-yellow-600 dark:text-yellow-400" : "text-xs text-red-600 dark:text-red-400"}>{tKeys("nodes.healthRate", { rate: subHealthRate })}</span>
+                </button>
+                <div className="flex items-center gap-1 px-4 pb-1 -mt-1">
                   <button
                     title={refreshingSub.has(sub) ? t("nodes.refreshingSub") : t("nodes.refreshSub")}
                     onClick={(e) => { e.stopPropagation(); handleRefreshSub(sub); }}
@@ -414,15 +416,15 @@ export function NodesView() {
                   >
                     <RefreshCw size={12} className={refreshingSub.has(sub) ? "animate-spin text-zinc-500 dark:text-zinc-400" : "text-zinc-500 dark:text-zinc-400"} />
                   </button>
-
-                    <button
-                      title={batchInflight.has(sub) ? t("nodes.batchProbing", { done: 0, total: items.length }) : t("nodes.batchProbe")}
-                      onClick={(e) => { e.stopPropagation(); handleBatchProbe(sub, items); }}
-                      disabled={sub === "__untagged__" || batchInflight.has(sub) || refreshingSub.has(sub)}
-                      className="ml-1 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      <Activity size={12} className={batchInflight.has(sub) ? "animate-spin text-zinc-500 dark:text-zinc-400" : "text-zinc-500 dark:text-zinc-400"} />
-                    </button>                </button>
+                  <button
+                    title={batchInflight.has(sub) ? t("nodes.batchProbing", { done: 0, total: items.length }) : t("nodes.batchProbe")}
+                    onClick={(e) => { e.stopPropagation(); handleBatchProbe(sub, items); }}
+                    disabled={sub === "__untagged__" || batchInflight.has(sub) || refreshingSub.has(sub)}
+                    className="ml-1 p-1 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <Activity size={12} className={batchInflight.has(sub) ? "animate-spin text-zinc-500 dark:text-zinc-400" : "text-zinc-500 dark:text-zinc-400"} />
+                  </button>
+                </div>
                 {!isCollapsed && (
                   <VirtualNodeList
                     items={items}

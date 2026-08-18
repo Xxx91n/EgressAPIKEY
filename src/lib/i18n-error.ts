@@ -6,11 +6,13 @@
  * raw string so the user always sees something meaningful.
  *
  * T3-Q2: keys of the form "error.<name>.<digits>" (e.g.
- * "error.subscriptionFetch.525", "error.subscriptionFetch.403") carry an
- * HTTP status code suffix. We parse it into a `{ code }` interpolation
- * variable so the generic "error.<name>" translation can reference
- * `{{code}}` and surface "Subscription fetch failed (HTTP 525)" without
- * needing per-code translations. Per-code keys still win when defined.
+ * "error.upstream.525", "error.upstream.403") carry an HTTP status code
+ * suffix. We parse it into a `{ code }` interpolation variable so the
+ * generic "error.<name>" translation can reference `{{code}}` and surface
+ * "Upstream HTTP 525" without needing per-code translations. Per-code keys
+ * still win when defined. (Historically the first user of this mechanism was
+ * the P13 B4 fetch_clash_subscription chain; that chain was deleted in T20-v2
+ * along with its error.subscriptionFetch i18n key, but the mechanism stays.)
  */
 import type { TFunction } from "i18next";
 
@@ -46,7 +48,7 @@ export function translateError(e: unknown, t: TFunction): string {
   }
   const raw = e instanceof Error ? e.message : String(e);
   // map_resin_error keys start with "error." — try the literal key first
-  // (per-code translations like "error.subscriptionFetch.525" win here).
+  // (per-code translations like "error.upstream.525" win here).
   if (raw.startsWith("error.")) {
     // For keys of shape "error.<name>.<digits>", fall back to the
     // "error.<name>" parent key with the code as an interpolation variable.

@@ -54,7 +54,6 @@
     "notFound": "غير موجود",
     "badRequest": "طلب غير صالح",
     "unauthorized": "غير مصرح",
-    "subscriptionFetch": "فشل جلب مصدر الاشتراك (HTTP {{code}})",
     "bindConflict": "المنفذ {{port}} مستخدم بالفعل",
     "invalidStrategy": "قيمة استراتيجية غير صالحة: {{value}}. مقبول: {{accepted}}",
     "resinUpstream": "أعاد الخادم HTTP {{status}}: {{excerpt}}",

@@ -54,7 +54,6 @@
     "notFound": "No encontrado",
     "badRequest": "Solicitud incorrecta",
     "unauthorized": "No autorizado",
-    "subscriptionFetch": "Error al obtener la fuente de suscripción (HTTP {{code}})",
     "bindConflict": "El puerto {{port}} ya esta en uso",
     "invalidStrategy": "Valor de estrategia invalido: {{value}}. Aceptado: {{accepted}}",
     "resinUpstream": "El backend devolvio HTTP {{status}}: {{excerpt}}",

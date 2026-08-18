@@ -54,7 +54,6 @@
     "notFound": "Nao encontrado",
     "badRequest": "Solicitacao invalida",
     "unauthorized": "Nao autorizado",
-    "subscriptionFetch": "Falha ao buscar fonte de assinatura (HTTP {{code}})",
     "bindConflict": "A porta {{port}} ja esta em uso",
     "invalidStrategy": "Valor de estrategia invalido: {{value}}. Aceito: {{accepted}}",
     "resinUpstream": "O backend retornou HTTP {{status}}: {{excerpt}}",

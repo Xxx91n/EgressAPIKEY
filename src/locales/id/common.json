@@ -54,7 +54,6 @@
     "notFound": "Tidak ditemukan",
     "badRequest": "Permintaan buruk",
     "unauthorized": "Tidak diotorisasi",
-    "subscriptionFetch": "Gagal mengambil sumber langganan (HTTP {{code}})",
     "bindConflict": "Port {{port}} sudah digunakan",
     "invalidStrategy": "Nilai strategi tidak valid: {{value}}. Diterima: {{accepted}}",
     "resinUpstream": "Backend mengembalikan HTTP {{status}}: {{excerpt}}",

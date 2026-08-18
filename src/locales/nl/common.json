@@ -54,7 +54,6 @@
     "notFound": "Niet gevonden",
     "badRequest": "Slecht verzoek",
     "unauthorized": "Niet geautoriseerd",
-    "subscriptionFetch": "Ophalen abonnementsbron mislukt (HTTP {{code}})",
     "bindConflict": "Poort {{port}} is al in gebruik",
     "invalidStrategy": "Ongeldige strategiewaarde: {{value}}. Geaccepteerd: {{accepted}}",
     "resinUpstream": "Backend gaf HTTP {{status}} terug: {{excerpt}}",
