@@ -1059,8 +1059,11 @@ function TopologyCanvas() {
         // T22-3 (ADR-0048 S3): a_class-semantic region-viewMode edges
         const rAclass = (p as any).aClass ?? "manual";
         if (rAclass === "quality") {
-          if (subGroups.length > 0) {
-            list.push({ id: "e-" + p.name + "-rg-all", source: "platform-" + p.name, target: "regiongroup-all", label: "quality:all", deletable: false });
+          // T22-audit: edge to all actual regionGroup nodes (not a phantom "regiongroup-all")
+          const allRegions = new Set<string>();
+          for (const g of subGroups) for (const r of g.regions) allRegions.add(r.toLowerCase());
+          for (const r of allRegions) {
+            list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "quality:all", deletable: false });
           }
         } else if (rAclass === "subscription") {
           const subs = (p as any).subscriptionNames ?? [];
