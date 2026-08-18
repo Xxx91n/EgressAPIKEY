@@ -112,6 +112,8 @@ impl From<serde_json::Error> for IpcError {
 pub fn map_resin_error(status: u16, body: &str) -> IpcError {
     let lower = body.to_ascii_lowercase();
     match status {
+        0 => IpcError::internal("non-HTTP failure (sidecar unreachable / connect timeout / DNS)"),
+
         409 if lower.contains("bind") || lower.contains("already exists") || lower.contains("port") => {
             // Extract port number from the error message if possible.
             let port = extract_port(body).unwrap_or(0);
@@ -222,5 +224,22 @@ mod tests {
     fn extract_port_finds_number_after_port_keyword() {
         assert_eq!(extract_port("listen on port 17111: bind"), Some(17111));
         assert_eq!(extract_port("no port here"), None);
+    }
+
+    #[test]
+    fn map_resin_error_status_zero_returns_internal() {
+        let e = map_resin_error(0, "sidecar unreachable");
+        assert!(matches!(e, IpcError::Internal { .. }));
+        let result = match e {
+            IpcError::Internal { msg, i18n_key } => (msg, i18n_key),
+            _ => unreachable!(),
+        };
+        assert_eq!(result.1, "error.internal");
+    }
+
+    #[test]
+    fn map_resin_error_status_500_returns_resin_upstream_regression() {
+        let e = map_resin_error(500, "internal server error");
+        assert!(matches!(e, IpcError::ResinUpstream { status: 500, .. }));
     }
 }

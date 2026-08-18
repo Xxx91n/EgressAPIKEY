@@ -83,4 +83,31 @@ describe("translateError", () => {
     expect(out).toBe("Upstream error: timeout");
     expect(out).not.toBe("[object Object]");
   });
+
+  it("T20-P4: IpcError {kind:InvalidStrategy, data:{value, accepted}} renders with value and accepted", () => {
+    const t = makeT({ "error.invalidStrategy": "Invalid strategy value: {{value}}. Accepted: {{accepted}}" });
+    const ipcErr = {
+      kind: "InvalidStrategy",
+      data: {
+        value: "balanced",
+        accepted: ["random", "sequential", "latency", "quality", "bandwidth", "protocol_weight"],
+        i18n_key: "error.invalidStrategy",
+      },
+    };
+    const out = translateError(ipcErr, t);
+    expect(out).toBe("Invalid strategy value: balanced. Accepted: random, sequential, latency, quality, bandwidth, protocol_weight");
+    expect(out).not.toBe("[object Object]");
+    expect(out).not.toContain("{{");
+  });
+
+  it("T20-P4: IpcError {kind:ResinUpstream} renders with status and excerpt interpolated", () => {
+    const t = makeT({ "error.resinUpstream": "Backend returned HTTP {{status}}: {{excerpt}}" });
+    const ipcErr = {
+      kind: "ResinUpstream",
+      data: { status: 503, excerpt: "service unavailable", i18n_key: "error.resinUpstream" },
+    };
+    const out = translateError(ipcErr, t);
+    expect(out).toBe("Backend returned HTTP 503: service unavailable");
+    expect(out).not.toContain("{{");
+  });
 });

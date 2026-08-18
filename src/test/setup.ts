@@ -51,7 +51,16 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 
 beforeAll(async () => {
   // T17 dual-mode: stub Tauri internals so isTauri() returns true in jsdom
+  // T17 dual-mode: stub Tauri internals so isTauri() returns true in jsdom.
+  // vitest jsdom gives each test file its own Window; globalThis and window
+  // are the same object, but we set both defensively in case a future
+  // environment isolates them. Also set window.isTauri so the second probe
+  // (c0a309f) succeeds even if __TAURI_INTERNALS__ is somehow undefined.
   (globalThis as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS = {};
+  if (typeof window !== "undefined") {
+    (window as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS = {};
+    (window as unknown as { isTauri?: unknown }).isTauri = true;
+  }
   await i18next.use(initReactI18next).init({
     resources: {
       en: { translation: {

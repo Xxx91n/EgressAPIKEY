@@ -15,7 +15,7 @@ use crate::sidecar::SidecarHandle;
 use resin_core::DbPool;
 use resin_core::IpcError;
 use resin_core::{
-    clash_yaml_to_proxies_block, fetch_clash_subscription, parse_public_ips, ReputationClient,
+    parse_public_ips, ReputationClient,
     ReputationProvider, ReputationSnapshot, ResinClient, MAX_LANES,
 };
 
@@ -57,7 +57,7 @@ fn resin_client(h: &SidecarHandle) -> Result<ResinClient, String> {
 /// the original error to tracing::warn! so debugging is not lost.
 pub fn map_resin_error(raw: &str) -> resin_core::IpcError {
     // Log the original error before any mapping.
-    tracing::warn!(target: "resin_ipc", raw = raw, "Resin error mapped to i18n");
+    tracing::debug!(target: "resin_ipc", raw = raw, "Resin error mapped to i18n");
     // Known Resin error patterns (from DESIGN.md error code table + probed).
     if raw.contains("cannot delete Default platform") {
         return IpcError::internal("error.cannotDeleteDefaultPlatform");
@@ -102,22 +102,6 @@ pub fn map_resin_error(raw: &str) -> resin_core::IpcError {
     }
     if raw.contains("UNAUTHORIZED") || raw.contains("unauthorized") {
         return IpcError::internal("error.unauthorized");
-    }
-    // T3-Q2: subscription fetch failure (UA rotation exhausted, likely
-    // origin SSL/4xx/5xx). Extract the trailing HTTP status code so the
-    // i18n key carries the surface reason (e.g. 525 origin SSL error)
-    // without leaking fetch pipeline internals. Regex-free: the literal
-    // error format is owned by fetch_clash_subscription.
-    if let Some(idx) = raw.find("fetch_clash_subscription") {
-        let tail = &raw[idx..];
-        if let Some(http_idx) = tail.find("HTTP ") {
-            let after = &tail[http_idx + 5..];
-            let code: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
-            if !code.is_empty() {
-                return IpcError::from(format!("error.subscriptionFetch.{}", code));
-            }
-        }
-        return IpcError::internal("error.subscriptionFetch");
     }
     // Unknown — pass through as literal for the frontend to display.
     IpcError::from(raw.to_string())
@@ -564,47 +548,18 @@ pub async fn subscription_add(
     }
     let client = resin_client(&sidecar)?;
 
-    // P13 B4: Resin's own remote-fetch uses a default HTTP UA that many
-    // subscription providers (the user's test host included) reject with 403.
-    // We fetch the Clash YAML ourselves with a clash-family UA, convert the
-    // flow-style `proxies:` segment into block-style (Resin's Go YAML parser
-    // chokes on flow-style inline mappings), and POST it as a local
-    // subscription so Resin parses the nodes we already fetched. The user's
-    // url is retained as metadata so the UI can still show the source.
-    tracing::info!(subscription = %name, url = %url, "subscription_add: fetching clash yaml");
-    let yaml = fetch_clash_subscription(&url).await.map_err(|e| {
-        tracing::warn!(error = ?e, "subscription_add: fetch failed");
-        // T3-Q2: route fetch errors through map_resin_error so the frontend
-        // receives a localizable key (error.subscriptionFetch.<code>) instead
-        // of a leaky internal error string.
-        map_resin_error(&e.to_string())
-    })?;
-    tracing::info!(
-        bytes = yaml.len(),
-        "subscription_add: fetched yaml, converting to proxies-only block"
-    );
-    let block = clash_yaml_to_proxies_block(&yaml).map_err(|e| {
-        tracing::warn!(error = ?e, "subscription_add: convert failed");
-        e.to_string()
-    })?;
-    tracing::info!(
-        block_bytes = block.len(),
-        "subscription_add: posting local subscription to Resin"
-    );
-
-    // T8-5: update_interval now user-configurable (default 30s). Resin does
-    // not expose a force-refresh endpoint; the scheduler parses local content
-    // on each tick.
-    // P13 B4: Resin rejects `url` when source_type == "local"
-    // (INVALID_ARGUMENT "url is not allowed for local subscription").
-    // The user-visible origin is preserved in the Resin subscription name;
-    // we do NOT pass url in the local-body. (Handoff summary was wrong here;
-    // live probe caught it.)
+    // T20-P3: POST source_type=remote directly (ADR-0045). Resin's Scheduler
+    // re-pulls the remote URL via its own clash.meta UA fetcher
+    // (cmd/resin/main.go const downloadUserAgent); the shell no longer
+    // re-fetches or converts the Clash YAML itself (P13 B4 chain deleted).
+    // update_interval default 30s — Resin has no public force-refresh
+    // endpoint, the 30s tick lands the first background fetch within seconds.
+    tracing::info!(subscription = %name, url = %url, "subscription_add: POST source_type=remote");
     let body = serde_json::json!({
         "name": name,
-        "source_type": "local",
-        "content": block,
-        "update_interval": &update_interval,
+        "source_type": "remote",
+        "url": url,
+        "update_interval": update_interval,
     });
     match client.create_subscription(body).await {
         Ok(v) => {
@@ -638,13 +593,15 @@ pub async fn subscription_remove(
     Ok(true)
 }
 
-/// T19-P2: refresh a subscription's content by re-fetching the user's url
-/// and PATCHing the Resin subscription content (source_type=local is immutable).
-/// The shell owns the fetch (clash-family UA bypasses provider 403) + the
-/// flow->block YAML convert (Resin's Go YAML parser rejects flow-style).
-/// The user-visible url is stored as Resin subscription metadata at create
-/// time; we re-read it from the list endpoint (POST body forbids url for
-/// local-type) and re-fetch + re-convert + PATCH the content field.
+/// T20-P2: trigger Resin-native subscription refresh by POST /actions/refresh.
+/// source_type must be "remote" (ADR-0045); a local-source subscription re-parses
+/// in-memory content on /actions/refresh (no HTTP, no new upstream nodes).
+/// The paired subscription_add migrated to source_type=remote so refresh
+/// actually pulls new nodes. Resin's Scheduler re-fetches via its own clash.meta
+/// UA fetcher (cmd/resin/main.go const downloadUserAgent); the shell no longer
+/// re-fetches or converts the Clash YAML itself (P13 B4 chain deleted).
+/// Returns the post-refresh node_count so the UI can show a toast without a
+/// second list round trip.
 #[tauri::command]
 pub async fn subscription_refresh(
     sidecar: State<'_, SidecarHandle>,
@@ -657,47 +614,22 @@ pub async fn subscription_refresh(
         .await
         .map_err(|e| map_resin_error(&e.to_string()))?;
     let items = items_arr(&list);
-    let entry = items
-        .iter()
-        .find(|p| p.get("name").and_then(|n| n.as_str()) == Some(&name))
+    let id = subscription_id_for_name(&list, &name)
         .ok_or_else(|| IpcError::from(format!("subscription not found: {name}")))?;
-    let id = entry
-        .get("id")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| IpcError::from("subscription missing id".to_string()))?
-        .to_string();
-    let url = entry
-        .get("url")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    if url.is_empty() || (!url.starts_with("http://") && !url.starts_with("https://")) {
-        return Err(IpcError::from(
-            "subscription has no http(s) url to re-fetch".to_string(),
-        ));
-    }
-    tracing::info!(subscription = %name, id = %id, url = %url, "subscription_refresh: re-fetching clash yaml");
-    let yaml = fetch_clash_subscription(&url).await.map_err(|e| {
-        tracing::warn!(error = ?e, "subscription_refresh: fetch failed");
-        map_resin_error(&e.to_string())
-    })?;
-    tracing::info!(bytes = yaml.len(), "subscription_refresh: converting to proxies-only block");
-    let block = clash_yaml_to_proxies_block(&yaml).map_err(|e| {
-        tracing::warn!(error = ?e, "subscription_refresh: convert failed");
-        IpcError::from(e.to_string())
-    })?;
-    tracing::info!(block_bytes = block.len(), "subscription_refresh: PATCHing content to Resin");
-    let updated = client
-        .refresh_subscription_content(&id, block)
+    tracing::info!(subscription = %name, id = %id, "subscription_refresh: POST /actions/refresh");
+    client
+        .refresh_subscription_native(&id)
         .await
         .map_err(|e| map_resin_error(&e.to_string()))?;
-    // Return the post-refresh node_count so the UI can show a toast without
-    // needing a second list round trip.
-    let node_count = updated
-        .get("node_count")
-        .and_then(|v| v.as_u64())
+    // Return the post-refresh node_count so the UI can show a toast.
+    // The /actions/refresh response body is empty on success; fall back to
+    // the existing list snapshot so the toast stays informative.
+    let node_count = items
+        .iter()
+        .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(id.as_str()))
+        .and_then(|p| p.get("node_count").and_then(|v| v.as_u64()))
         .unwrap_or(0);
-    tracing::info!(subscription = %name, node_count, "subscription_refresh: Resin accepted updated content");
+    tracing::info!(subscription = %name, node_count, "subscription_refresh: action accepted");
     Ok(node_count)
 }
 
@@ -1748,25 +1680,16 @@ pub async fn config_import(
             ));
             continue;
         }
-        // Use the same local-fetch path as subscription_add
-        match fetch_clash_subscription(url).await {
-            Ok(yaml) => match clash_yaml_to_proxies_block(&yaml) {
-                Ok(block) => {
-                    let body = serde_json::json!({
-                        "name": name,
-                        "source_type": "local",
-                        "content": block,
-                        "url": url,
-                        "update_interval": "30s",
-                    });
-                    match client.create_subscription(body).await {
-                        Ok(_) => subscriptions_created += 1,
-                        Err(e) => errors.push(format!("subscription {name}: {e}")),
-                    }
-                }
-                Err(e) => errors.push(format!("subscription {name} convert: {e}")),
-            },
-            Err(e) => errors.push(format!("subscription {name} fetch: {e}")),
+        // T20-P3: POST source_type=remote directly — Resin fetches nodes via its own clash.meta UA.
+        let body = serde_json::json!({
+            "name": name,
+            "source_type": "remote",
+            "url": url,
+            "update_interval": "30s",
+        });
+        match client.create_subscription(body).await {
+            Ok(_) => subscriptions_created += 1,
+            Err(e) => errors.push(format!("subscription {name}: {e}")),
         }
     }
 
@@ -3273,25 +3196,6 @@ mod tests {
         assert_eq!(map_resin_error(raw), raw);
     }
 
-    /// T3-Q2: subscription fetch error routing to i18n keys with HTTP code suffix.
-    #[test]
-    fn map_resin_error_subscription_fetch_with_http_code() {
-        let raw = "fetch_clash_subscription: all UA attempts failed: HTTP 525 <unknown status code>";
-        assert_eq!(map_resin_error(raw), "error.subscriptionFetch.525");
-    }
-
-    #[test]
-    fn map_resin_error_subscription_fetch_no_code_falls_back_to_base() {
-        // No HTTP code in the error string (e.g. "...all UA attempts failed: empty body")
-        let raw = "fetch_clash_subscription: all UA attempts failed: empty body";
-        assert_eq!(map_resin_error(raw), "error.subscriptionFetch");
-    }
-
-    #[test]
-    fn map_resin_error_subscription_fetch_403() {
-        let raw = "fetch_clash_subscription: all UA attempts failed: HTTP 403 Forbidden";
-        assert_eq!(map_resin_error(raw), "error.subscriptionFetch.403");
-    }
 
     #[test]
     fn map_resin_error_bind_conflict_extracts_port() {

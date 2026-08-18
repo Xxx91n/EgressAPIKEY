@@ -39,7 +39,7 @@ pub use platform::{Account, Platform, PlatformRegistry};
 pub use port_forwarder::{
     detect_protocol, parse_trace_body_ip, resin_identity, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT,
 };
-pub use resin_client::{clash_yaml_to_proxies_block, fetch_clash_subscription, ResinClient};
+pub use resin_client::ResinClient;
 pub use strategy::{protocol_weight, strategy_catalog, StrategyId, StrategyInfo};
 pub use strategy_engine::{a_class_regions, compute_plan, liveness_filter, parse_nodes, AClassStrategy, BClassParams, PlatformStrategy, StrategyConfig, NodeSummary};
 pub use stream_sensor::{classify_http_headers, StreamKind, StreamSensor, StreamSensorSnapshot};

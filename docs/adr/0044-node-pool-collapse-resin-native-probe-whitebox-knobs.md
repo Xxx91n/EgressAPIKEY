@@ -34,6 +34,8 @@ clash-verge-rev `delayManager` (research: atomcode-probe-params):
 
 **S2 — Shell re-fetch remote Clash YAML + PATCH subscription content** for local-source subscriptions. Reuse existing `fetch_clash_subscription` (clash-family UA rotation — many providers 403 a default UA but 200 to clash-verge UA) and `clash_yaml_to_proxies_block` state machine (flow-style to block-style rewrite, drop groups/rules/dns, quote-escaped-comma splitting). New `ResinClient::refresh_subscription_content(id, content)` PATCHes `/api/v1/subscriptions/{id}`. New `subscription_refresh(name)` IPC + per-group refresh button. After PATCH the canvas `refresh()` poll mirrors the new node list.
 
+> **Partially superseded by ADR-0045 (2026-08-18)**: the subscription refresh path described here is replaced by Resin-native `POST /api/v1/subscriptions/{id}/actions/refresh` with `source_type:"remote"`. Resin v1.2.0 `cmd/resin/main.go` `const downloadUserAgent = "clash.meta"` ships a clash-family UA already, so the "Resin uses a default UA" premise was false; the shell's `fetch_clash_subscription`+UA rotation+`clash_yaml_to_proxies_block`+`refresh_subscription_content` chain (≈200 lines, P13 B4 debt) is deleted from the shell. The "local source is no-op re-parse" premise stood and is the reason `source_type` must be `remote` for refresh to actually pull new nodes. S1/S3/S4 remain authoritative.
+
 **S3 — Wire Resin native `probe-egress` and `probe-latency`** through new `ResinClient` methods + `node_probe(node_hash, kind)` IPC + per-card test button. No probe logic in the shell; Resin own EWMA stays the authoritative latency for routing decisions.
 
 **S4 — Whitebox `settings.json#nodeProbe` knobs + Resin `/system/config` plumbing** with defaults from industry sources:

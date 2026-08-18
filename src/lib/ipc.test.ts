@@ -508,18 +508,33 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
   let originalTauriInternals: unknown;
   let fetchMock: ReturnType<typeof vi.fn>;
 
+  let originalTauriIsTauriFlag: unknown;
   beforeEach(() => {
-    // Save the stub set by setup.ts beforeAll, then unset it for fetch-mode tests
-    originalTauriInternals = (globalThis as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS;
-    (globalThis as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS = undefined;
+    // Save the stubs set by setup.ts beforeAll, then unset them for fetch-mode tests.
+    // setup.ts now sets BOTH globalThis.__TAURI_INTERNALS__ AND window.isTauri
+    // (jsdom vitest: globalThis and window are distinct objects), so clear both
+    // or isTauri() would still return true and we'd never reach the fetch branch.
+    const w = globalThis as unknown as {
+      __TAURI_INTERNALS?: unknown;
+      isTauri?: unknown;
+      fetch?: typeof fetch;
+    };
+    originalTauriInternals = w.__TAURI_INTERNALS;
+    originalTauriIsTauriFlag = w.isTauri;
+    w.__TAURI_INTERNALS = undefined;
+    w.isTauri = undefined;
     // Provide a mock fetch; restore in afterEach
     fetchMock = vi.fn();
-    (globalThis as unknown as { fetch: typeof fetch }).fetch = fetchMock as unknown as typeof fetch;
+    w.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
-    // Restore the Tauri stub so other suites keep going through the Tauri invoke path
-    (globalThis as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS = originalTauriInternals;
+    const w = globalThis as unknown as {
+      __TAURI_INTERNALS?: unknown;
+      isTauri?: unknown;
+    };
+    w.__TAURI_INTERNALS = originalTauriInternals;
+    w.isTauri = originalTauriIsTauriFlag;
   });
 
   it("platform_add forwards POST /api/v1/platforms via fetch when isTauri=false", async () => {

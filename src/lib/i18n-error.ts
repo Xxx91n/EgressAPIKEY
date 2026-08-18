@@ -26,9 +26,16 @@ export function translateError(e: unknown, t: TFunction): string {
     if (i18nKey) {
       // Gather all interpolation vars from the IpcError data so templates
       // like "Upstream error: {{excerpt}}" or "Port {{port}} in use" work.
+      // Gather all interpolation vars used by the 4 IpcError variant templates:
+      // BindConflict: {{port}}; ResinUpstream: {{excerpt}}, {{status}};
+      // InvalidStrategy: {{value}}, {{accepted}}; Internal: <none, {{msg}} kept for dev display>.
       const port = typeof data?.port === "number" ? String(data.port) : "";
+      const status = typeof data?.status === "number" ? String(data.status) : "";
       const excerpt = typeof data?.excerpt === "string" ? data.excerpt : "";
-      const vars: Record<string, string> = { port, excerpt, code: excerpt };
+      const value = typeof data?.value === "string" ? data.value : "";
+      let accepted = "";
+      if (Array.isArray(data?.accepted)) accepted = data.accepted.map(String).join(", ");
+      const vars: Record<string, string> = { port, status, excerpt, value, accepted, code: excerpt };
       // t() with interpolation; if the template still has unresolvable
       // {{...}} placeholders, don't return a partial template.
       const resolved = t(i18nKey, { defaultValue: "", ...vars });

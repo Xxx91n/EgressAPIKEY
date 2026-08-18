@@ -277,7 +277,7 @@ export function PlatformsView() {
       if (ipcErr.kind === "BindConflict") {
         showToast("err", translateError(e, t), {
           label: t("error.action.changePort"),
-          onClick: () => { void ipcPortSuggest().then((p) => { setNewPort(String(p)); }).catch(() => {}); },
+          onClick: () => { void ipcPortSuggest().then((p) => { setNewPort(String(p)); }).catch((err) => { console.debug("[portSuggest] failed", err); }); },
         });
       } else if (ipcErr.kind === "InvalidStrategy") {
         showToast("err", translateError(e, t), {

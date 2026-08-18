@@ -273,18 +273,20 @@ impl ResinClient {
        self.send(reqwest::Method::DELETE, &path, None).await
    }
 
-   /// PATCH /api/v1/subscriptions/{id} - refresh a local subscription's content.
-   /// Resin v1.2.0 exposes PATCH /subscriptions/{id} (HandleUpdateSubscription):
-   /// a constrained partial-patch (NOT RFC 7396; null values rejected). The
-   /// `content` field is allowed for source_type=local subscriptions; changing
-   /// it triggers an async re-parse inside Resin. `source_type` is immutable
-   /// after create, so the caller must NOT include it in the body.
-   /// Used by T19-P2 node-pool per-group refresh button.
-   pub async fn refresh_subscription_content(&self, id: &str, content: String) -> Result<Value> {
-       let path = format!("/subscriptions/{}", urlencoding(id));
-       let body = serde_json::json!({ "content": content });
-       self.send(reqwest::Method::PATCH, &path, Some(body)).await
-   }
+    /// POST /api/v1/subscriptions/{id}/actions/refresh - trigger Resin-native
+    /// remote subscription refresh. Resin's Scheduler re-pulls the remote URL
+    /// via its own clash.meta UA fetcher (cmd/resin/main.go const downloadUserAgent).
+    /// The shell no longer re-fetches or converts the Clash YAML itself
+    /// (P13 B4 fetch_clash_subscription+clash_yaml_to_proxies_block+PATCH chain
+    /// deleted; ADR-0045 supersedes ADR-0044 S2 for the refresh path).
+    /// Refresh on a local-source subscription is a no-op re-parse of in-memory
+    /// content, so the paired subscription_add migrated to source_type="remote".
+    /// No request body is sent; Resin kicks its scheduler tick synchronously.
+    pub async fn refresh_subscription_native(&self, id: &str) -> Result<Value> {
+        let path = format!("/subscriptions/{}/actions/refresh", urlencoding(id));
+        self.send(reqwest::Method::POST, &path, None).await
+    }
+
 
    /// PATCH /api/v1/platforms/{id} - update platform fields (allocation_policy,
    /// regex_filters, region_filters, sticky_ttl, etc). Resin validates the
@@ -410,205 +412,6 @@ impl ResinClient {
 /// does not make every subscription import fail. 15s timeout: subscription
 /// YAML can be large (50+ proxies) on slow hosts.
 ///
-/// Ponytail: no new dependency. reqwest is already a resin-core dep. The UA
-/// rotation is a Vec pick, not a pluggable strategy.
-pub async fn fetch_clash_subscription(url: &str) -> Result<String> {
-    if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err(anyhow!(
-            "fetch_clash_subscription: url must start with http(s)://"
-        ));
-    }
-    let http = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .redirect(reqwest::redirect::Policy::limited(5))
-        .build()
-        .context("fetch_clash_subscription: cannot build reqwest::Client")?;
-    const UAS: [&str; 4] = [
-        "clash-verge/v2.0.0",
-        "clash.meta/v1.18.0",
-        "ClashforWindows/0.20.39",
-        "mihomo/1.18.0",
-    ];
-    let mut last_err: Option<String> = None;
-    for ua in UAS {
-        match http.get(url).header("User-Agent", ua).send().await {
-            Ok(resp) => {
-                let status = resp.status();
-                if !status.is_success() {
-                    last_err = Some(format!("HTTP {status}"));
-                    continue;
-                }
-                let body = resp
-                    .text()
-                    .await
-                    .context("fetch_clash_subscription: body read failed")?;
-                if body.trim().is_empty() {
-                    last_err = Some("empty body".to_string());
-                    continue;
-                }
-                return Ok(body);
-            }
-            Err(e) => {
-                last_err = Some(format!("{e:?}"));
-                continue;
-            }
-        }
-    }
-    Err(anyhow!(
-        "fetch_clash_subscription: all UA attempts failed: {}",
-        last_err.unwrap_or_else(|| "unknown".to_string())
-    ))
-}
-
-/// Convert a Clash YAML subscription into a proxies-only block-style YAML.
-///
-/// Resin's Go YAML parser chokes on flow-style inline mappings
-///     - { name: 'X', type: trojan, server: a.com, port: 443 }
-/// and on proxy-groups/rules sections that contain unicode group names. Resin
-/// only needs the `proxies:` segment for the node pool, so we:
-///   1. extract the `proxies:` block (top-level key, until the next
-///      same-indent top-level key or EOF),
-///   2. rewrite every flow-style `- { k: v, k: v }` list item into
-///      block-style with one `k: v` per line,
-///   3. drop proxy-groups, rules, dns, rule-providers (irrelevant to egress).
-///
-/// The parser is a hand-written state machine (~140 lines). We do NOT pull in
-/// serde_yaml: the flow-style + unicode edge cases that crash Resin also crash
-/// serde_yaml in the same flow-inline mapping form, so a YAML library would
-/// not save us here. This is the narrowest tool that fixes the user's test
-/// subscription (53 proxies, trojan/vless/hysteria2, unicode names).
-pub fn clash_yaml_to_proxies_block(input: &str) -> Result<String> {
-    // 1) extract proxies: segment
-    let mut start: Option<usize> = None;
-    let mut end: Option<usize> = None;
-    let lines: Vec<&str> = input.lines().collect();
-    for (i, ln) in lines.iter().enumerate() {
-        let trimmed = ln.trim_start();
-        // top-level key: "proxies:" at the start of the trimmed line, no
-        // leading dash, no colon deeper. We accept "proxies:" exactly.
-        if trimmed == "proxies:"
-            || trimmed.starts_with("proxies:") && !trimmed.starts_with("proxies::")
-        {
-            // must be column 0 (top-level)
-            if ln.chars().take_while(|c| *c == ' ').count() == 0 {
-                start = Some(i + 1);
-                break;
-            }
-        }
-    }
-    let start = start.ok_or_else(|| anyhow!("clash_yaml: no top-level 'proxies:' key"))?;
-    // find end: next top-level key (column 0, non-empty, not a comment)
-    for (i, ln) in lines.iter().enumerate().skip(start) {
-        if ln.is_empty() || ln.trim_start().starts_with('#') {
-            continue;
-        }
-        if ln.chars().take_while(|c| *c == ' ').count() == 0 {
-            // top-level line. If it's a key (contains ': ') or a bare key ending ':' -> end.
-            if ln.contains(':') {
-                end = Some(i);
-                break;
-            }
-        }
-    }
-    let end = end.unwrap_or(lines.len());
-    let proxies_block = &lines[start..end];
-
-    // 2) rewrite each list item from flow-style to block-style.
-    let mut out = String::from(
-        "proxies:
-",
-    );
-    for ln in proxies_block {
-        let s = ln.trim_end();
-        if s.trim().is_empty() || s.trim_start().starts_with('#') {
-            continue;
-        }
-        // A list item under proxies is indented and starts with "- ".
-        // Flow form: "  - { k: v, k: v, ... }"
-        // Block form: "  -" + newline + "      k: v" per field.
-        let indent: String = s.chars().take_while(|c| *c == ' ' || *c == '\t').collect();
-        let body = s.trim_start();
-        if let Some(rest) = body.strip_prefix("- ") {
-            let rest = rest.trim();
-            if rest.starts_with('{') && rest.ends_with('}') {
-                let inner = &rest[1..rest.len() - 1];
-                let fields = split_flow_fields(inner);
-                out.push_str(&format!(
-                    "{indent}-
-"
-                ));
-                for f in fields {
-                    let f = f.trim();
-                    if f.is_empty() {
-                        continue;
-                    }
-                    out.push_str(&format!(
-                        "{indent}    {f}
-"
-                    ));
-                }
-            } else {
-                // Already block-style or a different shape; keep verbatim.
-                out.push_str(&format!(
-                    "{s}
-"
-                ));
-            }
-        } else {
-            // Not a list item (continuation? keep verbatim to be safe).
-            out.push_str(&format!(
-                "{s}
-"
-            ));
-        }
-    }
-    if out.lines().count() < 2 {
-        return Err(anyhow!(
-            "clash_yaml: proxies block is empty after transform"
-        ));
-    }
-    Ok(out)
-}
-
-/// Split a flow-style mapping body `k: v, k: v` on commas that are OUTSIDE
-/// single quotes. Resin subscriptions use YAML single-quoted scalars
-/// (double-quote is rare here). Keys are unquoted identifiers; values may be
-/// single-quoted (with '' as an escaped literal single quote), bare numbers,
-/// bare strings, or plain words.
-fn split_flow_fields(s: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut cur = String::new();
-    let mut in_single = false;
-    let mut depth: i32 = 0;
-    let mut chars = s.chars().peekable();
-    while let Some(ch) = chars.next() {
-        match ch {
-            '\'' => {
-                in_single = !in_single;
-                cur.push(ch);
-            }
-            '{' | '[' if !in_single => {
-                depth += 1;
-                cur.push(ch);
-            }
-            '}' | ']' if !in_single => {
-                depth -= 1;
-                cur.push(ch);
-            }
-            ',' if !in_single && depth == 0 => {
-                out.push(cur.trim().to_string());
-                cur.clear();
-            }
-            _ => cur.push(ch),
-        }
-    }
-    let last = cur.trim().to_string();
-    if !last.is_empty() {
-        out.push(last);
-    }
-    out
-}
-
 /// URL-encode a single path segment. serde_urlencoded::encode over-encodes;
 /// use a tiny inline encoder for safe chars only (Resin IDs are canonical
 /// UUIDs and need no escaping, but we keep the door open for future callers
@@ -760,6 +563,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn mockito_create_subscription_asserts_body_has_source_type_remote() {
+        // T20-P3: the shell always posts source_type=remote for subscription_add;
+        // Resin Scheduler re-pulls the URL on every refresh tick. Assert the body.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .match_body(mockito::Matcher::Regex(r#""source_type":"remote".*"#.to_string()))
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"name":"sub-R","id":"33333333-3333-3333-3333-333333333333","source_type":"remote"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let body = serde_json::json!({
+            "name": "sub-R",
+            "source_type": "remote",
+            "url": "https://example.com/sub",
+            "update_interval": "30s",
+        });
+        let out = c.create_subscription(body).await.expect("POST should succeed");
+        assert_eq!(out["name"], "sub-R");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
     async fn mockito_delete_subscription_204_no_content_round_trip() {
         let mut server = mockito::Server::new_async().await;
         let m = server
@@ -776,64 +607,6 @@ mod tests {
             .expect("delete_subscription should succeed");
         assert!(out.is_null(), "204 No Content should parse to Value::Null");
         m.assert_async().await;
-    }
-
-    #[test]
-    fn clash_yaml_to_proxies_block_extracts_proxies_and_converts_flow_style() {
-        let yaml = "proxies:\n  - { name: 'alpha', type: trojan, server: a.com, port: 443 }\n  - { name: 'beta', type: vless, server: b.com, port: 80 }\nproxy-groups:\n  - { name: auto, type: select }\nrules:\n  - DOMAIN-SUFFIX,example.com,auto\n";
-        let out = clash_yaml_to_proxies_block(yaml).expect("convert should succeed");
-        // Should start with proxies: header
-        assert!(
-            out.starts_with("proxies:\n"),
-            "must start with proxies header"
-        );
-        // proxy-groups / rules must be stripped
-        assert!(
-            !out.contains("proxy-groups:"),
-            "proxy-groups must be stripped"
-        );
-        assert!(!out.contains("rules:"), "rules must be stripped");
-        // Each list item should be block-style: a "-\n" line followed by indented fields
-        assert!(out.contains("-\n"), "each item must break into block form");
-        assert!(
-            out.contains("name: 'alpha'"),
-            "alpha name preserved (quoted scalar is fine in block style)"
-        );
-        assert!(out.contains("name: 'beta'"), "beta name preserved");
-        assert!(out.contains("server: a.com"), "alpha server preserved");
-        assert!(out.contains("port: 443"), "alpha port preserved");
-    }
-
-    #[test]
-    fn clash_yaml_to_proxies_block_handles_unicode_names_and_single_quote_escape() {
-        // Resin subscriptions often have unicode node names and '' literal quotes.
-        let yaml = "proxies:\n  - { name: 'Singapore \u{1F1A8}\u{3014}\u{4E9A}\u{6D32}\u{3015}01', type: trojan, server: sg-1.x.com, port: 443 }\n";
-        let out = clash_yaml_to_proxies_block(yaml).expect("convert should succeed with unicode");
-        assert!(out.contains("type: trojan"), "type preserved");
-        assert!(out.contains("server: sg-1.x.com"), "server preserved");
-        assert!(out.contains("port: 443"), "port preserved");
-    }
-
-    #[test]
-    fn clash_yaml_to_proxies_block_rejects_yaml_without_proxies_key() {
-        let yaml = "proxy-groups:\n  - { name: auto, type: select }\n";
-        let err = clash_yaml_to_proxies_block(yaml).unwrap_err().to_string();
-        assert!(
-            err.contains("proxies:"),
-            "error should mention missing proxies key: {err}"
-        );
-    }
-
-    #[test]
-    fn split_flow_fields_handles_quoted_comma_inside_value() {
-        // A value with an embedded comma inside single quotes must NOT split there.
-        let fields = split_flow_fields("name: 'a,b,c', port: 443");
-        assert_eq!(fields.len(), 2);
-        assert!(
-            fields[0].contains("a,b,c"),
-            "quoted comma preserved: {fields:?}"
-        );
-        assert_eq!(fields[1], "port: 443");
     }
 
     #[tokio::test]
@@ -1151,30 +924,28 @@ mod tests {
 
    }
 
-   #[tokio::test]
-   async fn mockito_refresh_subscription_content_patches_local_content() {
-       // T19-P2: PATCH /subscriptions/{id} with {content} body -> 200 updated object.
-       let mut server = mockito::Server::new_async().await;
-       let m = server
-           .mock("PATCH", "/api/v1/subscriptions/sub-uuid-1")
-           .match_header("authorization", "Bearer testtok")
-           .match_body(r#"{"content":"proxies:\n  - {name: n1}"}"#)
-           .with_status(200)
-           .with_header("content-type", "application/json")
-           .with_body(r#"{"id":"sub-uuid-1","name":"main","source_type":"local","node_count":1}"#)
-           .expect(1)
-           .create_async()
-           .await;
-       let base = server.url();
-       let c = ResinClient::new(&base, "testtok".into()).unwrap();
-       let out = c
-           .refresh_subscription_content("sub-uuid-1", "proxies:\n  - {name: n1}".to_string())
-           .await
-           .expect("refresh_subscription_content should succeed");
-       assert_eq!(out["id"], "sub-uuid-1");
-       assert_eq!(out["node_count"], 1);
-       m.assert_async().await;
-   }
+    #[tokio::test]
+    async fn mockito_refresh_subscription_native_posts_actions_refresh() {
+        // T20-P1: POST /api/v1/subscriptions/{id}/actions/refresh (no body) -> 200 {}.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("POST", "/api/v1/subscriptions/sub-uuid-1/actions/refresh")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .refresh_subscription_native("sub-uuid-1")
+            .await
+            .expect("refresh_subscription_native should succeed");
+        assert!(out.is_object() || out.is_null(), "200 with empty body is acceptable");
+        m.assert_async().await;
+    }
 
    #[tokio::test]
    async fn mockito_probe_node_egress_returns_egress_ip_region_latency() {
