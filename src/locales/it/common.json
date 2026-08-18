@@ -234,7 +234,11 @@
     "unifiedHelp": "Salva tutte le modifiche",
     "whiteboxPath": "File config porte",
     "whiteboxReload": "Ricarica config porte",
-    "whiteboxReloaded": "Config porte ricaricata — {{count}} listener"
+    "whiteboxReloaded": "Config porte ricaricata — {{count}} listener",
+    "resinMaxEgressInterval": "Intervallo massimo test egress",
+    "resinLatencyAuthorities": "Autorità di latenza",
+    "resinP2cLatencyWindow": "Finestra latenza P2C",
+    "resinLatencyDecayWindow": "Finestra decadimento latenza"
   },
   "strategy": {
     "aClass": "Selezione Nodi (classe A)",

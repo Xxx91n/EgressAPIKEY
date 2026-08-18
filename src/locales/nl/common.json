@@ -234,7 +234,11 @@
     "unifiedHelp": "Alle wijzigingen opslaan",
     "whiteboxPath": "Poortconfig-bestand",
     "whiteboxReload": "Poortconfig herladen",
-    "whiteboxReloaded": "Poortconfig herladen — {{count}} listeners"
+    "whiteboxReloaded": "Poortconfig herladen — {{count}} listeners",
+    "resinMaxEgressInterval": "Maximaal egress-testinterval",
+    "resinLatencyAuthorities": "Latency-autoriteiten",
+    "resinP2cLatencyWindow": "P2C-latencyvenster",
+    "resinLatencyDecayWindow": "Latency-afnamevenster"
   },
   "strategy": {
     "aClass": "Knoopselectie (A-klasse)",

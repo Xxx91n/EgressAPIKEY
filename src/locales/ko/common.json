@@ -234,7 +234,11 @@
     "unifiedHelp": "모든 변경 사항 저장",
     "whiteboxPath": "엔트리 포트 설정 파일",
     "whiteboxReload": "엔트리 포트 설정 다시 로드",
-    "whiteboxReloaded": "엔트리 포트 설정 다시 로드됨 — 리스너 {{count}}"
+    "whiteboxReloaded": "엔트리 포트 설정 다시 로드됨 — 리스너 {{count}}",
+    "resinMaxEgressInterval": "최대 이그레스 테스트 간격",
+    "resinLatencyAuthorities": "지연 권한",
+    "resinP2cLatencyWindow": "P2C 지연 창",
+    "resinLatencyDecayWindow": "지연 감쇠 창"
   },
   "strategy": {
     "aClass": "노드 선택 (A클래스)",

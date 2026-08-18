@@ -234,7 +234,11 @@
     "unifiedHelp": "Lưu tất cả thay đổi",
     "whiteboxPath": "Tệp cấu hình cổng",
     "whiteboxReload": "Tải lại cấu hình cổng",
-    "whiteboxReloaded": "Đã tải lại cấu hình cổng — {{count}} listener"
+    "whiteboxReloaded": "Đã tải lại cấu hình cổng — {{count}} listener",
+    "resinMaxEgressInterval": "Khoảng thời gian kiểm tra đầu ra tối đa",
+    "resinLatencyAuthorities": "Cơ quan thẩm quyền độ trễ",
+    "resinP2cLatencyWindow": "Cửa sổ độ trễ P2C",
+    "resinLatencyDecayWindow": "Cửa sổ suy giảm độ trễ"
   },
   "strategy": {
     "aClass": "Chọn Node (lớp A)",

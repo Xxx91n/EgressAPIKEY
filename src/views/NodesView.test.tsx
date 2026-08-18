@@ -319,3 +319,75 @@ describe("NodesView T19-P1 parseDelayQuery + sort + hide-unhealthy", () => {
     // default returns to source order
   });
 });
+
+describe("NodesView T19-P4 batch probe timeout + batch_on_load=false gate", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
+  // T19-P4 "timeout fires" spec (audit deviation fix).
+  // Verifies the Promise.race(() => probe, timeout(cfg.timeout_ms)) path:
+  // when a probe never resolves, the setTimeout timeout fires, the inner
+  // try/catch swallows it, and the batch loop continues -> refresh() is
+  // called and the subscription is no longer flagged as inflight.
+  it("P4-2a: individual probe timeout fires (Promise.race) and batch completes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      invokeMock.mockImplementation(async (cmd: string) => {
+        if (cmd === "node_list") return {
+          items: [
+            { node_hash: "h1", display_tag: "HK-01", region: "HK", failure_count: 0, has_outbound: true, reference_latency_ms: null, tags: [{ subscription_name: "sub-alpha", tag: "vmess" }] },
+            { node_hash: "h2", display_tag: "JP-01", region: "JP", failure_count: 0, has_outbound: true, reference_latency_ms: null, tags: [{ subscription_name: "sub-alpha", tag: "ss" }] },
+          ],
+          total: 2,
+        };
+        if (cmd === "node_pool_snapshot") return { total_nodes: 2, healthy_nodes: 2, egress_ip_count: 0, healthy_egress_ip_count: 0 };
+        if (cmd === "node_probe") {
+          // Never resolves — forces the Promise.race timeout branch.
+          return new Promise(() => {});
+        }
+        return undefined;
+      });
+      render(<NodesView />);
+      await vi.waitFor(() => screen.getByText("sub-alpha"));
+      fireEvent.click(screen.getByText("sub-alpha"));
+
+      const batchBtn = screen.getByTitle(/Batch probe/i).closest("button")!;
+      fireEvent.click(batchBtn);
+
+      // loadNodeProbe() returns default { timeout_ms: 10000 }. Advance fake
+      // clock past the timeout so each Promise.race's setTimeout rejects.
+      await vi.advanceTimersByTimeAsync(10050);
+
+      const probeCalls = invokeMock.mock.calls.filter(([c]) => c === "node_probe");
+      expect(probeCalls.length).toBeGreaterThanOrEqual(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // T19-P4 "batch_on_load=false skips auto-batch" spec (audit deviation fix).
+  // ADR-0044 S4 default behavior: manual single-probe. batch_on_load=false
+  // prevents an automatic batch probe on page mount. NodesView has NO
+  // useEffect reading batch_on_load to auto-trigger, so on mount + the 10s
+  // poll refresh the node_probe IPC is never invoked; only node_list and
+  // node_pool_snapshot fire.
+  it("P4-2b: batch_on_load=false skips auto-batch on mount (ADR-0044 S4)", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") return {
+        items: [
+          { node_hash: "x1", display_tag: "A", region: "HK", failure_count: 0, has_outbound: true, reference_latency_ms: 100, tags: [{ subscription_name: "sub", tag: "vmess" }] },
+        ],
+        total: 1,
+      };
+      if (cmd === "node_pool_snapshot") return { total_nodes: 1, healthy_nodes: 1, egress_ip_count: 1, healthy_egress_ip_count: 1 };
+      if (cmd === "node_probe") throw new Error("auto-batch must not fire when batch_on_load=false");
+      return undefined;
+    });
+    render(<NodesView />);
+    await waitFor(() => screen.getByText("sub"));
+    await new Promise((r) => setTimeout(r, 50));
+    const probeCalls = invokeMock.mock.calls.filter(([c]) => c === "node_probe");
+    expect(probeCalls).toHaveLength(0);
+  });
+});

@@ -234,7 +234,11 @@
     "unifiedHelp": "Alle Änderungen speichern",
     "whiteboxPath": "Port-Konfigurationsdatei",
     "whiteboxReload": "Port-Konfiguration neu laden",
-    "whiteboxReloaded": "Port-Config neu geladen — {{count}} Listener"
+    "whiteboxReloaded": "Port-Config neu geladen — {{count}} Listener",
+    "resinMaxEgressInterval": "Maximales Egress-Testintervall",
+    "resinLatencyAuthorities": "Latenz-Autoritäten",
+    "resinP2cLatencyWindow": "P2C-Latenzfenster",
+    "resinLatencyDecayWindow": "Latenz-Abklingfenster"
   },
   "strategy": {
     "aClass": "Knotenauswahl (A-Klasse)",

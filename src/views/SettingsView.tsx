@@ -158,6 +158,11 @@ export function SettingsView() {
   const [resinMaxFailures, setResinMaxFailures] = useState<number>(3);
   const [resinLatencyInterval, setResinLatencyInterval] = useState<string>("1h");
   const [resinLatencyUrl, setResinLatencyUrl] = useState<string>("");
+  // T19-audit: 4 Resin hot-update knobs missing from P4 (ADR-0044 plan-line-14)
+  const [resinMaxEgressInterval, setResinMaxEgressInterval] = useState<string>("24h");
+  const [resinLatencyAuthorities, setResinLatencyAuthorities] = useState<string>("");
+  const [resinP2cLatencyWindow, setResinP2cLatencyWindow] = useState<string>("30s");
+  const [resinLatencyDecayWindow, setResinLatencyDecayWindow] = useState<string>("300s");
   const [resinProbeBusy, setResinProbeBusy] = useState(false);
   useEffect(() => {
     void ipcWhiteboxPath().then(setWhiteboxPath).catch(() => setWhiteboxPath(""));
@@ -175,6 +180,11 @@ export function SettingsView() {
         if (typeof raw.max_consecutive_failures === "number") setResinMaxFailures(raw.max_consecutive_failures);
         if (typeof raw.max_latency_test_interval === "string") setResinLatencyInterval(raw.max_latency_test_interval);
         if (typeof raw.latency_test_url === "string") setResinLatencyUrl(raw.latency_test_url);
+        if (typeof raw.max_egress_test_interval === "string") setResinMaxEgressInterval(raw.max_egress_test_interval);
+        if (Array.isArray(raw.latency_authorities)) setResinLatencyAuthorities((raw.latency_authorities as string[]).join(","));
+        else if (typeof raw.latency_authorities === "string") setResinLatencyAuthorities(raw.latency_authorities);
+        if (typeof raw.p2c_latency_window === "string") setResinP2cLatencyWindow(raw.p2c_latency_window);
+        if (typeof raw.latency_decay_window === "string") setResinLatencyDecayWindow(raw.latency_decay_window);
       } catch { /* sidecar not running or vitest */ }
     })();
   }, []);
@@ -374,6 +384,10 @@ export function SettingsView() {
         max_consecutive_failures: resinMaxFailures,
         max_latency_test_interval: resinLatencyInterval,
         latency_test_url: resinLatencyUrl || undefined,
+        max_egress_test_interval: resinMaxEgressInterval || undefined,
+        latency_authorities: resinLatencyAuthorities ? resinLatencyAuthorities.split(",").map((x) => x.trim()).filter(Boolean) : undefined,
+        p2c_latency_window: resinP2cLatencyWindow || undefined,
+        latency_decay_window: resinLatencyDecayWindow || undefined,
       });
     } catch (e) {
       console.warn("[SettingsView] resin probe save failed:", e);
@@ -730,6 +744,42 @@ export function SettingsView() {
               onChange={(e) => setResinLatencyUrl(e.target.value)}
               className={inputCls}
               placeholder="https://www.gstatic.com/generate_204"
+            />
+          </Field>
+          <Field label={t("settings.resinMaxEgressInterval")}>
+            <input
+              type="text"
+              value={resinMaxEgressInterval}
+              onChange={(e) => setResinMaxEgressInterval(e.target.value)}
+              className={inputCls}
+              placeholder="24h"
+            />
+          </Field>
+          <Field label={t("settings.resinLatencyAuthorities")}>
+            <input
+              type="text"
+              value={resinLatencyAuthorities}
+              onChange={(e) => setResinLatencyAuthorities(e.target.value)}
+              className={inputCls}
+              placeholder="gstatic.com,google.com,cloudflare.com,github.com"
+            />
+          </Field>
+          <Field label={t("settings.resinP2cLatencyWindow")}>
+            <input
+              type="text"
+              value={resinP2cLatencyWindow}
+              onChange={(e) => setResinP2cLatencyWindow(e.target.value)}
+              className={inputCls}
+              placeholder="30s"
+            />
+          </Field>
+          <Field label={t("settings.resinLatencyDecayWindow")}>
+            <input
+              type="text"
+              value={resinLatencyDecayWindow}
+              onChange={(e) => setResinLatencyDecayWindow(e.target.value)}
+              className={inputCls}
+              placeholder="300s"
             />
           </Field>
           <button

@@ -234,7 +234,11 @@
     "unifiedHelp": "Zapisz wszystkie zmiany",
     "whiteboxPath": "Plik konfiguracji portów",
     "whiteboxReload": "Przeładuj konfigurację portów",
-    "whiteboxReloaded": "Przeładowano konfigurację portów — {{count}}"
+    "whiteboxReloaded": "Przeładowano konfigurację portów — {{count}}",
+    "resinMaxEgressInterval": "Maksymalny interwał testu wyjścia",
+    "resinLatencyAuthorities": "Urzędy opóźnienia",
+    "resinP2cLatencyWindow": "Okno opóźnienia P2C",
+    "resinLatencyDecayWindow": "Okno zaniku opóźnienia"
   },
   "strategy": {
     "aClass": "Wybór Węzłów (klasa A)",

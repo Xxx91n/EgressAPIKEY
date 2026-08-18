@@ -234,7 +234,11 @@
     "unifiedHelp": "حفظ كل التغييرات",
     "whiteboxPath": "ملف إعدادات المنافذ",
     "whiteboxReload": "إعادة تحميل إعدادات المنافذ",
-    "whiteboxReloaded": "أُعيد تحميل إعدادات المنافذ — {{count}}"
+    "whiteboxReloaded": "أُعيد تحميل إعدادات المنافذ — {{count}}",
+    "resinMaxEgressInterval": "أقصى فاصل اختبار خارج",
+    "resinLatencyAuthorities": "مرجعيات زمن الاستجابة",
+    "resinP2cLatencyWindow": "نافذة زمن الاستجابة P2C",
+    "resinLatencyDecayWindow": "نافذة اضمحلال زمن الاستجابة"
   },
   "strategy": {
     "aClass": "اختيار العقد (فئة A)",

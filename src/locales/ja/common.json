@@ -234,7 +234,11 @@
     "unifiedHelp": "すべての変更を保存",
     "whiteboxPath": "エントリポート設定ファイル",
     "whiteboxReload": "エントリポート設定を再読込",
-    "whiteboxReloaded": "エントリポート設定を再読込 — リスナー {{count}}"
+    "whiteboxReloaded": "エントリポート設定を再読込 — リスナー {{count}}",
+    "resinMaxEgressInterval": "出口テスト最大間隔",
+    "resinLatencyAuthorities": "レイテンシー認証局",
+    "resinP2cLatencyWindow": "P2C レイテンシーウィンドウ",
+    "resinLatencyDecayWindow": "レイテンシー減衰ウィンドウ"
   },
   "strategy": {
     "aClass": "ノード選択 (Aクラス)",

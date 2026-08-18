@@ -234,7 +234,11 @@
     "unifiedHelp": "Enregistrer toutes les modifications",
     "whiteboxPath": "Fichier de config des ports",
     "whiteboxReload": "Recharger la config des ports",
-    "whiteboxReloaded": "Config des ports rechargée — {{count}} listeners"
+    "whiteboxReloaded": "Config des ports rechargée — {{count}} listeners",
+    "resinMaxEgressInterval": "Intervalle maximal de test de sortie",
+    "resinLatencyAuthorities": "Autorités de latence",
+    "resinP2cLatencyWindow": "Fenêtre de latence P2C",
+    "resinLatencyDecayWindow": "Fenêtre de décroissance de latence"
   },
   "strategy": {
     "aClass": "Sélection de Nœuds (classe A)",

@@ -234,7 +234,11 @@
     "unifiedHelp": "บันทึกการเปลี่ยนแปลงทั้งหมด",
     "whiteboxPath": "ไฟล์การตั้งค่าพอร์ต",
     "whiteboxReload": "โหลดการตั้งค่าพอร์ตใหม่",
-    "whiteboxReloaded": "โหลดการตั้งค่าพอร์ตแล้ว — {{count}}"
+    "whiteboxReloaded": "โหลดการตั้งค่าพอร์ตแล้ว — {{count}}",
+    "resinMaxEgressInterval": "ช่วงเวลาทดสอบทางออกสูงสุด",
+    "resinLatencyAuthorities": "หน่วยงานแฝงเวลา",
+    "resinP2cLatencyWindow": "หน้าต่างแฝงเวลา P2C",
+    "resinLatencyDecayWindow": "หน้าต่างสลายแฝงเวลา"
   },
   "strategy": {
     "aClass": "การเลือกโหนด (คลาส A)",

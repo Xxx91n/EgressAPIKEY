@@ -234,7 +234,11 @@
     "unifiedHelp": "Save all changes",
     "whiteboxPath": "Entry-port config file",
     "whiteboxReload": "Reload entry-port config",
-    "whiteboxReloaded": "Entry-port config reloaded — {{count}} listeners"
+    "whiteboxReloaded": "Entry-port config reloaded — {{count}} listeners",
+    "resinMaxEgressInterval": "Max egress test interval",
+    "resinLatencyAuthorities": "Latency authorities",
+    "resinP2cLatencyWindow": "P2C latency window",
+    "resinLatencyDecayWindow": "Latency decay window"
   },
   "strategy": {
     "aClass": "Node Selection (A-class)",

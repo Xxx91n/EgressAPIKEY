@@ -234,7 +234,11 @@
     "unifiedHelp": "保存所有更改",
     "whiteboxPath": "入口端口配置文件",
     "whiteboxReload": "重新加载入口端口配置",
-    "whiteboxReloaded": "入口端口配置已重载 — {{count}} 个监听"
+    "whiteboxReloaded": "入口端口配置已重载 — {{count}} 个监听",
+    "resinMaxEgressInterval": "最大出口测试间隔",
+    "resinLatencyAuthorities": "延迟探测权威域名",
+    "resinP2cLatencyWindow": "P2C 延迟窗口",
+    "resinLatencyDecayWindow": "延迟衰减窗口"
   },
   "strategy": {
     "aClass": "节点选择 (A类)",

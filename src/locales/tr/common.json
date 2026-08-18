@@ -234,7 +234,11 @@
     "unifiedHelp": "Tüm değişiklikleri kaydet",
     "whiteboxPath": "Port yapılandırma dosyası",
     "whiteboxReload": "Port yapılandırmasını yenile",
-    "whiteboxReloaded": "Port yapılandırması yenilendi — {{count}}"
+    "whiteboxReloaded": "Port yapılandırması yenilendi — {{count}}",
+    "resinMaxEgressInterval": "Maksimum çıkış test aralığı",
+    "resinLatencyAuthorities": "Gecikme otoriteleri",
+    "resinP2cLatencyWindow": "P2C gecikme penceresi",
+    "resinLatencyDecayWindow": "Gecikme azalma penceresi"
   },
   "strategy": {
     "aClass": "Düğüm Seçimi (A sınıfı)",

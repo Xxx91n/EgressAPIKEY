@@ -234,7 +234,11 @@
     "unifiedHelp": "Simpan semua perubahan",
     "whiteboxPath": "File config port",
     "whiteboxReload": "Muat ulang config port",
-    "whiteboxReloaded": "Config port dimuat ulang — {{count}} listener"
+    "whiteboxReloaded": "Config port dimuat ulang — {{count}} listener",
+    "resinMaxEgressInterval": "Interval uji egress maksimum",
+    "resinLatencyAuthorities": "Otoritas latensi",
+    "resinP2cLatencyWindow": "Jendela latensi P2C",
+    "resinLatencyDecayWindow": "Jendela peluruhan latensi"
   },
   "strategy": {
     "aClass": "Pemilihan Node (kelas A)",

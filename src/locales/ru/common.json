@@ -234,7 +234,11 @@
     "unifiedHelp": "Сохранить все изменения",
     "whiteboxPath": "Файл конфига портов",
     "whiteboxReload": "Перезагрузить конфиг портов",
-    "whiteboxReloaded": "Конфиг портов перезагружен — {{count}} listeners"
+    "whiteboxReloaded": "Конфиг портов перезагружен — {{count}} listeners",
+    "resinMaxEgressInterval": "Максимальный интервал теста выхода",
+    "resinLatencyAuthorities": "Центры задержки",
+    "resinP2cLatencyWindow": "Окно задержки P2C",
+    "resinLatencyDecayWindow": "Окно затухания задержки"
   },
   "strategy": {
     "aClass": "Выбор узлов (класс A)",

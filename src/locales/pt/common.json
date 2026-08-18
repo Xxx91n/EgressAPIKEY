@@ -234,7 +234,11 @@
     "unifiedHelp": "Salvar todas as alterações",
     "whiteboxPath": "Arquivo de config de portas",
     "whiteboxReload": "Recarregar config de portas",
-    "whiteboxReloaded": "Config de portas recarregada — {{count}} listeners"
+    "whiteboxReloaded": "Config de portas recarregada — {{count}} listeners",
+    "resinMaxEgressInterval": "Intervalo máximo de teste de saída",
+    "resinLatencyAuthorities": "Autoridades de latência",
+    "resinP2cLatencyWindow": "Janela de latência P2C",
+    "resinLatencyDecayWindow": "Janela de decaimento de latência"
   },
   "strategy": {
     "aClass": "Seleção de Nós (classe A)",

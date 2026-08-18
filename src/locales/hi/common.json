@@ -234,7 +234,11 @@
     "unifiedHelp": "सभी परिवर्तन सहेजें",
     "whiteboxPath": "एंट्री पोर्ट कॉन्फ़िग फ़ाइल",
     "whiteboxReload": "एंट्री पोर्ट कॉन्फ़िग रीलोड",
-    "whiteboxReloaded": "एंट्री पोर्ट कॉन्फ़िग रीलोड — {{count}}"
+    "whiteboxReloaded": "एंट्री पोर्ट कॉन्फ़िग रीलोड — {{count}}",
+    "resinMaxEgressInterval": "अधिकतम एग्रेस परीक्षण अंतराल",
+    "resinLatencyAuthorities": "लेटेंसी प्राधिकरण",
+    "resinP2cLatencyWindow": "P2C लेटेंसी विंडो",
+    "resinLatencyDecayWindow": "लेटेंसी क्षय विंडो"
   },
   "strategy": {
     "aClass": "नोड चयन (A-वर्ग)",
