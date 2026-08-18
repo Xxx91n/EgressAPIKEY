@@ -9,8 +9,34 @@ import { invoke as _invoke, Channel } from "@tauri-apps/api/core";
 // (headless npm server) we fall back to fetch("/api/v1/...") which the
 // headless axum reverse-proxy forwards to the local Resin sidecar.
 function isTauri(): boolean {
-  return typeof window !== "undefined" &&
-    !!(window as unknown as { __TAURI_INTERNALS?: unknown }).__TAURI_INTERNALS;
+  if (typeof window === "undefined") return false;
+  // T17-audit: check ALL Tauri v2 injection variables.
+  // __TAURI_INTERNALS__ is the IPC bootstrap (invoke/transformCallback).
+  // window.isTauri is the official isTauri() flag (PR #9539).
+  // Both are injected by the same AddScriptToExecuteOnDocumentCreated call.
+  // If both are undefined, we're either in a plain browser (headless) or
+  // there's a Tauri injection bug — log the diagnostic so we can tell.
+  const w = window as unknown as {
+    __TAURI_INTERNALS__?: unknown;
+    isTauri?: unknown;
+  };
+  const hasInternals = !!w.__TAURI_INTERNALS__;
+  const hasIsTauri = !!w.isTauri;
+  if (!hasInternals && !hasIsTauri && typeof console !== "undefined") {
+    // Diagnostic: only log once per session to avoid spam.
+    try {
+      const key = "__egressapikey_isTauri_diag";
+      if (!(w as Record<string, unknown>)[key]) {
+        (w as Record<string, unknown>)[key] = true;
+        console.warn(
+          "[isTauri] both __TAURI_INTERNALS__ and window.isTauri are undefined.",
+          "location.href:", typeof location !== "undefined" ? location.href : "N/A",
+          "userAgent:", typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 100) : "N/A",
+        );
+      }
+    } catch { /* swallow diagnostic errors */ }
+  }
+  return hasInternals || hasIsTauri;
 }
 
 // Maps Tauri command names to the HTTP route the headless reverse-proxy exposes.
