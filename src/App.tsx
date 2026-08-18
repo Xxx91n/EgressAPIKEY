@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigation, Network, Settings as SettingsIcon, Route, FolderTree, RadioTower, Server, Stethoscope } from "lucide-react";
@@ -12,6 +13,41 @@ import { DiagnosticsView } from "./views/DiagnosticsView";
 import { useTheme } from "./lib/useTheme";
 import { LogPanel } from "./components/LogPanel";
 import { loadLocale, loadTheme, loadView, loadProcessRoutes } from "./lib/settings";
+
+
+// T22: Error Boundary — catches unexpected throws in render/useEffect (e.g. Tauri
+// APIs called in a plain browser during headless mode). Without this, any uncaught
+// error unmounts the entire React tree → white screen.
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[ErrorBoundary]", error, info?.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-4">
+          <p className="text-sm font-medium text-red-500 mb-2">Something went wrong</p>
+          <pre className="text-xs text-zinc-500 max-w-md overflow-auto">{this.state.error?.message ?? "Unknown error"}</pre>
+          <button
+            onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+            className="mt-4 px-3 py-1.5 text-xs rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+          >Reload</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Side rail nav: icon + label, desktop-tool density. Lucide vector icons
 // (not emoji) per ui-ux-pro-max: scalable, theme-aware, consistent stroke.
@@ -105,6 +141,7 @@ export default function App() {
     );
   }
   return (
+    <ErrorBoundary>
     <div className="h-full flex bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100" onContextMenu={(e) => e.preventDefault()}>
       <SideRail />
       <div className="flex-1 flex flex-col min-w-0">
@@ -125,5 +162,6 @@ export default function App() {
         <LogPanel />
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

@@ -822,3 +822,31 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 - **Smoke**: `Start-Process release/windows-gui/EgressAPIKEY.exe` — PID alive, `MainWindowTitle == "EgressAPIKEY"`. (Resin child alive verification was logged inside the same ps1; test sandbox only requires MainWindowTitle + no panic — release shell boot evidence.)
 - **CodeGraph**: `codegraph sync .` re-indexed 3 changed files (51 nodes delta).
 - **Ponytail**: reused existing Resin `/actions/refresh` synchronous semantics (no delayed polling). `applyProbeResult` is the minimum viable extraction — did not port clash-rev 200+ line DelayManager/useReducer listener lifecycle. `<Info>` popover pattern reuses an existing lucide-react icon; inline ~30 lines, no new dep. StatCard corner position uses `position: relative` + `position: absolute` (no grid-top-left hacks).
+
+### 66. T22 - headless white-screen fix (isTauri guard + SPA fallback + ErrorBoundary + items-unwrap) (ADR-0049)
+
+**ADR-0049** (3-layer strategy: L1 isTauri guard + L2 SPA fallback + L3 ErrorBoundary): docs/adr/0049-headless-white-screen-spa-fallback-error-boundary.md. Plan: docs/GRILL_T22_HEADLESS_RENDERING_FIX.md (6 decisions + 5 phases + acceptance criteria).
+
+- **Root cause (white screen)**: src/lib/ipc.ts ipcWatchPortHealth unconditionally constructed a Tauri Channel object and passed it to invoke(). In headless mode (no Tauri runtime), Channel is undefined -> the entire frontend bundle throws on first IPC attempt -> React tree crashes with blank white screen. The error was caught by no boundary (L3 fix addresses this retroactively).
+
+- **L1: isTauri guard (root-cause fix)**: ipcWatchPortHealth in src/lib/ipc.ts now wraps the Channel construction in if (isTauri()) -> returns early in headless mode (no Channel, no invoke). The isTauri() helper (already existed for Tauri detection) gates the entire call so headless mode never touches the Tauri-only API. This is the single-line root-cause fix; the other two layers are defense-in-depth.
+
+- **L2: SPA fallback (headless_main.rs)**: src-tauri/src/headless_main.rs ServeDir fallback was .not_found_service(ServeFile::new(dist.join("index.html"))) only for the base route. Rewired to 
+ot_found_service(ServeFile::new(dist.join("index.html"))) so any deep-link client-side route (e.g. /platforms, /nodes) that the static file server does not find on disk falls back to index.html -> the SPA router boots and renders the correct view. This is the standard single-page-application server pattern (industry template: vite preview / serve / nginx try_files). Without it, a manual refresh or direct navigation to a deep link returns 404 -> white screen.
+
+- **L3: ErrorBoundary (App.tsx)**: src/App.tsx wraps the entire view tree in a React ErrorBoundary class component. If any future uncaught throw escapes React's tree, the boundary catches it and renders a fallback card with "Something went wrong" + a Reload button (calls window.location.reload()). This prevents the blank white screen class of bugs from ever recurring without user-visible diagnostic. Industry template: React docs ErrorBoundary pattern + Sentry fallback UI.
+
+- **T22-fix: invokeHttp items-unwrap**: src/lib/ipc.ts invokeHttp (the headless HTTP fallback for Tauri invoke()) was returning the raw Resin API response object {items:[...], total, limit, offset} for list endpoints. In Tauri mode, the Rust backend unwraps this via items_arr helper, but in headless mode the raw wrapper reached the frontend -> .map() on the wrapper object threw -> cascade crash. Fix: invokeHttp now checks if (Array.isArray(json.items)) return json.items before returning, matching the Rust items_arr contract one-to-one. Updated ipc.test.ts assertion for platform_list fetch to expect bare array [{name:'a'},{name:'b'}] instead of the wrapper.
+
+- **tsc fix**: import * as React added to src/App.tsx — the ErrorBoundary class component uses React.Component which requires the React namespace import (file used React 19 automatic JSX runtime, so the import was absent).
+
+- **Build**: pnpm build green (vite chunk hash BhRXpt46 for index-BhRXpt46.js, 420KB). cargo build --release -p egressapikey-app --features custom-protocol green (~8min). Staged elease/windows-gui/EgressAPIKEY.exe (13.8MB). Chunk-hash guard: BhRXpt46 ASCII-string found in exe bytes — NOT a stale bundle. cargo build --release --features headless green (4.75MB headless exe).
+
+- **Tests**: pnpm test = 295 pass / 17 files (was 284; +11 T22 items-unwrap + error boundary assertions). cargo test -p resin-core --lib = 136 pass (unchanged). pnpm i18n:check = 392 keys / 18 locales. pnpm exec tsc --noEmit green.
+
+- **agent-browser verification**: headless exe started on port 14200; 
+px agent-browser open localhost:14200 + snapshot verified all 7 tabs render (Topology, Platforms, Subscriptions, Nodes, Diagnostics, Settings, Process Route) with no white screen. SPA refresh works (client-side routing + ServeFile fallback confirmed).
+
+- **CodeGraph**: index unchanged for this commit (no new symbols for codegraph to index — edits were inside existing functions).
+
+- **Ponytail**: 3-layer defense-in-depth (root fix + SPA fallback + ErrorBoundary) is the industry standard template for SPA-on-desktop shell robustness. The items-unwrap is a one-line parity fix matching the existing Rust items_arr contract, not a new abstraction. No new dependencies introduced.

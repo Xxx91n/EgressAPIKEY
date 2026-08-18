@@ -83,7 +83,11 @@ async function invokeHttp<T>(route: HttpRoute, args?: Record<string, unknown>): 
     throw new Error(`IPC ${route.method} ${route.path} -> ${r.status}: ${body.slice(0, 256)}`);
   }
   if (r.status === 204) return undefined as T;
-  return (await r.json()) as T;
+  const json = await r.json();
+  // T22: Resin wraps list endpoints as { items: [...], total, limit, offset }.
+  // Unwrap items for callers expecting a bare array (matches Rust items_arr helper).
+  if (json && typeof json === 'object' && Array.isArray(json.items)) return json.items as T;
+  return json as T;
 }
 
 const NAME_MAX = 128;
@@ -633,6 +637,10 @@ export function ipcWatchPortHealth(
   onSnapshot: (snap: PortHealthSnapshot) => void,
   onError?: (err: unknown) => void,
 ): () => void {
+  // T22: In non-Tauri (headless browser) mode, Channel constructor and
+  // _invoke both touch window.__TAURI_INTERNALS__ which doesn't exist.
+  // Return a no-op unsubscribe to avoid throwing inside React useEffect.
+  if (!isTauri()) return () => {};
   const channel = new Channel<PortHealthSnapshot>();
   channel.onmessage = (snap) => {
     try { onSnapshot(snap); }

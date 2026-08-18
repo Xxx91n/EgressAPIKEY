@@ -553,9 +553,9 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
   it("platform_list forwards GET /api/v1/platforms via fetch when isTauri=false", async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ items: [{ name: "a" }, { name: "b" }] }), { status: 200, headers: { "Content-Type": "application/json" } }));
     const r = await ipcPlatformList() as unknown;
-    // fetch path returns Resin's raw {items:[...]} shape — not the processed string[]
-    // the Tauri command returns (Rust extracts names server-side).
-    expect(r).toEqual({ items: [{ name: "a" }, { name: "b" }] });
+    // T22: invokeHttp now unwraps Resin's {items:[...]} wrapper, returning the
+    // bare array — matching what the Tauri command returns (Rust extracts names).
+    expect(r).toEqual([{ name: "a" }, { name: "b" }]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/v1/platforms");

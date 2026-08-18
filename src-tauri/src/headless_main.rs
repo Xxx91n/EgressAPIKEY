@@ -42,7 +42,7 @@ use axum::{
 };
 use clap::Parser;
 use egressapikey_app::sidecar::boot_resin_standalone;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 
 #[derive(Parser, Debug)]
 #[command(name = "egressapikey-headless", version, about = "EgressAPIKEY headless server (no Tauri webview).")]
@@ -184,7 +184,9 @@ async fn main() -> Result<()> {
 /// and `/metrics/*` proxied to the resin control plane with the admin
 /// bearer token injected (the browser request must NOT carry the token).
 fn build_router(dist: &PathBuf, api_base: String, admin_token: String) -> Router {
-    let serve_dir = ServeDir::new(dist.clone()).append_index_html_on_directories(true);
+    let serve_dir = ServeDir::new(dist.clone())
+        .append_index_html_on_directories(true)
+        .not_found_service(ServeFile::new(dist.join("index.html")));
 
     let api_base = Arc::new(api_base);
     let admin_token = Arc::new(admin_token);
