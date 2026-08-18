@@ -100,13 +100,46 @@ export const useTopologyStore = create<TopologyState>((set) => ({
   setPortHealth: (m) => set((s) => (shallow(s.portHealth, m) ? {} : { portHealth: m })),
 }));
 
-// --- T13-1: helper — get selected regions from all platforms ---
-export function getSelectedRegions(platforms: PlatformFull[]): Set<string> {
-  const set = new Set<string>();
+/// T22-1 (ADR-0048 S1+S3+S4): a_class-semantic node filter helper.
+/// Exported for vitest.
+/// @param node       NodeItem from a subscription group
+/// @param platforms  PlatformFull[] - the live canvas platforms
+/// @param groupKey   subscriptionName (subscription viewMode) or region string (region viewMode)
+/// @returns true if ANY platform a_class semantics select this node
+export function isNodeSelectedByAnyPlatform(
+  node: NodeItem,
+  platforms: PlatformFull[],
+  groupKey: string,
+): boolean {
+  const nodeRegion = getNodeRegion(node);
+  const nodeHash = typeof node.node_hash === "string" ? node.node_hash : "";
   for (const p of platforms) {
-    for (const r of p.region_filters ?? []) set.add(r.toLowerCase());
+    const aClass = p.aClass ?? "manual";
+    switch (aClass) {
+      case "subscription": {
+        const subs = p.subscriptionNames ?? [];
+        if (subs.length === 0) return true;
+        if (subs.includes(groupKey)) return true;
+        break;
+      }
+      case "quality": {
+        if ((node.failure_count ?? 0) === 0 && node.has_outbound !== false) return true;
+        break;
+      }
+      case "region": {
+        const regs = (p.region_filters ?? []).map((r) => r.toLowerCase());
+        if (regs.includes(nodeRegion)) return true;
+        break;
+      }
+      case "manual":
+      default: {
+        const manual = p.manualNodes ?? [];
+        if (nodeHash && manual.includes(nodeHash)) return true;
+        break;
+      }
+    }
   }
-  return set;
+  return false;
 }
 
 // --- T13-1: parse nodes grouped by subscription source ---
@@ -182,7 +215,7 @@ function getNodeRegion(n: NodeItem): string {
 export function buildCColumnGroups(
   viewMode: "subscription" | "region",
   subGroups: SubscriptionGroup[],
-  selectedRegions: Set<string>,
+  platforms: PlatformFull[],
   t: (key: string, opts?: Record<string, unknown>) => string,
 ): Node[] {
   const list: Node[] = [];
@@ -200,7 +233,7 @@ export function buildCColumnGroups(
       : "";
     const sub = [healthLabel, regionsLabel].filter(Boolean).join(" * ");
     // T13-1: filter node rows — only show nodes in selected regions
-    const filteredNodes = g.nodes.filter((n) => selectedRegions.has(getNodeRegion(n)));
+    const filteredNodes = g.nodes.filter((n) => isNodeSelectedByAnyPlatform(n, platforms, g.subscriptionName));
     // T15-1: hide subscription group entirely if no nodes are selected by any platform
     if (filteredNodes.length === 0) return;
     const unboundCount = g.nodes.length - filteredNodes.length;
@@ -267,8 +300,21 @@ export function buildCColumnGroups(
       }
     }
     for (const [region, info] of regionMap) {
-      // T16-1: only show region groups that at least one platform selects
-      if (!selectedRegions.has(region)) continue;
+      // T22-1 (ADR-0048 S1): a_class-semantic region filter
+      const anySelected = platforms.some((p) => {
+        const aClass = p.aClass ?? "manual";
+        if (aClass === "quality") return true;
+        if (aClass === "subscription") {
+          const subs = p.subscriptionNames ?? [];
+          if (subs.length === 0) return true;
+          return subGroups.some((sg) => subs.includes(sg.subscriptionName) && sg.regions.includes(region));
+        }
+        if (aClass === "region") {
+          return (p.region_filters ?? []).map((r) => r.toLowerCase()).includes(region);
+        }
+        return false;
+      });
+      if (!anySelected) continue;
       list.push({
         id: "regiongroup-" + region,
         type: "regionGroup",
@@ -295,6 +341,12 @@ function parsePlatforms(raw: unknown): PlatformFull[] {
       allocation_policy: String(p.allocation_policy ?? "BALANCED"),
       routable_node_count: Number(p.routable_node_count ?? 0),
       sticky_ttl: String(p.sticky_ttl ?? "0s"),
+      // T22-2: preserve aClass + strategy fields from raw data as fallback
+      // (strategyConfig merge in sync() overrides these when config exists)
+      aClass: typeof p.aClass === "string" ? p.aClass : (typeof p.a_class === "string" ? p.a_class : undefined),
+      bClass: typeof p.bClass === "string" ? p.bClass : (typeof p.b_class === "string" ? p.b_class : undefined),
+      subscriptionNames: Array.isArray(p.subscriptionNames) ? p.subscriptionNames as string[] : (Array.isArray(p.subscriptions) ? p.subscriptions as string[] : undefined),
+      manualNodes: Array.isArray(p.manualNodes) ? p.manualNodes as string[] : (Array.isArray(p.manual_nodes) ? p.manual_nodes as string[] : undefined),
     }));
 }
 
@@ -595,7 +647,7 @@ export async function patchAndSyncOnce(args: {
 
 type EdgeWithLabel = { id: string; source: string; target: string; animated?: boolean; label?: string; deletable?: boolean };
 export function buildEdges(
-  platforms: { name: string; region_filters: string[] | null; allocation_policy?: string }[],
+  platforms: { name: string; region_filters: string[] | null; allocation_policy?: string; aClass?: string; subscriptionNames?: string[]; manualNodes?: string[]; topN?: number }[],
   nodeGroups: { region: string }[] | { subscriptionName: string; regions: string[] }[],
   ports: { port: number; platform_name: string }[] = [],
 ): EdgeWithLabel[] {
@@ -617,13 +669,46 @@ export function buildEdges(
     for (const g of nodeGroups as any[]) {
       if (isNewShape) {
         const groupRegions: string[] = g.regions ?? [];
-        const matched = regions.filter((r: string) => groupRegions.includes(r));
-        if (matched.length > 0) {
+        // T22-3 (ADR-0048 S3): a_class-semantic B->C edge
+        const aClass = (p as any).aClass ?? "manual";
+        let edgeMatched = false;
+        let edgeLabel = "";
+        switch (aClass) {
+          case "subscription": {
+            const subs = (p as any).subscriptionNames ?? [];
+            if (subs.length === 0) {
+              edgeMatched = true;
+              edgeLabel = "subscription:all";
+            } else if (subs.includes(g.subscriptionName)) {
+              edgeMatched = true;
+              edgeLabel = "subscription:" + g.subscriptionName;
+            }
+            break;
+          }
+          case "quality": {
+            edgeMatched = true;
+            edgeLabel = "quality:all";
+            break;
+          }
+          case "region": {
+            const matched = regions.filter((r: string) => groupRegions.includes(r));
+            if (matched.length > 0) {
+              edgeMatched = true;
+              edgeLabel = "region:" + matched.join(",");
+            }
+            break;
+          }
+          case "manual":
+          default: {
+            break;
+          }
+        }
+        if (edgeMatched) {
           list.push({
             id: "e-" + p.name + "-" + g.subscriptionName,
             source: "platform-" + p.name,
             target: "subgroup-" + g.subscriptionName,
-            label: "region:" + matched.join(","),
+            label: edgeLabel,
             deletable: false,
           });
         }
@@ -791,6 +876,21 @@ function TopologyCanvas() {
           };
         });
       }
+      // T22-4 (ADR-0048 S2): auto-default strategyConfig for Resin platforms not in cfg.
+      if (cfgRaw && Array.isArray(cfgRaw.platforms)) {
+        const cfgNames = new Set(cfgRaw.platforms.map((ps: any) => ps.platform_name));
+        plats = plats.map((p) => {
+          if (cfgNames.has(p.name)) return p;
+          return {
+            ...p,
+            aClass: "subscription",
+            bClass: "random",
+            subscriptionNames: [],
+            region_filters: p.region_filters ?? [],
+            manualNodes: [],
+          };
+        });
+      }
       setPlatforms(plats);
       setSubGroups(parseSubscriptionGroups(nRaw));
       setLeases(lRaw as LeaseEntry[]);
@@ -855,8 +955,6 @@ function TopologyCanvas() {
 
   const colorMode: ColorMode = theme;
 
-  // T13-1: get selected regions for filtering
-  const selectedRegions = useMemo(() => getSelectedRegions(platforms), [platforms]);
 
   // T13-2: build nodes — positions assigned by dagre later
   const rawNodes: Node[] = useMemo(() => {
@@ -939,10 +1037,10 @@ function TopologyCanvas() {
     // extracted `buildCColumnGroups` helper so a vitest can assert the viewMode guard directly
     // without driving jsdom-rendered ReactFlow custom-node DOM (which does not stamp C-column
     // nodes reliably). See docs/adr/0041-canvas-v4-node-pool-toolbars-merge.md §S1 + GRILL_T17_CANVAS_V4_PLAN.md.
-    const cNodes = buildCColumnGroups(viewMode, subGroups, selectedRegions, t);
+    const cNodes = buildCColumnGroups(viewMode, subGroups, platforms, t);
     list.push(...cNodes);
     return list;
-  }, [platforms, subGroups, leases, ports, t, i18n.isInitialized, i18n.language, selectedRegions, viewMode, portHealth]);
+  }, [platforms, subGroups, leases, ports, t, i18n.isInitialized, i18n.language, viewMode, portHealth]);
 
   // T13-2: build edges first, then dagre layout both
   const edges: Edge[] = useMemo(() => {
@@ -958,8 +1056,25 @@ function TopologyCanvas() {
         if (ports.length === 0) {
           list.push({ id: "e-entry-" + p.name, source: "entry-port", target: "platform-" + p.name, animated: true });
         }
-        for (const r of p.region_filters ?? []) {
-          list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "region:" + r, deletable: false });
+        // T22-3 (ADR-0048 S3): a_class-semantic region-viewMode edges
+        const rAclass = (p as any).aClass ?? "manual";
+        if (rAclass === "quality") {
+          if (subGroups.length > 0) {
+            list.push({ id: "e-" + p.name + "-rg-all", source: "platform-" + p.name, target: "regiongroup-all", label: "quality:all", deletable: false });
+          }
+        } else if (rAclass === "subscription") {
+          const subs = (p as any).subscriptionNames ?? [];
+          if (subs.length === 0) {
+            for (const g of subGroups) {
+              for (const r of g.regions) {
+                list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "subscription:all", deletable: false });
+              }
+            }
+          }
+        } else if (rAclass === "region") {
+          for (const r of p.region_filters ?? []) {
+            list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "region:" + r, deletable: false });
+          }
         }
       }
       return list;

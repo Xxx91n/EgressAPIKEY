@@ -20,7 +20,7 @@ vi.mock("@tauri-apps/api/core", () => {
 });
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 
-import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, getSelectedRegions, layoutNodesViaDagre, fixedHandleStyle, useTopologyStore, dedupNodesByHash, buildCColumnGroups } from "./TopologyView";
+import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, layoutNodesViaDagre, fixedHandleStyle, useTopologyStore, dedupNodesByHash, buildCColumnGroups, isNodeSelectedByAnyPlatform } from "./TopologyView";
 
 describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dual badges)", () => {
   beforeEach(() => { invokeMock.mockReset(); });
@@ -62,7 +62,7 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
   it("T9-1: C column shows subscription group names (not region labels)", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "platform_list_full") return Promise.resolve({
-        items: [{ id: "p1", name: "OpenAI", regex_filters: [], region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 2, sticky_ttl: "" }],
+        items: [{ id: "p1", name: "OpenAI", regex_filters: [], region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 2, sticky_ttl: "", aClass: "region" }],
         total: 1, limit: 50, offset: 0,
       });
       if (cmd === "node_list") return Promise.resolve({
@@ -292,7 +292,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
 
     // T9-2: New shape (subscription groups) with strategy labels
     it("T9-2: buildEdges with subscription groups produces strategy-labeled edges", () => {
-      const platforms = [{ name: "OpenAI", region_filters: ["hk"], allocation_policy: "BALANCED" }];
+      const platforms = [{ name: "OpenAI", region_filters: ["hk"], allocation_policy: "BALANCED", aClass: "region" }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk", "jp"] }];
       const edges = buildEdges(platforms, subGroups as any, []);
       const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
@@ -303,7 +303,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
 
     it("T9-2: no edge when platform region_filters don't intersect subscription regions", () => {
-      const platforms = [{ name: "OpenAI", region_filters: ["us"], allocation_policy: "BALANCED" }];
+      const platforms = [{ name: "OpenAI", region_filters: ["us"], allocation_policy: "BALANCED", aClass: "region" }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk", "jp"] }];
       const edges = buildEdges(platforms, subGroups as any, []);
       const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
@@ -311,7 +311,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
 
     it("T9-2: edge label shows region:<matched> for multi-region intersection", () => {
-      const platforms = [{ name: "OpenAI", region_filters: ["hk", "jp"], allocation_policy: "BALANCED" }];
+      const platforms = [{ name: "OpenAI", region_filters: ["hk", "jp"], allocation_policy: "BALANCED", aClass: "region" }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk", "jp", "us"] }];
       const edges = buildEdges(platforms, subGroups as any, []);
       const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
@@ -382,23 +382,87 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
   // --- T13 closed-loop tests ---
-  describe("T13-1: getSelectedRegions filters C column by platform region_filters", () => {
-    it("returns set of lowercase regions from platform region_filters", () => {
-      const platforms = [
-        { id: "p1", name: "A", region_filters: ["HK", "JP"], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" },
-      ];
-      const regions = getSelectedRegions(platforms as any);
-      expect(regions.size).toBe(2);
-      expect(regions.has("hk")).toBe(true);
-      expect(regions.has("jp")).toBe(true);
+  describe("T22-1: isNodeSelectedByAnyPlatform a_class-semantic filtering", () => {
+    it("subscription: node in selected subscription -> true", () => {
+      const node = { node_hash: "h1", region: "hk", tags: [{ subscriptionName: "sub1" }] } as any;
+      const platforms = [{ name: "P1", aClass: "subscription", subscriptionNames: ["sub1"] }] as any;
+      expect(isNodeSelectedByAnyPlatform(node, platforms, "sub1")).toBe(true);
     });
+    it("subscription: empty subscriptions = select ALL nodes", () => {
+      const node = { node_hash: "h2", region: "us", tags: [{ subscriptionName: "sub2" }] } as any;
+      const platforms = [{ name: "P2", aClass: "subscription", subscriptionNames: [] }] as any;
+      expect(isNodeSelectedByAnyPlatform(node, platforms, "sub2")).toBe(true);
+    });
+    it("region: node in selected region -> true", () => {
+      const node = { node_hash: "h3", region: "hk" } as any;
+      const platforms = [{ name: "P3", aClass: "region", region_filters: ["HK"] }] as any;
+      expect(isNodeSelectedByAnyPlatform(node, platforms, "hk")).toBe(true);
+    });
+    it("quality: healthy node -> true", () => {
+      const node = { node_hash: "h4", region: "jp", failure_count: 0, has_outbound: true } as any;
+      const platforms = [{ name: "P4", aClass: "quality" }] as any;
+      expect(isNodeSelectedByAnyPlatform(node, platforms, "any")).toBe(true);
+    });
+    it("quality: unhealthy node -> false", () => {
+      const node = { node_hash: "h5", region: "jp", failure_count: 3, has_outbound: false } as any;
+      const platforms = [{ name: "P5", aClass: "quality" }] as any;
+      expect(isNodeSelectedByAnyPlatform(node, platforms, "any")).toBe(false);
+    });
+    it("manual: node_hash in manualNodes -> true", () => {
+      const node = { node_hash: "h6", region: "sg" } as any;
+      const platforms = [{ name: "P6", aClass: "manual", manualNodes: ["h6"] }] as any;
+      expect(isNodeSelectedByAnyPlatform(node, platforms, "any")).toBe(true);
+    });
+    it("manual: node_hash NOT in manualNodes -> false", () => {
+      const node = { node_hash: "h7", region: "sg" } as any;
+      const platforms = [{ name: "P7", aClass: "manual", manualNodes: ["h6"] }] as any;
+      expect(isNodeSelectedByAnyPlatform(node, platforms, "any")).toBe(false);
+    });
+    it("missing aClass defaults to manual", () => {
+      const node = { node_hash: "h8", region: "us" } as any;
+      const platforms = [{ name: "P8", manualNodes: ["h8"] }] as any;
+      expect(isNodeSelectedByAnyPlatform(node, platforms, "any")).toBe(true);
+    });
+  });
 
-    it("empty when no filters (all manual)", () => {
-      const platforms = [
-        { id: "p1", name: "A", region_filters: [], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" },
-      ];
-      const regions = getSelectedRegions(platforms as any);
-      expect(regions.size).toBe(0);
+  describe("T22-3: buildEdges a_class-semantic B->C edge", () => {
+    it("subscription+empty = edges to ALL groups", () => {
+      const platforms = [{ name: "OpenAI", region_filters: [], aClass: "subscription", subscriptionNames: [] }];
+      const subGroups = [{ subscriptionName: "sub1", regions: ["hk"] }, { subscriptionName: "sub2", regions: ["us"] }];
+      const edges = buildEdges(platforms as any, subGroups as any, []);
+      const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
+      expect(bcEdges).toHaveLength(2);
+    });
+    it("subscription+specific = matching only", () => {
+      const platforms = [{ name: "OpenAI", region_filters: [], aClass: "subscription", subscriptionNames: ["sub1"] }];
+      const subGroups = [{ subscriptionName: "sub1", regions: ["hk"] }, { subscriptionName: "sub2", regions: ["us"] }];
+      const edges = buildEdges(platforms as any, subGroups as any, []);
+      const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
+      expect(bcEdges).toHaveLength(1);
+      expect(bcEdges[0].target).toBe("subgroup-sub1");
+    });
+    it("region = matching region groups only", () => {
+      const platforms = [{ name: "OpenAI", region_filters: ["hk"], aClass: "region" }];
+      const subGroups = [{ subscriptionName: "sub1", regions: ["hk", "us"] }];
+      const edges = buildEdges(platforms as any, subGroups as any, []);
+      const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
+      expect(bcEdges).toHaveLength(1);
+      expect(bcEdges[0].label).toBe("region:hk");
+    });
+    it("manual = NO group-level edges", () => {
+      const platforms = [{ name: "OpenAI", region_filters: [], aClass: "manual", manualNodes: ["h1"] }];
+      const subGroups = [{ subscriptionName: "sub1", regions: ["hk"] }];
+      const edges = buildEdges(platforms as any, subGroups as any, []);
+      const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
+      expect(bcEdges).toHaveLength(0);
+    });
+    it("quality = edges to ALL groups", () => {
+      const platforms = [{ name: "OpenAI", region_filters: [], aClass: "quality" }];
+      const subGroups = [{ subscriptionName: "sub1", regions: ["hk"] }, { subscriptionName: "sub2", regions: ["us"] }];
+      const edges = buildEdges(platforms as any, subGroups as any, []);
+      const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
+      expect(bcEdges).toHaveLength(2);
+      expect(bcEdges[0].label).toBe("quality:all");
     });
   });
 
@@ -536,7 +600,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       }));
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({
-          items: [{ id: "p1", name: "Plat", regex_filters: [], region_filters: ["jp"], allocation_policy: "BALANCED", routable_node_count: 15, sticky_ttl: "" }],
+          items: [{ id: "p1", name: "Plat", regex_filters: [], region_filters: ["jp"], allocation_policy: "BALANCED", routable_node_count: 15, sticky_ttl: "", aClass: "region" }],
           total: 1, limit: 50, offset: 0,
         });
         if (cmd === "node_list") return Promise.resolve({ items: fakeNodes, total: 15, limit: 500, offset: 0 });
@@ -840,11 +904,11 @@ describe("T15-3: React.memo canvas node optimization", () => {
             regions: ["hk"],
           },
         ] as unknown as Parameters<typeof buildCColumnGroups>[1];
-        const selectedRegions = new Set<string>(["hk"]);
         const t = i18next.t.bind(i18next) as (key: string, opts?: Record<string, unknown>) => string;
 
         // S1 contract, viewMode = subscription (default): subscriptionGroup node IS pushed.
-        const subNodes = buildCColumnGroups("subscription", subGroups, selectedRegions, t);
+        const subPlatforms = [{ id: "p1", name: "PlatA", regex_filters: null, region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 1, sticky_ttl: "", aClass: "subscription", subscriptionNames: ["my-sub"] }] as any;
+        const subNodes = buildCColumnGroups("subscription", subGroups, subPlatforms, t);
         const subGroupEntries = subNodes.filter((n) => (n.id ?? "").startsWith("subgroup-"));
         expect(subGroupEntries.length).toBe(1);
         expect(subGroupEntries[0].id).toBe("subgroup-my-sub");
@@ -856,7 +920,8 @@ describe("T15-3: React.memo canvas node optimization", () => {
         // pre-populated topologyState above): subscriptionGroup node is NOT pushed (the early
         // return at L723 of the helper fires), and the region group for "hk" IS pushed
         // because selectedRegions contains "hk" (T16-1 selectedRegions gate).
-        const regionNodes = buildCColumnGroups("region", subGroups, selectedRegions, t);
+        const regionPlatforms = [{ id: "p1", name: "PlatA", regex_filters: null, region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 1, sticky_ttl: "", aClass: "region" }] as any;
+        const regionNodes = buildCColumnGroups("region", subGroups, regionPlatforms, t);
         const subGroupEntriesInRegion = regionNodes.filter((n) => (n.id ?? "").startsWith("subgroup-"));
         expect(subGroupEntriesInRegion.length).toBe(0);
         const regionGroupEntries = regionNodes.filter((n) => (n.id ?? "").startsWith("regiongroup-"));
