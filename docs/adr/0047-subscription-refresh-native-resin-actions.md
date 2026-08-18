@@ -1,4 +1,4 @@
-# ADR-0045: Subscription refresh sink to Resin native /actions/refresh (source_type=remote)
+# ADR-0047: Subscription refresh sink to Resin native /actions/refresh (source_type=remote)
 
 Date: 2026-08-18
 Status: ACCEPTED
@@ -124,5 +124,5 @@ Error mapping: `subscription_refresh` and `subscription_add` errors go through t
 - **Mental model alignment**: refresh = "re-pull remote url + re-parse" now holds end-to-end. Resin's `yaml.v3` parser becomes the single source of YAML truth. If a provider returns flow-style YAML that `yaml.v3` genuinely cannot parse, the shell surfaces the real Resin 400/500 error to the user — no more silent shell-side sanitization hiding upstream bugs.
 - **UA resilience**: Resin's `clash.meta` UA is an upstream constant; if a site ever rejects it, the fix is a one-line upstream change or a `RESIN_DOWNLOAD_USER_AGENT` env var injected from `sidecar.rs` (same pattern as `RESIN_NODE_DNS_UPSTREAMS`). The shell no longer carries a 4-UA rotation list.
 - **Existing local subscriptions in the user's state.db** will need a one-time reconciliation: their `source_type` is `local` and they have no `url`, so `/actions/refresh` on them is a no-op. T20 migration step: on first `subscription_refresh` failure (Resin returns 400 "remote subscription requires url") the shell surfaces the error and instructs the user to re-import. We do NOT silently re-POST as remote because that would re-fetch a url we don't have for legacy local subs.
-- `subscriptionRefresh` CONTEXT.md term description changes from "shell re-fetches, converts, PATCHes" to "shell POSTs `/actions/refresh`; Resin re-pulls remote url, re-parses, diffs, applies". The term stays in CONTEXT.md with an updated definition pointing at ADR-0045.
+- `subscriptionRefresh` CONTEXT.md term description changes from "shell re-fetches, converts, PATCHes" to "shell POSTs `/actions/refresh`; Resin re-pulls remote url, re-parses, diffs, applies". The term stays in CONTEXT.md with an updated definition pointing at ADR-0047.
 - ADR-0044 S2 is **superseded for the refresh path only**. ADR-0044 S1/S3/S4 (collapse, probe, whitebox knobs) are untouched and still authoritative.

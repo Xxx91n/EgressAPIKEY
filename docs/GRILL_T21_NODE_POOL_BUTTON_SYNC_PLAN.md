@@ -2,7 +2,7 @@
 
 > Canon: ADR-0046 (decisions) + CONTEXT.md deltas (1 new term `nodePoolToolbar` + `nodeProbe` note) + this file (5-phase execution).
 > Source grill rounds: R1 (Q1-Q4 all A) + R2 (Q5a=A / Q5b=A) + R3 (Q6a=A / Q6b=A / Q6c=A).
-> Authority: ADR-0044 S1/S3/S4 still hold; ADR-0045 sets the Resin-native /actions/refresh path this plan builds on (T20-v2 already implemented).
+> Authority: ADR-0044 S1/S3/S4 still hold; ADR-0047 sets the Resin-native /actions/refresh path this plan builds on (T20-v2 already implemented).
 > Branch: T21 (parallel to any audit-clean branch; tree currently clean at HEAD 1d23d74).
 
 ## Decisions locked
@@ -20,9 +20,9 @@
 
 ## Context (prior grill history this layer builds on)
 
-- **ADR-0044** S1 (default-collapse + hide-unhealthy + latency sort) - untouched. S2 (shell-side subscription refresh via local re-fetch) - superseded by ADR-0045. S3 (Resin-native per-node probe) - foundation. S4 (whitebox probe knobs) - foundation.
-- **ADR-0045** (T20-v2): subscription refresh sinks to Resin-native `POST /api/v1/subscriptions/{id}/actions/refresh` with `source_type=remote` on add. Resin `Scheduler.UpdateSubscription` for remote source_type is **sync** and blocks on `Fetcher(url)` returning; new nodes already in Resin memory when the POST responds. Q5a-A realises this synchronously.
-- **ADR-0045 filename conflict**: `docs/adr/0045-ipc-error-contract-hardening.md` and `0045-subscription-refresh-native-resin-actions.md` both exist. This conflict itself is project historical debt; T21 does not fix it (scope drift) but records it for a separate ADR hygiene commit later.
+- **ADR-0044** S1 (default-collapse + hide-unhealthy + latency sort) - untouched. S2 (shell-side subscription refresh via local re-fetch) - superseded by ADR-0047. S3 (Resin-native per-node probe) - foundation. S4 (whitebox probe knobs) - foundation.
+- **ADR-0047** (T20-v2): subscription refresh sinks to Resin-native `POST /api/v1/subscriptions/{id}/actions/refresh` with `source_type=remote` on add. Resin `Scheduler.UpdateSubscription` for remote source_type is **sync** and blocks on `Fetcher(url)` returning; new nodes already in Resin memory when the POST responds. Q5a-A realises this synchronously.
+- **ADR numbering resolved**: ADR-0045 (IPC error contract) and ADR-0047 (subscription refresh) are now separate numbers (was previously a double-0045 conflict, resolved in T21-audit commit).
 
 ## Phase execution plan
 
@@ -155,7 +155,7 @@
 
 ## Open debt explicitly NOT addressed here
 
-- The double `ADR-0045` filenames (0045-ipc-error-contract-hardening.md and 0045-subscription-refresh-native-resin-actions.md) - scope creep; defer to a future ADR-hygiene commit.
+- ADR-0045 (IPC error contract) and ADR-0047 (subscription refresh) are now distinct — resolved in the T21-audit commit.
 - VirtualNodeList virtualization for >50 nodes - already works; column reflow like clash-rev is bigger work and not in this scope.
 - `settings.json#nodeProbe` knobs surface in Settings panel (ADR-0044 S4 surface) - still planned but unchanged by T21.
 

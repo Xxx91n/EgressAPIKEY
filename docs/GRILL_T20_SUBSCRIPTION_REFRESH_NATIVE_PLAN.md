@@ -1,7 +1,7 @@
 # GRILL T20 — Subscription Refresh Sink to Resin Native /actions/refresh
 
 Branch: T20 (parallel to T17/T19 audit)
-Canon ADR: docs/adr/0045-subscription-refresh-native-resin-actions.md (ACCEPTED)
+Canon ADR: docs/adr/0047-subscription-refresh-native-resin-actions.md (ACCEPTED)
 Supersedes: ADR-0044 S2 (refresh path only; S1/S3/S4 untouched)
 Date: 2026-08-18
 
@@ -18,7 +18,7 @@ Date: 2026-08-18
 - cmd/resin/main.go const downloadUserAgent = "clash.meta". Resin already ships a clash-family UA. ADR-0044 S2 premise 1 ("Resin uses default UA") is FALSE.
 - internal/netutil/downloader.go NewDirectDownloader(timeoutFn, userAgentFn) injects UA via callback. Premise 2 (flow-style choke) is UNVERIFIED in v1.2.0 — the shell-side convert was a defensive workaround that may be unnecessary, but it is deleted regardless because the shell no longer fetches.
 
-### Rejected alternatives (full list in ADR-0045)
+### Rejected alternatives (full list in ADR-0047)
 
 1. Keep shell fetch + just add /actions/refresh for local — dead end: /actions/refresh on local = no-op.
 2. Shell fetch + POST remote — half-measure: duplicates Resin's own clash.meta fetcher for zero gain.
@@ -39,7 +39,7 @@ Add:
   -> on non-2xx error with upstream status + 256B excerpt (same shape as other methods)
   -> loopback guard inherited from &self (already constructed from SidecarHandle)
 
-Delete (P13 B4 debt, superseded by ADR-0045):
+Delete (P13 B4 debt, superseded by ADR-0047):
 - pub async fn refresh_subscription_content (L283)
 - pub async fn fetch_clash_subscription (L415)
 - pub fn clash_yaml_to_proxies_block (L480)

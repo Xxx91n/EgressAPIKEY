@@ -2,7 +2,7 @@
 
 Date: 2026-08-19
 Status: ACCEPTED
-Supersedes: none (ADR-0044 S2 was already superseded by ADR-0045; this ADR layers UI/UX decisions on top of ADR-0044 S1/S3/S4 and ADR-0045)
+Supersedes: none (ADR-0044 S2 was already superseded by ADR-0047; this ADR layers UI/UX decisions on top of ADR-0044 S1/S3/S4 and ADR-0047)
 
 ## Context
 
@@ -46,14 +46,14 @@ Delete the three standalone info cards (`egressPolicyNote`, `protocolWeights`, `
 
 ## Open debt explicitly NOT addressed
 
-- The double `ADR-0045` filenames (`0045-ipc-error-contract-hardening.md` and `0045-subscription-refresh-native-resin-actions.md`) - scope creep; defer to a future ADR-hygiene commit.
+- The double `ADR-0047` filenames (`0045-ipc-error-contract-hardening.md` and `0047-subscription-refresh-native-resin-actions.md`) - scope creep; defer to a future ADR-hygiene commit.
 - `VirtualNodeList` virtualization for >50 nodes already works; clash-rev-style column reflow is bigger work and out of scope.
 - `settings.json#nodeProbe` knobs surface in Settings panel (ADR-0044 S4 surface) still planned but unchanged by T21.
 
 ## References
 
-- ADR-0044 (node-pool collapse + Resin-native probe + whitebox knobs) - S1/S3/S4 still hold, S2 superseded by ADR-0045.
-- ADR-0045 (subscription refresh sink to Resin native `/actions/refresh` with `source_type=remote`) - T21 builds on top of this foundation.
+- ADR-0044 (node-pool collapse + Resin-native probe + whitebox knobs) - S1/S3/S4 still hold, S2 superseded by ADR-0047.
+- ADR-0047 (subscription refresh sink to Resin native `/actions/refresh` with `source_type=remote`) - T21 builds on top of this foundation.
 - `docs/GRILL_T21_NODE_POOL_BUTTON_SYNC_PLAN.md` - the 5-phase execution plan implementing these decisions.
 - clash-verge-rev `src/components/proxy/use-filter-sort.ts` + `proxy-item.tsx` + `use-render-list.ts` - research source for the per-proxy DelayManager listener pattern.
 - Resin v1.2.0 `internal/topology/subscription_scheduler.go UpdateSubscription` - source-level evidence that `/actions/refresh` is sync-block-on-Fetcher for remote source_type.
