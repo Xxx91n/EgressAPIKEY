@@ -113,4 +113,4 @@ egress.example.com {
   (`~/.local/state/egressapikey/logs/` on Linux without systemd).
 - `tauri-plugin-tracing` rotates daily, 10 MB max per file, keeps 7
   files. The panic hook captures panics into the same pipeline.
-- See `docs/HEADLESS_RUNBOOK.md` for log-grep recipes.
+- See `docs/how-to/HEADLESS_RUNBOOK.md` for log-grep recipes.

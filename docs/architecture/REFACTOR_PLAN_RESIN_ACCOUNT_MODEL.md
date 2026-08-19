@@ -49,7 +49,7 @@
 - "IP 通道" = Resin Node 分组视图（按 region 分组），数据源 `GET /api/v1/nodes` 已实现 `ipcNodeList`。
 - "策略" = platform.allocation_policy 唯一存在的真实后端机制：BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP。
 - GUI 出口策略选择器（随机/顺序/延时/带宽/质量）：映射到上面三个 Resin policy（其它的内容如"顺序"映射到 BALANCED，"延时"映射到 PREFER_LOW_LATENCY，"质量"映射到 PREFER_IDLE_IP），映射关系持久化到 `settings.json#ipChannelPolicyMap` 并 PATCH 到 platform。
-- 节点协议权重（SSE/WebSocket 影响）：从 `docs/PROTOCOL_WEIGHT_RESEARCH.md` 读 docs 数据，GUI 展示权重标注，不进 runtime injection（Resin 没有此 API）。
+- 节点协议权重（SSE/WebSocket 影响）：从 `docs/research/PROTOCOL_WEIGHT_RESEARCH.md` 读 docs 数据，GUI 展示权重标注，不进 runtime injection（Resin 没有此 API）。
 - 白盒配置文件：`config_export/import` 已实现（R4），GUI 上把该能力绑到 Settings 页"导出/导入"。
 
 ## 闭环 test 纲要

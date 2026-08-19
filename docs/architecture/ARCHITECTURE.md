@@ -1,10 +1,10 @@
 # Architecture - EgressAPIKEY
 
-> Companion to README.md and docs/MEMORY_REUSE_DECISION.md. Concrete module layout, data flow, and tech stack.
+> Companion to README.md and docs/architecture/MEMORY_REUSE_DECISION.md. Concrete module layout, data flow, and tech stack.
 
 ## Architecture: Path A (fork Resin as Tauri sidecar)
 
-Decision: see docs/MEMORY_REUSE_DECISION.md. Path A embeds the Go Resin binary as a Tauri sidecar; the Rust shell does lifecycle + Ghost safety net + IPC forwarding.
+Decision: see docs/architecture/MEMORY_REUSE_DECISION.md. Path A embeds the Go Resin binary as a Tauri sidecar; the Rust shell does lifecycle + Ghost safety net + IPC forwarding.
 
 ## Layers
 
