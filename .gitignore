@@ -91,3 +91,7 @@ context-mode/
 
 # Resin upstream source (local clone for reference)
 resin/
+
+
+# grill ticket workspace (session artifacts, never committed)
+.scratch/
