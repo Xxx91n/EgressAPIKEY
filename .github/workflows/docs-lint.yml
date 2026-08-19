@@ -1,0 +1,81 @@
+name: Docs Governance
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'AGENTS.md'
+      - 'docs/**'
+      - 'CHANGELOG.md'
+      - '.github/workflows/docs-lint.yml'
+  push:
+    branches: [main, master]
+    paths:
+      - 'AGENTS.md'
+      - 'docs/**'
+      - 'CHANGELOG.md'
+      - '.github/workflows/docs-lint.yml'
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Markdown lint (markdownlint-cli2)
+        uses: DavidAnson/markdownlint-cli2-action@v17
+        with:
+          globs: |
+            AGENTS.md
+            README.md
+            README_CN.md
+            CHANGELOG.md
+            docs/**/*.md
+          configPath: .markdownlint-cli2.jsonc
+
+      - name: Dead-link check (docs/ references in AGENTS.md and README)
+        run: |
+          set -e
+          errors=0
+          # Extract docs/ path references from AGENTS.md, README.md, README_CN.md
+          for ref in $(grep -ohE 'docs/[a-zA-Z0-9_/]+\.md' AGENTS.md README.md README_CN.md 2>/dev/null | sort -u); do
+            if [ ! -f "$ref" ]; then
+              echo "::error::Dead link: $ref (referenced in AGENTS.md or README)"
+              errors=$((errors + 1))
+            else
+              echo "OK: $ref"
+            fi
+          done
+          if [ "$errors" -gt 0 ]; then
+            echo "::error::$errors dead link(s) found in docs references"
+            exit 1
+          fi
+
+      - name: Layer separation guard (phase/handoff files not at docs/ top level)
+        run: |
+          set -e
+          violations=0
+          # Files matching phase/handoff patterns must not be at docs/ top level
+          for f in docs/HANDOFF_*.md docs/GRILL_*.md docs/T[0-9]_*.md docs/PROJECT_PLAN.md docs/USER_PROMPT_ARCHIVE.md; do
+            if [ -f "$f" ]; then
+              echo "::error::Layer violation: $f should be in docs/history/"
+              violations=$((violations + 1))
+            fi
+          done
+          if [ "$violations" -gt 0 ]; then
+            echo "::error::$violations layer separation violation(s) found"
+            exit 1
+          fi
+          echo "Layer separation OK: no phase/handoff files at docs/ top level"
+
+      - name: AGENTS.md size guard
+        run: |
+          lines=$(wc -l < AGENTS.md)
+          bytes=$(wc -c < AGENTS.md)
+          echo "AGENTS.md: $lines lines, $bytes bytes"
+          if [ "$bytes" -gt 32768 ]; then
+            echo "::warning::AGENTS.md exceeds Codex default 32 KiB limit ($bytes bytes). Configure project_doc_max_bytes or slim to docs/"
+          fi
+          if [ "$lines" -gt 500 ]; then
+            echo "::warning::AGENTS.md is $lines lines (>500) — consider migrating detail to docs/architecture/"
+          fi

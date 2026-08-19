@@ -1,0 +1,23 @@
+{
+  // markdownlint-cli2 configuration for EgressAPIKEY
+  // https://github.com/DavidAnson/markdownlint-cli2
+  "config": {
+    "default": true,
+    // Line length: tables and URLs are long by nature
+    "MD013": false,
+    // First line in file should be a top level heading: docs/README.md uses this
+    "MD041": false,
+    // Multiple top level headings: ADRs and phase docs have this
+    "MD025": false,
+    // Inline HTML: AGENTS.md and docs use raw HTML sparingly
+    "MD033": false
+  },
+  "ignores": [
+    "node_modules/**",
+    "target/**",
+    "dist/**",
+    ".codegraph/**",
+    "docs/history/**",
+    "docs/adr/**"
+  ]
+}
