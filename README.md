@@ -41,7 +41,7 @@ the Resin Go sidecar, serves the prebuilt React SPA, and proxies
 admin bearer injected server-side — the browser never sees the token.
 SSE / WebSocket streams pass through via `Body::from_stream`.
 
-- Docs: [`docs/HEADLESS_DEPLOYMENT.md`](docs/HEADLESS_DEPLOYMENT.md) (systemd unit, env table, TLS reverse proxy) and [`docs/HEADLESS_RUNBOOK.md`](docs/HEADLESS_RUNBOOK.md) (logs, health, shutdown, troubleshooting)
+- Docs: [`docs/how-to/HEADLESS_DEPLOYMENT.md`](docs/how-to/HEADLESS_DEPLOYMENT.md) (systemd unit, env table, TLS reverse proxy) and [`docs/how-to/HEADLESS_RUNBOOK.md`](docs/how-to/HEADLESS_RUNBOOK.md) (logs, health, shutdown, troubleshooting)
 - ADR: [`docs/adr/0043-headless-server-build-separation.md`](docs/adr/0043-headless-server-build-separation.md) (source relocation + `required-features = ["headless"]` gating + CI job split)
 - Release artifact: `release/<os>-backend/` — self-contained directory with `egressapikey-headless` + `dist/` + `resin` siblings
 
@@ -64,10 +64,10 @@ The **Diagnostics** tab is a full diagnostics hub (sole entry point, no redundan
 
 | File | Purpose |
 |------|---------|
-| `docs/MEMORY_REUSE_DECISION.md` | Compressed research memory — read first |
-| `docs/ARCHITECTURE.md` | Layers, data flow, tech stack, fallback plan |
-| `docs/PROJECT_PLAN.md` | Phased delivery (P0–P9) and success criteria |
-| `docs/RELEASE.md` | Release pipeline: CI matrix, artifact groups, iOS-class note |
+| `docs/architecture/MEMORY_REUSE_DECISION.md` | Compressed research memory — read first |
+| `docs/architecture/ARCHITECTURE.md` | Layers, data flow, tech stack, fallback plan |
+| `docs/history/phases/PROJECT_PLAN.md` | Phased delivery (P0–P9) and success criteria |
+| `docs/how-to/RELEASE.md` | Release pipeline: CI matrix, artifact groups, iOS-class note |
 
 ## Tech stack
 
@@ -95,4 +95,4 @@ bash scripts/build-all.sh      # local reproduction of the CI matrix (backend ta
 
 ## Release artifacts
 
-CI builds five artifact groups into `release/` (published to the GitHub Release): Windows GUI, Linux/debian GUI, macOS GUI (universal/arm64), plus per-OS headless backend tarballs. iPadOS cannot run a Tauri desktop shell; the Apple-silicon desktop sibling is the macOS `.dmg`. See `docs/RELEASE.md`.
+CI builds five artifact groups into `release/` (published to the GitHub Release): Windows GUI, Linux/debian GUI, macOS GUI (universal/arm64), plus per-OS headless backend tarballs. iPadOS cannot run a Tauri desktop shell; the Apple-silicon desktop sibling is the macOS `.dmg`. See `docs/how-to/RELEASE.md`.

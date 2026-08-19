@@ -44,7 +44,7 @@ EgressAPIKEY is a Tauri 2 + React 19 desktop app: an L7 proxy gateway specialize
 - Backend core: `crates/resin-core/` (Rust: tokio, axum, reqwest, rusqlite)
 - Desktop shell: `src-tauri/` (Tauri 2, sidecar lifecycle, system tray, Ghost safety net)
 - Frontend: `src/` (React 19, TS, Vite, Tailwind, ReactFlow 12, Zustand 5, react-i18next)
-- Docs: `docs/ARCHITECTURE.md`, `docs/PROJECT_PLAN.md`, `docs/MEMORY_REUSE_DECISION.md`
+- Docs: `docs/architecture/ARCHITECTURE.md`, `docs/history/phases/PROJECT_PLAN.md`, `docs/architecture/MEMORY_REUSE_DECISION.md`
 - Release artifacts: `release/` (gitignored except tags)
 
 ---

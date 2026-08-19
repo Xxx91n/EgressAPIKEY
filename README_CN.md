@@ -41,7 +41,7 @@ egressapikey-server
 
 launcher 会拉起 Rust `egressapikey-headless` 二进制，它启动 Resin Go 侧车、托管预构建的 React SPA，并将 `/api/v1/*` 与 `/metrics/*` 反代到本地 Resin 控制面 —— admin bearer 由服务端注入，浏览器永远看不到该令牌。SSE / WebSocket 流通过 `Body::from_stream` 透传。
 
-- 文档：[`docs/HEADLESS_DEPLOYMENT.md`](docs/HEADLESS_DEPLOYMENT.md)（systemd unit、环境变量表、TLS 反代）与 [`docs/HEADLESS_RUNBOOK.md`](docs/HEADLESS_RUNBOOK.md)（日志、健康检查、优雅退出、故障排查）
+- 文档：[`docs/how-to/HEADLESS_DEPLOYMENT.md`](docs/how-to/HEADLESS_DEPLOYMENT.md)（systemd unit、环境变量表、TLS 反代）与 [`docs/how-to/HEADLESS_RUNBOOK.md`](docs/how-to/HEADLESS_RUNBOOK.md)（日志、健康检查、优雅退出、故障排查）
 - 决策记录：[`docs/adr/0043-headless-server-build-separation.md`](docs/adr/0043-headless-server-build-separation.md)（源码搬迁 + `required-features = ["headless"]` 门禁 + CI 任务拆分）
 - 发布产物：`release/<os>-backend/` —— 自包含目录，`egressapikey-headless` + `dist/` + `resin` 同级
 
@@ -74,7 +74,7 @@ launcher 会拉起 Rust `egressapikey-headless` 二进制，它启动 Resin Go �
 代理心    mihomo 侧车子进程（REST API 控制）
 ```
 
-更多细节见 [架构文档](docs/ARCHITECTURE.md)。
+更多细节见 [架构文档](docs/architecture/ARCHITECTURE.md)。
 
 ## 技术栈
 
@@ -89,9 +89,9 @@ launcher 会拉起 Rust `egressapikey-headless` 二进制，它启动 Resin Go �
 
 | 文件 | 用途 |
 |------|------|
-| `docs/MEMORY_REUSE_DECISION.md` | 压缩研究记忆——首先阅读 |
-| `docs/ARCHITECTURE.md` | 分层架构、数据流、技术栈、回退方案 |
-| `docs/PROJECT_PLAN.md` | 分阶段交付（P0–P9）及成功标准 |
+| `docs/architecture/MEMORY_REUSE_DECISION.md` | 压缩研究记忆——首先阅读 |
+| `docs/architecture/ARCHITECTURE.md` | 分层架构、数据流、技术栈、回退方案 |
+| `docs/history/phases/PROJECT_PLAN.md` | 分阶段交付（P0–P9）及成功标准 |
 
 ## 开发
 
