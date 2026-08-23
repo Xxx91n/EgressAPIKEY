@@ -20,7 +20,7 @@ vi.mock("@tauri-apps/api/core", () => {
 });
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 
-import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, layoutNodesViaDagre, fixedHandleStyle, useTopologyStore, dedupNodesByHash, buildCColumnGroups, isNodeSelectedByAnyPlatform } from "./TopologyView";
+import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, layoutNodesViaDagre, fixedHandleStyle, useTopologyStore, dedupNodesByHash, buildCColumnGroups, isNodeSelectedByAnyPlatform, manualNodesAfterGroupEdgeDelete, buildRegionViewEdges } from "./TopologyView";
 
 describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dual badges)", () => {
   beforeEach(() => { invokeMock.mockReset(); });
@@ -449,9 +449,26 @@ describe("T15-3: React.memo canvas node optimization", () => {
       expect(bcEdges).toHaveLength(1);
       expect(bcEdges[0].label).toBe("region:hk");
     });
-    it("manual = NO group-level edges", () => {
+    it("manual = visible edge to group containing manual_nodes, label manual:N, deletable (ADR-0050)", () => {
       const platforms = [{ name: "OpenAI", region_filters: [], aClass: "manual", manualNodes: ["h1"] }];
-      const subGroups = [{ subscriptionName: "sub1", regions: ["hk"] }];
+      const subGroups = [{ subscriptionName: "sub1", regions: ["hk"], nodeHashes: ["h1", "h2"] }];
+      const edges = buildEdges(platforms as any, subGroups as any, []);
+      const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
+      expect(bcEdges).toHaveLength(1);
+      expect(bcEdges[0].target).toBe("subgroup-sub1");
+      expect(bcEdges[0].label).toBe("manual:1");
+      expect(bcEdges[0].deletable).toBe(true);
+    });
+    it("manual with empty manual_nodes = no edge (no selection)", () => {
+      const platforms = [{ name: "OpenAI", region_filters: [], aClass: "manual", manualNodes: [] }];
+      const subGroups = [{ subscriptionName: "sub1", regions: ["hk"], nodeHashes: ["h1"] }];
+      const edges = buildEdges(platforms as any, subGroups as any, []);
+      const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
+      expect(bcEdges).toHaveLength(0);
+    });
+    it("manual = no edge when manual_nodes not in group nodeHashes", () => {
+      const platforms = [{ name: "OpenAI", region_filters: [], aClass: "manual", manualNodes: ["h9"] }];
+      const subGroups = [{ subscriptionName: "sub1", regions: ["hk"], nodeHashes: ["h1", "h2"] }];
       const edges = buildEdges(platforms as any, subGroups as any, []);
       const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
       expect(bcEdges).toHaveLength(0);
@@ -463,6 +480,113 @@ describe("T15-3: React.memo canvas node optimization", () => {
       const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
       expect(bcEdges).toHaveLength(2);
       expect(bcEdges[0].label).toBe("quality:all");
+    });
+  });
+
+  describe("ADR-0050: manualNodesAfterGroupEdgeDelete (manual edge -> node-level mapping)", () => {
+    it("subgroup manual edge: removes that subscription node_hashes from manual_nodes", () => {
+      const platforms = [{ name: "OpenAI", manualNodes: ["h1", "h2", "h3"] }] as any;
+      const subGroups = [{ subscriptionName: "sub1", nodes: [{ node_hash: "h1" }, { node_hash: "h2" }] }] as any;
+      const next = manualNodesAfterGroupEdgeDelete({ source: "platform-OpenAI", target: "subgroup-sub1", label: "manual:3" }, platforms, subGroups);
+      expect(next).toEqual(["h3"]);
+    });
+    it("regiongroup manual edge: removes that region node_hashes from manual_nodes", () => {
+      const platforms = [{ name: "OpenAI", manualNodes: ["h1", "h2"] }] as any;
+      const subGroups = [{ subscriptionName: "sub1", nodes: [{ node_hash: "h1", region: "hk" }, { node_hash: "h2", region: "us" }] }] as any;
+      const next = manualNodesAfterGroupEdgeDelete({ source: "platform-OpenAI", target: "regiongroup-hk", label: "manual:2" }, platforms, subGroups);
+      expect(next).toEqual(["h2"]);
+    });
+    it("non-manual edge returns null (caller falls back to region_filters)", () => {
+      const next = manualNodesAfterGroupEdgeDelete({ source: "platform-OpenAI", target: "subgroup-sub1", label: "region:hk" }, [{ name: "OpenAI" }] as any, [] as any);
+      expect(next).toBeNull();
+    });
+  });
+
+  // === ADR-0051 regression tests (real-runtime defects found via live sidecar diagnosis) ===
+  describe("ADR-0051 Defect A: snake_case subscription_name tags group correctly", () => {
+    it("renders the real subscription name group when Resin returns subscription_name (snake)", async () => {
+      // Live /api/v1/nodes shape (verified against the real sidecar):
+      // tags: [{ subscription_id: "...", subscription_name: "1", tag: "1/node-01" }]
+      invokeMock.mockImplementation((cmd: string) => {
+        if (cmd === "platform_list_full") return Promise.resolve({
+          items: [{ id: "p1", name: "Default", regex_filters: [], region_filters: [], allocation_policy: "BALANCED", routable_node_count: 2, sticky_ttl: "" }],
+          total: 1, limit: 50, offset: 0,
+        });
+        if (cmd === "node_list") return Promise.resolve({
+          items: [
+            { name: "n1", display_tag: "1/JP-01", node_hash: "h1", has_outbound: true, failure_count: 0, region: "jp", tags: [{ subscription_id: "38c31eff", subscription_name: "my-sub", tag: "my-sub/JP-01" }] },
+            { name: "n2", display_tag: "1/JP-02", node_hash: "h2", has_outbound: true, failure_count: 0, region: "jp", tags: [{ subscription_id: "38c31eff", subscription_name: "my-sub", tag: "my-sub/JP-02" }] },
+          ],
+          total: 2, limit: 500, offset: 0,
+        });
+        if (cmd === "lease_map") return Promise.resolve([]);
+        if (cmd === "port_list") return Promise.resolve([]);
+        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "subscription", b_class: "random", subscriptions: ["my-sub"] }] });
+        return Promise.resolve(undefined);
+      });
+      const { container } = render(<TopologyView />);
+      await waitFor(() => {
+        // The group must be named by subscription_name ("my-sub"), NOT by the per-node tag
+        // ("my-sub/JP-01"). Pre-fix the camel-only lookup missed subscription_name, the group
+        // fell back to the tag string, strategyConfig subscriptions never matched, and the
+        // group was hidden (subscription viewMode filters by isNodeSelectedByAnyPlatform).
+        expect(container.textContent || "").toContain("my-sub");
+        expect(container.textContent || "").not.toContain("my-sub/JP-01");
+      });
+    });
+  });
+
+  describe("ADR-0051 Defect C: buildRegionViewEdges subscription-with-specific-subs branch", () => {
+    const subGroups = [
+      { subscriptionName: "1", regions: ["jp", "sg"], nodes: [] },
+      { subscriptionName: "GitHub", regions: ["us"], nodes: [] },
+    ] as any;
+    it("subscription+specific subs -> edges to those subscriptions regions only", () => {
+      const platforms = [{ name: "Default", aClass: "subscription", subscriptionNames: ["1"], region_filters: [] }] as any;
+      const edges = buildRegionViewEdges(platforms, subGroups, []);
+      const bc = edges.filter((e) => e.target.startsWith("regiongroup-"));
+      const targets = bc.map((e) => e.target).sort();
+      expect(targets).toEqual(["regiongroup-jp", "regiongroup-sg"]);
+      expect(bc[0].label).toBe("subscription:1");
+    });
+    it("subscription+empty subs -> edges to ALL regions (pre-existing behavior kept)", () => {
+      const platforms = [{ name: "Default", aClass: "subscription", subscriptionNames: [], region_filters: [] }] as any;
+      const edges = buildRegionViewEdges(platforms, subGroups, []);
+      const targets = edges.filter((e) => e.target.startsWith("regiongroup-")).map((e) => e.target).sort();
+      expect(targets).toEqual(["regiongroup-jp", "regiongroup-sg", "regiongroup-us"]);
+    });
+  });
+
+  describe("ADR-0051 Defect B: layoutNodesViaDagre column anchors keep three columns", () => {
+    it("NO edges at all: entry < platform < C in x (columns never collapse)", () => {
+      const nodes: any[] = [
+        { id: "entry-port-1", type: "entryPort", position: { x: 0, y: 0 }, data: {} },
+        { id: "platform-P1", type: "platform", position: { x: 0, y: 0 }, data: {} },
+        { id: "subgroup-s1", type: "subscriptionGroup", position: { x: 0, y: 0 }, data: {} },
+      ];
+      const out = layoutNodesViaDagre(nodes, []);
+      const x = (id: string) => out.find((n: any) => n.id === id)!.position.x;
+      // Pre-fix (no anchors, no edges): every node rank 0, stacked vertically — C below platform.
+      expect(x("subgroup-s1")).toBeGreaterThan(x("platform-P1"));
+      expect(x("platform-P1")).toBeGreaterThan(x("entry-port-1"));
+    });
+    it("port-less platform stays in the platform column (not rank 0 with entry ports)", () => {
+      const nodes: any[] = [
+        { id: "entry-port-1", type: "entryPort", position: { x: 0, y: 0 }, data: {} },
+        { id: "platform-WithPorts", type: "platform", position: { x: 0, y: 0 }, data: {} },
+        { id: "platform-NoPorts", type: "platform", position: { x: 0, y: 0 }, data: {} },
+        { id: "subgroup-s1", type: "subscriptionGroup", position: { x: 0, y: 0 }, data: {} },
+      ];
+      const edges: any[] = [
+        { id: "e1", source: "entry-port-1", target: "platform-WithPorts" },
+        { id: "e2", source: "platform-NoPorts", target: "subgroup-s1" },
+      ];
+      const out = layoutNodesViaDagre(nodes, edges);
+      const x = (id: string) => out.find((n: any) => n.id === id)!.position.x;
+      // Pre-fix: platform-NoPorts had no A->B edge -> rank 0 (entry column); its B->C edge
+      // then dragged subgroup-s1 into rank 1 = the WITH-ports platform column (below it).
+      expect(x("platform-NoPorts")).toBe(x("platform-WithPorts"));
+      expect(x("subgroup-s1")).toBeGreaterThan(x("platform-WithPorts"));
     });
   });
 

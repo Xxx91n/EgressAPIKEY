@@ -62,7 +62,7 @@ interface NodeItem {
   has_outbound?: boolean;
   failure_count?: number;
   region?: string;
-  tags?: Array<{ subscriptionName?: string; tag?: string }>;
+  tags?: Array<{ subscriptionName?: string; subscription_name?: string; tag?: string }>;
 }
 
 interface SubscriptionGroup {
@@ -155,8 +155,11 @@ function parseSubscriptionGroups(raw: unknown): SubscriptionGroup[] {
   for (const n of items) {
     let subName = "unknown";
     if (Array.isArray(n.tags)) {
-      const subTag = n.tags.find((t) => t.subscriptionName);
-      if (subTag) subName = subTag.subscriptionName!;
+      // ADR-0051 Defect A: Resin /api/v1/nodes returns snake_case subscription_name;
+      // camel-only lookup made every group fall back to the per-node tag string,
+      // so strategyConfig subscriptions never matched any group (no B->C edges).
+      const subTag = n.tags.find((t) => t.subscriptionName ?? t.subscription_name);
+      if (subTag) subName = (subTag.subscriptionName ?? subTag.subscription_name)!;
       else if (n.tags.length > 0 && n.tags[0].tag && n.tags[0].tag.length > 3) subName = n.tags[0].tag;
     }
     const arr = bySub.get(subName) ?? [];
@@ -355,8 +358,21 @@ export function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 20
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", ranksep: 80, nodesep: 40, marginx: 20, marginy: 20 });
   g.setDefaultEdgeLabel(() => ({}));
+  // ADR-0051 Defect B: invisible column anchors pin the ADR-0002 three-column contract
+  // (entryPort=col0, platform=col1, C-group=col2) even when real edges are missing —
+  // port-less platforms, unmatched subscriptions, or a strategyConfig load failure
+  // previously left nodes disconnected, and dagre stacked them at rank 0 below the
+  // platform column. Anchors exist only inside this dagre graph (minlen:0 = same rank);
+  // they are never returned as ReactFlow nodes. Pattern: idootop/reactflow-auto-layout
+  // #root anchor + Kiali synthetic edges (research-verified).
+  const colOf = (n: Node) => (n.type === "entryPort" ? 0 : n.type === "platform" ? 1 : 2);
+  const anchors = ["__col0", "__col1", "__col2"];
+  for (const a of anchors) g.setNode(a, { width: 1, height: 1 });
+  g.setEdge(anchors[0], anchors[1]);
+  g.setEdge(anchors[1], anchors[2]);
   for (const n of nodes) {
     g.setNode(n.id, { width: nodeWidth, height: nodeHeight });
+    g.setEdge(anchors[colOf(n)], n.id, { minlen: 0 });
   }
   for (const e of edges) {
     g.setEdge(e.source, e.target);
@@ -371,6 +387,77 @@ export function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 20
     }
     return n;
   });
+}
+
+/// ADR-0051 Defect C: region-viewMode edges as an exported pure helper (was inline in the
+/// edges useMemo). Adds the previously missing subscription-with-specific-subs branch:
+/// a platform with subscriptions=["subA"] now draws edges to the regions of subA's nodes
+/// (mirroring buildEdges' subscription semantics) instead of drawing nothing.
+export function buildRegionViewEdges(
+  platforms: PlatformFull[],
+  subGroups: SubscriptionGroup[],
+  ports: { port: number; platform_name: string }[],
+): Edge[] {
+  const list: Edge[] = [];
+  for (const p of platforms) {
+    for (const port of ports) {
+      if (port.platform_name === p.name) {
+        list.push({ id: "e-port-" + port.port + "-" + p.name, source: "entry-port-" + port.port, target: "platform-" + p.name, animated: true });
+      }
+    }
+    if (ports.length === 0) {
+      list.push({ id: "e-entry-" + p.name, source: "entry-port", target: "platform-" + p.name, animated: true });
+    }
+    // T22-3 (ADR-0048 S3): a_class-semantic region-viewMode edges
+    const rAclass = p.aClass ?? "manual";
+    if (rAclass === "quality") {
+      // T22-audit: edge to all actual regionGroup nodes (not a phantom "regiongroup-all")
+      const allRegions = new Set<string>();
+      for (const g of subGroups) for (const r of g.regions) allRegions.add(r.toLowerCase());
+      for (const r of allRegions) {
+        list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "quality:all", deletable: false });
+      }
+    } else if (rAclass === "subscription") {
+      const subs = p.subscriptionNames ?? [];
+      if (subs.length === 0) {
+        for (const g of subGroups) {
+          for (const r of g.regions) {
+            list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "subscription:all", deletable: false });
+          }
+        }
+      } else {
+        // ADR-0051 Defect C fix: specific subscriptions -> edges to those subscriptions' regions.
+        const hit = new Set<string>();
+        for (const sg of subGroups) {
+          if (!subs.includes(sg.subscriptionName)) continue;
+          for (const r of sg.regions) hit.add(r.toLowerCase());
+        }
+        for (const r of hit) {
+          list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "subscription:" + subs.join(","), deletable: false });
+        }
+      }
+    } else if (rAclass === "region") {
+      for (const r of p.region_filters ?? []) {
+        list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "region:" + r, deletable: false });
+      }
+    } else if (rAclass === "manual") {
+      // ADR-0050: manual draws visible edge to regions containing selected node_hashes.
+      const manualNodes = p.manualNodes ?? [];
+      if (manualNodes.length > 0) {
+        const hitRegions = new Set<string>();
+        for (const g of subGroups) {
+          for (const n of g.nodes) {
+            const h = typeof n.node_hash === "string" ? n.node_hash : "";
+            if (h && manualNodes.includes(h)) hitRegions.add(getNodeRegion(n));
+          }
+        }
+        for (const r of hitRegions) {
+          list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "manual:" + manualNodes.length, deletable: true });
+        }
+      }
+    }
+  }
+  return list;
 }
 
 // --- T13-3: fixed-edge Handle style (replaces full-area overlay) ---
@@ -626,6 +713,39 @@ export function removeRegionFilter(current: string[] | null, region: string): st
   return (current ?? []).filter((r) => r !== region);
 }
 
+/// ADR-0050: compute a platform's next manual_nodes after deleting a manual group edge.
+/// Pure forward-projection (research-verified pattern): deleting one group-level edge
+/// removes the node_hashes belonging to that group from the platform manual_nodes.
+/// Returns null when the edge is not a manual group edge (caller falls back to region_filters).
+export function manualNodesAfterGroupEdgeDelete(
+  edge: { source: string; target: string; label?: unknown },
+  platforms: PlatformFull[],
+  subGroups: SubscriptionGroup[],
+): string[] | null {
+  if (typeof edge.label !== "string" || !edge.label.startsWith("manual")) return null;
+  if (!edge.source.startsWith("platform-")) return null;
+  const platName = edge.source.slice("platform-".length);
+  const plat = platforms.find((p) => p.name === platName);
+  if (!plat) return null;
+  const manualNodes = plat.manualNodes ?? [];
+  let removeHashes: string[] = [];
+  if (edge.target.startsWith("subgroup-")) {
+    const subName = edge.target.slice("subgroup-".length);
+    const sg = subGroups.find((g) => g.subscriptionName === subName);
+    if (!sg) return null;
+    removeHashes = sg.nodes.map((n) => (typeof n.node_hash === "string" ? n.node_hash : "")).filter((h) => h);
+  } else if (edge.target.startsWith("regiongroup-")) {
+    const region = edge.target.slice("regiongroup-".length);
+    removeHashes = subGroups.flatMap((g) => g.nodes)
+      .filter((n) => getNodeRegion(n) === region)
+      .map((n) => (typeof n.node_hash === "string" ? n.node_hash : ""))
+      .filter((h) => h);
+  } else {
+    return null;
+  }
+  return manualNodes.filter((h) => !removeHashes.includes(h));
+}
+
 export async function patchAndSyncOnce(args: {
   platName: string; current: string[] | null; region: string; mode: "add" | "remove";
   sync: () => Promise<void>; backup?: () => Promise<void>;
@@ -648,7 +768,7 @@ export async function patchAndSyncOnce(args: {
 type EdgeWithLabel = { id: string; source: string; target: string; animated?: boolean; label?: string; deletable?: boolean };
 export function buildEdges(
   platforms: { name: string; region_filters: string[] | null; allocation_policy?: string; aClass?: string; subscriptionNames?: string[]; manualNodes?: string[]; topN?: number }[],
-  nodeGroups: { region: string }[] | { subscriptionName: string; regions: string[] }[],
+  nodeGroups: { region: string }[] | { subscriptionName: string; regions: string[]; nodeHashes?: string[] }[],
   ports: { port: number; platform_name: string }[] = [],
 ): EdgeWithLabel[] {
   const list: EdgeWithLabel[] = [];
@@ -700,6 +820,14 @@ export function buildEdges(
           }
           case "manual":
           default: {
+            // ADR-0050: manual draws visible edge to groups containing selected node_hashes.
+            const manualNodes = p.manualNodes ?? [];
+            if (manualNodes.length === 0) break;
+            const groupHashes: string[] = g.nodeHashes ?? [];
+            if (groupHashes.some((h: string) => manualNodes.includes(h))) {
+              edgeMatched = true;
+              edgeLabel = "manual:" + manualNodes.length;
+            }
             break;
           }
         }
@@ -709,7 +837,7 @@ export function buildEdges(
             source: "platform-" + p.name,
             target: "subgroup-" + g.subscriptionName,
             label: edgeLabel,
-            deletable: false,
+            deletable: aClass === "manual",
           });
         }
       } else {
@@ -1045,44 +1173,9 @@ function TopologyCanvas() {
   // T13-2: build edges first, then dagre layout both
   const edges: Edge[] = useMemo(() => {
     if (viewMode === "region") {
-      // T14-4: in region view, edges connect platforms to region groups
-      const list: Edge[] = [];
-      for (const p of platforms) {
-        for (const port of ports) {
-          if (port.platform_name === p.name) {
-            list.push({ id: "e-port-" + port.port + "-" + p.name, source: "entry-port-" + port.port, target: "platform-" + p.name, animated: true });
-          }
-        }
-        if (ports.length === 0) {
-          list.push({ id: "e-entry-" + p.name, source: "entry-port", target: "platform-" + p.name, animated: true });
-        }
-        // T22-3 (ADR-0048 S3): a_class-semantic region-viewMode edges
-        const rAclass = (p as any).aClass ?? "manual";
-        if (rAclass === "quality") {
-          // T22-audit: edge to all actual regionGroup nodes (not a phantom "regiongroup-all")
-          const allRegions = new Set<string>();
-          for (const g of subGroups) for (const r of g.regions) allRegions.add(r.toLowerCase());
-          for (const r of allRegions) {
-            list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "quality:all", deletable: false });
-          }
-        } else if (rAclass === "subscription") {
-          const subs = (p as any).subscriptionNames ?? [];
-          if (subs.length === 0) {
-            for (const g of subGroups) {
-              for (const r of g.regions) {
-                list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "subscription:all", deletable: false });
-              }
-            }
-          }
-        } else if (rAclass === "region") {
-          for (const r of p.region_filters ?? []) {
-            list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "region:" + r, deletable: false });
-          }
-        }
-      }
-      return list;
+      return buildRegionViewEdges(platforms, subGroups, ports);
     }
-    const adapted = subGroups.map((g) => ({ subscriptionName: g.subscriptionName, regions: g.regions }));
+    const adapted = subGroups.map((g) => ({ subscriptionName: g.subscriptionName, regions: g.regions, nodeHashes: g.nodes.map((n) => (typeof n.node_hash === "string" ? n.node_hash : "")).filter((h) => h) }));
     return buildEdges(platforms, adapted, ports) as Edge[];
   }, [platforms, subGroups, ports, viewMode]);
 
@@ -1101,6 +1194,20 @@ function TopologyCanvas() {
       cfg.platforms.push(entry);
     } else {
       entry.regions = nextRegions;
+    }
+    await ipcStrategyConfigPut(cfg);
+    await ipcStrategyApply();
+  }, []);
+
+  // ADR-0050: manual_nodes PATCH via strategyConfig (mirrors patchRegionViaStrategyConfig).
+  const patchManualNodesViaStrategyConfig = useCallback(async (platName: string, nextManual: string[]) => {
+    const cfg = await ipcStrategyConfigGet();
+    let entry = cfg.platforms.find((p) => p.platform_name === platName);
+    if (!entry) {
+      entry = { platform_name: platName, a_class: "manual", b_class: "random", manual_nodes: nextManual };
+      cfg.platforms.push(entry);
+    } else {
+      entry.manual_nodes = nextManual;
     }
     await ipcStrategyConfigPut(cfg);
     await ipcStrategyApply();
@@ -1149,7 +1256,7 @@ function TopologyCanvas() {
       await sync();
     } catch { /* swallow */ }
     patchingRef.current = false;
-  }, [platforms, subGroups, sync, patchRegionViaStrategyConfig]);
+  }, [platforms, subGroups, sync, patchRegionViaStrategyConfig, patchManualNodesViaStrategyConfig]);
 
   const onEdgesDelete = useCallback(async (delEdges: Edge[]) => {
     for (const e of delEdges) {
@@ -1163,6 +1270,18 @@ function TopologyCanvas() {
       const platName = e.source.slice("platform-".length);
       const plat = platforms.find((p) => p.name === platName);
       if (!plat) { patchingRef.current = false; continue; }
+      // ADR-0050: manual edge (label manual:N) -> remove this group's manual_nodes.
+      if (typeof e.label === "string" && e.label.startsWith("manual")) {
+        const nextManual = manualNodesAfterGroupEdgeDelete(e, platforms, subGroups);
+        if (nextManual === null) { patchingRef.current = false; continue; }
+        try {
+          await backupBeforeEdit();
+          await patchManualNodesViaStrategyConfig(platName, nextManual);
+          await sync();
+        } catch { /* swallow */ }
+        patchingRef.current = false;
+        continue;
+      }
       let next: string[];
       if (isSub) {
         const subName = e.target.slice("subgroup-".length);
