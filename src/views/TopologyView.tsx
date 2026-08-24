@@ -415,14 +415,14 @@ export function buildRegionViewEdges(
       const allRegions = new Set<string>();
       for (const g of subGroups) for (const r of g.regions) allRegions.add(r.toLowerCase());
       for (const r of allRegions) {
-        list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "quality:all", deletable: false });
+        list.push({ id: "e-reg-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "quality:all", deletable: false });
       }
     } else if (rAclass === "subscription") {
       const subs = p.subscriptionNames ?? [];
       if (subs.length === 0) {
         for (const g of subGroups) {
           for (const r of g.regions) {
-            list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "subscription:all", deletable: false });
+            list.push({ id: "e-reg-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), deletable: false });
           }
         }
       } else {
@@ -433,12 +433,12 @@ export function buildRegionViewEdges(
           for (const r of sg.regions) hit.add(r.toLowerCase());
         }
         for (const r of hit) {
-          list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "subscription:" + subs.join(","), deletable: false });
+          list.push({ id: "e-reg-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "subscription:" + subs.join(","), deletable: false });
         }
       }
     } else if (rAclass === "region") {
       for (const r of p.region_filters ?? []) {
-        list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "region:" + r, deletable: false });
+        list.push({ id: "e-reg-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r.toLowerCase(), label: "region:" + r, deletable: false });
       }
     } else if (rAclass === "manual") {
       // ADR-0050: manual draws visible edge to regions containing selected node_hashes.
@@ -452,7 +452,7 @@ export function buildRegionViewEdges(
           }
         }
         for (const r of hitRegions) {
-          list.push({ id: "e-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "manual:" + manualNodes.length, deletable: true });
+          list.push({ id: "e-reg-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "manual:" + manualNodes.length, deletable: true });
         }
       }
     }
@@ -797,8 +797,8 @@ export function buildEdges(
           case "subscription": {
             const subs = (p as any).subscriptionNames ?? [];
             if (subs.length === 0) {
+              // ADR-0052: unconditional edge carries NO label (default-flow-unlabeled convention).
               edgeMatched = true;
-              edgeLabel = "subscription:all";
             } else if (subs.includes(g.subscriptionName)) {
               edgeMatched = true;
               edgeLabel = "subscription:" + g.subscriptionName;
@@ -833,7 +833,7 @@ export function buildEdges(
         }
         if (edgeMatched) {
           list.push({
-            id: "e-" + p.name + "-" + g.subscriptionName,
+            id: "e-sub-" + p.name + "-" + g.subscriptionName,
             source: "platform-" + p.name,
             target: "subgroup-" + g.subscriptionName,
             label: edgeLabel,
@@ -1199,6 +1199,22 @@ function TopologyCanvas() {
     await ipcStrategyApply();
   }, []);
 
+  // ADR-0052: subscriptions PATCH via strategyConfig (writes subscription INTENT, not region projection).
+  // The strategy engine (compute_plan -> a_class_regions) derives regions FROM subscriptions at apply time.
+  const patchSubscriptionsViaStrategyConfig = useCallback(async (platName: string, nextSubs: string[]) => {
+    const cfg = await ipcStrategyConfigGet();
+    let entry = cfg.platforms.find((p) => p.platform_name === platName);
+    if (!entry) {
+      entry = { platform_name: platName, a_class: "subscription", b_class: "random", subscriptions: nextSubs };
+      cfg.platforms.push(entry);
+    } else {
+      entry.a_class = "subscription";
+      entry.subscriptions = nextSubs;
+    }
+    await ipcStrategyConfigPut(cfg);
+    await ipcStrategyApply();
+  }, []);
+
   // ADR-0050: manual_nodes PATCH via strategyConfig (mirrors patchRegionViaStrategyConfig).
   const patchManualNodesViaStrategyConfig = useCallback(async (platName: string, nextManual: string[]) => {
     const cfg = await ipcStrategyConfigGet();
@@ -1237,26 +1253,32 @@ function TopologyCanvas() {
     const platName = conn.source.slice("platform-".length);
     const plat = platforms.find((p) => p.name === platName);
     if (!plat) { patchingRef.current = false; return; }
-    let next: string[];
     if (isSub) {
+      // ADR-0052: dragging a subscription group writes subscription INTENT (not region bundle).
       const subName = conn.target.slice("subgroup-".length);
-      const sg = subGroups.find((g) => g.subscriptionName === subName);
-      if (!sg) { patchingRef.current = false; return; }
-      const newRegions = sg.regions.filter((r) => !(plat.region_filters ?? []).includes(r));
-      next = [...(plat.region_filters ?? []), ...newRegions];
-    } else {
-      // region view: target is regiongroup-<region>
-      const region = conn.target.slice("regiongroup-".length);
-      if (region.startsWith("-")) { patchingRef.current = false; return; }
-      next = addRegionFilter(plat.region_filters, region);
+      if (!subName) { patchingRef.current = false; return; }
+      const cur = plat.subscriptionNames ?? [];
+      if (cur.includes(subName)) { patchingRef.current = false; return; }
+      const nextSubs = [...cur, subName];
+      try {
+        await backupBeforeEdit();
+        await patchSubscriptionsViaStrategyConfig(platName, nextSubs);
+        await sync();
+      } catch { /* swallow */ }
+      patchingRef.current = false;
+      return;
     }
+    // region view: target is regiongroup-<region>
+    const region = conn.target.slice("regiongroup-".length);
+    if (region.startsWith("-")) { patchingRef.current = false; return; }
+    const next = addRegionFilter(plat.region_filters, region);
     try {
       await backupBeforeEdit();
       await patchRegionViaStrategyConfig(platName, next);
       await sync();
     } catch { /* swallow */ }
     patchingRef.current = false;
-  }, [platforms, subGroups, sync, patchRegionViaStrategyConfig, patchManualNodesViaStrategyConfig]);
+  }, [platforms, subGroups, sync, patchRegionViaStrategyConfig, patchSubscriptionsViaStrategyConfig, patchManualNodesViaStrategyConfig]);
 
   const onEdgesDelete = useCallback(async (delEdges: Edge[]) => {
     for (const e of delEdges) {
@@ -1282,17 +1304,22 @@ function TopologyCanvas() {
         patchingRef.current = false;
         continue;
       }
-      let next: string[];
       if (isSub) {
+        // ADR-0052: deleting a subscription edge removes subscription INTENT (not region subtraction).
         const subName = e.target.slice("subgroup-".length);
-        const sg = subGroups.find((g) => g.subscriptionName === subName);
-        if (!sg) { patchingRef.current = false; continue; }
-        next = (plat.region_filters ?? []).filter((r) => !sg.regions.includes(r));
-      } else {
-        // region view: remove the single region
-        const region = e.target.slice("regiongroup-".length);
-        next = removeRegionFilter(plat.region_filters, region);
+        const cur = plat.subscriptionNames ?? [];
+        const nextSubs = cur.filter((s) => s !== subName);
+        try {
+          await backupBeforeEdit();
+          await patchSubscriptionsViaStrategyConfig(platName, nextSubs);
+          await sync();
+        } catch { /* swallow */ }
+        patchingRef.current = false;
+        continue;
       }
+      // region view: remove the single region
+      const region = e.target.slice("regiongroup-".length);
+      const next = removeRegionFilter(plat.region_filters, region);
       try {
         await backupBeforeEdit();
         await patchRegionViaStrategyConfig(platName, next);
@@ -1300,7 +1327,7 @@ function TopologyCanvas() {
       } catch { /* swallow */ }
       patchingRef.current = false;
     }
-  }, [platforms, subGroups, sync, patchRegionViaStrategyConfig]);
+  }, [platforms, subGroups, sync, patchRegionViaStrategyConfig, patchSubscriptionsViaStrategyConfig]);
 
   return (
     <section className="flex h-full flex-col p-3">

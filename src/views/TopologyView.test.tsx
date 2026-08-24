@@ -426,12 +426,16 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
   describe("T22-3: buildEdges a_class-semantic B->C edge", () => {
-    it("subscription+empty = edges to ALL groups", () => {
+    it("subscription+empty = edges to ALL groups with NO label (ADR-0052)", () => {
       const platforms = [{ name: "OpenAI", region_filters: [], aClass: "subscription", subscriptionNames: [] }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk"] }, { subscriptionName: "sub2", regions: ["us"] }];
       const edges = buildEdges(platforms as any, subGroups as any, []);
       const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
       expect(bcEdges).toHaveLength(2);
+      // ADR-0052: unconditional edges carry NO label (default-flow-unlabeled convention)
+      for (const e of bcEdges) {
+        expect(e.label === undefined || e.label === "").toBe(true);
+      }
     });
     it("subscription+specific = matching only", () => {
       const platforms = [{ name: "OpenAI", region_filters: [], aClass: "subscription", subscriptionNames: ["sub1"] }];
@@ -549,11 +553,16 @@ describe("T15-3: React.memo canvas node optimization", () => {
       expect(targets).toEqual(["regiongroup-jp", "regiongroup-sg"]);
       expect(bc[0].label).toBe("subscription:1");
     });
-    it("subscription+empty subs -> edges to ALL regions (pre-existing behavior kept)", () => {
+    it("subscription+empty subs -> edges to ALL regions with NO label (ADR-0052)", () => {
       const platforms = [{ name: "Default", aClass: "subscription", subscriptionNames: [], region_filters: [] }] as any;
       const edges = buildRegionViewEdges(platforms, subGroups, []);
-      const targets = edges.filter((e) => e.target.startsWith("regiongroup-")).map((e) => e.target).sort();
+      const bc = edges.filter((e) => e.target.startsWith("regiongroup-"));
+      const targets = bc.map((e) => e.target).sort();
       expect(targets).toEqual(["regiongroup-jp", "regiongroup-sg", "regiongroup-us"]);
+      // ADR-0052: unconditional edges carry NO label
+      for (const e of bc) {
+        expect(e.label === undefined || e.label === "").toBe(true);
+      }
     });
   });
 
@@ -1344,6 +1353,75 @@ describe("T15-3: React.memo canvas node optimization", () => {
       // The old standalone button had className "absolute bottom-20 left-4 z-10 ..."
       const standalone = container.querySelector('button.absolute.bottom-20.left-4');
       expect(standalone).toBeNull();
+    });
+  });
+
+  describe("ADR-0052: subscription intent write path + edge id viewMode prefix", () => {
+    it("buildEdges: subscription+specific subs -> label is subscription:<name>", () => {
+      const platforms = [{ name: "P1", region_filters: [], aClass: "subscription", subscriptionNames: ["subA"] }];
+      const subGroups = [{ subscriptionName: "subA", regions: ["hk"] }, { subscriptionName: "subB", regions: ["us"] }];
+      const edges = buildEdges(platforms as any, subGroups as any, []);
+      const bc = edges.filter((e) => e.source.startsWith("platform-"));
+      expect(bc).toHaveLength(1);
+      expect(bc[0].label).toBe("subscription:subA");
+    });
+
+    it("buildEdges: subscription edge id has e-sub- prefix (subscription viewMode)", () => {
+      const platforms = [{ name: "P1", region_filters: [], aClass: "subscription", subscriptionNames: [] }];
+      const subGroups = [{ subscriptionName: "subA", regions: ["hk"] }];
+      const edges = buildEdges(platforms as any, subGroups as any, []);
+      const bc = edges.filter((e) => e.source.startsWith("platform-"));
+      expect(bc.length).toBeGreaterThan(0);
+      expect(bc[0].id).toContain("e-sub-");
+    });
+
+    it("buildRegionViewEdges: subscription edge id has e-reg- prefix (region viewMode)", () => {
+      const platforms = [{ name: "P1", aClass: "subscription", subscriptionNames: [], region_filters: [] }] as any;
+      const subGroups = [{ subscriptionName: "subA", regions: ["hk"], nodes: [] }] as any;
+      const edges = buildRegionViewEdges(platforms, subGroups, []);
+      const bc = edges.filter((e) => e.target.startsWith("regiongroup-"));
+      expect(bc.length).toBeGreaterThan(0);
+      expect(bc[0].id).toContain("e-reg-");
+    });
+
+    it("cross-viewMode B->C edge ids never collide (e-sub- vs e-reg-)", () => {
+      const platforms = [{ name: "P1", region_filters: [], aClass: "subscription", subscriptionNames: [] }] as any;
+      const subGroups = [{ subscriptionName: "subA", regions: ["hk"], nodes: [] }] as any;
+      const subEdges = buildEdges(platforms, subGroups as any, []);
+      const regEdges = buildRegionViewEdges(platforms, subGroups, []);
+      // Only compare B->C edges (platform->subgroup/regiongroup), NOT A->B port/entry edges
+      // which are intentionally identical across viewModes.
+      const bcSub = subEdges.filter((e) => e.source.startsWith("platform-") && (e.target.startsWith("subgroup-") || e.target.startsWith("regiongroup-")));
+      const bcReg = regEdges.filter((e) => e.source.startsWith("platform-") && (e.target.startsWith("subgroup-") || e.target.startsWith("regiongroup-")));
+      const subIds = new Set(bcSub.map((e) => e.id));
+      const regIds = new Set(bcReg.map((e) => e.id));
+      for (const id of subIds) {
+        expect(regIds.has(id)).toBe(false);
+      }
+      for (const id of regIds) {
+        expect(subIds.has(id)).toBe(false);
+      }
+    });
+
+    it("buildEdges: no remaining 'subscription:all' label anywhere", () => {
+      const platforms = [{ name: "P1", region_filters: [], aClass: "subscription", subscriptionNames: [] }];
+      const subGroups = [{ subscriptionName: "subA", regions: ["hk"] }, { subscriptionName: "subB", regions: ["us"] }];
+      const edges = buildEdges(platforms as any, subGroups as any, []);
+      for (const e of edges) {
+        expect(e.label).not.toBe("subscription:all");
+      }
+    });
+
+    it("buildRegionViewEdges: no remaining 'subscription:all' label anywhere", () => {
+      const platforms = [{ name: "P1", aClass: "subscription", subscriptionNames: [], region_filters: [] }] as any;
+      const subGroups = [
+        { subscriptionName: "subA", regions: ["hk"], nodes: [] },
+        { subscriptionName: "subB", regions: ["us"], nodes: [] },
+      ] as any;
+      const edges = buildRegionViewEdges(platforms, subGroups, []);
+      for (const e of edges) {
+        expect(e.label).not.toBe("subscription:all");
+      }
     });
   });
 
