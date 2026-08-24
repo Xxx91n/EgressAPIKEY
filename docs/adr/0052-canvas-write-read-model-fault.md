@@ -55,6 +55,12 @@ All `"subscription:all"` string literals removed from `buildEdges` and `buildReg
 
 This forces ReactFlow `EdgeWrapper` to remount edges on viewMode switch, eliminating stale geometry.
 
+## Implementation notes
+
+- **`onEdgesDelete` subscription branch is defense-in-depth, not live path**: whole-edge deletes are only possible on manual edges (`deletable: true`). Subscription edges are non-deletable (`deletable: false` — CONTEXT.md auto-strategy rule), so the `isSub` branch inside `onEdgesDelete` is unreachable dead code **today**. It remains as a safety net: if a future change makes subscription edges deletable, the intent-removal logic is already in place. This is documented as deliberate, not an oversight.
+
+- **Three PATCH helpers are intentionally non-abstracted**: `patchRegionViaStrategyConfig`, `patchSubscriptionsViaStrategyConfig`, `patchManualNodesViaStrategyConfig` share the same read-cfg → find → write-field → put → apply shape but each handles a different field with its own default `a_class`. Extracting a generic helper would need extra params for field name + default a_class + maybe label not found fallbacks, which adds complexity without behavioral payoff. The duplication is a Fowler "Duplicated Code" judgement call — the delta is in the WHAT, not the HOW.
+
 ## Known leftover (decided: no auto-migration)
 
 Platforms previously dragged with the old Gen-1 write path have `regions` populated but `subscriptions` empty. After this fix, those platforms will show **no edge label** (unrestricted) until the user re-drags the subscription group once. This is a one-time manual re-drag taking seconds. Auto-migration was explicitly rejected (grill Q4=option 1) because:
