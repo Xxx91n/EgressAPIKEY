@@ -4,7 +4,7 @@
 > Date: 2026-08-23
 > Supersedes: ADR-0048 S3 (manual aClass -> NO group-level edge)
 > Builds on: ADR-0042 S4 (manual card checkbox), ADR-0048 (a_class-semantic filtering), CONTEXT.md Strategy-Labeled Edge
-> Sources: atomcode research (dagre issue #54, idootop/reactflow-auto-layout #root anchor, Kiali SyntheticEdgeGenerator); local dagre CASE-1 reproduction
+> Sources: atomcode research 2026-08-23 (dagre issue #54, idootop/reactflow-auto-layout #root anchor, Kiali BoxLayout synthetic-edge pattern) + atomcode re-verification 2026-08-24 (dagre PR #271 merged 2025-06-17 -> @dagrejs/dagre >=1.1.5 ships official manual ranking; xyflow v12 `deleteElements -> getElementsToRemove` cascade + `onBeforeDelete`; muthub-ai/aac YAML projection store); local dagre CASE-1 reproduction
 
 ## Context
 
@@ -22,7 +22,7 @@ Revise ADR-0048 S3: manual aClass draws VISIBLE group-level edges.
 2. Edge label: manual:N where N = total manual_nodes on the platform. Consistent with the A-badge "Manual (N nodes)" and the strategy:value edge-label pattern (region:US / quality>75 / subscription:subA).
 3. Deletability: manual edges are the ONLY deletable canvas edges (per CONTEXT.md). Auto-strategy edges (subscription/region/quality) remain non-deletable.
 4. Deletion semantics: deleting a platform->groupX manual edge removes the manual_nodes whose node_hash belongs to groupX from the platform manual_nodes (clears that group manual selection; other groups keep their selections), then PATCHes strategyConfig. Mirrors the existing subgroup-edge deletion (delete platform->subgroup = remove that subscription regions from region_filters).
-5. Layout consequence: the visible B->C edge lets dagre rank C-column at rank 2 (right of platform) for ALL aClass including manual, fixing the below-left bug with no layout-engine change. (Research alternative if a future aClass still yields no edge: dagre #root anchor / Kiali synthetic edges -- not needed now.)
+5. Layout consequence: the visible B->C edge lets dagre rank C-column at rank 2 (right of platform) for ALL aClass including manual, fixing the below-left bug with no layout-engine change. (Research alternative if a future aClass still yields no edge: dagre #root anchor / Kiali BoxLayout synthetic edges -- ADR-0051 ended up needing exactly this for port-less platforms and strategyConfig-load-failure; see ADR-0051 Defect B + "Upgrade path" for the @dagrejs/dagre >=1.1.5 official manual-ranking route.)
 
 ## Rejected alternatives
 
