@@ -1466,15 +1466,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fxhash"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
-dependencies = [
- "byteorder",
-]
-
-[[package]]
 name = "gdk"
 version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1772,9 +1763,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.4.15"
+version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cb093c84e8bd9b188d4c4a8cb6579fc016968d14c99882163cd3ff402a4f155"
+checksum = "ef8e5e5a340588f4452631496976cf8636d4a7ecf600239fdc27615d2530bc16"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -3623,16 +3614,9 @@ name = "resin-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "axum",
- "bytes",
- "clap",
  "dashmap",
  "futures-util",
- "fxhash",
  "hotswap-config",
- "http",
- "http-body-util",
- "hyper",
  "mockito",
  "once_cell",
  "parking_lot",
@@ -3640,11 +3624,8 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
  "tokio",
- "tower",
  "tracing",
- "tracing-subscriber",
  "url",
 ]
 

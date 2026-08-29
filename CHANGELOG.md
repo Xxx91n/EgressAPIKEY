@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AGENTS.md L47 Docs pointer line updated to new paths
 
 ### Removed
+- resin-core dead kernel face (ADR-0050): mihomo/gateway/lane/lease/tdewma modules, CoreConfig/sanitize_lanes/lane constants, and the resin-core stub bin; headless product surface remains the egressapikey-headless bin (ADR-0043)
+- Unused resin-core dependencies: axum, hyper, bytes, http, thiserror, clap, tracing-subscriber, fxhash, tower (dev), http-body-util (dev)
 - `docs/CONTEXT.md` (root `CONTEXT.md` is the canonical copy)
 
 ## [0.1.0] - 2026-08-19

@@ -24,10 +24,12 @@ Resin Go Sidecar (bundle.externalBin)
 - Control-plane API + proxy + webui on single loopback port
 - Admin token: Rust-only trust, never crosses to webview
 
-Resin-pattern Core (crates/resin-core/)
+Resin-pattern Core (crates/resin-core/) - shell-side support crate (ADR-0050)
 - resin_client.rs: loopback-only async REST client (SSRF guard + Bearer)
-- mihomo.rs: controller wrapper (per-call DTO, not instantiated)
-- lane.rs/lease.rs/tdewma.rs/platform.rs/gateway.rs: deprecated DTOs (S7.3)
+- whitebox_config.rs: egressapikey-ports.json store (ADR-0036); db.rs: SQLite port mapping
+- port_forwarder.rs / port_health.rs / strategy_engine.rs / stream_sensor.rs / ip_reputation.rs / ipc_error.rs: live shell support modules
+- platform.rs: Platform/Account registry (shell SharedRegistry state)
+- lane/lease/tdewma/gateway/mihomo modules + CoreConfig + stub bin: deleted in ADR-0050 (zero external references)
 
 ## Data flow
 

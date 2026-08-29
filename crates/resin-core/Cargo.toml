@@ -6,45 +6,29 @@ rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Resin-pattern L7 gateway for AI API keys: lane hashing, SSE session lock, TD-EWMA-lite, mihomo sidecar control"
+description = "Shell-side support crate for EgressAPIKEY: loopback REST client for the Resin sidecar, whitebox config store, port forwarder/health, strategy engine, stream sensing, IP reputation, typed IPC errors"
 
 [lib]
 name = "resin_core"
 path = "src/lib.rs"
 
-[[bin]]
-name = "resin-core"
-path = "src/bin/resin_core.rs"
-
 [dependencies]
 tokio = { workspace = true }
-axum = { workspace = true }
 reqwest = { workspace = true }
-hyper = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 hotswap-config = { workspace = true }
 anyhow = { workspace = true }
-thiserror = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 parking_lot = { workspace = true }
 dashmap = { workspace = true }
-fxhash = { workspace = true }
 rusqlite = { workspace = true }
 once_cell = { workspace = true }
 futures-util = { workspace = true }
-bytes = { workspace = true }
-http = { workspace = true }
 url = { workspace = true }
-clap = { workspace = true }
 
 [dev-dependencies]
 mockito = "1"
-tower = { version = "0.5", features = ["util"] }
-http-body-util = "0.1"
-
 [[test]]
 name = "integration"
 path = "tests/integration.rs"
-
