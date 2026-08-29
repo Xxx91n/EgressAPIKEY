@@ -61,7 +61,7 @@ const CMD_TO_HTTP: Record<string, HttpRoute | undefined> = {
   node_pool_snapshot:     { method: "GET",    path: "/api/v1/metrics/snapshots/node-pool" },
   // Port + gateway mirrors
   gateway_snapshot:       { method: "GET",    path: "/api/v1/metrics/realtime/leases" },
-  request_log_tail:        { method: "GET",    path: "/api/v1/metrics/realtime/leases" },
+  request_log_tail:        { method: "GET",    path: "/api/v1/request-logs" },
   // Config / whitebox / system pass through the same /api/v1/* prefix
   config_export:          { method: "GET",    path: "/api/v1/config/export" },
   config_import:          { method: "POST",   path: "/api/v1/config/import" },
@@ -689,7 +689,7 @@ export function ipcCheckFirewallStatus(): Promise<FirewallStatus> {
   return invoke<FirewallStatus>("check_firewall_status");
 }
 
-// T6-5: Request log tail from Resin's request_logs SQLite DB.
+// T6-5 (ticket 11): Request log tail via Resin GET /api/v1/request-logs.
 export interface RequestLogEntry {
   ts: string;
   platform_name: string;

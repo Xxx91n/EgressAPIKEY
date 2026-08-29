@@ -401,7 +401,80 @@ impl ResinClient {
         self.send(reqwest::Method::PATCH, "/system/config", Some(body)).await
     }
 
+    // ── Request logs (ticket 11: REST seam, replaces direct request_logs*.db read) ──
 
+    /// GET /api/v1/request-logs?limit=N — tail of the Resin request log
+    /// (architecture-recovery ticket 11; ADR-0005 Q6 said probe the endpoint
+    /// before coding: the endpoint was verified in the bundled sidecar
+    /// (docs/RESIN_UPSTREAM_MANIFEST.yaml v1.2.0): the embedded WebUI calls
+    /// GET /api/v1/request-logs with from/to/platform_name/account/target_host/
+    /// egress_ip/proxy_type/net_ok/http_status/limit/cursor params, rows carry
+    /// ts_ns/platform_name/account/target_host/egress_ip/proxy_type/net_ok/
+    /// http_method/http_status/duration_ns/resin_error, ORDER BY ts_ns DESC.
+    /// Query params beyond limit are appended only when Some.
+    /// Fuzzy name filters (platform_name/account/target_host/egress_ip) are
+    /// URL-encoded here; Resin matches them fuzzily server-side.
+    pub async fn request_logs(
+        &self,
+        limit: u32,
+        query: Option<&RequestLogQuery>,
+    ) -> Result<Value> {
+        let mut path = format!("/request-logs?limit={}", limit);
+        if let Some(q) = query {
+            if let Some(v) = q.platform_name.as_deref() {
+                path.push_str(&format!("&platform_name={}", urlencoding(v)));
+            }
+            if let Some(v) = q.account.as_deref() {
+                path.push_str(&format!("&account={}", urlencoding(v)));
+            }
+            if let Some(v) = q.target_host.as_deref() {
+                path.push_str(&format!("&target_host={}", urlencoding(v)));
+            }
+            if let Some(v) = q.egress_ip.as_deref() {
+                path.push_str(&format!("&egress_ip={}", urlencoding(v)));
+            }
+            if let Some(v) = q.proxy_type.as_deref() {
+                path.push_str(&format!("&proxy_type={}", urlencoding(v)));
+            }
+            if let Some(v) = q.net_ok.as_deref() {
+                path.push_str(&format!("&net_ok={}", urlencoding(v)));
+            }
+            if let Some(v) = q.http_status.as_deref() {
+                path.push_str(&format!("&http_status={}", urlencoding(v)));
+            }
+            if let Some(v) = q.cursor.as_deref() {
+                path.push_str(&format!("&cursor={}", urlencoding(v)));
+            }
+        }
+        self.send_read(&path).await
+    }
+
+    /// GET /api/v1/request-logs/{log_id} — single request log entry.
+    pub async fn get_request_log(&self, log_id: &str) -> Result<Value> {
+        let path = format!("/request-logs/{}", urlencoding(log_id));
+        self.send_read(&path).await
+    }
+
+    /// GET /api/v1/request-logs/{log_id}/payloads — captured request/response
+    /// bodies for a log entry (only present when payload logging is enabled).
+    pub async fn get_request_log_payloads(&self, log_id: &str) -> Result<Value> {
+        let path = format!("/request-logs/{}/payloads", urlencoding(log_id));
+        self.send_read(&path).await
+    }
+}
+
+/// Filter query for ResinClient::request_logs. Empty/None fields are omitted
+/// from the query string. Cursor is Resin's opaque next-page token.
+#[derive(Debug, Clone, Default)]
+pub struct RequestLogQuery {
+    pub platform_name: Option<String>,
+    pub account: Option<String>,
+    pub target_host: Option<String>,
+    pub egress_ip: Option<String>,
+    pub proxy_type: Option<String>,
+    pub net_ok: Option<String>,
+    pub http_status: Option<String>,
+    pub cursor: Option<String>,
 }
 
 /// Fetch a Clash/ClashMeta subscription URL with a clash-family User-Agent.
@@ -450,6 +523,104 @@ mod tests {
     fn urlencoding_escapes_disallowed_chars() {
         assert_eq!(urlencoding("foo-bar_b123"), "foo-bar_b123");
         assert_eq!(urlencoding("a/b"), "a%2Fb");
+    }
+
+    #[tokio::test]
+    async fn mockito_request_logs_happy_path_sends_limit() {
+        // Ticket 11: request_log_tail now tails GET /api/v1/request-logs?limit=N
+        // instead of scanning Resin's private request_logs*.db files.
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"items":[{"id":"ab","ts_ns":1727654400,"platform_name":"OpenAI","account":"k1","target_host":"api.openai.com","egress_ip":"1.2.3.4","proxy_type":"forward","net_ok":true,"http_method":"GET","http_status":200,"duration_ns":123456789,"resin_error":""}],"cursor":"","total":1}"#;
+        let m = server
+            .mock("GET", "/api/v1/request-logs")
+            .match_header("authorization", "Bearer testtok")
+            .match_query(mockito::Matcher::AllOf(vec![mockito::Matcher::UrlEncoded("limit".into(), "50".into())]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .request_logs(50, None)
+            .await
+            .expect("request_logs should succeed against mockito");
+        assert_eq!(out["items"][0]["platform_name"], "OpenAI");
+        assert_eq!(out["items"][0]["http_status"], 200);
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_request_logs_forwards_filters_and_encodes_them() {
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", "/api/v1/request-logs")
+            .match_header("authorization", "Bearer testtok")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded("limit".into(), "10".into()),
+                mockito::Matcher::UrlEncoded("platform_name".into(), "OpenAI".into()),
+                mockito::Matcher::UrlEncoded("account".into(), "a/b".into()),
+                mockito::Matcher::UrlEncoded("target_host".into(), "api.openai.com".into()),
+                mockito::Matcher::UrlEncoded("egress_ip".into(), "1.2.3.4".into()),
+                mockito::Matcher::UrlEncoded("proxy_type".into(), "forward".into()),
+                mockito::Matcher::UrlEncoded("net_ok".into(), "true".into()),
+                mockito::Matcher::UrlEncoded("http_status".into(), "200".into()),
+                mockito::Matcher::UrlEncoded("cursor".into(), "cur1".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[],"cursor":"","total":0}"#)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let q = RequestLogQuery {
+            platform_name: Some("OpenAI".into()),
+            account: Some("a/b".into()),
+            target_host: Some("api.openai.com".into()),
+            egress_ip: Some("1.2.3.4".into()),
+            proxy_type: Some("forward".into()),
+            net_ok: Some("true".into()),
+            http_status: Some("200".into()),
+            cursor: Some("cur1".into()),
+        };
+        c.request_logs(10, Some(&q))
+            .await
+            .expect("request_logs with filters should succeed");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_get_request_log_and_payloads_round_trip() {
+        let mut server = mockito::Server::new_async().await;
+        let m1 = server
+            .mock("GET", "/api/v1/request-logs/log-1")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":"log-1","ts_ns":1}"#)
+            .create_async()
+            .await;
+        let m2 = server
+            .mock("GET", "/api/v1/request-logs/log-1/payloads")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"log_id":"log-1"}"#)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let one = c.get_request_log("log-1").await.expect("get_request_log");
+        assert_eq!(one["id"], "log-1");
+        let pl = c
+            .get_request_log_payloads("log-1")
+            .await
+            .expect("get_request_log_payloads");
+        assert_eq!(pl["log_id"], "log-1");
+        m1.assert_async().await;
+        m2.assert_async().await;
     }
 
     #[tokio::test]

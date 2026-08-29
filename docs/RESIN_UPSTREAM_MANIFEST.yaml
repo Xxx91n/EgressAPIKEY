@@ -5,6 +5,15 @@
 #
 # Breaking changes between v1.1 and v1.2: endpoint API surface changes
 # (allocation_policy enum, region_filters field, /nodes pagination).
+# Compat notes (architecture-recovery ticket 11, 2026-08-30):
+# - The shell consumes GET /api/v1/request-logs (ResinClient::request_logs,
+#   src-tauri request_log_tail). Verified present in the v1.2.0 sidecar
+#   (embedded WebUI + route strings in resin.exe). If a future Resin bump
+#   removes or reshapes this endpoint, request_log_tail fails with an explicit
+#   IpcError ("response has no items array") — that is the seam alarm, not a
+#   silent misparse.
+# - The shell no longer reads Resin's private request_logs*.db files (the
+#   former direct-DB seam exception was closed by ticket 11).
 
 repo: "Resinat/Resin"
 version: "v1.2.0"

@@ -2193,10 +2193,19 @@ pub struct PortHealthCheck {
     pub reason: String,
 }
 
-/// T6-5: Read the last N request log entries from the Resin request_logs
-/// SQLite database in RESIN_LOG_DIR. Returns a JSON array of simplified log
-/// entries (timestamp, platform, account, host, egress_ip, method, status,
-/// duration_ms, error). The GUI diagnostics panel renders this as a table.
+/// T6-5 (rewritten by architecture-recovery ticket 11): Read the last N request
+/// log entries via the Resin admin REST API (GET /api/v1/request-logs?limit=N).
+/// The previous implementation scanned Resin's private request_logs*.db files
+/// (temp-copy + read-only rusqlite query) — that bypassed the ResinClient REST
+/// seam; Resin v1.2.0 (docs/RESIN_UPSTREAM_MANIFEST.yaml) exposes the official
+/// /api/v1/request-logs endpoint (ADR-0005 Q6: probe-before-code satisfied),
+/// so the shell no longer touches Resin's state dir.
+/// Response shape from Resin v1.2.0 (verified in the bundled sidecar binary):
+/// {"items":[{ts_ns, platform_name, account, target_host, egress_ip,
+///   proxy_type, net_ok, http_method, http_status, duration_ns, resin_error}],
+///  "cursor": "...", "total": N}, rows ordered by ts_ns DESC.
+/// Unknown item fields are tolerated via Value::get; if Resin ever changes the
+/// wire shape this returns explicit IpcErrors instead of silently misparsing.
 #[derive(Debug, Serialize, Clone)]
 pub struct RequestLogEntry {
     pub ts: String,
@@ -2210,96 +2219,63 @@ pub struct RequestLogEntry {
     pub resin_error: String,
 }
 
+/// Format a Resin request-log ts_ns (epoch nanos) as "YYYY-MM-DD HH:MM:SS"
+/// UTC. Exposed for unit tests; kept total (falls back to "") like the
+/// previous chrono path.
+fn format_log_ts(ts_ns: i64) -> String {
+    let secs = ts_ns / 1_000_000_000;
+    chrono::DateTime::from_timestamp(secs, 0)
+        .map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string())
+        .unwrap_or_default()
+}
+
+/// Project one item of the Resin /api/v1/request-logs response onto
+/// RequestLogEntry. Total over a present-but-malformed field so one bad row
+/// never blanks the whole tail (parity with the old row-map semantics).
+fn request_log_entry_from_value(v: &serde_json::Value) -> RequestLogEntry {
+    let ts_ns = v.get("ts_ns").and_then(|x| x.as_i64()).unwrap_or(0);
+    let duration_ns = v.get("duration_ns").and_then(|x| x.as_i64()).unwrap_or(0);
+    let s = |k: &str| {
+        v.get(k)
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string()
+    };
+    RequestLogEntry {
+        ts: format_log_ts(ts_ns),
+        platform_name: s("platform_name"),
+        account: s("account"),
+        target_host: s("target_host"),
+        egress_ip: s("egress_ip"),
+        http_method: s("http_method"),
+        http_status: v.get("http_status").and_then(|x| x.as_i64()).unwrap_or(0),
+        duration_ms: duration_ns as f64 / 1_000_000.0,
+        resin_error: s("resin_error"),
+    }
+}
+
 #[tauri::command]
 pub async fn request_log_tail(
-    app: AppHandle,
+    sidecar: State<'_, SidecarHandle>,
     limit: Option<usize>,
 ) -> Result<Vec<RequestLogEntry>, IpcError> {
-    let n = limit.unwrap_or(50).min(200);
-    let log_dir = app
-        .path()
-        .app_log_dir()
-        .map_err(|e| IpcError::internal(&format!("log dir: {e}")))?
-        .join("resin");
-    tracing::info!(dir = ?log_dir, "request_log_tail: reading Resin logs");
-    // Find the most recent request_logs*.db file
-    let db_path = {
-        let mut latest: Option<(std::time::SystemTime, std::path::PathBuf)> = None;
-        if log_dir.exists() {
-            for entry in std::fs::read_dir(&log_dir)
-                .map_err(|e| IpcError::internal(&format!("read log dir: {e}")))?
-            {
-                if let Ok(e) = entry {
-                    let name = e.file_name();
-                    let name_str = name.to_string_lossy();
-                    if name_str.starts_with("request_logs") && name_str.ends_with(".db") {
-                        let meta = e.metadata().map_err(|err| IpcError::internal(&format!("metadata: {err}")))?;
-                        let mtime = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
-                        if latest.as_ref().map_or(true, |(t, _)| mtime > *t) {
-                            latest = Some((mtime, e.path()));
-                        }
-                    }
-                }
-            }
-        }
-        latest
-            .map(|(_, p)| p)
-            .ok_or_else(|| IpcError::internal("no request_logs DB found"))?
-    };
-    // Copy DB to temp (WAL may be locked by the live sidecar)
-    let tmp = std::env::temp_dir().join(format!(
-        "egressapikey-reqlog-{}.db",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
-    ));
-    std::fs::copy(&db_path, &tmp)
-        .map_err(|e| IpcError::internal(&format!("copy db: {e}")))?;
-    // Open read-only and query
-    let conn = rusqlite::Connection::open_with_flags(
-        &tmp,
-        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-    )
-    .map_err(|e| IpcError::internal(&format!("open db: {e}")))?;
-    let mut stmt = conn
-        .prepare(
-            "SELECT ts_ns, platform_name, account, target_host, egress_ip,
-                    http_method, http_status, duration_ns, resin_error
-             FROM request_logs ORDER BY ts_ns DESC LIMIT ?1",
-        )
-        .map_err(|e| IpcError::internal(&format!("prepare: {e}")))?;
-    let rows = stmt
-        .query_map([n as i64], |row| {
-            let ts_ns: i64 = row.get(0)?;
-            let secs = ts_ns / 1_000_000_000;
-            let dt = chrono::DateTime::from_timestamp(secs, 0)
-                .map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string())
-                .unwrap_or_default();
-            let duration_ns: i64 = row.get(7)?;
-            Ok(RequestLogEntry {
-                ts: dt,
-                platform_name: row.get(1)?,
-                account: row.get(2)?,
-                target_host: row.get(3)?,
-                egress_ip: row.get(4)?,
-                http_method: row.get(5)?,
-                http_status: row.get(6)?,
-                duration_ms: duration_ns as f64 / 1_000_000.0,
-                resin_error: row.get(8)?,
-            })
-        })
-        .map_err(|e| IpcError::internal(&format!("query: {e}")))?;
-    let mut entries = Vec::new();
-    for row in rows {
-        if let Ok(e) = row {
-            entries.push(e);
-        }
-    }
-    if let Err(e) = std::fs::remove_file(&tmp) {
-        tracing::warn!(error = %e.to_string(), "request_log_tail: temp file cleanup failed");
-    }
-    tracing::info!(count = entries.len(), "request_log_tail: read entries");
+    // ADR-0045: clamp the caller-controlled page size at the IPC boundary.
+    let n = limit.unwrap_or(50).min(200).max(1) as u32;
+    let client = resin_client(&sidecar)?;
+    let resp = client
+        .request_logs(n, None)
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))?;
+    // Resin wraps list endpoints as {items: [...], cursor, total}; a missing or
+    // non-array items field is a wire-shape regression, not an empty log.
+    let items = resp
+        .get("items")
+        .and_then(|i| i.as_array())
+        .ok_or_else(|| {
+            IpcError::internal("resin /api/v1/request-logs: response has no items array")
+        })?;
+    let entries: Vec<RequestLogEntry> = items.iter().map(request_log_entry_from_value).collect();
+    tracing::info!(count = entries.len(), "request_log_tail: read entries via REST");
     Ok(entries)
 }
 
@@ -3290,5 +3266,58 @@ mod tests {
         // 128 chars OK
         let exact = "a".repeat(128);
         assert!(super::validate_node_probe_inputs(&exact, "latency").is_ok());
+    }
+
+    /// Ticket 11: ts_ns -> "YYYY-MM-DD HH:MM:SS" formatting stays stable across
+    /// the direct-db -> REST seam swap.
+    #[test]
+    fn format_log_ts_formats_epoch_nanos() {
+        assert_eq!(format_log_ts(1_727_654_400_000_000_000), "2024-09-30 00:00:00");
+        assert_eq!(format_log_ts(0), "1970-01-01 00:00:00");
+        // The mapping path totals over 0 for absent/malformed ts_ns, so an
+        // out-of-range epoch simply lands on the Unix epoch string.
+        assert_eq!(format_log_ts(-1_000_000_000), "1969-12-31 23:59:59");
+    }
+
+    /// Ticket 11: one item of the Resin /api/v1/request-logs response maps to
+    /// the IPC RequestLogEntry with duration_ms derived from duration_ns.
+    #[test]
+    fn request_log_entry_from_value_maps_known_fields() {
+        let v: serde_json::Value = serde_json::json!({
+            "id": "log-1",
+            "ts_ns": 1_727_654_400_000_000_000i64,
+            "platform_name": "OpenAI",
+            "account": "acct-1",
+            "target_host": "api.openai.com",
+            "egress_ip": "1.2.3.4",
+            "proxy_type": "forward",
+            "net_ok": true,
+            "http_method": "GET",
+            "http_status": 200,
+            "duration_ns": 12_345_678i64,
+            "resin_error": ""
+        });
+        let e = request_log_entry_from_value(&v);
+        assert_eq!(e.ts, "2024-09-30 00:00:00");
+        assert_eq!(e.platform_name, "OpenAI");
+        assert_eq!(e.account, "acct-1");
+        assert_eq!(e.target_host, "api.openai.com");
+        assert_eq!(e.egress_ip, "1.2.3.4");
+        assert_eq!(e.http_method, "GET");
+        assert_eq!(e.http_status, 200);
+        assert!((e.duration_ms - 12.345678).abs() < 1e-9);
+        assert_eq!(e.resin_error, "");
+    }
+
+    /// Ticket 11: a malformed row must not panic nor blank the tail — total
+    /// over defaults (parity with the old query_map row-skipping semantics).
+    #[test]
+    fn request_log_entry_from_value_defaults_on_malformed_row() {
+        let v: serde_json::Value = serde_json::json!({"unexpected": 1});
+        let e = request_log_entry_from_value(&v);
+        assert_eq!(e.ts, "1970-01-01 00:00:00");
+        assert_eq!(e.platform_name, "");
+        assert_eq!(e.http_status, 0);
+        assert_eq!(e.duration_ms, 0.0);
     }
 }
