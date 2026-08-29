@@ -67,6 +67,16 @@ impl IpcError {
             i18n_key: "error.internal".into(),
         }
     }
+
+    /// Internal variant with a specific i18n key and the raw upstream error
+    /// preserved in msg for log/debug display. Used by map_resin_error for
+    /// recognized vocabulary that has no dedicated variant.
+    pub fn internal_keyed(i18n_key: &str, msg: &str) -> Self {
+        Self::Internal {
+            msg: msg.chars().take(256).collect(),
+            i18n_key: i18n_key.into(),
+        }
+    }
 }
 
 impl std::fmt::Display for IpcError {
@@ -107,40 +117,107 @@ impl From<serde_json::Error> for IpcError {
 }
 
 
-/// Map a Resin HTTP response (status + body excerpt) to an IpcError variant.
-/// Called by `commands/mod.rs` when `ResinClient::send()` returns a non-2xx.
-pub fn map_resin_error(status: u16, body: &str) -> IpcError {
-    let lower = body.to_ascii_lowercase();
-    match status {
-        0 => IpcError::internal("non-HTTP failure (sidecar unreachable / connect timeout / DNS)"),
-
-        409 if lower.contains("bind") || lower.contains("already exists") || lower.contains("port") => {
-            // Extract port number from the error message if possible.
-            let port = extract_port(body).unwrap_or(0);
-            IpcError::bind_conflict(port)
-        }
-        400 if lower.contains("must be") || lower.contains("allocation_policy") || lower.contains("strategy") => {
-            IpcError::invalid_strategy(body, &[
-                "random", "sequential", "latency", "quality", "bandwidth", "protocol_weight",
-            ])
-        }
-        400..=499 => IpcError::resin_upstream(status, body),
-        500..=599 => IpcError::resin_upstream(status, body),
-        _ => IpcError::resin_upstream(status, body),
+/// Single Resin error -> IpcError mapping (architecture-recovery ticket 06:
+/// the shell-side duplicate in src-tauri/src/commands/mod.rs was deleted; its
+/// call sites now call this function directly via resin_core::map_resin_error).
+///
+/// Input is the Display string of the ResinClient anyhow error, which embeds
+/// the HTTP method, path, status and a short body excerpt, e.g.
+/// "resin_client: POST /endpoints -> 409 Conflict: {\"error\":...}".
+///
+/// Semantics kept from the former shell copy (probe-verified vocabulary; the
+/// bind guard must run before the generic CONFLICT guard so 409 bind errors
+/// keep their port number), with the i18n key now written into the variant
+/// i18n_key field (the former shell copy put keys into Internal.msg, which
+/// the frontend translateError never read) and bind conflicts producing the
+/// typed BindConflict variant instead of a string round-trip through
+/// From<String>. Unknown errors fall through IpcError::from -> Internal.
+pub fn map_resin_error(raw: &str) -> IpcError {
+    // Known Resin error patterns (from DESIGN.md error code table + probed).
+    if raw.contains("cannot delete Default platform") {
+        return IpcError::internal_keyed("error.cannotDeleteDefaultPlatform", raw);
     }
+    if raw.contains("AUTH_REQUIRED") || raw.contains("auth required") {
+        return IpcError::internal_keyed("error.authRequired", raw);
+    }
+    if raw.contains("AUTH_FAILED") || raw.contains("auth failed") {
+        return IpcError::internal_keyed("error.authFailed", raw);
+    }
+    if raw.contains("URL_PARSE_ERROR") || raw.contains("url parse") {
+        return IpcError::internal_keyed("error.urlParse", raw);
+    }
+    if raw.contains("INVALID_PROTOCOL") || raw.contains("invalid protocol") {
+        return IpcError::internal_keyed("error.invalidProtocol", raw);
+    }
+    if raw.contains("UPSTREAM_CONNECT_FAILED") || raw.contains("upstream connect") {
+        return IpcError::internal_keyed("error.upstreamConnectFailed", raw);
+    }
+    if raw.contains("UPSTREAM_REQUEST_FAILED") || raw.contains("upstream request") {
+        return IpcError::internal_keyed("error.upstreamRequestFailed", raw);
+    }
+    // Port bind conflict (ADR-0026 Q6): Resin returns 409 with a body like
+    // "listen on port 17111: bind: Only one usage of each socket address ...".
+    // Extract the port so the frontend can show "port {{port}} already in use"
+    // and offer the change-port recovery action.
+    if raw.contains("bind")
+        && (raw.contains("Only one usage")
+            || raw.contains("EADDRINUSE")
+            || raw.contains("address already in use"))
+    {
+        if let Some(port) = extract_port(raw) {
+            return IpcError::bind_conflict(port);
+        }
+        return IpcError::internal_keyed("error.bindConflict", raw);
+    }
+    if raw.contains("CONFLICT") {
+        return IpcError::internal_keyed("error.conflict", raw);
+    }
+    if raw.contains("not found") || raw.contains("NOT_FOUND") {
+        return IpcError::internal_keyed("error.notFound", raw);
+    }
+    if raw.contains("BAD_REQUEST") || raw.contains("bad request") {
+        return IpcError::internal_keyed("error.badRequest", raw);
+    }
+    if raw.contains("UNAUTHORIZED") || raw.contains("unauthorized") {
+        return IpcError::internal_keyed("error.unauthorized", raw);
+    }
+    // An HTTP status embedded by ResinClient ("-> 418 : excerpt") surfaces as
+    // typed ResinUpstream so the frontend can render status + excerpt.
+    if let Some(status) = embedded_status(raw) {
+        let excerpt = raw.rsplit("-> ").next().unwrap_or(raw);
+        return IpcError::resin_upstream(status, excerpt);
+    }
+    // Unknown — pass through the literal for the frontend to display.
+    IpcError::from(raw.to_string())
 }
 
-/// Extract a port number from an error message containing "port" + digits.
+/// Extract a port number from an error message containing "port " + digits.
+/// Zero-alloc, no regex (same logic as the deleted shell-side helper).
 fn extract_port(s: &str) -> Option<u16> {
-    // Look for "port 12345" or ":12345" patterns
     let lower = s.to_ascii_lowercase();
-    let port_idx = lower.find("port ")?;
-    let rest = &s[port_idx + 5..];
+    let idx = lower.find("port ")?;
+    let rest = &s[idx + 5..];
     rest.chars()
         .take_while(|c| c.is_ascii_digit())
         .collect::<String>()
         .parse()
         .ok()
+}
+
+/// Pull the HTTP status code out of a ResinClient error string shaped
+/// "... -> {method} {path} -> {status}: {excerpt}". Only digits immediately
+/// after the last "-> " count, so number fragments elsewhere in the body
+/// (lease ids, timestamps, ports) cannot be mistaken for the status.
+fn embedded_status(raw: &str) -> Option<u16> {
+    let tail = raw.rsplit("-> ").next()?.trim_start();
+    let digits: String = tail.chars().take_while(|c| c.is_ascii_digit()).collect();
+    if digits.len() != 3 {
+        return None;
+    }
+    match tail.chars().nth(3) {
+        Some(':') | Some(' ') | None => digits.parse().ok(),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -184,62 +261,178 @@ mod tests {
         assert!(json.contains("\"kind\":\"Internal\""));
     }
 
+    // ---- map_resin_error(raw) — ticket 06 single implementation ----
+
     #[test]
-    fn map_resin_error_409_bind_to_bind_conflict() {
-        let e = map_resin_error(
-            409,
-            "listen on port 17111: bind: Only one usage of each socket address",
+    fn map_resin_error_cannot_delete_default() {
+        let raw = r#"409 Conflict: {"error":{"code":"CONFLICT","message":"cannot delete Default platform"}}"#;
+        let e = map_resin_error(raw);
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.cannotDeleteDefaultPlatform"),
+            "got {e:?}"
         );
-        assert!(matches!(e, IpcError::BindConflict { port: 17111, .. }));
     }
 
     #[test]
-    fn map_resin_error_400_strategy_to_invalid_strategy() {
-        let e = map_resin_error(
-            400,
-            "must be BALANCED, PREFER_LOW_LATENCY, or PREFER_IDLE_IP",
+    fn map_resin_error_auth_required() {
+        let e = map_resin_error("resin_client: GET /platforms -> 407: AUTH_REQUIRED: missing token");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.authRequired"));
+    }
+
+    #[test]
+    fn map_resin_error_auth_failed() {
+        let e = map_resin_error("AUTH_FAILED: bad token");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.authFailed"));
+    }
+
+    #[test]
+    fn map_resin_error_url_parse() {
+        let e = map_resin_error("URL_PARSE_ERROR: invalid URL");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.urlParse"));
+    }
+
+    #[test]
+    fn map_resin_error_invalid_protocol() {
+        let e = map_resin_error("INVALID_PROTOCOL: ftp not supported");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.invalidProtocol"));
+    }
+
+    #[test]
+    fn map_resin_error_upstream_connect_failed() {
+        let e = map_resin_error("502 UPSTREAM_CONNECT_FAILED: connection refused");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.upstreamConnectFailed"));
+    }
+
+    #[test]
+    fn map_resin_error_upstream_request_failed() {
+        let e = map_resin_error("UPSTREAM_REQUEST_FAILED: 502 bad gateway");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.upstreamRequestFailed"));
+    }
+
+    #[test]
+    fn map_resin_error_bind_conflict_with_port() {
+        let raw = "create_endpoint: resin_client: POST /endpoints -> 409 Conflict: {\"error\":{\"message\":\"listen on port 17111: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.\"}}";
+        let e = map_resin_error(raw);
+        assert!(
+            matches!(e, IpcError::BindConflict { port: 17111, ref i18n_key } if i18n_key == "error.bindConflict"),
+            "got {e:?}"
         );
-        assert!(matches!(e, IpcError::InvalidStrategy { .. }));
     }
 
     #[test]
-    fn map_resin_error_403_to_resin_upstream() {
-        let e = map_resin_error(403, "forbidden");
-        assert!(matches!(e, IpcError::ResinUpstream { status: 403, .. }));
+    fn map_resin_error_bind_conflict_without_port() {
+        // No "port <digits>" extractable -> Internal carrying the bindConflict
+        // i18n key (generic template, no {{port}} interpolation) + raw message.
+        let e = map_resin_error("EADDRINUSE: address already in use (bind)");
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.bindConflict"),
+            "got {e:?}"
+        );
     }
 
     #[test]
-    fn map_resin_error_503_to_resin_upstream() {
-        let e = map_resin_error(503, "service unavailable");
-        assert!(matches!(e, IpcError::ResinUpstream { status: 503, .. }));
+    fn map_resin_error_bind_takes_precedence_over_conflict() {
+        // T6-Bug4 regression: the bind guard must win before generic CONFLICT.
+        let raw = "409 Conflict: listen on port 17999: bind: Only one usage of each socket address";
+        let e = map_resin_error(raw);
+        assert!(matches!(e, IpcError::BindConflict { port: 17999, .. }), "got {e:?}");
     }
 
     #[test]
-    fn map_resin_error_unknown_status_falls_back_to_upstream() {
-        let e = map_resin_error(418, "I'm a teapot");
-        assert!(matches!(e, IpcError::ResinUpstream { status: 418, .. }));
+    fn map_resin_error_conflict() {
+        let e = map_resin_error("409 CONFLICT: resource already exists");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.conflict"));
+    }
+
+    #[test]
+    fn map_resin_error_not_found() {
+        let e = map_resin_error("platform not found");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.notFound"));
+    }
+
+    #[test]
+    fn map_resin_error_bad_request() {
+        let e = map_resin_error("400 BAD_REQUEST: missing field");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.badRequest"));
+    }
+
+    #[test]
+    fn map_resin_error_unauthorized() {
+        let e = map_resin_error("401 UNAUTHORIZED: no admin token");
+        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.unauthorized"));
+    }
+
+    #[test]
+    fn map_resin_error_embedded_http_status_surfaces_resin_upstream() {
+        // ADR-0045 contract: non-2xx without recognized vocabulary must keep
+        // status + excerpt, not degrade to "internal error".
+        let raw = "resin_client: GET /nodes -> 418 : I'm a teapot";
+        let e = map_resin_error(raw);
+        assert!(
+            matches!(e, IpcError::ResinUpstream { status: 418, .. }),
+            "got {e:?}"
+        );
+        if let IpcError::ResinUpstream { status, excerpt, i18n_key } = e {
+            assert_eq!(status, 418);
+            assert!(excerpt.contains("teapot"), "excerpt: {excerpt}");
+            assert_eq!(i18n_key, "error.resinUpstream");
+        }
+    }
+
+    #[test]
+    fn map_resin_error_403_forbidden_becomes_resin_upstream() {
+        let e = map_resin_error("resin_client: GET /platforms -> 403 : forbidden");
+        assert!(matches!(e, IpcError::ResinUpstream { status: 403, .. }), "got {e:?}");
+    }
+
+    #[test]
+    fn map_resin_error_500_becomes_resin_upstream_regression() {
+        let e = map_resin_error("resin_client: GET /leases -> 500 : internal server error");
+        assert!(matches!(e, IpcError::ResinUpstream { status: 500, .. }), "got {e:?}");
+    }
+
+    #[test]
+    fn map_resin_error_unknown_passes_through_as_internal() {
+        // Unknown text carries no embedded status -> From<String> -> Internal
+        // with the raw text preserved in msg (frontend shows it via fallback).
+        let raw = "some completely unknown error string";
+        let e = map_resin_error(raw);
+        match e {
+            IpcError::Internal { msg, i18n_key } => {
+                assert_eq!(msg, raw);
+                assert_eq!(i18n_key, "error.internal");
+            }
+            other => panic!("expected Internal, got {other:?}"),
+        }
     }
 
     #[test]
     fn extract_port_finds_number_after_port_keyword() {
         assert_eq!(extract_port("listen on port 17111: bind"), Some(17111));
+        assert_eq!(extract_port("port 443"), Some(443));
         assert_eq!(extract_port("no port here"), None);
     }
 
     #[test]
-    fn map_resin_error_status_zero_returns_internal() {
-        let e = map_resin_error(0, "sidecar unreachable");
-        assert!(matches!(e, IpcError::Internal { .. }));
-        let result = match e {
-            IpcError::Internal { msg, i18n_key } => (msg, i18n_key),
-            _ => unreachable!(),
-        };
-        assert_eq!(result.1, "error.internal");
+    fn embedded_status_parses_resin_client_shape_only() {
+        assert_eq!(embedded_status("resin_client: GET /x -> 404 : nope"), Some(404));
+        assert_eq!(embedded_status("POST /y -> 503: down"), Some(503));
+        // Numbers not directly after the last arrow are not statuses.
+        assert_eq!(embedded_status("lease 17111 expired"), None);
+        assert_eq!(embedded_status("timeout after 8s"), None);
+        // Four digits is not an HTTP status.
+        assert_eq!(embedded_status("GET /x -> 1711 : weird"), None);
     }
 
     #[test]
-    fn map_resin_error_status_500_returns_resin_upstream_regression() {
-        let e = map_resin_error(500, "internal server error");
-        assert!(matches!(e, IpcError::ResinUpstream { status: 500, .. }));
+    fn internal_keyed_preserves_raw_msg_and_key() {
+        let e = IpcError::internal_keyed("error.authRequired", "AUTH_REQUIRED: missing");
+        match e {
+            IpcError::Internal { msg, i18n_key } => {
+                assert_eq!(msg, "AUTH_REQUIRED: missing");
+                assert_eq!(i18n_key, "error.authRequired");
+            }
+            other => panic!("expected Internal, got {other:?}"),
+        }
     }
 }
