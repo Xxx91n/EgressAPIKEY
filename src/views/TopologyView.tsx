@@ -12,11 +12,12 @@ import dagre from "dagre";
 import "@xyflow/react/dist/style.css";
 import { useAppStore } from "../store/appStore";
 import {
-  ipcPlatformListFull, ipcNodeList, ipcPlatformUpdate, ipcBackupCreate,
-  ipcLeaseMap, ipcPortList, type LeaseEntry, type PortMapping,
+  ipcNodeList, ipcPlatformUpdate, ipcBackupCreate,
+  ipcLeaseMap, type LeaseEntry, type PortMapping,
   ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
   ipcPortBindPlatform, ipcGetConfigDir,
   ipcWatchPortHealth, type PortHealthEntry,
+  ipcAuthoritativeSnapshot, type AuthoritativeSnapshot,
 } from "../lib/ipc";
 import { loadTopologyState, saveTopologyState, type TopologyState as T15TopologyState } from "../lib/settings";
 import { mapResinToShell, bClassLabel as bClassLabelFn, type StrategyId, type AllocationPolicy } from "../lib/strategy";
@@ -889,57 +890,21 @@ function TopologyCanvas() {
 
   const sync = useCallback(async () => {
     try {
-      const [pRaw, nRaw, lRaw, ptRaw, cfgRaw] = await Promise.all([
-        ipcPlatformListFull(),
+      // Ticket 07 (Authoritative Snapshot): the canvas consumes the ONE
+      // pre-merged snapshot (whitebox strategy + whitebox ports + Resin
+      // runtime merged in resin-core). View-layer cross-store merging is
+      // deleted per ARCHITECTURE.md §Config Authority; divergence is now
+      // reported by the snapshot itself, never silently reconciled here.
+      const [snap, nRaw, lRaw] = await Promise.all([
+        ipcAuthoritativeSnapshot(),
         ipcNodeList(),
         ipcLeaseMap(),
-        ipcPortList(),
-        ipcStrategyConfigGet().catch(() => null),
       ]);
-      let plats = parsePlatforms(pRaw);
-      // T15-sp6 (ADR-0036): strategyConfig JSON is the single source of truth for region_filters.
-      // Merge strategyConfig regions over Resin platform.region_filters so the canvas reflects
-      // whitebox edits even before strategy_apply PATCHes Resin.
-      // T15-v3-3 (ADR-0039 SS2): merge ALL strategyConfig fields, not just regions.
-      if (cfgRaw && Array.isArray(cfgRaw.platforms)) {
-        const map = new Map<string, Record<string, unknown>>();
-        for (const ps of cfgRaw.platforms) {
-          if (ps.platform_name) map.set(ps.platform_name, ps as unknown as Record<string, unknown>);
-        }
-        plats = plats.map((p) => {
-          const ps = map.get(p.name);
-          if (!ps) return p;
-          return {
-            ...p,
-            region_filters: Array.isArray(ps.regions) ? ps.regions as string[] : p.region_filters,
-            aClass: typeof ps.a_class === "string" ? ps.a_class : undefined,
-            bClass: typeof ps.b_class === "string" ? ps.b_class : undefined,
-            subscriptionNames: Array.isArray(ps.subscriptions) ? ps.subscriptions as string[] : undefined,
-            topN: typeof ps.top_n === "number" ? ps.top_n : undefined,
-            bClassParams: (ps.b_class_params && typeof ps.b_class_params === "object") ? ps.b_class_params as BClassParams : undefined,
-            manualNodes: Array.isArray(ps.manual_nodes) ? ps.manual_nodes as string[] : undefined,
-          };
-        });
-      }
-      // T22-4 (ADR-0048 S2): auto-default strategyConfig for Resin platforms not in cfg.
-      if (cfgRaw && Array.isArray(cfgRaw.platforms)) {
-        const cfgNames = new Set(cfgRaw.platforms.map((ps: any) => ps.platform_name));
-        plats = plats.map((p) => {
-          if (cfgNames.has(p.name)) return p;
-          return {
-            ...p,
-            aClass: "subscription",
-            bClass: "random",
-            subscriptionNames: [],
-            region_filters: p.region_filters ?? [],
-            manualNodes: [],
-          };
-        });
-      }
+      const plats = snapshotToPlatformFulls(snap);
       setPlatforms(plats);
       setSubGroups(parseSubscriptionGroups(nRaw));
       setLeases(lRaw as LeaseEntry[]);
-      setPorts(ptRaw as PortMapping[]);
+      setPorts(snapshotToPortMappings(snap));
     } catch { /* vitest or sidecar not ready */ }
     setReady(true); // T13-4: setReady after sync so data is present before show
   }, [setPlatforms, setSubGroups, setLeases, setPorts]);

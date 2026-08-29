@@ -6,7 +6,8 @@ import {Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUploa
 import { openPath } from "@tauri-apps/plugin-opener";
 import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, ipcGetConfigDir,
   ipcSystemConfigGet,
-  ipcSystemConfigPatch, type StrategyApplyResult} from "../lib/ipc";
+  ipcSystemConfigPatch, type StrategyApplyResult,
+  ipcAuthoritativeSnapshot, type AuthoritativeSnapshot} from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
@@ -201,6 +202,20 @@ export function SettingsView() {
       setConfigMsg(translateError(e, t));
     } finally {
       setWhiteboxBusy(false);
+    }
+  }
+
+  // Ticket 07: refresh the read-only effective-config snapshot card.
+  async function refreshEffectiveSnapshot() {
+    setEffBusy(true);
+    setEffError("");
+    try {
+      const snap = await ipcAuthoritativeSnapshot();
+      setEffSnapshot(snap);
+    } catch (e) {
+      setEffError(translateError(e, t));
+    } finally {
+      setEffBusy(false);
     }
   }
 
@@ -654,6 +669,65 @@ export function SettingsView() {
           </button>
           {configBusy ? <Loader2 size={14} className="animate-spin text-zinc-400" /> : null}
           {configMsg ? <span className="text-xs text-zinc-500">{configMsg}</span> : null}
+        </div>
+      </SectionCard>
+      {/* Ticket 07: read-only effective-config snapshot (authoritative read-back).
+          Shows the pre-merged whitebox vs Resin runtime state per platform/port.
+          Read-only by contract: edits go through the whitebox write entries. */}
+      <SectionCard icon={<Check size={16} strokeWidth={1.75} />} title={t("settings.effectiveTitle")}>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              data-testid="settings-effective-refresh"
+              onClick={() => void refreshEffectiveSnapshot()}
+              disabled={effBusy}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {effBusy ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} strokeWidth={1.75} />}
+              {t("settings.effectiveRefresh")}
+            </button>
+            {effError ? <span className="text-xs text-red-500">{effError}</span> : null}
+          </div>
+          {effSnapshot === null ? (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("settings.effectiveEmpty")}</p>
+          ) : (
+            <div data-testid="settings-effective-snapshot" className="text-xs text-zinc-600 dark:text-zinc-300">
+              {!effSnapshot.resinReachable ? (
+                <p className="text-amber-600 dark:text-amber-400">{t("settings.effectiveResinDown")}</p>
+              ) : null}
+              {effSnapshot.platforms.length === 0 && effSnapshot.ports.length === 0 ? (
+                <p className="text-zinc-500 dark:text-zinc-400">{t("settings.effectiveNoEntries")}</p>
+              ) : null}
+              <ul className="mt-1 space-y-1">
+                {effSnapshot.platforms.map((p) => (
+                  <li key={p.platform_name} className="font-mono">
+                    {p.platform_name}:{" "}
+                    {p.state === "consistent" && (
+                      <span className="text-green-600 dark:text-green-400">{t("settings.effectiveConsistent")}</span>
+                    )}
+                    {p.state === "divergent" && (
+                      <span className="text-red-600 dark:text-red-400" title={JSON.stringify({ whitebox: p.whitebox_regions, resin: p.resin_regions })}>
+                        {t("settings.effectiveDivergent")}
+                      </span>
+                    )}
+                    {p.state === "missingOnResin" && (
+                      <span className="text-amber-600 dark:text-amber-400">{t("settings.effectiveMissing")}</span>
+                    )}
+                  </li>
+                ))}
+                {effSnapshot.ports.map((pt) => (
+                  <li key={"port-" + pt.port} className="font-mono">
+                    {t("settings.effectivePort")} {pt.port}:{" "}
+                    {pt.state === "consistent" ? (
+                      <span className="text-green-600 dark:text-green-400">{t("settings.effectiveConsistent")}</span>
+                    ) : (
+                      <span className="text-amber-600 dark:text-amber-400">{t("settings.effectiveMissing")}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </SectionCard>
       {/* T15-v3-4: Strategy config reload surface (ADR-0039 SS5) */}

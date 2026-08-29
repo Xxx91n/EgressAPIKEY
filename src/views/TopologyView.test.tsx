@@ -881,25 +881,20 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
   describe("T15-5: onConnect routes through strategyConfig not direct PATCH (ADR-0036)", () => {
-    it("strategy_config_put is invoked on canvas data flow; platform_update is NOT invoked", async () => {
+    it("sync() fetches ONLY the authoritative snapshot; legacy cross-store commands are not invoked", async () => {
       const invokedCmds: string[] = [];
-      const origImpl = invokeMock.getMockImplementation();
       invokeMock.mockImplementation((cmd: string) => {
         invokedCmds.push(cmd);
-        if (cmd === "platform_list_full") return Promise.resolve({
-          items: [{ id: "p1", name: "TestPlat", regex_filters: [], region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" }],
-          total: 1, limit: 50, offset: 0,
-        });
+        if (cmd === "authoritative_snapshot") return Promise.resolve(snapshotFromFixtures({
+          resinPlatforms: [{ id: "p1", name: "TestPlat", region_filters: ["hk"], allocation_policy: "BALANCED" }],
+          strategyPlatforms: [{ platform_name: "TestPlat", a_class: "region", b_class: "random", regions: ["hk"] }],
+          ports: [],
+        }));
         if (cmd === "node_list") return Promise.resolve({
           items: [{ name: "hk-01", display_tag: "HK-01", has_outbound: true, failure_count: 0, region: "hk", tags: [{ tag: "HK", subscriptionName: "sub1" }] }],
           total: 1, limit: 500, offset: 0,
         });
         if (cmd === "lease_map") return Promise.resolve([]);
-        if (cmd === "port_list") return Promise.resolve([]);
-        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "TestPlat", a_class: "region", b_class: "random", regions: ["hk"] }] });
-        if (cmd === "strategy_config_put") return Promise.resolve(undefined);
-        if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
-        if (cmd === "backup_create") return Promise.resolve(undefined);
         return Promise.resolve(undefined);
       });
 
@@ -908,12 +903,16 @@ describe("T15-3: React.memo canvas node optimization", () => {
         expect(container.textContent || "").toContain("TestPlat");
       });
 
-      // After sync(), strategy_config_get MUST have been called (ADR-0036 single source of truth)
-      expect(invokedCmds).toContain("strategy_config_get");
+      // Ticket 07: the view consumes the ONE pre-merged snapshot. It must
+      // NOT fetch the legacy cross-store sources anymore (ARCHITECTURE.md
+      // §Config Authority: views never re-merge stores).
+      expect(invokedCmds).toContain("authoritative_snapshot");
+      expect(invokedCmds).not.toContain("strategy_config_get");
+      expect(invokedCmds).not.toContain("strategy_config_put");
+      expect(invokedCmds).not.toContain("platform_list_full");
+      expect(invokedCmds).not.toContain("port_list");
       // platform_update MUST NOT be called during sync (strategyConfig is the pipeline, not direct Resin PATCH)
       expect(invokedCmds).not.toContain("platform_update");
-
-      if (origImpl) invokeMock.mockImplementation(origImpl);
     });
 
     it("whitebox strategyConfig regions override Resin platform region_filters in canvas", async () => {

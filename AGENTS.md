@@ -152,7 +152,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 # Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):
 # entries must equal the #[tauri::command] set under src-tauri/src AND the
 # generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.
-# Do not hand-edit entries. Regenerated: 2026-08-30 (64 commands)
+# Do not hand-edit entries. Regenerated: 2026-08-30 (65 commands)
 gateway_snapshot = src-tauri/src/commands/mod.rs
 platform_add = src-tauri/src/commands/mod.rs
 platform_remove = src-tauri/src/commands/mod.rs
