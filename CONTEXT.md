@@ -288,3 +288,37 @@ the shell owns the strategy semantics. Different tags on the same platform
 produce different leases, achieving per-strategy exit IP isolation without
 forking Resin.
 _Avoid_: strategy hint, account suffix, egress mode tag
+
+### White-box Config
+
+The user-editable configuration that the app reads back and honors as truth:
+strategy configuration and entry-port configuration, stored as JSON files in
+the app config directory. A user may edit these files with an external
+editor; external edits are re-read and applied without restarting the
+sidecar. Distinct from GUI preferences (which never change proxy behavior)
+and from Resin runtime state (derived and rebuildable from white-box config).
+_Avoid_: raw config, hand-edit zone, config dump
+
+### Authoritative Write Entry
+
+The rule that each configuration layer has exactly one module through which
+every write flows, and that this write entry — not a cache, copy, or runtime
+view — is the authority for that layer. All editors (GUI surfaces, external
+file edits, IPC commands) converge on the same entry; a write that bypasses
+the entry is a bug. Decided for strategy config by ADR-0036 and for port
+config by ADR-0042; legislated across all three layers (GUI preference /
+white-box / runtime) in docs/architecture/ARCHITECTURE.md § Config
+Authority.
+_Avoid_: golden config, master copy, single-writer lock
+
+### Authoritative Snapshot
+
+The read-back answer to "is my configuration actually in effect": one call
+that reads every configuration layer, merges them at one sanctioned point,
+and reports per item whether the white-box layer and the runtime agree,
+disagree (both values surfaced, never silently reconciled), or one side is
+missing. It turns "did my change take effect" from a guess into an assertable
+fact and is the only legitimate place where stores are merged; views consume
+it and must not re-merge stores themselves. Contract legislated in
+docs/architecture/ARCHITECTURE.md § Config Authority.
+_Avoid_: status poll, health check, merged view
