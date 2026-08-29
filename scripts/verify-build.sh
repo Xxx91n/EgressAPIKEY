@@ -28,3 +28,5 @@ npx vitest run
 
 echo "[verify] i18n coverage"
 node scripts/i18n-check.cjs
+echo "[verify] ipc manifest guard"
+node scripts/ipc-manifest-check.cjs

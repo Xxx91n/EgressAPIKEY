@@ -13,7 +13,8 @@
     "e2e": "playwright test",
     "lint": "eslint . --ext .ts,.tsx",
     "i18n:scan": "i18next-parser --config i18next-parser.config.js",
-    "i18n:check": "node scripts/i18n-check.cjs"
+    "i18n:check": "node scripts/i18n-check.cjs",
+    "ipc:check": "node scripts/ipc-manifest-check.cjs"
   },
   "dependencies": {
     "@fltsci/tauri-plugin-tracing": "^0.3.4",
