@@ -233,6 +233,23 @@ watch_port_health = src-tauri/src/commands/mod.rs
 
 
 
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as local markdown under `.scratch/` (one directory per feature:
+spec, tickets, handoffs, reports); remote `github.com/Xxx91n/EgressAPIKEY` is
+available with a declared switch path to GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-label vocabulary (`needs-triage` / `needs-info` / `ready-for-agent` /
+`ready-for-human` / `wontfix`), recorded as the `Status:` line of each issue file. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: root `CONTEXT.md` glossary + `docs/adr/`. See `docs/agents/domain.md`.
+
 ### Architecture & Phase History (externalized)
 
 > The following sections were moved to `docs/agents/` to keep this file under the 32 KiB `project_doc_max_bytes` limit.
