@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // be exercised end-to-end without touching the Tauri runtime.
 
 const backing = new Map<string, unknown>();
+let saveCalls = 0;
 
 vi.mock("@tauri-apps/plugin-store", () => ({
   LazyStore: vi.fn().mockImplementation(() => ({
@@ -15,14 +16,20 @@ vi.mock("@tauri-apps/plugin-store", () => ({
     set: vi.fn(async (k: string, v: unknown) => {
       backing.set(k, v);
     }),
-    save: vi.fn(async () => {}),
+    delete: vi.fn(async (k: string) => {
+      backing.delete(k);
+    }),
+    save: vi.fn(async () => {
+      saveCalls++;
+    }),
   })),
 }));
 
 // Import AFTER the mock so the module reads the mocked LazyStore.
-import { loadKeyCandidates, saveKeyCandidates, type KeyCandidate, loadNodeProbe, saveNodeProbe, batchChunkSize, type NodeProbeConfig } from "./settings";
+import { loadKeyCandidates, saveKeyCandidates, type KeyCandidate, loadNodeProbe, saveNodeProbe, batchChunkSize, type NodeProbeConfig, purgeLegacyDeadKeys } from "./settings";
+import * as settingsModule from "./settings";
 
-beforeEach(() => backing.clear());
+beforeEach(() => { backing.clear(); saveCalls = 0; });
 
 describe("C2-3: keyCandidates persist round-trip through settings.json#keyCandidates", () => {
   it("saveKeyCandidates then loadKeyCandidates returns the same list (in-process round-trip)", async () => {
@@ -113,5 +120,43 @@ describe("T19-P4: nodeProbe config round-trip through settings.json#nodeProbe", 
     expect(got.concurrency).toBe(10);
     expect(got.timeout_ms).toBe(10000);
     expect(got.batch_on_load).toBe(false);
+  });
+});
+
+describe("arch/02: legacy dead network keys are purged on startup, live keys untouched", () => {
+  it("removes both legacy dead keys and preserves every other key", async () => {
+    backing.set("gatewayBind", "127.0.0.1:7897");
+    backing.set("mihomoApi", "http://127.0.0.1:9090");
+    backing.set("lang", "zh");
+    backing.set("theme", "dark");
+    await purgeLegacyDeadKeys();
+    expect(backing.get("gatewayBind")).toBeUndefined();
+    expect(backing.get("mihomoApi")).toBeUndefined();
+    expect(backing.get("lang")).toBe("zh");
+    expect(backing.get("theme")).toBe("dark");
+    expect(saveCalls).toBe(1); // one persisted save, not per-key churn
+  });
+
+  it("is a no-op when the dead keys are already absent (no save churn)", async () => {
+    backing.set("lang", "en");
+    await purgeLegacyDeadKeys();
+    expect(backing.get("lang")).toBe("en");
+    expect(saveCalls).toBe(0);
+  });
+
+  it("is idempotent: a second run finds nothing left to remove", async () => {
+    backing.set("gatewayBind", "127.0.0.1:7897");
+    await purgeLegacyDeadKeys();
+    await purgeLegacyDeadKeys();
+    expect(backing.get("gatewayBind")).toBeUndefined();
+    expect(saveCalls).toBe(1);
+  });
+
+  it("no longer exports the legacy dead-key load/save helpers", () => {
+    const mod = settingsModule as unknown as Record<string, unknown>;
+    expect(mod.loadGatewayBind).toBeUndefined();
+    expect(mod.saveGatewayBind).toBeUndefined();
+    expect(mod.loadMihomoApi).toBeUndefined();
+    expect(mod.saveMihomoApi).toBeUndefined();
   });
 });

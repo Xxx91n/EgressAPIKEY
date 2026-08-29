@@ -12,10 +12,9 @@
  * P19: "topologyViewport" ({x,y,zoom} canvas pan/zoom memory),
  * P19: "localSubOrder" (string[]) - user's drag-reorder override for subscriptions. The Rust tray reads "lang" directly via
  * tauri-plugin-store (see src-tauri/src/tray.rs::current_lang) so the tray is
- * localised even before the webview mounts. gatewayBind/mihomoApi are read
- * server-side by the Rust shell into CoreConfig; mihomoApi ONLY feeds
- * MihomoController::new which refuses non-loopback URLs (AGENTS §7.6 — never
- * expose these via a raw-String #[tauri::command]).
+ * localised even before the webview mounts. The legacy network preference
+ * keys were never effective after T3-A (ADR-0012: the Resin sidecar owns the
+ * listen port); purgeLegacyDeadKeys() removes any residue once at startup.
  */
 
 import { LazyStore } from "@tauri-apps/plugin-store";
@@ -68,54 +67,26 @@ export async function saveTheme(theme: string): Promise<void> {
   }
 }
 
-/// Gateway bind address ("127.0.0.1:7897") — read by the Rust shell at
-/// startup into CoreConfig::bind. The Rust side is the trust boundary: it
-/// coerces to a loopback bind; a non-loopback value saved here is refused at
-/// the kernel, never piped through a raw-string IPC command (AGENTS §7.6).
-export async function loadGatewayBind(): Promise<string | null> {
+// --- Migration (arch/02): one-time removal of legacy dead keys ---
+// These keys were read by a pre-T3-A main.rs block that dropped its
+// CoreConfig on the floor (ADR-0012: the Resin sidecar owns the listen
+// port). This const is the ONLY remaining live-code mention of the dead
+// keys — delete this block and its test once the migration window closes.
+const LEGACY_DEAD_KEYS = ["gatewayBind", "mihomoApi"] as const;
+
+export async function purgeLegacyDeadKeys(): Promise<void> {
   try {
-    return await store().get<string>("gatewayBind") ?? null;
+    let removed = false;
+    for (const key of LEGACY_DEAD_KEYS) {
+      if ((await store().get<string>(key)) != null) {
+        await store().delete(key);
+        removed = true;
+        console.info(`[settings] removed legacy dead key "${key}" (never effective since T3-A)`);
+      }
+    }
+    if (removed) await store().save();
   } catch {
-    return null;
-  }
-}
-
-export async function saveGatewayBind(addr: string): Promise<void> {
-  try {
-    await store().set("gatewayBind", addr);
-    await store().save();
-  } catch (e) {
-    // UX bug #2: surface tauri-plugin-store failures instead of silently
-    // swallowing — the old /* noop */ let saves fail invisibly so the user
-    // believed edits were lost. We keep the function non-throwing (vitest runs
-    // without a webview) but log so devtools surfaces the real cause.
-    console.warn("[settings] save failed:", e);
-  }
-}
-
-/// mihomo REST API base URL ("http://127.0.0.1:9090"). The Rust shell reads
-/// this into CoreConfig::mihomo_api and constructs MihomoController::new from
-/// it ONLY if loopback (see crates/resin-core/src/mihomo.rs loopback guard);
-/// a non-loopback url saved here is rejected at construction, never via an
-/// IPC command taking a raw String (§7.6) — settings.json is server-trusted.
-export async function loadMihomoApi(): Promise<string | null> {
-  try {
-    return await store().get<string>("mihomoApi") ?? null;
-  } catch {
-    return null;
-  }
-}
-
-export async function saveMihomoApi(url: string): Promise<void> {
-  try {
-    await store().set("mihomoApi", url);
-    await store().save();
-  } catch (e) {
-    // UX bug #2: surface tauri-plugin-store failures instead of silently
-    // swallowing — the old /* noop */ let saves fail invisibly so the user
-    // believed edits were lost. We keep the function non-throwing (vitest runs
-    // without a webview) but log so devtools surfaces the real cause.
-    console.warn("[settings] save failed:", e);
+    // not in a tauri context (vitest) — nothing to purge
   }
 }
 

@@ -5,6 +5,7 @@ import "./i18n";
 import "./styles.css";
 import { attachLogger } from "@fltsci/tauri-plugin-tracing";
 import { useLogStore } from "./store/logStore";
+import { purgeLegacyDeadKeys } from "./lib/settings";
 
 // Bridge the Rust tracing WebviewLayer into the frontend log panel. Outside a
 // Tauri context (vitest / plain browser) attachLogger resolves to a no-op
@@ -21,6 +22,10 @@ void attachLogger((entry) => {
     ts: Date.now(),
   });
 }).catch(() => { /* no-op outside tauri */ });
+
+// arch/02: drop legacy dead settings keys (if any residue exists) before the
+// UI mounts, so settings.json only ever carries live keys.
+void purgeLegacyDeadKeys();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

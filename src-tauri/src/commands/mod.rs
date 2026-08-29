@@ -1158,8 +1158,7 @@ pub fn get_sidecar_logs(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>
 }
 
 /// T3-A1 (ADR-0012 deep audit): Expose the Resin sidecar's actual runtime
-/// port + health status to the frontend. Replaces the dead gatewayBind/mihomoApi
-/// Settings fields with real data from the sidecar.
+/// port + health status to the frontend as read-only data.
 #[derive(serde::Serialize)]
 pub struct SidecarStatus {
     pub api_port: u16,

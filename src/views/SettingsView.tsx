@@ -119,12 +119,9 @@ export function SettingsView() {
     return () => { if (lightweightSaveRef.current) clearTimeout(lightweightSaveRef.current); };
   }, [lightweightEnabled, lightweightDelay]);
   const [busy, setBusy] = useState(false);
-  // Network settings (problem 6 parity): loaded from tauri-plugin-store on
-  // mount, persisted via the Save button. The Rust shell reads these keys
-  // T3-A2: gatewayBind/mihomoApi were dead fields (main.rs L173 dropped cfg).
-  // MihomoController::new which refuses non-loopback URLs (§7.6).
-  // T3-A2: gatewayBind/mihomoApi are dead fields (main.rs L173 drops cfg).
-  // Replaced with read-only Resin sidecar actual port display.
+  // Sidecar runtime status: the Resin sidecar's actual listen port is
+  // auto-assigned by the shell (ADR-0012) and displayed read-only — there is
+  // no editable network-bind preference in settings.json.
   const [sidecarStatus, setSidecarStatus] = useState<SidecarStatus | null>(null);
   // T6-3: Network-layer whitebox config (DNS + idle + probe + bypass).
   const [netCfg, setNetCfg] = useState<NetworkConfig>({});
@@ -361,7 +358,8 @@ export function SettingsView() {
  const saveAll = async () => {
    setBusy(true);
     try {
-    // T3-A2: gatewayBind/mihomoApi removed — sidecar port is auto-assigned.
+    // Sidecar port is auto-assigned by the shell (ADR-0012) — nothing
+    // network-related to persist here.
     await saveIpReputationConfig(reputationConfig);
     setBaseline({ reputationConfig });
     setSaved(true);
