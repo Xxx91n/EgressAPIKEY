@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "أقصى فاصل اختبار خارج",
     "resinLatencyAuthorities": "مرجعيات زمن الاستجابة",
     "resinP2cLatencyWindow": "نافذة زمن الاستجابة P2C",
-    "resinLatencyDecayWindow": "نافذة اضمحلال زمن الاستجابة"
+    "resinLatencyDecayWindow": "نافذة اضمحلال زمن الاستجابة",
+    "effectiveTitle": "الإعدادات الفعلية (للقراءة فقط)",
+    "effectiveRefresh": "قراءة الإعدادات الفعلية",
+    "effectiveEmpty": "لم تُقرأ بعد — اضغط الزر لإعادة قراءة الإعدادات الفعلية الحالية.",
+    "effectiveResinDown": "Resin sidecar غير قيد التشغيل؛ قيم وقت التشغيل غير متاحة.",
+    "effectiveNoEntries": "لا توجد منصات أو منافذ مُهيأة.",
+    "effectiveConsistent": "متطابق",
+    "effectiveDivergent": "متباين",
+    "effectiveMissing": "غير موجود في Resin",
+    "effectivePort": "منفذ"
   },
   "strategy": {
     "aClass": "اختيار العقد (فئة A)",

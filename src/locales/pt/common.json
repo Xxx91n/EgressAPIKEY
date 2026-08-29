@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Intervalo máximo de teste de saída",
     "resinLatencyAuthorities": "Autoridades de latência",
     "resinP2cLatencyWindow": "Janela de latência P2C",
-    "resinLatencyDecayWindow": "Janela de decaimento de latência"
+    "resinLatencyDecayWindow": "Janela de decaimento de latência",
+    "effectiveTitle": "Configuração efetiva (somente leitura)",
+    "effectiveRefresh": "Ler configuração efetiva",
+    "effectiveEmpty": "Ainda não lido — pressione o botão para reler a configuração efetiva atual.",
+    "effectiveResinDown": "O sidecar do Resin não está em execução; os valores de runtime estão indisponíveis.",
+    "effectiveNoEntries": "Nenhuma plataforma ou porta configurada.",
+    "effectiveConsistent": "consistente",
+    "effectiveDivergent": "divergente",
+    "effectiveMissing": "ausente no Resin",
+    "effectivePort": "Porta"
   },
   "strategy": {
     "aClass": "Seleção de Nós (classe A)",

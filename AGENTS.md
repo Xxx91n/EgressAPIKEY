@@ -212,6 +212,7 @@ port_health_check = src-tauri/src/commands/mod.rs
 strategy_config_get = src-tauri/src/commands/mod.rs
 strategy_config_put = src-tauri/src/commands/mod.rs
 strategy_apply = src-tauri/src/commands/mod.rs
+authoritative_snapshot = src-tauri/src/commands/mod.rs
 lightweight_get = src-tauri/src/commands/mod.rs
 lightweight_set = src-tauri/src/commands/mod.rs
 set_log_level = src-tauri/src/commands/mod.rs

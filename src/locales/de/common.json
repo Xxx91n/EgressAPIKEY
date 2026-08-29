@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Maximales Egress-Testintervall",
     "resinLatencyAuthorities": "Latenz-Autoritäten",
     "resinP2cLatencyWindow": "P2C-Latenzfenster",
-    "resinLatencyDecayWindow": "Latenz-Abklingfenster"
+    "resinLatencyDecayWindow": "Latenz-Abklingfenster",
+    "effectiveTitle": "Effektive Konfiguration (schreibgeschützt)",
+    "effectiveRefresh": "Effektive Konfiguration lesen",
+    "effectiveEmpty": "Noch nicht gelesen – Taste drücken, um die aktuell wirksame Konfiguration zurückzulesen.",
+    "effectiveResinDown": "Resin-Sidecar läuft nicht; Laufzeitwerte sind nicht verfügbar.",
+    "effectiveNoEntries": "Keine Plattformen oder Ports konfiguriert.",
+    "effectiveConsistent": "konsistent",
+    "effectiveDivergent": "abweichend",
+    "effectiveMissing": "fehlt in Resin",
+    "effectivePort": "Port"
   },
   "strategy": {
     "aClass": "Knotenauswahl (A-Klasse)",

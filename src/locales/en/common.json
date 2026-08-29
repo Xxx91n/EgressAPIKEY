@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Max egress test interval",
     "resinLatencyAuthorities": "Latency authorities",
     "resinP2cLatencyWindow": "P2C latency window",
-    "resinLatencyDecayWindow": "Latency decay window"
+    "resinLatencyDecayWindow": "Latency decay window",
+    "effectiveTitle": "Effective config (read-only)",
+    "effectiveRefresh": "Read effective config",
+    "effectiveEmpty": "Not read yet — press the button to read back the current effective configuration.",
+    "effectiveResinDown": "Resin sidecar is not running; runtime values are unavailable.",
+    "effectiveNoEntries": "No platforms or ports configured.",
+    "effectiveConsistent": "consistent",
+    "effectiveDivergent": "divergent",
+    "effectiveMissing": "missing on Resin",
+    "effectivePort": "Port"
   },
   "strategy": {
     "aClass": "Node Selection (A-class)",

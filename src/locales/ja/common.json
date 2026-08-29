@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "出口テスト最大間隔",
     "resinLatencyAuthorities": "レイテンシー認証局",
     "resinP2cLatencyWindow": "P2C レイテンシーウィンドウ",
-    "resinLatencyDecayWindow": "レイテンシー減衰ウィンドウ"
+    "resinLatencyDecayWindow": "レイテンシー減衰ウィンドウ",
+    "effectiveTitle": "有効な設定（読み取り専用）",
+    "effectiveRefresh": "有効な設定を読み取る",
+    "effectiveEmpty": "未読み取り — ボタンを押して現在有効な設定を読み戻します。",
+    "effectiveResinDown": "Resin sidecar が起動していないため、ランタイム値を取得できません。",
+    "effectiveNoEntries": "プラットフォームもポートも設定されていません。",
+    "effectiveConsistent": "一致",
+    "effectiveDivergent": "不一致",
+    "effectiveMissing": "Resin に存在しません",
+    "effectivePort": "ポート"
   },
   "strategy": {
     "aClass": "ノード選択 (Aクラス)",

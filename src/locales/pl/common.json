@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Maksymalny interwał testu wyjścia",
     "resinLatencyAuthorities": "Urzędy opóźnienia",
     "resinP2cLatencyWindow": "Okno opóźnienia P2C",
-    "resinLatencyDecayWindow": "Okno zaniku opóźnienia"
+    "resinLatencyDecayWindow": "Okno zaniku opóźnienia",
+    "effectiveTitle": "Konfiguracja efektywna (tylko do odczytu)",
+    "effectiveRefresh": "Odczytaj konfigurację efektywną",
+    "effectiveEmpty": "Jeszcze nie odczytano — naciśnij przycisk, aby ponownie odczytać aktualną konfigurację efektywną.",
+    "effectiveResinDown": "Sidecar Resin nie działa; wartości środowiska uruchomieniowego są niedostępne.",
+    "effectiveNoEntries": "Brak skonfigurowanych platform lub portów.",
+    "effectiveConsistent": "spójna",
+    "effectiveDivergent": "rozbieżna",
+    "effectiveMissing": "brak w Resin",
+    "effectivePort": "Port"
   },
   "strategy": {
     "aClass": "Wybór Węzłów (klasa A)",

@@ -147,6 +147,11 @@ export function SettingsView() {
   const [strategyConfigPath, setStrategyConfigPath] = useState("");
   const [strategyBusy, setStrategyBusy] = useState(false);
   const [strategyMsg, setStrategyMsg] = useState("");
+  // Ticket 07: read-only "effective config" card - the authoritative snapshot
+  // read-back (whitebox vs Resin runtime, pre-merged in Rust).
+  const [effSnapshot, setEffSnapshot] = useState<AuthoritativeSnapshot | null>(null);
+  const [effBusy, setEffBusy] = useState(false);
+  const [effError, setEffError] = useState("");
 
   // T19-P4: node probe config (shell-local)
   const [probeCfg, setProbeCfg] = useState<NodeProbeConfig>({ concurrency: 10, timeout_ms: 10000, batch_on_load: false });

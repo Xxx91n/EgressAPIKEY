@@ -2698,6 +2698,115 @@ pub async fn strategy_apply(
     Ok(applied)
 }
 
+/// Architecture-recovery ticket 07: the authoritative effective-config
+/// snapshot (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config
+/// Authority). ONE call reads the three configuration sources and merges them
+/// at the single sanctioned merge point in resin-core:
+///   L2 whitebox strategy intent  <- egressapikey-strategy.json
+///   L2 whitebox ports + partner  <- WhiteboxConfigStore + egressapikey.db
+///   L3 Resin runtime             <- GET /api/v1/platforms + /api/v1/endpoints
+/// Views consume the result and must not re-merge stores themselves. This is
+/// a read-only command; the Read Retry contract applies to the Resin GETs.
+/// The B-class plan uses the same compute_plan entry as strategy_apply, so
+/// the snapshot reports the regions the NEXT apply would produce.
+#[tauri::command]
+pub async fn authoritative_snapshot(
+    sidecar: State<'_, SidecarHandle>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+    db: State<'_, DbPool>,
+    app: AppHandle,
+) -> Result<resin_core::AuthoritativeSnapshot, IpcError> {
+    // L2 strategy whitebox: file is the truth (ADR-0036); missing file = defaults.
+    let dir = std::path::PathBuf::from(get_config_dir(app)?);
+    let strategy_path = dir.join("egressapikey-strategy.json");
+    let config: resin_core::StrategyConfig = if strategy_path.exists() {
+        let raw = std::fs::read_to_string(&strategy_path)
+            .map_err(|e| IpcError::from(e.to_string()))?;
+        serde_json::from_str(&raw)
+            .map_err(|e| IpcError::from(format!("strategy config parse error: {e}")))?
+    } else {
+        resin_core::StrategyConfig::default()
+    };
+
+    // L2 ports whitebox + its SQLite sync partner. The whitebox file is the
+    // truth source (ADR-0042 S2); DB rows that are absent from the whitebox
+    // snapshot (boot-seed temp-store fallback path) are still surfaced so the
+    // partner drift stays visible instead of silently disappearing.
+    let whitebox_cfg = whitebox.snapshot();
+    let db_ports = db.list_ports().map_err(IpcError::from)?;
+    let wb_port_set: std::collections::HashSet<u16> =
+        whitebox_cfg.entry_ports.iter().map(|m| m.port).collect();
+    let mut all_ports = whitebox_cfg.entry_ports.clone();
+    all_ports.extend(db_ports.into_iter().filter(|m| !wb_port_set.contains(&m.port)));
+
+    // L3 Resin runtime. A sidecar that is not Running reports an empty,
+    // unreachable runtime (resin_reachable=false) instead of failing the
+    // snapshot: the whitebox half is still assertable while the sidecar is down.
+    let reachable = sidecar.mode() == crate::sidecar::RunningMode::Running;
+    let (mut resin_platforms, resin_endpoint_ports) = if reachable {
+        let client = resin_client(&sidecar)?;
+        let platforms_v = client
+            .list_platforms()
+            .await
+            .map_err(|e| map_resin_error(&e.to_string()))?;
+        let endpoints_v = client
+            .list_endpoints()
+            .await
+            .map_err(|e| map_resin_error(&e.to_string()))?;
+        (
+            resin_core::snapshot::parse_resin_platforms(&platforms_v),
+            endpoint_ports(&endpoints_v),
+        )
+    } else {
+        (vec![], vec![])
+    };
+    resin_platforms.sort_by(|a, b| a.name.cmp(&b.name));
+
+    // A-class plan for each whitebox platform, identical to strategy_apply.
+    let nodes_v = if reachable {
+        let client = resin_client(&sidecar)?;
+        let v = client
+            .list_nodes()
+            .await
+            .map_err(|e| map_resin_error(&e.to_string()))?;
+        resin_core::parse_nodes(&v)
+    } else {
+        vec![]
+    };
+    let plan = resin_core::compute_plan(&config, &nodes_v);
+
+    let platforms = resin_core::snapshot::merge_strategies(&config, &resin_platforms, &plan, strategy_path.exists());
+    let ports = resin_core::snapshot::merge_ports(&all_ports, &resin_endpoint_ports);
+    Ok(resin_core::AuthoritativeSnapshot {
+        strategy_version: config.version,
+        platforms,
+        ports,
+        resin_reachable: reachable,
+    })
+}
+
+/// Extract the set of listener ports from a GET /api/v1/endpoints response.
+/// Both the {"items":[..]} wrapper and bare-array shapes are accepted; the
+/// read-only "default" endpoint is included because a listener exists there.
+fn endpoint_ports(existing: &serde_json::Value) -> Vec<u16> {
+    let arr = if let Some(a) = existing.get("items").and_then(|i| i.as_array()) {
+        a.as_slice()
+    } else if let Some(a) = existing.as_array() {
+        a.as_slice()
+    } else {
+        &[]
+    };
+    let mut ports: Vec<u16> = arr
+        .iter()
+        .filter_map(|ep| ep.get("port").and_then(|p| p.as_u64()))
+        .filter(|p| *p <= u16::MAX as u64)
+        .map(|p| p as u16)
+        .collect();
+    ports.sort_unstable();
+    ports.dedup();
+    ports
+}
+
 /// T14-8: get lightweight mode config (enabled + delay_minutes).
 /// Reads from tauri-plugin-store settings.json — returns {enabled, delay_minutes}.
 #[tauri::command]

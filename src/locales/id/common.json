@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Interval uji egress maksimum",
     "resinLatencyAuthorities": "Otoritas latensi",
     "resinP2cLatencyWindow": "Jendela latensi P2C",
-    "resinLatencyDecayWindow": "Jendela peluruhan latensi"
+    "resinLatencyDecayWindow": "Jendela peluruhan latensi",
+    "effectiveTitle": "Konfigurasi efektif (baca-saja)",
+    "effectiveRefresh": "Baca konfigurasi efektif",
+    "effectiveEmpty": "Belum dibaca — tekan tombol untuk membaca kembali konfigurasi efektif saat ini.",
+    "effectiveResinDown": "Sidecar Resin tidak berjalan; nilai runtime tidak tersedia.",
+    "effectiveNoEntries": "Tidak ada platform atau port yang dikonfigurasi.",
+    "effectiveConsistent": "konsisten",
+    "effectiveDivergent": "divergen",
+    "effectiveMissing": "tidak ada di Resin",
+    "effectivePort": "Port"
   },
   "strategy": {
     "aClass": "Pemilihan Node (kelas A)",

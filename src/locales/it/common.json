@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Intervallo massimo test egress",
     "resinLatencyAuthorities": "Autorità di latenza",
     "resinP2cLatencyWindow": "Finestra latenza P2C",
-    "resinLatencyDecayWindow": "Finestra decadimento latenza"
+    "resinLatencyDecayWindow": "Finestra decadimento latenza",
+    "effectiveTitle": "Configurazione effettiva (sola lettura)",
+    "effectiveRefresh": "Leggi configurazione effettiva",
+    "effectiveEmpty": "Non ancora letto — premi il pulsante per rileggere la configurazione effettiva corrente.",
+    "effectiveResinDown": "Il sidecar Resin non è in esecuzione; i valori di runtime non sono disponibili.",
+    "effectiveNoEntries": "Nessuna piattaforma o porta configurata.",
+    "effectiveConsistent": "coerente",
+    "effectiveDivergent": "divergente",
+    "effectiveMissing": "assente in Resin",
+    "effectivePort": "Porta"
   },
   "strategy": {
     "aClass": "Selezione Nodi (classe A)",

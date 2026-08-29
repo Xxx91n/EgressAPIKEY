@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Khoảng thời gian kiểm tra đầu ra tối đa",
     "resinLatencyAuthorities": "Cơ quan thẩm quyền độ trễ",
     "resinP2cLatencyWindow": "Cửa sổ độ trễ P2C",
-    "resinLatencyDecayWindow": "Cửa sổ suy giảm độ trễ"
+    "resinLatencyDecayWindow": "Cửa sổ suy giảm độ trễ",
+    "effectiveTitle": "Cấu hình hiệu lực (chỉ đọc)",
+    "effectiveRefresh": "Đọc cấu hình hiệu lực",
+    "effectiveEmpty": "Chưa đọc — nhấn nút để đọc lại cấu hình hiệu lực hiện tại.",
+    "effectiveResinDown": "Resin sidecar không đang chạy; giá trị runtime không khả dụng.",
+    "effectiveNoEntries": "Chưa cấu hình nền tảng hoặc cổng nào.",
+    "effectiveConsistent": "khớp",
+    "effectiveDivergent": "lệch",
+    "effectiveMissing": "thiếu trên Resin",
+    "effectivePort": "Cổng"
   },
   "strategy": {
     "aClass": "Chọn Node (lớp A)",

@@ -22,10 +22,120 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) })
 
 import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, layoutNodesViaDagre, fixedHandleStyle, useTopologyStore, dedupNodesByHash, buildCColumnGroups, isNodeSelectedByAnyPlatform } from "./TopologyView";
 
-describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dual badges)", () => {
-  beforeEach(() => { invokeMock.mockReset(); });
+// Ticket 07 (Authoritative Snapshot): the canvas now consumes the ONE
+// pre-merged snapshot instead of merging platform_list_full +
+// strategy_config_get in the view. These helpers convert the legacy per-test
+// Resin/whitebox fixtures into the snapshot payload so the migrated tests
+// still exercise the same user-visible behavior at the new seam.
+type SnapshotBuilder = {
+  resinPlatforms: Array<Record<string, unknown>>;
+  strategyPlatforms: Array<Record<string, unknown>>;
+  ports: Array<Record<string, unknown>>;
+  resinReachable: boolean;
+  whiteboxExists: boolean;
+};
+function snapshotFromFixtures(b: Partial<SnapshotBuilder>) {
+  const strategy = b.strategyPlatforms ?? [];
+  const platforms = strategy.map((ps) => {
+    const name = String(ps.platform_name);
+    const regions = Array.isArray(ps.regions) ? ps.regions : [];
+    const aClass = String(ps.a_class ?? "");
+    const bClass = String(ps.b_class ?? "");
+    const manualNodes = Array.isArray(ps.manual_nodes) ? ps.manual_nodes : [];
+    const subscriptions = Array.isArray(ps.subscriptions) ? ps.subscriptions : [];
+    const resin = (b.resinPlatforms ?? []).find((p) => String(p.name) === name);
+    const resinId = resin ? String(resin.id ?? "") : "";
+    if (!resin) {
+      return { state: "missingOnResin", platform_name: name, regions, a_class: aClass, b_class: bClass, manual_nodes: manualNodes, subscriptions };
+    }
+    const resinRegions = Array.isArray(resin.region_filters) ? resin.region_filters : [];
+    const eq = (x: unknown[], y: unknown[]) =>
+      [...x].map(String).map((v) => v.toLowerCase()).sort().join("|") ===
+      [...y].map(String).map((v) => v.toLowerCase()).sort().join("|");
+    if (eq(regions, resinRegions)) {
+      return { state: "consistent", platform_name: name, platform_id: resinId, regions, resin_allocation_policy: String(resin.allocation_policy ?? "BALANCED"), b_class: bClass, a_class: aClass, manual_nodes: manualNodes, subscriptions };
+    }
+    return { state: "divergent", platform_name: name, platform_id: resinId, whitebox_regions: regions, resin_regions: resinRegions, resin_allocation_policy: String(resin.allocation_policy ?? "BALANCED"), b_class: bClass, a_class: aClass, manual_nodes: manualNodes, subscriptions };
+  });
+  const runtimeOnlyAClass = b.whiteboxExists === false ? "" : "subscription";
+  for (const rp of b.resinPlatforms ?? []) {
+    if (!strategy.some((ps) => String(ps.platform_name) === String(rp.name))) {
+      platforms.push({ state: "divergent", platform_name: String(rp.name), platform_id: String(rp.id ?? ""), whitebox_regions: [], resin_regions: Array.isArray(rp.region_filters) ? rp.region_filters : [], resin_allocation_policy: String(rp.allocation_policy ?? "BALANCED"), b_class: "", a_class: runtimeOnlyAClass, manual_nodes: [], subscriptions: [] });
+    }
+  }
+  const ports = (b.ports ?? []).map((m) => {
+    const hasResin = m._has_resin_endpoint !== false;
+    const { _has_resin_endpoint, ...rest } = m;
+    if (rest.enabled === false && !hasResin) {
+      return { state: "consistent", ...rest };
+    }
+    if (hasResin) return { state: "consistent", ...rest };
+    return { state: "missingOnResin", port: rest.port, platform_name: rest.platform_name, protocol: rest.protocol };
+  });
+  return {
+    strategyVersion: 1,
+    platforms,
+    ports,
+    resinReachable: b.resinReachable ?? true,
+  };
+}
+// Derive the snapshot from the legacy platform_list_full + strategy_config_get +
+// port_list mock responses: mirrors what resin-core does in production.
+function snapshotFromMocks(cmdMock: (cmd: string) => unknown) {
+  const platResp = cmdMock("platform_list_full") as { items?: Array<Record<string, unknown>> } | undefined;
+  const cfgResp = cmdMock("strategy_config_get") as { platforms?: Array<Record<string, unknown>> } | undefined;
+  const portResp = cmdMock("port_list") as Array<Record<string, unknown>> | undefined;
+  const resinPlatforms = platResp?.items ?? [];
+  // Default the whitebox entries to the Resin rows so a test that only mocks
+  // platform_list_full still renders. No strategy intent is invented
+  // (a_class/b_class stay empty): the snapshot carries the runtime-only
+  // default explicitly via merge_strategies' whitebox_exists semantics.
+  const strategyPlatforms = cfgResp?.platforms ?? resinPlatforms.map((p) => ({
+    platform_name: String(p.name),
+    a_class: String(p.aClass ?? p.a_class ?? ""),
+    b_class: String(p.bClass ?? p.b_class ?? ""),
+    regions: Array.isArray(p.region_filters) ? p.region_filters : [],
+  }));
+  const ports = (portResp ?? []).map((m) => ({ ...m, _has_resin_endpoint: true }));
+  return snapshotFromFixtures({ resinPlatforms, strategyPlatforms, ports, whiteboxExists: cfgResp !== undefined });
+}
 
-  it("renders entry port + platforms + subscription groups from live Resin data", async () => {
+
+describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dual badges)", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    // Ticket 07 migration shim: per-test mocks still declare the legacy
+    // platform_list_full / strategy_config_get / port_list fixtures. Wrap
+    // every mockImplementation so an authoritative_snapshot call derives its
+    // payload from those legacy fixtures — the same merge resin-core performs
+    // in production. The view itself must only call authoritative_snapshot.
+    const origSet = invokeMock.mockImplementation.bind(invokeMock);
+    (invokeMock as unknown as { mockImplementation: (impl: unknown) => unknown }).mockImplementation =
+      (impl: unknown) => {
+        const typed = impl as (cmd: string, args?: Record<string, unknown>) => unknown;
+        const wrapped = async (cmd: string, args?: Record<string, unknown>) => {
+          if (cmd === "authoritative_snapshot") {
+            // A test that mocks the snapshot directly wins over the legacy
+            // fixture derivation.
+            const direct = await Promise.resolve(typed(cmd, args));
+            if (direct !== undefined) return direct;
+            const plat = await Promise.resolve(typed("platform_list_full", args));
+            const cfg = await Promise.resolve(typed("strategy_config_get", args)).catch(() => undefined);
+            const ports = await Promise.resolve(typed("port_list", args));
+            return snapshotFromMocks((probe: string) => {
+              if (probe === "platform_list_full") return plat;
+              if (probe === "strategy_config_get") return cfg;
+              if (probe === "port_list") return ports;
+              return undefined;
+            });
+          }
+          return typed(cmd, args);
+        };
+        return origSet(wrapped);
+      };
+  });
+
+    it("renders entry port + platforms + subscription groups from live Resin data", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "platform_list_full") return Promise.resolve({
         items: [
@@ -829,8 +939,10 @@ describe("T15-3: React.memo canvas node optimization", () => {
       await waitFor(() => {
         expect(container.textContent || "").toContain("WBPlat");
       });
-      // Canvas should reflect strategyConfig regions (jp) not Resin platform regions (us)
-      // The A-class badge should show JP (from strategyConfig) not US (from Resin)
+      // Canvas should reflect whitebox intent (jp) not Resin runtime (us).
+      // Ticket 07: the divergence itself is carried IN the snapshot (both
+      // values, state=divergent); the view renders the intent without
+      // re-merging stores.
       await waitFor(() => {
         expect(container.textContent || "").toContain("JP");
       });

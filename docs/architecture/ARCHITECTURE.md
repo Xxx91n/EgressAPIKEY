@@ -117,12 +117,12 @@ platform/port. Each entry is in exactly one of three states:
   not in Resin, or a port's Resin endpoint vanished).
 
 The snapshot is the ONLY sanctioned cross-store merge point. View layers
-consume it and must not re-merge stores: the current `TopologyView.tsx`
-`sync()`-time merge of `cfgRaw.platforms` into Resin platform rows
-(`src/views/TopologyView.tsx` around lines 847-885) is scheduled for deletion
-in ticket 07. Until that lands, the view-layer merge remains transitional
-truth — this contract is the destination, not a license to add new
-view-layer merges.
+consume it and must not re-merge stores. Implemented 2026-08-30 (ticket 07,
+ADR-0051): the former `TopologyView.tsx` `sync()`-time merge of
+`cfgRaw.platforms` into Resin platform rows is deleted; the view polls the
+`authoritative_snapshot` IPC, and the merge lives in
+`crates/resin-core/src/snapshot.rs` (pure, unit-tested against the three
+legislated fixtures). Adding a new view-layer merge is a review blocker.
 
 ## Data flow
 

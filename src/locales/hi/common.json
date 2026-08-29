@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "अधिकतम एग्रेस परीक्षण अंतराल",
     "resinLatencyAuthorities": "लेटेंसी प्राधिकरण",
     "resinP2cLatencyWindow": "P2C लेटेंसी विंडो",
-    "resinLatencyDecayWindow": "लेटेंसी क्षय विंडो"
+    "resinLatencyDecayWindow": "लेटेंसी क्षय विंडो",
+    "effectiveTitle": "प्रभावी कॉन्फ़िगरेशन (केवल पढ़ने के लिए)",
+    "effectiveRefresh": "प्रभावी कॉन्फ़िगरेशन पढ़ें",
+    "effectiveEmpty": "अभी तक नहीं पढ़ा गया — वर्तमान प्रभावी कॉन्फ़िगरेशन दोबारा पढ़ने के लिए बटन दबाएँ।",
+    "effectiveResinDown": "Resin sidecar चल नहीं रहा है; रनटाइम मान अनुपलब्ध हैं।",
+    "effectiveNoEntries": "कोई प्लेटफ़ॉर्म या पोर्ट कॉन्फ़िगर नहीं है।",
+    "effectiveConsistent": "सुसंगत",
+    "effectiveDivergent": "असंगत",
+    "effectiveMissing": "Resin पर अनुपस्थित",
+    "effectivePort": "पोर्ट"
   },
   "strategy": {
     "aClass": "नोड चयन (A-वर्ग)",

@@ -328,27 +328,72 @@ export function buildCColumnGroups(
 
 
 
-function parsePlatforms(raw: unknown): PlatformFull[] {
-  if (!raw || typeof raw !== "object") return [];
-  const v = raw as Record<string, unknown>;
-  const items = Array.isArray(v.items) ? v.items : Array.isArray(v) ? v : [];
-  return items.filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
-    .map((p) => ({
-      id: String(p.id ?? ""),
-      name: String(p.name ?? ""),
-      regex_filters: Array.isArray(p.regex_filters) ? p.regex_filters as string[] : null,
-      region_filters: Array.isArray(p.region_filters) ? p.region_filters as string[] : null,
-      allocation_policy: String(p.allocation_policy ?? "BALANCED"),
-      routable_node_count: Number(p.routable_node_count ?? 0),
-      sticky_ttl: String(p.sticky_ttl ?? "0s"),
-      // T22-2: preserve aClass + strategy fields from raw data as fallback
-      // (strategyConfig merge in sync() overrides these when config exists)
-      aClass: typeof p.aClass === "string" ? p.aClass : (typeof p.a_class === "string" ? p.a_class : undefined),
-      bClass: typeof p.bClass === "string" ? p.bClass : (typeof p.b_class === "string" ? p.b_class : undefined),
-      subscriptionNames: Array.isArray(p.subscriptionNames) ? p.subscriptionNames as string[] : (Array.isArray(p.subscriptions) ? p.subscriptions as string[] : undefined),
-      manualNodes: Array.isArray(p.manualNodes) ? p.manualNodes as string[] : (Array.isArray(p.manual_nodes) ? p.manual_nodes as string[] : undefined),
-    }));
+/// Ticket 07 (Authoritative Snapshot): map the pre-merged snapshot entries to
+/// the canvas PlatformFull shape. Strategy intent fields now come from the
+/// snapshot (merged in resin-core at the sanctioned merge point); a divergent
+/// entry carries BOTH values and the canvas shows the whitebox intent while
+/// the divergence is reported by the snapshot consumer, never reconciled here.
+export function snapshotToPlatformFulls(snap: AuthoritativeSnapshot): PlatformFull[] {
+  return snap.platforms
+    .filter((ps) => typeof ps.platform_name === "string" && ps.platform_name.length > 0)
+    .map((ps): PlatformFull => {
+      // ADR-0039 SS2: ALL strategy fields travel with the snapshot; the canvas
+      // never consults strategyConfig itself anymore.
+      const common = {
+        id: ps.platform_id || ps.platform_name,
+        name: ps.platform_name,
+        regex_filters: null,
+        aClass: ps.a_class || undefined,
+        bClass: ps.b_class || undefined,
+        subscriptionNames: ps.subscriptions.length > 0 ? ps.subscriptions : undefined,
+        manualNodes: ps.manual_nodes.length > 0 ? ps.manual_nodes : undefined,
+      };
+      if (ps.state === "consistent") {
+        return {
+          ...common,
+          region_filters: ps.regions,
+          allocation_policy: ps.resin_allocation_policy,
+          routable_node_count: 0,
+          sticky_ttl: "0s",
+        };
+      }
+      if (ps.state === "divergent") {
+        // Whitebox intent wins for canvas display (it is what the next
+        // strategy_apply would enforce); both values live in the snapshot.
+        return {
+          ...common,
+          region_filters: ps.whitebox_regions.length > 0 ? ps.whitebox_regions : ps.resin_regions,
+          allocation_policy: ps.resin_allocation_policy,
+          routable_node_count: 0,
+          sticky_ttl: "0s",
+        };
+      }
+      return {
+        ...common,
+        region_filters: ps.regions,
+        allocation_policy: "BALANCED",
+        routable_node_count: 0,
+        sticky_ttl: "0s",
+      };
+    });
 }
+/// Ticket 07: map the snapshot's port half into the store's PortMapping[] so
+/// the entry-port column keeps its existing rendering contract. Resin runtime
+/// agreement is already reflected in each state tag; the canvas only needs
+/// identity + enabled to render.
+export function snapshotToPortMappings(snap: AuthoritativeSnapshot): PortMapping[] {
+  return snap.ports.map((ps) => ({
+    port: ps.port,
+    protocol: ps.protocol || "socks5",
+    platform_name: ps.platform_name,
+    account: ps.account || "port-" + ps.port,
+    label: ps.label,
+    enabled: ps.state === "consistent" ? ps.enabled : true,
+    auth_required: ps.auth_required,
+  }));
+}
+
+
 
 // --- T13-2: dagre auto-layout helper ---
 export function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 200, nodeHeight = 100): Node[] {

@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Intervalo máximo de prueba de salida",
     "resinLatencyAuthorities": "Autoridades de latencia",
     "resinP2cLatencyWindow": "Ventana de latencia P2C",
-    "resinLatencyDecayWindow": "Ventana de decaimiento de latencia"
+    "resinLatencyDecayWindow": "Ventana de decaimiento de latencia",
+    "effectiveTitle": "Configuración efectiva (solo lectura)",
+    "effectiveRefresh": "Leer configuración efectiva",
+    "effectiveEmpty": "Aún no leído — pulsa el botón para leer la configuración efectiva actual.",
+    "effectiveResinDown": "El sidecar de Resin no está en ejecución; los valores del runtime no están disponibles.",
+    "effectiveNoEntries": "No hay plataformas ni puertos configurados.",
+    "effectiveConsistent": "coherente",
+    "effectiveDivergent": "divergente",
+    "effectiveMissing": "falta en Resin",
+    "effectivePort": "Puerto"
   },
   "strategy": {
     "aClass": "Selección de Nodos (clase A)",

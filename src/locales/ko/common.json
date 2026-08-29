@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "최대 이그레스 테스트 간격",
     "resinLatencyAuthorities": "지연 권한",
     "resinP2cLatencyWindow": "P2C 지연 창",
-    "resinLatencyDecayWindow": "지연 감쇠 창"
+    "resinLatencyDecayWindow": "지연 감쇠 창",
+    "effectiveTitle": "적용된 설정(읽기 전용)",
+    "effectiveRefresh": "적용된 설정 읽기",
+    "effectiveEmpty": "아직 읽지 않았습니다 — 버튼을 눌러 현재 실제 적용된 설정을 다시 읽어옵니다.",
+    "effectiveResinDown": "Resin sidecar가 실행 중이 아니어서 런타임 값을 사용할 수 없습니다.",
+    "effectiveNoEntries": "구성된 플랫폼이나 포트가 없습니다.",
+    "effectiveConsistent": "일치",
+    "effectiveDivergent": "불일치",
+    "effectiveMissing": "Resin에 없음",
+    "effectivePort": "포트"
   },
   "strategy": {
     "aClass": "노드 선택 (A클래스)",

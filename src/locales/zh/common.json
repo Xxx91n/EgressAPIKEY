@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "最大出口测试间隔",
     "resinLatencyAuthorities": "延迟探测权威域名",
     "resinP2cLatencyWindow": "P2C 延迟窗口",
-    "resinLatencyDecayWindow": "延迟衰减窗口"
+    "resinLatencyDecayWindow": "延迟衰减窗口",
+    "effectiveTitle": "生效配置（只读）",
+    "effectiveRefresh": "读取生效配置",
+    "effectiveEmpty": "尚未读取 — 点击按钮读回当前真正生效的完整配置。",
+    "effectiveResinDown": "Resin sidecar 未运行；运行时数值不可用。",
+    "effectiveNoEntries": "未配置任何平台或端口。",
+    "effectiveConsistent": "一致",
+    "effectiveDivergent": "不一致",
+    "effectiveMissing": "Resin 缺失",
+    "effectivePort": "端口"
   },
   "strategy": {
     "aClass": "节点选择 (A类)",

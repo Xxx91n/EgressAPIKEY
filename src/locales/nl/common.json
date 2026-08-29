@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Maximaal egress-testinterval",
     "resinLatencyAuthorities": "Latency-autoriteiten",
     "resinP2cLatencyWindow": "P2C-latencyvenster",
-    "resinLatencyDecayWindow": "Latency-afnamevenster"
+    "resinLatencyDecayWindow": "Latency-afnamevenster",
+    "effectiveTitle": "Effectieve configuratie (alleen-lezen)",
+    "effectiveRefresh": "Effectieve configuratie lezen",
+    "effectiveEmpty": "Nog niet gelezen — druk op de knop om de huidige effectieve configuratie opnieuw te lezen.",
+    "effectiveResinDown": "Resin sidecar draait niet; runtime-waarden zijn niet beschikbaar.",
+    "effectiveNoEntries": "Geen platforms of poorten geconfigureerd.",
+    "effectiveConsistent": "consistent",
+    "effectiveDivergent": "divergent",
+    "effectiveMissing": "ontbreekt in Resin",
+    "effectivePort": "Poort"
   },
   "strategy": {
     "aClass": "Knoopselectie (A-klasse)",

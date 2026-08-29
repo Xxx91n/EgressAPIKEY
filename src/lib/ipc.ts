@@ -839,6 +839,189 @@ export interface StrategyApplyResult {
 export async function ipcStrategyApply(): Promise<StrategyApplyResult> {
   return invoke<StrategyApplyResult>("strategy_apply");
 }
+
+// ---------------------------------------------------------------------------
+// Architecture-recovery ticket 07: authoritative effective-config snapshot
+// (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config Authority).
+// ONE pre-merged read-back of L2 strategy whitebox + L2 ports whitebox +
+// L3 Resin runtime. The merge lives in resin-core (snapshot.rs); views
+// consume this and must NOT re-merge stores. Responses are treated as
+// untrusted: every field passes through a sanitizer before use.
+// ---------------------------------------------------------------------------
+
+export type SnapshotState = "consistent" | "divergent" | "missingOnResin";
+
+export interface StrategySnapshotConsistent {
+  state: "consistent";
+  platform_name: string;
+  platform_id: string;
+  regions: string[];
+  resin_allocation_policy: string;
+  b_class: string;
+  a_class: string;
+  manual_nodes: string[];
+  subscriptions: string[];
+}
+export interface StrategySnapshotDivergent {
+  state: "divergent";
+  platform_name: string;
+  platform_id: string;
+  whitebox_regions: string[];
+  resin_regions: string[];
+  resin_allocation_policy: string;
+  b_class: string;
+  a_class: string;
+  manual_nodes: string[];
+  subscriptions: string[];
+}
+export interface StrategySnapshotMissingOnResin {
+  state: "missingOnResin";
+  platform_name: string;
+  platform_id: string;
+  regions: string[];
+  a_class: string;
+  b_class: string;
+  manual_nodes: string[];
+  subscriptions: string[];
+}
+export type StrategySnapshot =
+  | StrategySnapshotConsistent
+  | StrategySnapshotDivergent
+  | StrategySnapshotMissingOnResin;
+
+export interface PortSnapshotConsistent {
+  state: "consistent";
+  port: number;
+  platform_name: string;
+  protocol: string;
+  account: string;
+  label: string;
+  enabled: boolean;
+  auth_required: boolean;
+}
+export interface PortSnapshotMissingOnResin {
+  state: "missingOnResin";
+  port: number;
+  platform_name: string;
+  protocol: string;
+  account: string;
+  label: string;
+  auth_required: boolean;
+}
+export type PortSnapshot = PortSnapshotConsistent | PortSnapshotMissingOnResin;
+
+export interface AuthoritativeSnapshot {
+  strategyVersion: number;
+  platforms: StrategySnapshot[];
+  ports: PortSnapshot[];
+  resinReachable: boolean;
+}
+
+const MAX_SNAPSHOT_ENTRIES = 4096;
+const SNAPSHOT_STR_MAX = 512;
+
+function snapStr(v: unknown): string {
+  const s = typeof v === "string" ? v : "";
+  return s.length > SNAPSHOT_STR_MAX ? s.slice(0, SNAPSHOT_STR_MAX) : s;
+}
+
+function snapStrArr(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.slice(0, 64).map((x) => snapStr(x)).filter((x) => x.length > 0);
+}
+
+function snapPlatform(v: unknown): StrategySnapshot | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  const name = snapStr(r.platform_name);
+  const aClass = snapStr(r.a_class);
+  const bClass = snapStr(r.b_class);
+  switch (r.state) {
+    case "consistent":
+      return {
+        state: "consistent", platform_name: name,
+        platform_id: snapStr(r.platform_id),
+        regions: snapStrArr(r.regions),
+        resin_allocation_policy: snapStr(r.resin_allocation_policy),
+        b_class: bClass, a_class: aClass,
+        manual_nodes: snapStrArr(r.manual_nodes),
+        subscriptions: snapStrArr(r.subscriptions),
+      };
+    case "divergent":
+      return {
+        state: "divergent", platform_name: name,
+        platform_id: snapStr(r.platform_id),
+        whitebox_regions: snapStrArr(r.whitebox_regions),
+        resin_regions: snapStrArr(r.resin_regions),
+        resin_allocation_policy: snapStr(r.resin_allocation_policy),
+        b_class: bClass, a_class: aClass,
+        manual_nodes: snapStrArr(r.manual_nodes),
+        subscriptions: snapStrArr(r.subscriptions),
+      };
+    case "missingOnResin":
+      return {
+        state: "missingOnResin", platform_name: name,
+        platform_id: snapStr(r.platform_id),
+        regions: snapStrArr(r.regions),
+        a_class: aClass, b_class: bClass,
+        manual_nodes: snapStrArr(r.manual_nodes),
+        subscriptions: snapStrArr(r.subscriptions),
+      };
+    default:
+      return null;
+  }
+}
+
+function snapPort(v: unknown): PortSnapshot | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  const port = Number(r.port);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) return null;
+  const name = snapStr(r.platform_name);
+  const proto = snapStr(r.protocol);
+  const account = snapStr(r.account);
+  const label = snapStr(r.label);
+  const authRequired = r.auth_required === true;
+  if (r.state === "consistent") {
+    return { state: "consistent", port, platform_name: name, protocol: proto, account, label, enabled: r.enabled === true, auth_required: authRequired };
+  }
+  if (r.state === "missingOnResin") {
+    return { state: "missingOnResin", port, platform_name: name, protocol: proto, account, label, auth_required: authRequired };
+  }
+  return null;
+}
+
+function snapSnapshot(v: unknown): AuthoritativeSnapshot {
+  const r = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const platformsRaw = Array.isArray(r.platforms) ? r.platforms : [];
+  const portsRaw = Array.isArray(r.ports) ? r.ports : [];
+  return {
+    strategyVersion: Number(r.strategyVersion) === 1 ? 1 : 0,
+    platforms: platformsRaw
+      .slice(0, MAX_SNAPSHOT_ENTRIES)
+      .map(snapPlatform)
+      .filter((x): x is StrategySnapshot => x !== null),
+    ports: portsRaw
+      .slice(0, MAX_SNAPSHOT_ENTRIES)
+      .map(snapPort)
+      .filter((x): x is PortSnapshot => x !== null),
+    resinReachable: r.resinReachable === true,
+  };
+}
+
+/// Read back the merged effective configuration in one call. No inputs to
+/// validate (read-only, no args); the response is sanitized as untrusted.
+export async function ipcAuthoritativeSnapshot(): Promise<AuthoritativeSnapshot> {
+  const raw = await invoke("authoritative_snapshot");
+  return snapSnapshot(raw);
+}
+
+/// Narrow an unknown view-layer object (e.g. cached zustand data) back into
+/// a PlatformFull-ish shape without trusting its fields. Exported for
+/// TopologyView's canvas mapping so the old cfgRaw merge stays deleted.
+export function snapshotPlatformName(p: StrategySnapshot): string {
+  return p.platform_name;
+}
  
  // ---------------------------------------------------------------------------
  // Phase 5-2: typed IPC error contract (ADR-0026 Q6-Q8).

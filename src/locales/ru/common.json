@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Максимальный интервал теста выхода",
     "resinLatencyAuthorities": "Центры задержки",
     "resinP2cLatencyWindow": "Окно задержки P2C",
-    "resinLatencyDecayWindow": "Окно затухания задержки"
+    "resinLatencyDecayWindow": "Окно затухания задержки",
+    "effectiveTitle": "Действующая конфигурация (только чтение)",
+    "effectiveRefresh": "Прочитать действующую конфигурацию",
+    "effectiveEmpty": "Ещё не прочитано — нажмите кнопку, чтобы перечитать текущую действующую конфигурацию.",
+    "effectiveResinDown": "Resin sidecar не запущен; значения времени выполнения недоступны.",
+    "effectiveNoEntries": "Платформы и порты не настроены.",
+    "effectiveConsistent": "согласовано",
+    "effectiveDivergent": "расхождение",
+    "effectiveMissing": "отсутствует в Resin",
+    "effectivePort": "Порт"
   },
   "strategy": {
     "aClass": "Выбор узлов (класс A)",

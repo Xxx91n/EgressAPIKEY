@@ -246,7 +246,16 @@
     "resinMaxEgressInterval": "Maksimum çıkış test aralığı",
     "resinLatencyAuthorities": "Gecikme otoriteleri",
     "resinP2cLatencyWindow": "P2C gecikme penceresi",
-    "resinLatencyDecayWindow": "Gecikme azalma penceresi"
+    "resinLatencyDecayWindow": "Gecikme azalma penceresi",
+    "effectiveTitle": "Etkin yapılandırma (salt okunur)",
+    "effectiveRefresh": "Etkin yapılandırmayı oku",
+    "effectiveEmpty": "Henüz okunmadı — geçerli etkin yapılandırmayı yeniden okumak için düğmeye basın.",
+    "effectiveResinDown": "Resin sidecar çalışmıyor; çalışma zamanı değerleri kullanılamıyor.",
+    "effectiveNoEntries": "Yapılandırılmış platform veya bağlantı noktası yok.",
+    "effectiveConsistent": "tutarlı",
+    "effectiveDivergent": "farklı",
+    "effectiveMissing": "Resin'de yok",
+    "effectivePort": "Bağlantı noktası"
   },
   "strategy": {
     "aClass": "Düğüm Seçimi (A sınıfı)",
