@@ -152,7 +152,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 # Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):
 # entries must equal the #[tauri::command] set under src-tauri/src AND the
 # generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.
-# Do not hand-edit entries. Regenerated: 2026-08-30 (66 commands)
+# Do not hand-edit entries. Regenerated: 2026-08-31 (71 commands)
 backup_create = src-tauri/src/commands/backup.rs
 backup_upload = src-tauri/src/commands/backup.rs
 backup_list = src-tauri/src/commands/backup.rs
@@ -219,6 +219,9 @@ strategy_config_put = src-tauri/src/commands/strategy.rs
 strategy_apply = src-tauri/src/commands/strategy.rs
 strategy_platform_regions_set = src-tauri/src/commands/strategy.rs
 authoritative_snapshot = src-tauri/src/commands/strategy.rs
+strategy_backup_list = src-tauri/src/commands/strategy.rs
+strategy_rollback = src-tauri/src/commands/strategy.rs
+reconcile_now = src-tauri/src/commands/strategy.rs
 ```
 
 - Never expose `MihomoController`, `CoreConfig.mihomo_api`, or `CoreConfig.mihomo_secret` through a `#[tauri::command]` that takes a raw `String` and constructs the controller from it. Config must come from `tauri-plugin-store` settings.json (server-side trust), not from the webview.

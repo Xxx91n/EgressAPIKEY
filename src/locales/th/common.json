@@ -459,6 +459,23 @@
     "port": "พอร์ต",
     "enabled": "เปิดใช้งาน",
     "disabled": "ปิดใช้งาน",
-    "authRequired": "ต้องยืนยันตัวตน"
+    "authRequired": "ต้องยืนยันตัวตน",
+    "historySection": "ประวัติไวท์บ็อกซ์",
+    "historyEmpty": "ยังไม่มีการสำรองข้อมูล — เวอร์ชันจะปรากฏหลังการเปลี่ยนแปลงการตั้งค่าครั้งแรก",
+    "rollbackTo": "ย้อนกลับ",
+    "confirmTitle": "ย้อนกลับไปยังเวอร์ชันนี้?",
+    "confirmBody": "ไวท์บ็อกซ์ {{store}} จะถูกคืนค่าเป็นสถานะที่บันทึกไว้เมื่อ {{time}} จากนั้นนำไปใช้ใหม่และตรวจสอบอีกครั้ง การกระทำนี้จะถูกสำรองไว้ด้วย",
+    "confirmCancel": "ยกเลิก",
+    "confirmOk": "ย้อนกลับ",
+    "rollbackWorking": "กำลังย้อนกลับ…",
+    "reconcile": "ซิงค์ไปยังสถานะที่ต้องการ",
+    "reconcilePreviewTitle": "ตัวอย่างก่อนซิงค์ — สิ่งที่จะเปลี่ยน",
+    "reconcileNothing": "ทุกอย่างตรงกับ whitebox แล้ว ไม่มีอะไรต้องทำ",
+    "reconcileCreatePlatform": "สร้างแพลตฟอร์มบน Resin",
+    "reconcilePatchRegions": "อัปเดต region_filters: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "สร้าง endpoint ของ Resin (กู้คืนพอร์ต)",
+    "reconcileOneWay": "ซิงค์ทางเดียว: whitebox มีสิทธิ์เหนือกว่าเสมอ หากต้องการคงสถานะปัจจุบัน ให้แก้ไข whitebox",
+    "reconcileConfirm": "ใช้เลย",
+    "reconcileWorking": "กำลังซิงค์…"
   }
 }

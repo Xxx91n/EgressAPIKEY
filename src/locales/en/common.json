@@ -459,6 +459,23 @@
     "port": "Port",
     "enabled": "enabled",
     "disabled": "disabled",
-    "authRequired": "auth required"
+    "authRequired": "auth required",
+    "historySection": "Whitebox history",
+    "historyEmpty": "No backups yet — versions appear after the first config change.",
+    "rollbackTo": "Roll back",
+    "confirmTitle": "Roll back to this version?",
+    "confirmBody": "The {{store}} whitebox will be restored to the state saved at {{time}}, then re-applied and re-checked. This action is itself backed up.",
+    "confirmCancel": "Cancel",
+    "confirmOk": "Roll back",
+    "rollbackWorking": "Rolling back…",
+    "reconcile": "Sync to desired state",
+    "reconcilePreviewTitle": "Reconcile preview — what will change",
+    "reconcileNothing": "Everything already matches the whitebox. Nothing to do.",
+    "reconcileCreatePlatform": "create platform on Resin",
+    "reconcilePatchRegions": "patch region_filters: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "create Resin endpoint (restore port)",
+    "reconcileOneWay": "One-way sync: the whitebox config always wins. To keep the live state instead, edit the whitebox.",
+    "reconcileConfirm": "Apply now",
+    "reconcileWorking": "Reconciling…"
   }
 }

@@ -459,6 +459,23 @@
     "port": "Port",
     "enabled": "diaktifkan",
     "disabled": "dinonaktifkan",
-    "authRequired": "perlu autentikasi"
+    "authRequired": "perlu autentikasi",
+    "historySection": "Riwayat whitebox",
+    "historyEmpty": "Belum ada cadangan — versi muncul setelah perubahan konfigurasi pertama.",
+    "rollbackTo": "Pulihkan",
+    "confirmTitle": "Kembali ke versi ini?",
+    "confirmBody": "Whitebox {{store}} akan dipulihkan ke kondisi tersimpan pada {{time}}, lalu diterapkan dan diperiksa ulang. Tindakan ini juga dicadangkan.",
+    "confirmCancel": "Batal",
+    "confirmOk": "Pulihkan",
+    "rollbackWorking": "Memulihkan…",
+    "reconcile": "Sinkronkan ke status yang diinginkan",
+    "reconcilePreviewTitle": "Pratinjau rekonsiliasi — apa yang berubah",
+    "reconcileNothing": "Semua sudah cocok dengan whitebox. Tidak ada yang perlu dilakukan.",
+    "reconcileCreatePlatform": "buat platform di Resin",
+    "reconcilePatchRegions": "perbarui region_filters: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "buat endpoint Resin (pulihkan port)",
+    "reconcileOneWay": "Sinkronisasi satu arah: whitebox selalu menang. Untuk mempertahankan status live, edit whitebox.",
+    "reconcileConfirm": "Terapkan sekarang",
+    "reconcileWorking": "Menyinkronkan…"
   }
 }

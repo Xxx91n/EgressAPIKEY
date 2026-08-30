@@ -459,6 +459,23 @@
     "port": "Порт",
     "enabled": "включён",
     "disabled": "выключен",
-    "authRequired": "нужна аутентификация"
+    "authRequired": "нужна аутентификация",
+    "historySection": "История whitebox",
+    "historyEmpty": "Пока нет копий — версии появятся после первого изменения конфигурации.",
+    "rollbackTo": "Откатить",
+    "confirmTitle": "Откатиться к этой версии?",
+    "confirmBody": "Whitebox {{store}} будет восстановлена до состояния на {{time}}, затем повторно применена и проверена. Само действие тоже копируется.",
+    "confirmCancel": "Отмена",
+    "confirmOk": "Откатить",
+    "rollbackWorking": "Откат…",
+    "reconcile": "Синхронизировать с целевым состоянием",
+    "reconcilePreviewTitle": "Предпросмотр синхронизации — что изменится",
+    "reconcileNothing": "Всё уже соответствует whitebox. Изменений нет.",
+    "reconcileCreatePlatform": "создать платформу в Resin",
+    "reconcilePatchRegions": "обновить region_filters: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "создать endpoint Resin (восстановить порт)",
+    "reconcileOneWay": "Однонаправленная синхронизация: whitebox всегда главный. Чтобы сохранить текущее состояние, измените whitebox.",
+    "reconcileConfirm": "Применить сейчас",
+    "reconcileWorking": "Синхронизация…"
   }
 }

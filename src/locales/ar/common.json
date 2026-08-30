@@ -459,6 +459,23 @@
     "port": "منفذ",
     "enabled": "ممكّن",
     "disabled": "معطّل",
-    "authRequired": "يتطلب مصادقة"
+    "authRequired": "يتطلب مصادقة",
+    "historySection": "سجل الصندوق الأبيض",
+    "historyEmpty": "لا توجد نسخ احتياطية بعد — تظهر النسخ بعد أول تغيير للإعدادات.",
+    "rollbackTo": "استعادة",
+    "confirmTitle": "هل تريد الاستعادة إلى هذه النسخة؟",
+    "confirmBody": "سيتم استعادة الصندوق الأبيض {{store}} إلى الحالة المحفوظة في {{time}} ثم إعادة التطبيق والتحقق. هذا الإجراء نفسه يتم نسخه احتياطيًا.",
+    "confirmCancel": "إلغاء",
+    "confirmOk": "استعادة",
+    "rollbackWorking": "جارٍ الاستعادة…",
+    "reconcile": "المزامنة إلى الحالة المطلوبة",
+    "reconcilePreviewTitle": "معاينة المزامنة — ما الذي سيتغير",
+    "reconcileNothing": "كل شيء يطابق الصندوق الأبيض بالفعل. لا يوجد ما يجب فعله.",
+    "reconcileCreatePlatform": "إنشاء منصة على Resin",
+    "reconcilePatchRegions": "تحديث region_filters: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "إنشاء نقطة نهاية Resin (استعادة المنفذ)",
+    "reconcileOneWay": "مزامنة أحادية الاتجاه: الصندوق الأبيض له الأولوية دائمًا. للاحتفاظ بالحالة الحالية، عدّل الصندوق الأبيض.",
+    "reconcileConfirm": "تطبيق الآن",
+    "reconcileWorking": "جارٍ المزامنة…"
   }
 }

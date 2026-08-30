@@ -459,6 +459,23 @@
     "port": "Port",
     "enabled": "aktiviert",
     "disabled": "deaktiviert",
-    "authRequired": "Auth. erforderlich"
+    "authRequired": "Auth. erforderlich",
+    "historySection": "Whitebox-Verlauf",
+    "historyEmpty": "Noch keine Sicherungen — Versionen erscheinen nach der ersten Konfigurationsänderung.",
+    "rollbackTo": "Zurücksetzen",
+    "confirmTitle": "Auf diese Version zurücksetzen?",
+    "confirmBody": "Die {{store}}-Whitebox wird auf den Stand von {{time}} zurückgesetzt, danach neu angewendet und geprüft. Diese Aktion wird selbst gesichert.",
+    "confirmCancel": "Abbrechen",
+    "confirmOk": "Zurücksetzen",
+    "rollbackWorking": "Zurücksetzen…",
+    "reconcile": "Auf Sollzustand synchronisieren",
+    "reconcilePreviewTitle": "Abgleich-Vorschau — was sich ändert",
+    "reconcileNothing": "Alles entspricht bereits der Whitebox. Nichts zu tun.",
+    "reconcileCreatePlatform": "Plattform auf Resin erstellen",
+    "reconcilePatchRegions": "region_filters aktualisieren: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "Resin-Endpunkt erstellen (Port wiederherstellen)",
+    "reconcileOneWay": "Einweg-Synchronisierung: Die Whitebox gewinnt immer. Um den Live-Zustand zu behalten, bearbeiten Sie die Whitebox.",
+    "reconcileConfirm": "Jetzt anwenden",
+    "reconcileWorking": "Gleiche ab…"
   }
 }

@@ -1104,6 +1104,91 @@ export async function ipcAuthoritativeSnapshot(): Promise<AuthoritativeSnapshot>
   return snapSnapshot(raw);
 }
 
+// ---------------------------------------------------------------------------
+// Architecture-recovery ticket 14 / ADR-0054 §A: one-way reconcile. The
+// preview list is computed FROM data the snapshot pass already reads
+// (compute_plan vs live rows); reconcile_now re-runs the serial
+// strategy-apply + ports-restore chain (fail-fast) and the view re-pulls
+// the snapshot afterwards. One-way: the whitebox always wins; no "accept
+// current state" write exists by contract.
+// ---------------------------------------------------------------------------
+
+export interface ReconcilePlanPlatform {
+  platform: string;
+  desired_regions: string[];
+  live_regions: string[];
+  action: string;
+}
+
+export interface ReconcilePlanPort {
+  port: number;
+  platform: string;
+  action: string;
+}
+
+export interface ReconcilePlan {
+  platforms: ReconcilePlanPlatform[];
+  ports: ReconcilePlanPort[];
+}
+
+/** Ticket 14: narrow an untrusted reconcile preview into a bounded plan. */
+export function snapReconcilePlan(v: unknown): ReconcilePlan {
+  const r = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const platformsRaw = Array.isArray(r.platforms) ? r.platforms : [];
+  const portsRaw = Array.isArray(r.ports) ? r.ports : [];
+  const action = (x: unknown): string =>
+    typeof x === "string" && x.length <= 32 ? x : "";
+  return {
+    platforms: platformsRaw
+      .slice(0, MAX_SNAPSHOT_ENTRIES)
+      .map((p): ReconcilePlanPlatform | null => {
+        if (!p || typeof p !== "object") return null;
+        const e = p as Record<string, unknown>;
+        return {
+          platform: snapStr(e.platform),
+          desired_regions: snapStrArr(e.desired_regions),
+          live_regions: snapStrArr(e.live_regions),
+          action: action(e.action),
+        };
+      })
+      .filter((x): x is ReconcilePlanPlatform => x !== null && x.platform.length > 0),
+    ports: portsRaw
+      .slice(0, MAX_SNAPSHOT_ENTRIES)
+      .map((p): ReconcilePlanPort | null => {
+        if (!p || typeof p !== "object") return null;
+        const e = p as Record<string, unknown>;
+        const port = Number(e.port);
+        if (!Number.isInteger(port) || port < 0 || port > 65535) return null;
+        return { port, platform: snapStr(e.platform), action: action(e.action) };
+      })
+      .filter((x): x is ReconcilePlanPort => x !== null),
+  };
+}
+
+export interface ReconcileReport {
+  strategy: StrategyApplyResult;
+  portsRestored: number[];
+  portsSkipped: number;
+}
+
+export async function ipcReconcileNow(): Promise<ReconcileReport> {
+  const raw = await invoke<unknown>("reconcile_now");
+  // Untrusted response: bounded sanitize before returning to callers (§7.6).
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const portsRestored = Array.isArray(r.portsRestored)
+    ? r.portsRestored
+        .map((x) => Number(x))
+        .filter((n) => Number.isInteger(n) && n >= 1024 && n <= 65535)
+        .slice(0, MAX_SNAPSHOT_ENTRIES)
+    : [];
+  const skip = Number(r.portsSkipped);
+  return {
+    strategy: (r.strategy ?? { platforms: [] }) as StrategyApplyResult,
+    portsRestored,
+    portsSkipped: Number.isFinite(skip) && skip >= 0 ? skip : 0,
+  };
+}
+
 /// Narrow an unknown view-layer object (e.g. cached zustand data) back into
 /// a PlatformFull-ish shape without trusting its fields. Exported for
 /// TopologyView's canvas mapping so the old cfgRaw merge stays deleted.

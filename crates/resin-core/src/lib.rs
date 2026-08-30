@@ -58,10 +58,17 @@ pub use strategy_engine::{
     NodeSummary, PlatformStrategy, StrategyConfig,
 };
 pub use strategy_service::{
-    clean_stale, validate as validate_strategy_config, AppliedPlatform, ApplyReport,
-    FsStrategyStore, StrategyConfigStore, StrategyService,
+    clean_stale, compute_reconcile_plan, endpoint_live_ports, validate as validate_strategy_config,
+    AppliedPlatform, ApplyReport, FsStrategyStore, ReconcileMemory, ReconcilePlan,
+    ReconcilePortsOutcome, ReconcileReport, StrategyConfigStore, StrategyService,
+    RECONCILE_PORT_TTL_SECS,
 };
 pub use stream_sensor::{classify_http_headers, StreamKind, StreamSensor, StreamSensorSnapshot};
+pub use whitebox_backup::{
+    atomic_write_bytes, backup_before_write, backup_dir, backup_list, now_unix, parse_backup_name,
+    read_backup, read_backup_parsed, validate_backup_name, WhiteboxBackupEntry, BACKUP_DIR_NAME,
+    WHITEBOX_BACKUP_KEEP,
+};
 pub use whitebox_config::{
     enabled_entries_for_restore, validate as validate_whitebox_config, NetworkConfig,
     WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE,

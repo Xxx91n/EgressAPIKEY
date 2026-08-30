@@ -459,6 +459,23 @@
     "port": "Porta",
     "enabled": "habilitada",
     "disabled": "desabilitada",
-    "authRequired": "requer autenticação"
+    "authRequired": "requer autenticação",
+    "historySection": "Histórico da whitebox",
+    "historyEmpty": "Ainda sem cópias — as versões aparecem após a primeira alteração de configuração.",
+    "rollbackTo": "Restaurar",
+    "confirmTitle": "Restaurar esta versão?",
+    "confirmBody": "A whitebox de {{store}} será restaurada ao estado salvo em {{time}} e depois reaplicada e reverificada. Esta ação também é copiada.",
+    "confirmCancel": "Cancelar",
+    "confirmOk": "Restaurar",
+    "rollbackWorking": "Restaurando…",
+    "reconcile": "Sincronizar com o estado desejado",
+    "reconcilePreviewTitle": "Pré-visualização da reconciliação — o que mudará",
+    "reconcileNothing": "Tudo já corresponde à caixa branca. Nada a fazer.",
+    "reconcileCreatePlatform": "criar plataforma no Resin",
+    "reconcilePatchRegions": "atualizar region_filters: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "criar endpoint do Resin (restaurar porta)",
+    "reconcileOneWay": "Sincronização unidirecional: a caixa branca sempre prevalece. Para manter o estado atual, edite a caixa branca.",
+    "reconcileConfirm": "Aplicar agora",
+    "reconcileWorking": "Reconciliando…"
   }
 }

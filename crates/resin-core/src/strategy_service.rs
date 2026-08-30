@@ -20,10 +20,17 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Mutex as StdMutex;
 
 use serde::Serialize;
 
 use crate::strategy_engine::{compute_plan, parse_nodes, NodeSummary, PlatformStrategy, StrategyConfig};
+use crate::whitebox_backup::{
+    atomic_write_bytes, backup_before_write, backup_list, now_unix, read_backup_parsed,
+    WhiteboxBackupEntry,
+};
+use crate::snapshot::ResinPlatformRuntime;
+use crate::PortMapping;
 
 /// Bound defaults (validated by the tests at the bottom; the GUI is not the
 /// only writer — a user can hand-edit the JSON — so the Service, not the IPC
@@ -46,9 +53,206 @@ pub struct AppliedPlatform {
     pub reason: Option<String>,
 }
 
+/// ApplyReport stays the per-platform PATCH outcome vocabulary (TS contract
+/// unchanged); the reconcile pass composes it with the ports outcome.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct ApplyReport {
     pub platforms: Vec<AppliedPlatform>,
+}
+
+/// Ports-half result of one reconcile pass, produced by the injected
+/// shell-side restore closure.
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+pub struct ReconcilePortsOutcome {
+    pub restored: Vec<u16>,
+    pub skipped: u32,
+}
+
+/// Idempotency memory for the reconcile ports half (ticket 14 hard gate:
+/// "连续两次执行第二次零变更"). The strategy half is naturally idempotent
+/// (PATCHing the computed plan twice is a no-op); the ports half is not —
+/// Resin would accept the duplicate POST or 409-skip forever. This window
+/// records WHEN each port was last reconcile-asserted; a pass re-asserts a
+/// port only when it has never been asserted or the last assertion is older
+/// than the window. It mirrors the `SkippedReason` pattern of the historical
+/// cleanup loop: an in-process `StdMutex` state, best-effort, never a truth
+/// source (the whitebox stays the truth; this only throttles re-asserts).
+pub struct ReconcileMemory {
+    /// port -> Unix seconds of the last reconcile assertion.
+    last: StdMutex<HashMap<u16, u64>>,
+}
+
+/// How long a reconcile-asserted port is trusted as "live" before a later
+/// pass re-asserts it. 24h matches the lightweight-mode day horizon; a Resin
+/// restart within the window is handled by restore_ports_from_whitebox at
+/// boot, not by reconcile.
+pub const RECONCILE_PORT_TTL_SECS: u64 = 86_400;
+
+impl Default for ReconcileMemory {
+    fn default() -> Self {
+        Self {
+            last: StdMutex::new(HashMap::new()),
+        }
+    }
+}
+
+impl ReconcileMemory {
+    /// Decide which desired ports need asserting now: enabled, not already
+    /// live on Resin, and not asserted within the TTL window.
+    pub fn ports_to_assert(
+        &self,
+        desired: &[crate::db::PortMapping],
+        live_ports: &[u16],
+        now: u64,
+    ) -> Vec<crate::db::PortMapping> {
+        let guard = self.last.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        desired
+            .iter()
+            .filter(|m| m.enabled && !live_ports.contains(&m.port))
+            .filter(|m| match guard.get(&m.port) {
+                Some(&ts) => now.saturating_sub(ts) >= RECONCILE_PORT_TTL_SECS,
+                None => true,
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Stamp a successful assertion.
+    pub fn stamp_asserted(&self, port: u16, now: u64) {
+        let mut guard = self.last.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        guard.insert(port, now);
+    }
+}
+
+/// Architecture-recovery ticket 14 / ADR-0054 §A: what one reconcile pass
+/// WOULD change. Both halves are derived from data the snapshot/apply pass
+/// already fetches (list_platforms + list_endpoints + compute_plan) — the
+/// preview never issues extra requests of its own beyond those two reads.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ReconcilePlanPlatform {
+    pub platform: String,
+    /// Region set the NEXT apply would PATCH (compute_plan output).
+    pub desired_regions: Vec<String>,
+    /// Region set currently live on Resin (empty when missing there).
+    pub live_regions: Vec<String>,
+    pub action: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ReconcilePlanPort {
+    pub port: u16,
+    pub platform: String,
+    pub action: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ReconcilePlan {
+    pub platforms: Vec<ReconcilePlanPlatform>,
+    pub ports: Vec<ReconcilePlanPort>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ReconcileReport {
+    pub strategy: ApplyReport,
+    /// Ports re-asserted onto Resin during this pass (created endpoints).
+    pub ports_restored: Vec<u16>,
+    pub ports_skipped: u32,
+}
+
+impl ReconcilePlan {
+    pub fn is_empty(&self) -> bool {
+        self.platforms.is_empty() && self.ports.is_empty()
+    }
+}
+
+/// Extract the set of listener ports from a GET /api/v1/endpoints response.
+/// Both the `{"items":[..]}` wrapper and a bare array are accepted; the
+/// read-only "default" endpoint is included because a listener exists there.
+/// Lives beside the reconcile logic so the shell, the snapshot command, and
+/// the tests share ONE parsing rule.
+pub fn endpoint_live_ports(existing: &serde_json::Value) -> Vec<u16> {
+    let arr = if let Some(a) = existing.get("items").and_then(|i| i.as_array()) {
+        a.as_slice()
+    } else if let Some(a) = existing.as_array() {
+        a.as_slice()
+    } else {
+        &[]
+    };
+    let mut ports: Vec<u16> = arr
+        .iter()
+        .filter_map(|ep| ep.get("port").and_then(|p| p.as_u64()))
+        .filter(|p| *p <= u16::MAX as u64)
+        .map(|p| p as u16)
+        .collect();
+    ports.sort_unstable();
+    ports.dedup();
+    ports
+}
+
+/// Preview the changes one reconcile pass WOULD apply: platform-level
+/// region_filters rewrites (compute_plan vs the live Resin rows) and
+/// port-level creations (whitebox enabled entries missing from the live
+/// endpoints list). ORDER-INSENSITIVE region comparison — same rule as the
+/// three-state merge (snapshot.rs), so the preview list and the snapshot's
+/// divergent badges can never disagree about what counts as drift.
+pub fn compute_reconcile_plan(
+    config: &StrategyConfig,
+    nodes: &[NodeSummary],
+    live_platforms: &[ResinPlatformRuntime],
+    live_ports: &[u16],
+    desired_ports: &[PortMapping],
+) -> ReconcilePlan {
+    let plan = compute_plan(config, nodes);
+    let mut platforms = Vec::new();
+    for ps in &config.platforms {
+        let desired = plan
+            .get(&ps.platform_name)
+            .cloned()
+            .unwrap_or_else(|| ps.regions.clone());
+        let live = live_platforms
+            .iter()
+            .find(|rp| rp.name == ps.platform_name)
+            .map(|rp| rp.region_filters.clone());
+        match live {
+            Some(lr) if same_region_set(&desired, &lr) => {} // in sync
+            Some(lr) => platforms.push(ReconcilePlanPlatform {
+                platform: ps.platform_name.clone(),
+                desired_regions: desired.clone(),
+                live_regions: lr.clone(),
+                action: "patch_regions",
+            }),
+            None => platforms.push(ReconcilePlanPlatform {
+                platform: ps.platform_name.clone(),
+                desired_regions: desired.clone(),
+                live_regions: vec![],
+                action: "create_platform",
+            }),
+        }
+    }
+    // Runtime-only platforms (created outside the strategy pipeline) are
+    // NOT part of the one-way reconcile: the whitebox wins for entities it
+    // knows about, and L3-only rows are surfaced by the snapshot as drift
+    // for the user to fix in the editor — reconcile never deletes them.
+    let ports: Vec<ReconcilePlanPort> = desired_ports
+        .iter()
+        .filter(|m| m.enabled && !live_ports.contains(&m.port))
+        .map(|m| ReconcilePlanPort {
+            port: m.port,
+            platform: m.platform_name.clone(),
+            action: "create_endpoint",
+        })
+        .collect();
+    ReconcilePlan { platforms, ports }
+}
+
+fn same_region_set(a: &[String], b: &[String]) -> bool {
+    let lower = |v: &[String]| -> Vec<String> {
+        let mut n: Vec<String> = v.to_vec();
+        n.sort();
+        n.dedup();
+        n.iter().map(|s| s.to_lowercase()).collect()
+    };
+    lower(a) == lower(b)
 }
 
 /// Where the whitebox strategy document lives and how it is read/written.
@@ -359,6 +563,30 @@ impl StrategyService<FsStrategyStore> {
         Ok(ApplyReport { platforms })
     }
 
+    /// Architecture-recovery ticket 14 / ADR-0054 §A: ONE-WAY reconcile.
+    /// Serial: strategy apply FIRST, ports restore SECOND, stop at the first
+    /// failure (fail-fast) so a broken strategy PATCH can never mask a port
+    /// problem behind a half-applied pass. The ports half is injected as a
+    /// closure so the whitebox store stays a shell-side concern — resin-core
+    /// never touches the ports whitebox directly (same seam discipline as
+    /// `apply`). No "accept current state" write exists by design.
+    pub async fn reconcile(
+        &self,
+        client: &crate::resin_client::ResinClient,
+        platform_id_for_name: fn(&serde_json::Value, &str) -> Option<String>,
+        restore_ports: impl std::future::Future<Output = Result<ReconcilePortsOutcome, String>>,
+    ) -> Result<ReconcileReport, String> {
+        let strategy = self.apply(client, platform_id_for_name).await?;
+        let ports = restore_ports
+            .await
+            .map_err(|e| format!("reconcile: port restore failed after strategy apply: {e}"))?;
+        Ok(ReconcileReport {
+            strategy,
+            ports_restored: ports.restored,
+            ports_skipped: ports.skipped,
+        })
+    }
+
 }
 
 #[cfg(test)]
@@ -649,5 +877,180 @@ mod tests {
         assert_eq!(again.platforms[0].regions, vec!["SG".to_string()]);
         let _ = std::fs::remove_file(&path);
         let _ = std::fs::remove_dir(&dir);
+    }
+
+    // ---- ticket 14 / ADR-0054 §A: reconcile plan + idempotency memory ----
+
+    fn node(hash: &str, region: &str, healthy: bool) -> NodeSummary {
+        NodeSummary {
+            node_hash: hash.into(),
+            region: region.into(),
+            has_outbound: healthy,
+            failure_count: if healthy { 0 } else { 2 },
+            reference_latency_ms: None,
+            subscription_name: None,
+        }
+    }
+
+    fn runtime(name: &str, id: &str, regions: &[&str]) -> ResinPlatformRuntime {
+        ResinPlatformRuntime {
+            id: id.into(),
+            name: name.into(),
+            region_filters: regions.iter().map(|s| s.to_string()).collect(),
+            allocation_policy: "BALANCED".into(),
+        }
+    }
+
+    fn pm(port: u16, platform: &str, enabled: bool) -> crate::db::PortMapping {
+        crate::db::PortMapping {
+            port,
+            protocol: "socks5".into(),
+            platform_name: platform.into(),
+            account: String::new(),
+            label: String::new(),
+            enabled,
+            auth_required: false,
+        }
+    }
+
+    #[test]
+    fn reconcile_plan_lists_region_drift_and_missing_platforms() {
+        // nodes: healthy HK; whitebox wants region HK for "alpha" and "beta".
+        let nodes = vec![node("h1", "HK", true)];
+        let config = cfg(vec![ps("alpha", &["HK"]), ps("beta", &["HK"])]);
+        // live: alpha already patched to ["HK"] (order-insensitive equal),
+        // beta live with the WRONG region -> patch_regions; "gamma" exists
+        // only in the whitebox -> create_platform.
+        let live = vec![runtime("alpha", "id-a", &["HK"]), runtime("beta", "id-b", &["US"])];
+        let plan = compute_reconcile_plan(&config, &nodes, &live, &[], &[]);
+        // One-way semantics: the plan covers WHITEBOX entries only. alpha is
+        // in sync (absent), beta drifted (patch_regions); runtime-only rows
+        // are never "reconciled away" — they are snapshot drift, not plan rows.
+        assert_eq!(plan.platforms.len(), 1, "{plan:?}");
+        let beta = plan.platforms.iter().find(|p| p.platform == "beta").unwrap();
+        assert_eq!(beta.action, "patch_regions");
+        assert_eq!(beta.desired_regions, vec!["HK".to_string()]);
+        assert_eq!(beta.live_regions, vec!["US".to_string()]);
+        let alpha = plan.platforms.iter().find(|p| p.platform == "alpha");
+        assert!(alpha.is_none(), "in-sync platform must not appear");
+        // beta's entry also covers the missing-platform case via a config
+        // entry that Resin does not have:
+        let config2 = cfg(vec![ps("alpha", &["HK"]), ps("gamma", &["HK"])]);
+        let plan2 = compute_reconcile_plan(&config2, &nodes, &live, &[], &[]);
+        let g = plan2.platforms.iter().find(|p| p.platform == "gamma").unwrap();
+        assert_eq!(g.action, "create_platform");
+        assert!(g.live_regions.is_empty());
+    }
+
+    #[test]
+    fn reconcile_plan_region_comparison_is_order_and_case_insensitive() {
+        let nodes = vec![node("h1", "HK", true), node("h2", "US", true)];
+        let config = cfg(vec![ps("alpha", &["HK", "US"])]);
+        let live = vec![runtime("alpha", "id-a", &["us", "hk", "us"])];
+        let plan = compute_reconcile_plan(&config, &nodes, &live, &[], &[]);
+        assert!(plan.platforms.is_empty(), "{plan:?}");
+    }
+
+    #[test]
+    fn reconcile_plan_lists_disabled_whitebox_ports_never() {
+        // Desired enabled port missing from Resin -> create_endpoint.
+        let desired = vec![pm(17990, "alpha", true), pm(17991, "alpha", false)];
+        // 17990 live; 17991 disabled -> no entry either way.
+        let plan = compute_reconcile_plan(&cfg(vec![]), &[], &[], &[17990], &desired);
+        assert!(plan.platforms.is_empty());
+        assert!(plan.ports.is_empty(), "disabled + already-live ports must not be listed: {plan:?}");
+
+        let plan2 = compute_reconcile_plan(&cfg(vec![]), &[], &[], &[], &desired);
+        assert_eq!(plan2.ports.len(), 1);
+        assert_eq!(plan2.ports[0].port, 17990);
+        assert_eq!(plan2.ports[0].action, "create_endpoint");
+        assert_eq!(plan2.ports[0].platform, "alpha");
+    }
+
+    #[test]
+    fn reconcile_plan_empty_when_everything_in_sync() {
+        let nodes = vec![node("h1", "HK", true)];
+        let config = cfg(vec![ps("alpha", &["HK"])]);
+        let live = vec![runtime("alpha", "id-a", &["HK"])];
+        let desired = vec![pm(17990, "alpha", true)];
+        let plan = compute_reconcile_plan(&config, &nodes, &live, &[17990], &desired);
+        assert!(plan.is_empty(), "{plan:?}");
+    }
+
+    #[test]
+    fn endpoint_live_ports_parses_wrapper_and_dedups() {
+        assert_eq!(
+            endpoint_live_ports(&json!({"items": [{"port": 17990}, {"port": 17100}, {"port": 17990}]})),
+            vec![17100, 17990]
+        );
+        assert_eq!(endpoint_live_ports(&json!([{"port": 5}, {"port": 3}])), vec![3, 5]);
+        assert_eq!(endpoint_live_ports(&json!({})), Vec::<u16>::new());
+    }
+
+    #[test]
+    fn reconcile_memory_ttl_throttles_reassert_and_stamps_clear_it() {
+        let mem = ReconcileMemory::default();
+        let desired = vec![pm(17990, "alpha", true), pm(17991, "alpha", false)];
+        // First pass: port missing from live -> to assert.
+        let first = mem.ports_to_assert(&desired, &[], 1_000);
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].port, 17990);
+        // Stamp it; second pass within the TTL -> NOTHING to assert (zero
+        // changes even though Resin still reports the port missing).
+        mem.stamp_asserted(17990, 1_000);
+        let second = mem.ports_to_assert(&desired, &[], 1_000 + 60);
+        assert!(second.is_empty(), "second reconcile must be a no-op: {second:?}");
+        // Third pass after TTL expiry re-asserts (self-correction path).
+        let third = mem.ports_to_assert(&desired, &[17990], 1_000 + RECONCILE_PORT_TTL_SECS);
+        assert!(third.is_empty(), "already-live port never re-asserts: {third:?}");
+        let fourth = mem.ports_to_assert(&desired, &[], 1_000 + RECONCILE_PORT_TTL_SECS);
+        assert_eq!(fourth.len(), 1);
+        // Disabled ports are never asserted at any point.
+        assert!(fourth.iter().all(|m| m.enabled));
+    }
+
+    #[tokio::test]
+    async fn reconcile_fails_fast_when_ports_half_errors() {
+        // The ports closure failing must propagate as Err AFTER the strategy
+        // half succeeded (fail-fast ordering, issue 14 failure path).
+        let svc = StrategyService::new(FsStrategyStore::new(std::env::temp_dir().join(format!(
+            "strategy-svc-reconcile-{}.json",
+            std::process::id()
+        ))));
+        let mut server = mockito::Server::new_async().await;
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[]}"#)
+            .create_async()
+            .await;
+        let m_platforms = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[]}"#)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = svc
+            .reconcile(&c, platform_id_for_name_fixture, async { Err("port restore boom".to_string()) })
+            .await;
+        assert!(out.is_err());
+        assert!(out.unwrap_err().contains("port restore boom"));
+        m_nodes.assert_async().await;
+        m_platforms.assert_async().await;
+    }
+
+    fn platform_id_for_name_fixture(v: &serde_json::Value, name: &str) -> Option<String> {
+        let arr = v.get("items").and_then(|i| i.as_array()).or_else(|| v.as_array())?;
+        arr.iter()
+            .find(|p| p.get("name").and_then(|n| n.as_str()) == Some(name))
+            .and_then(|p| p.get("id").and_then(|i| i.as_str()))
+            .map(String::from)
     }
 }

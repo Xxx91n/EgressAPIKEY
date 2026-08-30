@@ -459,6 +459,23 @@
     "port": "Bağlantı noktası",
     "enabled": "etkin",
     "disabled": "devre dışı",
-    "authRequired": "kimlik doğrulama gerekli"
+    "authRequired": "kimlik doğrulama gerekli",
+    "historySection": "Whitebox geçmişi",
+    "historyEmpty": "Henüz yedek yok — sürümler ilk yapılandırma değişikliğinden sonra görünür.",
+    "rollbackTo": "Geri al",
+    "confirmTitle": "Bu sürüme geri dönülsün mü?",
+    "confirmBody": "{{store}} whitebox'ı {{time}} tarihinde kaydedilen duruma geri alınacak, sonra yeniden uygulanıp denetlenecek. Bu işlem de yedeklenir.",
+    "confirmCancel": "İptal",
+    "confirmOk": "Geri al",
+    "rollbackWorking": "Geri alınıyor…",
+    "reconcile": "İstenen duruma senkronize et",
+    "reconcilePreviewTitle": "Uzlaştırma önizlemesi — ne değişecek",
+    "reconcileNothing": "Her şey zaten whitebox ile eşleşiyor. Yapılacak bir şey yok.",
+    "reconcileCreatePlatform": "Resin üzerinde platform oluştur",
+    "reconcilePatchRegions": "region_filters güncelle: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "Resin endpoint oluştur (bağlantı noktasını geri yükle)",
+    "reconcileOneWay": "Tek yönlü senkronizasyon: her zaman whitebox kazanır. Canlı durumu korumak isterseniz whitebox'u düzenleyin.",
+    "reconcileConfirm": "Şimdi uygula",
+    "reconcileWorking": "Uzlaştırılıyor…"
   }
 }

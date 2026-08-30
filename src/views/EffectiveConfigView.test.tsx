@@ -129,3 +129,144 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
     await screen.findByTestId("ec-error");
   });
 });
+
+// Ticket 14 / ADR-0054 §A: reconcile preview dialog — confirm / cancel /
+// failure paths, re-entry guard, auto re-verify. Preview data comes from
+// the snapshot in memory (no extra request besides the re-verify pull).
+describe("EffectiveConfigView reconcile (ticket 14)", () => {
+  const driftedSnap = () =>
+    baseSnap({
+      platforms: [
+        {
+          state: "divergent",
+          platform_name: "beta",
+          platform_id: "b",
+          whitebox_regions: ["hk"],
+          resin_regions: ["us"],
+          resin_allocation_policy: "p2c",
+          b_class: "random",
+          a_class: "region",
+          manual_nodes: [],
+          subscriptions: [],
+          acknowledged: false,
+        },
+      ],
+      ports: [
+        {
+          state: "missingOnResin",
+          port: 17990,
+          platform_name: "beta",
+          protocol: "socks5",
+          account: "",
+          label: "",
+          auth_required: false,
+          acknowledged: false,
+        },
+      ],
+    });
+
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") return Promise.resolve(driftedSnap());
+      // ticket-15 backup list mocks default to empty
+      return Promise.resolve([]);
+    });
+  });
+
+  it("preview dialog shows the snapshot-derived plan; confirm runs reconcile_now then re-verifies", async () => {
+    render(<EffectiveConfigView />);
+    await screen.findByTestId("ec-platform-beta");
+    fireEvent.click(screen.getByTestId("ec-reconcile"));
+    const dialog = await screen.findByTestId("ec-preview-dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByTestId("ec-preview-platform-beta")).toHaveTextContent("beta");
+    expect(screen.getByTestId("ec-preview-port-17990")).toBeInTheDocument();
+
+    invokeMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "reconcile_now") {
+        return Promise.resolve({ strategy: { platforms: [] }, portsRestored: [17990], portsSkipped: 0 });
+      }
+      if (cmd === "authoritative_snapshot") return Promise.resolve(driftedSnap());
+      return Promise.resolve([]);
+    });
+    fireEvent.click(screen.getByTestId("ec-preview-confirm"));
+    await waitFor(() => expect(invokeMock.mock.calls.some((c) => c[0] === "reconcile_now")).toBe(true));
+    // auto re-verify: the snapshot is re-pulled after success
+    await waitFor(() => {
+      const pulls = invokeMock.mock.calls.filter((c: unknown[]) => c[0] === "authoritative_snapshot").length;
+      expect(pulls).toBeGreaterThanOrEqual(1);
+    });
+    // dialog closes after success
+    await waitFor(() => expect(screen.queryByTestId("ec-preview-dialog")).toBeNull());
+  });
+
+  it("cancel closes the dialog with zero IPC side effects", async () => {
+    render(<EffectiveConfigView />);
+    await screen.findByTestId("ec-platform-beta");
+    fireEvent.click(screen.getByTestId("ec-reconcile"));
+    await screen.findByTestId("ec-preview-dialog");
+    invokeMock.mockClear();
+    fireEvent.click(screen.getByTestId("ec-preview-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("ec-preview-dialog")).toBeNull());
+    // zero IPC of ANY kind during cancel
+    expect(invokeMock.mock.calls).toHaveLength(0);
+  });
+
+  it("failure surfaces the i18n-mapped error and keeps the dialog open", async () => {
+    render(<EffectiveConfigView />);
+    await screen.findByTestId("ec-platform-beta");
+    fireEvent.click(screen.getByTestId("ec-reconcile"));
+    await screen.findByTestId("ec-preview-dialog");
+    invokeMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "reconcile_now") {
+        return Promise.reject({ kind: "Internal", data: { msg: "boom", i18n_key: "error.internal" } });
+      }
+      if (cmd === "authoritative_snapshot") return Promise.resolve(driftedSnap());
+      return Promise.resolve([]);
+    });
+    fireEvent.click(screen.getByTestId("ec-preview-confirm"));
+    await screen.findByTestId("ec-error");
+    // failure keeps the dialog open for retry
+    expect(screen.getByTestId("ec-preview-dialog")).toBeInTheDocument();
+    // and the snapshot was still re-pulled (auto re-verify shows latest state)
+    await waitFor(() => expect(invokeMock.mock.calls.some((c: unknown[]) => c[0] === "authoritative_snapshot")).toBe(true));
+  });
+
+  it("disables the confirm button while in flight (no re-entry)", async () => {
+    let resolveReconcile: (v: unknown) => void = () => {};
+    render(<EffectiveConfigView />);
+    await screen.findByTestId("ec-platform-beta");
+    fireEvent.click(screen.getByTestId("ec-reconcile"));
+    await screen.findByTestId("ec-preview-dialog");
+    invokeMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "reconcile_now") {
+        return new Promise((res) => { resolveReconcile = res; });
+      }
+      if (cmd === "authoritative_snapshot") return Promise.resolve(driftedSnap());
+      return Promise.resolve([]);
+    });
+    fireEvent.click(screen.getByTestId("ec-preview-confirm"));
+    // while the first reconcile is pending, the confirm button is disabled
+    await waitFor(() => expect(screen.getByTestId("ec-preview-confirm")).toBeDisabled());
+    resolveReconcile({ strategy: { platforms: [] }, portsRestored: [], portsSkipped: 0 });
+    await waitFor(() => expect(screen.queryByTestId("ec-preview-dialog")).toBeNull());
+  });
+
+  it("shows nothing-to-do state and disables the button for an empty plan", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") return Promise.resolve(baseSnap());
+      return Promise.resolve([]);
+    });
+    render(<EffectiveConfigView />);
+    await screen.findByTestId("ec-view");
+    const btn = screen.getByTestId("ec-reconcile");
+    expect(btn).toBeDisabled();
+    fireEvent.click(btn);
+    // dialog cannot open from a disabled plan-less state
+    expect(screen.queryByTestId("ec-preview-dialog")).toBeNull();
+  });
+});

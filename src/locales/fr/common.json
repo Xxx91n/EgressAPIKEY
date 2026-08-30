@@ -459,6 +459,23 @@
     "port": "Port",
     "enabled": "activé",
     "disabled": "désactivé",
-    "authRequired": "auth. requise"
+    "authRequired": "auth. requise",
+    "historySection": "Historique de la boîte blanche",
+    "historyEmpty": "Aucune sauvegarde pour l'instant — les versions apparaissent après le premier changement de configuration.",
+    "rollbackTo": "Restaurer",
+    "confirmTitle": "Restaurer cette version ?",
+    "confirmBody": "La boîte blanche {{store}} sera restaurée à l'état enregistré le {{time}}, puis réappliquée et revérifiée. Cette action est elle-même sauvegardée.",
+    "confirmCancel": "Annuler",
+    "confirmOk": "Restaurer",
+    "rollbackWorking": "Restauration…",
+    "reconcile": "Synchroniser vers l'état souhaité",
+    "reconcilePreviewTitle": "Aperçu de la réconciliation — changements à venir",
+    "reconcileNothing": "Tout correspond déjà à la whitebox. Rien à faire.",
+    "reconcileCreatePlatform": "créer la plateforme sur Resin",
+    "reconcilePatchRegions": "mettre à jour region_filters : {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "créer l'endpoint Resin (restaurer le port)",
+    "reconcileOneWay": "Synchronisation unidirectionnelle : la whitebox a toujours le dernier mot. Pour conserver l'état actuel, modifiez la whitebox.",
+    "reconcileConfirm": "Appliquer maintenant",
+    "reconcileWorking": "Réconciliation…"
   }
 }

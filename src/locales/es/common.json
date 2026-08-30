@@ -459,6 +459,23 @@
     "port": "Puerto",
     "enabled": "habilitado",
     "disabled": "deshabilitado",
-    "authRequired": "requiere autenticación"
+    "authRequired": "requiere autenticación",
+    "historySection": "Historial de la caja blanca",
+    "historyEmpty": "Aún no hay copias: aparecen tras el primer cambio de configuración.",
+    "rollbackTo": "Restaurar",
+    "confirmTitle": "¿Restaurar esta versión?",
+    "confirmBody": "La caja blanca de {{store}} se restaurará al estado guardado en {{time}} y luego se reaplicará y reverificará. Esta acción también se copia.",
+    "confirmCancel": "Cancelar",
+    "confirmOk": "Restaurar",
+    "rollbackWorking": "Restaurando…",
+    "reconcile": "Sincronizar con el estado deseado",
+    "reconcilePreviewTitle": "Vista previa de reconciliación — qué cambiará",
+    "reconcileNothing": "Todo coincide con la caja blanca. Nada que hacer.",
+    "reconcileCreatePlatform": "crear plataforma en Resin",
+    "reconcilePatchRegions": "actualizar region_filters: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "crear endpoint de Resin (restaurar puerto)",
+    "reconcileOneWay": "Sincronización unidireccional: la caja blanca siempre gana. Para conservar el estado actual, edita la caja blanca.",
+    "reconcileConfirm": "Aplicar ahora",
+    "reconcileWorking": "Reconciliando…"
   }
 }

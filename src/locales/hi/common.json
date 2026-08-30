@@ -459,6 +459,23 @@
     "port": "पोर्ट",
     "enabled": "सक्रिय",
     "disabled": "निष्क्रिय",
-    "authRequired": "प्रमाणीकरण आवश्यक"
+    "authRequired": "प्रमाणीकरण आवश्यक",
+    "historySection": "व्हाइटबॉक्स इतिहास",
+    "historyEmpty": "अभी कोई बैकअप नहीं — पहले कॉन्फ़िगरेशन बदलाव के बाद संस्करण दिखेंगे।",
+    "rollbackTo": "इस पर लौटें",
+    "confirmTitle": "इस संस्करण पर वापस जाएँ?",
+    "confirmBody": "{{store}} व्हाइटबॉक्स को {{time}} पर सहेजी गई स्थिति में लौटाया जाएगा, फिर फिर से लागू और जाँचा जाएगा। यह क्रिया भी बैकअप होती है।",
+    "confirmCancel": "रद्द करें",
+    "confirmOk": "वापस लौटें",
+    "rollbackWorking": "वापस ला रहे हैं…",
+    "reconcile": "वांछित स्थिति में सिंक करें",
+    "reconcilePreviewTitle": "सिंक पूर्वावलोकन — क्या बदलेगा",
+    "reconcileNothing": "सब कुछ पहले से व्हाइटबॉक्स से मेल खाता है। कुछ करने की आवश्यकता नहीं।",
+    "reconcileCreatePlatform": "Resin पर प्लेटफ़ॉर्म बनाएँ",
+    "reconcilePatchRegions": "region_filters अपडेट करें: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "Resin एंडपॉइंट बनाएँ (पोर्ट पुनर्स्थापित करें)",
+    "reconcileOneWay": "एक-दिशीय सिंक: व्हाइटबॉक्स हमेशा प्रधान होता है। वर्तमान स्थिति रखने के लिए व्हाइटबॉक्स संपादित करें।",
+    "reconcileConfirm": "अभी लागू करें",
+    "reconcileWorking": "सिंक हो रहा है…"
   }
 }

@@ -459,6 +459,23 @@
     "port": "Porta",
     "enabled": "abilitata",
     "disabled": "disabilitata",
-    "authRequired": "richiede autenticazione"
+    "authRequired": "richiede autenticazione",
+    "historySection": "Cronologia whitebox",
+    "historyEmpty": "Nessuna copia ancora — le versioni compaiono dopo la prima modifica alla configurazione.",
+    "rollbackTo": "Ripristina",
+    "confirmTitle": "Ripristinare questa versione?",
+    "confirmBody": "La whitebox {{store}} verrà ripristinata allo stato salvato il {{time}}, quindi riapplicata e riverificata. Anche questa azione viene copiata.",
+    "confirmCancel": "Annulla",
+    "confirmOk": "Ripristina",
+    "rollbackWorking": "Ripristino…",
+    "reconcile": "Sincronizza allo stato desiderato",
+    "reconcilePreviewTitle": "Anteprima riconciliazione — cosa cambierà",
+    "reconcileNothing": "Tutto corrisponde già alla whitebox. Nessuna azione necessaria.",
+    "reconcileCreatePlatform": "crea piattaforma su Resin",
+    "reconcilePatchRegions": "aggiorna region_filters: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "crea endpoint Resin (ripristina porta)",
+    "reconcileOneWay": "Sincronizzazione unidirezionale: la whitebox prevale sempre. Per mantenere lo stato attuale, modifica la whitebox.",
+    "reconcileConfirm": "Applica ora",
+    "reconcileWorking": "Riconciliazione…"
   }
 }

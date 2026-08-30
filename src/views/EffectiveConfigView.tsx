@@ -1,22 +1,39 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ClipboardCheck, Loader2, RefreshCw } from "lucide-react";
+import { ClipboardCheck, History, Loader2, RefreshCw, RefreshCcwDot } from "lucide-react";
 import {
   ipcAuthoritativeSnapshot,
+  ipcReconcileNow,
+  ipcStrategyBackupList,
+  ipcStrategyRollback,
+  ipcWhiteboxBackupList,
+  ipcWhiteboxRollback,
   type AuthoritativeSnapshot,
   type StrategySnapshot,
+  type WhiteboxBackupEntry,
 } from "../lib/ipc";
+import {
+  reconcilePreviewFromSnapshot,
+  reconcilePreviewIsEmpty,
+  type ReconcilePreview,
+} from "../lib/reconcile-preview";
 import { translateError } from "../lib/i18n-error";
 
 // Architecture-recovery ticket 13: one-level "effective config" view
 // (CONTEXT.md: Authoritative Snapshot; spec Round 2 Implementation Decision 1/7).
-// Read-only consumer of the authoritative_snapshot IPC (ADR-0051): renders
-// the pre-merged desired|live comparison per platform/port with the
-// three-state badge (consistent / divergent / missingOnResin), a grey
-// "known" degradation for acknowledged entities (ADR-0054 D: exemptions
-// never enter the three-state merge), divergentSince per entry and
-// lastCheckedAt on top. ZERO write paths by contract (actions live in
-// tickets 14/15); edits stay in the whitebox editors.
+// Consumer of the authoritative_snapshot IPC (ADR-0051): renders the
+// pre-merged desired|live comparison per platform/port with the three-state
+// badge (consistent / divergent / missingOnResin), a grey "known"
+// degradation for acknowledged entities (ADR-0054 D: exemptions never enter
+// the three-state merge), divergentSince per entry and lastCheckedAt on top.
+// Ticket 14 (ADR-0054 §A): the "sync to desired state" action — click opens
+// the PREVIEW dialog computed from the snapshot already in memory (zero
+// extra requests); confirm runs the serial reconcile_now (strategy apply ->
+// ports restore, fail-fast, IpcError per ADR-0045) and auto re-verifies by
+// re-pulling the snapshot; cancel closes with zero side effects; the button
+// is disabled while a reconcile is in flight (no re-entry). ONE-WAY: the
+// whitebox always wins; there is no "accept current state" button.
+// Ticket 15 (ADR-0054 §B) adds the versioned-whitebox history + rollback.
 
 const badgeBase =
   "ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium";
@@ -95,12 +112,25 @@ export function EffectiveConfigView() {
   const [snap, setSnap] = useState<AuthoritativeSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Ticket 15 (ADR-0054 section B): versioned-whitebox history + rollback.
+  const [history, setHistory] = useState<{ strategy: WhiteboxBackupEntry[]; ports: WhiteboxBackupEntry[] }>({ strategy: [], ports: [] });
+  const [confirmTarget, setConfirmTarget] = useState<{ store: "strategy" | "ports"; backup: WhiteboxBackupEntry } | null>(null);
+  const [rollbackBusy, setRollbackBusy] = useState(false);
+  // Ticket 14 (ADR-0054 §A): reconcile preview dialog + in-flight guard.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
 
   const refresh = useCallback(async () => {
     setBusy(true);
     setError("");
     try {
-      setSnap(await ipcAuthoritativeSnapshot());
+      const [nextSnap, stratH, portsH] = await Promise.all([
+        ipcAuthoritativeSnapshot(),
+        ipcStrategyBackupList().catch(() => [] as WhiteboxBackupEntry[]),
+        ipcWhiteboxBackupList().catch(() => [] as WhiteboxBackupEntry[]),
+      ]);
+      setSnap(nextSnap);
+      setHistory({ strategy: stratH, ports: portsH });
     } catch (e) {
       setError(translateError(e, t));
     } finally {
@@ -113,6 +143,51 @@ export function EffectiveConfigView() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Ticket 15: the confirm dialog shows the TARGET timestamp, then the
+  // rollback re-enters the backend validate-before-swap -> apply chain and
+  // the view re-pulls snapshot + history (ticket 15 acceptance: post-rollback
+  // snapshot re-check).
+  const performRollback = async (store: "strategy" | "ports", backup: WhiteboxBackupEntry) => {
+    setRollbackBusy(true);
+    setError("");
+    try {
+      if (store === "strategy") await ipcStrategyRollback(backup.file_name);
+      else await ipcWhiteboxRollback(backup.file_name);
+      setConfirmTarget(null);
+      await refresh();
+    } catch (e) {
+      setError(translateError(e, t));
+    } finally {
+      setRollbackBusy(false);
+    }
+  };
+
+  // Ticket 14 §A: preview is derived from the snapshot ALREADY in memory
+  // (spec: data comes from the snapshot, no new requests). Cancel closes
+  // the dialog with zero side effects; confirm runs the serial reconcile
+  // then re-pulls the snapshot so the user sees the fresh three-state.
+  const preview: ReconcilePreview | null = snap ? reconcilePreviewFromSnapshot(snap) : null;
+
+  const performReconcile = async () => {
+    setReconciling(true);
+    setError("");
+    let reconcileError = "";
+    try {
+      await ipcReconcileNow();
+      setPreviewOpen(false);
+    } catch (e) {
+      reconcileError = translateError(e, t);
+    } finally {
+      // Auto re-verify on BOTH outcomes (issue 14: 执行后自动复验) — the
+      // user must see the freshest three-state whether the pass converged
+      // or failed. refresh() clears the error slot, so the reconcile error
+      // is re-applied after the re-pull completes.
+      await refresh();
+      if (reconcileError) setError(reconcileError);
+      setReconciling(false);
+    }
+  };
 
   const lastChecked =
     snap && snap.lastCheckedAt ? new Date(snap.lastCheckedAt * 1000).toLocaleString() : "";
@@ -134,6 +209,20 @@ export function EffectiveConfigView() {
           {busy ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} strokeWidth={1.75} />}
           {t("effectiveConfig.refresh")}
         </button>
+        {/* Ticket 14 §A: one-way sync-to-desired entry. Disabled while any
+            snapshot fetch OR reconcile is in flight (no re-entry); hidden
+            until the first snapshot exists (nothing to preview from). */}
+        {snap ? (
+          <button
+            data-testid="ec-reconcile"
+            onClick={() => setPreviewOpen(true)}
+            disabled={busy || reconciling || rollbackBusy || reconcilePreviewIsEmpty(preview!)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {reconciling ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcwDot size={14} strokeWidth={1.75} />}
+            {t("effectiveConfig.reconcile")}
+          </button>
+        ) : null}
         {error ? (
           <span data-testid="ec-error" className="text-xs text-red-500">{error}</span>
         ) : null}
@@ -234,6 +323,146 @@ export function EffectiveConfigView() {
             ))}
           </ul>
         </section>
+      ) : null}
+      {snap ? (
+        <section data-testid="ec-history-section" className="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <History size={13} strokeWidth={1.75} />
+            {t("effectiveConfig.historySection")}
+          </h3>
+          {(["strategy", "ports"] as const).map((store) => (
+            <div key={store} className="space-y-1">
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                {t(store === "strategy" ? "effectiveConfig.strategySection" : "effectiveConfig.portsSection")}
+              </p>
+              {history[store].length === 0 ? (
+                <p data-testid={"ec-history-empty-" + store} className="text-[11px] text-zinc-400">
+                  {t("effectiveConfig.historyEmpty")}
+                </p>
+              ) : (
+                <ul className="space-y-1">
+                  {history[store].map((b) => (
+                    <li key={b.file_name} data-testid={"ec-history-" + store + "-" + b.unix_ts} className="flex items-center gap-2 text-xs">
+                      <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {new Date(b.unix_ts * 1000).toLocaleString()}
+                      </span>
+                      <span className="text-[11px] text-zinc-400">({b.size_bytes} B)</span>
+                      <button
+                        data-testid={"ec-rollback-" + store + "-" + b.unix_ts}
+                        onClick={() => setConfirmTarget({ store, backup: b })}
+                        disabled={rollbackBusy}
+                        className="ml-auto inline-flex items-center gap-1 rounded border border-zinc-200 px-2 py-0.5 text-[11px] text-zinc-600 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      >
+                        {t("effectiveConfig.rollbackTo")}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </section>
+      ) : null}
+      {previewOpen && preview ? (
+        <div data-testid="ec-preview-overlay" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div data-testid="ec-preview-dialog" className="w-full max-w-lg rounded-lg border border-zinc-200 bg-white p-4 shadow-lg space-y-3 dark:border-zinc-700 dark:bg-zinc-900">
+            <h4 className="text-sm font-semibold">{t("effectiveConfig.reconcilePreviewTitle")}</h4>
+            {reconcilePreviewIsEmpty(preview) ? (
+              <p data-testid="ec-preview-empty" className="text-xs text-zinc-500 dark:text-zinc-400">
+                {t("effectiveConfig.reconcileNothing")}
+              </p>
+            ) : (
+              <div className="max-h-72 space-y-3 overflow-y-auto text-xs">
+                {preview.platforms.length > 0 ? (
+                  <div data-testid="ec-preview-platforms" className="space-y-1">
+                    <p className="font-semibold text-zinc-600 dark:text-zinc-300">{t("effectiveConfig.strategySection")}</p>
+                    <ul className="space-y-1">
+                      {preview.platforms.map((p) => (
+                        <li key={p.platform} data-testid={"ec-preview-platform-" + p.platform} className="font-mono">
+                          <span className="font-medium">{p.platform}</span>
+                          {" · "}
+                          {p.action === "create_platform"
+                            ? t("effectiveConfig.reconcileCreatePlatform")
+                            : t("effectiveConfig.reconcilePatchRegions", {
+                                desired: p.desired_regions.join(", ") || t("effectiveConfig.notRecorded"),
+                                live: p.live_regions.join(", ") || t("effectiveConfig.notRecorded"),
+                              })}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {preview.ports.length > 0 ? (
+                  <div data-testid="ec-preview-ports" className="space-y-1">
+                    <p className="font-semibold text-zinc-600 dark:text-zinc-300">{t("effectiveConfig.portsSection")}</p>
+                    <ul className="space-y-1">
+                      {preview.ports.map((pt) => (
+                        <li key={pt.port} data-testid={"ec-preview-port-" + pt.port} className="font-mono">
+                          <span className="font-medium">{t("effectiveConfig.port")} {pt.port}</span>
+                          {" · "}
+                          {t("effectiveConfig.reconcileCreateEndpoint")}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            )}
+            <p className="text-[11px] text-zinc-400">{t("effectiveConfig.reconcileOneWay")}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                data-testid="ec-preview-cancel"
+                onClick={() => setPreviewOpen(false)}
+                disabled={reconciling}
+                className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                {t("effectiveConfig.confirmCancel")}
+              </button>
+              <button
+                data-testid="ec-preview-confirm"
+                onClick={() => void performReconcile()}
+                disabled={reconciling || reconcilePreviewIsEmpty(preview)}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {reconciling ? t("effectiveConfig.reconcileWorking") : t("effectiveConfig.reconcileConfirm")}
+                {reconciling ? <Loader2 size={13} className="ml-1.5 inline animate-spin" /> : null}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {confirmTarget ? (
+        <div data-testid="ec-confirm-overlay" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div data-testid="ec-confirm-dialog" className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-4 shadow-lg space-y-3 dark:border-zinc-700 dark:bg-zinc-900">
+            <h4 className="text-sm font-semibold">{t("effectiveConfig.confirmTitle")}</h4>
+            <p className="text-xs text-zinc-600 dark:text-zinc-300">
+              <span data-testid="ec-confirm-time" className="font-mono">{new Date(confirmTarget.backup.unix_ts * 1000).toLocaleString()}</span>
+              {t("effectiveConfig.confirmBody", {
+                store: t(confirmTarget.store === "strategy" ? "effectiveConfig.strategySection" : "effectiveConfig.portsSection"),
+                time: new Date(confirmTarget.backup.unix_ts * 1000).toLocaleString(),
+              })}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                data-testid="ec-confirm-cancel"
+                onClick={() => setConfirmTarget(null)}
+                disabled={rollbackBusy}
+                className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                {t("effectiveConfig.confirmCancel")}
+              </button>
+              <button
+                data-testid="ec-confirm-rollback"
+                onClick={() => void performRollback(confirmTarget.store, confirmTarget.backup)}
+                disabled={rollbackBusy}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {rollbackBusy ? t("effectiveConfig.rollbackWorking") : t("effectiveConfig.confirmOk")}
+                {rollbackBusy ? <Loader2 size={13} className="ml-1.5 inline animate-spin" /> : null}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

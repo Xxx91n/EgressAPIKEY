@@ -459,6 +459,23 @@
     "port": "Port",
     "enabled": "włączone",
     "disabled": "wyłączone",
-    "authRequired": "wymaga uwierzytelnienia"
+    "authRequired": "wymaga uwierzytelnienia",
+    "historySection": "Historia whitebox",
+    "historyEmpty": "Brak kopii zapasowych — wersje pojawią się po pierwszej zmianie konfiguracji.",
+    "rollbackTo": "Przywróć",
+    "confirmTitle": "Przywrócić tę wersję?",
+    "confirmBody": "Whitebox {{store}} zostanie przywrócona do stanu zapisanego o {{time}}, a następnie ponownie zastosowana i sprawdzona. Ta operacja też jest kopiowana.",
+    "confirmCancel": "Anuluj",
+    "confirmOk": "Przywróć",
+    "rollbackWorking": "Przywracanie…",
+    "reconcile": "Synchronizuj do stanu pożądanego",
+    "reconcilePreviewTitle": "Podgląd synchronizacji — co się zmieni",
+    "reconcileNothing": "Wszystko już odpowiada whiteboxowi. Nic do zrobienia.",
+    "reconcileCreatePlatform": "utwórz platformę w Resin",
+    "reconcilePatchRegions": "zaktualizuj region_filters: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "utwórz endpoint Resin (przywróć port)",
+    "reconcileOneWay": "Synchronizacja jednokierunkowa: whitebox zawsze wygrywa. Aby zachować stan bieżący, edytuj whitebox.",
+    "reconcileConfirm": "Zastosuj teraz",
+    "reconcileWorking": "Synchronizowanie…"
   }
 }

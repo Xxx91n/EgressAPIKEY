@@ -459,6 +459,23 @@
     "port": "Poort",
     "enabled": "ingeschakeld",
     "disabled": "uitgeschakeld",
-    "authRequired": "authenticatie vereist"
+    "authRequired": "authenticatie vereist",
+    "historySection": "Whitebox-geschiedenis",
+    "historyEmpty": "Nog geen back-ups — versies verschijnen na de eerste configuratiewijziging.",
+    "rollbackTo": "Terugdraaien",
+    "confirmTitle": "Terug naar deze versie?",
+    "confirmBody": "De {{store}}-whitebox wordt hersteld naar de staat van {{time}}, daarna opnieuw toegepast en gecontroleerd. Deze actie wordt zelf ook geback-upt.",
+    "confirmCancel": "Annuleren",
+    "confirmOk": "Terugdraaien",
+    "rollbackWorking": "Terugdraaien…",
+    "reconcile": "Synchroniseer naar gewenste status",
+    "reconcilePreviewTitle": "Afstemningsvoorbeeld — wat verandert",
+    "reconcileNothing": "Alles komt al overeen met de whitebox. Niets te doen.",
+    "reconcileCreatePlatform": "platform aanmaken op Resin",
+    "reconcilePatchRegions": "region_filters bijwerken: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "Resin-endpoint aanmaken (poort herstellen)",
+    "reconcileOneWay": "Eenrichtingssynchronisatie: de whitebox wint altijd. Wil je de live status behouden, bewerk dan de whitebox.",
+    "reconcileConfirm": "Nu toepassen",
+    "reconcileWorking": "Bezig met afstemmen…"
   }
 }

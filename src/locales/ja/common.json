@@ -459,6 +459,23 @@
     "port": "ポート",
     "enabled": "有効",
     "disabled": "無効",
-    "authRequired": "認証必要"
+    "authRequired": "認証必要",
+    "historySection": "白盒履歴",
+    "historyEmpty": "バックアップはまだありません。設定変更後に表示されます。",
+    "rollbackTo": "この版へ戻す",
+    "confirmTitle": "この版へ戻しますか？",
+    "confirmBody": "{{store}}の白盒を {{time}} に保存された状態へ戻し、再適用と再チェックを行います。この操作自体もバックアップされます。",
+    "confirmCancel": "キャンセル",
+    "confirmOk": "戻す",
+    "rollbackWorking": "戻しています…",
+    "reconcile": "望ましい状態に同期",
+    "reconcilePreviewTitle": "同期プレビュー — 変更内容",
+    "reconcileNothing": "すべてホワイトボックスと一致しています。変更はありません。",
+    "reconcileCreatePlatform": "Resin にプラットフォームを作成",
+    "reconcilePatchRegions": "region_filters を更新:{{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "Resin エンドポイントを作成(ポート復元)",
+    "reconcileOneWay": "一方向同期:ホワイトボックス設定が常に優先されます。実況を維持したい場合はホワイトボックスを編集してください。",
+    "reconcileConfirm": "今すぐ適用",
+    "reconcileWorking": "同期中…"
   }
 }

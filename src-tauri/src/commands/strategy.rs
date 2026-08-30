@@ -371,3 +371,143 @@ pub fn endpoint_ports(existing: &serde_json::Value) -> Vec<u16> {
     ports.dedup();
     ports
 }
+
+
+/// Ticket 15 / ADR-0054 section B: strategy whitebox versioning - list + rollback.
+// ---------------------------------------------------------------------------
+
+/// ADR-0054 section B: list the versioned backups of the strategy whitebox
+/// file (newest first). Read-only; no inputs to validate.
+#[tauri::command]
+pub async fn strategy_backup_list(
+    app: AppHandle,
+) -> Result<Vec<resin_core::WhiteboxBackupEntry>, IpcError> {
+    let svc = strategy_service(&app)?;
+    svc.store_ref().list_backups().map_err(IpcError::from)
+}
+
+/// ADR-0054 section B: roll the strategy whitebox back to a listed backup.
+/// The backup content re-enters the SAME validate + store write entry as
+/// strategy_config_put (ADR-0036, no bypass), then apply PATCHes the Resin
+/// region_filters so the next snapshot re-check reports the restored state.
+#[tauri::command]
+pub async fn strategy_rollback(
+    app: AppHandle,
+    sidecar: State<'_, SidecarHandle>,
+    backup_name: String,
+) -> Result<serde_json::Value, IpcError> {
+    if backup_name.is_empty() || backup_name.len() > 200 {
+        return Err(IpcError::from("backup_name invalid".to_string()));
+    }
+    let svc = strategy_service(&app)?;
+    svc.store_ref().rollback(&backup_name).map_err(IpcError::from)?;
+    let client = resin_client(&sidecar)?;
+    let report = svc
+        .apply(&client, platform_id_for_name)
+        .await
+        .map_err(IpcError::from)?;
+    serde_json::to_value(&report).map_err(|e| IpcError::from(e.to_string()))
+}
+
+// ---------------------------------------------------------------------------
+// Ticket 14 / ADR-0054 §A: one-way reconcile. Serial strategy apply ->
+// ports restore, fail-fast, whitebox always wins. There is deliberately NO
+// "accept current state" reverse write (§A rejection).
+// ---------------------------------------------------------------------------
+
+/// Ticket 14 / ADR-0054 §A: process-local reconcile idempotency memory. The
+/// strategy half of a reconcile is naturally idempotent (re-PATCHing the
+/// computed plan is a no-op); the ports half is throttled by this window so
+/// a second reconcile NOW re-asserts nothing. In-process only; a restart
+/// clears it (boot-time restore_ports_from_whitebox re-asserts independently).
+static RECONCILE_MEMORY: once_cell::sync::Lazy<resin_core::ReconcileMemory> =
+    once_cell::sync::Lazy::new(resin_core::ReconcileMemory::default);
+
+/// One-way reconcile (ADR-0054 §A): run the strategy apply then re-assert
+/// the whitebox ports, stopping at the first failure. Errors surface through
+/// the ADR-0045 IpcError contract; the frontend re-pulls the snapshot after
+/// either outcome. The ports half goes through the SAME
+/// `restore_ports_from_whitebox` loop the boot path uses (ADR-0042 S6 seam),
+/// minus its log-only error swallowing: a reconcile must FAIL loudly, not
+/// degrade silently, so the closure re-implements the per-port POST with the
+/// shared helpers and returns Err on the first non-409 failure.
+#[tauri::command]
+pub async fn reconcile_now(
+    sidecar: State<'_, SidecarHandle>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+    app: AppHandle,
+) -> Result<serde_json::Value, IpcError> {
+    let svc = strategy_service(&app)?;
+    let client = resin_client(&sidecar)?;
+    let sidecar_ref = sidecar.inner();
+    let whitebox_ref = whitebox.inner();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let report = svc
+        .reconcile(&client, platform_id_for_name, async {
+            reconcile_ports_half(sidecar_ref, whitebox_ref, now).await
+        })
+        .await
+        .map_err(IpcError::from)?;
+    Ok(serde_json::json!({
+        "strategy": report.strategy,
+        "portsRestored": report.ports_restored,
+        "portsSkipped": report.ports_skipped,
+    }))
+}
+
+/// The ports half of one reconcile pass. Mirrors the per-port body of
+/// `restore_ports_from_whitebox` (commands/common.rs) but fails loudly:
+/// the reconcile contract is fail-fast (issue 14), not best-effort. 409
+/// (endpoint already present) counts as satisfied, not an error.
+async fn reconcile_ports_half(
+    sidecar: &SidecarHandle,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    now: u64,
+) -> Result<resin_core::ReconcilePortsOutcome, String> {
+    let cfg = whitebox.snapshot();
+    let client = resin_client(sidecar)?;
+    let existing = client
+        .list_endpoints()
+        .await
+        .map_err(|e| format!("list_endpoints: {e:?}"))?;
+    let live_ports = resin_core::endpoint_live_ports(&existing);
+    let to_assert = RECONCILE_MEMORY.ports_to_assert(&cfg.entry_ports, &live_ports, now);
+    let mut outcome = resin_core::ReconcilePortsOutcome::default();
+    for m in to_assert {
+        let proto = m.protocol.trim().to_ascii_lowercase();
+        let allow_socks5 = proto == "socks5";
+        let allow_http_forward = proto == "http" || proto == "socks5";
+        let body = serde_json::json!({
+            "port": m.port,
+            "allow_management": false,
+            "allow_proxy": true,
+            "allow_http_forward": allow_http_forward,
+            "allow_http_reverse": false,
+            "allow_socks5": allow_socks5,
+            "require_proxy_auth_info": m.auth_required,
+        });
+        match client.create_endpoint(body).await {
+            Ok(_) => {
+                RECONCILE_MEMORY.stamp_asserted(m.port, now);
+                outcome.restored.push(m.port);
+                tracing::info!(port = m.port, "reconcile: re-asserted Resin endpoint from whitebox");
+            }
+            Err(e) => {
+                let msg = format!("{e:?}");
+                if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage") {
+                    // Already present: satisfied. Stamp so the TTL window
+                    // keeps later passes quiet too.
+                    RECONCILE_MEMORY.stamp_asserted(m.port, now);
+                    outcome.skipped += 1;
+                    tracing::info!(port = m.port, "reconcile: endpoint already in Resin; satisfied");
+                } else {
+                    return Err(format!("create_endpoint {}: {msg}", m.port));
+                }
+            }
+        }
+    }
+    Ok(outcome)
+}

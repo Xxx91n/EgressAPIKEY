@@ -459,6 +459,23 @@
     "port": "端口",
     "enabled": "已启用",
     "disabled": "已停用",
-    "authRequired": "需认证"
+    "authRequired": "需认证",
+    "historySection": "白盒历史版本",
+    "historyEmpty": "暂无备份——首次配置变更后会出现版本记录。",
+    "rollbackTo": "回滚到此版本",
+    "confirmTitle": "确认回滚到此版本？",
+    "confirmBody": "白盒 {{store}} 将恢复到 {{time}} 保存的状态，随后重新应用并复验。此操作本身也会被备份。",
+    "confirmCancel": "取消",
+    "confirmOk": "确认回滚",
+    "rollbackWorking": "回滚中…",
+    "reconcile": "同步到期望态",
+    "reconcilePreviewTitle": "同步预演 — 将变更内容",
+    "reconcileNothing": "一切已与白盒一致,无需变更。",
+    "reconcileCreatePlatform": "在 Resin 上创建平台",
+    "reconcilePatchRegions": "更新 region_filters:{{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "创建 Resin 端点(恢复端口)",
+    "reconcileOneWay": "单向同步:白盒配置永远优先。若想保留实况状态,请修改白盒配置。",
+    "reconcileConfirm": "立即执行",
+    "reconcileWorking": "正在同步…"
   }
 }

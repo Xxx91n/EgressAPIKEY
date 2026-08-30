@@ -459,6 +459,23 @@
     "port": "Cổng",
     "enabled": "đang bật",
     "disabled": "đang tắt",
-    "authRequired": "cần xác thực"
+    "authRequired": "cần xác thực",
+    "historySection": "Lịch sử whitebox",
+    "historyEmpty": "Chưa có bản sao lưu — các phiên bản xuất hiện sau thay đổi cấu hình đầu tiên.",
+    "rollbackTo": "Khôi phục",
+    "confirmTitle": "Quay lại phiên bản này?",
+    "confirmBody": "Whitebox {{store}} sẽ được khôi phục về trạng thái lưu tại {{time}}, sau đó áp dụng lại và kiểm tra lại. Thao tác này cũng được sao lưu.",
+    "confirmCancel": "Hủy",
+    "confirmOk": "Khôi phục",
+    "rollbackWorking": "Đang khôi phục…",
+    "reconcile": "Đồng bộ về trạng thái mong muốn",
+    "reconcilePreviewTitle": "Xem trước đồng bộ — những gì sẽ thay đổi",
+    "reconcileNothing": "Mọi thứ đã khớp với whitebox. Không có gì cần làm.",
+    "reconcileCreatePlatform": "tạo nền tảng trên Resin",
+    "reconcilePatchRegions": "cập nhật region_filters: {{live}} → {{desired}}",
+    "reconcileCreateEndpoint": "tạo endpoint Resin (khôi phục cổng)",
+    "reconcileOneWay": "Đồng bộ một chiều: whitebox luôn được ưu tiên. Để giữ trạng thái hiện tại, hãy chỉnh sửa whitebox.",
+    "reconcileConfirm": "Áp dụng ngay",
+    "reconcileWorking": "Đang đồng bộ…"
   }
 }

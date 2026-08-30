@@ -35,6 +35,7 @@ import {
   ipcIpReputationSnapshot,
   ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply, ipcStrategyPlatformRegionsSet,
   ipcAuthoritativeSnapshot,
+  ipcReconcileNow, snapReconcilePlan,
   ipcGatewaySnapshot, ipcSetLogLevel,
 } from "./ipc";
 
@@ -763,5 +764,95 @@ describe("ticket 12: authoritative snapshot metadata + acknowledged", () => {
     // not an array
     await expect(ipcStrategyConfigPut({ version: 1, platforms: [], acknowledged: "A" } as any))
       .rejects.toThrow(/acknowledged must be a string array/);
+  });
+
+  it("ipcWhiteboxBackupList sanitizes untrusted entries (bad names/timestamps dropped)", async () => {
+    invokeMock.mockResolvedValueOnce([
+      { file_name: "egressapikey-ports.json.100.bak", unix_ts: 100, size_bytes: 12 },
+      { file_name: "../evil.bak", unix_ts: 200, size_bytes: 1 },
+      { file_name: "junk.txt", unix_ts: 300, size_bytes: 1 },
+      { file_name: "egressapikey-ports.json.300.bak", unix_ts: -5, size_bytes: 1 },
+      { file_name: "egressapikey-ports.json.400.bak", unix_ts: "NaN", size_bytes: 1 },
+      { file_name: "egressapikey-strategy.json.500.bak", unix_ts: 500, size_bytes: 3 },
+    ]);
+    const list = await ipcWhiteboxBackupList();
+    expect(list.map((e) => e.file_name)).toEqual([
+      "egressapikey-ports.json.100.bak",
+      "egressapikey-strategy.json.500.bak",
+    ]);
+  });
+
+  it("ipcWhiteboxRollback validates the backup name before invoking", async () => {
+    invokeMock.mockResolvedValueOnce(1);
+    await ipcWhiteboxRollback("egressapikey-ports.json.100.bak");
+    expect(invokeMock).toHaveBeenCalledWith("whitebox_rollback", expect.objectContaining({ backupName: "egressapikey-ports.json.100.bak" }));
+    await expect(ipcWhiteboxRollback("../evil.bak")).rejects.toThrow(/backup_name invalid/);
+    await expect(ipcWhiteboxRollback("no-timestamp.bak")).rejects.toThrow(/backup_name invalid/);
+    await expect(ipcWhiteboxRollback("egressapikey-ports.json.100.secrets")).rejects.toThrow(/backup_name invalid/);
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("ipcStrategyBackupList forwards and sanitizes; ipcStrategyRollback validates before invoke", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "strategy_backup_list") {
+        return Promise.resolve([{ file_name: "egressapikey-strategy.json.100-1.bak", unix_ts: 100, size_bytes: 55 }]);
+      }
+      return Promise.resolve({ platforms: [] });
+    });
+    const list = await ipcStrategyBackupList();
+    expect(list).toHaveLength(1);
+    expect(list[0].file_name).toBe("egressapikey-strategy.json.100-1.bak");
+    await ipcStrategyRollback("egressapikey-strategy.json.100-1.bak");
+    expect(invokeMock).toHaveBeenCalledWith("strategy_rollback", expect.objectContaining({ backupName: "egressapikey-strategy.json.100-1.bak" }));
+    await expect(ipcStrategyRollback("x.json.1.secrets")).rejects.toThrow(/backup_name invalid/);
+  });
+});
+
+// --- Ticket 14: reconcile plan/report sanitizers (untrusted backend data) ---
+describe("ticket 14: reconcile plan + report wrappers", () => {
+  beforeEach(() => { invokeMock.mockReset(); });
+
+  it("snapReconcilePlan narrows an untrusted plan and drops malformed rows", () => {
+    const plan = snapReconcilePlan({
+      platforms: [
+        { platform: "alpha", desired_regions: ["hk"], live_regions: ["us"], action: "patch_regions" },
+        { platform: "", desired_regions: [], live_regions: [], action: "patch_regions" }, // no name -> dropped
+        "junk", // non-object -> dropped
+        { platform: "x".repeat(600), desired_regions: [], live_regions: [], action: "patch_regions" }, // oversized name truncated then kept? -> snapStr caps at 512, still non-empty
+      ],
+      ports: [
+        { port: 17990, platform: "alpha", action: "create_endpoint" },
+        { port: 70000, platform: "alpha", action: "create_endpoint" }, // out of range -> dropped
+        { port: "NaN", platform: "alpha", action: "create_endpoint" }, // non-numeric -> dropped
+      ],
+    });
+    expect(plan.platforms).toHaveLength(2); // empty-name and junk dropped
+    expect(plan.platforms[0]).toEqual({ platform: "alpha", desired_regions: ["hk"], live_regions: ["us"], action: "patch_regions" });
+    expect(plan.platforms[1].platform.length).toBe(512); // snapStr cap applied
+    expect(plan.ports).toHaveLength(1);
+    expect(plan.ports[0]).toEqual({ port: 17990, platform: "alpha", action: "create_endpoint" });
+    // null/undefined input degrades to an empty plan
+    expect(snapReconcilePlan(null)).toEqual({ platforms: [], ports: [] });
+    expect(snapReconcilePlan(undefined)).toEqual({ platforms: [], ports: [] });
+  });
+
+  it("ipcReconcileNow sanitizes the report: bounded ports, numeric skip cap", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategy: { platforms: [{ platform: "alpha", region_filters: ["hk"], patched: true }] },
+      portsRestored: [17990, 70000, "junk", 18000],
+      portsSkipped: 3,
+    });
+    const report = await ipcReconcileNow();
+    expect(report.strategy.platforms).toHaveLength(1);
+    expect(report.portsRestored).toEqual([17990, 18000]); // range 1024..65535 filter
+    expect(report.portsSkipped).toBe(3);
+  });
+
+  it("ipcReconcileNow degrades malformed responses to safe defaults", async () => {
+    invokeMock.mockResolvedValueOnce(null);
+    const report = await ipcReconcileNow();
+    expect(report.strategy).toEqual({ platforms: [] });
+    expect(report.portsRestored).toEqual([]);
+    expect(report.portsSkipped).toBe(0);
   });
 });
