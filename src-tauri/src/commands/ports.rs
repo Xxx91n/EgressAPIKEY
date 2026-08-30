@@ -7,7 +7,10 @@ use tauri::{State};
 use crate::sidecar::SidecarHandle;
 use resin_core::DbPool;
 use resin_core::IpcError;
-use super::common::{NAME_MAX_LEN, find_endpoint_id_by_port, resin_client, validate_short_name};
+use super::common::{
+    NAME_MAX_LEN, find_endpoint_id_by_port, resin_client, restore_ports_from_whitebox,
+    validate_short_name,
+};
 
 /// Validate an entry-port mapping before touching DB / listeners.
 pub fn validate_port_mapping(
@@ -565,4 +568,43 @@ pub async fn watch_port_health(
     let paused_arc = paused.inner().0.clone();
     resin_core::port_health::spawn_watcher(ports_fn, emit, paused_arc);
     Ok(())
+}
+
+
+// ---------------------------------------------------------------------------
+// Ticket 15 / ADR-0054 section B: whitebox versioning - list + rollback IPC.
+// ---------------------------------------------------------------------------
+
+/// ADR-0054 section B: list the versioned backups of the ports whitebox file
+/// (newest first). Read-only; no inputs to validate.
+#[tauri::command]
+pub async fn whitebox_backup_list(
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+) -> Result<Vec<resin_core::WhiteboxBackupEntry>, IpcError> {
+    whitebox.list_backups().map_err(IpcError::from)
+}
+
+/// ADR-0054 section B: roll the ports whitebox back to a listed backup. The
+/// backup content re-enters the SAME validate-before-swap -> apply chain as
+/// a hand edit (never a bypass), then restore_ports_from_whitebox reconciles
+/// L3 (ADR-0042 S6) so the next snapshot re-check reports the restored state.
+#[tauri::command]
+pub async fn whitebox_rollback(
+    sidecar: State<'_, SidecarHandle>,
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+    backup_name: String,
+) -> Result<usize, IpcError> {
+    if backup_name.is_empty() || backup_name.len() > 200 {
+        return Err(IpcError::from("backup_name invalid".to_string()));
+    }
+    let restored = whitebox
+        .rollback_to_backup(&db, &forwarder, &backup_name)
+        .await
+        .map_err(IpcError::from)?;
+    restore_ports_from_whitebox(&sidecar, &whitebox)
+        .await
+        .map_err(IpcError::from)?;
+    Ok(restored)
 }

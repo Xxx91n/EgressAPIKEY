@@ -37,6 +37,7 @@ pub mod strategy;
 pub mod strategy_engine;
 pub mod strategy_service;
 pub mod stream_sensor;
+pub mod whitebox_backup;
 pub mod whitebox_config;
 
 pub use db::{DbPool, PortMapping};

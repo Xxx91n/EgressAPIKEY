@@ -82,6 +82,14 @@ Two distinct write pipelines currently live behind L2 (facts from the
   JSON ↔ `egressapikey.db` ↔ Resin endpoints, orchestrated in
   `src-tauri/src/main.rs`.
 
+Both whitebox writes are versioned (ticket 15, ADR-0054 §B): before every
+atomic swap the current file is copied to the sibling `backup/` directory
+under `app_config_dir()` (`<original>.<unixts>[-N].bak`, 10 kept per file,
+same-second collisions suffixed, never overwritten), and the two
+`*_backup_list` / `*_rollback` IPC pairs list versions and re-enter the
+same validate-before-swap → apply chain for rollback (never a bypass);
+`backup/` is runtime data, not configuration, and is never committed to git.
+
 Current wiring (before ticket 07 — views poll and merge across stores):
 
 ```mermaid

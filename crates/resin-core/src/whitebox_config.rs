@@ -19,6 +19,10 @@ use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex as AsyncMutex;
 
+use crate::whitebox_backup::{
+    atomic_write_bytes, backup_before_write, backup_list, now_unix, read_backup_parsed,
+    WhiteboxBackupEntry,
+};
 use crate::{DbPool, PortForwarder, PortMapping, MAX_ENTRY_PORTS, MIN_USER_PORT};
 
 pub const WHITEBOX_CONFIG_FILE: &str = "egressapikey-ports.json";
@@ -297,6 +301,27 @@ impl WhiteboxConfigStore {
         *self.applied.lock() = next;
         Ok(started)
     }
+
+    /// ADR-0054 section B: list the versioned backups of this whitebox file,
+    /// newest first.
+    pub fn list_backups(&self) -> Result<Vec<WhiteboxBackupEntry>, String> {
+        backup_list(&self.path)
+    }
+
+    /// ADR-0054 section B: roll the whitebox file back to a listed backup.
+    /// The backup content is parsed and then re-enters the SAME validate ->
+    /// DB/listeners -> file -> swap chain as a hand edit (apply), never
+    /// bypassing ADR-0042 entries. The rollback write is itself backed up,
+    /// so a rollback is reversible.
+    pub async fn rollback_to_backup(
+        &self,
+        db: &DbPool,
+        forwarder: &PortForwarder,
+        backup_name: &str,
+    ) -> Result<usize, String> {
+        let next: WhiteboxConfig = read_backup_parsed(&self.path, backup_name)?;
+        self.apply(db, forwarder, next).await
+    }
 }
 
 /// T18-6 (ADR-0042 S6): Filter entry_ports to only enabled entries for
@@ -322,17 +347,14 @@ async fn apply_ports(
     Ok(next.len())
 }
 
+/// Atomic whitebox write with versioning (ADR-0054 section B): the current
+/// file is copied to backup/ and rotated BEFORE the new bytes replace it.
+/// Callers have already validated; a failed backup aborts the write.
 fn write_atomic(path: &Path, config: &WhiteboxConfig) -> Result<(), String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| "whitebox config has no parent directory".to_string())?;
-    std::fs::create_dir_all(parent)
-        .map_err(|e| format!("create whitebox config directory: {e}"))?;
+    backup_before_write(path, now_unix())?;
     let bytes =
         serde_json::to_vec_pretty(config).map_err(|e| format!("encode whitebox config: {e}"))?;
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, bytes).map_err(|e| format!("write whitebox config temp: {e}"))?;
-    std::fs::rename(&tmp, path).map_err(|e| format!("activate whitebox config: {e}"))
+    atomic_write_bytes(path, &bytes)
 }
 
 #[cfg(test)]
@@ -405,6 +427,83 @@ mod tests {
         let mut cfg = WhiteboxConfig::from_ports(vec![]);
         cfg.network.dns_upstreams = vec!["https://doh.pub/dns-query".into(), "local".into()];
         assert!(validate(&cfg).is_ok());
+    }
+
+    #[tokio::test]
+    async fn apply_backs_up_previous_file_and_rollback_restores_it() {
+        let dir =
+            std::env::temp_dir().join(format!("egressapikey-wb-rollback-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(WHITEBOX_CONFIG_FILE);
+        let db = DbPool::open_in_memory().unwrap();
+        let forwarder = PortForwarder::new(db.clone(), "127.0.0.1", 1, "");
+        // First store creation: file did not exist, so no backup is made.
+        let store = WhiteboxConfigStore::open(
+            path.clone(),
+            WhiteboxConfig::from_ports(vec![mapping(17990)]),
+        )
+        .await
+        .unwrap();
+        assert!(store.list_backups().unwrap().is_empty());
+
+        // Second write: the previous file is backed up before the swap.
+        let next = WhiteboxConfig::from_ports(vec![mapping(17991)]);
+        store.apply(&db, &forwarder, next).await.unwrap();
+        assert_eq!(store.snapshot().entry_ports[0].port, 17991);
+        let backups = store.list_backups().unwrap();
+        assert_eq!(backups.len(), 1);
+        assert!(backups[0].size_bytes > 0);
+
+        // Rollback re-enters validate -> apply; the restored state is 17990.
+        let restored = store
+            .rollback_to_backup(&db, &forwarder, &backups[0].file_name)
+            .await
+            .unwrap();
+        assert_eq!(restored, 1);
+        assert_eq!(store.snapshot().entry_ports[0].port, 17990);
+        // The rollback write itself was backed up (reversible).
+        assert_eq!(store.list_backups().unwrap().len(), 2);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn rollback_rejects_tampered_backup_content_without_swapping() {
+        let dir =
+            std::env::temp_dir().join(format!("egressapikey-wb-tamper-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(WHITEBOX_CONFIG_FILE);
+        let db = DbPool::open_in_memory().unwrap();
+        let forwarder = PortForwarder::new(db.clone(), "127.0.0.1", 1, "");
+        let store = WhiteboxConfigStore::open(
+            path.clone(),
+            WhiteboxConfig::from_ports(vec![mapping(17990)]),
+        )
+        .await
+        .unwrap();
+        store
+            .apply(
+                &db,
+                &forwarder,
+                WhiteboxConfig::from_ports(vec![mapping(17991)]),
+            )
+            .await
+            .unwrap();
+        let backup_name = store.list_backups().unwrap()[0].file_name.clone();
+        // Tamper with the listed backup: not JSON at all.
+        std::fs::write(
+            crate::whitebox_backup::backup_dir(&path).join(&backup_name),
+            b"not-json",
+        )
+        .unwrap();
+        assert!(store
+            .rollback_to_backup(&db, &forwarder, &backup_name)
+            .await
+            .is_err());
+        // The active config is unchanged after the rejected rollback.
+        assert_eq!(store.snapshot().entry_ports[0].port, 17991);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

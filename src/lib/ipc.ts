@@ -746,6 +746,74 @@ export function ipcWhiteboxSaveNetwork(network: NetworkConfig): Promise<number> 
   return invoke<number>("whitebox_save_network", { network });
 }
 
+/**
+ * Ticket 15 (ADR-0054 section B): one versioned backup copy of a whitebox
+ * file. file_name is a server-generated `<original>.<unixts>[-N].bak` name - it
+ * is NEVER interpolated into any URL or passed raw to another command; the
+ * rollback wrappers validate the shape before invoking (section 7.6).
+ */
+export interface WhiteboxBackupEntry {
+  file_name: string;
+  unix_ts: number;
+  size_bytes: number;
+}
+
+/** Ticket 15 (section 7.6): a backup name must look like <name>.<digits>[-N].bak. */
+function assertBackupName(name: string): void {
+  if (!name || name.length > 200 || !/^[A-Za-z0-9._-]+$/i.test(name) ||
+      !/\.bak$/.test(name) || !/\.\d+(-\d+)?\.bak$/.test(name)) {
+    throw new Error("whitebox_backup: backup_name invalid");
+  }
+}
+
+/** Sanitize an untrusted backup entry list from the backend (section 7.6). */
+function snapBackupEntries(v: unknown): WhiteboxBackupEntry[] {
+  if (!Array.isArray(v)) return [];
+  const out: WhiteboxBackupEntry[] = [];
+  for (const raw of v.slice(0, 128)) {
+    const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+    const fileName = typeof r.file_name === "string" ? r.file_name : "";
+    try {
+      assertBackupName(fileName);
+    } catch {
+      continue;
+    }
+    const ts = Number(r.unix_ts);
+    const size = Number(r.size_bytes);
+    if (!Number.isFinite(ts) || ts < 0 || ts > 4_102_444_800) continue;
+    if (!Number.isFinite(size) || size < 0) continue;
+    out.push({ file_name: fileName, unix_ts: ts, size_bytes: Math.floor(size) });
+  }
+  return out;
+}
+
+/** Ticket 15: list the versioned backups of the ports whitebox (newest first). */
+export async function ipcWhiteboxBackupList(): Promise<WhiteboxBackupEntry[]> {
+  return snapBackupEntries(await invoke("whitebox_backup_list"));
+}
+
+/**
+ * Ticket 15: roll the ports whitebox back to a listed backup. The backend
+ * re-enters the validate-before-swap -> apply chain and reconciles L3; the
+ * response is the restored entry-port count.
+ */
+export async function ipcWhiteboxRollback(backupName: string): Promise<number> {
+  assertBackupName(backupName);
+  const n = await invoke<number>("whitebox_rollback", { backupName });
+  return Number(n) || 0;
+}
+
+/** Ticket 15: list the versioned backups of the strategy whitebox (newest first). */
+export async function ipcStrategyBackupList(): Promise<WhiteboxBackupEntry[]> {
+  return snapBackupEntries(await invoke("strategy_backup_list"));
+}
+
+/** Ticket 15: roll the strategy whitebox back to a listed backup (backend re-validates + re-applies). */
+export async function ipcStrategyRollback(backupName: string): Promise<unknown> {
+  assertBackupName(backupName);
+  return invoke("strategy_rollback", { backupName });
+}
+
 export interface StreamSensorSnapshot {
   unary: number;
   sse: number;

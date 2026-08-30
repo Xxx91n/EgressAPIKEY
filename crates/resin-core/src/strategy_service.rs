@@ -295,7 +295,27 @@ impl StrategyConfigStore for FsStrategyStore {
 
     fn store(&self, config: &StrategyConfig) -> Result<(), String> {
         let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
-        std::fs::write(&self.path, json).map_err(|e| e.to_string())
+        // ADR-0054 section B: version the previous file before the swap.
+        backup_before_write(&self.path, now_unix())?;
+        atomic_write_bytes(&self.path, json.as_bytes())
+    }
+}
+
+impl FsStrategyStore {
+    /// ADR-0054 section B: list the versioned backups of the strategy
+    /// whitebox, newest first.
+    pub fn list_backups(&self) -> Result<Vec<WhiteboxBackupEntry>, String> {
+        backup_list(&self.path)
+    }
+
+    /// ADR-0054 section B: parse a listed backup and persist it through the
+    /// SAME validate + store write entry as strategy_config_put (ADR-0036).
+    /// The rollback write is itself backed up, so a rollback is reversible.
+    pub fn rollback(&self, backup_name: &str) -> Result<StrategyConfig, String> {
+        let config: StrategyConfig = read_backup_parsed(&self.path, backup_name)?;
+        validate(&config)?;
+        self.store(&config)?;
+        Ok(config)
     }
 }
 
@@ -773,6 +793,54 @@ mod tests {
         let svc = StrategyService::new(FsStrategyStore::new(path.clone()));
         assert_eq!(svc.store_ref().path(), &path);
         let _ = std::fs::remove_dir(&dir);
+    }
+
+    // ---- ticket 15: whitebox versioning (ADR-0054 section B) ----
+    #[test]
+    fn fs_store_write_backs_up_previous_file_and_is_atomic() {
+        let dir = std::env::temp_dir().join(format!("strategy-svc-bak-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("egressapikey-strategy.json");
+        let svc = StrategyService::new(FsStrategyStore::new(path.clone()));
+        // First write: no previous file, no backup.
+        svc.store(&cfg(vec![ps("A", &["US"])])).unwrap();
+        assert!(svc.store_ref().list_backups().unwrap().is_empty());
+        // Second write: previous content backed up before the swap.
+        svc.store(&cfg(vec![ps("B", &["EU"])])).unwrap();
+        let backups = svc.store_ref().list_backups().unwrap();
+        assert_eq!(backups.len(), 1);
+        let raw = std::fs::read_to_string(
+            crate::whitebox_backup::backup_dir(&path).join(&backups[0].file_name),
+        )
+        .unwrap();
+        assert!(raw.contains("\"A\""), "backup must hold the PREVIOUS content");
+        assert!(!path.with_extension("json.tmp").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fs_store_rollback_restores_previous_and_rejects_garbage() {
+        let dir = std::env::temp_dir().join(format!("strategy-svc-rb-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("egressapikey-strategy.json");
+        let svc = StrategyService::new(FsStrategyStore::new(path.clone()));
+        svc.store(&cfg(vec![ps("A", &["US"])])).unwrap();
+        svc.store(&cfg(vec![ps("B", &["EU"])])).unwrap();
+        let backup_name = svc.store_ref().list_backups().unwrap()[0].file_name.clone();
+        let rolled = svc.store_ref().rollback(&backup_name).unwrap();
+        assert_eq!(rolled.platforms[0].platform_name, "A");
+        assert_eq!(svc.get().unwrap().platforms[0].platform_name, "A");
+        // Tampered backup content is rejected before any swap.
+        std::fs::write(
+            crate::whitebox_backup::backup_dir(&path).join(&backup_name),
+            b"garbage",
+        )
+        .unwrap();
+        assert!(svc.store_ref().rollback(&backup_name).is_err());
+        assert_eq!(svc.get().unwrap().platforms[0].platform_name, "A");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     // ---- ticket 12: acknowledged field parse/validate ----

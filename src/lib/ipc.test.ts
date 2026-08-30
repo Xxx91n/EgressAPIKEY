@@ -17,6 +17,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 // import AFTER the mock is registered.
 import {
+  ipcWhiteboxBackupList, ipcWhiteboxRollback, ipcStrategyBackupList, ipcStrategyRollback,
   ipcPlatformAdd, ipcPlatformRemove, ipcPlatformList,
   ipcSubscriptionAdd, ipcSubscriptionRemove, ipcSubscriptionList,
   ipcSubscriptionRefresh,

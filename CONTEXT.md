@@ -363,3 +363,15 @@ A user-acknowledged drift entry: the entity id is listed in the whitebox
 alters the three-state merge or the snapshot data — it is presentation and
 notification suppression only, and must be revoked explicitly.
 _Avoid_: ignored, muted, auto-healed drift
+
+### Whitebox Versioning (白盒版本化)
+
+Every atomic write to either whitebox file first copies the current file to
+the sibling `backup/` directory as `<original>.<unixts>[-N].bak` and keeps
+the newest 10 per file (same-second collisions take a `-N` suffix, names
+never overwrite). A listed backup can be rolled back; a rollback re-enters
+the SAME validate-before-swap → apply chain as a hand edit (ADR-0036 /
+ADR-0042 write entries, never a bypass), is itself backed up (reversible),
+and is followed by an automatic snapshot re-check. Backups are runtime data
+under `app_config_dir()` and never enter git (ADR-0054 §B).
+_Avoid_: undo stack, autosave, config trash bin

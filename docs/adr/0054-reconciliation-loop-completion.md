@@ -31,11 +31,26 @@ loop, all within the existing ADR lattice.
   ONE-WAY: the whitebox (L2) always wins; there is NO L3->L2 write path
   and no "accept current state" button — users who prefer the live state
   edit the whitebox instead.
-- **§B Versioned whitebox (ticket 14).** Both whitebox stores copy the
-  previous file to a sibling `backup/` directory before every atomic
-  write (`<file>.<unixts>.bak`), rotate to keep 10, and expose list +
-  rollback IPC. Rollback re-enters the SAME validate-before-swap -> apply
-  chain as a hand edit; it never bypasses ADR-0036/ADR-0042 entries.
+- **§B Versioned whitebox (ticket 15 — landed here).** Both whitebox
+  stores copy the previous file to a sibling `backup/` directory (inside
+  `app_config_dir()`; runtime data, never committed to git) before every
+  atomic write (`<original>.<unixts>[-N].bak`; the `-N` suffix resolves
+  same-second collisions so names never overwrite), rotate to keep the
+  newest 10 per file, and expose `strategy_backup_list` /
+  `whitebox_backup_list` (file name, unix timestamp, size; newest first)
+  plus `strategy_rollback` / `whitebox_rollback` IPC. Rollback parses the
+  listed backup through serde and re-enters the SAME validate-before-swap
+  -> apply chain as a hand edit (strategy: Service validate + store +
+  apply; ports: `WhiteboxConfigStore::apply` then
+  `restore_ports_from_whitebox` for L3); it never bypasses ADR-0036 /
+  ADR-0042 entries, and the rollback write is itself backed up, so a
+  rollback is reversible. A backup whose content no longer parses is
+  rejected before any swap. The Effective Config view lists the history
+  with a per-entry rollback button; the second-confirmation dialog shows
+  the target timestamp; the post-rollback re-check runs automatically (the
+  next snapshot reports consistent, or carries an explicit
+  non-consistent cause). Shared helpers + rotation live in
+  `crates/resin-core/src/whitebox_backup.rs`.
 - **§C Snapshot metadata (this ticket).** See below.
 - **§D Acknowledged exemptions (this ticket).** See below.
 - **§E One-shot tray notify (ticket 15).** The tray notifies exactly once

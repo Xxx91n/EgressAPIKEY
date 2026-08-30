@@ -120,6 +120,60 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
     await screen.findByTestId("ec-no-entries");
   });
 
+  it("ticket 15: lists whitebox history and opens a confirm dialog with the target timestamp", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") return Promise.resolve(baseSnap());
+      if (cmd === "strategy_backup_list") return Promise.resolve([{ file_name: "egressapikey-strategy.json.100.bak", unix_ts: TS, size_bytes: 55 }]);
+      if (cmd === "whitebox_backup_list") return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+    render(<EffectiveConfigView />);
+    const row = await screen.findByTestId("ec-history-strategy-" + TS);
+    expect(within(row).getByText(new Date(TS * 1000).toLocaleString())).toBeInTheDocument();
+    // No dialog before the button is pressed; cancel path closes it.
+    expect(screen.queryByTestId("ec-confirm-dialog")).toBeNull();
+    fireEvent.click(within(row).getByTestId("ec-rollback-strategy-" + TS));
+    const dialog = screen.getByTestId("ec-confirm-dialog");
+    expect(within(dialog).getByTestId("ec-confirm-time")).toHaveTextContent(new Date(TS * 1000).toLocaleString());
+    fireEvent.click(within(dialog).getByTestId("ec-confirm-cancel"));
+    expect(screen.queryByTestId("ec-confirm-dialog")).toBeNull();
+    expect(invokeMock).not.toHaveBeenCalledWith("strategy_rollback", expect.anything());
+  });
+
+  it("ticket 15: rollback only fires after confirm, then refreshes snapshot and history", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") return Promise.resolve(baseSnap());
+      if (cmd === "strategy_backup_list") return Promise.resolve([{ file_name: "egressapikey-strategy.json.100.bak", unix_ts: TS, size_bytes: 55 }]);
+      if (cmd === "whitebox_backup_list") return Promise.resolve([]);
+      return Promise.resolve(null);
+    });
+    render(<EffectiveConfigView />);
+    const row = await screen.findByTestId("ec-history-strategy-" + TS);
+    fireEvent.click(within(row).getByTestId("ec-rollback-strategy-" + TS));
+    fireEvent.click(screen.getByTestId("ec-confirm-rollback"));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("strategy_rollback", expect.objectContaining({ backupName: "egressapikey-strategy.json.100.bak" })));
+    // Post-rollback re-check: snapshot + history re-pulled (2nd+ fetch).
+    await waitFor(() => {
+      const snaps = invokeMock.mock.calls.filter((c: unknown[]) => c[0] === "authoritative_snapshot").length;
+      expect(snaps).toBeGreaterThanOrEqual(2);
+    });
+    expect(screen.queryByTestId("ec-confirm-dialog")).toBeNull();
+  });
+
+  it("ticket 15: rollback failure surfaces in the view error slot", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") return Promise.resolve(baseSnap());
+      if (cmd === "strategy_backup_list") return Promise.resolve([{ file_name: "egressapikey-strategy.json.100.bak", unix_ts: TS, size_bytes: 55 }]);
+      if (cmd === "whitebox_backup_list") return Promise.resolve([]);
+      if (cmd === "strategy_rollback") return Promise.reject(new Error("error.strategyWriteFail"));
+      return Promise.resolve(null);
+    });
+    render(<EffectiveConfigView />);
+    const row = await screen.findByTestId("ec-history-strategy-" + TS);
+    fireEvent.click(within(row).getByTestId("ec-rollback-strategy-" + TS));
+    fireEvent.click(screen.getByTestId("ec-confirm-rollback"));
+    await screen.findByTestId("ec-error");
+  });
   it("surfaces snapshot read failures", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "authoritative_snapshot") return Promise.reject(new Error("error.resinUnreachable"));
