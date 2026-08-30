@@ -6,6 +6,7 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_store::StoreExt;
 use crate::sidecar::SidecarHandle;
 use resin_core::IpcError;
+use serde::{Deserialize, Serialize};
 use super::common::{map_resin_error, resin_client};
 
 /// T15-2: Runtime log level gate. 0=error, 1=warn, 2=info, 3=debug.
@@ -17,6 +18,41 @@ pub static LOG_LEVEL_GATE: std::sync::atomic::AtomicU8 = std::sync::atomic::Atom
 /// Returns true if the given numeric level (0=error,1=warn,2=info,3=debug) should be emitted.
 pub fn log_level_enabled(level: u8) -> bool {
     LOG_LEVEL_GATE.load(std::sync::atomic::Ordering::Relaxed) >= level
+}
+
+/// Ticket 09 (tauri-specta pilot): log level as a closed enum. The wire
+/// format is unchanged (lowercase string, serde rename_all); out-of-set
+/// values are now rejected by serde at deserialization instead of the
+/// former in-command String match. Exported into src/bindings.ts so the
+/// frontend narrows against the generated union.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    Error,
+    Warn,
+    Info,
+    Debug,
+}
+
+impl LogLevel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warn => "warn",
+            Self::Info => "info",
+            Self::Debug => "debug",
+        }
+    }
+
+    /// LOG_LEVEL_GATE numeric encoding (0=error..3=debug), unchanged.
+    pub fn gate(self) -> u8 {
+        match self {
+            Self::Error => 0,
+            Self::Warn => 1,
+            Self::Info => 2,
+            Self::Debug => 3,
+        }
+    }
 }
 
 /// T8-1: GET /api/v1/system/config — read system-level config.
@@ -169,17 +205,11 @@ pub async fn lightweight_set(
 }
 
 #[tauri::command]
-pub async fn set_log_level(level: String) -> Result<String, IpcError> {
-    let val = match level.as_str() {
-        "error" => 0u8,
-        "warn" => 1u8,
-        "info" => 2u8,
-        "debug" => 3u8,
-        _ => return Err(IpcError::from(format!("invalid log level: {{must be error/warn/info/debug}}: {}", level))),
-    };
-    LOG_LEVEL_GATE.store(val, std::sync::atomic::Ordering::Relaxed);
-    tracing::warn!("T15-2: log level set to {} (gate={})", level, val);
-    Ok(level)
+#[specta::specta]
+pub async fn set_log_level(level: LogLevel) -> Result<String, IpcError> {
+    LOG_LEVEL_GATE.store(level.gate(), std::sync::atomic::Ordering::Relaxed);
+    tracing::warn!("T15-2: log level set to {} (gate={})", level.as_str(), level.gate());
+    Ok(level.as_str().to_string())
 }
 
 #[tauri::command]
@@ -193,4 +223,33 @@ pub async fn get_log_level() -> Result<String, IpcError> {
         _ => "info",
     };
     Ok(name.to_string())
+}
+
+#[cfg(test)]
+mod log_level_tests {
+    use super::*;
+
+    #[test]
+    fn log_level_gate_encoding_unchanged() {
+        assert_eq!(LogLevel::Error.gate(), 0);
+        assert_eq!(LogLevel::Warn.gate(), 1);
+        assert_eq!(LogLevel::Info.gate(), 2);
+        assert_eq!(LogLevel::Debug.gate(), 3);
+    }
+
+    #[test]
+    fn log_level_serde_wire_is_lowercase_string() {
+        for (v, s) in [
+            (LogLevel::Error, "\"error\""),
+            (LogLevel::Warn, "\"warn\""),
+            (LogLevel::Info, "\"info\""),
+            (LogLevel::Debug, "\"debug\""),
+        ] {
+            assert_eq!(serde_json::to_string(&v).unwrap(), s);
+            let back: LogLevel = serde_json::from_str(s).unwrap();
+            assert_eq!(back, v);
+        }
+        // Out-of-set values are rejected at deserialization.
+        assert!(serde_json::from_str::<LogLevel>("\"fatal\"").is_err());
+    }
 }

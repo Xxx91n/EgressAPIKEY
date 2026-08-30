@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 /// One row of the port_mappings table.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct PortMapping {
     pub port: u16,
     pub protocol: String,

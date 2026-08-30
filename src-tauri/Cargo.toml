@@ -23,7 +23,9 @@ required-features = ["headless"]
 
 
 [dependencies]
-resin-core = { path = "../crates/resin-core" }
+# specta feature: ticket 09 pilot - IpcError/PortMapping derive specta::Type
+# so the tauri-specta export can emit the typed error contract.
+resin-core = { path = "../crates/resin-core", features = ["specta"] }
 tokio = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
@@ -38,6 +40,12 @@ http-body-util = { workspace = true }
 bytes = { workspace = true }
 clap = { workspace = true }
 dirs = { workspace = true }
+# Ticket 09 (tauri-specta pilot): trio pinned with `=` per the upstream
+# rc.25 pairing (tauri-specta 2.0.0-rc.25 + specta 2.0.0-rc.25 +
+# specta-typescript 0.0.12) - beta versions break without exact pins.
+specta = "=2.0.0-rc.25"
+specta-typescript = "=0.0.12"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 
 # Tauri 2 desktop runtime + the plugin set the GUI uses. Versions pinned to
 # the v2 line so cargo + npm agree on the JS @tauri-apps/* counterpart.
@@ -96,3 +104,8 @@ windows-sys = { version = "0.59", features = [
     "Win32_System_JobObjects",
     "Win32_System_Threading",
 ] }
+
+[dev-dependencies]
+# Ticket 09: mock runtime for the bindings export test (headless; avoids
+# pulling tao/comctl32 into the test binary - see specta_bindings.rs docs).
+tauri = { version = "2", features = ["test"] }

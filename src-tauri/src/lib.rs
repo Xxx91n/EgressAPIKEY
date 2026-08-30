@@ -13,6 +13,7 @@ pub mod lightweight;
 pub mod sidecar;
 pub mod trace;
 pub mod tray;
+pub mod specta_bindings;
 
 use std::sync::Arc;
 

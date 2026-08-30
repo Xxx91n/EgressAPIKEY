@@ -194,6 +194,7 @@ pub async fn port_remove(
 /// so the whitebox is the authoritative record. The listener is NOT removed
 /// from Resin's DB when toggled off, so toggled back on is a PATCH only.
 #[tauri::command]
+#[specta::specta]
 pub async fn port_toggle(
     sidecar: State<'_, SidecarHandle>,
     db: State<'_, DbPool>,

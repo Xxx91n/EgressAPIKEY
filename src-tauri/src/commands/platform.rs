@@ -11,18 +11,27 @@ use resin_core::{MAX_LANES, ReputationClient, ReputationProvider, ReputationSnap
 use super::common::{KEY_MAX_LEN, items_arr, map_resin_error, resin_client, validate_ip, validate_short_name};
 use super::backup::{process_route_conflict_check};
 
-#[derive(Debug, Serialize)]
+/// Ticket 09 pilot: the usize/u64 fields carry a #[specta(type = u32)]
+/// override because specta-typescript 0.0.12 forbids 64-bit ints (its
+/// bigint policy has no export knob in this version). Runtime wire format
+/// is untouched - the override only shapes the generated TS.
+#[derive(Debug, Serialize, specta::Type)]
 pub struct LaneSnapshot {
+    #[specta(type = u32)]
     pub lane_count: usize,
+    #[specta(type = u32)]
     pub busy: usize,
+    #[specta(type = Vec<(String, f64, u32, i8)>)]
     pub latencies: Vec<(String, f64, u64, i8)>,
     /// Per-platform active lease counts (platform name, active_count).
     /// The TS side uses this to render entry boxes with the real active
     /// lease occupancy instead of a placeholder 0. Resin is the source.
+    #[specta(type = Vec<(String, u32)>)]
     pub per_platform_active: Vec<(String, usize)>,
 }
 
 #[tauri::command]
+#[specta::specta]
 pub async fn gateway_snapshot(sidecar: State<'_, SidecarHandle>) -> Result<LaneSnapshot, IpcError> {
     let client = resin_client(&sidecar)?;
     let leases = client.active_leases().await.map_err(|e| map_resin_error(&e.to_string()))?;

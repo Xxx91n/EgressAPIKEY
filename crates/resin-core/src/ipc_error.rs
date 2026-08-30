@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// Typed IPC error returned by every Tauri command.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(tag = "kind", content = "data")]
 pub enum IpcError {
     /// Port number already in use (EADDRINUSE / Resin 409 bind conflict).
