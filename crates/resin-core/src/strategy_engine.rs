@@ -118,6 +118,13 @@ pub struct StrategyConfig {
     pub version: u8,
     #[serde(default)]
     pub platforms: Vec<PlatformStrategy>,
+    /// Ticket 12 / ADR-0054 §D: optional exemption list. Members are platform
+    /// names the user has marked "known drift, don't notify". Parse-compat:
+    /// absent = empty (older configs load unchanged). The list NEVER enters
+    /// the three-state merge — it is surfaced read-side only. Validate caps:
+    /// ≤64 members × 1..128 chars (no control chars), duplicates rejected.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub acknowledged: Vec<String>,
 }
 
 impl Default for StrategyConfig {
@@ -125,6 +132,7 @@ impl Default for StrategyConfig {
         Self {
             version: 1,
             platforms: vec![],
+            acknowledged: vec![],
         }
     }
 }
@@ -450,6 +458,7 @@ mod tests {
         ];
         let config = StrategyConfig {
             version: 1,
+            acknowledged: vec![],
             platforms: vec![PlatformStrategy {
                 platform_name: "p1".into(),
                 a_class: AClassStrategy::Region,

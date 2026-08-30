@@ -134,8 +134,36 @@ pub fn validate(config: &StrategyConfig) -> Result<(), String> {
             return Err(format!("manual_nodes list too long (max {MAX_PLATFORMS})"));
         }
     }
+    validate_acknowledged(&config.acknowledged, "acknowledged")
+}
+
+/// Ticket 12 / ADR-0054 §D: shared shape checks for a whitebox
+/// `acknowledged` exemption array. Non-string members are already rejected
+/// by serde's Vec<String> deserialization (a hand-edited file with a number
+/// inside fails to parse, preserving compatibility of valid old files);
+/// these checks cap the list and reject empty/oversized/control-char/duplicate
+/// members so the array cannot grow unbounded or smuggle junk.
+pub fn validate_acknowledged(list: &[String], field: &str) -> Result<(), String> {
+    if list.len() > MAX_ACKNOWLEDGED_ENTRIES {
+        return Err(format!("{field} list too long (max {MAX_ACKNOWLEDGED_ENTRIES})"));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for (i, m) in list.iter().enumerate() {
+        if m.is_empty() || m.len() > MAX_PLATFORM_NAME_LEN {
+            return Err(format!("{field}[{i}] must be 1..{MAX_PLATFORM_NAME_LEN} chars"));
+        }
+        if m.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err(format!("{field}[{i}] contains control characters"));
+        }
+        if !seen.insert(m.clone()) {
+            return Err(format!("{field}[{i}] is duplicated: {m}"));
+        }
+    }
     Ok(())
 }
+
+/// Cap for whitebox `acknowledged` exemption arrays (ticket 12 / ADR-0054 §D).
+pub const MAX_ACKNOWLEDGED_ENTRIES: usize = 64;
 
 /// Auto-clean: drop platform entries whose names no longer exist in Resin.
 /// Returns the cleaned clone plus whether anything was dropped (the caller
@@ -151,6 +179,7 @@ pub fn clean_stale(config: &StrategyConfig, live_names: &std::collections::HashS
         .collect();
     let cleaned = StrategyConfig {
         version: config.version,
+        acknowledged: config.acknowledged.clone(),
         platforms,
     };
     let changed = cleaned.platforms.len() != before;
@@ -351,7 +380,7 @@ mod tests {
     }
 
     fn cfg(platforms: Vec<PlatformStrategy>) -> StrategyConfig {
-        StrategyConfig { version: 1, platforms }
+        StrategyConfig { version: 1, platforms, acknowledged: vec![] }
     }
 
     /// In-memory store for fixtures.
@@ -516,6 +545,84 @@ mod tests {
         let svc = StrategyService::new(FsStrategyStore::new(path.clone()));
         assert_eq!(svc.store_ref().path(), &path);
         let _ = std::fs::remove_dir(&dir);
+    }
+
+    // ---- ticket 12: acknowledged field parse/validate ----
+    #[test]
+    fn acknowledged_parses_from_optional_field_and_defaults_empty() {
+        // Older config without the field loads unchanged (serde default).
+        let doc = json!({"version": 1, "platforms": [
+            {"platform_name": "Anthropic", "a_class": "region", "b_class": "random", "regions": ["US"]}
+        ]});
+        let svc = StrategyService::new(MemStore(doc));
+        let c = svc.get().unwrap();
+        assert!(c.acknowledged.is_empty());
+
+        // Round-trip: the field persists through the real file store
+        // (MemStore.store is a deliberate no-op fixture).
+        let dir = std::env::temp_dir().join(format!("strategy-svc-ack-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("egressapikey-strategy.json");
+        let _ = std::fs::remove_file(&path);
+        let fsvc = StrategyService::new(FsStrategyStore::new(path.clone()));
+        let mut cfg_doc = cfg(vec![ps("A", &["US"])]);
+        cfg_doc.acknowledged = vec!["A".to_string()];
+        fsvc.store(&cfg_doc).unwrap();
+        let reloaded = fsvc.get().unwrap();
+        assert_eq!(reloaded.acknowledged, vec!["A".to_string()]);
+        // skip_serializing_if: empty list writes NO acknowledged key.
+        let mut empty = cfg(vec![]);
+        empty.acknowledged = vec![];
+        fsvc.store(&empty).unwrap();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        assert!(!raw.contains("acknowledged"), "empty exemption list must not appear in the file");
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir(&dir);
+    }
+
+    #[test]
+    fn acknowledged_validate_rejects_oversized_empty_control_and_duplicate_members() {
+        let mut c = cfg(vec![]);
+        // oversized member
+        c.acknowledged = vec!["x".repeat(129)];
+        assert!(validate(&c).unwrap_err().contains("1..128"));
+        // empty member
+        c.acknowledged = vec![String::new()];
+        assert!(validate(&c).unwrap_err().contains("1..128"));
+        // control character
+        c.acknowledged = vec!["bad\u{0}name".to_string()];
+        assert!(validate(&c).unwrap_err().contains("control"));
+        // duplicate members
+        c.acknowledged = vec!["A".to_string(), "A".to_string()];
+        assert!(validate(&c).unwrap_err().contains("duplicated"));
+        // oversized list (65 > 64)
+        c.acknowledged = (0..65).map(|i| format!("P{i}")).collect();
+        assert!(validate(&c).unwrap_err().contains("max 64"));
+        // valid list passes
+        c.acknowledged = (0..64).map(|i| format!("P{i}")).collect();
+        assert!(validate(&c).is_ok());
+    }
+
+    #[test]
+    fn acknowledged_non_string_member_fails_deserialize_not_validate() {
+        // A hand-edited JSON with a non-string member is a PARSE error (the
+        // file cannot load), never a silent silent coercion — valid old files
+        // without the field keep loading (compat preserved).
+        let doc = json!({"version": 1, "platforms": [], "acknowledged": ["ok", 42]});
+        let svc = StrategyService::new(MemStore(doc));
+        assert!(svc.get().is_err());
+    }
+
+    #[test]
+    fn clean_stale_preserves_acknowledged_list() {
+        let mut c = cfg(vec![ps("Alive", &["US"]), ps("Deleted", &["HK"])]);
+        c.acknowledged = vec!["Alive".to_string(), "Deleted".to_string()];
+        let live: std::collections::HashSet<String> = ["Alive".to_string()].into_iter().collect();
+        let (cleaned, changed) = clean_stale(&c, &live);
+        assert!(changed);
+        // The exemption list itself is NOT auto-cleaned: it is a user-marked
+        // exemption list, not strategy intent; surfacing is read-side only.
+        assert_eq!(cleaned.acknowledged, vec!["Alive".to_string(), "Deleted".to_string()]);
     }
 
     // ---- FsStrategyStore: real-file round trip + missing file ----

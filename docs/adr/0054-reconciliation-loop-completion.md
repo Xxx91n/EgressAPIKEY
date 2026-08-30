@@ -1,0 +1,144 @@
+# ADR-0054: Reconciliation-Loop Completion — one-way reconcile, preview, versioned whitebox, snapshot metadata, acknowledged exemptions, one-shot notify
+
+> Status: PROPOSED
+> Date: 2026-08-30
+> Ticket: architecture-recovery 12 (snapshot-metadata-acknowledged) — this
+> ticket writes the OVERVIEW and sections C (metadata) / D (exemptions).
+> Tickets 13-16 each land one remaining section by reference ("per
+> ADR-0054 §A/§B/§E/§F"); the ADR flips to ACCEPTED at ticket 16.
+> Extends (reopens none): ADR-0051 (authoritative snapshot IPC — the read
+> model this ADR enriches with metadata), ADR-0036 (strategy whitebox
+> single write entry), ADR-0042 (whitebox port truth + restore), ADR-0045
+> (IPC error contract).
+
+## Context
+
+Round 2's spec identified six gaps between "the user can see whether the
+config took effect" (ADR-0051 closed that) and a closed reconciliation
+loop: no convergence ACTION from the view, no whitebox history/rollback,
+no timestamps on drift, no known-exemption vocabulary, no notification,
+and no排障 doc. A two-round atomcode research pass (OpenGitOps four
+principles; ArgoCD desired/live reconcile + selfHeal default-off; Clash
+Verge Rev #1715/#3395 counter-evidence for burying runtime config in
+settings) placed this work as a desktop-scale desired-state reconciliation
+loop, all within the existing ADR lattice.
+
+## Decision (Overview of the six sections)
+
+- **§A One-way reconcile (ticket 13).** A single `reconcile_now` IPC runs
+  compute_plan preview -> explicit user confirm -> `strategy_apply` +
+  `restore_ports_from_whitebox` -> automatic re-snapshot. Direction is
+  ONE-WAY: the whitebox (L2) always wins; there is NO L3->L2 write path
+  and no "accept current state" button — users who prefer the live state
+  edit the whitebox instead.
+- **§B Versioned whitebox (ticket 14).** Both whitebox stores copy the
+  previous file to a sibling `backup/` directory before every atomic
+  write (`<file>.<unixts>.bak`), rotate to keep 10, and expose list +
+  rollback IPC. Rollback re-enters the SAME validate-before-swap -> apply
+  chain as a hand edit; it never bypasses ADR-0036/ADR-0042 entries.
+- **§C Snapshot metadata (this ticket).** See below.
+- **§D Acknowledged exemptions (this ticket).** See below.
+- **§E One-shot tray notify (ticket 15).** The tray notifies exactly once
+  per process when a NOT-acknowledged drift first appears; acknowledged
+  entities never notify; no notification loop.
+- **§F Docs + acceptance (ticket 16).** The排障 how-to ("我改了为什么没生效")
+  and the ADR flip to ACCEPTED.
+
+### §C Snapshot metadata (ticket 12 — landed here)
+
+1. `lastCheckedAt` — top-level `AuthoritativeSnapshot.last_checked_at`
+   (wire: `lastCheckedAt`, top-level fields are camelCase per ADR-0051):
+   Unix seconds when THIS snapshot was generated, stamped by the command
+   layer from the wall clock. Pure metadata; it never participates in the
+   three-state merge. Consecutive calls are monotonically non-decreasing.
+2. `divergentSince` — per-entry optional field on the divergent and
+   missingOnResin platform variants and the missingOnResin port variant
+   (wire: `divergent_since`, snake_case per the ADR-0051 per-variant
+   payload convention; omitted when `None`). Semantics, legislated here:
+   - **In-process memory only.** The backing store is a process-local
+     `DriftMemory` map (entity key -> first-drift Unix second). It is
+     NEVER persisted; **a process restart clears it** and the next drift
+     observation re-times from zero.
+   - First observation of a drifting entity records `now`; a still-drifting
+     entity KEEPS its original instant across later snapshots; an entity
+     back to `consistent` has its entry removed, so a later re-drift
+     re-times (there is no stale instant leak: consistent entries always
+     serialize without the field).
+   - Entity keys: platform name for strategy entries; decimal port number
+     for port entries.
+   The advance/resolve logic is a PURE function pair in
+   `resin-core::snapshot` (`advance_drift_memory` /
+   `divergent_since_for`) so the semantics are unit-testable without a
+   Tauri runtime; the command layer owns only the static memory + the wall
+   clock.
+3. These fields are observability, not state: adding them changes NO merge
+   outcome, and the read-side contract of ADR-0051 (views consume the
+   pre-merged snapshot; three-state semantics unchanged word-for-word)
+   is untouched.
+
+### §D Acknowledged exemptions (ticket 12 — landed here)
+
+1. Both whitebox documents gain an OPTIONAL `acknowledged: string[]`
+   field: platform names in `egressapikey-strategy.json` (`StrategyConfig`),
+   decimal port numbers in `egressapikey-ports.json` (`WhiteboxConfig`).
+   Absent field = empty list (older configs load unchanged — serde
+   `default`; the empty list is not serialized back —
+   `skip_serializing_if`), so the change is parse-compatible both ways.
+2. Validation: non-string members are a DESERIALIZATION error (the file
+   fails to parse; no silent coercion, valid old files unaffected).
+   `validate_acknowledged` (shared by both stores via
+   `strategy_service::validate_acknowledged`) caps the list at 64 members,
+   each 1..128 chars, rejecting control characters and duplicates —
+   the AGENTS 7.5 bounded-array template.
+3. **Exemptions never touch the three-state merge.** The merge functions
+   run to completion first; `stamp_platform_acknowledged` /
+   `stamp_port_acknowledged` then set the read-side `acknowledged` boolean
+   on the merged OUTPUT. Drift on an acknowledged entity stays fully
+   visible (state tag unchanged) — it is presented as "known" (grey badge,
+   ticket 16's view) and excluded from §E notifications, but it is never
+   hidden, merged away, or auto-healed.
+4. TS side: the snapshot wrapper sanitizes `acknowledged` as a strict
+   boolean and `divergent_since`/`lastCheckedAt` as bounded Unix-seconds
+   numbers per AGENTS 7.6; the whitebox/strategy wrappers sanitize and
+   validate the exemption arrays at the TS boundary (validate-then-invoke).
+
+### Explicitly rejected (with precedent)
+
+- **Auto-heal / background reconcile loop:** rejected — ArgoCD ships
+  `selfHeal` default-OFF because silent convergence hides the drift the
+  user needs to see; our §A reconcile is explicitly user-triggered, and
+  §C metadata exists precisely to make drift observable, not to feed an
+  autonomous fixer.
+- **L3 -> L2 reverse write ("accept current state"):** rejected — it would
+  break the one-way authority of ADR-0036/ADR-0042 and turn a read-back
+  into a second write entry.
+- **Persistent drift memory:** rejected — a persistent `divergentSince`
+  would survive restarts and misrepresent "how long has this been
+  drifting" across process lifetimes the snapshot did not observe; the
+  honest semantics is in-process only (documented in CONTEXT.md).
+
+## Consequences
+
+- The snapshot answers two more user questions without any merge change:
+  "since when has this been drifting (this run)?" and "which of these did
+  I already accept?".
+- Both whitebox files gain one optional field each; no migration, no
+  version bump (version stays 1; older files parse, newer files are
+  rejected by nothing).
+- Tickets 13-16 implement §A/§B/§E/§F against the interfaces this ADR
+  fixes (reconcile_now name, backup naming, stamp helpers, notify-once
+  rule) and may cite sections without re-legislating them.
+- Tests: resin-core 156 lib tests (11 new: lastCheckedAt camelCase,
+  hold/keep/clear/restart drift semantics, stamp keys, wire omit-when-none,
+  acknowledged parse/validate/preserve for both stores); shell 92 lib
+  tests (1 new wire-shape regression lock); vitest ipc suite 81 tests
+  (7 new sanitize/validate cases).
+
+## Verification (ticket 12 scope)
+
+- `cargo test -p resin-core --lib` 156 passed; `cargo test -p
+  egressapikey-app --lib` 92 passed; `cargo test -p resin-core --test
+  integration` 3 passed.
+- `npx vitest run src/lib/ipc.test.ts` 81 passed; `tsc -b` clean.
+- Existing ADR-0051 eleven snapshot tests: zero regression (all still
+  green, three-state semantics untouched).

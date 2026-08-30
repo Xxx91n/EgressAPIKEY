@@ -34,6 +34,7 @@ import {
   ipcWhiteboxPath, ipcWhiteboxGet, ipcWhiteboxReload,
   ipcIpReputationSnapshot,
   ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply, ipcStrategyPlatformRegionsSet,
+  ipcAuthoritativeSnapshot,
   ipcGatewaySnapshot, ipcSetLogLevel,
 } from "./ipc";
 
@@ -667,5 +668,100 @@ describe("specta-pilot wrappers (ticket 09)", () => {
     invokeMock.mockResolvedValueOnce("debug");
     await expect(ipcSetLogLevel("debug")).resolves.toBe("debug");
     expect(invokeMock).toHaveBeenCalledWith("set_log_level", expect.objectContaining({ level: "debug" }));
+  });
+});
+
+// --- Ticket 12: snapshot metadata + acknowledged exemption sanitizers ---
+describe("ticket 12: authoritative snapshot metadata + acknowledged", () => {
+  beforeEach(() => { invokeMock.mockReset(); });
+
+  it("ipcAuthoritativeSnapshot passes lastCheckedAt + divergent_since + acknowledged through", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategyVersion: 1,
+      resinReachable: true,
+      lastCheckedAt: 1_756_521_600,
+      platforms: [
+        { state: "divergent", platform_name: "alpha", platform_id: "id", whitebox_regions: ["jp"], resin_regions: ["us"], resin_allocation_policy: "BALANCED", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: 1_756_521_590, acknowledged: true },
+        { state: "consistent", platform_name: "beta", platform_id: "id2", regions: ["hk"], resin_allocation_policy: "BALANCED", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], acknowledged: false },
+      ],
+      ports: [
+        { state: "missingOnResin", port: 17990, platform_name: "alpha", protocol: "socks5", account: "a", label: "", auth_required: false, divergent_since: 1_756_521_591, acknowledged: false },
+      ],
+    });
+    const snap = await ipcAuthoritativeSnapshot();
+    expect(snap.lastCheckedAt).toBe(1_756_521_600);
+    expect(snap.platforms[0]).toMatchObject({ state: "divergent", divergent_since: 1_756_521_590, acknowledged: true });
+    expect(snap.platforms[1]).toMatchObject({ state: "consistent", acknowledged: false });
+    expect(snap.ports[0]).toMatchObject({ state: "missingOnResin", divergent_since: 1_756_521_591 });
+    expect(invokeMock).toHaveBeenCalledWith("authoritative_snapshot", expect.objectContaining({ __trace_id: expect.any(String) }));
+  });
+
+  it("ipcAuthoritativeSnapshot sanitizes malformed timestamps and non-boolean acknowledged", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategyVersion: 1,
+      resinReachable: false,
+      lastCheckedAt: "not-a-number",
+      platforms: [
+        { state: "divergent", platform_name: "alpha", platform_id: "id", whitebox_regions: [], resin_regions: [], resin_allocation_policy: "BALANCED", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: -5, acknowledged: "yes" },
+        { state: "divergent", platform_name: "huge", platform_id: "id", whitebox_regions: [], resin_regions: [], resin_allocation_policy: "BALANCED", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: 9_999_999_999, acknowledged: 1 },
+      ],
+      ports: [],
+    });
+    const snap = await ipcAuthoritativeSnapshot();
+    // malformed top-level timestamp degrades to 0
+    expect(snap.lastCheckedAt).toBe(0);
+    // out-of-range / negative timestamps are dropped (undefined)
+    const d0 = snap.platforms[0] as Extract<typeof snap.platforms[0], { state: "divergent" }>;
+    const d1 = snap.platforms[1] as Extract<typeof snap.platforms[1], { state: "divergent" }>;
+    expect(d0.divergent_since).toBeUndefined();
+    expect(d1.divergent_since).toBeUndefined();
+    // acknowledged is a strict boolean: any non-true value becomes false
+    expect(d0.acknowledged).toBe(false);
+    expect(d1.acknowledged).toBe(false);
+  });
+
+  it("ipcWhiteboxGet sanitizes the acknowledged exemption list", async () => {
+    invokeMock.mockResolvedValueOnce({
+      version: 1,
+      entry_ports: [],
+      acknowledged: ["17990", "ok-name", 42, "", "x".repeat(200), "bad\u0000name"],
+    });
+    const cfg = await ipcWhiteboxGet();
+    // non-string / empty / oversized / control-char members are dropped, cap 64
+    expect(cfg.acknowledged).toEqual(["17990", "ok-name"]);
+  });
+
+  it("ipcWhiteboxGet omits acknowledged when absent", async () => {
+    invokeMock.mockResolvedValueOnce({ version: 1, entry_ports: [] });
+    const cfg = await ipcWhiteboxGet();
+    expect(cfg.acknowledged).toBeUndefined();
+  });
+
+  it("ipcStrategyConfigGet sanitizes the acknowledged exemption list", async () => {
+    invokeMock.mockResolvedValueOnce({ version: 1, platforms: [], acknowledged: ["Anthropic", "OpenAI"] });
+    const cfg = await ipcStrategyConfigGet();
+    expect(cfg.acknowledged).toEqual(["Anthropic", "OpenAI"]);
+  });
+
+  it("ipcStrategyConfigPut validates the acknowledged list before invoke", async () => {
+    invokeMock.mockResolvedValueOnce(undefined);
+    await ipcStrategyConfigPut({ version: 1, platforms: [], acknowledged: ["A"] });
+    expect(invokeMock).toHaveBeenCalledWith("strategy_config_put", expect.objectContaining({ config: expect.objectContaining({ acknowledged: ["A"] }) }));
+
+    // too long
+    await expect(ipcStrategyConfigPut({ version: 1, platforms: [], acknowledged: Array.from({ length: 65 }, (_, i) => "P" + i) } as any))
+      .rejects.toThrow(/acknowledged list too long/);
+    // non-string member
+    await expect(ipcStrategyConfigPut({ version: 1, platforms: [], acknowledged: [42] } as any))
+      .rejects.toThrow(/acknowledged entry invalid/);
+    // control char
+    await expect(ipcStrategyConfigPut({ version: 1, platforms: [], acknowledged: ["bad\u0000name"] } as any))
+      .rejects.toThrow(/acknowledged entry invalid/);
+    // duplicate
+    await expect(ipcStrategyConfigPut({ version: 1, platforms: [], acknowledged: ["A", "A"] } as any))
+      .rejects.toThrow(/duplicated/);
+    // not an array
+    await expect(ipcStrategyConfigPut({ version: 1, platforms: [], acknowledged: "A" } as any))
+      .rejects.toThrow(/acknowledged must be a string array/);
   });
 });

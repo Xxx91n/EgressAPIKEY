@@ -335,4 +335,10 @@ missing. It turns "did my change take effect" from a guess into an assertable
 fact and is the only legitimate place where stores are merged; views consume
 it and must not re-merge stores themselves. Contract legislated in
 docs/architecture/ARCHITECTURE.md § Config Authority.
+Ticket 12 metadata (ADR-0054 §C/§D): `lastCheckedAt` stamps the generation
+instant; `divergentSince` is the first-drift instant kept in PROCESS-LOCAL
+memory only — a restart clears it and a re-drift re-times — and
+`acknowledged` marks entities the user exempted ("known drift") in the
+whitebox; exemptions NEVER alter the three-state merge, they only change
+presentation (grey "known" badge) and silence notifications.
 _Avoid_: status poll, health check, merged view

@@ -708,10 +708,22 @@ export interface WhiteboxConfig {
   version: number;
   entry_ports: PortMapping[];
   network?: NetworkConfig;
+  /** Ticket 12 (ADR-0054 §D): optional exemption list (decimal port numbers). */
+  acknowledged?: string[];
 }
 
 export async function ipcWhiteboxPath(): Promise<string> {
   return invoke<string>("whitebox_path");
+}
+
+/** Ticket 12: sanitize a whitebox acknowledged exemption array (§7.6). */
+function snapAckList(v: unknown): string[] | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (!Array.isArray(v)) return undefined;
+  return v
+    .slice(0, 64)
+    .map((x) => (typeof x === "string" ? x : ""))
+    .filter((x) => x.length > 0 && x.length <= 128 && !/[\x00-\x1f\x7f]/.test(x));
 }
 
 export async function ipcWhiteboxGet(): Promise<WhiteboxConfig> {
@@ -720,6 +732,7 @@ export async function ipcWhiteboxGet(): Promise<WhiteboxConfig> {
     version: Number(raw?.version ?? 1),
     entry_ports: Array.isArray(raw?.entry_ports) ? raw.entry_ports : [],
     network: raw?.network ?? {},
+    acknowledged: snapAckList(raw?.acknowledged),
   };
 }
 
@@ -793,15 +806,36 @@ export async function ipcGetConfigDir(): Promise<string> {
 export interface StrategyConfig {
   version: number;
   platforms: PlatformStrategy[];
+  /** Ticket 12 (ADR-0054 §D): optional exemption list (platform names). */
+  acknowledged?: string[];
 }
 
 export async function ipcStrategyConfigGet(): Promise<StrategyConfig> {
-  return invoke<StrategyConfig>("strategy_config_get");
+  const raw = await invoke<StrategyConfig>("strategy_config_get");
+  return {
+    version: raw?.version,
+    platforms: Array.isArray(raw?.platforms) ? raw.platforms : [],
+    acknowledged: snapAckList(raw?.acknowledged),
+  };
 }
 
 export async function ipcStrategyConfigPut(config: StrategyConfig): Promise<void> {
   if (config.version !== 1) throw new Error("strategy config version must be 1");
   if (!Array.isArray(config.platforms)) throw new Error("platforms must be an array");
+  // Ticket 12 (§7.6): exemption list is optional; when present it must be a
+  // bounded string array (≤64 × 1..128 chars, no control chars, no dupes).
+  if (config.acknowledged !== undefined) {
+    if (!Array.isArray(config.acknowledged)) throw new Error("acknowledged must be a string array");
+    if (config.acknowledged.length > 64) throw new Error("acknowledged list too long (max 64)");
+    const seenAck = new Set<string>();
+    for (const a of config.acknowledged) {
+      if (typeof a !== "string" || a.length === 0 || a.length > 128 || /[\x00-\x1f\x7f]/.test(a)) {
+        throw new Error("acknowledged entry invalid (1..128 chars, no control)");
+      }
+      if (seenAck.has(a)) throw new Error("acknowledged entry duplicated: " + a);
+      seenAck.add(a);
+    }
+  }
   for (const ps of config.platforms) {
     if (!ps.platform_name || ps.platform_name.length > 128)
       throw new Error("platform_name must be 1..128 chars");
@@ -874,6 +908,8 @@ export interface StrategySnapshotConsistent {
   a_class: string;
   manual_nodes: string[];
   subscriptions: string[];
+  /** Ticket 12 (ADR-0054 §D): read-side exemption flag; never influences the merge. */
+  acknowledged: boolean;
 }
 export interface StrategySnapshotDivergent {
   state: "divergent";
@@ -886,6 +922,10 @@ export interface StrategySnapshotDivergent {
   a_class: string;
   manual_nodes: string[];
   subscriptions: string[];
+  /** Ticket 12 (ADR-0054 §C): Unix seconds of first in-process drift; undefined while fresh. */
+  divergent_since?: number;
+  /** Ticket 12 (ADR-0054 §D): read-side exemption flag. */
+  acknowledged: boolean;
 }
 export interface StrategySnapshotMissingOnResin {
   state: "missingOnResin";
@@ -896,6 +936,10 @@ export interface StrategySnapshotMissingOnResin {
   b_class: string;
   manual_nodes: string[];
   subscriptions: string[];
+  /** Ticket 12 (ADR-0054 §C): Unix seconds of first in-process drift. */
+  divergent_since?: number;
+  /** Ticket 12 (ADR-0054 §D): read-side exemption flag. */
+  acknowledged: boolean;
 }
 export type StrategySnapshot =
   | StrategySnapshotConsistent
@@ -911,6 +955,8 @@ export interface PortSnapshotConsistent {
   label: string;
   enabled: boolean;
   auth_required: boolean;
+  /** Ticket 12 (ADR-0054 §D): read-side exemption flag. */
+  acknowledged: boolean;
 }
 export interface PortSnapshotMissingOnResin {
   state: "missingOnResin";
@@ -920,6 +966,10 @@ export interface PortSnapshotMissingOnResin {
   account: string;
   label: string;
   auth_required: boolean;
+  /** Ticket 12 (ADR-0054 §C): Unix seconds of first in-process drift. */
+  divergent_since?: number;
+  /** Ticket 12 (ADR-0054 §D): read-side exemption flag. */
+  acknowledged: boolean;
 }
 export type PortSnapshot = PortSnapshotConsistent | PortSnapshotMissingOnResin;
 
@@ -928,10 +978,14 @@ export interface AuthoritativeSnapshot {
   platforms: StrategySnapshot[];
   ports: PortSnapshot[];
   resinReachable: boolean;
+  /** Ticket 12 (ADR-0054 §C): Unix seconds when this snapshot was generated. */
+  lastCheckedAt: number;
 }
 
 const MAX_SNAPSHOT_ENTRIES = 4096;
 const SNAPSHOT_STR_MAX = 512;
+/** Ticket 12: cap for the per-entity divergent_since / lastCheckedAt timestamps. */
+const SNAPSHOT_TS_MAX = 4_102_444_800; // 2100-01-01 UTC, sane ceiling per AGENTS 7.5
 
 function snapStr(v: unknown): string {
   const s = typeof v === "string" ? v : "";
@@ -941,6 +995,19 @@ function snapStr(v: unknown): string {
 function snapStrArr(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v.slice(0, 64).map((x) => snapStr(x)).filter((x) => x.length > 0);
+}
+
+/** Ticket 12: sanitize an optional Unix-seconds timestamp (undefined passthrough). */
+function snapTs(v: unknown): number | undefined {
+  if (v === undefined || v === null) return undefined;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0 || n > SNAPSHOT_TS_MAX) return undefined;
+  return n;
+}
+
+/** Ticket 12: sanitize the read-side acknowledged flag (strict boolean). */
+function snapAck(v: unknown): boolean {
+  return v === true;
 }
 
 function snapPlatform(v: unknown): StrategySnapshot | null {
@@ -959,6 +1026,7 @@ function snapPlatform(v: unknown): StrategySnapshot | null {
         b_class: bClass, a_class: aClass,
         manual_nodes: snapStrArr(r.manual_nodes),
         subscriptions: snapStrArr(r.subscriptions),
+        acknowledged: snapAck(r.acknowledged),
       };
     case "divergent":
       return {
@@ -970,6 +1038,8 @@ function snapPlatform(v: unknown): StrategySnapshot | null {
         b_class: bClass, a_class: aClass,
         manual_nodes: snapStrArr(r.manual_nodes),
         subscriptions: snapStrArr(r.subscriptions),
+        divergent_since: snapTs(r.divergent_since),
+        acknowledged: snapAck(r.acknowledged),
       };
     case "missingOnResin":
       return {
@@ -979,6 +1049,8 @@ function snapPlatform(v: unknown): StrategySnapshot | null {
         a_class: aClass, b_class: bClass,
         manual_nodes: snapStrArr(r.manual_nodes),
         subscriptions: snapStrArr(r.subscriptions),
+        divergent_since: snapTs(r.divergent_since),
+        acknowledged: snapAck(r.acknowledged),
       };
     default:
       return null;
@@ -996,10 +1068,10 @@ function snapPort(v: unknown): PortSnapshot | null {
   const label = snapStr(r.label);
   const authRequired = r.auth_required === true;
   if (r.state === "consistent") {
-    return { state: "consistent", port, platform_name: name, protocol: proto, account, label, enabled: r.enabled === true, auth_required: authRequired };
+    return { state: "consistent", port, platform_name: name, protocol: proto, account, label, enabled: r.enabled === true, auth_required: authRequired, acknowledged: snapAck(r.acknowledged) };
   }
   if (r.state === "missingOnResin") {
-    return { state: "missingOnResin", port, platform_name: name, protocol: proto, account, label, auth_required: authRequired };
+    return { state: "missingOnResin", port, platform_name: name, protocol: proto, account, label, auth_required: authRequired, divergent_since: snapTs(r.divergent_since), acknowledged: snapAck(r.acknowledged) };
   }
   return null;
 }
@@ -1019,6 +1091,9 @@ function snapSnapshot(v: unknown): AuthoritativeSnapshot {
       .map(snapPort)
       .filter((x): x is PortSnapshot => x !== null),
     resinReachable: r.resinReachable === true,
+    // Ticket 12: untrusted timestamp sanitized to a bounded Unix-seconds
+    // number; a malformed value degrades to 0 instead of leaking junk.
+    lastCheckedAt: snapTs(r.lastCheckedAt) ?? 0,
   };
 }
 

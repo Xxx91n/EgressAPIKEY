@@ -510,3 +510,73 @@ use serde_json::json;
         assert_eq!(e.http_status, 0);
         assert_eq!(e.duration_ms, 0.0);
 }
+
+    /// Ticket 12 / ADR-0054 §C+§D wire-shape regression lock: lastCheckedAt
+    /// (top-level camelCase), per-entry divergent_since (snake_case, omitted
+    /// when None), acknowledged flag stamps read-side only.
+    #[test]
+    fn authoritative_snapshot_ticket12_wire_shape() {
+        let mut snap = resin_core::AuthoritativeSnapshot {
+            strategy_version: 1,
+            platforms: vec![
+                resin_core::StrategySnapshot::Divergent {
+                    platform_name: "alpha".into(),
+                    platform_id: "id-alpha".into(),
+                    whitebox_regions: vec!["jp".into()],
+                    resin_regions: vec!["us".into()],
+                    resin_allocation_policy: "BALANCED".into(),
+                    b_class: "random".into(),
+                    a_class: "region".into(),
+                    manual_nodes: vec![],
+                    subscriptions: vec![],
+                    divergent_since: Some(1_756_521_600),
+                    acknowledged: true,
+                },
+                resin_core::StrategySnapshot::Consistent {
+                    platform_name: "beta".into(),
+                    platform_id: "id-beta".into(),
+                    regions: vec!["hk".into()],
+                    resin_allocation_policy: "BALANCED".into(),
+                    b_class: "random".into(),
+                    a_class: "region".into(),
+                    manual_nodes: vec![],
+                    subscriptions: vec![],
+                    acknowledged: false,
+                },
+            ],
+            ports: vec![resin_core::PortSnapshot::MissingOnResin {
+                port: 17990,
+                platform_name: "alpha".into(),
+                protocol: "socks5".into(),
+                account: "acct".into(),
+                label: String::new(),
+                auth_required: false,
+                divergent_since: None,
+                acknowledged: false,
+            }],
+            resin_reachable: true,
+            last_checked_at: 1_756_521_601,
+        };
+        let v = serde_json::to_value(&snap).unwrap();
+        // Top-level field is camelCase (TS wrapper convention).
+        assert_eq!(v["lastCheckedAt"], 1_756_521_601i64);
+        // Per-variant payload fields stay snake_case (ADR-0051 contract).
+        assert_eq!(v["platforms"][0]["divergent_since"], 1_756_521_600i64);
+        assert_eq!(v["platforms"][0]["acknowledged"], true);
+        // None => the key is absent (skip_serializing_if).
+        assert!(v["ports"][0].get("divergent_since").is_none());
+        // Consistent entries also carry the acknowledged flag (default false).
+        assert_eq!(v["platforms"][1]["acknowledged"], false);
+        // Round-trip stability for the TS wrapper.
+        let back: resin_core::AuthoritativeSnapshot = serde_json::from_value(v).unwrap();
+        assert_eq!(back, snap);
+        // The drift memory helper stays pure: advancing with no drifting
+        // entities never invents entries.
+        let mem = resin_core::snapshot::advance_drift_memory(
+            &resin_core::snapshot::DriftMemory::default(),
+            &[],
+            42,
+        );
+        assert!(mem.is_empty());
+        let _ = &mut snap; // keep mut binding honest for future per-case edits
+    }

@@ -30,6 +30,12 @@ pub struct WhiteboxConfig {
     pub entry_ports: Vec<PortMapping>,
     #[serde(default)]
     pub network: NetworkConfig,
+    /// Ticket 12 / ADR-0054 §D: optional exemption list. Members are decimal
+    /// port numbers the user has marked "known drift, don't notify". Absent
+    /// = empty (older configs load unchanged). NEVER enters the three-state
+    /// merge — read-side presentation only. Shape checks in `validate`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub acknowledged: Vec<String>,
 }
 
 impl WhiteboxConfig {
@@ -38,6 +44,7 @@ impl WhiteboxConfig {
             version: 1,
             entry_ports,
             network: NetworkConfig::default(),
+            acknowledged: Vec::new(),
         }
     }
 }
@@ -98,6 +105,9 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
         validate_text(&port.label, "label")?;
     }
     validate_network(&config.network)?;
+    // Ticket 12 / ADR-0054 §D: the exemption array shares the strategy
+    // whitebox shape rules (≤64 × 1..128 chars, no control chars, no dupes).
+    crate::strategy_service::validate_acknowledged(&config.acknowledged, "acknowledged")?;
     Ok(())
 }
 
@@ -409,6 +419,51 @@ mod tests {
         assert_eq!(loaded, config);
         assert!(!path.with_extension("json.tmp").exists());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn acknowledged_field_parses_optional_and_round_trips() {
+        // Absent field on an old file loads as empty (serde default).
+        let raw = serde_json::json!({
+            "version": 1,
+            "entry_ports": []
+        });
+        let cfg: WhiteboxConfig = serde_json::from_value(raw).unwrap();
+        assert!(cfg.acknowledged.is_empty());
+
+        // Present field round-trips through write_atomic.
+        let dir = std::env::temp_dir().join(format!("egressapikey-wb-ack-{}", std::process::id()));
+        let path = dir.join(WHITEBOX_CONFIG_FILE);
+        let mut cfg2 = WhiteboxConfig::from_ports(vec![mapping(17990)]);
+        cfg2.acknowledged = vec!["17990".to_string()];
+        assert!(validate(&cfg2).is_ok());
+        write_atomic(&path, &cfg2).unwrap();
+        let loaded: WhiteboxConfig = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(loaded.acknowledged, vec!["17990".to_string()]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn acknowledged_validate_rejects_bad_shapes() {
+        let mut cfg = WhiteboxConfig::from_ports(vec![]);
+        // non-string member is a deserialize error, not a validate pass-through
+        let raw = serde_json::json!({"version": 1, "entry_ports": [], "acknowledged": ["17990", 7]});
+        assert!(serde_json::from_value::<WhiteboxConfig>(raw).is_err());
+        // empty member
+        cfg.acknowledged = vec![String::new()];
+        assert!(validate(&cfg).unwrap_err().contains("1..128"));
+        // control character
+        cfg.acknowledged = vec!["bad\u{0}port".to_string()];
+        assert!(validate(&cfg).unwrap_err().contains("control"));
+        // duplicate members
+        cfg.acknowledged = vec!["17990".to_string(), "17990".to_string()];
+        assert!(validate(&cfg).unwrap_err().contains("duplicated"));
+        // oversized list
+        cfg.acknowledged = (0..65).map(|i| i.to_string()).collect();
+        assert!(validate(&cfg).unwrap_err().contains("max 64"));
+        // valid passes
+        cfg.acknowledged = vec!["17990".to_string(), "65535".to_string()];
+        assert!(validate(&cfg).is_ok());
     }
 
     #[test]

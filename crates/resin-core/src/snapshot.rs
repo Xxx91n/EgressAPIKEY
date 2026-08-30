@@ -44,6 +44,11 @@ pub enum StrategySnapshot {
         manual_nodes: Vec<String>,
         /// Whitebox subscription names (ADR-0039 SS2).
         subscriptions: Vec<String>,
+        /// Read-side exemption flag from the strategy whitebox `acknowledged`
+        /// array (ticket 12 / ADR-0054 §D). NEVER influences the merge; set
+        /// after merging via stamp_platform_acknowledged.
+        #[serde(default)]
+        acknowledged: bool,
     },
     /// Both sides readable but disagree (apply failed or was overridden).
     /// Both values are carried; the snapshot NEVER picks a winner.
@@ -65,6 +70,16 @@ pub enum StrategySnapshot {
         manual_nodes: Vec<String>,
         /// Whitebox subscription names (ADR-0039 SS2).
         subscriptions: Vec<String>,
+        /// Unix seconds when this platform FIRST entered divergent within the
+        /// current process; None while consistent (ticket 12 / ADR-0054 §C).
+        /// In-process memory only: cleared when the state returns to
+        /// consistent, and reset on process restart.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        divergent_since: Option<u64>,
+        /// Read-side exemption flag from the strategy whitebox `acknowledged`
+        /// array (ticket 12 / ADR-0054 §D). NEVER influences the merge.
+        #[serde(default)]
+        acknowledged: bool,
     },
     /// The platform exists in the whitebox but has no Resin runtime row
     /// (create failed, sidecar restarted without restore, manual delete).
@@ -79,6 +94,15 @@ pub enum StrategySnapshot {
         manual_nodes: Vec<String>,
         /// Whitebox subscription names (ADR-0039 SS2).
         subscriptions: Vec<String>,
+        /// Unix seconds when this platform FIRST entered missing_on_resin
+        /// within the current process (ticket 12 / ADR-0054 §C). In-process
+        /// memory only; re-times after restart or a consistent spell.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        divergent_since: Option<u64>,
+        /// Read-side exemption flag from the strategy whitebox `acknowledged`
+        /// array (ticket 12 / ADR-0054 §D). NEVER influences the merge.
+        #[serde(default)]
+        acknowledged: bool,
     },
 }
 
@@ -116,6 +140,11 @@ pub enum PortSnapshot {
         label: String,
         enabled: bool,
         auth_required: bool,
+        /// Read-side exemption flag from the ports whitebox `acknowledged`
+        /// array (ticket 12 / ADR-0054 §D). NEVER influences the merge; set
+        /// after merging via stamp_port_acknowledged.
+        #[serde(default)]
+        acknowledged: bool,
     },
     /// The port is enabled in the whitebox but has no Resin endpoint
     /// (create failed, 409 shadowed, sidecar restarted without restore).
@@ -128,6 +157,15 @@ pub enum PortSnapshot {
         account: String,
         label: String,
         auth_required: bool,
+        /// Unix seconds when this port FIRST entered missing_on_resin within
+        /// the current process (ticket 12 / ADR-0054 §C). In-process memory
+        /// only; re-times after restart or a consistent spell.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        divergent_since: Option<u64>,
+        /// Read-side exemption flag from the ports whitebox `acknowledged`
+        /// array (ticket 12 / ADR-0054 §D). NEVER influences the merge.
+        #[serde(default)]
+        acknowledged: bool,
     },
 }
 
@@ -161,6 +199,90 @@ pub struct AuthoritativeSnapshot {
     /// false => Resin-sourced fields are empty and every enabled entry is
     /// reported missing_on_resin; consumers must not treat that as divergence.
     pub resin_reachable: bool,
+    /// Unix seconds when THIS snapshot was generated (ticket 12 / ADR-0054 §C).
+    /// Pure metadata: stamped by the command layer, never participates in the
+    /// three-state merge. Monotonic non-decreasing across consecutive calls.
+    pub last_checked_at: u64,
+}
+
+/// Process-local first-drift memory for `divergentSince` (ticket 12 /
+/// ADR-0054 §C). Keyed by a stable entity id (platform name / port number
+/// string); the value is the Unix-second instant the entity FIRST entered a
+/// drift state (divergent or missingOnResin). Semantics (issue 12):
+/// - first observation of a drifting entity => record `now`;
+/// - entity still drifting on later snapshots => keep the original instant;
+/// - entity back to consistent => the entry is removed (re-drift re-times);
+/// - process restart => the map is empty (in-memory only, never persisted),
+///   so the next drift observation re-times from zero.
+pub type DriftMemory = HashMap<String, u64>;
+
+/// Pure advance of the drift memory for one snapshot's entries. `entries`
+/// carries (entity_key, is_drifting). Returns the new memory; the input is
+/// not mutated, so callers can diff or test without fixtures aliasing.
+pub fn advance_drift_memory(
+    prev: &DriftMemory,
+    entries: &[(String, bool)],
+    now: u64,
+) -> DriftMemory {
+    let mut next = prev.clone();
+    for (key, drifting) in entries {
+        if *drifting {
+            next.entry(key.clone()).or_insert(now);
+        } else {
+            next.remove(key);
+        }
+    }
+    next
+}
+
+/// Resolve the `divergent_since` value for one entity from a drift memory.
+/// Drifting entities carry Some(first_drift_instant); consistent entities
+/// always carry None (the field never leaks a stale instant).
+pub fn divergent_since_for(memory: &DriftMemory, key: &str) -> Option<u64> {
+    memory.get(key).copied()
+}
+
+/// Deciding whether an entity is acknowledged is a read-side presentation
+/// concern: `acknowledged` NEVER participates in the three-state merge
+/// (ticket 12 / ADR-0054 §D). This helper keeps that rule in one place: the
+/// merge functions below must not call it — callers stamp the flag AFTER
+/// the merge, on the merged output only.
+pub fn is_acknowledged(acknowledged: &[String], entity_key: &str) -> bool {
+    acknowledged.iter().any(|a| a == entity_key)
+}
+
+/// Stamp `acknowledged` onto merged platform entries (post-merge, read-side
+/// only). Entity key = platform_name. The three-state tag is untouched.
+pub fn stamp_platform_acknowledged(platforms: &mut [StrategySnapshot], acknowledged: &[String]) {
+    if acknowledged.is_empty() {
+        return;
+    }
+    for p in platforms.iter_mut() {
+        let key = p.platform_name().to_string();
+        let flag = is_acknowledged(acknowledged, &key);
+        match p {
+            StrategySnapshot::Consistent { acknowledged: a, .. }
+            | StrategySnapshot::Divergent { acknowledged: a, .. }
+            | StrategySnapshot::MissingOnResin { acknowledged: a, .. } => *a = flag,
+        }
+    }
+}
+
+/// Stamp `acknowledged` onto merged port entries (post-merge, read-side
+/// only). Entity key = decimal port number, matching the ports whitebox
+/// `acknowledged` vocabulary.
+pub fn stamp_port_acknowledged(ports: &mut [PortSnapshot], acknowledged: &[String]) {
+    if acknowledged.is_empty() {
+        return;
+    }
+    for p in ports.iter_mut() {
+        let key = p.port().to_string();
+        let flag = is_acknowledged(acknowledged, &key);
+        match p {
+            PortSnapshot::Consistent { acknowledged: a, .. }
+            | PortSnapshot::MissingOnResin { acknowledged: a, .. } => *a = flag,
+        }
+    }
 }
 
 /// Raw L3 runtime view of one Resin platform row: the only fields the
@@ -260,6 +382,7 @@ pub fn merge_strategies(
                         a_class: a_class.clone(),
                         manual_nodes: manual_nodes.clone(),
                         subscriptions: subscriptions.clone(),
+                        acknowledged: false,
                     });
                 } else {
                     out.push(StrategySnapshot::Divergent {
@@ -272,6 +395,8 @@ pub fn merge_strategies(
                         a_class,
                         manual_nodes,
                         subscriptions,
+                        divergent_since: None,
+                        acknowledged: false,
                     });
                 }
             }
@@ -284,6 +409,8 @@ pub fn merge_strategies(
                     b_class,
                     manual_nodes,
                     subscriptions,
+                    divergent_since: None,
+                    acknowledged: false,
                 });
             }
         }
@@ -308,6 +435,8 @@ pub fn merge_strategies(
                 a_class: runtime_only_a_class.to_string(),
                 manual_nodes: vec![],
                 subscriptions: vec![],
+                divergent_since: None,
+                acknowledged: false,
             });
         }
     }
@@ -349,6 +478,7 @@ pub fn merge_ports(
                 label: m.label.clone(),
                 enabled: m.enabled,
                 auth_required: m.auth_required,
+                acknowledged: false,
             });
         } else if m.enabled {
             out.push(PortSnapshot::MissingOnResin {
@@ -358,6 +488,8 @@ pub fn merge_ports(
                 account: m.account.clone(),
                 label: m.label.clone(),
                 auth_required: m.auth_required,
+                divergent_since: None,
+                acknowledged: false,
             });
         } else {
             out.push(PortSnapshot::Consistent {
@@ -368,6 +500,7 @@ pub fn merge_ports(
                 label: m.label.clone(),
                 enabled: false,
                 auth_required: m.auth_required,
+                acknowledged: false,
             });
         }
     }
@@ -416,6 +549,7 @@ mod tests {
     fn fixture_consistent_reports_agreement() {
         let cfg = StrategyConfig {
             version: 1,
+            acknowledged: vec![],
             platforms: vec![strategy_entry("alpha", &["us", "hk"])],
         };
         let resin = vec![runtime("alpha", &["hk", "us"], "BALANCED")];
@@ -432,6 +566,8 @@ mod tests {
                 a_class,
                 manual_nodes,
                 subscriptions,
+                acknowledged,
+                ..
             } => {
                 assert_eq!(platform_name, "alpha");
                 assert_eq!(platform_id, "id-alpha");
@@ -441,6 +577,7 @@ mod tests {
                 assert_eq!(a_class, "region");
                 assert!(manual_nodes.is_empty());
                 assert!(subscriptions.is_empty());
+                assert!(!acknowledged, "pre-stamp entries default to unacknowledged");
             }
             other => panic!("expected consistent, got {other:?}"),
         }
@@ -452,6 +589,7 @@ mod tests {
     fn fixture_divergent_surfaces_both_sides() {
         let cfg = StrategyConfig {
             version: 1,
+            acknowledged: vec![],
             platforms: vec![strategy_entry("alpha", &["jp"])],
         };
         let resin = vec![runtime("alpha", &["us"], "PREFER_LOW_LATENCY")];
@@ -477,6 +615,7 @@ mod tests {
     fn fixture_missing_on_resin_reported() {
         let cfg = StrategyConfig {
             version: 1,
+            acknowledged: vec![],
             platforms: vec![strategy_entry("ghost", &["hk"])],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
@@ -493,6 +632,7 @@ mod tests {
     fn region_comparison_is_order_and_duplicate_insensitive() {
         let cfg = StrategyConfig {
             version: 1,
+            acknowledged: vec![],
             platforms: vec![strategy_entry("alpha", &["us", "hk", "us"])],
         };
         let resin = vec![runtime("alpha", &["HK", "US"], "BALANCED")];
@@ -512,6 +652,7 @@ mod tests {
         // compute_plan output (manual_nodes -> regions) is the whitebox intent.
         let cfg = StrategyConfig {
             version: 1,
+            acknowledged: vec![],
             platforms: vec![strategy_entry("alpha", &[])],
         };
         let mut computed = HashMap::new();
@@ -575,6 +716,7 @@ mod tests {
     fn snapshot_serializes_discriminated_states_for_ts() {
         let cfg = StrategyConfig {
             version: 1,
+            acknowledged: vec![],
             platforms: vec![strategy_entry("alpha", &["hk"]), strategy_entry("beta", &["us"])],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
@@ -583,6 +725,7 @@ mod tests {
             platforms: merge_strategies(&cfg, &resin, &HashMap::new(), true),
             ports: merge_ports(&[], &[]),
             resin_reachable: true,
+            last_checked_at: 1_700_000_000,
         };
         snap.ports = merge_ports(&[port_mapping(17990, true)], &[17990]);
         let v = serde_json::to_value(&snap).expect("serialize");
@@ -600,5 +743,162 @@ mod tests {
     fn b_class_uses_shell_catalog_vocabulary() {
         let ps = strategy_entry("alpha", &["hk"]);
         assert_eq!(b_class_of(&ps), "random");
+    }
+
+    // ---- ticket 12: lastCheckedAt + divergentSince + acknowledged ----
+
+    #[test]
+    fn last_checked_at_serializes_camel_case_for_ts() {
+        let snap = AuthoritativeSnapshot {
+            strategy_version: 1,
+            platforms: vec![],
+            ports: vec![],
+            resin_reachable: false,
+            last_checked_at: 1_756_521_600,
+        };
+        let v = serde_json::to_value(&snap).expect("serialize");
+        assert_eq!(v["lastCheckedAt"], 1_756_521_600i64);
+        let back: AuthoritativeSnapshot = serde_json::from_value(v).expect("deserialize");
+        assert_eq!(back, snap);
+    }
+
+    #[test]
+    fn acknowledged_never_changes_the_three_state_merge() {
+        // The acknowledged exemption flag is stamped AFTER the merge and must
+        // not move any entry between consistent/divergent/missingOnResin
+        // (issue 12 acceptance: "acknowledged 不改变三态").
+        let cfg = StrategyConfig {
+            version: 1,
+            acknowledged: vec![],
+            platforms: vec![strategy_entry("alpha", &["jp"])],
+        };
+        let resin = vec![runtime("alpha", &["us"], "BALANCED")];
+        let mut merged = merge_strategies(&cfg, &resin, &HashMap::new(), true);
+        let before_tag = merged[0].state_tag();
+        stamp_platform_acknowledged(&mut merged, &["alpha".to_string()]);
+        assert_eq!(merged[0].state_tag(), before_tag, "stamping acknowledged must not change the state tag");
+        match &merged[0] {
+            StrategySnapshot::Divergent { whitebox_regions, resin_regions, acknowledged, divergent_since, .. } => {
+                assert_eq!(whitebox_regions, &["jp".to_string()]);
+                assert_eq!(resin_regions, &["us".to_string()]);
+                assert!(acknowledged);
+                assert_eq!(*divergent_since, None);
+            }
+            other => panic!("expected divergent, got {other:?}"),
+        }
+        // Ports: acknowledged stamping also leaves the port state untouched.
+        let mut ports = merge_ports(&[port_mapping(17990, true)], &[]);
+        assert_eq!(ports[0].state_tag(), "missing_on_resin");
+        stamp_port_acknowledged(&mut ports, &["17990".to_string()]);
+        assert_eq!(ports[0].state_tag(), "missing_on_resin");
+        match &ports[0] {
+            PortSnapshot::MissingOnResin { acknowledged, .. } => assert!(acknowledged),
+            other => panic!("expected missing port, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn divergent_since_semantics_hold_keep_clear() {
+        // HOLD: an entity that stays drifting keeps its FIRST instant.
+        let mut mem = advance_drift_memory(&DriftMemory::default(), &[("alpha".into(), true), ("17990".into(), true)], 100);
+        assert_eq!(divergent_since_for(&mem, "alpha"), Some(100));
+        mem = advance_drift_memory(&mem, &[("alpha".into(), true), ("17990".into(), true)], 250);
+        assert_eq!(divergent_since_for(&mem, "alpha"), Some(100), "still drifting: the first instant is kept");
+        assert_eq!(divergent_since_for(&mem, "17990"), Some(100));
+
+        // CLEAR: back to consistent => removed; a later re-drift re-times.
+        mem = advance_drift_memory(&mem, &[("alpha".into(), false), ("17990".into(), true)], 300);
+        assert_eq!(divergent_since_for(&mem, "alpha"), None, "consistent entity carries no drift instant");
+        mem = advance_drift_memory(&mem, &[("alpha".into(), true)], 400);
+        assert_eq!(divergent_since_for(&mem, "alpha"), Some(400), "re-drift restarts the clock");
+        assert_eq!(divergent_since_for(&mem, "17990"), Some(100), "unrelated entities keep their instants");
+
+        // RESTART: a fresh process starts from an empty memory.
+        let fresh = DriftMemory::default();
+        assert_eq!(divergent_since_for(&fresh, "17990"), None);
+        let after_restart = advance_drift_memory(&fresh, &[("17990".into(), true)], 900);
+        assert_eq!(divergent_since_for(&after_restart, "17990"), Some(900), "first observation after restart re-times");
+    }
+
+    #[test]
+    fn stamp_uses_platform_name_and_decimal_port_keys() {
+        let cfg = StrategyConfig {
+            version: 1,
+            acknowledged: vec![],
+            platforms: vec![strategy_entry("alpha", &["hk"]), strategy_entry("beta", &["us"])],
+        };
+        let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
+        let mut platforms = merge_strategies(&cfg, &resin, &HashMap::new(), true);
+        stamp_platform_acknowledged(&mut platforms, &["beta".to_string()]);
+        for p in &platforms {
+            let ack = match p {
+                StrategySnapshot::Consistent { acknowledged, .. }
+                | StrategySnapshot::Divergent { acknowledged, .. }
+                | StrategySnapshot::MissingOnResin { acknowledged, .. } => *acknowledged,
+            };
+            assert_eq!(ack, p.platform_name() == "beta");
+        }
+        // Re-stamping recomputes every entry from scratch: a list without
+        // "beta" clears its flag (the command layer always stamps the full
+        // snapshot from the current whitebox array, so this is idempotent).
+        stamp_platform_acknowledged(&mut platforms, &["nonexistent".to_string()]);
+        for p in &platforms {
+            let ack = match p {
+                StrategySnapshot::Consistent { acknowledged, .. }
+                | StrategySnapshot::Divergent { acknowledged, .. }
+                | StrategySnapshot::MissingOnResin { acknowledged, .. } => *acknowledged,
+            };
+            assert!(!ack, "non-matching list clears previous stamps");
+        }
+
+        let mut ports = merge_ports(&[port_mapping(17990, true), port_mapping(17991, false)], &[17990]);
+        stamp_port_acknowledged(&mut ports, &["17991".to_string()]);
+        for pp in &ports {
+            let ack = match pp {
+                PortSnapshot::Consistent { acknowledged, .. }
+                | PortSnapshot::MissingOnResin { acknowledged, .. } => *acknowledged,
+            };
+            assert_eq!(ack, pp.port() == 17991);
+        }
+    }
+
+    #[test]
+    fn divergent_since_omitted_when_none_and_round_trips_when_set() {
+        // None => the key is absent from the wire payload (skip_serializing_if).
+        let missing = StrategySnapshot::MissingOnResin {
+            platform_name: "ghost".into(),
+            platform_id: String::new(),
+            regions: vec!["hk".into()],
+            a_class: "region".into(),
+            b_class: "random".into(),
+            manual_nodes: vec![],
+            subscriptions: vec![],
+            divergent_since: None,
+            acknowledged: false,
+        };
+        let v = serde_json::to_value(&missing).unwrap();
+        assert!(v.get("divergentSince").is_none());
+        let back: StrategySnapshot = serde_json::from_value(v).unwrap();
+        assert_eq!(back, missing);
+        // Some => camelCase key round-trips.
+        let stamped = StrategySnapshot::MissingOnResin {
+            platform_name: "ghost".into(),
+            platform_id: String::new(),
+            regions: vec!["hk".into()],
+            a_class: "region".into(),
+            b_class: "random".into(),
+            manual_nodes: vec![],
+            subscriptions: vec![],
+            divergent_since: Some(1_756_521_600),
+            acknowledged: false,
+        };
+        let v2 = serde_json::to_value(&stamped).unwrap();
+        // ADR-0051 wire contract: per-variant payload fields stay snake_case
+        // (only the state TAG value is camelCase), so the wire key is
+        // "divergent_since", not "divergentSince".
+        assert_eq!(v2["divergent_since"], 1_756_521_600i64);
+        let back2: StrategySnapshot = serde_json::from_value(v2).unwrap();
+        assert_eq!(back2, stamped);
+        assert_ne!(back2, missing);
     }
 }

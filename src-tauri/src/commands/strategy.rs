@@ -10,6 +10,16 @@ use super::common::{items_arr, map_resin_error, resin_client, validate_short_nam
 use super::settings::{get_config_dir};
 use super::platform::{platform_id_for_name};
 
+/// Ticket 12 / ADR-0054 §C: process-local first-drift memory backing
+/// `divergentSince`. Keyed by entity id (platform name, or decimal port
+/// number for ports), valued by the Unix second the entity FIRST entered a
+/// drift state within THIS process. Deliberately NOT persisted: a restart
+/// clears it, so the next drift observation re-times from zero (issue 12:
+/// "重启进程后清零"). Cleared per-entity when the snapshot reports the
+/// entity consistent; never enters the three-state merge itself.
+static DRIFT_MEMORY: once_cell::sync::Lazy<std::sync::Mutex<resin_core::snapshot::DriftMemory>> =
+    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(resin_core::snapshot::DriftMemory::default()));
+
 /// T8-2: Strategy verification — send N probe requests through the Resin
 /// forward proxy entry port bound to a platform, collect the exit IP for
 /// each request, and return a distribution summary. The probe target is
@@ -268,13 +278,75 @@ pub async fn authoritative_snapshot(
     };
     let plan = resin_core::compute_plan(&config, &nodes_v);
 
-    let platforms = resin_core::snapshot::merge_strategies(&config, &resin_platforms, &plan, strategy_path_exists);
-    let ports = resin_core::snapshot::merge_ports(&all_ports, &resin_endpoint_ports);
+    let mut platforms = resin_core::snapshot::merge_strategies(&config, &resin_platforms, &plan, strategy_path_exists);
+    let mut ports = resin_core::snapshot::merge_ports(&all_ports, &resin_endpoint_ports);
+
+    // Ticket 12 / ADR-0054 §D: read-side exemption stamps. The whitebox
+    // `acknowledged` arrays NEVER enter the three-state merge above — they
+    // are stamped onto the merged output only. Platform key = platform_name;
+    // port key = decimal port number.
+    resin_core::snapshot::stamp_platform_acknowledged(&mut platforms, &config.acknowledged);
+    resin_core::snapshot::stamp_port_acknowledged(&mut ports, &whitebox_cfg.acknowledged);
+
+    // Ticket 12 / ADR-0054 §C: divergentSince = first in-process drift
+    // instant per entity. Advance the drift memory with this snapshot's
+    // per-entity drift flags, then stamp the resolved instants onto the
+    // drifting entries (consistent entries keep None). Process restart
+    // re-instantiates an empty memory => times reset, per the legislated
+    // in-memory-only semantics.
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let mut entries: Vec<(String, bool)> = platforms
+        .iter()
+        .map(|p| (p.platform_name().to_string(), p.state_tag() != "consistent"))
+        .collect();
+    entries.extend(
+        ports
+            .iter()
+            .map(|pp| (pp.port().to_string(), pp.state_tag() != "consistent")),
+    );
+    let memory = {
+        let mut guard = DRIFT_MEMORY
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let next = resin_core::snapshot::advance_drift_memory(&guard, &entries, now);
+        *guard = next;
+        guard.clone()
+    };
+    for p in platforms.iter_mut() {
+        if p.state_tag() != "consistent" {
+            let since = resin_core::snapshot::divergent_since_for(&memory, p.platform_name());
+            match p {
+                resin_core::StrategySnapshot::Divergent { divergent_since, .. }
+                | resin_core::StrategySnapshot::MissingOnResin { divergent_since, .. } => {
+                    *divergent_since = since;
+                }
+                _ => {}
+            }
+        }
+    }
+    for pp in ports.iter_mut() {
+        if pp.state_tag() != "consistent" {
+            let since = resin_core::snapshot::divergent_since_for(&memory, &pp.port().to_string());
+            match pp {
+                resin_core::PortSnapshot::MissingOnResin { divergent_since, .. } => {
+                    *divergent_since = since;
+                }
+                _ => {}
+            }
+        }
+    }
+
     Ok(resin_core::AuthoritativeSnapshot {
         strategy_version: config.version,
         platforms,
         ports,
         resin_reachable: reachable,
+        // Ticket 12: generation instant of THIS snapshot; monotonic
+        // non-decreasing across consecutive calls (wall clock).
+        last_checked_at: now,
     })
 }
 
