@@ -77,7 +77,8 @@
     "subscriptions": "Abonnements",
     "platforms": "Plattformen",
     "nodes": "Knoten",
-    "diagnostics": "Diagnose"
+    "diagnostics": "Diagnose",
+    "effectiveConfig": "Effektive Konfiguration"
   },
   "nodes": {
     "batchProbe": "Stapel-Latenztest",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "P2C-Latenzfenster",
     "resinLatencyDecayWindow": "Latenz-Abklingfenster",
     "effectiveTitle": "Effektive Konfiguration (schreibgeschützt)",
-    "effectiveRefresh": "Effektive Konfiguration lesen",
-    "effectiveEmpty": "Noch nicht gelesen – Taste drücken, um die aktuell wirksame Konfiguration zurückzulesen.",
-    "effectiveResinDown": "Resin-Sidecar läuft nicht; Laufzeitwerte sind nicht verfügbar.",
-    "effectiveNoEntries": "Keine Plattformen oder Ports konfiguriert.",
-    "effectiveConsistent": "konsistent",
-    "effectiveDivergent": "abweichend",
-    "effectiveMissing": "fehlt in Resin",
-    "effectivePort": "Port"
+    "effectiveOpen": "Effektive-Konfiguration-Ansicht öffnen"
   },
   "strategy": {
     "aClass": "Knotenauswahl (A-Klasse)",
@@ -445,5 +439,26 @@
     "title": "Verbindungskontrolle",
     "confirmClose": "Dies alle laufenden Verbindungen trennen. Fortfahren?",
     "confirmReset": "Der Kernel wird neu gestartet (alle Verbindungen getrennt). Fortfahren?"
+  },
+  "effectiveConfig": {
+    "refresh": "Jetzt neu prüfen",
+    "lastCheckedAt": "Zuletzt geprüft",
+    "notRecorded": "nicht erfasst",
+    "resinDown": "Der Resin-Sidecar läuft nicht; Live-Werte sind nicht verfügbar, die Soll-Seite spiegelt weiterhin die Whitebox.",
+    "loading": "Effektive Konfiguration wird gelesen…",
+    "noEntries": "Keine Plattformen oder Ports konfiguriert.",
+    "strategySection": "Strategie — Soll vs. Ist",
+    "portsSection": "Ports — Soll vs. Ist",
+    "desired": "Soll",
+    "live": "Ist",
+    "consistent": "konsistent",
+    "divergent": "abweichend",
+    "missing": "fehlt auf Resin",
+    "known": "bekannt",
+    "divergentSince": "Abweichend seit",
+    "port": "Port",
+    "enabled": "aktiviert",
+    "disabled": "deaktiviert",
+    "authRequired": "Auth. erforderlich"
   }
 }

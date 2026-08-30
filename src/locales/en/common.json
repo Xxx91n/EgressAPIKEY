@@ -77,7 +77,8 @@
     "processRoute": "Process Route",
     "subscriptions": "Subscriptions",
     "nodes": "Nodes",
-    "diagnostics": "Diagnostics"
+    "diagnostics": "Diagnostics",
+    "effectiveConfig": "Effective config"
   },
   "nodes": {
     "batchProbe": "Batch probe latency",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "P2C latency window",
     "resinLatencyDecayWindow": "Latency decay window",
     "effectiveTitle": "Effective config (read-only)",
-    "effectiveRefresh": "Read effective config",
-    "effectiveEmpty": "Not read yet — press the button to read back the current effective configuration.",
-    "effectiveResinDown": "Resin sidecar is not running; runtime values are unavailable.",
-    "effectiveNoEntries": "No platforms or ports configured.",
-    "effectiveConsistent": "consistent",
-    "effectiveDivergent": "divergent",
-    "effectiveMissing": "missing on Resin",
-    "effectivePort": "Port"
+    "effectiveOpen": "Open the effective config view"
   },
   "strategy": {
     "aClass": "Node Selection (A-class)",
@@ -445,5 +439,26 @@
     "title": "Connection Control",
     "confirmClose": "This will drop ALL in-flight connections. Continue?",
     "confirmReset": "This will restart the kernel (all connections dropped). Continue?"
+  },
+  "effectiveConfig": {
+    "refresh": "Re-check now",
+    "lastCheckedAt": "Last checked",
+    "notRecorded": "not recorded",
+    "resinDown": "Resin sidecar is not running; live values are unavailable — the desired half still reflects the whitebox.",
+    "loading": "Reading effective configuration…",
+    "noEntries": "No platforms or ports configured.",
+    "strategySection": "Strategy — desired vs live",
+    "portsSection": "Ports — desired vs live",
+    "desired": "Desired",
+    "live": "Live",
+    "consistent": "consistent",
+    "divergent": "divergent",
+    "missing": "missing on Resin",
+    "known": "known",
+    "divergentSince": "Drifting since",
+    "port": "Port",
+    "enabled": "enabled",
+    "disabled": "disabled",
+    "authRequired": "auth required"
   }
 }

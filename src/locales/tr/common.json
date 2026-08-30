@@ -77,7 +77,8 @@
     "processRoute": "Süreç rotası",
     "subscriptions": "Abonelikler",
     "nodes": "Düğümler",
-    "diagnostics": "Teşhis"
+    "diagnostics": "Teşhis",
+    "effectiveConfig": "Etkin yapılandırma"
   },
   "nodes": {
     "batchProbe": "Toplu gecikme testi",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "P2C gecikme penceresi",
     "resinLatencyDecayWindow": "Gecikme azalma penceresi",
     "effectiveTitle": "Etkin yapılandırma (salt okunur)",
-    "effectiveRefresh": "Etkin yapılandırmayı oku",
-    "effectiveEmpty": "Henüz okunmadı — geçerli etkin yapılandırmayı yeniden okumak için düğmeye basın.",
-    "effectiveResinDown": "Resin sidecar çalışmıyor; çalışma zamanı değerleri kullanılamıyor.",
-    "effectiveNoEntries": "Yapılandırılmış platform veya bağlantı noktası yok.",
-    "effectiveConsistent": "tutarlı",
-    "effectiveDivergent": "farklı",
-    "effectiveMissing": "Resin'de yok",
-    "effectivePort": "Bağlantı noktası"
+    "effectiveOpen": "Etkin yapılandırma görünümünü aç"
   },
   "strategy": {
     "aClass": "Düğüm Seçimi (A sınıfı)",
@@ -445,5 +439,26 @@
     "title": "Bağlantı kontrolü",
     "confirmClose": "Bu tüm aktif bağlantıları kesecek. Devam edilsin mi?",
     "confirmReset": "Bu çekirdeği yeniden başlatacak (tüm bağlantılar kesilecek). Devam edilsin mi?"
+  },
+  "effectiveConfig": {
+    "refresh": "Şimdi yeniden doğrula",
+    "lastCheckedAt": "Son doğrulama",
+    "notRecorded": "kayıt yok",
+    "resinDown": "Resin sidecar çalışmıyor; canlı değerler kullanılamıyor, istenen taraf whitebox'ı yansıtmaya devam ediyor.",
+    "loading": "Etkin yapılandırma okunuyor…",
+    "noEntries": "Yapılandırılmış platform veya bağlantı noktası yok.",
+    "strategySection": "Strateji — istenen vs. canlı",
+    "portsSection": "Bağlantı noktaları — istenen vs. canlı",
+    "desired": "İstenen",
+    "live": "Canlı",
+    "consistent": "tutarlı",
+    "divergent": "sapmış",
+    "missing": "Resin'de yok",
+    "known": "bilinen",
+    "divergentSince": "Sapma başlangıcı",
+    "port": "Bağlantı noktası",
+    "enabled": "etkin",
+    "disabled": "devre dışı",
+    "authRequired": "kimlik doğrulama gerekli"
   }
 }

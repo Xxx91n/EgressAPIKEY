@@ -77,7 +77,8 @@
     "subscriptions": "Assinaturas",
     "platforms": "Plataformas",
     "nodes": "Nós",
-    "diagnostics": "Diagnóstico"
+    "diagnostics": "Diagnóstico",
+    "effectiveConfig": "Configuração efetiva"
   },
   "nodes": {
     "batchProbe": "Teste de latência em lote",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "Janela de latência P2C",
     "resinLatencyDecayWindow": "Janela de decaimento de latência",
     "effectiveTitle": "Configuração efetiva (somente leitura)",
-    "effectiveRefresh": "Ler configuração efetiva",
-    "effectiveEmpty": "Ainda não lido — pressione o botão para reler a configuração efetiva atual.",
-    "effectiveResinDown": "O sidecar do Resin não está em execução; os valores de runtime estão indisponíveis.",
-    "effectiveNoEntries": "Nenhuma plataforma ou porta configurada.",
-    "effectiveConsistent": "consistente",
-    "effectiveDivergent": "divergente",
-    "effectiveMissing": "ausente no Resin",
-    "effectivePort": "Porta"
+    "effectiveOpen": "Abrir a visão de configuração efetiva"
   },
   "strategy": {
     "aClass": "Seleção de Nós (classe A)",
@@ -445,5 +439,26 @@
     "title": "Controle de conexão",
     "confirmClose": "Isso cortará TODAS as conexões em andamento. Continuar?",
     "confirmReset": "Isso reiniciará o núcleo (todas as conexões cortadas). Continuar?"
+  },
+  "effectiveConfig": {
+    "refresh": "Reverificar agora",
+    "lastCheckedAt": "Última verificação",
+    "notRecorded": "sem registro",
+    "resinDown": "O sidecar do Resin não está em execução; os valores em tempo real estão indisponíveis, a metade desejada continua refletindo a whitebox.",
+    "loading": "Lendo a configuração efetiva…",
+    "noEntries": "Nenhuma plataforma ou porta configurada.",
+    "strategySection": "Estratégia — desejado vs ao vivo",
+    "portsSection": "Portas — desejado vs ao vivo",
+    "desired": "Desejado",
+    "live": "Ao vivo",
+    "consistent": "consistente",
+    "divergent": "divergente",
+    "missing": "ausente no Resin",
+    "known": "conhecido",
+    "divergentSince": "Em divergência desde",
+    "port": "Porta",
+    "enabled": "habilitada",
+    "disabled": "desabilitada",
+    "authRequired": "requer autenticação"
   }
 }

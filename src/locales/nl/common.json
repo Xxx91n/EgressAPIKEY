@@ -77,7 +77,8 @@
     "processRoute": "Procesroute",
     "subscriptions": "Abonnementen",
     "nodes": "Nodes",
-    "diagnostics": "Diagnostiek"
+    "diagnostics": "Diagnostiek",
+    "effectiveConfig": "Effectieve configuratie"
   },
   "nodes": {
     "batchProbe": "Batch latentietest",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "P2C-latencyvenster",
     "resinLatencyDecayWindow": "Latency-afnamevenster",
     "effectiveTitle": "Effectieve configuratie (alleen-lezen)",
-    "effectiveRefresh": "Effectieve configuratie lezen",
-    "effectiveEmpty": "Nog niet gelezen — druk op de knop om de huidige effectieve configuratie opnieuw te lezen.",
-    "effectiveResinDown": "Resin sidecar draait niet; runtime-waarden zijn niet beschikbaar.",
-    "effectiveNoEntries": "Geen platforms of poorten geconfigureerd.",
-    "effectiveConsistent": "consistent",
-    "effectiveDivergent": "divergent",
-    "effectiveMissing": "ontbreekt in Resin",
-    "effectivePort": "Poort"
+    "effectiveOpen": "Effectieve-configuratie-weergave openen"
   },
   "strategy": {
     "aClass": "Knoopselectie (A-klasse)",
@@ -445,5 +439,26 @@
     "title": "Verbindingscontrole",
     "confirmClose": "Dit verbreekt ALLE actieve verbindingen. Doorgaan?",
     "confirmReset": "Dit herstart de kernel (alle verbindingen verbroken). Doorgaan?"
+  },
+  "effectiveConfig": {
+    "refresh": "Nu opnieuw controleren",
+    "lastCheckedAt": "Laatst gecontroleerd",
+    "notRecorded": "niet geregistreerd",
+    "resinDown": "De Resin-sidecar draait niet; live waarden zijn niet beschikbaar, de gewenste kant weerspiegelt nog steeds de whitebox.",
+    "loading": "Effectieve configuratie wordt gelezen…",
+    "noEntries": "Geen platforms of poorten geconfigureerd.",
+    "strategySection": "Strategie — gewenst vs. live",
+    "portsSection": "Poorten — gewenst vs. live",
+    "desired": "Gewenst",
+    "live": "Live",
+    "consistent": "consistent",
+    "divergent": "afwijkend",
+    "missing": "ontbreekt op Resin",
+    "known": "bekend",
+    "divergentSince": "Afwijkend sinds",
+    "port": "Poort",
+    "enabled": "ingeschakeld",
+    "disabled": "uitgeschakeld",
+    "authRequired": "authenticatie vereist"
   }
 }

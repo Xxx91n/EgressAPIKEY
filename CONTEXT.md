@@ -342,3 +342,24 @@ memory only — a restart clears it and a re-drift re-times — and
 whitebox; exemptions NEVER alter the three-state merge, they only change
 presentation (grey "known" badge) and silence notifications.
 _Avoid_: status poll, health check, merged view
+
+### Desired / Live (期望态 / 实况)
+
+The two columns the Effective Config view (architecture-recovery ticket 13)
+renders side by side: "desired" (期望态) is the whitebox layer's intent (L2
+strategy/ports config), "live" (实况) is what the Resin runtime actually has
+(L3). The pair replaces the vague "sync" vocabulary (ArgoCD #7629
+precedent); the three-state badge (consistent / divergent / missingOnResin)
+compares them and the view never picks a winner — divergence is surfaced,
+and reconciliation stays an explicit one-way action (whitebox wins), never
+an automatic one (ADR-0054).
+_Avoid_: sync, merged view, current config
+
+### Known Exemption (已知豁免)
+
+A user-acknowledged drift entry: the entity id is listed in the whitebox
+`acknowledged` array, the Effective Config view degrades its badge to a grey
+"known" tag, and the tray notification stays silent. An exemption NEVER
+alters the three-state merge or the snapshot data — it is presentation and
+notification suppression only, and must be revoked explicitly.
+_Avoid_: ignored, muted, auto-healed drift

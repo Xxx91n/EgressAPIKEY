@@ -77,7 +77,8 @@
     "processRoute": "Instradamento processi",
     "subscriptions": "Sottoscrizioni",
     "nodes": "Nodi",
-    "diagnostics": "Diagnostica"
+    "diagnostics": "Diagnostica",
+    "effectiveConfig": "Configurazione effettiva"
   },
   "nodes": {
     "batchProbe": "Test latenza batch",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "Finestra latenza P2C",
     "resinLatencyDecayWindow": "Finestra decadimento latenza",
     "effectiveTitle": "Configurazione effettiva (sola lettura)",
-    "effectiveRefresh": "Leggi configurazione effettiva",
-    "effectiveEmpty": "Non ancora letto — premi il pulsante per rileggere la configurazione effettiva corrente.",
-    "effectiveResinDown": "Il sidecar Resin non è in esecuzione; i valori di runtime non sono disponibili.",
-    "effectiveNoEntries": "Nessuna piattaforma o porta configurata.",
-    "effectiveConsistent": "coerente",
-    "effectiveDivergent": "divergente",
-    "effectiveMissing": "assente in Resin",
-    "effectivePort": "Porta"
+    "effectiveOpen": "Apri la vista della configurazione effettiva"
   },
   "strategy": {
     "aClass": "Selezione Nodi (classe A)",
@@ -445,5 +439,26 @@
     "title": "Controllo connessione",
     "confirmClose": "Questo interromperà TUTTE le connessioni in corso. Continuare?",
     "confirmReset": "Questo riavvierà il kernel (tutte le connessioni interrotte). Continuare?"
+  },
+  "effectiveConfig": {
+    "refresh": "Riverifica ora",
+    "lastCheckedAt": "Ultima verifica",
+    "notRecorded": "non registrato",
+    "resinDown": "Il sidecar Resin non è in esecuzione; i valori live non sono disponibili, la parte desiderata riflette ancora la whitebox.",
+    "loading": "Lettura della configurazione effettiva…",
+    "noEntries": "Nessuna piattaforma o porta configurata.",
+    "strategySection": "Strategia — desiderato vs live",
+    "portsSection": "Porte — desiderato vs live",
+    "desired": "Desiderato",
+    "live": "Live",
+    "consistent": "coerente",
+    "divergent": "divergente",
+    "missing": "assente su Resin",
+    "known": "noto",
+    "divergentSince": "In divergenza da",
+    "port": "Porta",
+    "enabled": "abilitata",
+    "disabled": "disabilitata",
+    "authRequired": "richiede autenticazione"
   }
 }

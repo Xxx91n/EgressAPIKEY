@@ -77,7 +77,8 @@
     "processRoute": "เส้นทางโปรเซส",
     "subscriptions": "การสมัครรับข้อมูล",
     "nodes": "โหนด",
-    "diagnostics": "การวินิจฉัย"
+    "diagnostics": "การวินิจฉัย",
+    "effectiveConfig": "การกำหนดค่าที่มีผล"
   },
   "nodes": {
     "batchProbe": "ทดสอบ latency แบบกลุ่ม",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "หน้าต่างแฝงเวลา P2C",
     "resinLatencyDecayWindow": "หน้าต่างสลายแฝงเวลา",
     "effectiveTitle": "การตั้งค่าที่มีผลจริง (อ่านอย่างเดียว)",
-    "effectiveRefresh": "อ่านการตั้งค่าที่มีผลจริง",
-    "effectiveEmpty": "ยังไม่ได้อ่าน — กดปุ่มเพื่ออ่านการตั้งค่าที่มีผลจริงในปัจจุบันอีกครั้ง",
-    "effectiveResinDown": "Resin sidecar ไม่ทำงานอยู่ ค่า runtime จึงใช้ไม่ได้",
-    "effectiveNoEntries": "ยังไม่มีการตั้งค่าแพลตฟอร์มหรือพอร์ต",
-    "effectiveConsistent": "สอดคล้อง",
-    "effectiveDivergent": "ไม่สอดคล้อง",
-    "effectiveMissing": "ไม่มีใน Resin",
-    "effectivePort": "พอร์ต"
+    "effectiveOpen": "เปิดมุมมองการกำหนดค่าที่มีผล"
   },
   "strategy": {
     "aClass": "การเลือกโหนด (คลาส A)",
@@ -445,5 +439,26 @@
     "title": "การควบคุมการเชื่อมต่อ",
     "confirmClose": "นี่จะตัดการเชื่อมต่อทั้งหมดที่กำลังดำเนินอยู่ ดำเนินการต่อ?",
     "confirmReset": "นี่จะรีสตาร์ทเคอร์เนล (ตัดการเชื่อมต่อทั้งหมด) ดำเนินการต่อ?"
+  },
+  "effectiveConfig": {
+    "refresh": "ตรวจสอบอีกครั้งตอนนี้",
+    "lastCheckedAt": "ตรวจสอบล่าสุด",
+    "notRecorded": "ไม่มีบันทึก",
+    "resinDown": "Sidecar ของ Resin ไม่ได้ทำงาน ค่าแบบเรียลไทม์ไม่พร้อมใช้งาน ฝั่งที่ต้องการยังคงสะท้อน whitebox",
+    "loading": "กำลังอ่านการกำหนดค่าที่มีผล…",
+    "noEntries": "ยังไม่มีการกำหนดค่าแพลตฟอร์มหรือพอร์ต",
+    "strategySection": "กลยุทธ์ — ที่ต้องการ vs ปัจจุบัน",
+    "portsSection": "พอร์ต — ที่ต้องการ vs ปัจจุบัน",
+    "desired": "ที่ต้องการ",
+    "live": "ปัจจุบัน",
+    "consistent": "สอดคล้อง",
+    "divergent": "แตกต่าง",
+    "missing": "ไม่มีบน Resin",
+    "known": "ทราบแล้ว",
+    "divergentSince": "แตกต่างตั้งแต่",
+    "port": "พอร์ต",
+    "enabled": "เปิดใช้งาน",
+    "disabled": "ปิดใช้งาน",
+    "authRequired": "ต้องยืนยันตัวตน"
   }
 }

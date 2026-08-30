@@ -77,7 +77,8 @@
     "subscriptions": "الاشتراكات",
     "platforms": "المنصات",
     "nodes": "العقد",
-    "diagnostics": "التشخيص"
+    "diagnostics": "التشخيص",
+    "effectiveConfig": "التكوين الفعلي"
   },
   "nodes": {
     "batchProbe": "اختبار زمن الاستجابة بالدفعة",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "نافذة زمن الاستجابة P2C",
     "resinLatencyDecayWindow": "نافذة اضمحلال زمن الاستجابة",
     "effectiveTitle": "الإعدادات الفعلية (للقراءة فقط)",
-    "effectiveRefresh": "قراءة الإعدادات الفعلية",
-    "effectiveEmpty": "لم تُقرأ بعد — اضغط الزر لإعادة قراءة الإعدادات الفعلية الحالية.",
-    "effectiveResinDown": "Resin sidecar غير قيد التشغيل؛ قيم وقت التشغيل غير متاحة.",
-    "effectiveNoEntries": "لا توجد منصات أو منافذ مُهيأة.",
-    "effectiveConsistent": "متطابق",
-    "effectiveDivergent": "متباين",
-    "effectiveMissing": "غير موجود في Resin",
-    "effectivePort": "منفذ"
+    "effectiveOpen": "فتح عرض التكوين الفعلي"
   },
   "strategy": {
     "aClass": "اختيار العقد (فئة A)",
@@ -445,5 +439,26 @@
     "title": "تحكم الاتصال",
     "confirmClose": "سيؤدي هذا إلى قطع جميع الاتصالات الجارية. هل تريد المتابعة؟",
     "confirmReset": "سيؤدي هذا إلى إعادة تشغيل النواة (قطع جميع الاتصالات). هل تريد المتابعة؟"
+  },
+  "effectiveConfig": {
+    "refresh": "إعادة التحقق الآن",
+    "lastCheckedAt": "آخر تحقق",
+    "notRecorded": "غير مسجل",
+    "resinDown": "الـ sidecar الخاص بـ Resin لا يعمل؛ القيم المباشرة غير متاحة، ولا يزال الجانب المطلوب يعكس الـ whitebox.",
+    "loading": "جارٍ قراءة التكوين الفعلي…",
+    "noEntries": "لا توجد منصات أو منافذ مهيأة.",
+    "strategySection": "الاستراتيجية — المطلوب مقابل الفعلي",
+    "portsSection": "المنافذ — المطلوب مقابل الفعلي",
+    "desired": "المطلوب",
+    "live": "الفعلي",
+    "consistent": "متطابق",
+    "divergent": "متباين",
+    "missing": "مفقود في Resin",
+    "known": "معروف",
+    "divergentSince": "التباين منذ",
+    "port": "منفذ",
+    "enabled": "ممكّن",
+    "disabled": "معطّل",
+    "authRequired": "يتطلب مصادقة"
   }
 }

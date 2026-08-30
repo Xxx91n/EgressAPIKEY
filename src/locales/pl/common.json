@@ -77,7 +77,8 @@
     "processRoute": "Trasa procesu",
     "subscriptions": "Subskrypcje",
     "nodes": "Węzły",
-    "diagnostics": "Diagnostyka"
+    "diagnostics": "Diagnostyka",
+    "effectiveConfig": "Konfiguracja efektywna"
   },
   "nodes": {
     "batchProbe": "Test opóźnień wsadowy",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "Okno opóźnienia P2C",
     "resinLatencyDecayWindow": "Okno zaniku opóźnienia",
     "effectiveTitle": "Konfiguracja efektywna (tylko do odczytu)",
-    "effectiveRefresh": "Odczytaj konfigurację efektywną",
-    "effectiveEmpty": "Jeszcze nie odczytano — naciśnij przycisk, aby ponownie odczytać aktualną konfigurację efektywną.",
-    "effectiveResinDown": "Sidecar Resin nie działa; wartości środowiska uruchomieniowego są niedostępne.",
-    "effectiveNoEntries": "Brak skonfigurowanych platform lub portów.",
-    "effectiveConsistent": "spójna",
-    "effectiveDivergent": "rozbieżna",
-    "effectiveMissing": "brak w Resin",
-    "effectivePort": "Port"
+    "effectiveOpen": "Otwórz widok konfiguracji efektywnej"
   },
   "strategy": {
     "aClass": "Wybór Węzłów (klasa A)",
@@ -445,5 +439,26 @@
     "title": "Kontrola połączenia",
     "confirmClose": "To spowoduje zerwanie WSZYSTKICH aktywnych połączeń. Kontynuować?",
     "confirmReset": "To zrestartuje jądro (wszystkie połączenia zerwane). Kontynuować?"
+  },
+  "effectiveConfig": {
+    "refresh": "Sprawdź ponownie teraz",
+    "lastCheckedAt": "Ostatnie sprawdzenie",
+    "notRecorded": "brak zapisu",
+    "resinDown": "Sidecar Resin nie działa; wartości na żywo są niedostępne, część oczekiwana nadal odzwierciedla whitebox.",
+    "loading": "Odczytywanie konfiguracji efektywnej…",
+    "noEntries": "Brak skonfigurowanych platform i portów.",
+    "strategySection": "Strategia — oczekiwane vs. bieżące",
+    "portsSection": "Porty — oczekiwane vs. bieżące",
+    "desired": "Oczekiwane",
+    "live": "Bieżące",
+    "consistent": "zgodne",
+    "divergent": "rozbieżne",
+    "missing": "brak w Resin",
+    "known": "znane",
+    "divergentSince": "Rozbieżność od",
+    "port": "Port",
+    "enabled": "włączone",
+    "disabled": "wyłączone",
+    "authRequired": "wymaga uwierzytelnienia"
   }
 }

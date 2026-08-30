@@ -77,7 +77,8 @@
     "subscriptions": "구독",
     "platforms": "플랫폼",
     "nodes": "노드",
-    "diagnostics": "진단"
+    "diagnostics": "진단",
+    "effectiveConfig": "유효 설정"
   },
   "nodes": {
     "batchProbe": "일괄 지연 테스트",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "P2C 지연 창",
     "resinLatencyDecayWindow": "지연 감쇠 창",
     "effectiveTitle": "적용된 설정(읽기 전용)",
-    "effectiveRefresh": "적용된 설정 읽기",
-    "effectiveEmpty": "아직 읽지 않았습니다 — 버튼을 눌러 현재 실제 적용된 설정을 다시 읽어옵니다.",
-    "effectiveResinDown": "Resin sidecar가 실행 중이 아니어서 런타임 값을 사용할 수 없습니다.",
-    "effectiveNoEntries": "구성된 플랫폼이나 포트가 없습니다.",
-    "effectiveConsistent": "일치",
-    "effectiveDivergent": "불일치",
-    "effectiveMissing": "Resin에 없음",
-    "effectivePort": "포트"
+    "effectiveOpen": "유효 설정 화면 열기"
   },
   "strategy": {
     "aClass": "노드 선택 (A클래스)",
@@ -445,5 +439,26 @@
     "title": "연결 제어",
     "confirmClose": "진행 중인 모든 연결이 끊어집니다. 계속하시겠습니까?",
     "confirmReset": "커널이 재시작됩니다 (모든 연결 끊어짐). 계속하시겠습니까?"
+  },
+  "effectiveConfig": {
+    "refresh": "지금 다시 확인",
+    "lastCheckedAt": "마지막 확인",
+    "notRecorded": "기록 없음",
+    "resinDown": "Resin 사이드카가 실행 중이 아니어서 실시간 값을 사용할 수 없습니다. 기대 상태는 화이트박스 내용을 표시합니다.",
+    "loading": "유효 설정을 읽는 중…",
+    "noEntries": "구성된 플랫폼이나 포트가 없습니다.",
+    "strategySection": "전략 — 기대 vs 실시간",
+    "portsSection": "포트 — 기대 vs 실시간",
+    "desired": "기대",
+    "live": "실시간",
+    "consistent": "일치",
+    "divergent": "불일치",
+    "missing": "Resin에 없음",
+    "known": "확인됨",
+    "divergentSince": "불일치 시작",
+    "port": "포트",
+    "enabled": "활성화됨",
+    "disabled": "비활성화됨",
+    "authRequired": "인증 필요"
   }
 }

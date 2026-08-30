@@ -1,9 +1,11 @@
 import * as React from "react";
 import { useEffect, useState, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigation, Network, Settings as SettingsIcon, Route, FolderTree, RadioTower, Server, Stethoscope } from "lucide-react";
+import { ClipboardCheck, Navigation, Network, Settings as SettingsIcon, Route, FolderTree, RadioTower, Server, Stethoscope } from "lucide-react";
 import { useAppStore, type Locale, type Theme } from "./store/appStore";
 const TopologyView = lazy(() => import("./views/TopologyView").then(m => ({ default: m.TopologyView })));
+// Ticket 13: one-level effective-config view, code-split like the topology canvas.
+const EffectiveConfigView = lazy(() => import("./views/EffectiveConfigView").then(m => ({ default: m.EffectiveConfigView })));
 import { SettingsView } from "./views/SettingsView";
 import { ProcessRouteView } from "./views/ProcessRouteView";
 import { SubscriptionsView } from "./views/SubscriptionsView";
@@ -57,6 +59,8 @@ const NAV_ITEMS = [
   { key: "processRoute", icon: Route },
   { key: "subscriptions", icon: RadioTower },
   { key: "nodes", icon: Server },
+  // Ticket 13 (spec Decision 1): effective config sits BEFORE diagnostics.
+  { key: "effectiveConfig", icon: ClipboardCheck },
   { key: "diagnostics", icon: Stethoscope },
   { key: "settings", icon: SettingsIcon },
 ] as const;
@@ -157,6 +161,7 @@ export default function App() {
           {view === "processRoute" && <ProcessRouteView />}
           {view === "subscriptions" && <SubscriptionsView />}
           {view === "nodes" && <NodesView />}
+          {view === "effectiveConfig" && <Suspense fallback={<div className="flex-1 flex items-center justify-center text-sm text-zinc-400">Loading...</div>}><EffectiveConfigView /></Suspense>}
           {view === "diagnostics" && <DiagnosticsView />}
         </main>
         <LogPanel />

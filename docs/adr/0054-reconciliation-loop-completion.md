@@ -75,6 +75,13 @@ loop, all within the existing ADR lattice.
    outcome, and the read-side contract of ADR-0051 (views consume the
    pre-merged snapshot; three-state semantics unchanged word-for-word)
    is untouched.
+4. Ticket 13 ships the read-side consumer: the one-level Effective Config
+   view (nav key `effectiveConfig`, placed before diagnostics) renders the
+   desired|live comparison per entity with the three-state badge, the grey
+   "known" degradation for acknowledged entries, per-entry
+   `divergentSince`, top-of-view `lastCheckedAt`, and a manual re-check
+   button (one fetch on open, no polling). Zero write paths — the
+   reconcile action lands in ticket 14, exemptions in 15.
 
 ### §D Acknowledged exemptions (ticket 12 — landed here)
 
@@ -101,6 +108,11 @@ loop, all within the existing ADR lattice.
    boolean and `divergent_since`/`lastCheckedAt` as bounded Unix-seconds
    numbers per AGENTS 7.6; the whitebox/strategy wrappers sanitize and
    validate the exemption arrays at the TS boundary (validate-then-invoke).
+5. View contract (ticket 13): an acknowledged entity's badge degrades to
+   the grey "known" tag and exempted rows do not surface
+   `divergentSince`; the `missingOnResin` badge renders neutral zinc (not
+   amber) whenever `resinReachable` is false — sidecar-down absence is
+   not drift (ADR-0051).
 
 ### Explicitly rejected (with precedent)
 

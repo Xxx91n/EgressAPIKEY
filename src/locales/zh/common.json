@@ -77,7 +77,8 @@
     "subscriptions": "订阅",
     "platforms": "平台",
     "nodes": "节点",
-    "diagnostics": "诊断"
+    "diagnostics": "诊断",
+    "effectiveConfig": "生效配置"
   },
   "nodes": {
     "batchProbe": "批量测速",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "P2C 延迟窗口",
     "resinLatencyDecayWindow": "延迟衰减窗口",
     "effectiveTitle": "生效配置（只读）",
-    "effectiveRefresh": "读取生效配置",
-    "effectiveEmpty": "尚未读取 — 点击按钮读回当前真正生效的完整配置。",
-    "effectiveResinDown": "Resin sidecar 未运行；运行时数值不可用。",
-    "effectiveNoEntries": "未配置任何平台或端口。",
-    "effectiveConsistent": "一致",
-    "effectiveDivergent": "不一致",
-    "effectiveMissing": "Resin 缺失",
-    "effectivePort": "端口"
+    "effectiveOpen": "打开生效配置视图"
   },
   "strategy": {
     "aClass": "节点选择 (A类)",
@@ -445,5 +439,26 @@
     "title": "连接控制",
     "confirmClose": "这将中断所有进行中的连接。继续？",
     "confirmReset": "这将重启内核（所有连接中断）。继续？"
+  },
+  "effectiveConfig": {
+    "refresh": "立即复验",
+    "lastCheckedAt": "上次核验",
+    "notRecorded": "无记录",
+    "resinDown": "Resin sidecar 未运行；实况值不可用，期望态仍显示白盒内容。",
+    "loading": "正在读取生效配置…",
+    "noEntries": "尚未配置任何平台或端口。",
+    "strategySection": "策略（期望态 vs 实况）",
+    "portsSection": "端口（期望态 vs 实况）",
+    "desired": "期望态",
+    "live": "实况",
+    "consistent": "一致",
+    "divergent": "漂移",
+    "missing": "Resin 缺失",
+    "known": "已知",
+    "divergentSince": "漂移开始于",
+    "port": "端口",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "authRequired": "需认证"
   }
 }

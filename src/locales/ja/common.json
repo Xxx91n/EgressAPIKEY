@@ -77,7 +77,8 @@
     "subscriptions": "サブスクリプション",
     "platforms": "プラットフォーム",
     "nodes": "ノード",
-    "diagnostics": "診断"
+    "diagnostics": "診断",
+    "effectiveConfig": "有効設定"
   },
   "nodes": {
     "batchProbe": "一括レイテンシテスト",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "P2C レイテンシーウィンドウ",
     "resinLatencyDecayWindow": "レイテンシー減衰ウィンドウ",
     "effectiveTitle": "有効な設定（読み取り専用）",
-    "effectiveRefresh": "有効な設定を読み取る",
-    "effectiveEmpty": "未読み取り — ボタンを押して現在有効な設定を読み戻します。",
-    "effectiveResinDown": "Resin sidecar が起動していないため、ランタイム値を取得できません。",
-    "effectiveNoEntries": "プラットフォームもポートも設定されていません。",
-    "effectiveConsistent": "一致",
-    "effectiveDivergent": "不一致",
-    "effectiveMissing": "Resin に存在しません",
-    "effectivePort": "ポート"
+    "effectiveOpen": "有効設定ビューを開く"
   },
   "strategy": {
     "aClass": "ノード選択 (Aクラス)",
@@ -445,5 +439,26 @@
     "title": "接続制御",
     "confirmClose": "進行中の全接続が切断されます。続行しますか？",
     "confirmReset": "カーネルを再起動します（全接続が切断されます）。続行しますか？"
+  },
+  "effectiveConfig": {
+    "refresh": "今すぐ再確認",
+    "lastCheckedAt": "最終確認",
+    "notRecorded": "記録なし",
+    "resinDown": "Resin サイドカーが起動していないため、実況値を取得できません。期待状態は白ボックスの内容を表示します。",
+    "loading": "有効設定を読み込み中…",
+    "noEntries": "プラットフォームもポートも設定されていません。",
+    "strategySection": "戦略（期待状態 vs 実況）",
+    "portsSection": "ポート（期待状態 vs 実況）",
+    "desired": "期待状態",
+    "live": "実況",
+    "consistent": "一致",
+    "divergent": "乖離",
+    "missing": "Resin に不在",
+    "known": "既知",
+    "divergentSince": "乖離開始",
+    "port": "ポート",
+    "enabled": "有効",
+    "disabled": "無効",
+    "authRequired": "認証必要"
   }
 }

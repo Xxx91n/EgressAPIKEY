@@ -77,7 +77,8 @@
     "processRoute": "प्रक्रिया मार्ग",
     "subscriptions": "सब्सक्रिप्शन",
     "nodes": "नोड्स",
-    "diagnostics": "निदान"
+    "diagnostics": "निदान",
+    "effectiveConfig": "प्रभावी कॉन्फ़िगरेशन"
   },
   "nodes": {
     "batchProbe": "बैच विलंबता परीक्षण",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "P2C लेटेंसी विंडो",
     "resinLatencyDecayWindow": "लेटेंसी क्षय विंडो",
     "effectiveTitle": "प्रभावी कॉन्फ़िगरेशन (केवल पढ़ने के लिए)",
-    "effectiveRefresh": "प्रभावी कॉन्फ़िगरेशन पढ़ें",
-    "effectiveEmpty": "अभी तक नहीं पढ़ा गया — वर्तमान प्रभावी कॉन्फ़िगरेशन दोबारा पढ़ने के लिए बटन दबाएँ।",
-    "effectiveResinDown": "Resin sidecar चल नहीं रहा है; रनटाइम मान अनुपलब्ध हैं।",
-    "effectiveNoEntries": "कोई प्लेटफ़ॉर्म या पोर्ट कॉन्फ़िगर नहीं है।",
-    "effectiveConsistent": "सुसंगत",
-    "effectiveDivergent": "असंगत",
-    "effectiveMissing": "Resin पर अनुपस्थित",
-    "effectivePort": "पोर्ट"
+    "effectiveOpen": "प्रभावी कॉन्फ़िगरेशन दृश्य खोलें"
   },
   "strategy": {
     "aClass": "नोड चयन (A-वर्ग)",
@@ -445,5 +439,26 @@
     "title": "कनेक्शन नियंत्रण",
     "confirmClose": "यह सभी चल रहे कनेक्शन को बंद कर देगा। जारी रखें?",
     "confirmReset": "यह कर्नेल को पुनरारंभ करेगा (सभी कनेक्शन बंद)। जारी रखें?"
+  },
+  "effectiveConfig": {
+    "refresh": "अभी दोबारा जाँचें",
+    "lastCheckedAt": "अंतिम जाँच",
+    "notRecorded": "कोई रिकॉर्ड नहीं",
+    "resinDown": "Resin साइडकार नहीं चल रहा है; लाइव मान उपलब्ध नहीं हैं, वांछित भाग अब भी व्हाइटबॉक्स को दर्शाता है।",
+    "loading": "प्रभावी कॉन्फ़िगरेशन पढ़ा जा रहा है…",
+    "noEntries": "कोई प्लेटफ़ॉर्म या पोर्ट कॉन्फ़िगर नहीं है।",
+    "strategySection": "रणनीति — वांछित बनाम वास्तविक",
+    "portsSection": "पोर्ट — वांछित बनाम वास्तविक",
+    "desired": "वांछित",
+    "live": "वास्तविक",
+    "consistent": "सुसंगत",
+    "divergent": "भिन्न",
+    "missing": "Resin पर अनुपस्थित",
+    "known": "ज्ञात",
+    "divergentSince": "भिन्नता कब से",
+    "port": "पोर्ट",
+    "enabled": "सक्रिय",
+    "disabled": "निष्क्रिय",
+    "authRequired": "प्रमाणीकरण आवश्यक"
   }
 }

@@ -77,7 +77,8 @@
     "processRoute": "Tuyến tiến trình",
     "subscriptions": "Đăng ký",
     "nodes": "Nút",
-    "diagnostics": "Chẩn đoán"
+    "diagnostics": "Chẩn đoán",
+    "effectiveConfig": "Cấu hình hiệu lực"
   },
   "nodes": {
     "batchProbe": "Kiểm tra độ trễ hàng loạt",
@@ -248,14 +249,7 @@
     "resinP2cLatencyWindow": "Cửa sổ độ trễ P2C",
     "resinLatencyDecayWindow": "Cửa sổ suy giảm độ trễ",
     "effectiveTitle": "Cấu hình hiệu lực (chỉ đọc)",
-    "effectiveRefresh": "Đọc cấu hình hiệu lực",
-    "effectiveEmpty": "Chưa đọc — nhấn nút để đọc lại cấu hình hiệu lực hiện tại.",
-    "effectiveResinDown": "Resin sidecar không đang chạy; giá trị runtime không khả dụng.",
-    "effectiveNoEntries": "Chưa cấu hình nền tảng hoặc cổng nào.",
-    "effectiveConsistent": "khớp",
-    "effectiveDivergent": "lệch",
-    "effectiveMissing": "thiếu trên Resin",
-    "effectivePort": "Cổng"
+    "effectiveOpen": "Mở chế độ xem cấu hình hiệu lực"
   },
   "strategy": {
     "aClass": "Chọn Node (lớp A)",
@@ -445,5 +439,26 @@
     "title": "Điều khiển kết nối",
     "confirmClose": "Điều này sẽ ngắt TẤT CẢ kết nối đang diễn ra. Tiếp tục?",
     "confirmReset": "Điều này sẽ khởi động lại kernel (ngắt tất cả kết nối). Tiếp tục?"
+  },
+  "effectiveConfig": {
+    "refresh": "Kiểm tra lại ngay",
+    "lastCheckedAt": "Kiểm tra lần cuối",
+    "notRecorded": "chưa ghi nhận",
+    "resinDown": "Sidecar Resin đang không chạy; giá trị trực tiếp không khả dụng, phần mong muốn vẫn phản ánh whitebox.",
+    "loading": "Đang đọc cấu hình hiệu lực…",
+    "noEntries": "Chưa cấu hình nền tảng hoặc cổng nào.",
+    "strategySection": "Chiến lược — mong muốn so với thực tế",
+    "portsSection": "Cổng — mong muốn so với thực tế",
+    "desired": "Mong muốn",
+    "live": "Thực tế",
+    "consistent": "khớp",
+    "divergent": "lệch",
+    "missing": "thiếu trên Resin",
+    "known": "đã biết",
+    "divergentSince": "Lệch từ",
+    "port": "Cổng",
+    "enabled": "đang bật",
+    "disabled": "đang tắt",
+    "authRequired": "cần xác thực"
   }
 }
