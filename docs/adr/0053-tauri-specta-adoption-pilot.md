@@ -118,3 +118,10 @@ ipc-manifest-check 仍绿。全部完成后评估是否把 65 条 `generate_hand
 - P23:chunk Bbc8jnaQ 在 staged exe offset 11336018 命中;冒烟
   TITLE=EgressAPIKEY / HWND≠0 / WS 34MB / stderr 0 字节
 - main.rs generate_handler 注册表零改动(git diff 无 main.rs)
+
+> **Closeout note (2026-08-30, brain review):** Checkpoint B went unanswered at round closeout;
+> per the tracker governance default (README §3.2) the recommended Option 2 (type-layer adoption)
+> was executed and landed on origin/main (commit 0c24d56). This ADR stays PROPOSED until the
+> user confirms. Reversal window: revert commit 0c24d56 on a new branch (deps + bindings.ts +
+> build.rs; runtime behavior is unchanged either way — type imports only). If confirmed, flip
+> Status to ACCEPTED and follow the phased migration list in §Decision.
