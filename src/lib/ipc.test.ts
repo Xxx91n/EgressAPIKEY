@@ -33,7 +33,8 @@ import {
   ipcRequestLogTail,
   ipcWhiteboxPath, ipcWhiteboxGet, ipcWhiteboxReload,
   ipcIpReputationSnapshot,
-  ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
+  ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply, ipcStrategyPlatformRegionsSet,
+  ipcGatewaySnapshot, ipcSetLogLevel,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -450,6 +451,24 @@ describe("strategy IPC (T4-4)", () => {
     expect(result.platforms[0].patched).toBe(true);
     expect(invokeMock).toHaveBeenCalledWith("strategy_apply", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
+
+  it("ipcStrategyPlatformRegionsSet forwards name + regions (ticket 10 deep IPC)", async () => {
+    invokeMock.mockResolvedValue({ version: 1, platforms: [] });
+    await ipcStrategyPlatformRegionsSet("openai", ["US", "HK"]);
+    expect(invokeMock).toHaveBeenCalledWith("strategy_platform_regions_set", expect.objectContaining({ platformName: "openai", regions: ["US", "HK"] }));
+  });
+
+  it("ipcStrategyPlatformRegionsSet rejects bad name / region bounds before invoke", async () => {
+    await expect(ipcStrategyPlatformRegionsSet("bad\x00name", ["US"])).rejects.toThrow(/platform invalid/);
+    await expect(ipcStrategyPlatformRegionsSet("openai", ["x".repeat(33)])).rejects.toThrow(/region code invalid/);
+    await expect(ipcStrategyPlatformRegionsSet("openai", Array.from({ length: 65 }, (_, i) => "R" + i))).rejects.toThrow(/regions list too long/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ipcStrategyPlatformRegionsSet rejects unexpected response shape", async () => {
+    invokeMock.mockResolvedValue({ version: 2 });
+    await expect(ipcStrategyPlatformRegionsSet("openai", ["US"])).rejects.toThrow(/unexpected response shape/);
+  });
 });
 });
 
@@ -625,4 +644,28 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
     expect(body.passive_circuit_breaker_disabled).toBeNull();
   });
 
+});
+
+// ---- Ticket 09 (tauri-specta pilot): type-contract swap regression ----
+describe("specta-pilot wrappers (ticket 09)", () => {
+  beforeEach(() => { invokeMock.mockReset(); });
+
+  it("ipcGatewaySnapshot dispatches no data args and returns the generated LaneSnapshot shape", async () => {
+    invokeMock.mockResolvedValueOnce({ lane_count: 50, busy: 2, latencies: [], per_platform_active: [["p", 1]] });
+    const snap = await ipcGatewaySnapshot();
+    expect(invokeMock).toHaveBeenCalledWith("gateway_snapshot", expect.objectContaining({ __trace_id: expect.any(String) }));
+    expect(snap.lane_count).toBe(50);
+    expect(snap.per_platform_active).toEqual([["p", 1]]);
+  });
+
+  it("ipcSetLogLevel rejects out-of-union values before invoke", async () => {
+    await expect(ipcSetLogLevel("fatal")).rejects.toThrow("invalid log level");
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ipcSetLogLevel forwards in-union values unchanged", async () => {
+    invokeMock.mockResolvedValueOnce("debug");
+    await expect(ipcSetLogLevel("debug")).resolves.toBe("debug");
+    expect(invokeMock).toHaveBeenCalledWith("set_log_level", expect.objectContaining({ level: "debug" }));
+  });
 });

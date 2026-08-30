@@ -14,7 +14,7 @@ import { useAppStore } from "../store/appStore";
 import {
   ipcNodeList, ipcPlatformUpdate, ipcBackupCreate,
   ipcLeaseMap, type LeaseEntry, type PortMapping,
-  ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
+  ipcStrategyApply, ipcStrategyPlatformRegionsSet,
   ipcPortBindPlatform, ipcGetConfigDir,
   ipcWatchPortHealth, type PortHealthEntry,
   ipcAuthoritativeSnapshot, type AuthoritativeSnapshot,
@@ -1102,17 +1102,12 @@ function TopologyCanvas() {
   }, [rawNodes, edges]);
 
   
-  // T15-5: update platform region_filters via strategyConfig JSON pipeline (not direct Resin PATCH)
+  // T15-5, ticket 10 (ADR-0052): update platform region_filters through the
+  // StrategyService deep IPC (strategy_platform_regions_set). The view no
+  // longer reads/edits/derives the strategyConfig JSON shape itself — one
+  // call sets regions whitebox-side, then strategy_apply enforces it on Resin.
   const patchRegionViaStrategyConfig = useCallback(async (platName: string, nextRegions: string[]) => {
-    const cfg = await ipcStrategyConfigGet();
-    let entry = cfg.platforms.find((p) => p.platform_name === platName);
-    if (!entry) {
-      entry = { platform_name: platName, a_class: "region", b_class: "random", regions: nextRegions };
-      cfg.platforms.push(entry);
-    } else {
-      entry.regions = nextRegions;
-    }
-    await ipcStrategyConfigPut(cfg);
+    await ipcStrategyPlatformRegionsSet(platName, nextRegions);
     await ipcStrategyApply();
   }, []);
 

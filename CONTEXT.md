@@ -240,6 +240,20 @@ PATCHes, and biases B-class lease selection. Config stored in
 egressapikey-strategy.json (whitebox, hotswap-config atomic backup).
 _Avoid_: optimizer, scheduler, balancer
 
+### Strategy Pipeline Vocabularies
+The three strategy vocabularies and their single composition point
+(ADR-0052): the catalog is `strategy.rs` (StrategyId 6 shell options +
+protocol-weight table — the UI-facing names); the planner is
+`strategy_engine.rs` (StrategyConfig whitebox document, compute_plan,
+parse_nodes — the region-computation vocabulary); the display mapping is
+frontend `src/lib/strategy.ts` (StrategyId -> i18n key, many-to-one ->
+Resin allocation_policy). They are deliberately NOT merged into one enum;
+`resin_core::StrategyService` (strategy_service.rs) is the only owner of
+the strategyConfig lifecycle — read/validate/store/apply/auto-clean/snapshot
+read-side/deep region edit — and the only sanctioned write path for
+egressapikey-strategy.json.
+_Avoid_: strategy monolith, vocabulary merge, three-source config
+
 ### Port Auth Info
 The SOCKS5 credentials for an Entry Port: username = Platform.Account
 string (e.g. Default.port-17990), password = RESIN_PROXY_TOKEN. Exposed

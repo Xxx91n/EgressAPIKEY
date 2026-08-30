@@ -169,6 +169,7 @@ fn main() {
             commands::strategy_config_get,
             commands::strategy_config_put,
             commands::strategy_apply,
+            commands::strategy_platform_regions_set,
             commands::lightweight_get,
             commands::lightweight_set,
             commands::set_log_level,

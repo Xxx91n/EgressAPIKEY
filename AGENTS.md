@@ -55,7 +55,7 @@ The app stores user data in OS-standard dirs (resolved by Tauri's `app.path()`).
 
 - **L1 GUI preferences (`settings.json`)**: `app_config_dir()` — written by `tauri-plugin-store` (webview `src/lib/settings.ts`) plus four Rust commands (`lightweight_get/set` in `src-tauri/src/commands/settings.rs`, `get/set_log_level` in `src-tauri/src/commands/settings.rs`) for keys the webview cannot own. Keys: `lang`, `theme`, `view`, `processRoutes`, WebDAV credentials (`webdavUrl`/`webdavUsername`/`webdavPassword`), IP-reputation credentials (`ipReputationProvider`/`ipQualityScoreApiKey`/`abuseIpDbApiKey`), `ipChannelPolicyMap`, `keyCandidates`, `nodeProbe`, `portAuthDefault`, `splitRatio`, `lightweightEnabled`/`lightweightDelayMinutes`, `topologyState`/`localSubOrder`. Only the Rust tray reads `lang` directly; no other Rust component consumes L1 keys (see §7.6). Dead pre-T3-A network keys (`gatewayBind`, `mihomoApi`) are purged once at startup (arch/02). L1 keys never influence proxy behavior — if a key changes what the proxy does, it belongs in L2.
 - **L2 whitebox user-editable config (authoritative write entry)**: two files in `app_config_dir()`, each with exactly one writing module —
-  - `egressapikey-strategy.json` (`resin_core::StrategyConfig`, version 1): shell strategy identity (`a_class`, `b_class`, `manual_nodes`, `subscriptions`, `top_n` per platform). Written only by `strategy_config_put` (`commands/strategy.rs`); applied to Resin only by `strategy_apply` (which also auto-cleans stale platform entries and writes the cleaned file back). GUI edits and external file edits converge here (ADR-0036, read side per ADR-0039 SS2).
+  - `egressapikey-strategy.json` (`resin_core::StrategyConfig`, version 1): shell strategy identity (`a_class`, `b_class`, `manual_nodes`, `subscriptions`, `top_n` per platform). Written only by `resin_core::StrategyService` (`strategy_config_put` + the deep `strategy_platform_regions_set` are its thin IPC facades; ADR-0052); applied to Resin only by `strategy_apply` (whose auto-clean of stale platform entries lives inside the Service). GUI edits and external file edits converge here (ADR-0036, read side per ADR-0039 SS2).
   - `egressapikey-ports.json` (`resin_core::WhiteboxConfig`: `entry_ports` + `network`): written only by `crates/resin-core/src/whitebox_config.rs` `WhiteboxConfigStore` (hotswap-config atomic write + validate-before-swap + file watch). `port_upsert`/`port_remove`/`port_toggle`/`whitebox_save_network` IPC all funnel into it; its `watch_apply` applies accepted files to SQLite + listeners as one transaction (invalid files never trigger the callback). `egressapikey.db` (`DbPool`, `port_mappings` table, hand-written `PRAGMA user_version`, currently v3) is the SQLite sync partner seeded from the whitebox JSON at boot (`main.rs` seeds `WhiteboxConfigStore` from `db.list_ports()`; on corrupt JSON it quarantines and reseeds from DB) — the whitebox file, not the DB, is the truth source (ADR-0042 S2/S6).
 - **L3 Resin runtime (derived, rebuildable)**: the sidecar's own state under the per-user Resin state dir (`state.db`/`cache.db`/`request_logs*.db`) plus live leases/listeners. Execute-only authority: reachable exclusively through the ResinClient REST seam (`crates/resin-core/src/resin_client.rs`); rebuildable from L2 at any time (`strategy_apply` PATCHes `region_filters`, `restore_ports_from_whitebox` re-POSTs `/api/v1/endpoints` after a Resin restart, ADR-0042 S6). Former seam exception CLOSED by architecture-recovery ticket 11 (2026-08-30): `request_log_tail` now reads via ResinClient `GET /api/v1/request-logs`; Resin v1.2.0 does expose this endpoint. No shell code may read Resin's private `request_logs*.db` files — a direct read reintroduced anywhere is a review blocker.
 
@@ -152,7 +152,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 # Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):
 # entries must equal the #[tauri::command] set under src-tauri/src AND the
 # generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.
-# Do not hand-edit entries. Regenerated: 2026-08-30 (65 commands)
+# Do not hand-edit entries. Regenerated: 2026-08-30 (66 commands)
 backup_create = src-tauri/src/commands/backup.rs
 backup_upload = src-tauri/src/commands/backup.rs
 backup_list = src-tauri/src/commands/backup.rs
@@ -217,6 +217,7 @@ strategy_verify = src-tauri/src/commands/strategy.rs
 strategy_config_get = src-tauri/src/commands/strategy.rs
 strategy_config_put = src-tauri/src/commands/strategy.rs
 strategy_apply = src-tauri/src/commands/strategy.rs
+strategy_platform_regions_set = src-tauri/src/commands/strategy.rs
 authoritative_snapshot = src-tauri/src/commands/strategy.rs
 ```
 

@@ -134,16 +134,14 @@ pub async fn strategy_verify(
     }))
 }
 
+/// Thin IPC facade over `resin_core::StrategyService` (ADR-0052): the
+/// Service owns read/validate/store; the command validates only the IPC
+/// boundary (AGENTS 7.5) and maps errors. No JSON assembly here.
 #[tauri::command]
 pub async fn strategy_config_get(app: AppHandle) -> Result<serde_json::Value, IpcError> {
-    let dir = std::path::PathBuf::from(get_config_dir(app)?);
-    let path = dir.join("egressapikey-strategy.json");
-    if !path.exists() {
-        let default = resin_core::StrategyConfig::default();
-        return serde_json::to_value(&default).map_err(|e| IpcError::from(e.to_string()));
-    }
-    let raw = std::fs::read_to_string(&path).map_err(|e| IpcError::from(e.to_string()))?;
-    serde_json::from_str::<serde_json::Value>(&raw).map_err(|e| IpcError::from(e.to_string()))
+    let svc = strategy_service(&app)?;
+    let config = svc.get().map_err(IpcError::from)?;
+    serde_json::to_value(&config).map_err(|e| IpcError::from(e.to_string()))
 }
 
 #[tauri::command]
@@ -151,30 +149,10 @@ pub async fn strategy_config_put(
     app: AppHandle,
     config: serde_json::Value,
 ) -> Result<(), IpcError> {
-    let dir = std::path::PathBuf::from(get_config_dir(app)?);
-    let path = dir.join("egressapikey-strategy.json");
+    let svc = strategy_service(&app)?;
     let typed: resin_core::StrategyConfig =
         serde_json::from_value(config).map_err(|e| IpcError::from(format!("strategy config invalid: {e}")))?;
-    if typed.version != 1 {
-        return Err(IpcError::internal("strategy config version must be 1"));
-    }
-    for ps in &typed.platforms {
-        if ps.platform_name.is_empty() || ps.platform_name.len() > 128 {
-            return Err(IpcError::from("platform_name must be 1..128 chars".to_string()));
-        }
-        if ps.regions.len() > 64 {
-            return Err(IpcError::from("regions list too long (max 64)".to_string()));
-        }
-        if ps.subscriptions.len() > 64 {
-            return Err(IpcError::from("subscriptions list too long (max 64)".to_string()));
-        }
-        if ps.top_n > 1000 {
-            return Err(IpcError::from("top_n too large (max 1000)".to_string()));
-        }
-    }
-    let json = serde_json::to_string_pretty(&typed).map_err(|e| IpcError::from(e.to_string()))?;
-    std::fs::write(&path, json).map_err(|e| IpcError::from(e.to_string()))?;
-    Ok(())
+    svc.store(&typed).map_err(IpcError::from)
 }
 
 #[tauri::command]
@@ -182,83 +160,40 @@ pub async fn strategy_apply(
     sidecar: State<'_, SidecarHandle>,
     app: AppHandle,
 ) -> Result<serde_json::Value, IpcError> {
-    let dir = std::path::PathBuf::from(get_config_dir(app)?);
-    let path = dir.join("egressapikey-strategy.json");
-    let raw = if path.exists() {
-        std::fs::read_to_string(&path).map_err(|e| IpcError::from(e.to_string()))?
-    } else {
-        serde_json::to_string(&resin_core::StrategyConfig::default()).map_err(|e| IpcError::from(e.to_string()))?
-    };
-    let config: resin_core::StrategyConfig =
-        serde_json::from_str(&raw).map_err(|e| IpcError::from(format!("strategy config parse error: {e}")))?;
-
+    let svc = strategy_service(&app)?;
     let client = resin_client(&sidecar)?;
-    let nodes_v = client.list_nodes().await.map_err(|e| IpcError::from(e.to_string()))?;
-    let nodes = resin_core::parse_nodes(&nodes_v);
-
-    // T11-4c: auto-clean stale platforms. Get the live platform list and filter
-    // strategyConfig to only include platforms that still exist in Resin.
-    let live_platforms_v = client.list_platforms().await.map_err(|e| IpcError::from(e.to_string()))?;
-    let live_names: std::collections::HashSet<String> = items_arr(&live_platforms_v)
-        .iter()
-        .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(String::from))
-        .collect();
-    let cleaned_config = resin_core::StrategyConfig {
-        version: config.version,
-        platforms: config.platforms.iter()
-            .filter(|ps| live_names.contains(&ps.platform_name))
-            .cloned()
-            .collect(),
-    };
-    if cleaned_config.platforms.len() != config.platforms.len() {
-        tracing::info!(
-            before = config.platforms.len(),
-            after = cleaned_config.platforms.len(),
-            "strategy_apply: auto-cleaned stale platform entries from strategyConfig"
-        );
-        // Persist the cleaned config back to disk.
-        if let Ok(cleaned_json) = serde_json::to_string_pretty(&cleaned_config) {
-            let _ = std::fs::write(&path, cleaned_json);
-        }
-    }
-
-    let plan = resin_core::compute_plan(&cleaned_config, &nodes);
-    let mut applied = serde_json::json!({"platforms": []});
-    let platforms_arr = applied["platforms"].as_array_mut().expect("platforms initialized as array");
-
-    for (platform_name, regions) in &plan {
-        let platforms_v = client.list_platforms().await.map_err(|e| IpcError::from(e.to_string()))?;
-        if let Some(id) = platform_id_for_name(&platforms_v, platform_name) {
-            let body = serde_json::json!({"region_filters": regions});
-            match client.update_platform(&id, body).await {
-                Ok(_) => {
-                    platforms_arr.push(serde_json::json!({
-                        "platform": platform_name,
-                        "region_filters": regions,
-                        "patched": true,
-                    }));
-                }
-                Err(e) => {
-                    tracing::warn!(platform = %platform_name, error = %e.to_string(), "auto_strategy_apply: PATCH region_filters failed");
-                    platforms_arr.push(serde_json::json!({
-                        "platform": platform_name,
-                        "region_filters": regions,
-                        "patched": false,
-                        "reason": format!("PATCH failed: {e}"),
-                    }));
-                }
-            }
-        } else {
-            platforms_arr.push(serde_json::json!({
-                "platform": platform_name,
-                "region_filters": regions,
-                "patched": false,
-                "reason": "platform not found",
-            }));
-        }
-    }
-    Ok(applied)
+    let report = svc
+        .apply(&client, platform_id_for_name)
+        .await
+        .map_err(IpcError::from)?;
+    serde_json::to_value(&report).map_err(|e| IpcError::from(e.to_string()))
 }
+
+/// Ticket 10 deep edit: set one platform's region list in the whitebox
+/// through the Service (single sanctioned write path). The topology canvas
+/// calls this instead of assembling strategyConfig JSON client-side.
+#[tauri::command]
+pub async fn strategy_platform_regions_set(
+    app: AppHandle,
+    platform_name: String,
+    regions: Vec<String>,
+) -> Result<serde_json::Value, IpcError> {
+    validate_short_name(&platform_name, "platform")?;
+    let svc = strategy_service(&app)?;
+    let stored = svc
+        .set_platform_regions(&platform_name, regions)
+        .map_err(IpcError::from)?;
+    serde_json::to_value(&stored).map_err(|e| IpcError::from(e.to_string()))
+}
+
+/// Build the Service against the app config dir. The Service owns the only
+/// strategyConfig write path in the shell (ADR-0036 discipline, ticket 10).
+fn strategy_service(app: &AppHandle) -> Result<resin_core::StrategyService<resin_core::FsStrategyStore>, IpcError> {
+    let dir = std::path::PathBuf::from(get_config_dir(app.clone())?);
+    let path = dir.join("egressapikey-strategy.json");
+    Ok(resin_core::StrategyService::new(resin_core::FsStrategyStore::new(path)))
+}
+
 
 /// Architecture-recovery ticket 07: the authoritative effective-config
 /// snapshot (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config
@@ -278,17 +213,13 @@ pub async fn authoritative_snapshot(
     db: State<'_, DbPool>,
     app: AppHandle,
 ) -> Result<resin_core::AuthoritativeSnapshot, IpcError> {
-    // L2 strategy whitebox: file is the truth (ADR-0036); missing file = defaults.
-    let dir = std::path::PathBuf::from(get_config_dir(app)?);
-    let strategy_path = dir.join("egressapikey-strategy.json");
-    let config: resin_core::StrategyConfig = if strategy_path.exists() {
-        let raw = std::fs::read_to_string(&strategy_path)
-            .map_err(|e| IpcError::from(e.to_string()))?;
-        serde_json::from_str(&raw)
-            .map_err(|e| IpcError::from(format!("strategy config parse error: {e}")))?
-    } else {
-        resin_core::StrategyConfig::default()
-    };
+    // L2 strategy whitebox: file is the truth (ADR-0036); missing file =
+    // defaults. Read goes through the Service (ADR-0052, ticket 10).
+    let svc = strategy_service(&app)?;
+    let config: resin_core::StrategyConfig =
+        svc.get().map_err(IpcError::from)?;
+    let strategy_path = svc.store_ref().path().clone();
+    let strategy_path_exists = strategy_path.exists();
 
     // L2 ports whitebox + its SQLite sync partner. The whitebox file is the
     // truth source (ADR-0042 S2); DB rows that are absent from the whitebox
@@ -337,7 +268,7 @@ pub async fn authoritative_snapshot(
     };
     let plan = resin_core::compute_plan(&config, &nodes_v);
 
-    let platforms = resin_core::snapshot::merge_strategies(&config, &resin_platforms, &plan, strategy_path.exists());
+    let platforms = resin_core::snapshot::merge_strategies(&config, &resin_platforms, &plan, strategy_path_exists);
     let ports = resin_core::snapshot::merge_ports(&all_ports, &resin_endpoint_ports);
     Ok(resin_core::AuthoritativeSnapshot {
         strategy_version: config.version,

@@ -3,6 +3,11 @@
  * Platform/Account registry. TS-layer validation per AGENTS s7.6.
  */
 import { invoke as _invoke, Channel } from "@tauri-apps/api/core";
+// Ticket 09 (tauri-specta pilot): type contract comes from the
+// specta-generated src/bindings.ts. TYPE-ONLY by design: the generated
+// runtime wrappers bypass this module's trace_id injection and the headless
+// CMD_TO_HTTP dual-mode, so runtime calls stay on invoke().
+import type { LaneSnapshot, LogLevel, PortMapping } from "../bindings";
 
 // --- T17 dual-mode: isTauri detection + cmd → REST route map (ADR-0043 Q2=A) ---
 // In the Tauri webview we use the native invoke(). In a plain browser
@@ -134,15 +139,6 @@ export interface Account {
   exit_ip: string | null;
   lane: number;
   active: boolean;
-}
-
-export interface LaneSnapshot {
-  lane_count: number;
-  busy: number;
-  latencies: [string, number, number, number][];
-  /// Per-platform (name, active_count) pairs from Resin /metrics/realtime/leases
-  /// joined with /platforms to resolve platform_id -> user-visible name.
-  per_platform_active: [string, number][];
 }
 
 export async function ipcPlatformAdd(name: string): Promise<void> {
@@ -482,15 +478,7 @@ export async function ipcLeaseMap(): Promise<LeaseEntry[]> {
 
 
 // Phase 2 / ADR-0012: Entry Port = identity. Shell multi-port forwarder.
-export interface PortMapping {
-  port: number;
-  protocol: string;
-  platform_name: string;
-  account: string;
-  label: string;
-  enabled: boolean;
-  auth_required: boolean;
-}
+export type { PortMapping };
 
 function assertPort(port: number): void {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) {
@@ -840,6 +828,31 @@ export async function ipcStrategyApply(): Promise<StrategyApplyResult> {
   return invoke<StrategyApplyResult>("strategy_apply");
 }
 
+/// Ticket 10 (ADR-0052): deep edit — set one platform's region list through
+/// the StrategyService (single sanctioned write path). The canvas no longer
+/// assembles strategyConfig JSON client-side. Response is the stored document
+/// (untrusted): re-validated shape before returning to callers.
+export async function ipcStrategyPlatformRegionsSet(
+  platformName: string,
+  regions: string[],
+): Promise<StrategyConfig> {
+  assertShortName(platformName, "platform");
+  if (!Array.isArray(regions) || regions.length > 64) {
+    throw new Error("regions list too long (max 64)");
+  }
+  for (const r of regions) {
+    if (typeof r !== "string" || r.length === 0 || r.length > 32) {
+      throw new Error("region code invalid (1..32 chars)");
+    }
+  }
+  const raw = await invoke<unknown>("strategy_platform_regions_set", { platformName, regions });
+  const doc = raw as { version?: unknown; platforms?: unknown };
+  if (doc.version !== 1 || !Array.isArray(doc.platforms)) {
+    throw new Error("strategy_platform_regions_set: unexpected response shape");
+  }
+  return doc as StrategyConfig;
+}
+
 // ---------------------------------------------------------------------------
 // Architecture-recovery ticket 07: authoritative effective-config snapshot
 // (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config Authority).
@@ -1154,7 +1167,8 @@ export async function ipcSetLogLevel(level: string): Promise<string> {
   if (!["error", "warn", "info", "debug"].includes(level)) {
     throw new Error("invalid log level: must be error/warn/info/debug");
   }
-  return invoke<string>("set_log_level", { level });
+  // level is narrowed to the generated union by the runtime guard above.
+  return invoke<string>("set_log_level", { level: level as LogLevel });
 }
 
 export async function ipcGetLogLevel(): Promise<string> {

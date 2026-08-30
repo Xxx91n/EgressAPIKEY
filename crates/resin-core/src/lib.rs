@@ -17,6 +17,7 @@
 //! - resin_client: loopback REST client for the Resin Go sidecar API
 //! - strategy: strategy catalog + protocol weight table
 //! - strategy_engine: A/B-class strategy evaluation (shell-side)
+//! - strategy_service: StrategyConfig pipeline owner (read/validate/store/apply/snapshot, ADR-0052)
 //! - stream_sensor: AI stream (SSE/WS) classification
 //! - whitebox_config: egressapikey-ports.json whitebox store (ADR-0036)
 //!
@@ -34,6 +35,7 @@ pub mod resin_client;
 pub mod snapshot;
 pub mod strategy;
 pub mod strategy_engine;
+pub mod strategy_service;
 pub mod stream_sensor;
 pub mod whitebox_config;
 
@@ -54,6 +56,10 @@ pub use strategy::{protocol_weight, strategy_catalog, StrategyId, StrategyInfo};
 pub use strategy_engine::{
     a_class_regions, compute_plan, liveness_filter, parse_nodes, AClassStrategy, BClassParams,
     NodeSummary, PlatformStrategy, StrategyConfig,
+};
+pub use strategy_service::{
+    clean_stale, validate as validate_strategy_config, AppliedPlatform, ApplyReport,
+    FsStrategyStore, StrategyConfigStore, StrategyService,
 };
 pub use stream_sensor::{classify_http_headers, StreamKind, StreamSensor, StreamSensorSnapshot};
 pub use whitebox_config::{
