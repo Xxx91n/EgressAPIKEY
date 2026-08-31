@@ -3,6 +3,36 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { invokeMock } from "../test/setup";
 import { NodesView, parseDelayQuery, applyProbeResult, nextBatchProgress } from "./NodesView";
 
+/// vitest-isolation-guard: sub-header click helpers — BEGIN (ticket 18)
+///
+/// NodesView seeds default-collapse in a post-commit effect (NodesView.tsx
+/// seeding useEffect): after the first data render it wholesale-overwrites
+/// `collapsed` with every subscription name. A header click that lands
+/// before that effect toggles the pre-seed expanded state (expand ->
+/// collapse) and the seeding then force-collapses every group — the rows
+/// the test waits for never render (full-suite flake, standalone green).
+/// Every sub-header click therefore MUST go through these helpers, which
+/// first wait for the settled chevron state (right = collapsed/seeded,
+/// down = expanded). scripts/vitest-isolation-guard.cjs enforces that no
+/// raw fireEvent.click on a sub-header remains in this file.
+async function subHeaderButton(name: string): Promise<HTMLElement> {
+  const header = await screen.findByText(name);
+  const btn = header.closest("[role='button']");
+  if (!btn) throw new Error("sub header [role=button] not found: " + name);
+  return btn as HTMLElement;
+}
+async function clickSubHeaderExpand(name: string): Promise<void> {
+  const btn = await subHeaderButton(name);
+  await waitFor(() => expect(btn.querySelector(".lucide-chevron-right")).toBeTruthy());
+  fireEvent.click(btn);
+}
+async function clickSubHeaderCollapse(name: string): Promise<void> {
+  const btn = await subHeaderButton(name);
+  await waitFor(() => expect(btn.querySelector(".lucide-chevron-down")).toBeTruthy());
+  fireEvent.click(btn);
+}
+/// vitest-isolation-guard: sub-header click helpers — END
+
 describe("NodesView T4-3", () => {
   beforeEach(() => {
     invokeMock.mockReset();
@@ -51,7 +81,7 @@ describe("NodesView T4-3", () => {
       expect(screen.queryByText("US-01")).toBeNull();
     });
     // Click sub-alpha header to expand
-    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
+    await clickSubHeaderExpand("sub-alpha");
     await waitFor(() => {
       expect(screen.getByText("HK-01")).toBeTruthy();
       expect(screen.getByText("JP-01")).toBeTruthy();
@@ -65,10 +95,10 @@ describe("NodesView T4-3", () => {
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
     // expand first
-    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
+    await clickSubHeaderExpand("sub-alpha");
     await waitFor(() => screen.getByText("HK-01"));
     // collapse again
-    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
+    await clickSubHeaderCollapse("sub-alpha");
     await waitFor(() => expect(screen.queryByText("HK-01")).toBeNull());
   });
 
@@ -77,8 +107,8 @@ describe("NodesView T4-3", () => {
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
     // expand to reveal before searching
-    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
-    fireEvent.click(screen.getByText("sub-beta").closest("[role='button']")!);
+    await clickSubHeaderExpand("sub-alpha");
+    await clickSubHeaderExpand("sub-beta");
     await waitFor(() => screen.getByText("HK-01"));
 
     // Type "HK" in search
@@ -190,10 +220,10 @@ describe("NodesView T4-3", () => {
     // Collapsed by default (T19-P1) — none of the 10 nodes render
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
     // Click to expand — all 10 appear
-    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
+    await clickSubHeaderExpand("sub-alpha");
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(10));
     // Collapse again — nodes disappear
-    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
+    await clickSubHeaderCollapse("sub-alpha");
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
   });
 
@@ -202,10 +232,10 @@ describe("NodesView T4-3", () => {
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
     // Collapsed by default (T19-P1); expand to see 5 nodes
-    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
+    await clickSubHeaderExpand("sub-alpha");
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(5));
     // Collapse and verify all hide
-    fireEvent.click(screen.getByText("sub-alpha").closest("[role='button']")!);
+    await clickSubHeaderCollapse("sub-alpha");
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
   });
 });
@@ -259,7 +289,7 @@ describe("NodesView T19-P1 parseDelayQuery + sort + hide-unhealthy", () => {
     });
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-x"));
-    fireEvent.click(screen.getByText("sub-x").closest("[role='button']")!);
+    await clickSubHeaderExpand("sub-x");
     // Toggle visible initially
     await waitFor(() => expect(screen.queryAllByText(/OK-01|DEAD-02/).length).toBe(2), { timeout: 3000 });
     // Click hide-unhealthy toggle (getByTitle is more robust than text match across icon+label)
@@ -285,7 +315,7 @@ describe("NodesView T19-P1 parseDelayQuery + sort + hide-unhealthy", () => {
     });
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub"));
-    fireEvent.click(screen.getByText("sub").closest("[role='button']")!);
+    await clickSubHeaderExpand("sub");
 
     // Default sort — nodes render in source order (A, B, C)
     const defaultRows = screen.queryAllByText(/^[ABC]$/);

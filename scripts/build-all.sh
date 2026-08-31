@@ -14,6 +14,10 @@
 # output the portable exe under either (gnu/msvc target triple subdir).
 set -euo pipefail
 
+# Host triple is needed before the backend sidecar staging below; defined
+# here once so every later use is a read, not a first assignment.
+TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+
 # T9-2: Anchor to script location
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -84,7 +88,7 @@ fi
 # Host-triple flattening: cargo emits the binary under target/<host-triple>/release
 # but the tauri-action bundler looks under target/release. Copy the file flat
 # so both the installer step and the portable finder see it.
-TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
+TRIPLE="${TRIPLE}"
 if [ -n "$TRIPLE" ] && [ -d "target/$TRIPLE/release" ]; then
   for f in target/$TRIPLE/release/EgressAPIKEY*; do
     [ -f "$f" ] && cp "$f" "target/release/" 2>/dev/null || true

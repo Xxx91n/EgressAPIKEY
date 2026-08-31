@@ -88,6 +88,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 - Rust: every public function in `crates/resin-core/` has a unit test in the same file (`#[cfg(test)] mod tests`) or an integration test under `crates/resin-core/tests/`. New behavior without a test is blocked.
 - Frontend: Zustand stores and pure reducers have vitest unit tests under `src/**/*.test.ts(x)`. Component interactions have playwright e2e under `e2e/`.
 - Evaluator for the whole repo: `bash scripts/verify-build.sh` - runs cargo build, cargo test, pnpm build, pnpm test; exits non-zero if any fail. CI calls this; so should pre-push hooks.
+- Frontend vitest isolation guard (architecture-recovery 18): `node scripts/vitest-isolation-guard.cjs` (also wired into verify-build.sh) fails the build when a view test clicks a collapsible sub-header directly instead of the settled-state helpers (`clickSubHeaderExpand`/`clickSubHeaderCollapse`) - a raw click can land before the default-collapse seeding effect and invert the toggle (full-suite-only flake).
 
 
 ### 5. CI/CD - multi-platform packaging to release/
