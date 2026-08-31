@@ -39,7 +39,7 @@ CodeGraph is the project's indexed code intelligence layer. The index lives at `
 **Index sync is mandatory after code changes** (same commit that changes code must update the index). The index is gitignored and never committed.
 ## Project Overview
 
-EgressAPIKEY is a Tauri 2 + React 19 desktop app: an L7 proxy gateway specialized for AI API keys. Each key maps to a Resin (Platform, Account) pair; the Resin Go sidecar guarantees a distinct sticky exit IP per pair and locks the lease until an SSE stream completes. The Rust crates/resin-core is the shell-side support crate (loopback REST client, whitebox config store, port forwarder/health, strategy engine, stream sensing, IP reputation, typed IPC errors) after the ADR-0050 dead-kernel-face deletion; it no longer re-implements the gateway kernel.
+EgressAPIKEY is a Tauri 2 + React 19 desktop app: an L7 proxy gateway specialized for AI API keys. Each key maps to a Resin (Platform, Account) pair; the Resin Go sidecar guarantees a distinct sticky exit IP per pair and locks the lease until an SSE stream completes. The Rust crates/resin-core is the shell-side support crate (loopback REST client, whitebox config store, port forwarder/health, strategy engine, stream sensing, IP reputation, shared throttle model, typed IPC errors) after the ADR-0050 dead-kernel-face deletion; it no longer re-implements the gateway kernel.
 
 - Backend core: `crates/resin-core/` (Rust: tokio, reqwest, rusqlite; axum dep removed with ADR-0050)
 - Desktop shell: `src-tauri/` (Tauri 2, sidecar lifecycle, system tray, Ghost safety net)

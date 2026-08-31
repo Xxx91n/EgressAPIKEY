@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - (architecture-recovery 06) dual `map_resin_error` merged into resin-core single implementation (typed i18n_key, BindConflict port extraction; ADR-0045 semantics preserved)
 - (architecture-recovery 08) src-tauri/src/commands/mod.rs (3.4k lines) split into platform/strategy/ports/backup/settings/diagnostics + common + tests modules; generate_handler registry and IPC surface unchanged
 - (architecture-recovery 11) request_log_tail retargeted to Resin GET /api/v1/request-logs; direct request_logs*.db read deleted; RESIN_UPSTREAM_MANIFEST compat note added
+- (architecture-recovery 20) single-owner throttle model: poll rhythm (adaptive interval + exponential backoff) and lightweight close-delay arithmetic consolidated into `crates/resin-core/src/throttle.rs` (`ThrottleParams`); parameter values unchanged at both call sites so the external rhythm is identical (legacy-equivalence tests pin every formula); `spawn_watcher_with` cadence seam + tokio virtual-time tests for multi-client coexistence and the shared pause flag
 
 
 ### Fixed

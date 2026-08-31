@@ -10,10 +10,14 @@
 //!   InLightweight -> Normal          (Tray click: rebuild webview)
 //!
 //! Ponytail: std AtomicU8 for state, std thread for delay timer. No new crate.
+//!
+//! Ticket 20 (architecture-recovery): the one-shot delay arithmetic lives in
+//! the single-owner resin_core::throttle model (DELAY_PARAMS below carries
+//! this site's values: 1-minute floor, no cap).
 
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 use std::sync::Mutex;
-use std::time::Duration;
+use resin_core::throttle::{self, ThrottleParams};
 
 /// Lightweight controller state (CAS-guarded).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,6 +41,12 @@ impl LightweightState {
         }
     }
 }
+
+/// Ticket 20: this site's throttle parameter VALUES (unchanged semantics:
+/// one-shot close delay, 1-minute floor matching lightweight_set's 1..=1440
+/// IPC validation, no upper cap - input is already bounded by the IPC
+/// layer). The arithmetic lives only in resin_core::throttle.
+const DELAY_PARAMS: ThrottleParams = ThrottleParams::new(60);
 
 /// Thread-safe controller for the lightweight-mode state machine.
 /// Lives in Tauri managed state as `State<LightweightController>`.
@@ -89,7 +99,7 @@ impl LightweightController {
         if prev.is_err() {
             return false;
         }
-        let delay = Duration::from_secs((self.delay_minutes.load(Ordering::Relaxed) as u64) * 60);
+        let delay = throttle::delay_minutes(DELAY_PARAMS, self.delay_minutes.load(Ordering::Relaxed));
         let state_ptr = self as *const Self as usize;
         let handle = std::thread::spawn(move || {
             std::thread::sleep(delay);
@@ -204,6 +214,7 @@ pub fn trim_working_set() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
 
@@ -265,5 +276,34 @@ mod tests {
     fn delay_minutes_at_least_1() {
         let ctrl = LightweightController::new(0);
         assert_eq!(ctrl.delay_minutes(), 1, "0 minutes should clamp to 1");
+    }
+
+    // --- Ticket 20: delay rhythm goes through the shared throttle model ---
+
+    #[test]
+    fn delay_rhythm_identical_to_legacy_inline_formula() {
+        // Byte-for-byte equivalence with the pre-ticket-20 inline arithmetic
+        // Duration::from_secs(m*60) for every reachable input: the IPC layer
+        // (lightweight_set) validates 1..=1440, and the controller constructor
+        // clamps to >= 1, so minutes is never 0 at this call site.
+        for m in 1u32..=1440 {
+            let legacy = Duration::from_secs(m as u64 * 60);
+            let now = throttle::delay_minutes(DELAY_PARAMS, m);
+            assert_eq!(now, legacy, "minute m={m}");
+        }
+    }
+
+    #[test]
+    fn delay_rhythm_boundaries_floor_and_extremes() {
+        // Floor: the shared model clamps a (unreachable-through-IPC) 0 to the
+        // documented 60s minimum instead of an instant fire.
+        assert_eq!(throttle::delay_minutes(DELAY_PARAMS, 0), Duration::from_secs(60));
+        // IPC ceiling and u32 extreme: no cap on this site's model, exact
+        // minutes*60 conversion throughout.
+        assert_eq!(throttle::delay_minutes(DELAY_PARAMS, 1440), Duration::from_secs(86_400));
+        assert_eq!(
+            throttle::delay_minutes(DELAY_PARAMS, u32::MAX),
+            Duration::from_secs(u32::MAX as u64 * 60)
+        );
     }
 }

@@ -31,6 +31,8 @@ specta = { version = "=2.0.0-rc.25", optional = true }
 
 [dev-dependencies]
 mockito = "1"
+# Ticket 20: start_paused virtual time for deterministic rhythm tests.
+tokio = { workspace = true, features = ["test-util"] }
 [[test]]
 name = "integration"
 path = "tests/integration.rs"

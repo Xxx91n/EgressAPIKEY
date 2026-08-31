@@ -7,6 +7,10 @@
 //!
 //! The watcher is generic over the emit function so the Tauri command can
 //! pass a Channel<PortHealthSnapshot> and tests can pass a closure.
+//!
+//! Ticket 20 (architecture-recovery): interval/backoff arithmetic lives in
+//! the shared crate::throttle model; this module keeps only the poll's
+//! parameter values and the loop itself.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,6 +20,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use crate::db::PortMapping;
+use crate::throttle::{self, ThrottleParams};
 
 /// Minimum tick interval (seconds). Base of the adaptive formula.
 const MIN_INTERVAL_SECS: u64 = 5;
@@ -29,6 +34,15 @@ const BACKOFF_CAP_SECS: u64 = 300;
 const CONNECT_TIMEOUT_MS: u64 = 200;
 /// Read-reply timeout (matches the existing per-port health check).
 const READ_TIMEOUT_MS: u64 = 550;
+
+/// Ticket 20: the poll's rhythm parameter VALUES (unchanged from before the
+/// consolidation: floor 5s, backoff cap 300s, k=2, exponent cap 5); the
+/// arithmetic itself lives only in crate::throttle.
+const POLL_PARAMS: ThrottleParams = ThrottleParams::bounded(MIN_INTERVAL_SECS, BACKOFF_CAP_SECS);
+/// k in max(floor, k*ln(1+N)) (Cilium CFP-32820).
+const ADAPTIVE_K: f64 = 2.0;
+/// Backoff exponent cap: interval x 2^min(fails, cap).
+const BACKOFF_EXPONENT_CAP: u32 = 5;
 
 /// 4-state health for a single port, derived from probe + consecutive fails.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -88,10 +102,10 @@ impl PortHistory {
 }
 
 /// Adaptive interval: max(MIN_INTERVAL_SECS, k·ln(1+N)) where k=2 (Cilium CFP-32820).
+/// Ticket 20: thin delegation to the single-owner throttle model - same
+/// signature, same rhythm.
 pub fn adaptive_interval(port_count: usize) -> Duration {
-    if port_count == 0 { return Duration::from_secs(MIN_INTERVAL_SECS); }
-    let secs = (2.0 * (1.0 + port_count as f64).ln()).ceil() as u64;
-    Duration::from_secs(secs.max(MIN_INTERVAL_SECS))
+    throttle::adaptive_interval(POLL_PARAMS, ADAPTIVE_K, port_count)
 }
 
 /// Probe a single port. TCP connect + SOCKS5 greeting or HTTP GET; returns
@@ -167,9 +181,7 @@ async fn run_tick(
                 if *r { h.fails = 0; h.interval = base_interval; }
                 else {
                     h.fails = h.fails.saturating_add(1);
-                    let exp = 2u64.saturating_pow(h.fails.min(FAILS_TO_DEAD));
-                    let secs = (base_interval.as_secs()).saturating_mul(exp).min(BACKOFF_CAP_SECS);
-                    h.interval = Duration::from_secs(secs.max(MIN_INTERVAL_SECS));
+                    h.interval = throttle::backoff_interval(POLL_PARAMS, base_interval, h.fails, BACKOFF_EXPONENT_CAP);
                 }
                 (*r, *lat)
             }
@@ -188,17 +200,45 @@ async fn run_tick(
     out
 }
 
-/// Spawn the watcher. Returns a guard handle; the task ends when `running`
-/// is set to false or the emit closure returns Err (channel closed).
+/// Tick cadence (ticket 20): `Adaptive` recomputes the base interval from
+/// the live port count each tick - the production rhythm, byte-identical to
+/// pre-ticket-20 behavior; `Fixed` pins the interval so rhythm semantics
+/// (multi-client coexistence, shared pause) are testable deterministically
+/// under tokio virtual time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WatchCadence {
+    Adaptive,
+    Fixed(Duration),
+}
+
+/// Spawn the watcher: one task per call; it ends when the emit closure
+/// returns Err (channel closed).
 ///
 /// `ports_fn` is called every tick to refresh the port list (so new ports
 /// appear and deleted ports drop out without restarting the watcher).
 /// `paused` is the AtomicBool flag set by the Tauri window focus listener;
 /// when true the tick returns early without probing (sing-box idle_timeout).
+/// Multiple concurrent callers (multiple watch_port_health clients) each get
+/// an independent task with its own revision counter and probe history; they
+/// share only the port source and the pause flag.
 pub fn spawn_watcher<F, E>(
     ports_fn: F,
     emit: E,
     paused: Arc<AtomicBool>,
+) where
+    F: Fn() -> Vec<PortMapping> + Send + Sync + 'static,
+    E: Fn(PortHealthSnapshot) -> Result<(), ()> + Send + Sync + 'static,
+{
+    spawn_watcher_with(ports_fn, emit, paused, WatchCadence::Adaptive);
+}
+
+/// `spawn_watcher` with an explicit tick cadence (ticket 20 test seam;
+/// production callers use `spawn_watcher`, which passes `Adaptive`).
+pub fn spawn_watcher_with<F, E>(
+    ports_fn: F,
+    emit: E,
+    paused: Arc<AtomicBool>,
+    cadence: WatchCadence,
 ) where
     F: Fn() -> Vec<PortMapping> + Send + Sync + 'static,
     E: Fn(PortHealthSnapshot) -> Result<(), ()> + Send + Sync + 'static,
@@ -208,7 +248,10 @@ pub fn spawn_watcher<F, E>(
         let mut revision: u64 = 0;
         loop {
             let ports = ports_fn();
-            let base = adaptive_interval(ports.len());
+            let base = match cadence {
+                WatchCadence::Adaptive => adaptive_interval(ports.len()),
+                WatchCadence::Fixed(d) => d,
+            };
             tokio::time::sleep(base).await;
             if paused.load(Ordering::Relaxed) { continue; }
             revision = revision.wrapping_add(1);
@@ -222,6 +265,7 @@ pub fn spawn_watcher<F, E>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
 
     #[test]
     fn adaptive_interval_floor_5s_for_small_sets() {
@@ -323,5 +367,81 @@ mod tests {
         let mut histories = HashMap::new();
         let out = run_tick(&ports, &mut histories, Duration::from_secs(5)).await;
         assert!(out.is_empty());
+    }
+
+    // --- Ticket 20: spawn_watcher cadence / multi-client / shared-pause semantics ---
+
+    #[tokio::test(start_paused = true)]
+    async fn spawn_watcher_default_adaptive_emits_monotonic_revisions() {
+        // The production entry point (Adaptive cadence) still ticks and emits
+        // strictly monotonic per-client revisions. Empty port list -> no
+        // sockets; adaptive base for 0 ports is the 5s floor (virtual time).
+        let snaps: Arc<Mutex<Vec<PortHealthSnapshot>>> = Arc::new(Mutex::new(Vec::new()));
+        let sink = snaps.clone();
+        let emit = move |s: PortHealthSnapshot| -> Result<(), ()> {
+            sink.lock().unwrap().push(s);
+            Ok(())
+        };
+        spawn_watcher(|| Vec::<PortMapping>::new(), emit, Arc::new(AtomicBool::new(false)));
+        tokio::time::timeout(Duration::from_secs(60), async {
+            while snaps.lock().unwrap().len() < 3 {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        })
+        .await
+        .expect("watcher did not emit 3 snapshots");
+        let revs: Vec<u64> = snaps.lock().unwrap().iter().map(|s| s.revision).collect();
+        assert_eq!(revs, vec![1, 2, 3], "revisions strictly monotonic per client");
+        assert!(snaps.lock().unwrap().iter().all(|s| s.entries.is_empty()));
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn spawn_watcher_two_clients_independent_streams_shared_pause() {
+        // Multiple watch_port_health clients coexist: one task per call, each
+        // with its own revision counter starting at 1 (independent streams),
+        // sharing only the port source and the pause flag. The shared flag
+        // freezes BOTH streams; unpause resumes both without resetting.
+        let a: Arc<Mutex<Vec<PortHealthSnapshot>>> = Arc::new(Mutex::new(Vec::new()));
+        let b: Arc<Mutex<Vec<PortHealthSnapshot>>> = Arc::new(Mutex::new(Vec::new()));
+        let paused = Arc::new(AtomicBool::new(false));
+        for sink in [&a, &b] {
+            let s2 = sink.clone();
+            let emit = move |s: PortHealthSnapshot| -> Result<(), ()> {
+                s2.lock().unwrap().push(s);
+                Ok(())
+            };
+            spawn_watcher_with(
+                || Vec::<PortMapping>::new(),
+                emit,
+                paused.clone(),
+                WatchCadence::Fixed(Duration::from_millis(50)),
+            );
+        }
+        tokio::time::timeout(Duration::from_secs(60), async {
+            while a.lock().unwrap().len() < 2 || b.lock().unwrap().len() < 2 {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        })
+        .await
+        .expect("clients did not emit");
+        for client in [&a, &b] {
+            let g = client.lock().unwrap();
+            assert_eq!(g[0].revision, 1, "each client stream starts at revision 1");
+            assert_eq!(g[1].revision, 2, "revisions advance independently per client");
+        }
+        paused.store(true, Ordering::Relaxed);
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let (la, lb) = (a.lock().unwrap().len(), b.lock().unwrap().len());
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        assert_eq!(a.lock().unwrap().len(), la, "client A frozen while paused");
+        assert_eq!(b.lock().unwrap().len(), lb, "client B frozen while paused (shared flag)");
+        paused.store(false, Ordering::Relaxed);
+        tokio::time::timeout(Duration::from_secs(60), async {
+            while a.lock().unwrap().len() <= la || b.lock().unwrap().len() <= lb {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        })
+        .await
+        .expect("clients did not resume after unpause");
     }
 }
