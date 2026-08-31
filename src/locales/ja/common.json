@@ -473,7 +473,7 @@
     "reconcile": "望ましい状態に同期",
     "reconcilePreviewTitle": "同期プレビュー — 変更内容",
     "reconcileNothing": "すべてホワイトボックスと一致しています。変更はありません。",
-    "reconcileCreatePlatform": "Resin にプラットフォームを作成",
+    "reconcileCreatePlatform": "このプラットフォームは期待状態にのみ存在します — Resin 上に確立されます",
     "reconcilePatchRegions": "region_filters を更新:{{live}} → {{desired}}",
     "reconcileCreateEndpoint": "Resin エンドポイントを作成(ポート復元)",
     "reconcileOneWay": "一方向同期:ホワイトボックス設定が常に優先されます。実況を維持したい場合はホワイトボックスを編集してください。",

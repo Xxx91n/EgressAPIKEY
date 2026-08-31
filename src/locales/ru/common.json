@@ -473,7 +473,7 @@
     "reconcile": "Синхронизировать с целевым состоянием",
     "reconcilePreviewTitle": "Предпросмотр синхронизации — что изменится",
     "reconcileNothing": "Всё уже соответствует whitebox. Изменений нет.",
-    "reconcileCreatePlatform": "создать платформу в Resin",
+    "reconcileCreatePlatform": "эта платформа существует только в желаемом состоянии — будет создана на Resin",
     "reconcilePatchRegions": "обновить region_filters: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "создать endpoint Resin (восстановить порт)",
     "reconcileOneWay": "Однонаправленная синхронизация: whitebox всегда главный. Чтобы сохранить текущее состояние, измените whitebox.",

@@ -473,7 +473,7 @@
     "reconcile": "İstenen duruma senkronize et",
     "reconcilePreviewTitle": "Uzlaştırma önizlemesi — ne değişecek",
     "reconcileNothing": "Her şey zaten whitebox ile eşleşiyor. Yapılacak bir şey yok.",
-    "reconcileCreatePlatform": "Resin üzerinde platform oluştur",
+    "reconcileCreatePlatform": "bu platform yalnızca istenen durumda mevcut — Resin üzerinde kurulacaktır",
     "reconcilePatchRegions": "region_filters güncelle: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "Resin endpoint oluştur (bağlantı noktasını geri yükle)",
     "reconcileOneWay": "Tek yönlü senkronizasyon: her zaman whitebox kazanır. Canlı durumu korumak isterseniz whitebox'u düzenleyin.",

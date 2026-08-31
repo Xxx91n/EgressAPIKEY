@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll, vi } from "vitest";
 import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import { EffectiveConfigView } from "./EffectiveConfigView";
+import i18next from "i18next";
+import enCommon from "../locales/en/common.json";
 
 // Mock @tauri-apps/api/core (same pattern as DiagnosticsView.test.tsx; the
 // test-file vi.mock overrides the setup.ts default mock for this file).
@@ -322,5 +324,98 @@ describe("EffectiveConfigView reconcile (ticket 14)", () => {
     fireEvent.click(btn);
     // dialog cannot open from a disabled plan-less state
     expect(screen.queryByTestId("ec-preview-dialog")).toBeNull();
+  });
+});
+
+// Ticket 19: preview coverage completion — the ports-domain will-change rows
+// locked beside the strategy domain (snapshot-derived, zero extra requests)
+// and the explicit desired-only wording for missing-on-resin platforms
+// (instead of being folded into the divergent patch). The REAL en catalog is
+// wired into the test i18n so the assertions lock the shipped wording values,
+// not key fallbacks (src/test/setup.ts ships no effectiveConfig.* keys).
+describe("EffectiveConfigView reconcile preview coverage (ticket 19)", () => {
+  beforeAll(() => {
+    i18next.addResourceBundle("en", "translation", { effectiveConfig: enCommon.effectiveConfig }, true, true);
+  });
+
+  const coveredSnap = () =>
+    baseSnap({
+      platforms: [
+        {
+          state: "divergent",
+          platform_name: "beta",
+          platform_id: "b",
+          whitebox_regions: ["hk"],
+          resin_regions: ["us"],
+          resin_allocation_policy: "p2c",
+          b_class: "random",
+          a_class: "region",
+          manual_nodes: [],
+          subscriptions: [],
+          acknowledged: false,
+        },
+        {
+          state: "missingOnResin",
+          platform_name: "gamma",
+          platform_id: "",
+          regions: ["hk"],
+          a_class: "region",
+          b_class: "random",
+          manual_nodes: [],
+          subscriptions: [],
+          acknowledged: false,
+        },
+      ],
+      ports: [
+        {
+          state: "missingOnResin",
+          port: 17990,
+          platform_name: "beta",
+          protocol: "socks5",
+          account: "",
+          label: "",
+          auth_required: false,
+          acknowledged: false,
+        },
+      ],
+    });
+
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") return Promise.resolve(coveredSnap());
+      return Promise.resolve([]);
+    });
+  });
+
+  it("preview lists ports-domain will-change rows beside the strategy domain with zero extra requests", async () => {
+    render(<EffectiveConfigView />);
+    await screen.findByTestId("ec-platform-beta");
+    const snapsBefore = invokeMock.mock.calls.filter((c: unknown[]) => c[0] === "authoritative_snapshot").length;
+    fireEvent.click(screen.getByTestId("ec-reconcile"));
+    const dialog = await screen.findByTestId("ec-preview-dialog");
+    expect(dialog).toBeInTheDocument();
+    // Both domains render side by side inside the same dialog.
+    expect(screen.getByTestId("ec-preview-platforms")).toBeInTheDocument();
+    expect(screen.getByTestId("ec-preview-ports")).toBeInTheDocument();
+    const row = screen.getByTestId("ec-preview-port-17990");
+    expect(row).toHaveTextContent("17990");
+    expect(row).toHaveTextContent(enCommon.effectiveConfig.reconcileCreateEndpoint);
+    // Snapshot-derived: opening the preview issued NO new snapshot fetch.
+    const snapsAfter = invokeMock.mock.calls.filter((c: unknown[]) => c[0] === "authoritative_snapshot").length;
+    expect(snapsAfter).toBe(snapsBefore);
+  });
+
+  it("missing-on-resin platform renders the explicit desired-only wording, not the divergent patch", async () => {
+    render(<EffectiveConfigView />);
+    await screen.findByTestId("ec-platform-gamma");
+    fireEvent.click(screen.getByTestId("ec-reconcile"));
+    await screen.findByTestId("ec-preview-dialog");
+    const gamma = screen.getByTestId("ec-preview-platform-gamma");
+    expect(gamma).toHaveTextContent(enCommon.effectiveConfig.reconcileCreatePlatform);
+    // Not folded into the divergent patch template (which interpolates "live → desired").
+    expect(gamma.textContent).not.toContain("→");
+    const beta = screen.getByTestId("ec-preview-platform-beta");
+    expect(beta).toHaveTextContent("→");
   });
 });

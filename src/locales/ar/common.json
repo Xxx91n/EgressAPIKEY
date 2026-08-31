@@ -473,7 +473,7 @@
     "reconcile": "المزامنة إلى الحالة المطلوبة",
     "reconcilePreviewTitle": "معاينة المزامنة — ما الذي سيتغير",
     "reconcileNothing": "كل شيء يطابق الصندوق الأبيض بالفعل. لا يوجد ما يجب فعله.",
-    "reconcileCreatePlatform": "إنشاء منصة على Resin",
+    "reconcileCreatePlatform": "هذه المنصة موجودة في الحالة المرغوبة فقط — سيتم إنشاؤها على Resin",
     "reconcilePatchRegions": "تحديث region_filters: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "إنشاء نقطة نهاية Resin (استعادة المنفذ)",
     "reconcileOneWay": "مزامنة أحادية الاتجاه: الصندوق الأبيض له الأولوية دائمًا. للاحتفاظ بالحالة الحالية، عدّل الصندوق الأبيض.",

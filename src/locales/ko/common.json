@@ -473,7 +473,7 @@
     "reconcile": "원하는 상태로 동기화",
     "reconcilePreviewTitle": "동기화 미리보기 — 변경 내용",
     "reconcileNothing": "모두 화이트박스와 일치합니다. 변경할 내용이 없습니다.",
-    "reconcileCreatePlatform": "Resin에 플랫폼 생성",
+    "reconcileCreatePlatform": "이 플랫폼은 기대 상태에만 존재합니다 — Resin에 설정됩니다",
     "reconcilePatchRegions": "region_filters 업데이트:{{live}} → {{desired}}",
     "reconcileCreateEndpoint": "Resin 엔드포인트 생성(포트 복원)",
     "reconcileOneWay": "단방향 동기화:화이트박스 설정이 항상 우선합니다. 실황을 유지하려면 화이트박스를 편집하세요.",

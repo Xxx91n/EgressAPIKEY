@@ -473,7 +473,7 @@
     "reconcile": "Đồng bộ về trạng thái mong muốn",
     "reconcilePreviewTitle": "Xem trước đồng bộ — những gì sẽ thay đổi",
     "reconcileNothing": "Mọi thứ đã khớp với whitebox. Không có gì cần làm.",
-    "reconcileCreatePlatform": "tạo nền tảng trên Resin",
+    "reconcileCreatePlatform": "nền tảng này chỉ tồn tại ở trạng thái mong muốn — sẽ được thiết lập trên Resin",
     "reconcilePatchRegions": "cập nhật region_filters: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "tạo endpoint Resin (khôi phục cổng)",
     "reconcileOneWay": "Đồng bộ một chiều: whitebox luôn được ưu tiên. Để giữ trạng thái hiện tại, hãy chỉnh sửa whitebox.",

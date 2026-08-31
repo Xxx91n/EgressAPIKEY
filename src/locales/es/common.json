@@ -473,7 +473,7 @@
     "reconcile": "Sincronizar con el estado deseado",
     "reconcilePreviewTitle": "Vista previa de reconciliación — qué cambiará",
     "reconcileNothing": "Todo coincide con la caja blanca. Nada que hacer.",
-    "reconcileCreatePlatform": "crear plataforma en Resin",
+    "reconcileCreatePlatform": "esta plataforma existe solo en el estado deseado — se establecerá en Resin",
     "reconcilePatchRegions": "actualizar region_filters: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "crear endpoint de Resin (restaurar puerto)",
     "reconcileOneWay": "Sincronización unidireccional: la caja blanca siempre gana. Para conservar el estado actual, edita la caja blanca.",

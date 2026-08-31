@@ -473,7 +473,7 @@
     "reconcile": "同步到期望态",
     "reconcilePreviewTitle": "同步预演 — 将变更内容",
     "reconcileNothing": "一切已与白盒一致,无需变更。",
-    "reconcileCreatePlatform": "在 Resin 上创建平台",
+    "reconcileCreatePlatform": "该平台仅存在于期望态，将建立",
     "reconcilePatchRegions": "更新 region_filters:{{live}} → {{desired}}",
     "reconcileCreateEndpoint": "创建 Resin 端点(恢复端口)",
     "reconcileOneWay": "单向同步:白盒配置永远优先。若想保留实况状态,请修改白盒配置。",

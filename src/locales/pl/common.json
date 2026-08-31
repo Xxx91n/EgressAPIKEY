@@ -473,7 +473,7 @@
     "reconcile": "Synchronizuj do stanu pożądanego",
     "reconcilePreviewTitle": "Podgląd synchronizacji — co się zmieni",
     "reconcileNothing": "Wszystko już odpowiada whiteboxowi. Nic do zrobienia.",
-    "reconcileCreatePlatform": "utwórz platformę w Resin",
+    "reconcileCreatePlatform": "ta platforma istnieje tylko w stanie pożądanym — zostanie ustanowiona na Resin",
     "reconcilePatchRegions": "zaktualizuj region_filters: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "utwórz endpoint Resin (przywróć port)",
     "reconcileOneWay": "Synchronizacja jednokierunkowa: whitebox zawsze wygrywa. Aby zachować stan bieżący, edytuj whitebox.",

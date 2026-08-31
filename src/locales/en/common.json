@@ -473,7 +473,7 @@
     "reconcile": "Sync to desired state",
     "reconcilePreviewTitle": "Reconcile preview — what will change",
     "reconcileNothing": "Everything already matches the whitebox. Nothing to do.",
-    "reconcileCreatePlatform": "create platform on Resin",
+    "reconcileCreatePlatform": "exists only in the desired state — will be established on Resin",
     "reconcilePatchRegions": "patch region_filters: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "create Resin endpoint (restore port)",
     "reconcileOneWay": "One-way sync: the whitebox config always wins. To keep the live state instead, edit the whitebox.",

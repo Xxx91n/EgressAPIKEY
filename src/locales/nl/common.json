@@ -473,7 +473,7 @@
     "reconcile": "Synchroniseer naar gewenste status",
     "reconcilePreviewTitle": "Afstemningsvoorbeeld — wat verandert",
     "reconcileNothing": "Alles komt al overeen met de whitebox. Niets te doen.",
-    "reconcileCreatePlatform": "platform aanmaken op Resin",
+    "reconcileCreatePlatform": "dit platform bestaat alleen in de gewenste status — wordt op Resin opgezet",
     "reconcilePatchRegions": "region_filters bijwerken: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "Resin-endpoint aanmaken (poort herstellen)",
     "reconcileOneWay": "Eenrichtingssynchronisatie: de whitebox wint altijd. Wil je de live status behouden, bewerk dan de whitebox.",

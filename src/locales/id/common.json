@@ -473,7 +473,7 @@
     "reconcile": "Sinkronkan ke status yang diinginkan",
     "reconcilePreviewTitle": "Pratinjau rekonsiliasi — apa yang berubah",
     "reconcileNothing": "Semua sudah cocok dengan whitebox. Tidak ada yang perlu dilakukan.",
-    "reconcileCreatePlatform": "buat platform di Resin",
+    "reconcileCreatePlatform": "platform ini hanya ada di status yang diinginkan — akan didirikan di Resin",
     "reconcilePatchRegions": "perbarui region_filters: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "buat endpoint Resin (pulihkan port)",
     "reconcileOneWay": "Sinkronisasi satu arah: whitebox selalu menang. Untuk mempertahankan status live, edit whitebox.",

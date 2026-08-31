@@ -473,7 +473,7 @@
     "reconcile": "Auf Sollzustand synchronisieren",
     "reconcilePreviewTitle": "Abgleich-Vorschau — was sich ändert",
     "reconcileNothing": "Alles entspricht bereits der Whitebox. Nichts zu tun.",
-    "reconcileCreatePlatform": "Plattform auf Resin erstellen",
+    "reconcileCreatePlatform": "diese Plattform existiert nur im Sollzustand – wird auf Resin eingerichtet",
     "reconcilePatchRegions": "region_filters aktualisieren: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "Resin-Endpunkt erstellen (Port wiederherstellen)",
     "reconcileOneWay": "Einweg-Synchronisierung: Die Whitebox gewinnt immer. Um den Live-Zustand zu behalten, bearbeiten Sie die Whitebox.",

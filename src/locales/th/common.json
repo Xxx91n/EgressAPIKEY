@@ -473,7 +473,7 @@
     "reconcile": "ซิงค์ไปยังสถานะที่ต้องการ",
     "reconcilePreviewTitle": "ตัวอย่างก่อนซิงค์ — สิ่งที่จะเปลี่ยน",
     "reconcileNothing": "ทุกอย่างตรงกับ whitebox แล้ว ไม่มีอะไรต้องทำ",
-    "reconcileCreatePlatform": "สร้างแพลตฟอร์มบน Resin",
+    "reconcileCreatePlatform": "แพลตฟอร์มนี้มีอยู่ในสถานะที่ต้องการเท่านั้น — จะถูกสร้างขึ้นบน Resin",
     "reconcilePatchRegions": "อัปเดต region_filters: {{live}} → {{desired}}",
     "reconcileCreateEndpoint": "สร้าง endpoint ของ Resin (กู้คืนพอร์ต)",
     "reconcileOneWay": "ซิงค์ทางเดียว: whitebox มีสิทธิ์เหนือกว่าเสมอ หากต้องการคงสถานะปัจจุบัน ให้แก้ไข whitebox",
