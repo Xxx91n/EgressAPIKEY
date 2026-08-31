@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "إنشاء نقطة نهاية Resin (استعادة المنفذ)",
     "reconcileOneWay": "مزامنة أحادية الاتجاه: الصندوق الأبيض له الأولوية دائمًا. للاحتفاظ بالحالة الحالية، عدّل الصندوق الأبيض.",
     "reconcileConfirm": "تطبيق الآن",
-    "reconcileWorking": "جارٍ المزامنة…"
+    "reconcileWorking": "جارٍ المزامنة…",
+    "routesSection": "مسارات العمليات",
+    "route": "مسار"
   }
 }

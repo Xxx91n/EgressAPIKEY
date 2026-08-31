@@ -320,7 +320,14 @@ pub fn count_unacknowledged_drift_entries(
         .iter()
         .filter(|pp| pp.state_tag() != "consistent" && !pp.acknowledged())
         .count();
-    platforms + ports
+    // Ticket 17 / ADR-0055 D6: route drift joins the same counter; the
+    // acknowledged exemption stays read-side (state tag untouched).
+    let routes = snap
+        .routes
+        .iter()
+        .filter(|rr| rr.state_tag() != "consistent" && !rr.acknowledged())
+        .count();
+    platforms + ports + routes
 }
 
 /// Fire the one-shot OS drift notification (best-effort). Returns true when
@@ -544,6 +551,7 @@ mod tests {
                     acknowledged: false,
                 },
             ],
+            routes: vec![],
             resin_reachable: true,
             last_checked_at: 42,
         };
@@ -576,6 +584,7 @@ mod tests {
                 divergent_since: None,
                 acknowledged: true,
             }],
+            routes: vec![],
             resin_reachable: true,
             last_checked_at: 43,
             strategy_version: 1,

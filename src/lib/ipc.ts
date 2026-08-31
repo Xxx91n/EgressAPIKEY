@@ -406,7 +406,7 @@ export async function ipcBackupList(url: string, username: string, password: str
   return invoke<string[]>("backup_list", { url, username, password });
 }
 
-// ---- Process routing (issue 3+10) ----
+// ---- Process routing (ticket 17 / ADR-0055: L2 whitebox family) ----
 export interface ProcessRouteRule {
   process: string;
   target_port: number;
@@ -1041,10 +1041,32 @@ export interface PortSnapshotMissingOnResin {
 }
 export type PortSnapshot = PortSnapshotConsistent | PortSnapshotMissingOnResin;
 
+/** Ticket 17 (ADR-0055 D3): per-route three-state. The live side of a route
+ *  IS its target port (Resin has no per-process object), so the variants
+ *  mirror the ports family. */
+export interface ProcessRouteSnapshotConsistent {
+  state: "consistent";
+  process: string;
+  target_port: number;
+  /** ADR-0055 D6: read-side exemption flag; never influences the merge. */
+  acknowledged: boolean;
+}
+export interface ProcessRouteSnapshotMissingOnResin {
+  state: "missingOnResin";
+  process: string;
+  target_port: number;
+  /** Ticket 17: Unix seconds of first in-process drift; undefined while fresh. */
+  divergent_since?: number;
+  acknowledged: boolean;
+}
+export type ProcessRouteSnapshot = ProcessRouteSnapshotConsistent | ProcessRouteSnapshotMissingOnResin;
+
 export interface AuthoritativeSnapshot {
   strategyVersion: number;
   platforms: StrategySnapshot[];
   ports: PortSnapshot[];
+  /** Ticket 17 (ADR-0055 D3): route family; empty when the whitebox has none. */
+  routes: ProcessRouteSnapshot[];
   resinReachable: boolean;
   /** Ticket 12 (ADR-0054 §C): Unix seconds when this snapshot was generated. */
   lastCheckedAt: number;
@@ -1144,10 +1166,28 @@ function snapPort(v: unknown): PortSnapshot | null {
   return null;
 }
 
+/** Ticket 17: sanitize one route snapshot variant (untrusted response). */
+function snapRoute(v: unknown): ProcessRouteSnapshot | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  const process = snapStr(r.process);
+  if (!process) return null;
+  const port = Number(r.target_port);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) return null;
+  if (r.state === "consistent") {
+    return { state: "consistent", process, target_port: port, acknowledged: snapAck(r.acknowledged) };
+  }
+  if (r.state === "missingOnResin") {
+    return { state: "missingOnResin", process, target_port: port, divergent_since: snapTs(r.divergent_since), acknowledged: snapAck(r.acknowledged) };
+  }
+  return null;
+}
+
 function snapSnapshot(v: unknown): AuthoritativeSnapshot {
   const r = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
   const platformsRaw = Array.isArray(r.platforms) ? r.platforms : [];
   const portsRaw = Array.isArray(r.ports) ? r.ports : [];
+  const routesRaw = Array.isArray(r.routes) ? r.routes : [];
   return {
     strategyVersion: Number(r.strategyVersion) === 1 ? 1 : 0,
     platforms: platformsRaw
@@ -1158,6 +1198,10 @@ function snapSnapshot(v: unknown): AuthoritativeSnapshot {
       .slice(0, MAX_SNAPSHOT_ENTRIES)
       .map(snapPort)
       .filter((x): x is PortSnapshot => x !== null),
+    routes: routesRaw
+      .slice(0, MAX_SNAPSHOT_ENTRIES)
+      .map(snapRoute)
+      .filter((x): x is ProcessRouteSnapshot => x !== null),
     resinReachable: r.resinReachable === true,
     // Ticket 12: untrusted timestamp sanitized to a bounded Unix-seconds
     // number; a malformed value degrades to 0 instead of leaking junk.

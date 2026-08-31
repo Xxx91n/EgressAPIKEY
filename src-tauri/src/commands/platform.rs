@@ -2,14 +2,13 @@
 //!
 //! Extracted from the former commands/mod.rs monolith by architecture-recovery
 //! ticket 08: pure mechanical move - no behavior, naming, or IPC-surface change.
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_store::StoreExt;
 use crate::sidecar::SidecarHandle;
-use resin_core::IpcError;
+use resin_core::{DbPool, IpcError};
 use resin_core::{MAX_LANES, ReputationClient, ReputationProvider, ReputationSnapshot, parse_public_ips};
 use super::common::{KEY_MAX_LEN, items_arr, map_resin_error, resin_client, validate_ip, validate_short_name};
-use super::backup::{process_route_conflict_check};
 
 /// Ticket 09 pilot: the usize/u64 fields carry a #[specta(type = u32)]
 /// override because specta-typescript 0.0.12 forbids 64-bit ints (its
@@ -241,15 +240,16 @@ pub fn platform_id_for_name(v: &serde_json::Value, want: &str) -> Option<String>
     None
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProcessRouteRule {
-    pub process: String,
-    pub target_port: u16,
-}
-
+/// Ticket 17 / ADR-0055 D2: the ONLY write entry for process routes. The
+/// rule family lives in the L2 whitebox (egressapikey-ports.json
+/// process_routes field); writes commit through WhiteboxConfigStore::apply
+/// (validate -> DB/listeners -> versioned file swap, ADR-0042 entry, the
+/// same chain as port_upsert). The legacy L1 settings.json path is deleted.
 #[tauri::command]
 pub async fn process_route_add(
-    app: AppHandle,
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     process: String,
     target_port: u16,
 ) -> Result<(), IpcError> {
@@ -259,64 +259,50 @@ pub async fn process_route_add(
             "process_route_add: port {target_port} out of range (must be >= 1024, got {target_port})"
         )));
     }
-    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json")
-        .map_err(|e| IpcError::from(format!("store: {e:?}")))?;
-    let mut rules: Vec<ProcessRouteRule> = store
-        .get("processRoutes")
-        .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
-        .unwrap_or_default();
-    // conflict detect via the extracted helper (unit-testable)
-    process_route_conflict_check(&rules, &process, target_port)?;
-    if let Some(slot) = rules
+    let mut next = whitebox.snapshot();
+    if let Some(slot) = next
+        .process_routes
         .iter_mut()
-        .find(|r| r.process.trim() == process.trim())
+        .find(|r| r.process.trim().eq_ignore_ascii_case(process.trim()))
     {
         slot.target_port = target_port;
     } else {
-        rules.push(ProcessRouteRule {
+        next.process_routes.push(resin_core::ProcessRouteRule {
             process: process.trim().to_string(),
             target_port,
         });
     }
-    store.set(
-        "processRoutes",
-        serde_json::to_value(&rules).map_err(|e| IpcError::from(format!("serialize: {e}")))?,
-    );
-    store.save().map_err(|e| IpcError::from(format!("store save: {e:?}")))?;
+    whitebox.apply(&db, &forwarder, next).await?;
     Ok(())
 }
 
+/// Ticket 17 / ADR-0055 D2: remove by process name (case-insensitive).
+/// Returns false when no rule matched (nothing was written).
 #[tauri::command]
-pub async fn process_route_remove(app: AppHandle, process: String) -> Result<bool, IpcError> {
+pub async fn process_route_remove(
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+    process: String,
+) -> Result<bool, IpcError> {
     validate_short_name(&process, "process")?;
-    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json")
-        .map_err(|e| IpcError::from(format!("store: {e:?}")))?;
-    let mut rules: Vec<ProcessRouteRule> = store
-        .get("processRoutes")
-        .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
-        .unwrap_or_default();
-    let before = rules.len();
-    rules.retain(|r| r.process.trim() != process.trim());
-    if rules.len() != before {
-        store.set(
-            "processRoutes",
-            serde_json::to_value(&rules).map_err(|e| IpcError::from(format!("serialize: {e}")))?,
-        );
-        store.save().map_err(|e| IpcError::from(format!("store save: {e:?}")))?;
-        Ok(true)
-    } else {
-        Ok(false)
+    let mut next = whitebox.snapshot();
+    let before = next.process_routes.len();
+    next.process_routes
+        .retain(|r| !r.process.trim().eq_ignore_ascii_case(process.trim()));
+    if next.process_routes.len() == before {
+        return Ok(false);
     }
+    whitebox.apply(&db, &forwarder, next).await?;
+    Ok(true)
 }
 
+/// Ticket 17 / ADR-0055 D2: read the whitebox route family.
 #[tauri::command]
-pub async fn process_route_list(app: AppHandle) -> Result<Vec<ProcessRouteRule>, IpcError> {
-    let store = tauri_plugin_store::StoreExt::store(&app, "settings.json")
-        .map_err(|e| IpcError::from(format!("store: {e:?}")))?;
-    Ok(store
-        .get("processRoutes")
-        .and_then(|v| serde_json::from_value::<Vec<ProcessRouteRule>>(v).ok())
-        .unwrap_or_default())
+pub async fn process_route_list(
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+) -> Result<Vec<resin_core::ProcessRouteRule>, IpcError> {
+    Ok(whitebox.snapshot().process_routes)
 }
 
 #[tauri::command]

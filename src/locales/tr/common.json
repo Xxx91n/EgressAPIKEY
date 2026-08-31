@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "Resin endpoint oluştur (bağlantı noktasını geri yükle)",
     "reconcileOneWay": "Tek yönlü senkronizasyon: her zaman whitebox kazanır. Canlı durumu korumak isterseniz whitebox'u düzenleyin.",
     "reconcileConfirm": "Şimdi uygula",
-    "reconcileWorking": "Uzlaştırılıyor…"
+    "reconcileWorking": "Uzlaştırılıyor…",
+    "routesSection": "İşlem rotaları",
+    "route": "Kural"
   }
 }

@@ -40,6 +40,16 @@ pub struct WhiteboxConfig {
     /// merge — read-side presentation only. Shape checks in `validate`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acknowledged: Vec<String>,
+    /// Ticket 17 / ADR-0055 D1: per-process -> entry-port routing rules,
+    /// migrated out of L1 settings.json. Absent = empty (older files load
+    /// unchanged); single write entry = WhiteboxConfigStore::apply via the
+    /// process_route_* commands.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub process_routes: Vec<ProcessRouteRule>,
+    /// Ticket 17 / ADR-0055 D6: ADR-0054 §D exemption vocabulary for the
+    /// route family (process names). Read-side presentation only.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub route_acknowledged: Vec<String>,
 }
 
 impl WhiteboxConfig {
@@ -49,10 +59,26 @@ impl WhiteboxConfig {
             entry_ports,
             network: NetworkConfig::default(),
             acknowledged: Vec::new(),
+            process_routes: Vec::new(),
+            route_acknowledged: Vec::new(),
         }
     }
 }
 
+
+/// Ticket 17 / ADR-0055: one process-routing rule (L2 whitebox family).
+/// This is the SINGLE wire shape — the former dual writers (webview
+/// settings.ts camelCase `targetPort` vs Rust snake_case `target_port`)
+/// collapsed into this snake_case form on disk and over IPC.
+#[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
+pub struct ProcessRouteRule {
+    pub process: String,
+    pub target_port: u16,
+}
+
+/// Ticket 17 / ADR-0055 D1: upper bound for whitebox process routes
+/// (AGENTS 7.5 bounded-array template).
+pub const MAX_PROCESS_ROUTES: usize = 256;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct NetworkConfig {
@@ -112,7 +138,122 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
     // Ticket 12 / ADR-0054 §D: the exemption array shares the strategy
     // whitebox shape rules (≤64 × 1..128 chars, no control chars, no dupes).
     crate::strategy_service::validate_acknowledged(&config.acknowledged, "acknowledged")?;
+    // Ticket 17 / ADR-0055: route family validation. Bounded count, unique
+    // normalized process names, port >= MIN_USER_PORT, and the legacy
+    // one-port-one-process conflict rule so a hand-edited file cannot
+    // smuggle two processes onto one port.
+    if config.process_routes.len() > MAX_PROCESS_ROUTES {
+        return Err(format!("too many process routes (max {MAX_PROCESS_ROUTES})"));
+    }
+    let mut seen_processes = HashSet::with_capacity(config.process_routes.len());
+    for r in &config.process_routes {
+        if r.process.is_empty() || r.process.len() > 128 {
+            return Err("process route name must be 1..128 chars".into());
+        }
+        if r.process.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err("process route name contains control characters".into());
+        }
+        if r.target_port < MIN_USER_PORT {
+            return Err(format!("process route port {} is privileged", r.target_port));
+        }
+        if !seen_processes.insert(r.process.trim().to_lowercase()) {
+            return Err(format!("duplicate process route: {}", r.process));
+        }
+    }
+    process_route_conflict_check(&config.process_routes)?;
+    crate::strategy_service::validate_acknowledged(&config.route_acknowledged, "route_acknowledged")?;
     Ok(())
+}
+
+/// Ticket 17 / ADR-0055 D2: one target port may carry at most one process.
+/// Returns Err naming the bound process (the legacy typed-conflict
+/// contract, now part of document validation). Pure; unit-tested.
+pub fn process_route_conflict_check(rules: &[ProcessRouteRule]) -> Result<(), String> {
+    for (i, r) in rules.iter().enumerate() {
+        for other in rules.iter().skip(i + 1) {
+            if other.target_port == r.target_port
+                && other.process.trim().eq_ignore_ascii_case(r.process.trim())
+            {
+                // Same process twice on one port is caught by duplicate-name
+                // validation; a DIFFERENT process on the same port conflicts.
+            } else if other.target_port == r.target_port {
+                return Err(format!(
+                    "conflict: port {} already bound to process '{}'",
+                    r.target_port, r.process
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Ticket 17 / ADR-0055 D5: parse the LEGACY L1 settings.json value
+/// tolerantly. Both historical wire shapes are accepted
+/// (webview camelCase `targetPort` / Rust snake_case `target_port`, plus the
+/// even older `target_lane`); entries that are not objects, lack a
+/// non-empty process name, or carry an out-of-range port are SKIPPED, never
+/// fatal. Pure; unit-tested.
+pub fn parse_legacy_l1_routes(v: &serde_json::Value) -> Vec<ProcessRouteRule> {
+    let Some(arr) = v.as_array() else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for item in arr {
+        let Some(obj) = item.as_object() else { continue };
+        let Some(process) = obj
+            .get("process")
+            .and_then(|p| p.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty() && s.len() <= 128)
+        else {
+            continue;
+        };
+        let port = ["target_port", "targetPort", "target_lane"]
+            .iter()
+            .find_map(|k| obj.get(*k).and_then(|p| p.as_u64()))
+            .unwrap_or(0);
+        if port < MIN_USER_PORT as u64 || port > u16::MAX as u64 {
+            continue;
+        }
+        out.push(ProcessRouteRule {
+            process,
+            target_port: port as u16,
+        });
+    }
+    out
+}
+
+/// Ticket 17 / ADR-0055 D5: one-time boot migration. Merge the legacy L1
+/// rules into the seed document (existing whitebox process names WIN —
+/// the whitebox is already the truth source) and return the merged doc.
+/// Idempotent by construction: a second pass over an empty legacy value is
+/// a no-op, and the caller deletes the L1 key after the first pass, so
+/// re-migration cannot re-introduce rules. Pure; unit-tested.
+pub fn migrate_l1_process_routes(
+    seed: &mut WhiteboxConfig,
+    legacy: Option<&serde_json::Value>,
+) -> bool {
+    let Some(v) = legacy else {
+        return false;
+    };
+    let rules = parse_legacy_l1_routes(v);
+    if rules.is_empty() {
+        return false;
+    }
+    let existing: HashSet<String> = seed
+        .process_routes
+        .iter()
+        .map(|r| r.process.trim().to_lowercase())
+        .collect();
+    let mut changed = false;
+    for r in rules {
+        if existing.contains(&r.process.trim().to_lowercase()) {
+            continue;
+        }
+        seed.process_routes.push(r);
+        changed = true;
+    }
+    changed
 }
 
 fn validate_text(value: &str, field: &str) -> Result<(), String> {
@@ -371,6 +512,126 @@ mod tests {
             enabled: true,
             auth_required: true,
         }
+    }
+
+    // ---- ticket 17 / ADR-0055: process routes family ----
+
+    fn route(process: &str, port: u16) -> ProcessRouteRule {
+        ProcessRouteRule {
+            process: process.to_string(),
+            target_port: port,
+        }
+    }
+
+    #[test]
+    fn route_validation_rejects_conflict_duplicate_and_privileged() {
+        let mut cfg = WhiteboxConfig::from_ports(vec![]);
+        cfg.process_routes = vec![route("app.exe", 17990), route("other.exe", 17990)];
+        let err = validate(&cfg).unwrap_err();
+        assert!(err.contains("already bound to process"), "got: {err}");
+
+        cfg.process_routes = vec![route("app.exe", 17990), route("APP.EXE", 17991)];
+        assert!(validate(&cfg).unwrap_err().contains("duplicate process route"));
+
+        cfg.process_routes = vec![route("app.exe", 80)];
+        assert!(validate(&cfg).unwrap_err().contains("privileged"));
+
+        cfg.process_routes = vec![route("", 17990)];
+        assert!(validate(&cfg).unwrap_err().contains("1..128"));
+
+        cfg.process_routes = (0..257).map(|i| route(&format!("p{i}"), 20000 + i as u16)).collect();
+        assert!(validate(&cfg).unwrap_err().contains("too many process routes"));
+    }
+
+    #[test]
+    fn route_validation_accepts_distinct_and_reused_ports() {
+        let mut cfg = WhiteboxConfig::from_ports(vec![]);
+        // same process on DIFFERENT ports is an update shape, allowed at doc level
+        cfg.process_routes = vec![route("app.exe", 17990), route("other.exe", 17991)];
+        assert!(validate(&cfg).is_ok());
+        // same port listed once is fine
+        cfg.process_routes = vec![route("solo.exe", 17990)];
+        assert!(validate(&cfg).is_ok());
+    }
+
+    #[test]
+    fn legacy_l1_parser_accepts_both_wire_shapes_and_skips_junk() {
+        let v: serde_json::Value = serde_json::json!([
+            {"process": "webview.exe", "targetPort": 17990},
+            {"process": "rust.exe", "target_port": 17991},
+            {"process": "old.exe", "target_lane": 17992},
+            {"process": "", "target_port": 17990},
+            {"target_port": 17990},
+            {"process": "badport.exe", "target_port": 80},
+            {"process": "badport2.exe", "target_port": 70000},
+            "junk",
+            42
+        ]);
+        let rules = parse_legacy_l1_routes(&v);
+        let got: Vec<(String, u16)> = rules.iter().map(|r| (r.process.clone(), r.target_port)).collect();
+        assert_eq!(got, vec![
+            ("webview.exe".into(), 17990),
+            ("rust.exe".into(), 17991),
+            ("old.exe".into(), 17992),
+        ]);
+        // non-array payloads yield empty
+        assert!(parse_legacy_l1_routes(&serde_json::json!({"a": 1})).is_empty());
+        assert!(parse_legacy_l1_routes(&serde_json::json!(null)).is_empty());
+    }
+
+    #[test]
+    fn migration_is_idempotent_and_whitebox_wins() {
+        let legacy = serde_json::json!([
+            {"process": "a.exe", "target_port": 17990},
+            {"process": "b.exe", "targetPort": 17991}
+        ]);
+        let mut seed = WhiteboxConfig::from_ports(vec![]);
+        assert!(migrate_l1_process_routes(&mut seed, Some(&legacy)));
+        assert_eq!(seed.process_routes.len(), 2);
+        let snapshot_after_first = seed.clone();
+
+        // Second boot: legacy value gone (None) => no change.
+        let mut seed2 = snapshot_after_first.clone();
+        assert!(!migrate_l1_process_routes(&mut seed2, None));
+        assert_eq!(seed2, snapshot_after_first);
+
+        // Even a REPLAYED legacy value is a no-op (whitebox wins per name).
+        let mut seed3 = snapshot_after_first.clone();
+        assert!(!migrate_l1_process_routes(&mut seed3, Some(&legacy)));
+        assert_eq!(seed3, snapshot_after_first);
+
+        // A whitebox-owned rule keeps its port when the legacy value has the same name.
+        let mut seed4 = WhiteboxConfig::from_ports(vec![]);
+        seed4.process_routes = vec![route("a.exe", 19999)];
+        let whitebox_wins = serde_json::json!([{"process": "a.exe", "target_port": 17990}]);
+        assert!(!migrate_l1_process_routes(&mut seed4, Some(&whitebox_wins)));
+        assert_eq!(seed4.process_routes[0].target_port, 19999);
+    }
+
+    #[test]
+    fn route_acknowledged_validation_applies() {
+        let mut cfg = WhiteboxConfig::from_ports(vec![]);
+        cfg.route_acknowledged = vec!["a.exe".into(), "a.exe".into()];
+        assert!(validate(&cfg).unwrap_err().contains("duplicated"));
+        cfg.route_acknowledged = vec![String::new()];
+        assert!(validate(&cfg).unwrap_err().contains("1..128"));
+    }
+
+    #[test]
+    fn old_document_without_route_fields_parses_unchanged() {
+        // pre-ticket-17 file shape: no process_routes / route_acknowledged keys
+        let raw = serde_json::json!({
+            "version": 1,
+            "entry_ports": [],
+            "network": {}
+        });
+        let cfg: WhiteboxConfig = serde_json::from_value(raw).unwrap();
+        assert!(cfg.process_routes.is_empty());
+        assert!(cfg.route_acknowledged.is_empty());
+        // and serialization omits the empty fields (wire compat both ways)
+        let v = serde_json::to_value(&cfg).unwrap();
+        assert!(v.get("process_routes").is_none());
+        assert!(v.get("route_acknowledged").is_none());
     }
 
     #[test]

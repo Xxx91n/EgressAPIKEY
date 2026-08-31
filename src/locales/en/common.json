@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "create Resin endpoint (restore port)",
     "reconcileOneWay": "One-way sync: the whitebox config always wins. To keep the live state instead, edit the whitebox.",
     "reconcileConfirm": "Apply now",
-    "reconcileWorking": "Reconciling…"
+    "reconcileWorking": "Reconciling…",
+    "routesSection": "Process routes",
+    "route": "Route"
   }
 }

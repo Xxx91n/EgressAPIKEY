@@ -5,7 +5,6 @@ import { useAppStore } from "./appStore";
 // unavailable in vitest) is a no-op and we silence the console.warn noise.
 vi.mock("../lib/settings", () => ({
   saveView: vi.fn().mockResolvedValue(undefined),
-  saveProcessRoutes: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("appStore", () => {

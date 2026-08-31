@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "создать endpoint Resin (восстановить порт)",
     "reconcileOneWay": "Однонаправленная синхронизация: whitebox всегда главный. Чтобы сохранить текущее состояние, измените whitebox.",
     "reconcileConfirm": "Применить сейчас",
-    "reconcileWorking": "Синхронизация…"
+    "reconcileWorking": "Синхронизация…",
+    "routesSection": "Маршруты процессов",
+    "route": "Маршрут"
   }
 }

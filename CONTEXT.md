@@ -306,12 +306,22 @@ _Avoid_: strategy hint, account suffix, egress mode tag
 ### White-box Config
 
 The user-editable configuration that the app reads back and honors as truth:
-strategy configuration and entry-port configuration, stored as JSON files in
-the app config directory. A user may edit these files with an external
+strategy configuration, entry-port configuration, and per-process routing
+rules (ADR-0055), stored as JSON files in the app config directory. A user may edit these files with an external
 editor; external edits are re-read and applied without restarting the
 sidecar. Distinct from GUI preferences (which never change proxy behavior)
 and from Resin runtime state (derived and rebuildable from white-box config).
 _Avoid_: raw config, hand-edit zone, config dump
+
+### Process Route
+
+One rule binding an OS process name to an entry port: the process's traffic
+enters through that port (and thereby that platform's exit). Lives in the
+ports whitebox document (ADR-0055); a route is as live as the port it points
+to — the shell does not claim per-process enforcement (Resin owns
+per-request auth; the rule registry is shell-side metadata). The former
+settings.json key was a mis-layering and is purged at boot.
+_Avoid_: lane route (lanes are gone), app firewall rule
 
 ### Authoritative Write Entry
 

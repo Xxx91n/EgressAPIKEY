@@ -5,13 +5,15 @@ import { useAppStore } from "../store/appStore";
 import { ipcProcessRouteAdd, ipcProcessRouteRemove, ipcProcessRouteList } from "../lib/ipc";
 import { translateError } from "../lib/i18n-error";
 
-/// ProcessRouteView: per-process -> lane routing table.
-/// Issue 3+10: rules are PERSISTED server-side via tauri-plugin-store and
-/// the Rust process_route_add REFUSES lane conflicts (a target lane already
-/// bound to another process) BEFORE recording. We forward the IPC error to a
-/// visible toast; outside Tauri the optimistic local appStore update keeps
-/// the dev preview working. The Resin sidecar proxy owns per-request auth
-/// separately; here we only own the routing-rule registry.
+/// ProcessRouteView: per-process -> entry-port routing table.
+/// Ticket 17 / ADR-0055: the family lives in the L2 whitebox
+/// (egressapikey-ports.json process_routes); the ONLY writer is the Rust
+/// process_route_add/remove command family (WhiteboxConfigStore::apply,
+/// versioned + reconciled). This view is read-through-IPC + submit-through-IPC;
+/// the former webview settings.json persist path is deleted. One port can
+/// carry at most one process — the typed conflict error is surfaced as a
+/// toast. Resin owns per-request auth separately; here we only own the
+/// routing-rule registry.
 export function ProcessRouteView() {
   const { t } = useTranslation();
   const localRoutes = useAppStore((s) => s.processRoutes);

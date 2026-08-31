@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "criar endpoint do Resin (restaurar porta)",
     "reconcileOneWay": "Sincronização unidirecional: a caixa branca sempre prevalece. Para manter o estado atual, edite a caixa branca.",
     "reconcileConfirm": "Aplicar agora",
-    "reconcileWorking": "Reconciliando…"
+    "reconcileWorking": "Reconciliando…",
+    "routesSection": "Rotas de processo",
+    "route": "Rota"
   }
 }

@@ -237,7 +237,7 @@ export function EffectiveConfigView() {
           {t("effectiveConfig.loading")}
         </p>
       ) : null}
-      {snap && snap.platforms.length === 0 && snap.ports.length === 0 ? (
+      {snap && snap.platforms.length === 0 && snap.ports.length === 0 && snap.routes.length === 0 ? (
         <p data-testid="ec-no-entries" className="text-xs text-zinc-500 dark:text-zinc-400">
           {t("effectiveConfig.noEntries")}
         </p>
@@ -316,6 +316,44 @@ export function EffectiveConfigView() {
                     <span className="text-zinc-400">{t("effectiveConfig.live")}: </span>
                     {pt.state === "consistent"
                       ? pt.protocol + (pt.auth_required ? " \u00b7 " + t("effectiveConfig.authRequired") : "")
+                      : t("effectiveConfig.notRecorded")}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {snap && snap.routes.length > 0 ? (
+        <section data-testid="ec-routes-section" className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            {t("effectiveConfig.routesSection")}
+          </h3>
+          <ul className="space-y-2">
+            {snap.routes.map((rr) => (
+              <li
+                key={"route-" + rr.process}
+                data-testid={"ec-route-" + rr.process}
+                className="rounded-md border border-zinc-200 dark:border-zinc-800 px-3 py-2 space-y-1"
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-sm font-medium">{rr.process}</span>
+                  <StateBadge state={rr.state} acknowledged={rr.acknowledged} resinReachable={snap.resinReachable} />
+                  {rr.state === "missingOnResin" && !rr.acknowledged ? (
+                    <span data-testid={"ec-divergent-since-route-" + rr.process} className="text-[11px] text-zinc-400">
+                      {t("effectiveConfig.divergentSince")}: {fmtTs(rr.divergent_since) || t("effectiveConfig.notRecorded")}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 font-mono text-xs">
+                  <div>
+                    <span className="text-zinc-400">{t("effectiveConfig.desired")}: </span>
+                    {t("effectiveConfig.route")} :{rr.target_port}
+                  </div>
+                  <div>
+                    <span className="text-zinc-400">{t("effectiveConfig.live")}: </span>
+                    {rr.state === "consistent"
+                      ? t("effectiveConfig.route") + " :".concat(String(rr.target_port))
                       : t("effectiveConfig.notRecorded")}
                   </div>
                 </div>

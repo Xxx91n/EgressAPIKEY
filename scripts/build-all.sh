@@ -106,7 +106,7 @@ rm -rf "$GUI_STAGE"
 mkdir -p "$GUI_STAGE"
 BUNDLES="$(find src-tauri/target target -maxdepth 6 -type f \( -name '*.msi' -o -name '*-setup.exe' -o -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' \) 2>/dev/null || true)"
 for f in $BUNDLES; do cp "$f" "$GUI_STAGE/" 2>/dev/null || true; done
-PORT_BIN="$(find src-tauri/target target -maxdepth 5 -type f \( -name 'EgressAPIKEY' -o -name 'EgressAPIKEY.exe' -o \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | head -n1 || true)"
+PORT_BIN="$(find src-tauri/target target -maxdepth 5 -type f \( -name 'EgressAPIKEY' -o -name 'EgressAPIKEY.exe' \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | head -n1 || true)"
 if [ -z "$PORT_BIN" ]; then echo "[build-all] ERROR: portable GUI binary not found (searched src-tauri/target and target)"; exit 1; fi
 PORT_NAME=EgressAPIKEY
 case $NAME in windows) PORT_NAME=EgressAPIKEY.exe ;; esac

@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "Resin 엔드포인트 생성(포트 복원)",
     "reconcileOneWay": "단방향 동기화:화이트박스 설정이 항상 우선합니다. 실황을 유지하려면 화이트박스를 편집하세요.",
     "reconcileConfirm": "지금 적용",
-    "reconcileWorking": "동기화 중…"
+    "reconcileWorking": "동기화 중…",
+    "routesSection": "프로세스 라우팅",
+    "route": "라우트"
   }
 }

@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "crear endpoint de Resin (restaurar puerto)",
     "reconcileOneWay": "Sincronización unidireccional: la caja blanca siempre gana. Para conservar el estado actual, edita la caja blanca.",
     "reconcileConfirm": "Aplicar ahora",
-    "reconcileWorking": "Reconciliando…"
+    "reconcileWorking": "Reconciliando…",
+    "routesSection": "Rutas de proceso",
+    "route": "Ruta"
   }
 }

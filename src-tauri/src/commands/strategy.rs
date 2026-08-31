@@ -288,6 +288,22 @@ pub async fn authoritative_snapshot(
     resin_core::snapshot::stamp_platform_acknowledged(&mut platforms, &config.acknowledged);
     resin_core::snapshot::stamp_port_acknowledged(&mut ports, &whitebox_cfg.acknowledged);
 
+    // Ticket 17 / ADR-0055 D3: route family merge — a route's live side IS
+    // its target port. The live listener set and the enabled desired ports
+    // are both already in hand; no extra request. Then the D6 stamp.
+    let desired_enabled_ports: Vec<u16> = whitebox_cfg
+        .entry_ports
+        .iter()
+        .filter(|m| m.enabled)
+        .map(|m| m.port)
+        .collect();
+    let mut routes = resin_core::snapshot::merge_routes(
+        &whitebox_cfg.process_routes,
+        &desired_enabled_ports,
+        &resin_endpoint_ports,
+    );
+    resin_core::snapshot::stamp_route_acknowledged(&mut routes, &whitebox_cfg.route_acknowledged);
+
     // Ticket 12 / ADR-0054 §C: divergentSince = first in-process drift
     // instant per entity. Advance the drift memory with this snapshot's
     // per-entity drift flags, then stamp the resolved instants onto the
@@ -306,6 +322,13 @@ pub async fn authoritative_snapshot(
         ports
             .iter()
             .map(|pp| (pp.port().to_string(), pp.state_tag() != "consistent")),
+    );
+    // Ticket 17: route drift keys are prefixed "route:" so a process name
+    // can never collide with a platform name or a decimal port key.
+    entries.extend(
+        routes
+            .iter()
+            .map(|rr| (format!("route:{}", rr.process().to_lowercase()), rr.state_tag() != "consistent")),
     );
     let memory = {
         let mut guard = DRIFT_MEMORY
@@ -338,11 +361,26 @@ pub async fn authoritative_snapshot(
             }
         }
     }
+    for rr in routes.iter_mut() {
+        if rr.state_tag() != "consistent" {
+            let since = resin_core::snapshot::divergent_since_for(
+                &memory,
+                &format!("route:{}", rr.process().to_lowercase()),
+            );
+            match rr {
+                resin_core::ProcessRouteSnapshot::MissingOnResin { divergent_since, .. } => {
+                    *divergent_since = since;
+                }
+                _ => {}
+            }
+        }
+    }
 
     let snapshot = resin_core::AuthoritativeSnapshot {
         strategy_version: config.version,
         platforms,
         ports,
+        routes,
         resin_reachable: reachable,
         // Ticket 12: generation instant of THIS snapshot; monotonic
         // non-decreasing across consecutive calls (wall clock).

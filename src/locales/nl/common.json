@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "Resin-endpoint aanmaken (poort herstellen)",
     "reconcileOneWay": "Eenrichtingssynchronisatie: de whitebox wint altijd. Wil je de live status behouden, bewerk dan de whitebox.",
     "reconcileConfirm": "Nu toepassen",
-    "reconcileWorking": "Bezig met afstemmen…"
+    "reconcileWorking": "Bezig met afstemmen…",
+    "routesSection": "Procesroutes",
+    "route": "Route"
   }
 }

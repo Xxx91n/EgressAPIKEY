@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "สร้าง endpoint ของ Resin (กู้คืนพอร์ต)",
     "reconcileOneWay": "ซิงค์ทางเดียว: whitebox มีสิทธิ์เหนือกว่าเสมอ หากต้องการคงสถานะปัจจุบัน ให้แก้ไข whitebox",
     "reconcileConfirm": "ใช้เลย",
-    "reconcileWorking": "กำลังซิงค์…"
+    "reconcileWorking": "กำลังซิงค์…",
+    "routesSection": "เส้นทางของโปรเซส",
+    "route": "เส้นทาง"
   }
 }

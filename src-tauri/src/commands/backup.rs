@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager, State};
 use crate::sidecar::SidecarHandle;
 use resin_core::IpcError;
 use super::common::{items_arr, map_resin_error, resin_client};
-use super::platform::{ALLOWED_ALLOCATION_POLICIES, ProcessRouteRule, platform_id_for_name};
+use super::platform::{ALLOWED_ALLOCATION_POLICIES, platform_id_for_name};
 
 /// Create a zip backup of settings.json + resin state dir, return the temp path.
 #[tauri::command]
@@ -188,22 +188,6 @@ pub async fn backup_list(
         }
     }
     Ok(names)
-}
-
-pub fn process_route_conflict_check(
-    existing: &[ProcessRouteRule],
-    new_process: &str,
-    new_port: u16,
-) -> Result<(), String> {
-    for r in existing {
-        if r.target_port == new_port && new_process.trim() != r.process.trim() {
-            return Err(format!(
-                "conflict: port {new_port} already bound to process '{}'",
-                r.process
-            ));
-        }
-    }
-    Ok(())
 }
 
 /// Phase R4: export the current platform + subscription config as JSON.

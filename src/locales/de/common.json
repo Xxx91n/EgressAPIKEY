@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "Resin-Endpunkt erstellen (Port wiederherstellen)",
     "reconcileOneWay": "Einweg-Synchronisierung: Die Whitebox gewinnt immer. Um den Live-Zustand zu behalten, bearbeiten Sie die Whitebox.",
     "reconcileConfirm": "Jetzt anwenden",
-    "reconcileWorking": "Gleiche ab…"
+    "reconcileWorking": "Gleiche ab…",
+    "routesSection": "Prozessrouten",
+    "route": "Route"
   }
 }

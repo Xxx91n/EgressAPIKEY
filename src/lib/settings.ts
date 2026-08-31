@@ -106,21 +106,10 @@ export async function saveView(view: string): Promise<void> {
   } catch (e) { console.warn("[settings] save failed:", e); }
 }
 
-// --- Process routes persistence (pure-frontend state) ---
-export async function loadProcessRoutes<T>(): Promise<T[] | null> {
-  try {
-    const v = await store().get<T[]>("processRoutes");
-    return Array.isArray(v) ? v : null;
-  } catch { return null; }
-}
-
-export async function saveProcessRoutes(routes: unknown[]): Promise<void> {
-  try {
-    await store().set("processRoutes", routes);
-    await store().save();
-  } catch (e) { console.warn("[settings] save failed:", e); }
-}
-
+// Process routes (ticket 17 / ADR-0055): the L1 persistence pair was
+// DELETED — the family lives in the L2 whitebox (egressapikey-ports.json
+// process_routes field) with the Rust process_route_* command family as the
+// single write entry. The frontend reads/writes through src/lib/ipc.ts only.
 // --- WebDAV backup config persistence (clash-verge-rev pattern) ---
 export async function loadWebdavConfig(): Promise<{ url: string; username: string; password: string } | null> {
   try {

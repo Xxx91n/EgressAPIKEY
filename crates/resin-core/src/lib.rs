@@ -52,7 +52,9 @@ pub use port_forwarder::{
 };
 pub use port_health::{adaptive_interval, HealthState, PortHealthEntry, PortHealthSnapshot};
 pub use resin_client::ResinClient;
-pub use snapshot::{AuthoritativeSnapshot, PortSnapshot, StrategySnapshot};
+pub use snapshot::{
+    AuthoritativeSnapshot, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot,
+};
 pub use strategy::{protocol_weight, strategy_catalog, StrategyId, StrategyInfo};
 pub use strategy_engine::{
     a_class_regions, compute_plan, liveness_filter, parse_nodes, AClassStrategy, BClassParams,
@@ -71,7 +73,9 @@ pub use whitebox_backup::{
     WHITEBOX_BACKUP_KEEP,
 };
 pub use whitebox_config::{
-    enabled_entries_for_restore, validate as validate_whitebox_config, NetworkConfig,
+    enabled_entries_for_restore, migrate_l1_process_routes, parse_legacy_l1_routes,
+    process_route_conflict_check, validate as validate_whitebox_config, NetworkConfig,
+    ProcessRouteRule, MAX_PROCESS_ROUTES,
     WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE,
 };
 

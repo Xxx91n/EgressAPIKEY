@@ -57,18 +57,26 @@ use serde_json::json;
         assert_eq!(sum_active_leases(&json!({ "active_leases": 4 })), 4);
         assert_eq!(sum_active_leases(&json!({})), 0);
     }
+    /// Ticket 17 / ADR-0055: the conflict rule moved to document level in
+    /// resin-core (same port, different process => typed error). Shell-side
+    /// regression lock on the re-exported helper.
     #[test]
-    fn process_route_conflict_rejects_same_lane_different_process() {
+    fn process_route_conflict_rejects_same_port_different_process() {
+        use resin_core::ProcessRouteRule;
         let existing = vec![ProcessRouteRule {
             process: "ollama".to_string(),
             target_port: 17990,
         }];
-        // same process + same lane -> ok (update path)
-        assert!(process_route_conflict_check(&existing, "ollama", 17990).is_ok());
-        // different process, same lane -> conflict
-        assert!(process_route_conflict_check(&existing, "openai", 17990).is_err());
-        // different process, different lane -> ok
-        assert!(process_route_conflict_check(&existing, "openai", 17991).is_ok());
+        // different process, same port -> conflict
+        assert!(resin_core::process_route_conflict_check(
+            &[
+                ProcessRouteRule { process: "ollama".into(), target_port: 17990 },
+                ProcessRouteRule { process: "openai".into(), target_port: 17990 },
+            ]
+        )
+        .is_err());
+        // different process, different port -> ok
+        assert!(resin_core::process_route_conflict_check(&existing).is_ok());
     }
 
     #[test]
@@ -554,6 +562,7 @@ use serde_json::json;
                 divergent_since: None,
                 acknowledged: false,
             }],
+            routes: vec![],
             resin_reachable: true,
             last_checked_at: 1_756_521_601,
         };

@@ -14,7 +14,7 @@ import { NodesView } from "./views/NodesView";
 import { DiagnosticsView } from "./views/DiagnosticsView";
 import { useTheme } from "./lib/useTheme";
 import { LogPanel } from "./components/LogPanel";
-import { loadLocale, loadTheme, loadView, loadProcessRoutes } from "./lib/settings";
+import { loadLocale, loadTheme, loadView } from "./lib/settings";
 
 
 // T22: Error Boundary — catches unexpected throws in render/useEffect (e.g. Tauri
@@ -103,7 +103,6 @@ export default function App() {
   const setLocale = useAppStore((s) => s.setLocale);
   const setTheme = useAppStore((s) => s.setTheme);
   const setView = useAppStore((s) => s.setView);
-  const setProcessRoutes = useAppStore((s) => s.setProcessRoutes);
   useTheme();
   // Bug #1 fix: the store defaults view="topology". Without a gate, the first
   // paint renders the topology (or its lazy fallback) before loadView() resolves
@@ -128,14 +127,13 @@ export default function App() {
       if (savedView && !cancelled) {
         setView(savedView as any);
       }
-      const savedRoutes = await loadProcessRoutes();
-      if (savedRoutes && !cancelled) {
-        setProcessRoutes(savedRoutes as any);
-      }
+      // Ticket 17 / ADR-0055: process routes are rehydrated by
+      // ProcessRouteView from the L2 whitebox via process_route_list IPC —
+      // the L1 bootstrap read is gone.
       if (!cancelled) setBootstrapped(true);
     })();
     return () => { cancelled = true; };
-  }, [setLocale, setTheme, setView, setProcessRoutes, i18n]);
+  }, [setLocale, setTheme, setView, i18n]);
 
   if (!bootstrapped) {
     return (

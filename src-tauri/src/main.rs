@@ -242,7 +242,34 @@ fn main() {
             // Phase 3 / NEW-7: whitebox entry-port JSON + hotswap-config.
             // Seed from SQLite so first boot materializes the file from DB.
             let whitebox_path = cfg_dir.join(WHITEBOX_CONFIG_FILE);
-            let seed = WhiteboxConfig::from_ports(db.list_ports().unwrap_or_default());
+            let mut seed = WhiteboxConfig::from_ports(db.list_ports().unwrap_or_default());
+            // Ticket 17 / ADR-0055 D5: one-time L1 -> L2 migration. If the
+            // legacy settings.json key exists, merge its rules into the seed
+            // (whitebox wins per process name) and DELETE the key so the L1
+            // path can never revive the rules. Idempotent: no key => no-op;
+            // a replayed legacy value is a no-op (unit-tested in resin-core).
+            match tauri_plugin_store::StoreExt::store(app.handle(), "settings.json") {
+                Ok(l1) => {
+                    let legacy = l1.get("processRoutes");
+                    if resin_core::migrate_l1_process_routes(&mut seed, legacy.as_ref()) {
+                        tracing::info!(
+                            migrated = seed.process_routes.len(),
+                            "processRoutes migrated from L1 settings.json into the L2 whitebox"
+                        );
+                    }
+                    if legacy.is_some() {
+                        l1.delete("processRoutes");
+                        if let Err(e) = l1.save() {
+                            tracing::warn!(error = ?e, "deleting legacy L1 processRoutes key failed; it will be retried on next boot (migration stays idempotent)");
+                        } else {
+                            tracing::info!("legacy L1 processRoutes key deleted (one-time purge)");
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(error = ?e, "settings store unavailable at boot; L1 route migration skipped (will retry next boot)");
+                }
+            }
             let store = tauri::async_runtime::block_on(async {
                 match WhiteboxConfigStore::open(whitebox_path.clone(), seed.clone()).await {
                     Ok(s) => Ok(s),

@@ -53,7 +53,7 @@ standing lesson — borrow the layering, not the field semantics.
 | Layer | Storage | Sole write entry | Authority semantics |
 | --- | --- | --- | --- |
 | L1 GUI preferences | `settings.json` (`app_config_dir()`, tauri-plugin-store) | Webview `src/lib/settings.ts` + `lightweight_get/set` / `get_log_level` / `set_log_level` commands | Preference only; never influences proxy behavior |
-| L2 Whitebox user-editable | `egressapikey-strategy.json` + `egressapikey-ports.json` (`app_config_dir()`) | Strategy: `strategy_config_put` then `strategy_apply`. Ports: `WhiteboxConfigStore` (`crates/resin-core/src/whitebox_config.rs`, hotswap-config atomic write) | The file IS the truth; GUI edits and external edits converge here (ADR-0036) |
+| L2 Whitebox user-editable | `egressapikey-strategy.json` + `egressapikey-ports.json` (`app_config_dir()`) | Strategy: `strategy_config_put` then `strategy_apply`. Ports + process routes: `WhiteboxConfigStore` (`crates/resin-core/src/whitebox_config.rs`, hotswap-config atomic write; routes via the `process_route_*` commands, ADR-0055) | The file IS the truth; GUI edits and external edits converge here (ADR-0036, ADR-0055) |
 | L3 Resin runtime | Resin sidecar state (`state.db`, leases, listeners); shell-side partner `egressapikey.db` (`port_mappings` table) | ResinClient REST seam only (`crates/resin-core/src/resin_client.rs`) | Derived and rebuildable from L2 at any time; execute authority, never a config source |
 
 Write entry = authority, per layer: an L1 key must not change what the proxy
@@ -89,6 +89,20 @@ same-second collisions suffixed, never overwritten), and the two
 `*_backup_list` / `*_rollback` IPC pairs list versions and re-enter the
 same validate-before-swap → apply chain for rollback (never a bypass);
 `backup/` is runtime data, not configuration, and is never committed to git.
+
+Process routes (ticket 17, ADR-0055) are folded into the same L2 discipline:
+the `process_routes` + `route_acknowledged` fields live in
+`egressapikey-ports.json`; the `process_route_add`/`process_route_remove`
+commands are the single write entry (the former L1 settings.json key and the
+webview direct-write pair are deleted; a one-time boot migration merges the
+legacy value into the whitebox and purges the key, idempotently). A route's
+live side IS its target port: the snapshot reports a route consistent when
+its port has a Resin listener, missing_on_resin when the port is
+enabled-but-listenerless, and consistent when the port is disabled or absent
+(inert by intent); route drift joins the unacknowledged-drift counter and the
+acknowledged vocabulary; the one-way reconcile converges routes through the
+existing ports-restore half (Resin has no per-process API — verified against
+upstream). The snapshot is the ONLY sanctioned cross-store merge point.
 
 Current wiring (before ticket 07 — views poll and merge across stores):
 

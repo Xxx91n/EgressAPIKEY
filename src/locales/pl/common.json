@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "utwórz endpoint Resin (przywróć port)",
     "reconcileOneWay": "Synchronizacja jednokierunkowa: whitebox zawsze wygrywa. Aby zachować stan bieżący, edytuj whitebox.",
     "reconcileConfirm": "Zastosuj teraz",
-    "reconcileWorking": "Synchronizowanie…"
+    "reconcileWorking": "Synchronizowanie…",
+    "routesSection": "Trasy procesów",
+    "route": "Reguła"
   }
 }

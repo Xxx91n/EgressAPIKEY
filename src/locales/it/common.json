@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "crea endpoint Resin (ripristina porta)",
     "reconcileOneWay": "Sincronizzazione unidirezionale: la whitebox prevale sempre. Per mantenere lo stato attuale, modifica la whitebox.",
     "reconcileConfirm": "Applica ora",
-    "reconcileWorking": "Riconciliazione…"
+    "reconcileWorking": "Riconciliazione…",
+    "routesSection": "Route di processo",
+    "route": "Regola"
   }
 }

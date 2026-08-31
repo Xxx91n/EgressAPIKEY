@@ -857,3 +857,62 @@ describe("ticket 14: reconcile plan + report wrappers", () => {
     expect(report.portsSkipped).toBe(0);
   });
 });
+
+
+// --- Ticket 17 / ADR-0055: routes in the authoritative snapshot ---
+describe("ticket 17: route snapshot sanitizers", () => {
+  beforeEach(() => { invokeMock.mockReset(); });
+
+  it("ipcAuthoritativeSnapshot passes route variants through with the routes array", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategyVersion: 1,
+      resinReachable: true,
+      lastCheckedAt: 100,
+      platforms: [],
+      ports: [],
+      routes: [
+        { state: "consistent", process: "webview.exe", target_port: 17990, acknowledged: false },
+        { state: "missingOnResin", process: "ollama.exe", target_port: 17991, divergent_since: 90, acknowledged: true },
+      ],
+    });
+    const snap = await ipcAuthoritativeSnapshot();
+    expect(snap.routes).toHaveLength(2);
+    expect(snap.routes[0]).toMatchObject({ state: "consistent", process: "webview.exe", target_port: 17990 });
+    expect(snap.routes[1]).toMatchObject({ state: "missingOnResin", process: "ollama.exe", divergent_since: 90, acknowledged: true });
+  });
+
+  it("ipcAuthoritativeSnapshot drops malformed route entries and junk states", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategyVersion: 1,
+      resinReachable: true,
+      lastCheckedAt: 100,
+      platforms: [],
+      ports: [],
+      routes: [
+        { state: "consistent", process: "", target_port: 17990 }, // empty name dropped
+        { state: "consistent", process: "ok.exe", target_port: 70000 }, // out-of-range port dropped
+        { state: "unknown-state", process: "x.exe", target_port: 17990 }, // unknown variant dropped
+        "junk",
+        { state: "missingOnResin", process: "kept.exe", target_port: 17992, divergent_since: -1, acknowledged: "yes" },
+      ],
+    });
+    const snap = await ipcAuthoritativeSnapshot();
+    expect(snap.routes).toHaveLength(1);
+    const only = snap.routes[0] as Extract<typeof snap.routes[0], { state: "missingOnResin" }>;
+    expect(only.process).toBe("kept.exe");
+    expect(only.divergent_since).toBeUndefined();
+    expect(only.acknowledged).toBe(false);
+  });
+
+  it("snapshots WITHOUT a routes array degrade to an empty route list", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategyVersion: 1,
+      resinReachable: false,
+      lastCheckedAt: 0,
+      platforms: [],
+      ports: [],
+    });
+    const snap = await ipcAuthoritativeSnapshot();
+    expect(snap.routes).toEqual([]);
+  });
+});

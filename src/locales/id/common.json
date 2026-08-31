@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "buat endpoint Resin (pulihkan port)",
     "reconcileOneWay": "Sinkronisasi satu arah: whitebox selalu menang. Untuk mempertahankan status live, edit whitebox.",
     "reconcileConfirm": "Terapkan sekarang",
-    "reconcileWorking": "Menyinkronkan…"
+    "reconcileWorking": "Menyinkronkan…",
+    "routesSection": "Rute proses",
+    "route": "Rute"
   }
 }

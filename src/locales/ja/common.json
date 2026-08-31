@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "Resin エンドポイントを作成(ポート復元)",
     "reconcileOneWay": "一方向同期:ホワイトボックス設定が常に優先されます。実況を維持したい場合はホワイトボックスを編集してください。",
     "reconcileConfirm": "今すぐ適用",
-    "reconcileWorking": "同期中…"
+    "reconcileWorking": "同期中…",
+    "routesSection": "プロセスルート",
+    "route": "ルート"
   }
 }

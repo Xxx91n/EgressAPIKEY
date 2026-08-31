@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import { saveView, saveProcessRoutes } from "../lib/settings";
+import { saveView } from "../lib/settings";
 
 /// One Platform + its accounts (Resin Platform/Account model).
 export interface Platform {
@@ -140,16 +140,16 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({
       processRoutes: [...s.processRoutes, { id: uid(), process, targetPort }],
     })),
+  // Ticket 17 / ADR-0055: view cache only — persistence goes through the
+  // process_route_* IPC commands (single write entry, L2 whitebox).
   removeProcessRoute: (id) => {
-    const next = useAppStore.getState().processRoutes.filter((r) => r.id !== id);
-    set({ processRoutes: next });
-    void saveProcessRoutes(next);
+    set({ processRoutes: useAppStore.getState().processRoutes.filter((r) => r.id !== id) });
   },
   addSubscription: (url, nodeCount) =>
     set((s) => ({
       subscriptions: [...s.subscriptions, { id: uid(), url, nodeCount }],
     })),
-  setProcessRoutes: (routes) => { set({ processRoutes: routes }); void saveProcessRoutes(routes); },
+  setProcessRoutes: (routes) => set({ processRoutes: routes }),
   setLocale: (locale) => set({ locale }),
   setTheme: (theme) => set({ theme }),
 }));

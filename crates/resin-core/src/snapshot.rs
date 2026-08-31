@@ -219,6 +219,11 @@ pub struct AuthoritativeSnapshot {
     /// false => Resin-sourced fields are empty and every enabled entry is
     /// reported missing_on_resin; consumers must not treat that as divergence.
     pub resin_reachable: bool,
+    /// Ticket 17 / ADR-0055 D3: per-route three-state (whitebox
+    /// process_routes vs the Resin process-group echo). Empty when the
+    /// whitebox defines no routes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub routes: Vec<ProcessRouteSnapshot>,
     /// Unix seconds when THIS snapshot was generated (ticket 12 / ADR-0054 §C).
     /// Pure metadata: stamped by the command layer, never participates in the
     /// three-state merge. Monotonic non-decreasing across consecutive calls.
@@ -301,6 +306,117 @@ pub fn stamp_port_acknowledged(ports: &mut [PortSnapshot], acknowledged: &[Strin
         match p {
             PortSnapshot::Consistent { acknowledged: a, .. }
             | PortSnapshot::MissingOnResin { acknowledged: a, .. } => *a = flag,
+        }
+    }
+}
+
+/// Ticket 17 / ADR-0055 D3: per-route agreement between the L2 whitebox
+/// `process_routes` family and the L3 Resin process-group echo. The live
+/// side is the set of process names Resin currently routes (its own
+/// process-group registry, or the endpoints echo when the registry route
+/// is absent — the caller normalizes both into a name set).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "state", rename_all = "camelCase")]
+pub enum ProcessRouteSnapshot {
+    /// The rule exists in the whitebox and Resin reports the process group.
+    Consistent {
+        process: String,
+        target_port: u16,
+        /// Read-side exemption flag from the ports whitebox
+        /// `route_acknowledged` array (ADR-0055 D6). NEVER influences the
+        /// merge; stamped after merging.
+        #[serde(default)]
+        acknowledged: bool,
+    },
+    /// The rule exists in the whitebox but Resin does not report the
+    /// process group (registry absent, group deleted, sidecar restarted
+    /// without a route restore).
+    MissingOnResin {
+        process: String,
+        target_port: u16,
+        /// Unix seconds when this route FIRST entered missing_on_resin
+        /// within the current process. In-process memory only.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        divergent_since: Option<u64>,
+        /// Read-side exemption flag (ADR-0055 D6).
+        #[serde(default)]
+        acknowledged: bool,
+    },
+}
+
+impl ProcessRouteSnapshot {
+    pub fn process(&self) -> &str {
+        match self {
+            Self::Consistent { process, .. } | Self::MissingOnResin { process, .. } => process,
+        }
+    }
+
+    pub fn state_tag(&self) -> &'static str {
+        match self {
+            Self::Consistent { .. } => "consistent",
+            Self::MissingOnResin { .. } => "missing_on_resin",
+        }
+    }
+
+    pub fn acknowledged(&self) -> bool {
+        match self {
+            Self::Consistent { acknowledged, .. }
+            | Self::MissingOnResin { acknowledged, .. } => *acknowledged,
+        }
+    }
+}
+
+/// Ticket 17 / ADR-0055 D3: merge the whitebox route family. Resin has no
+/// per-process object, so the L3 side of a route IS its target port: a
+/// route is consistent when its port has a live Resin listener,
+/// missing_on_resin when the port is enabled-but-listenerless, and
+/// consistent when the port is disabled or absent (inert-by-intent,
+/// mirroring the ports family's disabled-port rule). All inputs are data
+/// the snapshot pass already holds; this function is pure.
+pub fn merge_routes(
+    whitebox: &[crate::whitebox_config::ProcessRouteRule],
+    desired_enabled_ports: &[u16],
+    live_ports: &[u16],
+) -> Vec<ProcessRouteSnapshot> {
+    let live: std::collections::HashSet<u16> = live_ports.iter().copied().collect();
+    let enabled: std::collections::HashSet<u16> = desired_enabled_ports.iter().copied().collect();
+    let mut out: Vec<ProcessRouteSnapshot> = whitebox
+        .iter()
+        .map(|r| {
+            if live.contains(&r.target_port) || !enabled.contains(&r.target_port) {
+                ProcessRouteSnapshot::Consistent {
+                    process: r.process.clone(),
+                    target_port: r.target_port,
+                    acknowledged: false,
+                }
+            } else {
+                ProcessRouteSnapshot::MissingOnResin {
+                    process: r.process.clone(),
+                    target_port: r.target_port,
+                    divergent_since: None,
+                    acknowledged: false,
+                }
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| a.process().to_lowercase().cmp(&b.process().to_lowercase()));
+    out
+}
+
+/// Stamp `acknowledged` onto merged route entries (post-merge, read-side
+/// only). Entity key = process name (case-insensitive match against the
+/// `route_acknowledged` vocabulary). The three-state tag is untouched.
+pub fn stamp_route_acknowledged(routes: &mut [ProcessRouteSnapshot], acknowledged: &[String]) {
+    if acknowledged.is_empty() {
+        return;
+    }
+    let vocab: std::collections::HashSet<String> =
+        acknowledged.iter().map(|a| a.trim().to_lowercase()).collect();
+    for r in routes.iter_mut() {
+        let flag = vocab.contains(&r.process().trim().to_lowercase());
+        match r {
+            ProcessRouteSnapshot::Consistent { acknowledged: a, .. }
+            | ProcessRouteSnapshot::MissingOnResin { acknowledged: a, .. } => *a = flag,
         }
     }
 }
@@ -815,6 +931,7 @@ mod tests {
             strategy_version: cfg.version,
             platforms: merge_strategies(&cfg, &resin, &HashMap::new(), true),
             ports: merge_ports(&[], &[]),
+            routes: vec![],
             resin_reachable: true,
             last_checked_at: 1_700_000_000,
         };
@@ -836,6 +953,84 @@ mod tests {
         assert_eq!(b_class_of(&ps), "random");
     }
 
+    // ---- ticket 17 / ADR-0055: routes merge ----
+
+    fn wb_rule(process: &str, port: u16) -> crate::whitebox_config::ProcessRouteRule {
+        crate::whitebox_config::ProcessRouteRule {
+            process: process.to_string(),
+            target_port: port,
+        }
+    }
+
+    #[test]
+    fn merge_routes_target_port_semantics() {
+        let rules = vec![wb_rule("Live.exe", 17990), wb_rule("Drift.exe", 17991), wb_rule("Inert.exe", 17992)];
+        // 17990 live; 17991 enabled-but-listenerless => missing; 17992 not enabled => inert-consistent
+        let snap = merge_routes(&rules, &[17990, 17991], &[17990]);
+        assert_eq!(snap.len(), 3);
+        // sort is case-insensitive by name: Drift < Inert < Live
+        assert_eq!(snap[0].state_tag(), "missing_on_resin");
+        assert_eq!(snap[0].process(), "Drift.exe");
+        // explicit per-rule assertions:
+        let by_name = |name: &str| snap.iter().find(|r| r.process() == name).unwrap();
+        assert_eq!(by_name("Live.exe").state_tag(), "consistent");
+        assert_eq!(by_name("Drift.exe").state_tag(), "missing_on_resin");
+        assert_eq!(by_name("Inert.exe").state_tag(), "consistent");
+        // wire shape: tagged enum with camelCase state (v[0] = Drift.exe, missing)
+        let v = serde_json::to_value(&snap).unwrap();
+        assert_eq!(v[0]["state"], "missingOnResin");
+        assert_eq!(v[0]["target_port"], 17991);
+    }
+
+    #[test]
+    fn merge_routes_case_insensitive_order_insensitive() {
+        let rules = vec![wb_rule("APP.exe", 17990)];
+        let snap = merge_routes(&rules, &[17990], &[17990]);
+        assert_eq!(snap[0].state_tag(), "consistent");
+        // input order never leaks into output order
+        let rules2 = vec![wb_rule("z.exe", 17990), wb_rule("a.exe", 17991)];
+        let snap2 = merge_routes(&rules2, &[17990, 17991], &[17990, 17991]);
+        assert_eq!(snap2[0].process(), "a.exe");
+    }
+
+    #[test]
+    fn route_acknowledged_stamp_never_touches_state() {
+        let rules = vec![wb_rule("a.exe", 17991)];
+        let mut snap = merge_routes(&rules, &[17991], &[]);
+        assert_eq!(snap[0].state_tag(), "missing_on_resin");
+        stamp_route_acknowledged(&mut snap, &["A.EXE".to_string()]);
+        assert!(snap[0].acknowledged());
+        assert_eq!(snap[0].state_tag(), "missing_on_resin");
+        // empty vocab leaves defaults
+        let mut snap2 = merge_routes(&rules, &[17991], &[]);
+        stamp_route_acknowledged(&mut snap2, &[]);
+        assert!(!snap2[0].acknowledged());
+    }
+
+    #[test]
+    fn routes_serializes_only_when_present() {
+        let snap = AuthoritativeSnapshot {
+            strategy_version: 1,
+            platforms: vec![],
+            ports: vec![],
+            routes: vec![],
+            resin_reachable: true,
+            last_checked_at: 1,
+        };
+        let v = serde_json::to_value(&snap).unwrap();
+        assert!(v.get("routes").is_none(), "empty routes must be omitted");
+        let with_routes = AuthoritativeSnapshot {
+            routes: vec![ProcessRouteSnapshot::Consistent {
+                process: "a.exe".into(),
+                target_port: 17990,
+                acknowledged: false,
+            }],
+            ..snap
+        };
+        let v2 = serde_json::to_value(&with_routes).unwrap();
+        assert!(v2.get("routes").is_some());
+    }
+
     // ---- ticket 12: lastCheckedAt + divergentSince + acknowledged ----
 
     #[test]
@@ -844,6 +1039,7 @@ mod tests {
             strategy_version: 1,
             platforms: vec![],
             ports: vec![],
+            routes: vec![],
             resin_reachable: false,
             last_checked_at: 1_756_521_600,
         };

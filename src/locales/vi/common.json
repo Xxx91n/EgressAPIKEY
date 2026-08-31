@@ -478,6 +478,8 @@
     "reconcileCreateEndpoint": "tạo endpoint Resin (khôi phục cổng)",
     "reconcileOneWay": "Đồng bộ một chiều: whitebox luôn được ưu tiên. Để giữ trạng thái hiện tại, hãy chỉnh sửa whitebox.",
     "reconcileConfirm": "Áp dụng ngay",
-    "reconcileWorking": "Đang đồng bộ…"
+    "reconcileWorking": "Đang đồng bộ…",
+    "routesSection": "Định tuyến tiến trình",
+    "route": "Luật"
   }
 }
