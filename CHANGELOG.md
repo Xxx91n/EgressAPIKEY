@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - (architecture-recovery 08) src-tauri/src/commands/mod.rs (3.4k lines) split into platform/strategy/ports/backup/settings/diagnostics + common + tests modules; generate_handler registry and IPC surface unchanged
 - (architecture-recovery 11) request_log_tail retargeted to Resin GET /api/v1/request-logs; direct request_logs*.db read deleted; RESIN_UPSTREAM_MANIFEST compat note added
 
+
+### Fixed
+- (architecture-recovery 18) NodesView vitest flake eliminated by test isolation only (zero product-code changes): root cause = sub-header expand clicks landing before the default-collapse seeding effect (NodesView.tsx seeding useEffect wholesale-overwrites `collapsed` with every subscription), which inverts the toggle (expand -> collapse) under full-suite CPU contention - standalone runs always green, full-suite 2/6 rounds failed at T4-3c; all 11 sub-header clicks in NodesView.test.tsx now route through `clickSubHeaderExpand`/`clickSubHeaderCollapse` helpers that await the settled chevron state first; new scannable guard `scripts/vitest-isolation-guard.cjs` (raw sub-header clicks outside the guarded helper block fail the build) wired into verify-build.sh; build-all.sh: `TRIPLE` used-before-assignment under `set -u` fixed (backend sidecar staging aborted every run); evidence: post-fix 5/5 full-suite green 338/338 + 6/6 standalone green 26/26
 ### Removed
 - resin-core dead kernel face (ADR-0050): mihomo/gateway/lane/lease/tdewma modules, CoreConfig/sanitize_lanes/lane constants, and the resin-core stub bin; headless product surface remains the egressapikey-headless bin (ADR-0043)
 - Unused resin-core dependencies: axum, hyper, bytes, http, thiserror, clap, tracing-subscriber, fxhash, tower (dev), http-body-util (dev)
