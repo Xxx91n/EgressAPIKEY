@@ -376,7 +376,9 @@
   "tray": {
     "show": "Mostra finestra",
     "quit": "Esci",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "Deriva di configurazione rilevata",
+    "driftBody": "La configurazione effettiva è divergente dalla whitebox. Apri Configurazione effettiva per verificare."
   },
   "expand": "Expand",
   "networkLayer": {

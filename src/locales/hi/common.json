@@ -376,7 +376,9 @@
   "tray": {
     "show": "विंडो दिखाएं",
     "quit": "बाहर निकलें",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "कॉन्फ़िगरेशन ड्रिफ्ट पाई गई",
+    "driftBody": "प्रभावी कॉन्फ़िगरेशन व्हाइटबॉक्स से भटक गया है। समीक्षा के लिए प्रभावी कॉन्फ़िगरेशन खोलें।"
   },
   "expand": "Expand",
   "networkLayer": {

@@ -54,6 +54,8 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
+# Ticket 16 / ADR-0054 §E: one-shot drift tray notification (best-effort).
+tauri-plugin-notification = "2"
 # Single-instance guard (must be the FIRST plugin registered in main.rs):
 # clicking a second GUI exe focuses the existing window instead of spawning a
 # new process. Linux uses D-Bus, Windows/macOS native.

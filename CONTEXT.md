@@ -364,6 +364,20 @@ alters the three-state merge or the snapshot data — it is presentation and
 notification suppression only, and must be revoked explicitly.
 _Avoid_: ignored, muted, auto-healed drift
 
+### Reconcile (单向)
+
+The explicit convergence action of the reconciliation loop: one user-
+triggered run (Effective Config view "sync to desired state" button, or the
+`reconcile_now` IPC) that re-asserts the L2 whitebox onto the L3 Resin
+runtime — strategy apply first, then the ports restore, stopping at the
+first failure. Direction is ONE-WAY: the whitebox ALWAYS wins; there is no
+"accept current state" reverse write, no automatic self-heal, and no
+background loop (ADR-0054 §A; ArgoCD ships selfHeal default-off for the
+same reason). A run is previewed before it executes and idempotent within
+its in-process TTL window; the snapshot re-check after either outcome is
+the evidence of convergence, not a promise.
+_Avoid_: self-heal, auto-sync, accept current state
+
 ### Whitebox Versioning (白盒版本化)
 
 Every atomic write to either whitebox file first copies the current file to

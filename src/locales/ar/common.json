@@ -376,7 +376,9 @@
   "tray": {
     "show": "إظهار النافذة",
     "quit": "إنهاء",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "تم رصد انحراف في الإعدادات",
+    "driftBody": "انحرفت الإعدادات الفعلية عن المربع الأبيض. افتح \"الإعدادات الفعلية\" للمراجعة."
   },
   "expand": "Expand",
   "networkLayer": {

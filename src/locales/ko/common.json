@@ -376,7 +376,9 @@
   "tray": {
     "show": "창 표시",
     "quit": "종료",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "설정 드리프트 감지됨",
+    "driftBody": "실제 적용된 설정이 화이트박스와 어긋납니다. 유효 설정 화면에서 확인하세요."
   },
   "expand": "Expand",
   "networkLayer": {

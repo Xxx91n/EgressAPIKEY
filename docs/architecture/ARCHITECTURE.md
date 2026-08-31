@@ -124,6 +124,35 @@ platform/port. Each entry is in exactly one of three states:
 - `missing` — one side is absent (e.g. a platform exists in the whitebox but
   not in Resin, or a port's Resin endpoint vanished).
 
+Reconciliation closure (Round 2, ADR-0054 ACCEPTED): the loop above is
+closed by four increments, all read-side or explicitly user-triggered —
+never automatic:
+
+1. **Metadata** (ticket 12): `lastCheckedAt` stamps each snapshot's
+   generation instant; `divergentSince` is the first-drift instant per
+   entity kept in PROCESS-LOCAL memory only (a restart clears it and a
+   re-drift re-times); an `acknowledged` array per whitebox marks
+   user-exempted entities — exemptions NEVER touch the three-state merge,
+   they only degrade the badge to grey "known" and silence the notification.
+2. **View** (ticket 13): the one-level Effective Config view
+   (`effectiveConfig`, nav slot before diagnostics) consumes the snapshot
+   read-only — desired|live columns, three-state badges, timestamps, manual
+   re-check; zero write paths.
+3. **Reconcile** (ticket 14): a single user-triggered `reconcile_now` runs
+   the previewed, serial strategy-apply + ports-restore with the whitebox
+   ALWAYS winning (one-way); no "accept current state" reverse write exists.
+4. **Versioned whitebox** (ticket 15): every atomic whitebox write first
+   copies the previous file to the sibling `backup/` directory (10 kept
+   per file) and the listed backups roll back through the SAME
+   validate-before-swap -> apply chain — never a bypass.
+
+**Tray notification** (ticket 16): once per process, the FIRST snapshot
+containing unacknowledged drift fires one OS notification (state machine in
+`src-tauri/src/tray.rs`, hooked on the snapshot command tail); the state
+re-arms only after a snapshot reports zero unacknowledged drift. Sidecar-down
+absence never notifies (ADR-0051). See `docs/how-to/WHY-NOT-EFFECTIVE.md`
+for the user-facing troubleshooting table.
+
 The snapshot is the ONLY sanctioned cross-store merge point. View layers
 consume it and must not re-merge stores. Implemented 2026-08-30 (ticket 07,
 ADR-0051): the former `TopologyView.tsx` `sync()`-time merge of

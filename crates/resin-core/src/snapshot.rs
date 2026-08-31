@@ -123,6 +123,17 @@ impl StrategySnapshot {
             Self::MissingOnResin { .. } => "missing_on_resin",
         }
     }
+
+    /// Read-side exemption flag (ticket 12 / ADR-0054 §D). The notify-once
+    /// rule (ADR-0054 §E, ticket 16) and the view's grey "known" degradation
+    /// both consume this; the three-state merge itself never reads it.
+    pub fn acknowledged(&self) -> bool {
+        match self {
+            Self::Consistent { acknowledged, .. }
+            | Self::Divergent { acknowledged, .. }
+            | Self::MissingOnResin { acknowledged, .. } => *acknowledged,
+        }
+    }
 }
 
 /// Per-entry-port agreement between the L2 whitebox ports config
@@ -180,6 +191,15 @@ impl PortSnapshot {
         match self {
             Self::Consistent { .. } => "consistent",
             Self::MissingOnResin { .. } => "missing_on_resin",
+        }
+    }
+
+    /// Read-side exemption flag (ticket 12 / ADR-0054 §D); see the platform
+    /// accessor for the consumers.
+    pub fn acknowledged(&self) -> bool {
+        match self {
+            Self::Consistent { acknowledged, .. }
+            | Self::MissingOnResin { acknowledged, .. } => *acknowledged,
         }
     }
 }
@@ -518,6 +538,77 @@ pub fn b_class_of(ps: &crate::strategy_engine::PlatformStrategy) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    /// Ticket 16 / ADR-0054 §E: the acknowledged accessor reads the stamped
+    /// read-side flag on every variant (the once-per-process notify rule
+    /// filters on it; the three-state merge must stay untouched).
+    #[test]
+    fn acknowledged_accessor_reads_stamped_flag_all_variants() {
+        use crate::snapshot::StrategySnapshot;
+        let div = StrategySnapshot::Divergent {
+            platform_name: "p".into(),
+            platform_id: "id".into(),
+            whitebox_regions: vec!["us".into()],
+            resin_regions: vec!["hk".into()],
+            resin_allocation_policy: "BALANCED".into(),
+            b_class: "random".into(),
+            a_class: "region".into(),
+            manual_nodes: vec![],
+            subscriptions: vec![],
+            divergent_since: None,
+            acknowledged: true,
+        };
+        assert!(div.acknowledged());
+        let mis = StrategySnapshot::MissingOnResin {
+            platform_name: "q".into(),
+            platform_id: String::new(),
+            regions: vec![],
+            a_class: "region".into(),
+            b_class: "random".into(),
+            manual_nodes: vec![],
+            subscriptions: vec![],
+            divergent_since: None,
+            acknowledged: false,
+        };
+        assert!(!mis.acknowledged());
+        let con = StrategySnapshot::Consistent {
+            platform_name: "r".into(),
+            platform_id: "id".into(),
+            regions: vec!["us".into()],
+            resin_allocation_policy: "BALANCED".into(),
+            b_class: "random".into(),
+            a_class: "region".into(),
+            manual_nodes: vec![],
+            subscriptions: vec![],
+            acknowledged: true,
+        };
+        assert!(con.acknowledged());
+
+        use crate::snapshot::PortSnapshot;
+        let pmis = PortSnapshot::MissingOnResin {
+            port: 17990,
+            platform_name: "p".into(),
+            protocol: "socks5".into(),
+            account: "a".into(),
+            label: String::new(),
+            auth_required: false,
+            divergent_since: None,
+            acknowledged: true,
+        };
+        assert!(pmis.acknowledged());
+        let pcon = PortSnapshot::Consistent {
+            port: 17991,
+            platform_name: "p".into(),
+            protocol: "socks5".into(),
+            account: "a".into(),
+            label: String::new(),
+            enabled: true,
+            auth_required: false,
+            acknowledged: false,
+        };
+        assert!(!pcon.acknowledged());
+    }
+
     use super::*;
     use crate::strategy_engine::{AClassStrategy, PlatformStrategy};
     use serde_json::json;

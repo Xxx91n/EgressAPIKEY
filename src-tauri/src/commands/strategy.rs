@@ -339,7 +339,7 @@ pub async fn authoritative_snapshot(
         }
     }
 
-    Ok(resin_core::AuthoritativeSnapshot {
+    let snapshot = resin_core::AuthoritativeSnapshot {
         strategy_version: config.version,
         platforms,
         ports,
@@ -347,7 +347,16 @@ pub async fn authoritative_snapshot(
         // Ticket 12: generation instant of THIS snapshot; monotonic
         // non-decreasing across consecutive calls (wall clock).
         last_checked_at: now,
-    })
+    };
+
+    // Ticket 16 / ADR-0054 §E: one-shot drift notice. Hooked on the only
+    // sanctioned merge point so every snapshot consumer (TopologyView 5s
+    // poll, EffectiveConfigView open/re-check/reconcile/rollback re-verify)
+    // feeds the same per-process notify-once state machine — no extra
+    // polling, no background loop. Best-effort: a failed toast is logged.
+    crate::tray::fire_drift_notification(&app, &snapshot);
+
+    Ok(snapshot)
 }
 
 /// Extract the set of listener ports from a GET /api/v1/endpoints response.

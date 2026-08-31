@@ -1,6 +1,8 @@
 # ADR-0054: Reconciliation-Loop Completion — one-way reconcile, preview, versioned whitebox, snapshot metadata, acknowledged exemptions, one-shot notify
 
-> Status: PROPOSED
+> Status: ACCEPTED (flipped 2026-08-31 at ticket 16 closeout, after the
+> word-for-word alignment pass verified the sections against the landed
+> code of tickets 12-15 and this ticket's §E implementation)
 > Date: 2026-08-30
 > Ticket: architecture-recovery 12 (snapshot-metadata-acknowledged) — this
 > ticket writes the OVERVIEW and sections C (metadata) / D (exemptions).
@@ -25,13 +27,13 @@ loop, all within the existing ADR lattice.
 
 ## Decision (Overview of the six sections)
 
-- **§A One-way reconcile (ticket 13).** A single `reconcile_now` IPC runs
+- **§A One-way reconcile (ticket 14).** A single `reconcile_now` IPC runs
   compute_plan preview -> explicit user confirm -> `strategy_apply` +
   `restore_ports_from_whitebox` -> automatic re-snapshot. Direction is
   ONE-WAY: the whitebox (L2) always wins; there is NO L3->L2 write path
   and no "accept current state" button — users who prefer the live state
   edit the whitebox instead.
-- **§B Versioned whitebox (ticket 15 — landed here).** Both whitebox
+- **§B Versioned whitebox (ticket 15).** Both whitebox
   stores copy the previous file to a sibling `backup/` directory (inside
   `app_config_dir()`; runtime data, never committed to git) before every
   atomic write (`<original>.<unixts>[-N].bak`; the `-N` suffix resolves
@@ -53,9 +55,11 @@ loop, all within the existing ADR lattice.
   `crates/resin-core/src/whitebox_backup.rs`.
 - **§C Snapshot metadata (this ticket).** See below.
 - **§D Acknowledged exemptions (this ticket).** See below.
-- **§E One-shot tray notify (ticket 15).** The tray notifies exactly once
+- **§E One-shot tray notify (ticket 16).** The tray notifies exactly once
   per process when a NOT-acknowledged drift first appears; acknowledged
-  entities never notify; no notification loop.
+  entities never notify; no notification loop. Landed 2026-08-31; the
+  landed mechanics are recorded in "### §E One-shot tray notify (ticket 16
+  — landed here)" below.
 - **§F Docs + acceptance (ticket 16).** The排障 how-to ("我改了为什么没生效")
   and the ADR flip to ACCEPTED.
 
@@ -96,7 +100,8 @@ loop, all within the existing ADR lattice.
    "known" degradation for acknowledged entries, per-entry
    `divergentSince`, top-of-view `lastCheckedAt`, and a manual re-check
    button (one fetch on open, no polling). Zero write paths — the
-   reconcile action lands in ticket 14, exemptions in 15.
+   reconcile action landed in ticket 14 (§A); the exemption fields
+   themselves landed in ticket 12 (§D).
 
 ### §D Acknowledged exemptions (ticket 12 — landed here)
 
@@ -128,6 +133,40 @@ loop, all within the existing ADR lattice.
    `divergentSince`; the `missingOnResin` badge renders neutral zinc (not
    amber) whenever `resinReachable` is false — sidecar-down absence is
    not drift (ADR-0051).
+
+### §E One-shot tray notify (ticket 16 — landed here)
+
+1. The state machine is a pure pair in `src-tauri/src/tray.rs`:
+   `DriftNotifyState` (process-local, starts ARMED) +
+   `evaluate_drift_notice(state, unacknowledged_drift) -> bool` (fire only
+   on actual unacknowledged drift while armed). The static
+   `DRIFT_NOTIFY_STATE` mirrors `DRIFT_MEMORY` / `RECONCILE_MEMORY`: a
+   process restart re-arms, which IS the once-per-process contract.
+2. **Where it hooks:** the tail of the `authoritative_snapshot` command —
+   the ONLY sanctioned merge point. Every snapshot consumer (TopologyView
+   5s poll, EffectiveConfigView open / manual re-check / reconcile
+   re-verify / rollback re-verify) feeds the same state machine; there is
+   no separate notification poller and no background loop.
+3. **What counts as drift:** `count_unacknowledged_drift_entries` counts
+   divergent / missingOnResin platform entries and missingOnResin port
+   entries whose stamped `acknowledged` flag is false. Acknowledged entries
+   are exempt here but stay fully visible in the Effective Config view (§D).
+4. **Re-arm rule:** after a fire the state disarms; a later snapshot with
+   ZERO unacknowledged drift entries re-arms it, so a NEW drift episode can
+   notify again (issue 16: 归零后再武装). The re-arm itself never emits.
+5. **Sidecar down = silence:** when `resin_reachable` is false the hook
+   returns without notifying — sidecar-down absence is not drift
+   (ADR-0051), and warning the user about drift while the engine is simply
+   offline would be noise. The whitebox half stays assertable in the view.
+6. **Delivery:** best-effort OS notification via tauri-plugin-notification
+   (`notification:default` capability; plugin registered in main.rs only
+   for the GUI Builder — headless never constructs it). A dispatch failure
+   is logged (tray target, warn) and swallowed: a missed toast is never
+   fatal to the snapshot. Copy is per-locale via the static `drift_notice(lc)`
+   table (18 rows, same lockstep contract as the tray labels; mirrors the
+   `tray.driftTitle` / `tray.driftBody` keys in all 18 frontend catalogs).
+   The locale is read from the persisted L1 `lang` key, which never
+   influences proxy behavior — copy choice is presentation only.
 
 ### Explicitly rejected (with precedent)
 

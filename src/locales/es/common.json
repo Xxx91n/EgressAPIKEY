@@ -376,7 +376,9 @@
   "tray": {
     "show": "Mostrar Ventana",
     "quit": "Salir",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "Deriva de configuración detectada",
+    "driftBody": "La configuración efectiva se desvió de la caja blanca. Abre Configuración efectiva para revisarla."
   },
   "expand": "Expand",
   "networkLayer": {

@@ -47,6 +47,10 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
+        // Ticket 16 / ADR-0054 §E: OS notification permission for the one-shot
+        // drift notice. The notification itself is fired from the snapshot
+        // command; headless builds never construct this Builder.
+        .plugin(tauri_plugin_notification::init())
         // Re7: tauri-plugin-tracing — one `tracing` pipeline for resin-core +
         // shell. Wires stdout + a WebviewLayer (Rust logs -> frontend log panel
         // via the `tracing://log` event the npm guest binds) + a daily-rotating

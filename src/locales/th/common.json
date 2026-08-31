@@ -376,7 +376,9 @@
   "tray": {
     "show": "แสดงหน้าต่าง",
     "quit": "ออก",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "ตรวจพบการเลื่อนค่าการตั้งค่า",
+    "driftBody": "การตั้งค่าที่มีผลจริงคลาดเคลื่อนจาก whitebox เปิดหน้าการตั้งค่าที่มีผลจริงเพื่อตรวจสอบ"
   },
   "expand": "Expand",
   "networkLayer": {

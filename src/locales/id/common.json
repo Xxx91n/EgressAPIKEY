@@ -376,7 +376,9 @@
   "tray": {
     "show": "Tampilkan jendela",
     "quit": "Keluar",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "Drift konfigurasi terdeteksi",
+    "driftBody": "Konfigurasi efektif menyimpang dari whitebox. Buka Konfigurasi Efektif untuk ditinjau."
   },
   "expand": "Expand",
   "networkLayer": {

@@ -376,7 +376,9 @@
   "tray": {
     "show": "Mostrar Janela",
     "quit": "Sair",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "Deriva de configuração detetada",
+    "driftBody": "A configuração efetiva divergiu da whitebox. Abra Configuração efetiva para rever."
   },
   "expand": "Expand",
   "networkLayer": {

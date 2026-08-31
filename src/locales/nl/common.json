@@ -376,7 +376,9 @@
   "tray": {
     "show": "Venster tonen",
     "quit": "Afsluiten",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "Configuratiedrift gedetecteerd",
+    "driftBody": "De effectieve configuratie wijkt af van de whitebox. Open Effectieve configuratie om te controleren."
   },
   "expand": "Expand",
   "networkLayer": {

@@ -376,7 +376,9 @@
   "tray": {
     "show": "Pokaż okno",
     "quit": "Zakończ",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "Wykryto dryf konfiguracji",
+    "driftBody": "Konfiguracja efektywna odbiega od whiteboxa. Otwórz Konfigurację efektywną, aby sprawdzić."
   },
   "expand": "Expand",
   "networkLayer": {

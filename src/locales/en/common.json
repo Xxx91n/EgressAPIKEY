@@ -376,7 +376,9 @@
   "tray": {
     "show": "Show Window",
     "quit": "Quit",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "Config drift detected",
+    "driftBody": "Your effective configuration drifted from the whitebox. Open Effective Config to review."
   },
   "expand": "Expand",
   "networkLayer": {

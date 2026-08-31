@@ -376,7 +376,9 @@
   "tray": {
     "show": "显示窗口",
     "quit": "退出",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "检测到配置漂移",
+    "driftBody": "实际生效配置已偏离白盒期望态。打开生效配置视图查看详情。"
   },
   "expand": "Expand",
   "networkLayer": {

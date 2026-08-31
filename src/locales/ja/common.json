@@ -376,7 +376,9 @@
   "tray": {
     "show": "ウィンドウを表示",
     "quit": "終了",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "設定ドリフトを検出",
+    "driftBody": "有効な設定が白紙箱の期待状態から逸脱しました。有効設定ビューで確認してください。"
   },
   "expand": "Expand",
   "networkLayer": {

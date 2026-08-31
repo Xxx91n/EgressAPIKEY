@@ -376,7 +376,9 @@
   "tray": {
     "show": "Hiện cửa sổ",
     "quit": "Thoát",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "Phát hiện cấu hình trôi dạt",
+    "driftBody": "Cấu hình hiệu lực đã lệch khỏi whitebox. Mở Cấu hình hiệu lực để xem lại."
   },
   "expand": "Expand",
   "networkLayer": {

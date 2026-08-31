@@ -376,7 +376,9 @@
   "tray": {
     "show": "Pencereyi göster",
     "quit": "Çık",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "Yapılandırma sürüklenmesi algılandı",
+    "driftBody": "Etkin yapılandırma whitebox'tan saptı. İncelemek için Etkin Yapılandırma'yı açın."
   },
   "expand": "Expand",
   "networkLayer": {

@@ -376,7 +376,9 @@
   "tray": {
     "show": "Показать окно",
     "quit": "Выйти",
-    "tooltip": "EgressAPIKEY"
+    "tooltip": "EgressAPIKEY",
+    "driftTitle": "Обнаружено расхождение конфигурации",
+    "driftBody": "Действующая конфигурация отклонилась от whitebox. Откройте «Эффективную конфигурацию» для проверки."
   },
   "expand": "Expand",
   "networkLayer": {
