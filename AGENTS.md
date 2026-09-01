@@ -153,7 +153,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 # Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):
 # entries must equal the #[tauri::command] set under src-tauri/src AND the
 # generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.
-# Do not hand-edit entries. Regenerated: 2026-08-31 (71 commands)
+# Do not hand-edit entries. Regenerated: 2026-09-02 (67 commands)
 backup_create = src-tauri/src/commands/backup.rs
 backup_upload = src-tauri/src/commands/backup.rs
 backup_list = src-tauri/src/commands/backup.rs
@@ -164,12 +164,10 @@ get_sidecar_status = src-tauri/src/commands/diagnostics.rs
 request_log_tail = src-tauri/src/commands/diagnostics.rs
 check_firewall_status = src-tauri/src/commands/diagnostics.rs
 probe_exit_ip = src-tauri/src/commands/diagnostics.rs
-gateway_snapshot = src-tauri/src/commands/platform.rs
 platform_add = src-tauri/src/commands/platform.rs
 platform_remove = src-tauri/src/commands/platform.rs
 platform_list = src-tauri/src/commands/platform.rs
 platform_list_full = src-tauri/src/commands/platform.rs
-platform_snapshot = src-tauri/src/commands/platform.rs
 account_add = src-tauri/src/commands/platform.rs
 account_bind_ip = src-tauri/src/commands/platform.rs
 process_route_add = src-tauri/src/commands/platform.rs
@@ -194,12 +192,10 @@ port_remove = src-tauri/src/commands/ports.rs
 port_toggle = src-tauri/src/commands/ports.rs
 port_bind_platform = src-tauri/src/commands/ports.rs
 port_running = src-tauri/src/commands/ports.rs
-port_reload = src-tauri/src/commands/ports.rs
 whitebox_save_network = src-tauri/src/commands/ports.rs
 whitebox_path = src-tauri/src/commands/ports.rs
 whitebox_get = src-tauri/src/commands/ports.rs
 whitebox_reload = src-tauri/src/commands/ports.rs
-stream_sensor_snapshot = src-tauri/src/commands/ports.rs
 port_auth_info = src-tauri/src/commands/ports.rs
 port_health_check = src-tauri/src/commands/ports.rs
 watch_port_health = src-tauri/src/commands/ports.rs

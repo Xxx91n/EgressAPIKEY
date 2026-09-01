@@ -4,7 +4,7 @@
 //! tauri-specta rc.25 cannot partially replace tauri::generate_handler!
 //! (an invoke_handler covers all-or-nothing commands), so the runtime
 //! registry in main.rs stays untouched (65 commands) while this module
-//! collects only the three pilot commands. The export itself runs from
+//! collects only the two pilot commands. The export itself runs from
 //! the integration test tests/bindings_export.rs (a debug-profile cargo
 //! test build, matching the ticket's 'debug build generates bindings'
 //! clause); the generated file is committed to the repo.
@@ -21,7 +21,7 @@
 //! builder::<tauri::Wry>() as usual.
 //!
 //! 64-bit ints carry #[specta(type = u32)] field overrides where they
-//! appear (see LaneSnapshot): specta-typescript 0.0.12 has no bigint
+//! appear: specta-typescript 0.0.12 has no bigint
 //! re-behavior knob and forbids u64/usize by default, so the override
 //! is the only way to keep the generated shapes 'number' and drop-in
 //! compatible with the hand-copied types they replace.
@@ -30,13 +30,12 @@ use crate::commands;
 use tauri::Runtime;
 use tauri_specta::{Builder, collect_commands};
 
-/// Pilot set: one read-snapshot (gateway_snapshot), one enum-param
-/// (set_log_level), one rich-error-path mutation (port_toggle).
+/// Pilot set: one enum-param (set_log_level), one rich-error-path
+/// mutation (port_toggle).
 /// Generic over the runtime: the export test uses MockRuntime; a
 /// post-adoption invoke_handler would use Wry.
 pub fn builder<R: Runtime>() -> Builder<R> {
     Builder::<R>::new().commands(collect_commands![
-        commands::gateway_snapshot,
         commands::set_log_level,
         commands::port_toggle,
     ])

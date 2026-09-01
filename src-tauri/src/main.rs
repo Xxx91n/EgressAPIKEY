@@ -109,7 +109,7 @@ fn main() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![commands::gateway_snapshot,
+        .invoke_handler(tauri::generate_handler![
             commands::tray_refresh_labels,
             // #7: open config / log directory buttons in Settings.
             commands::get_config_dir,
@@ -122,7 +122,6 @@ fn main() {
             commands::platform_remove,
             commands::platform_list,
             commands::platform_list_full,
-            commands::platform_snapshot,
             commands::account_add,
             commands::account_bind_ip,
             commands::process_route_add,
@@ -157,7 +156,6 @@ fn main() {
             commands::port_remove,
             commands::port_bind_platform,
             commands::port_running,
-            commands::port_reload,
             commands::port_auth_info,
             commands::port_health_check,
             commands::watch_port_health,
@@ -170,7 +168,6 @@ fn main() {
             commands::whitebox_save_network,
             commands::whitebox_backup_list,
             commands::whitebox_rollback,
-            commands::stream_sensor_snapshot,
                     commands::authoritative_snapshot,
             commands::strategy_config_get,
             commands::strategy_config_put,

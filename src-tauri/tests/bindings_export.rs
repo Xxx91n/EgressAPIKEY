@@ -12,10 +12,8 @@ fn export_bindings_ts_and_assert_pilot_contract() {
         .expect("failed to export bindings.ts");
     let ts = std::fs::read_to_string("../src/bindings.ts").expect("bindings.ts readable");
     for needle in [
-        "gateway_snapshot",
         "set_log_level",
         "port_toggle",
-        "LaneSnapshot",
         "PortMapping",
         "IpcError",
         "LogLevel",

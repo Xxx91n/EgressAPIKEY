@@ -280,17 +280,6 @@ pub async fn port_running(
     Ok(forwarder.running_ports())
 }
 
-/// Explicit reload of the whitebox file (hand-edit path). Invalid files are
-/// rejected by hotswap-config validation and leave the active map unchanged.
-#[tauri::command]
-pub async fn port_reload(
-    db: State<'_, DbPool>,
-    forwarder: State<'_, resin_core::PortForwarder>,
-    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
-) -> Result<usize, IpcError> {
-    whitebox.reload_file(&db, &forwarder).await.map_err(IpcError::from)
-}
-
 /// T6-3: Save network-layer config (DNS + idle conns + probe + bypass) to the
 /// whitebox JSON file, atomically updating in-memory state + env injection.
 #[tauri::command]
@@ -326,13 +315,6 @@ pub async fn whitebox_reload(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
 ) -> Result<usize, IpcError> {
     whitebox.reload_file(&db, &forwarder).await.map_err(IpcError::from)
-}
-
-#[tauri::command]
-pub async fn stream_sensor_snapshot(
-    forwarder: State<'_, resin_core::PortForwarder>,
-) -> Result<resin_core::StreamSensorSnapshot, IpcError> {
-    Ok(forwarder.stream_snapshot())
 }
 
 /// ADR-0021 Q1: return the SOCKS5 authentication credentials a gateway must

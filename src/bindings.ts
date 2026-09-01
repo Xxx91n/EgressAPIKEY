@@ -4,7 +4,6 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
-	gatewaySnapshot: () => typedError<LaneSnapshot, IpcError>(__TAURI_INVOKE("gateway_snapshot")),
 	setLogLevel: (level: LogLevel) => typedError<string, IpcError>(__TAURI_INVOKE("set_log_level", { level })),
 	/**
 	 *  T18-S2 (ADR-0042): Toggle enabled flag on an entry-port without
@@ -42,24 +41,6 @@ export type IpcError =
 	msg: string,
 	i18n_key: string,
 } };
-
-/**
- *  Ticket 09 pilot: the usize/u64 fields carry a #[specta(type = u32)]
- *  override because specta-typescript 0.0.12 forbids 64-bit ints (its
- *  bigint policy has no export knob in this version). Runtime wire format
- *  is untouched - the override only shapes the generated TS.
- */
-export type LaneSnapshot = {
-	lane_count: number,
-	busy: number,
-	latencies: ([string, number | null, number, number])[],
-	/**
-	 *  Per-platform active lease counts (platform name, active_count).
-	 *  The TS side uses this to render entry boxes with the real active
-	 *  lease occupancy instead of a placeholder 0. Resin is the source.
-	 */
-	per_platform_active: ([string, number])[],
-};
 
 /**
  *  Ticket 09 (tauri-specta pilot): log level as a closed enum. The wire

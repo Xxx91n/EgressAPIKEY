@@ -27,7 +27,7 @@ import {
   ipcPlatformCreateWithFields, ipcPlatformLeases,
   ipChannelList, ipChannelPolicySet, ipChannelCreate, ipChannelDelete,
   ipcPortList, ipcPortUpsert,
-  ipcPortToggle, ipcPortRemove, ipcPortRunning, ipcPortReload,
+  ipcPortToggle, ipcPortRemove, ipcPortRunning,
   ipcPortHealthCheck,
   ipcProbeExitIp,
   ipcCheckFirewallStatus,
@@ -37,7 +37,7 @@ import {
   ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply, ipcStrategyPlatformRegionsSet,
   ipcAuthoritativeSnapshot,
   ipcReconcileNow, snapReconcilePlan,
-  ipcGatewaySnapshot, ipcSetLogLevel,
+  ipcSetLogLevel,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -358,7 +358,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     await expect(ipcIpReputationSnapshot()).resolves.toEqual({ provider: null, status: "disabled", entries: [] });
   });
 
-  it("ipcPortRemove / ipcPortRunning / ipcPortReload forward", async () => {
+  it("ipcPortRemove / ipcPortRunning forward", async () => {
     invokeMock.mockResolvedValueOnce(true);
     await expect(ipcPortRemove(17990)).resolves.toBe(true);
     expect(invokeMock).toHaveBeenCalledWith("port_remove", expect.objectContaining({ port: 17990 }));
@@ -366,10 +366,6 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     invokeMock.mockResolvedValueOnce([17990, 17991]);
     await expect(ipcPortRunning()).resolves.toEqual([17990, 17991]);
     expect(invokeMock).toHaveBeenCalledWith("port_running", expect.objectContaining({ __trace_id: expect.any(String) }));
-
-    invokeMock.mockResolvedValueOnce(2);
-    await expect(ipcPortReload()).resolves.toBe(2);
-    expect(invokeMock).toHaveBeenCalledWith("port_reload", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
   it("T8-1 ipcPortBindPlatform forwards port + platformName (empty = unbind)", async () => {
     const { ipcPortBindPlatform } = await import("./ipc");
@@ -652,14 +648,6 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
 // ---- Ticket 09 (tauri-specta pilot): type-contract swap regression ----
 describe("specta-pilot wrappers (ticket 09)", () => {
   beforeEach(() => { invokeMock.mockReset(); });
-
-  it("ipcGatewaySnapshot dispatches no data args and returns the generated LaneSnapshot shape", async () => {
-    invokeMock.mockResolvedValueOnce({ lane_count: 50, busy: 2, latencies: [], per_platform_active: [["p", 1]] });
-    const snap = await ipcGatewaySnapshot();
-    expect(invokeMock).toHaveBeenCalledWith("gateway_snapshot", expect.objectContaining({ __trace_id: expect.any(String) }));
-    expect(snap.lane_count).toBe(50);
-    expect(snap.per_platform_active).toEqual([["p", 1]]);
-  });
 
   it("ipcSetLogLevel rejects out-of-union values before invoke", async () => {
     await expect(ipcSetLogLevel("fatal")).rejects.toThrow("invalid log level");

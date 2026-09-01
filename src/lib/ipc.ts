@@ -7,7 +7,7 @@ import { invoke as _invoke, Channel } from "@tauri-apps/api/core";
 // specta-generated src/bindings.ts. TYPE-ONLY by design: the generated
 // runtime wrappers bypass this module's trace_id injection and the headless
 // CMD_TO_HTTP dual-mode, so runtime calls stay on invoke().
-import type { LaneSnapshot, LogLevel, PortMapping } from "../bindings";
+import type { LogLevel, PortMapping } from "../bindings";
 
 // --- T17 dual-mode: isTauri detection + cmd → REST route map (ADR-0043 Q2=A) ---
 // In the Tauri webview we use the native invoke(). In a plain browser
@@ -54,7 +54,6 @@ const CMD_TO_HTTP: Record<string, HttpRoute | undefined> = {
   platform_remove:         { method: "DELETE", path: "/api/v1/platforms" }, // needs name → id; done by a list+match in fetch mode
   platform_list:           { method: "GET",    path: "/api/v1/platforms" },
   platform_list_full:      { method: "GET",    path: "/api/v1/platforms" },
-  platform_snapshot:      { method: "GET",    path: "/api/v1/platforms" },
   platform_update:        { method: "PATCH",  path: "/api/v1/platforms" }, // name → id lookup before patch
   platform_create_with_fields: { method: "POST", path: "/api/v1/platforms" },
   platform_leases:        { method: "GET",    path: "/api/v1/platforms" },
@@ -65,7 +64,6 @@ const CMD_TO_HTTP: Record<string, HttpRoute | undefined> = {
   node_list:              { method: "GET",    path: "/api/v1/nodes" },
   node_pool_snapshot:     { method: "GET",    path: "/api/v1/metrics/snapshots/node-pool" },
   // Port + gateway mirrors
-  gateway_snapshot:       { method: "GET",    path: "/api/v1/metrics/realtime/leases" },
   request_log_tail:        { method: "GET",    path: "/api/v1/request-logs" },
   // Config / whitebox / system pass through the same /api/v1/* prefix
   config_export:          { method: "GET",    path: "/api/v1/config/export" },
@@ -160,12 +158,6 @@ export async function ipcPlatformList(): Promise<string[]> {
 /// allocation_policy/routable_node_count.
 export async function ipcPlatformListFull(): Promise<unknown> {
   return invoke("platform_list_full");
-}
-
-export async function ipcPlatformSnapshot(name: string): Promise<unknown> {
-  assertShortName(name, "platform");
-  // Returns the Resin items-wrapper: { items: NodeSummary[], total, limit, offset }.
-  return invoke("platform_snapshot", { name });
 }
 
 /// T6-Bug2: Re-export from strategy.ts — shell 6-option is the sole UI source of truth.
@@ -295,10 +287,6 @@ export async function ipcAccountBindIp(platform: string, account: string, ip: st
 
 export async function ipcRefreshTray(): Promise<void> {
   await invoke("tray_refresh_labels").catch((e) => console.warn("[ipc] tray_refresh_labels failed", e));
-}
-
-export async function ipcGatewaySnapshot(): Promise<LaneSnapshot> {
-  return invoke<LaneSnapshot>("gateway_snapshot");
 }
 
 // ---- Subscriptions + node pool (G4) ----
@@ -556,10 +544,6 @@ export async function ipcPortRunning(): Promise<number[]> {
   return Array.isArray(raw) ? raw : [];
 }
 
-export async function ipcPortReload(): Promise<number> {
-  return invoke<number>("port_reload");
-}
-
 /// ADR-0021 Q1: SOCKS5/HTTP credentials a gateway must present to reach an
 /// entry-port. Username is the port's bound Platform.Account string,
 /// password is the sidecar global proxy_token. `auth_required` is read from
@@ -812,17 +796,6 @@ export async function ipcStrategyBackupList(): Promise<WhiteboxBackupEntry[]> {
 export async function ipcStrategyRollback(backupName: string): Promise<unknown> {
   assertBackupName(backupName);
   return invoke("strategy_rollback", { backupName });
-}
-
-export interface StreamSensorSnapshot {
-  unary: number;
-  sse: number;
-  websocket: number;
-  unknown: number;
-}
-
-export async function ipcStreamSensorSnapshot(): Promise<StreamSensorSnapshot> {
-  return invoke<StreamSensorSnapshot>("stream_sensor_snapshot");
 }
 
 

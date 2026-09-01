@@ -46,17 +46,6 @@ use serde_json::json;
         assert_eq!(platform_id_for_name(&v, "Bar"), None);
     }
 
-    #[test]
-    fn sum_active_leases_parses_resin_shape() {
-        assert_eq!(
-            sum_active_leases(
-                &json!({ "items": [{ "active_leases": 7 }, { "active_leases": 5 }] })
-            ),
-            12
-        );
-        assert_eq!(sum_active_leases(&json!({ "active_leases": 4 })), 4);
-        assert_eq!(sum_active_leases(&json!({})), 0);
-    }
     /// Ticket 17 / ADR-0055: the conflict rule moved to document level in
     /// resin-core (same port, different process => typed error). Shell-side
     /// regression lock on the re-exported helper.
@@ -77,41 +66,6 @@ use serde_json::json;
         .is_err());
         // different process, different port -> ok
         assert!(resin_core::process_route_conflict_check(&existing).is_ok());
-    }
-
-    #[test]
-    fn per_platform_active_resolves_uuid_to_name() {
-        // Default platform + one custom platform; Default emits platform_id = ""
-        let platforms = json!([
-            { "name": "Default", "id": "00000000-0000-0000-0000-000000000000" },
-            { "name": "OpenAI",   "id": "11111111-1111-1111-1111-111111111111" },
-        ]);
-        let leases = json!({
-            "items": [
-                { "platform_id": "", "active_leases": 4, "ts": "x" },
-                { "platform_id": "11111111-1111-1111-1111-111111111111", "active_leases": 2, "ts": "x" },
-            ],
-            "step_seconds": 5,
-        });
-        let got = per_platform_active_from_leases(&leases, &platforms);
-        let map: std::collections::HashMap<String, usize> = got.into_iter().collect();
-        assert_eq!(map.get("Default"), Some(&4));
-        assert_eq!(map.get("OpenAI"), Some(&2));
-    }
-
-    #[test]
-    fn per_platform_active_falls_back_to_raw_id_when_unknown() {
-        // Lease for a UUID not present in the platforms list; we surface the raw
-        // UUID string instead of dropping the count so the canvas still renders.
-        let platforms =
-            json!([ { "name": "Default", "id": "00000000-0000-0000-0000-000000000000" } ]);
-        let leases = json!({
-            "items": [ { "platform_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "active_leases": 7 } ],
-        });
-        let got = per_platform_active_from_leases(&leases, &platforms);
-        assert!(got
-            .iter()
-            .any(|(n, c)| n == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" && *c == 7));
     }
 
     /// P13 B6/B4: Resin wraps list responses as `{"items":[...]}`. The old
