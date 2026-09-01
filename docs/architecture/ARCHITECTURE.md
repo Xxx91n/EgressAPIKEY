@@ -69,11 +69,12 @@ Two distinct write pipelines live behind L2 (verified in code;
 `src-tauri/src/commands/ports.rs`):
 
 - Strategy: GUI or JSON edit → `strategy_config_put` (validate, write
-  `egressapikey-strategy.json`) → `strategy_apply` (compute plan, PATCH Resin
-  `region_filters`, auto-clean stale platform entries and write the file
-  back). Landed: ticket 10 converged read/validate/apply/read-back into the
-  one StrategyService module (`crates/resin-core/src/strategy_service.rs`,
-  ADR-0052; ADR-0036 stays in force).
+  `egressapikey-strategy.json`) → `strategy_apply` (compute plan, create
+  missing-on-resin platforms per ADR-0056, PATCH Resin `region_filters`;
+  never deletes whitebox entries). Landed: ticket 10 converged
+  read/validate/apply/read-back into the one StrategyService module
+  (`crates/resin-core/src/strategy_service.rs`, ADR-0052; ADR-0036 stays in
+  force).
 - Ports: `port_upsert` / `port_remove` / `port_toggle` /
   `whitebox_save_network` → `WhiteboxConfigStore` (atomic write +
   validate-before-swap + file watch) → accepted files applied to
