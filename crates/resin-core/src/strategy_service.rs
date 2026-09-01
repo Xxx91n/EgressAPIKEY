@@ -2,8 +2,8 @@
 //! (architecture-recovery ticket 10; ADR-0052).
 //!
 //! Vocabulary (see ADR-0052 for the full three-vocabulary map):
-//! - `strategy.rs` owns the B-class catalog (`StrategyId` 6 shell options +
-//!   protocol weight table) — the UI-facing strategy vocabulary.
+//! - `strategy.rs` owns the B-class type (`StrategyId` 6 shell options) —
+//!   the UI-facing strategy vocabulary (catalog/mapping face deleted, ticket 24).
 //! - `strategy_engine.rs` owns the A-class planner (`StrategyConfig`,
 //!   `compute_plan`, `parse_nodes`) — the region-computation vocabulary.
 //! - `src/lib/strategy.ts` (frontend) maps `StrategyId` to i18n keys and to

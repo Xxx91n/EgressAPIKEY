@@ -15,7 +15,7 @@
 //! - port_forwarder: entry-port forwarding + exit-IP probe helpers
 //! - port_health: entry-port TCP/SOCKS5 health checks
 //! - resin_client: loopback REST client for the Resin Go sidecar API
-//! - strategy: strategy catalog + protocol weight table
+//! - strategy: B-class StrategyId type (shell strategy vocabulary)
 //! - strategy_engine: A/B-class strategy evaluation (shell-side)
 //! - strategy_service: StrategyConfig pipeline owner (read/validate/store/apply/snapshot, ADR-0052)
 //! - stream_sensor: AI stream (SSE/WS) classification
@@ -56,7 +56,7 @@ pub use resin_client::ResinClient;
 pub use snapshot::{
     AuthoritativeSnapshot, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot,
 };
-pub use strategy::{protocol_weight, strategy_catalog, StrategyId, StrategyInfo};
+pub use strategy::StrategyId;
 pub use strategy_engine::{
     a_class_regions, compute_plan, liveness_filter, parse_nodes, AClassStrategy, BClassParams,
     NodeSummary, PlatformStrategy, StrategyConfig,

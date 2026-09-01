@@ -8,6 +8,12 @@
  *
  * strategyToI18nKey maps to the committed strategy.* i18n keys (T5 Phase 5-5).
  * strategyToResinPolicy maps to the Resin backend enum.
+ *
+ * Sole mapping (ticket 24): this file is the ONLY strategy↔allocation_policy
+ * mapping left in the repo — used for view display labels and the webview-side
+ * translation before the platform PATCH. The Rust-side mapping
+ * (StrategyId::to_resin_allocation_policy) was deleted; do not reintroduce a
+ * second copy in Rust.
  */
 export const STRATEGY_IDS = [
   "random",

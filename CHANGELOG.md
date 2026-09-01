@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - resin-core dead kernel face (ADR-0050): mihomo/gateway/lane/lease/tdewma modules, CoreConfig/sanitize_lanes/lane constants, and the resin-core stub bin; headless product surface remains the egressapikey-headless bin (ADR-0043)
 - Unused resin-core dependencies: axum, hyper, bytes, http, thiserror, clap, tracing-subscriber, fxhash, tower (dev), http-body-util (dev)
 - `docs/CONTEXT.md` (root `CONTEXT.md` is the canonical copy)
+- (architecture-recovery 24) strategy.rs dead catalog face: `StrategyId::parse`, `StrategyId::to_resin_allocation_policy` (Rust-side strategy↔allocation_policy mapping), `protocol_weight`, `strategy_catalog`/`StrategyInfo` deleted with their 4 self-referential tests (resin-core lib tests 199→195); `snapshot.rs` keep-import-honest placeholder line and the top-level `StrategyId` import it propped up purified; `lib.rs` re-export narrowed to `StrategyId`; the repo's only strategy↔allocation_policy mapping is now `src/lib/strategy.ts` (display/PATCH use, header comment added); `StrategyId` type + `as_str` kept (live `b_class_of` consumer)
 
 ## [0.1.0] - 2026-08-19
 

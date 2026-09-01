@@ -18,7 +18,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::strategy::StrategyId;
 use crate::strategy_engine::StrategyConfig;
 
 /// Per-platform agreement between the L2 whitebox strategy config and the
@@ -648,7 +647,6 @@ pub fn merge_ports(
 /// Exposed for the command layer so the snapshot's b_class field always uses
 /// the shell catalog vocabulary (ADR-0039 SS2 B badge contract).
 pub fn b_class_of(ps: &crate::strategy_engine::PlatformStrategy) -> String {
-    let _ = StrategyId::Random; // keep the import honest if the catalog moves
     ps.b_class.as_str().to_string()
 }
 
@@ -726,6 +724,7 @@ mod tests {
     }
 
     use super::*;
+    use crate::strategy::StrategyId;
     use crate::strategy_engine::{AClassStrategy, PlatformStrategy};
     use serde_json::json;
 
