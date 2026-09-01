@@ -459,28 +459,6 @@ impl<S: StrategyConfigStore> StrategyService<S> {
         Ok(compute_plan(&config, nodes))
     }
 
-    /// Persist back only when cleaning actually dropped entries.
-    fn persist_cleaned_if_changed(
-        &self,
-        original: &StrategyConfig,
-        cleaned: &StrategyConfig,
-        changed: bool,
-    ) {
-        if !changed {
-            return;
-        }
-        tracing::info!(
-            before = original.platforms.len(),
-            after = cleaned.platforms.len(),
-            "strategy_apply: auto-cleaned stale platform entries from strategyConfig"
-        );
-        // Best-effort persistence: a failed clean-back must not fail the apply
-        // (historical behavior; the next apply re-cleans).
-        if let Err(e) = self.store.store(cleaned) {
-            tracing::warn!(error = %e, "strategy_apply: persisting cleaned config failed");
-        }
-    }
-
     /// Deep edit used by the topology canvas: set (or create) one platform's
     /// region list in the whitebox, preserving every other entry verbatim.
     /// Returns the stored document (post-write). This is the sanctioned
@@ -522,9 +500,14 @@ impl<S: StrategyConfigStore> StrategyService<S> {
 }
 
 impl StrategyService<FsStrategyStore> {
-    /// Full apply: read whitebox -> parse nodes -> auto-clean stale platforms
-    /// (persist when changed) -> compute plan -> PATCH region_filters per
-    /// platform. PATCH failures are reported per-platform, never fatal.
+    /// Full apply: read whitebox -> parse nodes -> fulfill the reconcile
+    /// preview's promises per platform (create missing-on-resin platforms
+    /// through the ResinClient create seam, ADR-0056; PATCH region_filters
+    /// for every whitebox platform found on Resin). PATCH/create failures
+    /// are reported per-platform, never fatal. Apply NEVER deletes whitebox
+    /// desired state: a failed create keeps the entry and reports the
+    /// reason (the former clean_stale auto-clean path was removed by
+    /// ADR-0056 — the "said establish, actually deleted" contradiction).
     pub async fn apply(
         &self,
         client: &crate::resin_client::ResinClient,
@@ -542,12 +525,33 @@ impl StrategyService<FsStrategyStore> {
             .iter()
             .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(String::from))
             .collect();
-        let (cleaned, changed) = clean_stale(&config, &live_names);
-        self.persist_cleaned_if_changed(&config, &cleaned, changed);
 
-        let plan = compute_plan(&cleaned, &nodes);
+        let plan = compute_plan(&config, &nodes);
         let mut platforms = Vec::new();
         for (platform_name, regions) in &plan {
+            if !live_names.contains(platform_name) {
+                // ADR-0056: the preview says "will be established" — make it
+                // true. Create the platform on Resin, then fall through to
+                // the PATCH loop (which re-reads list_platforms and finds
+                // the created row). A failed create is reported per-platform
+                // and the whitebox entry survives for the next apply to
+                // retry.
+                match client.create_platform_from_name(platform_name).await {
+                    Ok(_) => {
+                        tracing::info!(platform = %platform_name, "strategy_apply: created missing-on-resin platform");
+                    }
+                    Err(e) => {
+                        tracing::warn!(platform = %platform_name, error = %e.to_string(), "strategy_apply: create platform failed");
+                        platforms.push(AppliedPlatform {
+                            platform: platform_name.clone(),
+                            region_filters: regions.clone(),
+                            patched: false,
+                            reason: Some(format!("create failed: {e}")),
+                        });
+                        continue;
+                    }
+                }
+            }
             let platforms_v = client
                 .list_platforms()
                 .await
@@ -1112,6 +1116,235 @@ mod tests {
         assert!(out.unwrap_err().contains("port restore boom"));
         m_nodes.assert_async().await;
         m_platforms.assert_async().await;
+    }
+
+    // ---- apply: missing-on-resin platform semantics (ADR-0056, ticket 22) ----
+
+    fn apply_fixture_store_path(tag: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("strategy-apply-{}-{}.json", tag, std::process::id()))
+    }
+
+    /// The preview promises "create_platform" for a whitebox platform absent
+    /// from Resin; apply must FULFILL it: POST /platforms {"name": ...}, then
+    /// PATCH the computed region_filters via the created id. The whitebox
+    /// entry survives (apply never deletes desired state, ADR-0056).
+    #[tokio::test]
+    async fn apply_creates_missing_on_resin_platform_and_patches_regions() {
+        let store_path = apply_fixture_store_path("create");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+            .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0}]}"#)
+            .create_async()
+            .await;
+        // Two platform-list phases, in registration order (mockito serves the
+        // first mock that still has missing hits): the apply's initial read
+        // sees alpha MISSING (empty list), the PATCH loop's re-read after the
+        // create sees alpha LIVE (id-alpha).
+        let m_platforms_empty = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let m_platforms_created = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-alpha","name":"alpha","region_filters":[]}]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let m_create = server
+            .mock("POST", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .match_body(mockito::Matcher::PartialJson(json!({"name": "alpha"})))
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":"id-alpha","name":"alpha"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let m_patch = server
+            .mock("PATCH", "/api/v1/platforms/id-alpha")
+            .match_header(bearer.0, bearer.1)
+            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":"id-alpha"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("apply must succeed");
+        assert_eq!(report.platforms.len(), 1);
+        let p = &report.platforms[0];
+        assert_eq!(p.platform, "alpha");
+        assert!(p.patched, "created platform must be PATCHed: {p:?}");
+        assert_eq!(p.reason, None);
+
+        // The whitebox entry survives: apply never deletes desired state.
+        let after = svc.get().unwrap();
+        assert_eq!(after.platforms.len(), 1);
+        assert_eq!(after.platforms[0].platform_name, "alpha");
+
+        m_nodes.assert_async().await;
+        m_platforms_empty.assert_async().await;
+        m_platforms_created.assert_async().await;
+        m_create.assert_async().await;
+        m_patch.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    /// A failed create is honest, not silent: the report carries the failure
+    /// reason for that platform AND the whitebox entry stays (the reverse
+    /// "said establish, actually deleted" action is forbidden, ADR-0056).
+    #[tokio::test]
+    async fn apply_failed_create_reports_reason_and_keeps_whitebox_entry() {
+        let store_path = apply_fixture_store_path("failcreate");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+            .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[]}"#)
+            .create_async()
+            .await;
+        let m_platforms = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[]}"#)
+            .expect_at_least(1)
+            .create_async()
+            .await;
+        let m_create = server
+            .mock("POST", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(500)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"boom"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("apply itself must not fail: per-platform errors are non-fatal");
+        assert_eq!(report.platforms.len(), 1);
+        let p = &report.platforms[0];
+        assert_eq!(p.platform, "alpha");
+        assert!(!p.patched);
+        assert!(
+            p.reason.as_deref().unwrap_or("").contains("create"),
+            "reason must surface the create failure: {p:?}"
+        );
+
+        // The whitebox entry KEEPS its place — no reverse deletion.
+        let after = svc.get().unwrap();
+        assert_eq!(after.platforms.len(), 1);
+        assert_eq!(after.platforms[0].platform_name, "alpha");
+
+        m_nodes.assert_async().await;
+        m_platforms.assert_async().await;
+        m_create.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    /// A live platform keeps the plain PATCH path (no create POST) — the
+    /// create branch fires only for missing-on-resin names (ADR-0056).
+    #[tokio::test]
+    async fn apply_live_platform_patches_without_create() {
+        let store_path = apply_fixture_store_path("live");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+            .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0}]}"#)
+            .create_async()
+            .await;
+        let m_platforms = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["US"]}]}"#)
+            .expect_at_least(1)
+            .create_async()
+            .await;
+        let m_create = server
+            .mock("POST", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":"x"}"#)
+            .expect(0)
+            .create_async()
+            .await;
+        let m_patch = server
+            .mock("PATCH", "/api/v1/platforms/id-a")
+            .match_header(bearer.0, bearer.1)
+            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":"id-a"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("apply must succeed");
+        assert!(report.platforms[0].patched, "{:?}", report.platforms[0]);
+
+        m_nodes.assert_async().await;
+        m_platforms.assert_async().await;
+        m_create.assert_async().await;
+        m_patch.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
     }
 
     fn platform_id_for_name_fixture(v: &serde_json::Value, name: &str) -> Option<String> {
