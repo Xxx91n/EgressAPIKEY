@@ -63,16 +63,17 @@ needing to edit L3 state to change behavior is a bug. No new config storage
 may be introduced without re-legislating this subsection. Logs
 (`app_log_dir()`, Resin request logs) are observability data, not a layer.
 
-Two distinct write pipelines currently live behind L2 (facts from the
-2026-08-29 candidate report, verified in code; `strategy_config_put` /
-`strategy_apply` / `port_upsert` / `whitebox_reload` in
-`src-tauri/src/commands/mod.rs`):
+Two distinct write pipelines live behind L2 (verified in code;
+`strategy_config_put` / `strategy_apply` in
+`src-tauri/src/commands/strategy.rs`, `port_upsert` / `whitebox_reload` in
+`src-tauri/src/commands/ports.rs`):
 
 - Strategy: GUI or JSON edit → `strategy_config_put` (validate, write
   `egressapikey-strategy.json`) → `strategy_apply` (compute plan, PATCH Resin
   `region_filters`, auto-clean stale platform entries and write the file
-  back). Destination: ticket 10 converges read/validate/apply/read-back into
-  one StrategyService module (ADR-0036 stays in force).
+  back). Landed: ticket 10 converged read/validate/apply/read-back into the
+  one StrategyService module (`crates/resin-core/src/strategy_service.rs`,
+  ADR-0052; ADR-0036 stays in force).
 - Ports: `port_upsert` / `port_remove` / `port_toggle` /
   `whitebox_save_network` → `WhiteboxConfigStore` (atomic write +
   validate-before-swap + file watch) → accepted files applied to
@@ -104,17 +105,10 @@ acknowledged vocabulary; the one-way reconcile converges routes through the
 existing ports-restore half (Resin has no per-process API — verified against
 upstream). The snapshot is the ONLY sanctioned cross-store merge point.
 
-Current wiring (before ticket 07 — views poll and merge across stores):
-
-```mermaid
-flowchart TD
-    V[Settings / Platforms / Topology views] --> S[L1 settings.json]
-    V --> ST[L2 strategy.json] --> AP[strategy_apply] --> R[(L3 Resin runtime)]
-    V --> WB[L2 ports.json] <--> DB[(egressapikey.db)] --> R
-    V -->|5s poll + view-layer merge| R
-```
-
-Target state (one write entry per layer + one authoritative read-back):
+Landed wiring (ticket 07 / ADR-0051 — views consume the one authoritative
+snapshot; the former view-layer cross-store merge is deleted, its diagram
+preserved in git history). One write entry per layer + one authoritative
+read-back:
 
 ```mermaid
 flowchart TD
@@ -126,7 +120,7 @@ flowchart TD
     SNAP --> L3
 ```
 
-Effective-snapshot read-back contract (ticket 07 prerequisite): a single deep
+Effective-snapshot read-back contract (ticket 07, landed): a single deep
 IPC (authoritative-snapshot semantics) returns the merged effective
 configuration in ONE call, reading three sources (L2 strategy JSON, L2 ports
 JSON + `egressapikey.db`, L3 Resin runtime) and marking divergence per

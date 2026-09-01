@@ -1,7 +1,7 @@
 # ADR-0011: Observed Key Pool — B-B-3 route_id-derived key identity + SQLite store
 
 Date: 2026-08-03
-Status: ACCEPTED
+Status: SUPERSEDED by ADR-0012 (route correction — port = identity; the observed-key pool line was deleted by ADR-0014)
 Decision Type: Storage architecture + GUI identity model
 
 ## Context

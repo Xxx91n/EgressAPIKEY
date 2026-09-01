@@ -1,7 +1,7 @@
 # ADR-0003: identity = (platform, account, targetHost) in Resin; shell injects account from (auth, body.model, path)
 
 Date: 2026-08-02 (revised twice: first PROPOSED wrong, then ACCEPTED three-tuple, now corrected again after source-level Resin research)
-Status: ACCEPTED (corrected)
+Status: SUPERSEDED by ADR-0012 (route correction — thin-shell multi-port forwarder, port = identity; decision body kept for history)
 Decision Type: Domain contract + shell-side identification + shell-side account injection
 
 ## Context
