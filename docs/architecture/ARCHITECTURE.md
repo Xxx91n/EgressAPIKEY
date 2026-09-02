@@ -13,13 +13,13 @@ React 19 Frontend (src/)
 - ReactFlow 12 topology canvas with live sidecar-status banner
 - Zustand 5 state (persisted to tauri-plugin-store via src/lib/settings.ts)
 - Tailwind CSS + react-i18next (18 base locales)
-- 5 tabs: Topology / Platforms / Subscriptions / ProcessRoute / Settings
+- 8 nav slots: Topology / Platforms / ProcessRoute / Subscriptions / Nodes / EffectiveConfig / Diagnostics / Settings
 - Typed IPC wrappers in src/lib/ipc.ts (validate-then-invoke, AGENTS S7.6)
 
 Tauri 2 Shell (src-tauri/)
 
 - sidecar.rs: boot_resin + spawn_health_poll (3s, 3-fail clear-os-proxy)
-- commands/mod.rs: 44 #[tauri::command] (platforms/subscriptions/strategy/process_routes/port_auth/port_health/nodes/config_export/whitebox/stream_sensor/ip_reputation) forwarding to Resin via ResinClient
+- 67 #[tauri::command] across 6 domain files (backup/diagnostics/platform/ports/settings/strategy, live manifest in AGENTS.md 7.6); commands/mod.rs is a pure re-export facade and the generate_handler! registry lives in main.rs; Resin-facing commands forward via ResinClient
 - tray.rs: i18n tray (18 locales), click-to-show
 
 Resin Go Sidecar (bundle.externalBin)
@@ -182,7 +182,7 @@ legislated fixtures). Adding a new view-layer merge is a review blocker.
 Desktop shell: Tauri 2 (Rust)
 Frontend: React 19, Vite 6, ReactFlow 12, Zustand 5, Tailwind 4, react-i18next
 Sidecar: Resin Go binary (github.com/Resinat/Resin v1.2.0)
-Tests: cargo test (100), vitest (123), playwright
+Tests: cargo test, vitest, playwright (counts: run scripts/verify-build.sh)
 Packaging: tauri build --features custom-protocol -> release/
 
 ## Fallback
