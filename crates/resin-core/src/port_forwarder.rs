@@ -18,7 +18,7 @@ use std::sync::Arc;
 use tokio::sync::watch;
 
 use crate::db::DbPool;
-use crate::{StreamSensor, StreamSensorSnapshot};
+use crate::stream_sensor::{StreamSensor, StreamSensorSnapshot};
 
 /// Max concurrent entry ports the shell will bind (industrial safety).
 pub const MAX_ENTRY_PORTS: usize = 256;

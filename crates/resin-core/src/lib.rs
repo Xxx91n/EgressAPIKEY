@@ -44,40 +44,20 @@ pub mod whitebox_config;
 pub use db::{DbPool, PortMapping};
 pub use ipc_error::{map_resin_error, IpcError};
 pub use ip_reputation::{
-    parse_public_ips, ReputationClient, ReputationEntry, ReputationProvider, ReputationSnapshot,
+    parse_public_ips, ReputationClient, ReputationProvider, ReputationSnapshot,
 };
-pub use platform::{Account, Platform, PlatformRegistry};
-pub use port_forwarder::{
-    detect_protocol, parse_trace_body_ip, resin_identity, PortForwarder, MAX_ENTRY_PORTS,
-    MIN_USER_PORT,
-};
-pub use port_health::{adaptive_interval, HealthState, PortHealthEntry, PortHealthSnapshot};
+pub use port_forwarder::{parse_trace_body_ip, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT};
+pub use port_health::PortHealthSnapshot;
 pub use resin_client::ResinClient;
-pub use snapshot::{
-    AuthoritativeSnapshot, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot,
-};
-pub use strategy::StrategyId;
-pub use strategy_engine::{
-    a_class_regions, compute_plan, liveness_filter, parse_nodes, AClassStrategy, BClassParams,
-    NodeSummary, PlatformStrategy, StrategyConfig,
-};
+pub use snapshot::{AuthoritativeSnapshot, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot};
+pub use strategy_engine::{compute_plan, parse_nodes, StrategyConfig};
 pub use strategy_service::{
-    clean_stale, compute_reconcile_plan, endpoint_live_ports, validate as validate_strategy_config,
-    AppliedPlatform, ApplyReport, FsStrategyStore, ReconcileMemory, ReconcilePlan,
-    ReconcilePortsOutcome, ReconcileReport, StrategyConfigStore, StrategyService,
-    RECONCILE_PORT_TTL_SECS,
+    endpoint_live_ports, FsStrategyStore, ReconcileMemory, ReconcilePortsOutcome, StrategyService,
 };
-pub use stream_sensor::{classify_http_headers, StreamKind, StreamSensor, StreamSensorSnapshot};
-pub use whitebox_backup::{
-    atomic_write_bytes, backup_before_write, backup_dir, backup_list, now_unix, parse_backup_name,
-    read_backup, read_backup_parsed, validate_backup_name, WhiteboxBackupEntry, BACKUP_DIR_NAME,
-    WHITEBOX_BACKUP_KEEP,
-};
+pub use whitebox_backup::WhiteboxBackupEntry;
 pub use whitebox_config::{
-    enabled_entries_for_restore, migrate_l1_process_routes, parse_legacy_l1_routes,
-    process_route_conflict_check, validate as validate_whitebox_config, NetworkConfig,
-    ProcessRouteRule, MAX_PROCESS_ROUTES,
-    WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE,
+    enabled_entries_for_restore, migrate_l1_process_routes, process_route_conflict_check,
+    NetworkConfig, ProcessRouteRule, WhiteboxConfig, WhiteboxConfigStore, WHITEBOX_CONFIG_FILE,
 };
 
 /// IPC lane-range contract (AGENTS.md section 7.5): lane indices arriving
