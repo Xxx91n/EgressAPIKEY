@@ -224,8 +224,8 @@ strategy_rollback = src-tauri/src/commands/strategy.rs
 reconcile_now = src-tauri/src/commands/strategy.rs
 ```
 
-- Never expose `MihomoController`, `CoreConfig.mihomo_api`, or `CoreConfig.mihomo_secret` through a `#[tauri::command]` that takes a raw `String` and constructs the controller from it. Config must come from `tauri-plugin-store` settings.json (server-side trust), not from the webview.
-- The current `MihomoController` is NOT yet instantiated by the Tauri shell (only `resin-core` references it). Keeping it uninstantiated until the sidecar lifecycle wiring is an explicit safety boundary; do not wire it through a frontend-controlled constructor without revisiting this section.
+- If mihomo REST control is ever reintroduced (ADR-0050 is the authoritative record of the `mihomo.rs` deletion): never expose `MihomoController`, `CoreConfig.mihomo_api`, or `CoreConfig.mihomo_secret` through a `#[tauri::command]` that takes a raw `String` and constructs the controller from it; `api_base` must pass the loopback-only validation described above (non-loopback targets are rejected); and config must come from `tauri-plugin-store` settings.json (server-side trust), not from the webview.
+- If `MihomoController` is ever reintroduced, it must not be wired through a frontend-controlled constructor without revisiting this section; keeping it uninstantiated by the Tauri shell was the pre-deletion safety boundary and remains the default stance until such a reintroduction is explicitly designed.
 
 ### 8. Subagent policy for this repo
 
