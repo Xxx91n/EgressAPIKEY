@@ -25,7 +25,7 @@ Endpoints that DO NOT exist (probed, all 404): /lanes, /routes, /keys,
 
 ### Platform schema (the B category - api-key group/platform)
 
-```
+```text
 id: uuid
 name: string
 sticky_ttl: Go duration (e.g. 1h0m0s, 168h0m0s)
@@ -74,27 +74,32 @@ aggregate health.
 ## Phased delivery
 
 ### Phase R1 - Platform schema surface (backend IPC)
+
 - Add platform_update IPC command (PATCH /api/v1/platforms/{id}) exposing regex_filters, allocation_policy, sticky_ttl.
 - Add node_list IPC command (GET /api/v1/nodes) returning full node list with egress IPs.
 - Closed-loop test: create platform, PATCH allocation_policy, verify field changed.
 
 ### Phase R2 - Topology canvas redesign (frontend)
+
 - Three-column layout: A (entry proxy port, single node), B (platforms from platform_list), C (nodes from node_list).
 - A-to-B: always-connected edges (proxy routes all inbound to all platforms).
 - B-to-C: draggable edges = platform-to-node binding. Drag = PATCH.
 - Open question: how does Resin bind a platform to specific nodes/egress IPs? regex_filters matches upstream hosts, not nodes. region_filters matches node regions. The platform-to-node binding may be implicit (all healthy nodes eligible, allocation_policy picks). Probe with real nodes loaded before coding.
 
 ### Phase R3 - Node/IP-channel management tab
+
 - New tab: node pool list with health, egress IP, protocol.
 - Import from subscription URL or local clash YAML (already works via P13).
 - Per-node health polling (already in node-pool snapshot).
 
 ### Phase R4 - Whitebox config layer + backup
+
 - Export current platform+subscription config as JSON/YAML.
 - Import/restore with validation + backup before apply.
 - Topology edge changes = config changes = hot PATCH + config file write.
 
 ## Open questions before Phase R2 code
+
 ## RESOLVED open questions (live-probed 2026-07-31 with 33 real nodes loaded)
 
 1. **Platform-to-node binding is via region_filters, NOT per-node.** Probed:
@@ -123,6 +128,7 @@ aggregate health.
 
 The user's "drag line from B (platform) to C (specific node)" model maps to Resin's actual
 behavior as follows:
+
 - A (entry proxy port): single node, always-connected to all platforms. This is the Resin
   forward-proxy listen port.
 - B (platforms): one box per platform. Each platform shows: name, regex_filters (which upstream
@@ -138,6 +144,7 @@ Alternative considered: per-node binding (drag to a single node) would require a
 to add a platform->node_id filter. Out of scope for v1; documented as a limitation.
 
 ## Constraints (AGENTS.md alignment)
+
 - All IPC validates input (7.5), no panics (P14), loopback-only ResinClient.
 - i18n: new UI strings touch all 18 locales.
 - Tests: each phase ships closed-loop tests.

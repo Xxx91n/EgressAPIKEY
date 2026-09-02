@@ -30,7 +30,7 @@ and the lane stays sticky until the SSE terminator fires."
 4. **shadowsocks (ss://)** — single-stream cipher, SSE passes through, but
    **no native UDP**, so if the upstream API does websocket-over-quic it
    will silently fall back to TCP. Acceptable.
-5. **hysteria2 / tuic** — **mon	do not use for SSE**: they are QUIC-based
+5. **hysteria2 / tuic** — **mon    do not use for SSE**: they are QUIC-based
    and aggressively take advantage of UDP — the QUIC connection's
    per-stream credit windows can freeze mid-event if the head-of-line buffer
    overflows. The desktop egress-policy weighting should deprioritize

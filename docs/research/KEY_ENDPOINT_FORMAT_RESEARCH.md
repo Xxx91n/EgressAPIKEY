@@ -7,48 +7,64 @@
 ## Literal request header formats (the formats we must be idempotent across)
 
 ### 1. OpenAI (api.openai.com)
-```
+
+```http
 POST https://api.openai.com/v1/chat/completions
 Authorization: Bearer sk-...
 Content-Type: application/json
 { "model": "gpt-4o", "messages": [...] }
+
+
 ```
+
 - Auth value = gateway-side OpenAI key.
 - Upstream endpoint = path + body.model.
 
 ### 2. NVIDIA build.nvidia.com GLM-5.2 (integrate.api.nvidia.com)
-```
+
+```python
 from openai import OpenAI
 client = OpenAI(base_url="https://integrate.api.nvidia.com/v1",
                 api_key="$NVIDIA_API_KEY")
 client.chat.completions.create(model="z-ai/glm-5.2", ...)
+
+
 ```
+
 - Same OpenAI-compatible protocol. Authorization: Bearer $NVIDIA_API_KEY.
 - Upstream endpoint identified by body.model = "z-ai/glm-5.2".
 
 ### 3. Anthropic (api.anthropic.com)
-```
+
+```text
 POST https://api.anthropic.com/v1/messages
 x-api-key: sk-ant-...
 anthropic-version: 2023-06-01
 { "model": "claude-sonnet-5", "messages": [...] }
+
+
 ```
+
 - NOT Bearer. x-api-key header carries the key.
 - OmniRoute's validate route shows hybrid proxies send BOTH x-api-key and
   Bearer simultaneously; our normalize_auth handles both.
 
 ### 4. Azure OpenAI
-```
+
+```text
 POST https://<resource>.openai.azure.com/openai/deployments/<id>/chat/completions?api-version=...
 api-key: <azure-key>
+
+
 ```
+
 - Custom api-key header, not Bearer.
 
 ## The identification mechanism (OmniRoute source-of-truth)
 
 OmniRoute does NOT route by Authorization alone. Its pipeline:
 
-```
+```text
 Incoming request -> src/proxy.ts
   -> runAuthzPipeline() in src/server/authz/pipeline.ts
      1. Strip trusted internal headers (x-omniroute-auth-*) from inbound
@@ -63,7 +79,8 @@ Incoming request -> src/proxy.ts
 ```
 
 So the identity for "which (key, upstream endpoint) pair is this" is:
-```
+
+```text
 (extractApiKey(request), body.model, request.path)
 ```
 
@@ -74,6 +91,7 @@ but which are stripped from inbound to prevent forgery.
 ## Resin-native gap
 
 Resin v1.1.2 platform config uses:
+
 - `reverse_proxy_fixed_account_header: "Authorization"` -> extracts auth value
   as the Account string.
 - `regex_filters: ["\\.openai\\.com$"]` -> matches upstream REQUEST Host.
@@ -89,6 +107,7 @@ in crates/resin-core/src/lane.rs does.
 ## Proxy binding (OmniRoute priority order, for reference)
 
 OmniRoute proxy resolution (PROXY_GUIDE.md) priority highest -> lowest:
+
 1. account-level (per api key / OAuth connection)
 2. provider-level (per provider, e.g. all OpenAI traffic)
 3. combo-level (per combo/routing config)

@@ -10,7 +10,12 @@
     // Multiple top level headings: ADRs and phase docs have this
     "MD025": false,
     // Inline HTML: AGENTS.md and docs use raw HTML sparingly
-    "MD033": false
+    "MD033": false,
+    // Duplicate headings: flag same-parent duplicates only. CHANGELOG.md repeats
+    // "Added/Changed/Fixed/Removed" per release under different "## [version]" parents
+    // (Keep a Changelog 2.0.0 format); renaming them would lose the standard shape.
+    // Matches pinned markdownlint-cli2 0.14.0 (docs-lint action v17).
+    "MD024": { "siblings_only": true }
   },
   "ignores": [
     "node_modules/**",

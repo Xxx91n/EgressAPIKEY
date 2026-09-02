@@ -22,6 +22,7 @@
 ## 5 个参考项目速查
 
 ### Resin (Resinat/Resin) — Go, 1732★, MIT
+
 - 10万+ 节点；P2C + 域名感知 TD-EWMA；粘性锚定出口 IP（同 IP 多节点可互换）
 - Platform + Account 双层隔离；每 Platform 独立可路由视图 + xsync.Map 租约表
 - 热路径无锁（P2C + 原子）；冷路径全量重建可路由集合；TD-EWMA 分权威域名/普通站点 LRU
@@ -30,6 +31,7 @@
 - 零侵入：可从 Authorization 头提取 Account 自动绑定 IP
 
 ### Pingora (Cloudflare / STOA 嵌入) — Rust, Apache-2.0
+
 - 共享连接池替代 per-client pool；50K+ RPS 不耗尽；H2 global multiplexing
 - STOA 选择 Embedded Connector（feature-gated pingora），单二进制零 sidecar
 - <1K RPS 差异 0.5ms p95；>50K RPS 才体现优势
@@ -37,17 +39,20 @@
 - 迁移模式：ProxyPhase trait 1:1 映射 ProxyHttp，仅代理路径切 PingoraPool.send_request()
 
 ### Ghost (Ghostsproxy) — Tauri + Go sidecar
+
 - Rust Tauri 壳 + Go ghost-engine sidecar；HTTP/WS 通信
 - safety net：sidecar 死后 Rust 调 OS API 关系统代理，不依赖 sidecar 存活
 - 启动握手：sidecar 15s 内输出 JSON（api_port/proxy_port/token），超时退出
 - system tray：每 3s 轮询后端状态，连续 3 次失败触发 safety net
 
 ### Comox AI Gateway — Go, 企业级 LLM 网关
+
 - goroutine 万级并发 SSE；单二进制；GC 亚毫秒停顿
 - Least-Latency 路由 + 模型回退 + 语义缓存（向量）+ 熔断器
 - 印证高并发 SSE 必须 Go/Rust；无 SOCKS5/进程路由/粘性 IP（仅算法参考）
 
 ### Only1MCP — Rust (axum), 10k+ req/s, <5ms
+
 - MCP 聚合网关；bb8 连接池 + DashMap 缓存；SSE/STDIO/HTTP 多传输
 - 仅作 Rust 高并发模式参考；无代理池/出口 IP/订阅导入
 
@@ -74,7 +79,6 @@
 - 不抛 mihomo：保留订阅编译 + Clash YAML 编译能力，作为 Resin 下游
 - 不自己实现 IP 粘性：用 Resin 出口 IP 锚定 + 租约表
 - 不引入 Pingora 直至 >50K RPS：短期 reqwest pool_max_idle=0 足够
-
 
 ---
 
@@ -118,7 +122,6 @@
 ### 与原任务指令的对齐
 
 原任务 #2 字面「复用 Resin 的 webui 代码：把 Resin/webui/ 整个搬进 Tauri src/」，被 exa 抓取证据证实：`Resin/webui/` 确实是现成 React+TS+Vite 项目。该任务前提成立，第一窗口误判为「前提不成立」并走偏到 C；本次复审修正回 A。
-
 
 ---
 

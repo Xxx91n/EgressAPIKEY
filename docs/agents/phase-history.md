@@ -8,7 +8,7 @@
 
 ---
 
-### 18. P9 hardening - process routing, log rotation, test closed-loops, i18n seed sync
+## 18. P9 hardening - process routing, log rotation, test closed-loops, i18n seed sync
 
 - **Process routing (issue 3 + 10)**: three new `#[tauri::command]` in `src-tauri/src/commands/mod.rs` now own the per-process -> lane routing-rule registry.
   - `process_route_add(app, process, target_lane)` - validates name (1..128 chars, no control per AGENTS <language uri>§7.5), lane range `0..MAX_LANES=50`, persistence via `tauri-plugin-store` key `processRoutes`. REJECTS via a pure helper `process_route_conflict_check(existing, new_process, new_lane)` BEFORE recording if the same target lane is already bound to a DIFFERENT process - the conflict surfaces as a typed `Err(String)` to the IPC caller.
@@ -26,8 +26,8 @@
 - **i18n seed fix (issue 5)**: 52 stale seed values previously untranslated (the generator had dumped the en value verbatim). `subscription.name` + `subscription.description` + `topology.sidecarUnhealthy` are now native across all 18 locales; `pnpm i18n:check` = 83 keys all match (was 75 before the 8 key adds for the conflict/backend-saved/entry/keyHash/sseLocked/unifiedHelp/importSuccess/dragHint categories).
 - **Host-triple layout note**: the host triple depends on installed toolchain (check with `rustc -vV`; currently `x86_64-pc-windows-msvc`, was previously `x86_64-pc-windows-gnu`), so cargo emits the release binary to `target/<host-triple>/release/EgressAPIKEY.exe` (NOT necessarily `target/release/EgressAPIKEY.exe`). The `tauri build` bundler looks at `target/release`, which is why the installer-bundle step fails on this host ("can't open main binary"). The portable path in `scripts/build-all.sh` is the canonical smoke target (uses `find` to locate the binary in either layout); the installer step is now best-effort (won't fail the script if the bundler cannot find the flattened path).
 
-
 ### 19. P10 audit fixes - topological data, subscription retry, settings consolidation
+
 - **Issue 6 (settings duplicate Save)**: the per-card Save button inside the Settings Network section was removed; only the unified sticky bottom bar calls `saveAll()` so a user commits network + lanes + network-specific changes to `tauri-plugin-store` in one action. Verified `SettingsView.tsx` no longer has the inline button - just the bottom bar.
 - **Issue 8 (subscription import shows 0 nodes)**: `SubscriptionsView.tsx` now has `refreshWithRetry()` which polls the live `/api/v1/subscriptions` list 3 times at 1s intervals so the displayed `node_count` reflects Resin's async subscription fetch (the sidecar fetches remote subscriptions in the background; 500ms was too short for the user's test URL -> "Imported 0 nodes"). On persistent 0 the final list snapshot is set so the user always sees the latest backend state. Resin's design: `update_interval: 5m`, forced full refresh on startup ("Subscription scheduler started; forced full refresh running in background" log line). Polled not 5m because the first poller run takes seconds, not minutes.
 - **Issue 4+7 (topology canvas shows empty lane boxes)**: `TopologyView.tsx` now builds Entry boxes with a per-platform active-lease count (`topology.leasesActive` i18n key, added to all 18 locales). Lane boxes already render `busy/free/exitIp/keyHash/sseLocked`; the live-server lease count comes from the Resin `/metrics/realtime/leases` endpoint (verified: `{"items":[{"active_leases":0,"ts":"...","platform_id":""}], "platform_id":"","step_seconds":5}`). Resin's public API does NOT expose per-key/per-lane exit IPs through the leases endpoint today - it exposes per-platform aggregate `active_leases`. The desktop shell faithfully mirrors what Resin returns; per-lane/<key-hash mapping stays internal to the Go sidecar by design (DESIGN.md token->lane hashing runs in-process). The user-visible improvement: entries show "入口: OpenAI / 活跃租约: 3" instead of an empty label.
@@ -37,19 +37,20 @@
 - **Tests**: 24 vitest, 54 cargo, all green. No new tests yet; the next phase needs component closed-loop tests plus an integration e2e that asserts the add-platform -> list-platform round trip against the live sidecar.
 
 ### 20. P11 hardening - per-platform lease resolution, test framework, process-route limitation note
+
 - **Per-platform active leases (T2)**: `LaneSnapshot` now carries `pub per_platform_active: Vec<(String, usize)>` populated by `gateway_snapshot` from Resin `/api/v1/metrics/realtime/leases` + `/api/v1/platforms`. New pure helper `per_platform_active_from_leases()` maps the lease `platform_id` (UUID) to the platform `name`; empty `platform_id` resolves to the Default platform; an unknown UUID surfaces the raw id so the canvas still renders. Two new unit tests in `src-tauri/src/commands/mod.rs`: `per_platform_active_resolves_uuid_to_name`, `per_platform_active_falls_back_to_raw_id_when_unknown`. `TopologyView.tsx` renders the per-platform lease count into the Entry box.
 - **Test framework upgrade (T1)**: `vitest.config.ts` switched to jsdom + shared setup `src/test/setup.ts` (global Tauri IPC `invoke` mock + i18n init). Three new per-view closed-loop component tests against the IPC mock: `PlatformsView.test.tsx`, `SubscriptionsView.test.tsx`, `ProcessRouteView.test.tsx`. `pnpm test` = 32 tests across 6 files (was 24 across 4). `pnpm exec tsc --noEmit` green.
 - **Process-route limitation note (T3)**: Resin Go sidecar exposes NO public per-process routing API (live `/api/v1/routes` returns 404; perplexity research concurred). The desktop shell persists rules to `tauri-plugin-store` and the Rust side rejects lane conflicts BEFORE recording (`process_route_conflict_check`), but per-process enforcement only happens when client traffic flows through the Resin proxy (sidecar owns per-request auth). `ProcessRouteView.tsx` now surfaces a callout with the new `processRoute.proxyNote` i18n key (added across all 18 locales; `pnpm i18n:check` = 85 keys match). Documented here so a future agent does not claim the shell owns routing enforcement.
 - **Host test caveat (unchanged)**: `cargo test -p egressapikey-app --features custom-protocol --lib` still exits `STATUS_ENTRYPOINT_NOTFOUND (0xc0000139)` on THIS dev host (Tauri native-plugin DLL linker issue, environmental NOT code). `cargo build -p egressapikey-app --features custom-protocol` is green; `cargo test -p resin-core --lib` = 54 passed (the app-crate `per_platform_active_*` tests are logic-verified by build + the shared pure helper shape, and `ResinClient` mockito tests cover the offline round trip). The release-exe smoke harness remains the live-side check.
 
 ### 21. P12 documentation drift fix - dead paths + stale dependency
+
 - **Audited via codegraph** (no manual grep+Read loop): verified `boot_resin`, `spawn_health_poll`, `SidecarHandle`, `gen_token`, `per_platform_active_from_leases`, `process_route_conflict_check`, `ResinClient`, `MihomoController`, `sanitize_lanes`, `MAX_LANES`, `LaneSnapshot`, `GatewayState` all exist on disk at the line numbers AGENTS cites; the only stale doc claims were the ones fixed here.
 - **README.md L27**: `docs/MEMORY.md` referenced a file that never existed in git history (`git log -- docs/MEMORY.md` empty). The repo's compressed-research-memory document is `docs/architecture/MEMORY_REUSE_DECISION.md`. Fixed the anchor + both READMEs.
 - **README_CN.md L58**: same dead `docs/MEMORY.md` anchor, fixed to `docs/architecture/MEMORY_REUSE_DECISION.md`.
 - **Stale `petgraph` in tech-stack lists**: `git grep -l petgraph` returns only `AGENTS.md`, `README.md`, `README_CN.md` (three doc rows) — NO Cargo.toml and NO source reference. Removed `petgraph` from: AGENTS.md L44 (Backend core), README.md L38 (Backend row), README_CN.md L36 + L51 (two backend rows). `rusqlite`, `tokio`, `axum`, `reqwest` all re-verified present in `crates/resin-core/Cargo.toml`.
 - **Preserved-as-history (NOT changed, deliberate)**: AGENTS §19 "24 vitest" / "i18n 84 keys" and §11 "SubscriptionsView.tsx and ProcessRouteView.tsx are still pure local Zustand (no invoke())" are superseded by §16 / §18 / §20 in the same file. Left intact because they are per-phase status snapshots; a top-down reader hits §20 (P11) for the current truth. Editing historical status rows would erase the audit trail that AGENTS §6 / §10 protect. If a future reader needs a single current-state row, that is the job of §20 (or a new section), not a rewrite of §19.
 - **Verified post-edit**: LF clean (CRLF 0 in README/README_CN/AGENTS), `pnpm exec tsc --noEmit` green, `pnpm test` = 32 tests / 6 files, `pnpm i18n:check` = 85 keys / 18 locales, `cargo test -p resin-core --lib` = 54 passed, `cargo build -p egressapikey-app --features custom-protocol` green. No code changed, so no release rebuild needed for this doc-only commit.
-
 
 ### 22. P13 - subscription/platform real backend loop + log observability
 
@@ -67,8 +68,8 @@
 - **Tests**: `cargo test -p resin-core --lib` = 59 passed (was 54; +3 `clash_yaml_to_proxies_block_*`, +1 `split_flow_fields_handles_quoted_comma_inside_value`, +1 `distinct_keys_use_distinct_lanes_contract`). `pnpm test` = 34 across 6 files (was 32; +2 B1/B2 closed-loop component tests). `pnpm i18n:check` = 86 keys / 18 locales (was 85; +1 `platform.addOk`). `pnpm exec tsc --noEmit` + `pnpm build` green. `cargo build --release -p egressapikey-app --features custom-protocol` -> 10.9MB release exe staged at `release/windows-gui/EgressAPIKEY.exe` + `resin.exe` sidecar (37.8MB). Smoke: MainWindowTitle="EgressAPIKEY", `resin.exe` child alive, sidecar control plane up in 0ms, no stderr/panic.
 - **Host reproducibility note (B4 live test)**: the user's URL `https://link123.52pokemon66.cc/api/v1/client/subscribe?token=...` returns 403 to a default UA and 200 + 53 Clash proxies to `clash-verge/v2.0.0`. Resin's own remote-fetch uses a default UA and was getting 403 - so even though our old `source_type:"remote"` POST returned 201, the sidecar's background fetch always failed and `node_count` stayed 0. The new local-fetch + flow->block convert + 30s tick path is the root-cause fix.
 
-
 ### 23. P14/P15 - security audit + topology bug fixes + Phase R1 backend IPC
+
 - **P14 security audit** (Semgrep + Code-VulnScan + manual taint, report deleted after fix): HIGH path-traversal in `backup_upload` (webview-supplied `zip_path` read arbitrary file + upload to attacker WebDAV) - fixed by canonicalize+starts_with confinement to `app_data/backups`. MED predictable temp-dir path - fixed by writing to `app_data/backups` with crypto-random suffix. LOW IPC `.unwrap()` panic risk in `process_route_add/remove` - replaced with `map_err`. Release exe rebuilt + smoke green.
 - **P15 topology bugs**: Bug #1 (topology flash on boot) - App defaulted `view="topology"` so first paint showed TopologyView before `loadView()` resolved the persisted view; fixed with a `bootstrapped` gate that holds a minimal loader until `loadView()` completes. Bug #2 (blank canvas on refocus) - the 5s poll could race/be throttled while window hidden; fixed with a `visibilitychange` listener that re-syncs immediately on refocus. Release exe rebuilt + smoke green.
 - **Phase R1 backend IPC** (topology-driven key-to-egress routing, see `docs/architecture/REFACTOR_PLAN.md`): two new `#[tauri::command]` in `src-tauri/src/commands/mod.rs`: `platform_update(name, allocation_policy?, regex_filters?, sticky_ttl?)` -> PATCH `/api/v1/platforms/{id}` (resolves name->id, validates `allocation_policy` against the live-probed enum `BALANCED|PREFER_LOW_LATENCY|PREFER_IDLE_IP`, caps regex_filters at 64 entries/253 chars, caps sticky_ttl at 32 chars); `node_list()` -> GET `/api/v1/nodes` (the "C category" ip channels). Two new `ResinClient` methods: `update_platform(id, body)` + `list_nodes()`. TS wrappers `ipcPlatformUpdate`/`ipcNodeList` in `src/lib/ipc.ts` mirror the Rust validation. 4 new vitest assertions (invalid policy, too many filters, valid forward, node_list forward) + 2 new mockito tests (update_platform PATCH, list_nodes items-wrapper). Tests: cargo 61 passed, vitest 38 passed, i18n 86 keys. Release exe rebuilt + staged + smoke.
@@ -90,7 +91,6 @@
 - **Build**: `cargo build --release -p egressapikey-app --features custom-protocol` -> 10.9MB exe staged at `release/windows-gui/EgressAPIKEY.exe` + resin.exe sidecar (37.8MB). Smoke: MainWindowTitle="EgressAPIKEY", WS 34MB, resin.exe child alive at 63MB.
 - **Ponytail**: the canvas does NOT invent a per-node binding API Resin doesn't have. region_filters is the real Resin mechanism; the drag-edge UX maps cleanly onto it. The entry port is a conceptual node, not a fabricated port read — the exact listen port is owned by the sidecar and not needed to draw the A column.
 
-
 ### 24. P19 - topology viewport memory + subscriptions drag/rename + key+endpoint research + drag-auto-backup + protocol weight research
 
 - **Item 1: Topology viewport memory**: `src/views/TopologyView.tsx` now wraps the canvas in `ReactFlowProvider` and the inner `TopologyCanvas` uses the `useReactFlow()` hook. On mount we call `loadTopologyViewport()` (new helper in `src/lib/settings.ts` reading `settings.json#topologyViewport` via `tauri-plugin-store`) and `reactFlow.setViewport({x,y,zoom})` before the first data sync. The `onMoveEnd` callback persists the resulting viewport back to the store every time the user finishes a pan/zoom. `fitView` is gated behind `!viewportRestored` so the auto-frame only runs on first paint when no viewport was persisted.
@@ -102,9 +102,6 @@
 - **Tests**: `pnpm test` = 47 pass / 8 files (was 44 / 8; +1 viewport closed-loop +1 rename closed-loop +1 rows-order smoke). `pnpm i18n:check` = 129 keys / 18 locales (was ~98; +7 subscription.rename* / subscription.resetOrder / nodes.egressPolicyNote, all 18 locales parity-checked). `pnpm exec tsc --noEmit` green. The new `vi.mock("../lib/settings")` branch inside TopologyView.test.tsx uses `vi.doUnmock` in cleanup so the rest of the suite is not poisoned.
 - **CodeGraph**: `codegraph sync .` re-indexed 10 changed files (217 nodes).
 - **Ponytail verifications**: `i18n:check` initially caught my flat-key mistake (I wrote top-level `subscription.rename` strings instead of nesting under `subscription`); I re-imported to nest every key under its existing namespace and re-ran the check before commit. The i18n locale files were sorted alphabetically + 2-space-indented JSON (preserved by JSON.stringify pretty-print).
-
-
-
 
 ### 25. P20 - topology viewport flash fix, full-width views, subscription duplicate/reorder fixes, node pagination, native drag
 
@@ -133,7 +130,6 @@
 - **Tests**: 66 vitest pass / 8 files, 63 cargo pass. tsc green. i18n check = 146 keys / 18 locales.
 - **Build**: `cargo build --release -p egressapikey-app --features custom-protocol` -> 11MB release exe staged at `release/windows-gui/EgressAPIKEY.exe` + `resin.exe` sidecar (37.8MB). Codegraph synced.
 
-
 ### 27. P22 audit - orphan-sidecar fix + README platform/IP-channel section + security sweep
 
 - **Orphan-process bug fix (Semgrep + manual taint)**: `SidecarHandle.child` was a bare `CommandChild`; `tauri_plugin_shell` 2.3.5 `CommandChild` does NOT kill the child in its `Drop` impl (you must call `.kill()`, which consumes `self`). The tray Quit item calls `app.exit(0)`; `Builder::run(context)` (Tauri 2.11) hardcodes an empty event closure, so no cleanup ran and resin.exe survived as an orphan after the GUI process exited - leaking the sidecar port and the SQLite state DB lock. Fix: `SidecarHandle.child` is now `Mutex<Option<CommandChild>>`. The application bootstraps with `.build(generate_context!())?.run(closure)` (not `.run(context)`) so we can hook `tauri::RunEvent::Exit`; on Exit we lock the mutex and `.take()` the child once and call `child.kill()` (consumes). A second Exit (if ever re-emitted) finds `None` and no-ops. `boot_resin`'s inside-boot timeout path still calls `child.kill()` on the locally-owned `CommandChild` before the `SidecarHandle` is constructed, so it needs no mutex.
@@ -150,15 +146,12 @@
 - **Neat-freak reconciliation**: README + README_CN now mention the dual-pane Platforms tab, the three-column Topology canvas, the Nodes egress-policy guidance card, and the protocol-weight reference (P21 work). `git diff --check` clean; `pnpm exec tsc --noEmit` green; `pnpm i18n:check` = 146 keys / 18 locales; `pnpm test` = 66 across 8 files; `cargo test -p resin-core --lib` = 63 passed; `cargo build -p egressapikey-app --features custom-protocol` green.
 - **Audit report cleanup**: audit artifacts were emitted under `.codex-tmp/semgrep-*.json` for verification only; these temporary files are gitignored and removed in the closing cleanup step. No audit report file was committed.
 
-
-
 ### 28. P24-Q2 + Q3 - topology connection race/resync/drag + three-tuple route identity
+
 > **Reverted by P1 (commit c71bab5, 2026-08-05)**: the route_id/normalize_auth helper described in this section was killed by P1 dead-code deletion (Delete interceptor.rs, a4_3_live.rs, route_id/normalize_auth, InterceptorPort). See ADR-0037. The port-based identity pivot (P5 in section 30 below) replaced the three-tuple model. Do NOT attempt to "fix missing route_id callers" based on this section — the deletion was intentional.
 
 - **P24-Q2 (topology bug fixes)**: `TopologyView.tsx` `onConnect`/`onEdgesDelete` had three bugs: (1) PATCH not idempotent/transactional - read stale local `platforms.state` snapshot so two rapid drags of the same region raced; (2) state not refreshed after PATCH - success path only optimistically patched `region_filters` field, never re-GET, so `routable_node_count` (server-recalculated) stayed stale; (3) drag did nothing - `<ReactFlow>` missing explicit connect props + opacity-0 wrapper had no min-height so handles had 0 surface. Fixes: `useRef` reentry lock (`patchingRef`); always `await sync()` after every PATCH (success AND failure); removed optimistic local mutation so canvas only shows server-truthy state; added `nodesConnectable`/`nodesDraggable`/`defaultEdgeOptions={{smoothstep,animated}}`/`min-h-[400px]`. 8 new vitest closed-loop (pure helpers `addRegionFilter`/`removeRegionFilter` idempotency + Bug3 static prop). `pnpm test` 73 pass. commit 47e54ba.
 - **P24-Q3 (three-tuple route identity, supersedes ADR-0003 original)**: user flagged the key+endpoint identification as black-box with no closed-loop test. Web research (1mcp perplexity pplx_sonar + exa) into NVIDIA build.nvidia.com GLM-5.2/OpenAI/Anthropic/Azure + OmniRoute source (docs/architecture/AUTHZ_GUIDE.md, src/sse/handlers/chat.ts) proved: Authorization value is the CLIENT identity, NOT the upstream endpoint identity. OmniRoute routes one client key to 290+ providers; the upstream target is in the JSON body `model` field, not the auth header. Resin's `reverse_proxy_fixed_account_header: "Authorization"` + `regex_filters` (upstream Host) therefore ALIASES the same auth value across different body.model on the same host, breaking per-(key+endpoint) IP isolation. Fix: `crates/resin-core/src/lane.rs` exports `pub fn route_id(auth_value, body_model, request_path) -> u64` (FxHash three-tuple) + `pub fn normalize_auth(raw) -> String` (strips Bearer/bearer/x-api-key/api-key/Ocp-Apim-Subscription-Key + ASCII-lowercase so the same key under different scheme forms collapses to one identity). 8 new cargo unit tests pin: idempotent same triple, distinct for different key / different model / different path, None==empty, scheme-invariant. `cargo test -p resin-core --lib` = 71 pass (was 63). ADR-0003 rewritten ACCEPTED; new `docs/research/KEY_ENDPOINT_FORMAT_RESEARCH.md` records the literal header formats researched. The shell uses route_id as the display identity Resin does not expose; Resin's internal Account string stays auth-value-only.
-
-
 
 ### 29. P24-A3/A4 source-level Resin research - corrected identity premise + A4 trade matrix
 
@@ -167,20 +160,19 @@
 - **Still-to-build closed loop (authorized by ADR-0003 corrected, not in this commit)**: a local HTTP interceptor (axum) between omniroute/litellm and Resin that parses Authorization + JSON body.model + path, calls route_id + normalize_auth, injects X-Resin-Account, forwards to Resin reverse-proxy; plus a GUI view reading /api/v1/metrics/realtime/leases to show the live (platform, account, egress_ip, target) tuple; plus a vitest + cargo integration test asserting (sk-A, gpt-5.6) vs (sk-A, claude-sonnet-5) -> two distinct injected X-Resin-Account values -> two distinct lease entries -> two distinct egress IPs.
 - **ADR-0003 status**: ACCEPTED, corrected twice. docs/research/RESIN_ROUTING_ARCHITECTURE_RESEARCH.md (156 lines) + updated ADR-0003 (94 lines) are the decision record. No code changed in this commit - research + ADR only. Awaiting user A4 direction (A4-3 implement now vs A4-1 fork Resin first) before writing the interceptor.
 
-
 ### 30. P24-A4-3 - axum interceptor + lease_map IPC + GUI lease chips + closed-loop acceptance test
+
 > **Reverted by P1 (commit c71bab5, 2026-08-05)**: the entire interceptor.rs module, InterceptorPort, lease_map IPC, ipcInterceptorPort/ipcLeaseMap TS wrappers, settings.interceptPort i18n keys, and the route_id integration described in this section were killed by P1 dead-code deletion (Delete interceptor.rs, a4_3_live.rs, route_id/normalize_auth, InterceptorPort). cargo test dropped from the 78-pass peak back to the current count, and the acceptance test a4_3_distinct_key_endpoint_yields_distinct_egress no longer exists. See ADR-0037. The port-based identity pivot (the other section 30 below, "P5+P6 - route-correction final architecture") replaced this layer. Do NOT attempt to "revive the interceptor" based on this section — it is a stale snapshot only.
 
 - Live: crates/resin-core/src/interceptor.rs ships a full axum router (app(cfg) -> Router + serve(cfg, bind_addr) -> std::io::Result<u16>) that sits between an upstream AI gateway (omniroute/litellm) and the Resin Go sidecar. The single proxy_handler reads Authorization / x-api-key / api-key headers, runs normalize_auth, extracts a model name from the JSON body when present, computes route_id(&identity, model, path_tail) (the existing three-tuple FxHash in lane.rs), and injects X-Resin-Account: ar-<16hex> on the forwarded request. Inbound client-supplied X-Resin-Account is ALWAYS stripped before the route_id-derived id is injected (strip-then-inject security: a spoofed inbound header cannot steer routing). Forwarding goes to <resin_base>/<proxy_token>/https/<host>/<path> (Resin reverse-proxy surface) and the response streams back via Body::from_stream so SSE/WebSocket passthrough is preserved. serve() binds the given bind_addr (called with 127.0.0.1:2261 from main.rs setup) and returns the bound port.
 - IPC: two new commands in src-tauri/src/commands/mod.rs. interceptor_port(State<InterceptorPort>) -> Result<u16, String> returns the bound loopback port (no user input, reads rust-state only). lease_map(State<SidecarHandle>) -> Result<Vec<LeaseEntry>, String> builds a ResinClient from the existing resin_client(&sidecar) helper, calls .active_leases() (GET /api/v1/metrics/realtime/leases), and projects each lease via the shared items_arr helper into a LeaseEntry { platform_id, account, egress_ip, node_tag, target_domain, ts }. InterceptorPort(pub u16) (Clone+Copy+Debug) lives in sidecar.rs and is managed into Tauri state from main.rs .setup() after a 3-port bind ceiling (127.0.0.1:2261 then :2262 then :0 ephemeral). The admin token NEVER crosses to the webview; the interceptor holds only the proxy_token from SidecarHandle (rust-side state).
-- GUI: TopologyView.tsx now calls ipcLeaseMap() inside the 5s sync() (alongside ipcPlatformListFull + ipcNodeList), builds a leasesByPid Map of platform_id to LeaseEntry list, and injects the leases into each PlatformNode data. Each platform card renders a chip list of account (truncated 12 chars) to egress_ip (or dash when empty), else the noLeases hint. This is the direct answer to the GUI is still a toy complaint: each platform card surfaces the live (platform, account, egress_ip, target) mapping the user asked for. SettingsView.tsx adds an Intercept Port card showing http://127.0.0.1:<port> (or dash when 0) after the Network card.
+- GUI: TopologyView.tsx now calls ipcLeaseMap() inside the 5s sync() (alongside ipcPlatformListFull + ipcNodeList), builds a leasesByPid Map of platform_id to LeaseEntry list, and injects the leases into each PlatformNode data. Each platform card renders a chip list of account (truncated 12 chars) to egress_ip (or dash when empty), else the noLeases hint. This is the direct answer to the GUI is still a toy complaint: each platform card surfaces the live (platform, account, egress_ip, target) mapping the user asked for. SettingsView.tsx adds an Intercept Port card showing <http://127.0.0.1><port> (or dash when 0) after the Network card.
 - TS wrappers: ipcInterceptorPort(): Promise<number> (range 0..65535) + ipcLeaseMap(): Promise<LeaseEntry[]> (tolerates undefined to [], caps each field at 253 chars) appended to src/lib/ipc.ts. pnpm exec tsc --noEmit green.
 - i18n: 5 keys added across all 18 base locales (topology.activeLease, topology.activeLeases, topology.noLeases, settings.interceptPort, settings.interceptPortHint). pnpm i18n:check = 151 keys / 18 locales green.
 - Tests: cargo test -p resin-core --lib = 78 passed (was 71; +7 interceptor incl. the acceptance test a4_3_distinct_key_endpoint_yields_distinct_egress which mockito-live-networks two reqwest requests through the interceptor to a mockito upstream Resin proxy, asserts two distinct X-Resin-Account headers arrive, calls ResinClient::active_leases() returning two leases with matching accounts + DISTINCT egress IPs 203.0.113.10 vs 198.51.100.20). pnpm test = 73 pass / 8 files (10 TopologyView, the lease-chip display is covered).
-- Build: cargo build --release -p egressapikey-app --features custom-protocol -> 11.4MB exe staged at release/windows-gui/EgressAPIKEY.exe + resin.exe sidecar (37.8MB gitignored). Smoke: MainWindowTitle=EgressAPIKEY, WorkingSet 32.8MB, resin.exe child alive at 83.7MB, stdout interceptor bound on 127.0.0.1:2261 + resin sidecar booted: api_base=http://127.0.0.1:<api_port>, no stderr/panic.
+- Build: cargo build --release -p egressapikey-app --features custom-protocol -> 11.4MB exe staged at release/windows-gui/EgressAPIKEY.exe + resin.exe sidecar (37.8MB gitignored). Smoke: MainWindowTitle=EgressAPIKEY, WorkingSet 32.8MB, resin.exe child alive at 83.7MB, stdout interceptor bound on 127.0.0.1:2261 + resin sidecar booted: api_base=<http://127.0.0.1>:<api_port>, no stderr/panic.
 - Ponytail: one config struct (InterceptorConfig { resin_base, proxy_token, http: reqwest::Client }) + one handler + Body::from_stream for SSE. The 3-port bind ceiling (2261 -> 2262 -> 0) is a deliberate simplification marked as a ceiling; per-host dynamic port selection is the upgrade path if a future feature needs fewer collisions. Strip-then-inject is the minimum surface that cannot be spoofed; no per-endpoint allowlist or header-schema validator was invented.
-- Security: loopback-only bind (127.0.0.1:<port>, never 0.0.0.0). resin_base always comes from sidecar.api_base() which is http://127.0.0.1:<api_port> - no frontend-reachable SSRF surface. The admin token stays rust-side per AGENTS s7.6; the interceptor only ever holds the proxy_token (a side-traffic secret, scoped to Resin reverse-proxy). AGENTS s5 release exe + smoke is part of the commit obligation.
-
+- Security: loopback-only bind (127.0.0.1:<port>, never 0.0.0.0). resin_base always comes from sidecar.api_base() which is <http://127.0.0.1><api_port> - no frontend-reachable SSRF surface. The admin token stays rust-side per AGENTS s7.6; the interceptor only ever holds the proxy_token (a side-traffic secret, scoped to Resin reverse-proxy). AGENTS s5 release exe + smoke is part of the commit obligation.
 
 ### 31. P25-item1 - grill-with-docs ADR-0006 item 1: routable-view wired (GET /nodes?platform_id=)
 
@@ -193,7 +185,6 @@
 - **Docs shipped with this commit**: `docs/adr/0006-mainline-a-then-b.md` (ACCEPTED) + `docs/reference/glossary.md` (new). Glossary defines closed-loop test / live-sidecar e2e / routable-view / route_id / X-Resin-Account / mainline A/B. The glossary routable-view entry keeps the conceptual name; the live endpoint note above supersedes it; a future glossary pass should replace the path with the real `GET /nodes?platform_id=` endpoint.
 - **Build**: `cargo build --release -p egressapikey-app --features custom-protocol` -> 11.4MB exe staged at `release/windows-gui/EgressAPIKEY.exe` + resin.exe sidecar (37.8MB gitignored). Smoke: MainWindowTitle=EgressAPIKEY, WS 33.1MB, resin child 47.8MB, stdout `interceptor bound on 127.0.0.1:2261`. `codegraph sync .` re-indexed 24 changed files. AGENTS section added per AGENTS S10.
 - **ADR-0006 scope remaining after this commit**: items 2/3/4 (subscription import closed-loop audit-then-fix; A4-3 intercept live-sidecar e2e; tray i18n half-beat fix). Item 1 is closed.
-
 
 ### 32. P25-item2 - ADR-0006 item 2 closed-loop: subscription last_error/last_checked/healthy_node_count surfaced to GUI
 
@@ -213,8 +204,6 @@
 - **Docs shipped**: `docs/adr/0007-subscription-last-error-surface.md` (ACCEPTED). ADR-0006 item 2 is closed.
 - **ADR-0006 scope remaining after this commit**: item 3 (A4-3 intercept live-sidecar e2e, currently mockito-only) and item 4 (tray i18n half-beat fix).
 
-
-
 ### 33. P25-item3 - ADR-0006 item 3 live-sidecar e2e (X-Resin-Account honored by real Resin binary)
 
 - **Live**: new integration test `crates/resin-core/tests/a4_3_live.rs` (`#[ignore]` by default; opt-in via `cargo test -p resin-core --test a4_3_live -- --ignored --nocapture`). Spawns the real Resin Go binary (v1.2.0) with the same env contract as the Tauri shell (RESIN_AUTH_VERSION=V1 + ADMIN_TOKEN + PROXY_TOKEN + LISTEN_ADDRESS + PORT + STATE_DIR/CACHE_DIR/LOG_DIR), polls /healthz until up (15s deadline), then sends two probe requests through the axum interceptor with distinct (auth, body.model, path) triples (pair A: Bearer sk-test-key-alpha + {"model":"gpt-5.6"} + /v1/chat/completions; pair B: same key + {"model":"claude-sonnet-5"} + same path). Each request carries a distinct injected X-Resin-Account id (ar-9235878de92e0565 / ar-6d5833d658a96baa) so they would resolve to two distinct Accounts and thus two distinct egress IPs inside Resin if the node pool were non-empty. The test reads GET /api/v1/metrics/realtime/leases and classifies each row as aggregate (no account/egress_ip) vs per-key (has account+egress_ip). Strong pass path: at least one per-key row's account prefix matches an injected id. Soft pass path (dev host has no subscription nodes): Resin returns 503 No available nodes for routing after parsing the request, and only the aggregate `{active_leases:0,ts}` row is present. The transition from the prior 400 Protocol must be http or https to the live 503 is the proof the corrected URL parses and the request reached the Resin routing layer. Authoritative closed loop for item 3.
@@ -225,7 +214,6 @@
 - **Docs shipped**: `docs/adr/0008-item3-live-sidecar-e2e.md` (ACCEPTED). `docs/research/RESIN_ROUTING_ARCHITECTURE_RESEARCH.md` +§7 (reverse-proxy path identity segment + leases endpoint aggregate-only shape). `codegraph sync .` re-indexed (43 nodes, +1 new file a4_3_live.rs, +1 modified interceptor.rs).
 - **ADR-0006 scope remaining after this commit**: item 4 (tray i18n half-beat fix). Items 1, 2, 3 are closed.
 
-
 ### 34. P25-item4 - tray i18n refresh closed-loop (apply_labels tracing + SettingsView vitest)
 
 - **Root cause audit (source-level, NOT self-soothing)**: the user reported "tray i18n half-beat - right-click menu shows the PREVIOUS locale after a Settings language switch". Tracing the call chain: SettingsView.changeLocale (line 145-152) does `setLocale(next)` -> `await i18n.changeLanguage(next)` -> `await saveLocale(next)` -> `await invoke("tray_refresh_labels").catch(()=>{})`. The await order was already corrected by P24-A4-3 commit `1aaab6b` ("race fix for tray i18n lag"). Web research (1mcp exa `web_search_exa` on the official `docs.rs/tauri-plugin-store` StoreExt trait + the `plugins-workspace/plugins/store/src/lib.rs` source) confirms: `app.store(path)` returns the SAME `Arc<Store>` instance cached in the plugin's `StoreState.stores` HashMap; `Store::set` writes to the in-memory `Mutex<HashMap>` (`self.store.lock().unwrap().set(...)`); `Store::get` reads from the same in-memory HashMap, NOT from disk. So after `await store.set + await store.save()`, the next `app.store("settings.json").get("lang")` on the Rust side is guaranteed to see the new value (same Arc, Mutex released). **tauri-plugin-store v2 is NOT the source of the lag**. The user-visible "half-beat" was the consequence of testing a stale exe - the P24-A4-3 commit that fixed the await order was never staged to a smoke-launched release exe on that host (the prior-window handoff notes the smoke launch had crashed on second-attempt due to leftover resin.exe orphan single-instance chaining exit code 0). This item closes that delivery gap AND adds the closed-loop test that proves the webview side of the tray refresh path is wired.
@@ -233,7 +221,6 @@
 - **Closed-loop vitest**: new `src/views/SettingsView.test.tsx` (2 tests). Test 1 pins that changing the locale `<select>` fires `invoke("tray_refresh_labels")` exactly once (the await chain completes and the cmd reaches the Rust boundary). Test 2 (await-order guard) is a regression net for any future refactor that drops the `await saveLocale(next)` before the invoke - if saveLocale rejects and the invoke fires synchronously the test still sees the invoke but now after a microtask wait, proving the awaited path is intact. Located the locale `<select>` via the "中文" (zh) endonym option text so the test is robust to JSX reordering and does not depend on a DOM id. `pnpm test` = 78 pass / 9 files (was 76 / 8). `pnpm exec tsc --noEmit` green.
 - **Build + smoke**: `cargo build --release -p egressapikey-app --features custom-protocol` -> 11.47MB exe staged at `release/windows-gui/EgressAPIKEY.exe` (mtime 2026-08-03T01:27:19, up from 11.46MB in item3; the delta is the tracing macro lines). Embedded latest Vite chunks `index-CfSStSwB` + `TopologyView-BJrS1PkP` verified in exe bytes (test files are excluded from the Vite production rollup, so the dist chunk hash is unchanged from item 3 and the exe embed is stable). Smoke (after pruning leftover EgressAPIKEY.exe + resin.exe orphans so the single-instance plugin does not chain-exit code 0 on a second launch): `MainWindowTitle="EgressAPIKEY"`, WS 36.4MB, resin.exe child alive 50MB, log boot sequence `tracing initialized -> config lanes=10 -> sidecar control plane up after 0ms -> interceptor bound on 127.0.0.1:2261` + no panic. The `apply_labels` tracing line will only appear in the log when the user switches language in Settings (the boot path uses `build_tray::current_lang` directly).
 - **ADR-0006 scope after this commit**: items 1, 2, 3, 4 are ALL CLOSED. Mainline A (function closure = "not a toy") is complete; mainline B (release/packaging standardization) is the next phase.
-
 
 ### 35. P25-Nightly - CLI/GUI alignment domain-modeling audit + ADR-0009
 
@@ -243,7 +230,6 @@
 - **Closed-loop tests (AGENTS section 4 mandatory)**: `cargo test -p resin-core --bin resin-core` = 6 passed (`load_config_happy_path` honors lanes=25, `load_config_clamps_lanes` clamps 99999 to MAX_LANES=50, `load_config_missing_file_falls_back_to_default`, `load_config_none_uses_default`, `load_config_bad_json_falls_back_to_default`, `load_config_does_not_touch_network` pins that load_config returns CoreConfig without any network Result type - a future refactor returning io::Result must revisit ADR-0009).
 - **Build + smoke**: `cargo build --release -p resin-core --bin resin-core` green; the release exe `--help` banner now reads "Resin-pattern L7 gateway stub for AI API keys (headless placeholder)" and the `--config` line reads "If absent or unreadable, falls back to CoreConfig::default() and logs a warning"; running with a temp JSON config emits the stub banner + the honest second line (verified with `RUST_LOG=info`). `cargo test -p resin-core --lib` = 79 passed. `pnpm test` = 73 vitest across 9 files (33+2+2+6+3+10+11+6). `pnpm exec tsc --noEmit` green. GUI release rebuilt: `release/windows-gui/EgressAPIKEY.exe` = 11.47MB staging chunk `index-CfSStSwB` embedded (verified). Smoke launch: pid 1112 alive, MainWindowTitle="EgressAPIKEY", WS 36.4MB, resin.exe child at 50.3MB.
 - **Nightly scope discipline**: this commit does NOT implement the VPS headless refactor. It makes the existing stub stop lying about what it does. A future grill VPS-phase decision replaces this stub with the dualkit/helmor dispatcher pattern (ADR-0009 wheels 1/3) — that is a multi-crate refactor with its own ADR. No code claims GUI<->CLI parity.
-
 
 ### 36. P25-Q7 - release strategy B-3 (local instantly-available + CI manual-only) + ADR-0010
 
@@ -257,7 +243,6 @@
   - Track 1 (scripts/build-all.sh) is unchanged — host-native GUI build + sidecar staging + smoke-launch flow guard. Cross-platform release (Linux .deb/.AppImage + macOS .dmg) lives only in the CI matrix, where each native runner has the OS toolchain.
 - **Out of scope**: the ADR-0001 VPS path (CLI/GUI parity refactor, deferred per ADR-0009) is NOT part of mainline B. mainline B publishes Desktop-path cross-platform GUI artifacts; the VPS headless refactor is a later grill phase with its own ADR. The backend headless matrix job continues to stage `<os>-backend.tar.gz` representing the current stub state (ADR-0009) so that the pipeline stays intact for the future VPS-phase import.
 - **Verification**: `python yaml.safe_load` clean (0 errors). `cargo test -p resin-core --lib` = 79 passed (no source change). `pnpm exec tsc --noEmit` green. CodeGraph sync run.
-
 
 ### 37. C1-1 (PLAN SCHEDULE item #1) - observed_keys SQLite pool + interceptor upsert + GUI chip join + closed-loop vitest
 
@@ -273,7 +258,6 @@
 - **Build**: `cargo build --release -p egressapikey-app --features custom-protocol` -> 13.37MB release exe staged at `release/windows-gui/EgressAPIKEY.exe` + `resin.exe` sidecar (37.8MB). Embedded Vite chunks `index-DzCKFIDI` + `TopologyView-DXbfMHM7` verified via ASCII-byte grep inside the exe (AGENTS §5 hard close-loop). Smoke: MainWindowTitle="EgressAPIKEY", WS 34.3MB, MainWindowHandle non-zero, `resin.exe` child alive at 59MB, no stderr/panic.
 - **Ponytail**: single new dep attempted (r2d2) was rejected because the crate is gone from crates.io — fell back to `Arc<Mutex<Connection>>` which is already behind `rusqlite` (already in `Cargo.toml`). No new crate landed.
 
-
 ### 38. C1-2 (PLAN SCHEDULE item #2) - patchAndSyncOnce helper + racy double-PATCH guard closed-loop
 
 - **Helper extraction**: `src/views/TopologyView.tsx` now exports `patchAndSyncOnce(args)` — a pure async function that takes `{platName, current, region, mode, sync, ipcUpdate, backup}` and runs `backup -> ipcPlatformUpdate -> sync` in that exact order. The `already-bound` short-circuit (`cur.includes(region)` in add mode) returns `{patched:false, next:cur}` so a second rapid drag of the same region is an idempotent skip with NO PATCH and NO sync. `onConnect` and `onEdgesDelete` both now call this helper; the existing `patchingRef` reentry guard stays in the callbacks (the React ref cannot be moved into the pure helper). Removing an edge always PATCHes (no skip for an already-absent region) so the server stays the source of truth.
@@ -281,7 +265,6 @@
 - **Ponytail**: zero new code surface beyond extracting what already ran inline. The helper is a move, not an abstraction — the two callbacks had the same backup->PATCH->sync body duplicated; one function now owns it. No new i18n key (C1-2 is a code-only transactional guarantee).
 - **Tests**: `pnpm test` = 84 pass / 9 files (was 79; +5 C1-2). `pnpm exec tsc --noEmit` green. `pnpm i18n:check` = 153 keys / 18 locales (unchanged). `cargo test -p resin-core --lib` = 84 passed (no Rust change this item).
 - **Build**: `cargo build --release -p egressapikey-app --features custom-protocol` -> 13.37MB exe staged at `release/windows-gui/EgressAPIKEY.exe`. Embedded Vite chunks `index-Byt19gKT` + `TopologyView-DjLE6ZG0` verified via ASCII-byte grep inside the exe (AGENTS §5 hard close-loop). Smoke: MainWindowTitle="EgressAPIKEY", WS 30.2MB, resin child alive. CodeGraph synced.
-
 
 ### 39. C1-3 (PLAN SCHEDULE item #3) - buildEdges pure helper + delete-edge semantics closed-loop
 
@@ -291,13 +274,11 @@
 - **Tests**: `pnpm test` = 88 pass / 9 files (was 84; +4 C1-3). `pnpm exec tsc --noEmit` green. `pnpm i18n:check` = 153 keys / 18 locales (unchanged). `cargo test -p resin-core --lib` = 84 passed (no Rust change).
 - **Build**: `cargo build --release -p egressapikey-app --features custom-protocol` -> 13.37MB exe staged at `release/windows-gui/EgressAPIKEY.exe`. Embedded Vite chunks `index-Ek-hHiRz` + `TopologyView-GHum314u` verified via ASCII-byte grep inside the exe. Smoke: MainWindowTitle="EgressAPIKEY", WS 37.4MB, resin child 62.9MB. CodeGraph synced.
 
-
 ### 40. C1-4 (PLAN SCHEDULE item #4) - viewport flash audit (evidence-only, no code change)
 
 - **Spec**: audit the current release exe for the topology viewport flash on boot; if reproduced -> fix the onInit opacity gate; else -> done with evidence. Tests: vitest expects skip unless reproducible.
 - **Evidence (no repro)**: the topology boot flash (Bug #1) was already closed across three phases before this item landed — (1) §271 P15 introduced an `App.tsx` `bootstrapped` gate that holds a minimal loader until `loadView()` resolves the persisted view so the default `view="topology"` never flashes before the saved view swaps in; (2) §284 P17-R2 carried the same fix through the three-column rewrite; (3) §306 P20 replaced the `fitView={!viewportRestored}` prop with an `onInit` callback that runs once ReactFlow is mounted, lifts an `opacity-0 -> opacity-100` gate on the canvas container so even the single onInit paint is invisible until the saved viewport (or `fitView({maxZoom:1})` default that covers ALL nodes) is applied. The current `maintenance build` §38/§39 smoke (MainWindowTitle="EgressAPIKEY", WS 30-37MB, no panic, resin child alive) does not manifest a flash in the 6s observation window. The spec's `expects skip unless repro` test guard applies; no new code, no new test.
 - **Ponytail**: zero new code. Re-asserting P15/P17/P20's already-deployed fix is the laziest viable answer to spec #4. The release exe is unchanged from C1-3 (commit fc8f4f1) so no fresh build/stage is required — there is no source diff to embedded-chunk-verify.
-
 
 ### 41. C2-1 (PLAN SCHEDULE item #5) - subscription drag reorder persists after remount (evidence-only, no code change)
 
@@ -306,35 +287,30 @@
 - **Release-exe manual check**: §39 staging smoke (release/windows-gui/EgressAPIKEY.exe, MainWindowTitle="EgressAPIKEY", WS 37.4MB, resin child 62.9MB) boots green; the Subscriptions tab render path is unchanged by this item (no source diff).
 - **Ponytail**: zero new code. The drag -> persist -> remount contract was already deployed; this item contributes the audit trail that links the three existing tests to the spec named contract so a future agent does not re-investigate.
 
-
 ### 42. C2-5 (PLAN SCHEDULE item #9) - Tray i18n real-time sync (evidence-only stake, release exe verified)
 
 PLAN SCHEDULE item #9. The trailing Q5-Q13 grill's confirmed C2-5 spec was "Settings switch locale -> right-click tray menu immediately shows the CURRENT locale, not the previous one". The root-cause audit (in section 34 P25-item4 above) already proved that the await order in `SettingsView.changeLocale` (`setLocale -> await i18n.changeLanguage -> await saveLocale -> await invoke("tray_refresh_labels").catch(()=>{})`) was corrected by P24-A4-3 (commit `1aaab6b`), and the webview side of the loop is pinned closed-loop by `src/views/SettingsView.test.tsx` (2 vitest):
+
 - "changing the language select fires invoke(tray_refresh_labels) exactly once"
 - "does NOT fire tray_refresh_labels before saveLocale resolves (await-order guard)"
 
 The Rust side reads the freshly-persisted `"lang"` from `tauri-plugin-store`'s same `Arc<Store>` in-memory HashMap (Mutex released after `store.set + store.save`), rebuilds the tray menu, and sets the new labels. The user-visible "half-beat" the user originally reported was a stale-exe symptom (P24-A4-3 commit never made it into a smoke-launched release exe on that host). For C2-5:
+
 - The release exe staged by commit 7b10085 (C2-14) embeds the latest Vite chunk hash `CAUVwiHH` (index) and `C0gnY36u` (TopologyView) (AGENTS section 5 hard close-loop verified by byte-grepping the exe). P25-item4's await chain ships in this bundle so the webview -> Rust -> tray menu path is wired with fresh source; the "stale exe" root cause cannot recur as long as each future release follows section 5.
 - No source change is needed for C2-5; the contract is pinned by `SettingsView.test.tsx` (2 tests) + section 34 await-order audit + the release-exe chunk-hash proof in commit 7b10085.
 - Live-side manual test (GUI right-click tray after locale switch) requires a human clicking the OS tray menu; the closed-loop on the webview -> Rust boundary is sufficient evidence. If a future agent still sees "half-beat" they MUST replay section 5 (rebuild + chunk-hash grep + smoke launch) before claiming C2-5 a regression.
-
 
 ### 43. C2-14 (PLAN SCHEDULE item #10) - PlatformsView +New dialog -> ipcPlatformCreateWithFields + refresh + toast
 
 PLAN SCHEDULE item #10. The A9-confirmed b option: right-pane top toolbar gets a create button that pops an inline dialog with name + allocation_policy + regex_filters fields, submits via ipcPlatformCreateWithFields (the P21-B IPC cfc0619 already implements; bridges it to the GUI for the first time), and refreshPlatforms re-renders the right pane with the new card. Empty/whitespace name is rejected with createEmptyName and never invokes the IPC. Five new platform.create* i18n keys + platform.addOk (rename of the old toast) added across all 18 locales (i18n:check 158 keys / 18 locales parity). 2 new vitest closed-loop assertions: (a) valid name + BALANCED policy form submit calls invoke(platform_create_with_fields) with the right body and refresh loads the new platform; (b) empty name shows createEmptyName error and never invokes. Build: cargo build --release -> 13.37MB exe staged at release/windows-gui/EgressAPIKEY.exe + resin.exe sidecar (37.8MB). Vite chunk hash CAUVwiHH (index) + C0gnY36u (TopologyView) embedded in exe bytes (section 5 hard close-loop). Smoke: MainWindowTitle=EgressAPIKEY, WS=37MB, sidecar cleaned up. pnpm test 95 / 10 files. tsc green.
 
-
 ### 44. C2-7 (PLAN SCHEDULE item #11) - TopologyView i18n.isInitialized gate + locale switch re-renders canvas boxes
 
 PLAN SCHEDULE item #11. User reported canvas node boxes showing en on first GUI launch even though locale defaulted to zh (P13 B7 followup). Root cause: TopologyView nodes useMemo previously keyed only on i18n.language; on first mount the lazy-loaded zh chunk had not yet resolved so i18n.language read en and the boxes painted with the en catalog; switching tabs away+back forced a re-render AFTER the zh chunk had resolved. Fix: added i18n.isInitialized (the i18next stable API; useTranslation exposes the underlying i18n instance) to the gate head AND to the useMemo deps. While !isInitialized the nodes list is [] so the canvas never paints boxes with the fallback-locale text; once the lazy zh chunk resolves after mount the gate flips and the canvas re-renders with the fresh catalog. C2-7 closed-loop vitest (1 new describe / 1 new test): registers a minimal zh topology catalog via i18next.addResourceBundle, pins locale=en before render, asserts the entry-port box renders the en label; then calls i18next.changeLanguage(zh) and waits for the canvas to re-render with the zh equivalent; afterAll restores en. No new i18n keys. Build: pnpm build + cargo build --release -p egressapikey-app --features custom-protocol (4m 53s) -> 13.37MB exe. Vite chunk hash CQKSpeUX (index) + DI4W72Y4 (TopologyView) embedded in exe bytes. Smoke: MainWindowTitle=EgressAPIKEY, WS=37.4MB. vitest 98 / 10 files. tsc green. i18n check 158 / 18.
 
-
 ### 45. C2-8 (PLAN SCHEDULE item #12) - Settings dirty-state sticky save bar
 
 PLAN SCHEDULE item #12 (final item). Spec from grill Q5-Q13 confirmed C2-8 + pwm-pro research concluded with the idiomatic enterprise pattern: minimal baseline-snapshot + JSON.stringify diff, avoid RHF dep bloat. Implementation: useMemo(isDirty) compares JSON.stringify of {lanes, gatewayBind, mihomoApi} against a baseline useState snapshot; showSaveBar = isDirty || busy || saved gates the sticky bottom bar with a {showSaveBar && (...)} wrapper. saveAll body unchanged; on success path it calls setBaseline with updated values BEFORE setSaved(true) so isDirty flips to false the moment the save resolves; setSaved(false) after the 1500ms timeout drops the last member of the showSaveBar disjunction so the bar hides. The save button disabled={busy || (!isDirty && !saved)} prevents redundant saves when clean; busy shows a Loader2 spinner, saved shows a Check icon. Three new vitest closed-loop assertions: (1) clean default state - Save button absent from DOM; (2) editing lanes 10->20 - Save bar appears (isDirty=true); (3) click Save -> baseline resets -> after 1700ms real-timer wait the 1500ms setSaved(false) fires -> bar hides -> useAppStore.getState().laneCount = 30. Real timers (not fake) because waitFor polls via setTimeout internally and fake timers deadlock it. Build: pnpm build + cargo build --release -p egressapikey-app --features custom-protocol (6m 01s) -> 12.75MB exe staged at release/windows-gui/EgressAPIKEY.exe + resin.exe sidecar (36.08MB). Vite chunk hash BdRPGH3k (index) + CmhPch2S (TopologyView) embedded in exe bytes (section 5 hard close-loop). Smoke: MainWindowTitle=EgressAPIKEY, WS=37.1MB, SMOKE OK. pnpm test 101 pass / 10 files. tsc green. i18n 158 keys / 18 locales. codegraph sync 2 files / 21 nodes. Backlog headers for all 12 PLAN SCHEDULE items updated to done with commit hash in docs/history/phases/GRILL_ISSUES_BACKLOG.md.
-
-
-
 
 ### 31. P1 route-correction (ADR-0012/0013/0014) — dead code deletion + EgressAPIKEY rename
 
@@ -355,7 +331,6 @@ PLAN SCHEDULE item #12 (final item). Spec from grill Q5-Q13 confirmed C2-8 + pwm
 - **Tests**: resin-core unit — identity/detect/b64 + `reload_binds_enabled_ports_and_stops_disabled` + `reload_rejects_over_capacity`; db port CRUD; commands `validate_port_mapping_*`; vitest port IPC + PlatformsView P2 closed-loops.
 - **Build note**: product binary is `EgressAPIKEY.exe`. `scripts/build-all.sh` stages `release/<os>-gui/EgressAPIKEY(.exe)` (+ resin sidecar). Do NOT stage under the old `ai-api-route.exe` / `egressapikey.exe` names.
 
-
 ### 47. P3 strategy/config foundation (NEW-7/NEW-4/NEW-5)
 
 - **Whitebox entry-port config (NEW-7)**: `crates/resin-core/src/whitebox_config.rs` reuses `hotswap-config 0.2` for `app_config_dir()/egressapikey-ports.json`. The document is `{version:1,entry_ports:[...]}`. Every GUI `port_upsert` / `port_remove` applies the same serialized transaction: validate -> SQLite `replace_ports` transaction -> `PortForwarder::reload()` -> atomic JSON rename -> hotswap update. A hand edit is reloadable via `whitebox_reload`; invalid documents retain the prior active value. The startup path seeds JSON from SQLite on first boot and quarantines corrupt JSON as `.json.bad` before reseeding, so the whitebox state is always available to port IPC.
@@ -363,8 +338,6 @@ PLAN SCHEDULE item #12 (final item). Spec from grill Q5-Q13 confirmed C2-8 + pwm
 - **Strategy catalog (NEW-4)**: `strategy.rs` is intentionally a catalog, not a second node picker. It maps `random/sequential/protocol_weight -> BALANCED`, `latency -> PREFER_LOW_LATENCY`, `quality/bandwidth -> PREFER_IDLE_IP`, the only three live Resin v1.2.0 policies. Protocol weights remain a display/ranking aid until Resin exposes a native per-node override.
 - **AI stream sensor (NEW-5)**: `stream_sensor.rs` classifies plain HTTP proxy headers (`Accept`, `Upgrade`, `Content-Type`) as unary/SSE/WebSocket/unknown. `PortForwarder` records only header metadata on its HTTP path and exposes `stream_sensor_snapshot`; it never terminates TLS, reads request bodies, or revives key/body interception deleted by ADR-0014. SOCKS/HTTPS CONNECT traffic is intentionally opaque.
 - **Tests**: config validation + atomic JSON, SQLite full-map replace, strategy mapping/protocol weights, and stream classification/counters are covered by resin-core unit tests. Frontend IPC tests cover whitebox path/get/reload. Before claiming a P3 release, run `cargo test -p resin-core --lib`, `pnpm test`, `pnpm exec tsc --noEmit`, `pnpm i18n:check`, then the §5 fresh frontend+release-exe staging loop.
-
-
 
 ### 30. P5+P6 - route-correction final architecture (ADR-0012 thin-shell multi-port)
 
@@ -375,7 +348,6 @@ PLAN SCHEDULE item #12 (final item). Spec from grill Q5-Q13 confirmed C2-8 + pwm
 - **P2 closed-loop test evidence**: `ipc.test.ts` has a `port IPC (P2 multi-port thin forwarder)` suite (8 tests: `ipcPortList`, `ipcPortUpsert` range/protocol validation + privileged-port reject, `ipcPortRemove`/Running/Reload forward, `ipcIpReputationSnapshot`). `PlatformsView.test.tsx` has 5 closed-loop tests: renders ports+platforms pane, adds entry port via form + $ABLE invoke, rejects invalid port before invoke, creates platform from dialog, binds dragged port onto platform card via pointer events. All green.
 - **i18n**: 187 keys across 18 locales. `pnpm i18n:check` green.
 - **Build (P23 hard close-loop)**: `pnpm build` + `cargo build --release -p egressapikey-app --features custom-protocol` → 14MB exe at `release/windows-gui/EgressAPIKEY.exe` + `resin.exe` sidecar (37.8MB Go binary). Vite chunk `CCDf4dc8` embedded at byte 11431795 (verified via Node fs). Smoke: MainWindowTitle=EgressAPIKEY, pid alive, resin.exe child alive.
-
 
 ### 31. P6 polish - surviving items VERIFIED implemented in prior commits
 
@@ -392,13 +364,12 @@ Code-level audit confirms all 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/
 | C1-3 (viewport memory) | done | `TopologyView.tsx` L14 `loadTopologyViewport`/`saveTopologyViewport` via `settings.ts` → `tauri-plugin-store`. `onInit` restores, `onMoveEnd` persists, `ready` opacity gate |
 | C1-4 (drag-to-connect = config hot-switch) | done | `onConnect` → `patchAndSyncOnce` → `ipcPlatformUpdate` PATCHes `region_filters` on live Resin sidecar |
 
-
 ### 48. P1-T1B (ADR-0015) - port_* IPC forwarded to Resin v1.2.0 endpoint API + atomic whitebox layering
 
 - **Landed**: the previous-phase worktree `commands/mod.rs` change that wires `port_upsert`/`port_remove` into the live Resin v1.2.0 /api/v1/endpoints admin API. ADR-0015 stays the spec; T1-1..T1-4 (commit `0b913a0`) shipped ResinClient endpoints + port_forwarder.rs protocol-handling deletion + fetch_resin v1.2.0; this commit ships the Phase B IPC forwarder code.
 - **`port_upsert` (two-step atomic)**: validate -> ResinClient `list_endpoints()` -> if enabled and port exists, PATCH `/endpoints/{id}` with the new capabilities body (allow_socks5 + allow_http_forward match the requested protocol); if enabled and not, POST `/endpoints` create + immediate listener start; then `whitebox.apply(&db, &forwarder, next)` mutates the shell port_mappings DB and the whitebox JSON. Resin still owns listener lifecycle; the shell DB only carries port -> platform_name binding metadata. Resin failure aborts the shell mutate — no partial state.
 - **`port_remove` (two-step atomic)**: locate the matching endpoint by port, skip the read-only `default` endpoint, DELETE `/endpoints/{id}` (closes listener server-side), then `next.entry_ports.retain(|row| row.port != port)` + `whitebox.apply`. A sidecar without the requested port still cleans shell DB so the GUI can recover from a drifted source of truth.
-- **Bug fixed by this commit**: `port_remove` was missing `#[tauri::command]` (the Phase B body in the previous session committed the body but lost the attribute), failing `cargo build --release` with `cannot find `__cmd__port_remove``. This commit restores the attribute; the release build relinks cleanly.
+- **Bug fixed by this commit**: `port_remove`was missing`#[tauri::command]`(the Phase B body in the previous session committed the body but lost the attribute), failing `cargo build --release` with `cannot find __cmd__port_remove`. This commit restores the attribute; the release build relinks cleanly.
 - **Weeds pulled (Ponytail)**:
   - `port_forwarder.rs` L20: dropped `PortMapping` from `use crate::db::...` (the struct is no longer touched here after T1-4 deleted the protocol handlers).
   - `port_forwarder.rs` L55 + L61: `basic_proxy_auth`/`b64_encode` test-only helpers got `#[cfg(test)]` so they no longer trip `dead_code` warnings on release builds — they remain visible to the `basic_auth_roundtrip_shape` and `b64_padding` unit tests.
@@ -408,7 +379,6 @@ Code-level audit confirms all 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/
 - **Build (P23 hard close-loop)**: `pnpm build` -> Vite chunk `CCDf4dc8` (frontend unchanged since P3, hash stable). `cargo build --release -p egressapikey-app --features custom-protocol` -> `target/x86_64-pc-windows-gnu/release/EgressAPIKEY.exe` 13.25 MB, mtime fresh after the `mod.rs` touch forced a relink. Embedded chunk hash verified: `CCDf4dc8` found via ASCII-string-scan inside exe bytes. Staged to `release/windows-gui/EgressAPIKEY.exe` + sidecar `resin.exe` (36.16 MB, upstream v1.2.0 release asset). Smoke: GUI pid alive 6s + 10s, `MainWindowTitle="EgressAPIKEY"`, `MainWindowHandle` non-zero, WS 34.25MB; resin.exe child at 43.7MB. Process tree killed cleanly after smoke — no orphan.
 - **Backlog**: `docs/history/phases/GRILL_ISSUES_BACKLOG.md` T1 Execution Plan rows T1-2..T1-9 updated from `pending` to `done (...)`. T1-10 (Phase 6 polish) remains the only pending T1 item — that polynomial backlog shrinks to the C2/C1 surviving items now explicitly `done` in §31.
 - **Outstanding (T1-10 / Phase 6)**: every surviving C2-9/10/11/12/13 and C1-2/3/4 polish item is already verified-done in AGENTS §31, so this commit collapes the T1 backlog. The next phase (T2+ in BACKLOG) waits for the next planner decision.
-
 
 ### 49. P26-T2-Q4+A1+A3+A5 - CREATE_NO_WINDOW exit flash fix + Resin error i18n mapping + policy i18n + npm headless launcher
 
@@ -437,7 +407,6 @@ Code-level audit confirms all 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/
 - **Test gates (post-T4)**: `cargo test -p resin-core --lib` = 100 passed (was 71 pre-T4). `pnpm test` = 123 pass / 11 files (was 73 pre-T4). `pnpm exec tsc --noEmit` clean. `pnpm i18n:check` = 229 keys / 18 locales. `cargo build --release -p egressapikey-app --features custom-protocol` green; release exe staged at `release/windows-gui/EgressAPIKEY.exe`.
 - **Ponytail debt**: only `route_id`/`normalize_auth` in `lane.rs` are true dead code (ADR-0014 authorized deletion but the two functions remained with zero callers). Tracked in `docs/PONYTAIL_DEBT_LEDGER.md` as deferred-dead-code; not touched in this pass because it is a deletion (destructive-flow review focuses on wrong deletions, not missing ones).
 
-
 ### 51. T7 - diagnostics page refactor + ps1 window flash fix + clear_os_proxy audit
 
 - **T7-1 (check_firewall_status rewrite)**: replaced `std::process::Command::new("powershell").output()` (sync, no timeout, no CREATE_NO_WINDOW) with `tokio::process::Command` + `creation_flags(0x08000000u32)` + `tokio::time::timeout(5s)`. Cross-platform: Linux uses `systemctl is-active ufw/firewalld --quiet` + `/proc/net/ip_tables_names` fallback, macOS uses `pfctl -s info` + `/etc/pf.conf` existence fallback. Each branch has its own 5s timeout. Eliminates PS1 console window flash on Windows and deadlock risk from synchronous subprocess in async Tauri command. Pattern from pwm gpt56_sol research.
@@ -452,7 +421,6 @@ Code-level audit confirms all 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/
 - **Ponytail-review**: DiagnosticsView.tsx — 0 findings. DiagCard reused 6× (valid abstraction, not speculative). No useMemo/useCallback/useReducer (no premature optimization). No ponytail: tags in new code.
 - **Ponytail-debt**: 2 source-tagged markers remain (both pre-existing, no new debt from T7): `trace.rs L30` (keep: hand-rolled uuid v4 validator avoids adding uuid crate for 1-field check), `ipc.ts L646` (done: extractIpcErr wired into translateError in all GUI catch blocks). No stale markers. `git grep -rnE '(#|//) ?ponytail:'` returns exactly 2 hits.
 
-
 ### 52. T8 - platform page UX fix (ADR-0029)
 
 - **T8-1**: new IPC command `port_bind_platform(port, platform_name)` in `commands/mod.rs` — only patches the endpoint's platform binding, does NOT touch `auth_required` (the bug root cause: `port_upsert` was a full overwrite that flipped auth to true). TS wrapper `ipcPortBindPlatform` in `ipc.ts` validates via `assertShortName`. 2 cargo mockito + 1 vitest closed-loop.
@@ -466,7 +434,6 @@ Code-level audit confirms all 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/
 - **T8-9**: release exe 12.86MB staged at `release/windows-gui/EgressAPIKEY.exe`, chunk hash `DhdKJlq_` verified in exe bytes, smoke launch green (pid alive, MainWindowTitle='EgressAPIKEY', WS=33.8MB), codegraph synced, commit 9507225 pushed.
 - **Audit (nightly post-T8)**: 1 production `.unwrap()` at L2315 (`as_array_mut().unwrap()` on locally-initialized JSON) fixed to `.expect("platforms initialized as array")`. No other production `.unwrap()` except `PROPFIND` literal (safe). No TODO/FIXME/HACK. 3 `ponytail:` comments are intentional simplification markers. AGENTS.cli.md correctly absent (deleted in P33, user explicitly does not want it). 118 cargo tests + 182 vitest pass. tsc clean. i18n 288 keys / 18 locales.
 
-
 ### 31. T8 - exit IP strategy fixes: circuit breaker, strategy verify, connection control, sticky TTL, subscription interval
 
 - **T8-1 (circuit breaker)**: `platform_update` IPC now accepts `passive_circuit_breaker_disabled: Option<bool>` which PATCHes the Resin platform. Two new IPC commands `system_config_get`/`system_config_patch` expose the system-wide `max_consecutive_failures` knob via GET/PATCH to Resin. No fork needed — Resin v1.2.0 already has these fields.
@@ -477,7 +444,6 @@ Code-level audit confirms all 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/
 - **T8-6 (close/reset IPC)**: `close_all_connections` and `reset_kernel` both kill the sidecar child via `std::sync::Mutex<Option<std::process::Child>>`. `sidecar_restart` helper re-runs boot_resin logic. Registered in main.rs invoke_handler.
 - **T8-7 (final gate)**: tsc green, vitest 182 passed / 14 files, cargo 118 passed / 0 failed, i18n 304 keys / 18 locales, git diff --check CLEAN. Release build 12.94MB exe, chunks CzuPrGlZ + CxDMLfHj verified in exe bytes.
 - **i18n**: 294 to 304 keys across 18 locales (+10 new: strategy.circuitBreaker, strategy.circuitBreakerThreshold, strategy.stickyTtlHint, subscription.updateInterval, diagnostics.closeAllConnections, diagnostics.resetKernel, strategyVerify.title/platform/sampleCount/uniqueIps/latency/run, connectionControl.title/confirmClose/confirmReset).
-
 
 ### 53. P26-T14 — Performance optimization: Job Object + lightweight mode + usePoll + useIpc + virtualization
 
@@ -491,7 +457,6 @@ Code-level audit confirms all 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/
 - **T14-8: SettingsView lightweight toggle + IPC**: two new IPC commands `lightweight_get` / `lightweight_set(enabled, delayMinutes)` in `commands/mod.rs`. Persists to `settings.json` + updates the live `LightweightController` via `set_delay_minutes` (`AtomicU32` — safe cross-thread writes). `SettingsView.tsx` gains a toggle card with enabled checkbox + delay_minutes input (1..=1440 range validated on both TS and Rust boundaries). 3 new i18n keys (`lightweightEnabled`, `lightweightDisabled`, `lightweightHint`) + 2 reused from T14-2. Known gap: delay input lacks debounce — each keystroke triggers one IPC + one `settings.json` write. Redundant mount-time save (get -> setState -> save effect) writes same value back, harmless.
 - **T14-9: Documentation + ADR-0035 + push**: `docs/adr/0035-performance-optimization.md` created. This AGENTS.md section. `docs/GRILL_T14_PERFORMANCE.md` stamped with completion status. Measured: smoke exe ~39MB (77% reduction from 171MB WebView2 baseline), 209 vitest, 119 cargo pass, tsc green, i18n 323 keys x 18 locales.
 
-
 ### 54. T15 - Canvas bugfix + strategy pipeline unification
 
 - **T15-1 (C column filter)**: TopologyView.tsx `subGroups.forEach` now skips subscription groups where no nodes have a region in `selectedRegions`. If a subscription has 53 JP nodes but no platform selected JP, the card does not render. Eliminates C column clutter from unbound subscriptions.
@@ -501,8 +466,6 @@ Code-level audit confirms all 9 surviving polish items (C1-2/3/4, C2-9/10/11/12/
 - **T15-5 (strategy pipeline unification)**: TopologyView `onConnect` / `onEdgesDelete` no longer directly `ipcPlatformUpdate` PATCH Resin. New `patchRegionViaStrategyConfig` helper: reads `strategyConfig` JSON via `ipcStrategyConfigGet` -> updates `platforms[].regions` -> `ipcStrategyConfigPut` -> `ipcStrategyApply`. This makes the whitebox strategy JSON the single write pipeline for region_filters, per ADR-0036. Both PlatformsView and TopologyView now route strategy changes through the same config file.
 - **ADR-0036**: Strategy single source of truth — strategyConfig JSON is the sole write entry for all strategy changes; Resin sidecar is execution authority but not write entry. Rejected: direct PATCH Resin from canvas (bypasses whitebox file).
 - **Tests**: 219 vitest (was 214; +5 T15 closed-loop), tsc green, i18n 327 keys/18 locales, cargo 119 pass.
-
-
 
 ### 55. T15-Performance — DiagnosticsView usePoll, log-level control, canvas memo+throttle, reqwest::Client reuse
 
@@ -515,7 +478,6 @@ This section supersedes in scope: the canvas-bugfix T15 numbered sub-items in §
 - **ADR-0038** at `docs/adr/0038-t15-perf-fixes.md` records the four decisions + the atomic-gate fallback reasoning. Accepted by the user; no Resin-fork or new crate was made.
 - **No new crate, no new runtime dep, no git diff to AGENTS §54 labels**. AGENTS §54`s "T15-1..T15-5" labels stay intact (canvas branch); this section §55 is the perf branch.
 - **Tests**: cargo `resin-core --lib` = 120 pass (was 119; +1 `shared_client` pointer-id). vitest = 222 pass / 16 files (was 219; +3 new closed-loop). tsc clean. `pnpm i18n:check` = 332 keys / 18 locales (was ~327; +5 log-level keys). Release exe `target/x86_64-pc-windows-msvc/release/EgressAPIKEY.exe` 13.68MB staged at `release/windows-gui/EgressAPIKEY.exe` + `resin.exe` sidecar (37.93MB). Smoke: MainWindowTitle="EgressAPIKEY", WS 36.8MB, `resin-x86_64-pc-windows-gnu` child alive at 50.1MB. Vite chunk hash `index-C2iU5w05` + `TopologyView-DWzHFury` both `FOUND` in exe bytes (no stale bundle).
-
 
 ### 56. T15-code-review — Standards + Spec fixes on commit 8dac8e6 (ADR-0036 pipeline enforcement)
 
@@ -531,7 +493,6 @@ Code-level diff review of T15 canvas bugfix commit `8dac8e6` along two axes (Sta
 - **Ponytail-review verdict**: diff is lean; 1 `patchAndSyncOnce` function (legacy direct-PATCH path) is dead code with only test callers, but deleting it is out of T15-code-review scope (would break C1-2 tests that predate this review). Tracked as ponytail-debt, not fixed here.
 - **ADR-0036** at `docs/adr/0036-strategy-single-source-truth-config.md` is the decision record for the strategyConfig-JSON-as-sole-pipeline contract this commit enforces.
 
-
 ### 57. T15-v3 canvas fold + dagre center + strategy badge sync (ADR-0039)
 
 Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `docs/adr/0039-canvas-v3-fold-center-strategy-sync.md`:
@@ -544,7 +505,6 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 - **Tests**: 225 vitest pass / 16 files (unchanged total — 4 test assertions updated: manual label "A: Manual" -> "A: Manual selection"; dagre centering assertion replaced by finite-position check since centering offset was removed). tsc clean; cargo `resin-core --lib` 120 pass (Rust untouched).
 - **Hard close-loop (§5)**: `pnpm build` -> Vite chunk hash `CbEJnK0B` embedded in `release/windows-gui/EgressAPIKEY.exe` at byte offset 11078901 (Node `Buffer.indexOf` verified). Release exe 13.69MB + `resin.exe` 37.93MB sidecar staged. Smoke: PID 3012 alive, MainWindowTitle=EgressAPIKEY, WS 33.8MB, resin child PID 11668 WS 49.4MB.
 - **ADR-0036 addendum**: the read side of the strategyConfig pipeline (how the canvas consumes the JSON) is now specified by ADR-0039 SS2. The write side (`strategy_config_put` + `strategy_apply`) remains unchanged. No reversal of the write-side decision.
-
 
 ### 58. T16 - canvas region filter + port drag-bind + MiniMap i18n
 
@@ -560,7 +520,6 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 - **CONTEXT.md**: added terms `selectedRegions`, `port_bind_platform`, `MiniMap`; `viewMode` de-duped (original definition retained).
 - **Codegraph**: 1 modified file synced (51 nodes).
 - **Commit**: `745837e` on `codex/rust-port`, pushed.
-
 
 ### 59. P17-T17 - canvas v4 node pool + toolbar merge + MiniMap ariaLabel + dedup (ADR-0041)
 
@@ -588,7 +547,6 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 - **CONTEXT.md**: 6 new terms added - `portHealthChip` (chip showing port health from batch probe), `portEnabled` (resin endpoint enabled flag, whitebox authoritative), `bClassParams` (B-class strategy params struct), `manualMode` (A-class manual region selection mode), `configEntry` (right-top ConfigToolbar dropdown), `whiteboxRestorePorts` (boot-time port restore from whitebox with 409-skip).
 - **Ponytail**: PortForwarder.listen/unlisten NOT used (Resin owns listeners per AGENTS §15, PortForwarder.shutdown no-op in whitebox path). No new deps. BClassParams uses existing serde. i18n keys under `strategy.*` namespace to match existing `strategy.*` convention (plan's `topology.bClass*` was shorthand, not a literal JSON path). 409-skip is 6 lines, not a retry loop.
 
-
 ### 61. P25-T19 - node pool collapse + resin-native probe + whitebox knobs (ADR-0044)
 
 - **T19 complete (5 Phase plan: GRILL_T19_NODE_POOL_FIX_PLAN.md)**. ADR-0044 $S1-S4 all landed. Budget 1亿 (used ~3.5M/100M). Branch `codex/rust-port`.
@@ -608,7 +566,6 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 - **CONTEXT.md**: 4 new terms (`defaultCollapsed` / `subscriptionRefresh` / `nodeProbe` / `probeKind`) referencing ADR-0044.
 - **ADR-0044**: 4 decision sections (S1 default-collapse / S2 resin-native refresh / S3 on-demand probe / S4 batch + whitebox knobs) + 5 rejected alternatives.
 
-
 ### 62. P25-T19 audit - 4 missing Resin hot-update knobs + 2 missing vitests + 1 plan-line ambiguity
 
 - **Audit scope**: code-review + ponytail-review/audit/debt + neat-freak against GRILL_T19_NODE_POOL_FIX_PLAN.md + ADR-0044 + CONTEXT.md deltas. Branch `codex/rust-port` on top of §59 T19-P5 (bfa29b9).
@@ -623,7 +580,6 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 - **Ponytail**: no new Rust, no new crate, no new dep. The 4 new knob fields reuse the existing SettingsView `<Field>` + `inputCls` pattern and the existing `ipcSystemConfigGet`/`ipcSystemConfigPatch` IPC wrappers (P21 surface). `latency_authorities` is UI-displayed as a comma-joined string and split-parsed at save time — minimalczązno-overhead, no array-state-selection widget needed for a 4-row authoring surface.
 - **Codegraph**: `codegraph sync .` re-indexed 3 changed source files (218 nodes).
 
-
 ### 63. T20 - IPC error contract hardening
 
 - **IpcError enum full wire**: all `#[tauri::command]` return `Result<T, IpcError>` (4 variants: BindConflict / InvalidStrategy / ResinUpstream / Internal, each with `i18n_key`). 8 internal helpers still use `Result<_, String>` but `From<String> for IpcError` auto-converts via `?` at call sites — zero residual `String` in command signatures. serde externally-tagged, 4 variant round-trip tests in `ipc_error.rs`.
@@ -632,7 +588,6 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 - **Toast action button**: `showToast(kind, msg, action?)` third param `{ label, onClick }`. BindConflict → "Change port" (`ipcPortSuggest()`), InvalidStrategy → "View docs" (opens STRATEGY.md), ResinUpstream → "Retry" (re-invoke last action). Internal → no action. i18n keys `error.action.{changePort,viewDocs,retry}` across 18 locales.
 - **i18n**: 389 keys / 18 locales (was 386; +3 error.action.* keys). `pnpm i18n:check` green.
 - **Tests**: `cargo test -p resin-core --lib` = 137 passed (was 122; +15 map_resin_error/extract_port branches). `pnpm test` vitest: no-raw-error lint guard test passes (pre-existing 116 failures from other branches are not T20 regression). `pnpm exec tsc --noEmit` green.
-
 
 ### 64. T20-v2 - Subscription refresh sink to Resin native /actions/refresh (ADR-0047)
 
@@ -650,7 +605,7 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 - **Docs**: ADR-0047 (9759 B, ACCEPTED, 5 sections with 5 Rejected alternatives). ADR-0044 L37 partial-supersede note added. `docs/CONTEXT.md` `subscriptionRefresh` definition rewritten (Resin-native /actions/refresh, clash.meta UA, P13 B4 chain deleted) + new term `sourceTypeRemote`. Both reference ADR-0047.
 - **Tests**: `cargo test -p resin-core --lib` = 136 passed (was 137 from c0a309f-era; -4 deleted +1 native +1 remote +2 P5 status==0/500 = 136. "All passed" is the contract). `pnpm test` vitest = 279 passed / 17 files (was 163/279 failing before the setup.ts fix; 116 failures were the c0a309f isTauri regression, not T20 regression). `pnpm exec tsc --noEmit` green. `pnpm i18n:check` = 389 keys / 18 locales.
 - **Build**: `pnpm build` green, chunk hash `DDsjK9QR` (index-DDsjK9QR.js, 418KB). `cargo build --release -p egressapikey-app --features custom-protocol` green (~5min incremental rebuild on this host after touching src-tauri/src/main.rs to force `generate_context!` re-embed of the fresh dist bundle). Staged `release/windows-gui/EgressAPIKEY.exe` (13.8MB). Chunk-hash guard verified: `DDsjK9QR` found by ASCII-string scan of the exe bytes — NOT a stale bundle.
-- **Smoke**: `Start-Process release/windows-gui/EgressAPIKEY.exe` — PID alive, `MainWindowTitle == "EgressAPIKEY"`, WS 38MB, resin child alive (resin-x86_64-pc-windows-gnu.exe PID 15416). sidecar control plane up on http://127.0.0.1:60659 after 0ms. App.log tail: 9 INFO lines, **0 WARN resin_ipc** (bug-1 fix verified — no `[wrn] Resin error mapped to i18n` at default INFO verbosity). `DEBUG resin_ipc` lines also 0 (default INFO level filters DEBUG out; raising RUST_LOG=debug would surface them).
+- **Smoke**: `Start-Process release/windows-gui/EgressAPIKEY.exe` — PID alive, `MainWindowTitle == "EgressAPIKEY"`, WS 38MB, resin child alive (resin-x86_64-pc-windows-gnu.exe PID 15416). sidecar control plane up on <http://127.0.0.1:60659> after 0ms. App.log tail: 9 INFO lines, **0 WARN resin_ipc** (bug-1 fix verified — no `[wrn] Resin error mapped to i18n` at default INFO verbosity). `DEBUG resin_ipc` lines also 0 (default INFO level filters DEBUG out; raising RUST_LOG=debug would surface them).
 - **CodeGraph**: `codegraph sync .` re-indexed 10 changed files (217 → 339 nodes after two syncs).
 - **Ponytail**: deletion of P13 B4 fetch/convert/patch chain (~200 LoC + 4 tests) — Resin already ships clash.meta UA and the /actions/refresh endpoint is Resin-native. No new deps. No new code paths invented; the shell simply re-targets existing Resin capabilities. status==0 -> Internal arm is defensive, not actively hit today — kept as future-proofing against misuse.
 
@@ -669,7 +624,6 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 - **CodeGraph**: `codegraph sync .` re-indexed 3 changed files (51 nodes delta).
 - **Ponytail**: reused existing Resin `/actions/refresh` synchronous semantics (no delayed polling). `applyProbeResult` is the minimum viable extraction — did not port clash-rev 200+ line DelayManager/useReducer listener lifecycle. `<Info>` popover pattern reuses an existing lucide-react icon; inline ~30 lines, no new dep. StatCard corner position uses `position: relative` + `position: absolute` (no grid-top-left hacks).
 
-
 ### 66. T22 - headless white-screen fix (isTauri guard + SPA fallback + ErrorBoundary + items-unwrap) (ADR-0049)
 
 **ADR-0049** (3-layer strategy: L1 isTauri guard + L2 SPA fallback + L3 ErrorBoundary): docs/adr/0049-headless-white-screen-spa-fallback-error-boundary.md. Plan: docs/GRILL_T22_HEADLESS_RENDERING_FIX.md (6 decisions + 5 phases + acceptance criteria).
@@ -678,7 +632,7 @@ Four user-visible canvas issues fixed per `docs/GRILL_T15_CANVAS_V3_PLAN.md` + `
 
 - **L1: isTauri guard (root-cause fix)**: ipcWatchPortHealth in src/lib/ipc.ts now wraps the Channel construction in if (isTauri()) -> returns early in headless mode (no Channel, no invoke). The isTauri() helper (already existed for Tauri detection) gates the entire call so headless mode never touches the Tauri-only API. This is the single-line root-cause fix; the other two layers are defense-in-depth.
 
-- **L2: SPA fallback (headless_main.rs)**: src-tauri/src/headless_main.rs ServeDir fallback was .not_found_service(ServeFile::new(dist.join("index.html"))) only for the base route. Rewired to 
+- **L2: SPA fallback (headless_main.rs)**: src-tauri/src/headless_main.rs ServeDir fallback was .not_found_service(ServeFile::new(dist.join("index.html"))) only for the base route. Rewired to
 ot_found_service(ServeFile::new(dist.join("index.html"))) so any deep-link client-side route (e.g. /platforms, /nodes) that the static file server does not find on disk falls back to index.html -> the SPA router boots and renders the correct view. This is the standard single-page-application server pattern (industry template: vite preview / serve / nginx try_files). Without it, a manual refresh or direct navigation to a deep link returns 404 -> white screen.
 
 - **L3: ErrorBoundary (App.tsx)**: src/App.tsx wraps the entire view tree in a React ErrorBoundary class component. If any future uncaught throw escapes React's tree, the boundary catches it and renders a fallback card with "Something went wrong" + a Reload button (calls window.location.reload()). This prevents the blank white screen class of bugs from ever recurring without user-visible diagnostic. Industry template: React docs ErrorBoundary pattern + Sentry fallback UI.
@@ -687,11 +641,11 @@ ot_found_service(ServeFile::new(dist.join("index.html"))) so any deep-link clien
 
 - **tsc fix**: import * as React added to src/App.tsx — the ErrorBoundary class component uses React.Component which requires the React namespace import (file used React 19 automatic JSX runtime, so the import was absent).
 
-- **Build**: pnpm build green (vite chunk hash BhRXpt46 for index-BhRXpt46.js, 420KB). cargo build --release -p egressapikey-app --features custom-protocol green (~8min). Staged elease/windows-gui/EgressAPIKEY.exe (13.8MB). Chunk-hash guard: BhRXpt46 ASCII-string found in exe bytes — NOT a stale bundle. cargo build --release --features headless green (4.75MB headless exe).
+- **Build**: pnpm build green (vite chunk hash BhRXpt46 for index-BhRXpt46.js, 420KB). cargo build --release -p egressapikey-app --features custom-protocol green (~8min). Staged release/windows-gui/EgressAPIKEY.exe (13.8MB). Chunk-hash guard: BhRXpt46 ASCII-string found in exe bytes — NOT a stale bundle. cargo build --release --features headless green (4.75MB headless exe).
 
 - **Tests**: pnpm test = 295 pass / 17 files (was 284; +11 T22 items-unwrap + error boundary assertions). cargo test -p resin-core --lib = 136 pass (unchanged). pnpm i18n:check = 392 keys / 18 locales. pnpm exec tsc --noEmit green.
 
-- **agent-browser verification**: headless exe started on port 14200; 
+- **agent-browser verification**: headless exe started on port 14200;
 px agent-browser open localhost:14200 + snapshot verified all 7 tabs render (Topology, Platforms, Subscriptions, Nodes, Diagnostics, Settings, Process Route) with no white screen. SPA refresh works (client-side routing + ServeFile fallback confirmed).
 
 - **CodeGraph**: index unchanged for this commit (no new symbols for codegraph to index — edits were inside existing functions).
@@ -709,9 +663,6 @@ Round 2 closed 2026-08-31. Mother spec/problem statement and ticket set lived in
 - **16 / fb3abee** drift tray notify + docs closeout: one-shot-per-process tray notification on first unacknowledged drift (DriftNotifyState armed→fire→disarm, re-arm on all-clear; sidecar-down silent); hooked ONLY at the authoritative_snapshot command tail merge point; tauri-plugin-notification best-effort with 18-locale copy table; ADR-0054 flipped PROPOSED → ACCEPTED with per-section ticket attributions corrected to landed reality (A=14, B=15, E=16); CONTEXT.md four-term vocabulary (Desired / Live / One-way Reconcile / Known Exemption), ARCHITECTURE.md reconciliation-closure section, docs/how-to/WHY-NOT-EFFECTIVE.md troubleshooting table, CHANGELOG [Unreleased].
 
 Close gates at stack head: resin-core lib 178+integration green / shell lib 95 green / vitest 335 (NodesView intermittent single-test flake is pre-existing on main, file untouched since 2026-08-19 — tracked as backlog, not a regression) / ipc manifest 71 / i18n 433 keys x 18 locales / verify-build exit 0 (cargo build+custom-protocol, cargo test, pnpm build, pnpm test) / release/windows-gui/EgressAPIKEY.exe embeds chunk DpFKTPl3 (14,159,360 B) / git diff --check clean. Merge note: but land lands+pushes atomically per GitButler CLI semantics (no separate push step exists); SSL handshake hiccup on arch/15 retried once, no other anomalies. Invariants verified end-to-end: one-way whitebox-wins reconcile, no self-heal (single sanctioned merge point), acknowledged never alters three-state merge.
-
-
-### 68. architecture-recovery Round 3 - processRoutes migration + three debt tickets + research sediment
 
 Round 3 closed 2026-09-01. Five tickets, five GitButler stacks landed onto origin/main in stack order (17 -> 19 -> 18 -> 20 -> 21); lands were user-gated and atomic (but land = merge+push per GitButler CLI semantics).
 

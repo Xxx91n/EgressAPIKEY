@@ -13,17 +13,20 @@ The grill suite (ask-matt index) main flow designed clear doc output paths:
 ### grill 18 skill complete workflow suite (ask-matt confirmed)
 
 Main flow (idea -> ship):
+
 1. /grill-with-docs: interview -> CONTEXT.md (root) + docs/adr/
 2. /to-spec: spec.md -> .scratch/<slug>/ (gitignored) or issue tracker
 3. /to-tickets: NN-slug.md -> .scratch/<slug>/issues/ (gitignored)
 4. /implement: from ticket, fresh context
 
 On-ramps:
+
 - /triage: raw issues -> agent-ready issues -> main flow at /implement
 - /diagnosing-bugs: hard bugs -> regression test -> /improve-codebase-architecture
 - /wayfinder: huge foggy -> decision tickets -> /to-spec -> main flow
 
 Standalone:
+
 - /grill-me: stateless interview
 - /grilling: interview primitive
 - /resolving-merge-conflicts: merge/rebase hunk by hunk
@@ -31,10 +34,12 @@ Standalone:
 - /to-questionnaire: questions for someone else
 
 Vocabulary underneath:
+
 - /domain-modeling: domain language -> CONTEXT.md + ADR
 - /codebase-design: module shape vocabulary (depth/seam/adapter)
 
 setup:
+
 - /setup-matt-pocock-skills: docs/agents/{issue-tracker,domain,triage-labels}.md
 
 ### doc output contract
@@ -52,6 +57,7 @@ setup:
 ### what actually happened
 
 Three categories of output got dumped into docs/ instead:
+
 1. GRILL_T* execution plans (22 files ~3000 lines) - session-temp or done phases
 2. HANDOFF_* handoff docs (10 files ~1200 lines) - session artifacts
 3. User prompt archive (USER_PROMPT_ARCHIVE + T9_MASTER_GOAL_PROMPT) - not engineering docs
@@ -149,6 +155,7 @@ Current AGENTS.md: 852 lines / 230637 bytes (7x over 32 KiB Codex limit)
 ### Slimming strategy (writing-for-agents progressive disclosure)
 
 Keep (agent uses every run):
+
 - context-mode routing block (ctx_* tool routing)
 - CodeGraph conventions
 - i18n conventions (full key coverage, 18 locale)
@@ -159,12 +166,14 @@ Keep (agent uses every run):
 - Pointers to docs/ ("architecture see docs/architecture/, decisions see docs/adr/")
 
 Migrate to docs/architecture/ (reference level, some branches need):
+
 - Runtime state (current section 11) -> docs/architecture/runtime-state.md
 - Storage locations -> docs/architecture/storage.md
 - Sidecar lifecycle -> docs/architecture/sidecar.md
 - Ghost safety net -> docs/architecture/ghost-safety.md
 
 Migrate to CHANGELOG.md (process artifacts, milestones):
+
 - IPC retarget (sections 15-20)
 - Resin webhook (section 16)
 - CI/CD release pipeline (section 17)
@@ -177,7 +186,7 @@ Expected: AGENTS.md from 230637 bytes -> ~30000 bytes (under 32 KiB)
 
 ### Risks
 
-1. Other parallel fix branches may reference docs/GRILL_T* / docs/HANDOFF_* paths
+1. Other parallel fix branches may reference docs/GRILL_T\* / docs/HANDOFF_\* paths
    - Mitigation: git mv preserves history, all paths are rename not delete
    - Mitigation: check other branches for references first (grep)
 
@@ -212,12 +221,14 @@ Expected: AGENTS.md from 230637 bytes -> ~30000 bytes (under 32 KiB)
 ## 6. Execution Order
 
 Phase 1: Create dirs + .gitignore (low risk)
+
 - mkdir docs/history/phases docs/history/handoffs docs/history/prompts
 - mkdir docs/architecture docs/reference docs/research docs/how-to
 - mkdir docs/agents
 - .gitignore add .scratch/
 
 Phase 2: Archive mixed products (git mv, preserve history)
+
 - git mv docs/GRILL_T*.md docs/history/phases/
 - git mv docs/HANDOFF_*.md docs/history/handoffs/
 - git mv docs/USER_PROMPT_ARCHIVE.md docs/T9_MASTER_GOAL_PROMPT.md docs/history/prompts/
@@ -225,6 +236,7 @@ Phase 2: Archive mixed products (git mv, preserve history)
 - Create docs/history/README.md (HISTORICAL ARCHIVE marker)
 
 Phase 3: Organize active docs (git mv)
+
 - git mv docs/ARCHITECTURE.md docs/architecture/
 - git mv docs/CONTEXT.md root (merge if existing)
 - git mv docs/glossary.md docs/reference/
@@ -235,6 +247,7 @@ Phase 3: Organize active docs (git mv)
 - git mv docs/PROJECT_PLAN.md docs/GRILL_ISSUES_BACKLOG.md docs/history/phases/
 
 Phase 4: Create CHANGELOG.md
+
 - Extract completed phases from git log
 - Use Keep a Changelog 2.0 template
 - Fill [Unreleased] + released versions
@@ -245,6 +258,7 @@ Phase 5: Slim AGENTS.md (highest risk, must be after Phase 4)
 Per writing-for-agents branching test:
 
 Keep (agent uses every run):
+
 - context-mode routing block (ctx_* tool routing)
 - CodeGraph conventions
 - i18n conventions (full key coverage, 18 locale)
@@ -255,12 +269,14 @@ Keep (agent uses every run):
 - Pointers to docs/ ("architecture see docs/architecture/, decisions see docs/adr/")
 
 Migrate to docs/architecture/ (reference level):
+
 - Runtime state (section 11) -> docs/architecture/runtime-state.md
 - Storage locations -> docs/architecture/storage.md
 - Sidecar lifecycle -> docs/architecture/sidecar.md
 - Ghost safety net -> docs/architecture/ghost-safety.md
 
 Migrate to CHANGELOG.md (process artifacts):
+
 - IPC retarget (sections 15-20)
 - Resin webhook (section 16)
 - CI/CD release pipeline (section 17)
@@ -268,10 +284,12 @@ Migrate to CHANGELOG.md (process artifacts):
 - R1-R2 refactor (section 23)
 
 Not called (don't need):
+
 - grill-with-docs: this task reorganizes existing, not new domain docs
 - codebase-design: this task doesn't touch code module architecture
 
 Phase 6: CI governance (low risk)
+
 - .markdownlint-cli2.jsonc
 - .github/workflows/docs-lint.yml
 - Reference boxing project ai-docs-governance.yml (dead-link + layer-separation + size-warning)
@@ -293,10 +311,11 @@ Phase 6: CI governance (low risk)
 ### Industry research (32 sources, atomcode 2 rounds)
 
 Diataxis + C4 + ADR/MADR + AGENTS.md (agents.md official, 60k+ repos, LF AAIF)
-+ markdownlint/lychee/Vale (GitHub Action level)
-+ arXiv 2602.11988 (ETH: agent instructions should only have commands + pointers)
-+ Tauri/React/Rust/Vite/Airflow repo evidence
-+ Codex hard limit project_doc_max_bytes = 32 KiB (from boxing project research)
+
+- markdownlint/lychee/Vale (GitHub Action level)
+- arXiv 2602.11988 (ETH: agent instructions should only have commands + pointers)
+- Tauri/React/Rust/Vite/Airflow repo evidence
+- Codex hard limit project_doc_max_bytes = 32 KiB (from boxing project research)
 
 ### grill workflow suite (18 engineering + 35 full skills)
 

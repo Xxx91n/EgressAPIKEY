@@ -10,7 +10,7 @@ Research first corrected a wrong premise from the earlier ADR-0003 PROPOSED.
 Resin does NOT treat the upstream `Authorization: Bearer <sk-xxx>` value as
 the Account. The routing input is the THREE-tuple:
 
-```
+```text
 (platformName, account, targetHost)
 ```
 
@@ -33,6 +33,7 @@ the Account. The routing input is the THREE-tuple:
   authority latency, not platform membership).
 
 This means:
+
 - The upstream API key (`Authorization: Bearer sk-...`) is forwarded as an
   end-to-end header and Resin does NOT inspect it for routing. It is the
   business account, platform, and target host that drive egress selection.
@@ -153,7 +154,6 @@ policy biasing proves insufficient in practice.
   display_tag, has_outbound, failure_count, region, tags. No per-node
   bandwidth field. No per-node protocol field beyond what the subscription
   tags encode.
-
 
 ## 7. ADR-0006 item 3 live-sidecar e2e findings (new)
 

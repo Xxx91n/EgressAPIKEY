@@ -9,7 +9,7 @@
 
 A self-contained release artifact lives at `release/<os>-backend/`:
 
-```
+```text
 release/linux-backend/
 ├── egressapikey-headless      # Rust binary (~4.4MB, portable)
 ├── dist/                       # Vite-built React SPA

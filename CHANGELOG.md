@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - docs/ governance hierarchy: `docs/history/` (phases, handoffs, prompts), `docs/architecture/`, `docs/how-to/`, `docs/reference/`, `docs/research/`
 - `docs/README.md` directory map, `docs/history/README.md` archive marker
 - `docs/DOCUMENT_GOVERNANCE_PLAN.md` governance plan (32-source industry research: Diataxis + ADR + AGENTS.md + docs-as-code)
@@ -35,11 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - (architecture-recovery 11) request_log_tail retargeted to Resin GET /api/v1/request-logs; direct request_logs*.db read deleted; RESIN_UPSTREAM_MANIFEST compat note added
 - (architecture-recovery 20) single-owner throttle model: poll rhythm (adaptive interval + exponential backoff) and lightweight close-delay arithmetic consolidated into `crates/resin-core/src/throttle.rs` (`ThrottleParams`); parameter values unchanged at both call sites so the external rhythm is identical (legacy-equivalence tests pin every formula); `spawn_watcher_with` cadence seam + tokio virtual-time tests for multi-client coexistence and the shared pause flag
 
-
 ### Fixed
+
 - (architecture-recovery 18) NodesView vitest flake eliminated by test isolation only (zero product-code changes): root cause = sub-header expand clicks landing before the default-collapse seeding effect (NodesView.tsx seeding useEffect wholesale-overwrites `collapsed` with every subscription), which inverts the toggle (expand -> collapse) under full-suite CPU contention - standalone runs always green, full-suite 2/6 rounds failed at T4-3c; all 11 sub-header clicks in NodesView.test.tsx now route through `clickSubHeaderExpand`/`clickSubHeaderCollapse` helpers that await the settled chevron state first; new scannable guard `scripts/vitest-isolation-guard.cjs` (raw sub-header clicks outside the guarded helper block fail the build) wired into verify-build.sh; build-all.sh: `TRIPLE` used-before-assignment under `set -u` fixed (backend sidecar staging aborted every run); evidence: post-fix 5/5 full-suite green 338/338 + 6/6 standalone green 26/26
+
 ### Removed
+
 - **arch/26 (architecture-recovery ticket 26, ADR-0050 follow-through)**: `crates/resin-core/src/lib.rs` crate-root re-export face slimmed to exactly the src-tauri consumption set — 78→35 names deleted: `ReputationEntry`, `platform::{Account, Platform, PlatformRegistry}`, `port_forwarder::{detect_protocol, resin_identity}`, `port_health::{adaptive_interval, HealthState, PortHealthEntry}`, `strategy::StrategyId`, `strategy_engine::{a_class_regions, liveness_filter, AClassStrategy, BClassParams, NodeSummary, PlatformStrategy}`, `strategy_service::{clean_stale, compute_reconcile_plan, validate as validate_strategy_config, AppliedPlatform, ApplyReport, ReconcilePlan, ReconcileReport, StrategyConfigStore, RECONCILE_PORT_TTL_SECS}`, `stream_sensor::{classify_http_headers, StreamKind, StreamSensor, StreamSensorSnapshot}`, `whitebox_backup` helpers (`atomic_write_bytes`, `backup_before_write`, `backup_dir`, `backup_list`, `now_unix`, `parse_backup_name`, `read_backup`, `read_backup_parsed`, `validate_backup_name`, `BACKUP_DIR_NAME`, `WHITEBOX_BACKUP_KEEP`), `whitebox_config::{parse_legacy_l1_routes, validate as validate_whitebox_config, MAX_PROCESS_ROUTES}`. Internal fixes to keep imports honest: `port_forwarder.rs` now imports `stream_sensor` via its module path; `tests/reconcile.rs` imports via module paths. Scripted export-vs-consumption diff is empty on both sides; `MAX_LANES` stays as a lib.rs-local const (AGENTS.md §7.5 contract). Pure subtraction, zero additions.
+
 - resin-core dead kernel face (ADR-0050): mihomo/gateway/lane/lease/tdewma modules, CoreConfig/sanitize_lanes/lane constants, and the resin-core stub bin; headless product surface remains the egressapikey-headless bin (ADR-0043)
 - Unused resin-core dependencies: axum, hyper, bytes, http, thiserror, clap, tracing-subscriber, fxhash, tower (dev), http-body-util (dev)
 - `docs/CONTEXT.md` (root `CONTEXT.md` is the canonical copy)
@@ -49,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-08-19
 
 ### Added
+
 - Tauri 2 + React 19 desktop app: L7 proxy gateway for AI API keys
 - Resin Go sidecar integration (v1.2.0): platform, subscription, node-pool, leases API
 - Topology canvas: three-column key-to-egress routing (entry proxy -> platforms -> IP channels)
@@ -60,10 +65,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ponytail debt ledger: 6 source-tagged markers tracked
 
 ### Changed
+
 - Folder renamed from ai-api-route to EgressAPIKEY (all artifacts aligned)
 - IPC commands retargeted from local SharedGateway/SharedRegistry to Resin sidecar REST
 
 ### Fixed
+
 - Headless white-screen fix: isTauri guard + SPA fallback + ErrorBoundary + items-unwrap (T22)
 - Topology connection race/resync/drag fixes (T20-T22)
 - Orphan-sidecar process bug: SidecarHandle.child Mutex<Option<CommandChild>> + Exit event kill (P22)

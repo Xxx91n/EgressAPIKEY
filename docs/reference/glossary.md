@@ -1,7 +1,7 @@
 # EgressAPIKEY Glossary
 
 > **Superseded by [CONTEXT.md](../CONTEXT.md)** — kept here as the original term-history record; new terms are added to CONTEXT.md directly per ADR-0013.
-
+>
 > Domain terms used across ADRs, AGENTS.md, and docs/. Maintained by the
 > grill-with-docs / domain-modeling workflow. Add a term when an ADR or
 > plan introduces a term that is not self-explanatory.
@@ -51,6 +51,7 @@ removed before the route_id-derived value is injected.
 ADR-0006. Mainline A = function closure (make the software not a toy).
 Mainline B = release standardization (fill release/ + tag v0.1.0).
 Sequential: B starts only after A is closed-loop verified.
+
 ## observed_keys
 
 The shell-side SQLite table (ADR-0011) storing the reverse map from

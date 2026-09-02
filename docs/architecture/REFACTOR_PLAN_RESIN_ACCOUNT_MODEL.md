@@ -2,7 +2,7 @@
 
 > 来源：Resin DESIGN.md (master 分支, v1.1.2/v1.2.0) + ai-api-route IPC 现状。
 > 用途：定义"平台 / api key 组合 / ip 通道"三者在 Resin 真实后端里的对应实体，
->  消除"GUI 像玩具 vs 真实功能闭环"的落差。Milestone B/C 落地的 single source of truth。
+> 消除"GUI 像玩具 vs 真实功能闭环"的落差。Milestone B/C 落地的 single source of truth。
 
 ## 真实概念映射
 
@@ -10,7 +10,7 @@
 |------------------------|----------------------------|-----------------------------------------------------|---------------------------|
 | 平台 (Platform)        | Resin Platform             | POST/GET/PATCH/DELETE /api/v1/platforms             | state.db platforms 表     |
 | api key 组合           | Resin Account（路径段字符串）| 无独立 POST — 由代理流量产生 lease 自动出现          | cache.db leases 表        |
-| key 的唯一标识         | sha1(v1_endpoint + api_key)[:8]（shell 侧 UID） | 无 Resin 原生 UID — shell UI 生成展示用 UID    | 仅 UI 展示，不持久化后端  |
+| key 的唯一标识         | sha1(v1_endpoint + api_key)\[:8\]（shell 侧 UID） | 无 Resin 原生 UID — shell UI 生成展示用 UID    | 仅 UI 展示，不持久化后端  |
 | ip/ip 通道             | Resin Node (subscription)  | GET /api/v1/nodes、GET /metrics/snapshots/node-pool  | cache.db nodes_static/dynamic |
 | 平台内 key→IP 出口绑定 | Resin Lease                | GET /platforms/{id}/leases                          | cache.db leases 表 (platform_id, account, node_hash, egress_ip) |
 | ip 出口策略            | Platform allocation_policy | PATCH /platforms/{id} body.allocation_policy       | state.db platforms 表     |
@@ -21,6 +21,7 @@
 触发 lease 后自动出现在 `GET /platforms/{id}/leases` 列表里。
 "把 api key 拖到平台"在真实后端语义里 = **主动触发一次流量** 让 Resin 为 (platform, account_sha1)
 建立 lease 并在此平台上选择一个出口节点。
+
 - 我们不能"凭空创建 account"；只能 (a) 在本地 shell DB 登记已知的 (v1_endpoint, api_key) 组合作为"候选 left 栏"；
   (b) 拖到平台的时候，shell 主动以 `${platform}.${uid}` 身份发一次探测请求让 Resin 建立 lease。
 - 不放到平台的 key 组合在后端**永远不会产生出口 IP** —— 对应 Resin 的 `reverse_proxy_miss_action=REJECT`：
@@ -29,14 +30,17 @@
 ## 平台左右双栏交互（Milestone B 真实落地）
 
 **左栏（候选 key 组合）**：来自 `gateway_request_log`（shell Tauri 端打开代理审计）或本地手动录入。每条 key 组合：
+
 - 唯一标识 UID = `sha1(v1_endpoint + "::" + api_key).slice(0, 8)`（shell TS 侧生成，仅展示用）
 - 展示字段：UID + endpoint host + key 掩码（前4后4）
 - 持久化：写入 `settings.json#keyCandidates` （shell 本地，不上 Resin 后端）
 
 **右栏（已激活的平台 + 已绑定的 account）**：来自 Resin `GET /platforms`（已实现 IPC `ipcPlatformListFull`）
-+ `GET /platforms/{id}/leases`（新 IPC `ipcPlatformLeases`）。
+
+- `GET /platforms/{id}/leases`（新 IPC `ipcPlatformLeases`）。
 
 **拖拽语义**：
+
 1. 左栏 key 拖到右栏空白 = 创建一个"独立平台"，名字 = `auto-{uid}`，POST `/platforms`，并触发一次 `${platform}.${uid}` 探测建立 lease
 2. 左栏 key 拖到右栏已有平台 = 在该平台 PATCH `allocation_policy` 保持，触发 `${favoritePlatformName}.${uid}` 探测 → lease 出现在该平台下
 3. 独立平台（带 Default 后缀的 auto-*）不能再拖入别的独立 account — 拖入即与已有平台合并（重命名 + 删除旧 auto + lease 迁移 via inherit-lease action）
@@ -62,4 +66,3 @@
 - vitest: ip 通道策略选择器 → Resin policy 名映射断言
 - mockito (Rust): `ResinClient::platform_leases` `GET /platforms/{id}/leases` happy path + items-wrapper parse
 - mockito: `ResinClient::create_platform_with_fields` full schema POST 含 allocation_policy / regex_filters
-

@@ -14,7 +14,7 @@ gateway in flight. There is **no new code to write** here — the work is to
 
 A request reaches the Resin forward proxy at:
 
-```
+```text
 http://127.0.0.1:<port>/[<account>/<platform>/https/<upstream-host>/<path>]
 ```
 

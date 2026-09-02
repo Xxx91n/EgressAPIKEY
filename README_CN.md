@@ -48,11 +48,13 @@ launcher 会拉起 Rust `egressapikey-headless` 二进制，它启动 Resin Go �
 ## 平台与 IP 通道路由
 
 **拓扑** 标签页是三列 key→出口 画布（入口代理端口 → 平台 → IP 通道）：
+
 - **A：入口代理端口** —— 概念上的 Resin 转发代理入口；默认与每个平台始终连接。
 - **B：平台** —— 每个平台对应画布上的一个节点。平台到节点组的连线表示该平台的 `region_filters` 包含该区域。拖动建立连线即向 Resin 侧热 PATCH 平台的 `region_filters`；删除连线即移除该 region。每次拓扑拖动都会自动先做一次备份（防呆）。
 - **C：IP 通道 / 节点** —— 每个 region 分组对应一个节点，显示健康/总数及可路由节点数。
 
 **平台** 标签页是双栏 key→平台 界面：
+
 - **左栏**：候选 key 组合（上游 v1 端点 + API key），本地存储在 `settings.json#keyCandidates` —— 在激活前从不发送给 Resin。
 - **右栏**：实时 Resin 平台 + 每平台租约。从左栏拖动 key 到右栏空白处即创建 `auto-{uid}` 独立平台（POST /platforms，策略 `BALANCED`）；拖到已有平台上即附加该 key。实线边框卡片是自动独立平台，虚线边框卡片是手动平台。每平台的 `allocation_policy` 是个 5 档出口策略选择器（随机/顺序 → `BALANCED`，延时 → `PREFER_LOW_LATENCY`，质量 → `PREFER_IDLE_IP`）。
 
@@ -62,7 +64,7 @@ launcher 会拉起 Rust `egressapikey-headless` 二进制，它启动 Resin Go �
 
 ## 架构
 
-```
+```text
 +:端      React 19 + ReactFlow 12 + Zustand 5 + Tailwind CSS
               |
               | Tauri IPC
