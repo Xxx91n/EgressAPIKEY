@@ -9,9 +9,10 @@
 //! - `src/lib/strategy.ts` (frontend) maps `StrategyId` to i18n keys and to
 //!   Resin's `allocation_policy` enum — a pure display/mapping layer.
 //! This module is the *ownership* layer: read (whitebox JSON), validate,
-//! store (write-back), apply (compute plan + PATCH Resin + auto-clean the
-//! whitebox file), snapshot (ticket 07 read-back), and a deep
-//! `set_platform_regions` edit used by the topology canvas.
+//! store (write-back), apply (compute plan + PATCH Resin; creates missing
+//! platforms and never deletes whitebox entries, ADR-0056), snapshot
+//! (ticket 07 read-back), and a deep `set_platform_regions` edit used by
+//! the topology canvas.
 //!
 //! ADR-0036 discipline: the whitebox file is the truth; `store` is the ONLY
 //! writer in the shell (the former duplicate writers in the command layer are
@@ -256,9 +257,8 @@ fn same_region_set(a: &[String], b: &[String]) -> bool {
 }
 
 /// Where the whitebox strategy document lives and how it is read/written.
-/// Abstracted behind a trait so apply/snapshot logic is unit-testable without
-/// a filesystem (loop-me: fixtures exist for both deleted-platform and
-/// all-alive auto-clean cases).
+    /// Abstracted behind a trait so apply/snapshot logic is unit-testable without
+    /// a filesystem.
 pub trait StrategyConfigStore {
     /// Read the raw config. Missing file = `Ok(None)` (defaults apply).
     fn load(&self) -> Result<Option<StrategyConfig>, String>;
@@ -389,27 +389,6 @@ pub fn validate_acknowledged(list: &[String], field: &str) -> Result<(), String>
 /// Cap for whitebox `acknowledged` exemption arrays (ticket 12 / ADR-0054 §D).
 pub const MAX_ACKNOWLEDGED_ENTRIES: usize = 64;
 
-/// Auto-clean: drop platform entries whose names no longer exist in Resin.
-/// Returns the cleaned clone plus whether anything was dropped (the caller
-/// persists only when `changed` is true — same behavior as the former
-/// command-layer read-time write, now as a pure, tested function).
-pub fn clean_stale(config: &StrategyConfig, live_names: &std::collections::HashSet<String>) -> (StrategyConfig, bool) {
-    let before = config.platforms.len();
-    let platforms: Vec<PlatformStrategy> = config
-        .platforms
-        .iter()
-        .filter(|ps| live_names.contains(&ps.platform_name))
-        .cloned()
-        .collect();
-    let cleaned = StrategyConfig {
-        version: config.version,
-        acknowledged: config.acknowledged.clone(),
-        platforms,
-    };
-    let changed = cleaned.platforms.len() != before;
-    (cleaned, changed)
-}
-
 /// Accept Resin's items-wrapper shape `{"items":[...]}` OR a bare array
 /// (mirrors the shell-side items_arr contract; Resin v1.2.0 uses both).
 fn items(v: &serde_json::Value) -> &[serde_json::Value] {
@@ -506,7 +485,7 @@ impl StrategyService<FsStrategyStore> {
     /// for every whitebox platform found on Resin). PATCH/create failures
     /// are reported per-platform, never fatal. Apply NEVER deletes whitebox
     /// desired state: a failed create keeps the entry and reports the
-    /// reason (the former clean_stale auto-clean path was removed by
+    /// reason (the former apply-time auto-clean path was removed by
     /// ADR-0056 — the "said establish, actually deleted" contradiction).
     pub async fn apply(
         &self,
@@ -699,29 +678,6 @@ mod tests {
         assert!(validate(&c2).is_ok());
     }
 
-    // ---- clean_stale: the two required fixtures ----
-    #[test]
-    fn clean_stale_drops_deleted_platforms() {
-        let c = cfg(vec![ps("Alive", &["US"]), ps("Deleted", &["HK"])]);
-        let live: std::collections::HashSet<String> = ["Alive".to_string()].into_iter().collect();
-        let (cleaned, changed) = clean_stale(&c, &live);
-        assert!(changed);
-        assert_eq!(cleaned.platforms.len(), 1);
-        assert_eq!(cleaned.platforms[0].platform_name, "Alive");
-    }
-
-    #[test]
-    fn clean_stale_keeps_everything_when_all_alive() {
-        let c = cfg(vec![ps("A", &["US"]), ps("B", &["HK"])]);
-        let live: std::collections::HashSet<String> = ["A".to_string(), "B".to_string()]
-            .into_iter()
-            .collect();
-        let (cleaned, changed) = clean_stale(&c, &live);
-        assert!(!changed);
-        assert_eq!(cleaned.platforms.len(), 2);
-        assert_eq!(cleaned, c);
-    }
-
     // ---- store (write entry) ----
     #[test]
     fn store_rejects_invalid_documents_before_writing() {
@@ -911,18 +867,6 @@ mod tests {
         let doc = json!({"version": 1, "platforms": [], "acknowledged": ["ok", 42]});
         let svc = StrategyService::new(MemStore(doc));
         assert!(svc.get().is_err());
-    }
-
-    #[test]
-    fn clean_stale_preserves_acknowledged_list() {
-        let mut c = cfg(vec![ps("Alive", &["US"]), ps("Deleted", &["HK"])]);
-        c.acknowledged = vec!["Alive".to_string(), "Deleted".to_string()];
-        let live: std::collections::HashSet<String> = ["Alive".to_string()].into_iter().collect();
-        let (cleaned, changed) = clean_stale(&c, &live);
-        assert!(changed);
-        // The exemption list itself is NOT auto-cleaned: it is a user-marked
-        // exemption list, not strategy intent; surfacing is read-side only.
-        assert_eq!(cleaned.acknowledged, vec!["Alive".to_string(), "Deleted".to_string()]);
     }
 
     // ---- FsStrategyStore: real-file round trip + missing file ----
