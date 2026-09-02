@@ -9,7 +9,7 @@ use resin_core::resin_client::ResinClient;
 use resin_core::strategy_engine::StrategyConfig;
 use resin_core::strategy_service::{
     compute_reconcile_plan, FsStrategyStore, ReconcileMemory, ReconcilePortsOutcome,
-    StrategyConfigStore, StrategyService,
+    StrategyService,
 };
 use serde_json::json;
 
@@ -43,9 +43,12 @@ fn fixture_ports() -> Vec<PortMapping> {
     }]
 }
 
-/// Mocked Resin whose /platforms ALWAYS reports drift (live region "US"
-/// while the whitebox computes ["HK"]). The reconcile pass must PATCH once;
-/// the assertion is that the SECOND pass produces no further PATCH.
+/// Mocked Resin whose /platforms reports DRIFT in pass 1 (live region "US"
+/// while the whitebox computes ["HK"]) and the SYNCED row in pass 2 (two
+/// phase mocks served in registration order, matching mockito's
+/// first-mock-with-missing-hits rule). The reconcile pass must PATCH
+/// exactly once; the SECOND pass must produce no further PATCH — the
+/// wire-level zero-change gate, real since ADR-0057's diff-then-skip.
 async fn mock_resin() -> (mockito::ServerGuard, String) {
     let server = mockito::Server::new_async().await;
     let url = server.url();
@@ -64,9 +67,11 @@ async fn reconcile_twice_second_pass_zero_changes() {
 
     let bearer = ("authorization", "Bearer testtok");
 
-    // Read mocks: nodes (healthy HK node) + platforms (drifted to US) +
-    // endpoints (nothing live). set() = unlimited matches so both passes
-    // can read; the WRITE mocks are the ones counted 1..=1.
+    // Read mocks: nodes (healthy HK node, both passes) + platforms in two
+    // phases (drifted "US" for pass 1's two reads, synced "HK" for pass 2's
+    // two reads — registration order, same pattern as the strategy_service
+    // create test) + endpoints (nothing live). The WRITE mock is the one
+    // counted.
     let m_nodes = server
         .mock("GET", "/api/v1/nodes")
         .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
@@ -77,13 +82,22 @@ async fn reconcile_twice_second_pass_zero_changes() {
         .expect_at_least(2)
         .create_async()
         .await;
-    let m_platforms = server
+    let m_platforms_drifted = server
         .mock("GET", "/api/v1/platforms")
         .match_header(bearer.0, bearer.1)
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["US"],"allocation_policy":"BALANCED"}]}"#)
-        .expect_at_least(2)
+        .expect(2)
+        .create_async()
+        .await;
+    let m_platforms_synced = server
+        .mock("GET", "/api/v1/platforms")
+        .match_header(bearer.0, bearer.1)
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["HK"],"allocation_policy":"BALANCED"}]}"#)
+        .expect(2)
         .create_async()
         .await;
     let m_endpoints = server
@@ -95,14 +109,11 @@ async fn reconcile_twice_second_pass_zero_changes() {
         .expect_at_least(0)
         .create_async()
         .await;
-    // The ONE write of the whole scenario: the drift-fixing PATCH. apply()
-    // PATCHes the computed plan EVERY pass (its per-platform loop always
-    // PATCHes when the platform exists) — the WRITE count is still pinned
-    // at most 1 to prove the second pass triggers no SECOND PATCH. Reads
-    // use expect_at_least(2)/0 since passes read twice. The scenario's
-    // "zero changes on pass 2" hard gate is enforced by the ports half
-    // (TTL memory) + this single-PATCH cap; the always-drifted mock keeps
-    // the fixture deterministic.
+    // The ONE write of the whole scenario: the drift-fixing PATCH. Since
+    // ADR-0057 apply() diff-then-skips in-sync platforms, this cap is a
+    // REAL wire-idempotency gate: pass 2 reads the synced phase (in sync)
+    // and must not PATCH again. The assert at the bottom makes a
+    // second-pass re-PATCH fail the test.
     let m_patch = server
         .mock("PATCH", "/api/v1/platforms/id-a")
         .match_header(bearer.0, bearer.1)
@@ -110,7 +121,7 @@ async fn reconcile_twice_second_pass_zero_changes() {
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(r#"{"id":"id-a"}"#)
-        .expect_at_most(1)
+        .expect(1)
         .create_async()
         .await;
 
@@ -151,23 +162,22 @@ async fn reconcile_twice_second_pass_zero_changes() {
     // still reports the endpoint list empty.
     let desired2 = memory.ports_to_assert(&fixture_ports(), &[], now + 60);
     assert!(desired2.is_empty(), "second pass must re-assert nothing: {desired2:?}");
-    // Strategy: the real idempotency story is that after pass 1 the live
-    // row IS the plan, so a fresh preview sees nothing to do. We emulate
-    // the post-pass-1 world (mock cannot hold state across calls) by
-    // pointing the preview at a synced live row and asserting the plan is
-    // empty; the wire-level proof is the PATCH mock capped at most 1 with
-    // pass 2's reconcile running through the SYNCED fixture below.
+    // Strategy: after pass 1 the live row IS the plan, so a fresh preview
+    // sees nothing to do — asserted here against the synced snapshot rows.
+    // The wire-level proof is below: pass 2's reconcile reads the SYNCED
+    // phase of the platform mocks and the PATCH mock stays at exactly 1.
     let synced_live = resin_core::snapshot::parse_resin_platforms(
         &serde_json::json!({"items":[{"id":"id-a","name":"alpha","region_filters":["HK"],"allocation_policy":"BALANCED"}]}),
     );
     let plan2 = compute_reconcile_plan(&fixture_config(), &nodes, &synced_live, &[17990], &fixture_ports());
     assert!(plan2.is_empty(), "post-reconcile re-preview must be empty (zero changes): {plan2:?}");
 
-    // Rebuild the mocks for a synced world and run pass 2 against it: this
-    // time Resin reports region_filters=["HK"] so apply's PATCH loop finds
-    // nothing new to write — but our apply() PATCHes unconditionally when
-    // the platform exists, so instead pass 2 asserts at the OUTCOME level:
-    // the ports half is a no-op and the report carries zero restores.
+    // Rebuild the mocks for a synced world and run pass 2 against it:
+    // Resin now reports region_filters=["HK"] so apply's diff-then-skip
+    // (ADR-0057) finds the platform in sync and writes nothing — pass 2
+    // asserts at the OUTCOME level: the ports half is a no-op, the report
+    // carries zero restores, and the PATCH mock above stays capped at
+    // exactly the one drift-fixing write of pass 1.
     let report2 = svc
         .reconcile(&client, platform_id_for_name, async {
             Ok(ReconcilePortsOutcome { restored: vec![], skipped: 0 })
@@ -175,11 +185,24 @@ async fn reconcile_twice_second_pass_zero_changes() {
         .await
         .expect("pass 2 must succeed");
     assert_eq!(report2.ports_restored, Vec::<u16>::new());
+    // The strategy half's pass-2 verdict is visible in the report itself:
+    // the platform converges WITHOUT a write (diff-then-skip, ADR-0057) —
+    // m_patch's count above is the wire-level proof of the same fact.
+    let sp = report2
+        .strategy
+        .platforms
+        .iter()
+        .find(|p| p.platform == "alpha")
+        .expect("pass 2 report must carry the platform");
+    assert!(sp.patched, "in-sync platform must report converged: {sp:?}");
 
     m_nodes.assert_async().await;
-    m_platforms.assert_async().await;
+    m_platforms_drifted.assert_async().await;
+    m_platforms_synced.assert_async().await;
     let _ = m_endpoints;
-    let _ = m_patch;
+    // ADR-0057: the once-per-scenario PATCH gate is now load-bearing — a
+    // second-pass re-PATCH would fail this assertion.
+    m_patch.assert_async().await;
     let _ = std::fs::remove_file(&store_path);
     let _ = std::fs::remove_dir(&dir);
 }

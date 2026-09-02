@@ -30,7 +30,7 @@ use crate::whitebox_backup::{
     atomic_write_bytes, backup_before_write, backup_list, now_unix, read_backup_parsed,
     WhiteboxBackupEntry,
 };
-use crate::snapshot::ResinPlatformRuntime;
+use crate::snapshot::{parse_resin_platforms, ResinPlatformRuntime};
 use crate::PortMapping;
 
 /// Bound defaults (validated by the tests at the bottom; the GUI is not the
@@ -70,8 +70,9 @@ pub struct ReconcilePortsOutcome {
 }
 
 /// Idempotency memory for the reconcile ports half (ticket 14 hard gate:
-/// "连续两次执行第二次零变更"). The strategy half is naturally idempotent
-/// (PATCHing the computed plan twice is a no-op); the ports half is not —
+/// "连续两次执行第二次零变更"). Since ADR-0057 the strategy half is
+/// wire-idempotent on its own (diff-then-skip: an in-sync platform is
+/// PATCHed never — no TTL needed there); the ports half is not —
 /// Resin would accept the duplicate POST or 409-skip forever. This window
 /// records WHEN each port was last reconcile-asserted; a pass re-asserts a
 /// port only when it has never been asserted or the last assertion is older
@@ -482,10 +483,13 @@ impl StrategyService<FsStrategyStore> {
     /// Full apply: read whitebox -> parse nodes -> fulfill the reconcile
     /// preview's promises per platform (create missing-on-resin platforms
     /// through the ResinClient create seam, ADR-0056; PATCH region_filters
-    /// for every whitebox platform found on Resin). PATCH/create failures
-    /// are reported per-platform, never fatal. Apply NEVER deletes whitebox
-    /// desired state: a failed create keeps the entry and reports the
-    /// reason (the former apply-time auto-clean path was removed by
+    /// for every whitebox platform found on Resin whose live region_filters
+    /// actually drift from the computed plan — diff-then-skip, ADR-0057:
+    /// an in-sync platform is skipped, so apply is wire-idempotent and a
+    /// second reconcile pass emits zero PATCH requests). PATCH/create
+    /// failures are reported per-platform, never fatal. Apply NEVER deletes
+    /// whitebox desired state: a failed create keeps the entry and reports
+    /// the reason (the former apply-time auto-clean path was removed by
     /// ADR-0056 — the "said establish, actually deleted" contradiction).
     pub async fn apply(
         &self,
@@ -536,6 +540,32 @@ impl StrategyService<FsStrategyStore> {
                 .await
                 .map_err(|e| e.to_string())?;
             if let Some(id) = platform_id_for_name(&platforms_v, platform_name) {
+                // Ticket 36 / ADR-0057: diff-then-skip. Compare the computed
+                // region_filters against the live row we just read; PATCH
+                // only on real drift. No live -> no diff -> no PATCH: apply
+                // is wire-idempotent (a second reconcile pass emits zero
+                // PATCH requests). The comparison reuses the SAME
+                // order-insensitive, case-insensitive set rule as the
+                // three-state merge and the reconcile preview, so apply, the
+                // preview and the snapshot can never disagree about what
+                // counts as drift. The live row comes from THIS pass's
+                // fresh `list_platforms` read — never from cached state —
+                // and a failed PATCH still reports per-platform with the
+                // whitebox entry kept (ADR-0056 re-assert-on-retry).
+                let live_regions = parse_resin_platforms(&platforms_v)
+                    .into_iter()
+                    .find(|rp| rp.name == *platform_name)
+                    .map(|rp| rp.region_filters)
+                    .unwrap_or_default();
+                if same_region_set(regions, &live_regions) {
+                    platforms.push(AppliedPlatform {
+                        platform: platform_name.clone(),
+                        region_filters: regions.clone(),
+                        patched: true,
+                        reason: Some("in sync".to_string()),
+                    });
+                    continue;
+                }
                 let body = serde_json::json!({ "region_filters": regions });
                 match client.update_platform(&id, body).await {
                     Ok(_) => platforms.push(AppliedPlatform {
@@ -573,6 +603,9 @@ impl StrategyService<FsStrategyStore> {
     /// closure so the whitebox store stays a shell-side concern — resin-core
     /// never touches the ports whitebox directly (same seam discipline as
     /// `apply`). No "accept current state" write exists by design.
+    /// Wire-idempotent end to end since ADR-0057: the strategy half
+    /// diff-then-skips in-sync platforms, the ports half is TTL-throttled —
+    /// a second pass emits zero write requests (zero changes, both halves).
     pub async fn reconcile(
         &self,
         client: &crate::resin_client::ResinClient,
@@ -1287,6 +1320,149 @@ mod tests {
         m_nodes.assert_async().await;
         m_platforms.assert_async().await;
         m_create.assert_async().await;
+        m_patch.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    /// Ticket 36 / ADR-0057: an in-sync platform (live region_filters equal
+    /// the computed plan under the snapshot's order/case-insensitive set
+    /// rule) is diff-skipped: the report marks the platform converged
+    /// (patched=true + "in sync" reason, so Settings' patched/errors counter
+    /// stays truthful) and NO PATCH request reaches Resin — even when the
+    /// live row spells the set differently (["hk"] vs computed ["HK"]).
+    #[tokio::test]
+    async fn apply_in_sync_platform_skips_patch() {
+        let store_path = apply_fixture_store_path("insync");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+            .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0}]}"#)
+            .create_async()
+            .await;
+        let m_platforms = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["hk"]}]}"#)
+            .expect_at_least(1)
+            .create_async()
+            .await;
+        // The ZERO-write proof: any PATCH on this server fails the test.
+        let m_patch = server
+            .mock("PATCH", mockito::Matcher::Any)
+            .with_status(500)
+            .expect(0)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("apply must succeed");
+        assert_eq!(report.platforms.len(), 1);
+        let p = &report.platforms[0];
+        assert_eq!(p.platform, "alpha");
+        assert!(p.patched, "in-sync platform must converge: {p:?}");
+        assert_eq!(p.reason.as_deref(), Some("in sync"));
+
+        // The whitebox entry survives untouched.
+        let after = svc.get().unwrap();
+        assert_eq!(after.platforms.len(), 1);
+
+        m_nodes.assert_async().await;
+        m_platforms.assert_async().await;
+        m_patch.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    /// Ticket 36 / ADR-0057 wire-idempotency: apply TWICE against a synced
+    /// world. Pass 1 PATCHes the drift, pass 2 (live row now equals the
+    /// plan) must emit ZERO PATCH — the mock caps PATCH at exactly 1 and
+    /// pass 2 still succeeds with the platform reported converged.
+    #[tokio::test]
+    async fn apply_twice_second_pass_zero_patches() {
+        let store_path = apply_fixture_store_path("twice");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+            .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0}]}"#)
+            .expect_at_least(2)
+            .create_async()
+            .await;
+        // Phase 1: drifted row ("US"); phase 2: synced row ("HK") — the
+        // world state moves BETWEEN passes, matching mockito's per-registration
+        // serving order (same pattern as the create test's two-phase read).
+        let m_platforms_drifted = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["US"]}]}"#)
+            .expect(2)
+            .create_async()
+            .await;
+        let m_platforms_synced = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["HK"]}]}"#)
+            .expect(2)
+            .create_async()
+            .await;
+        let m_patch = server
+            .mock("PATCH", "/api/v1/platforms/id-a")
+            .match_header(bearer.0, bearer.1)
+            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":"id-a"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let report1 = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("pass 1 must succeed");
+        assert!(report1.platforms[0].patched);
+
+        let report2 = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("pass 2 must succeed");
+        let p2 = &report2.platforms[0];
+        assert!(p2.patched, "pass 2 converges without writing: {p2:?}");
+        assert_eq!(p2.reason.as_deref(), Some("in sync"));
+
+        m_nodes.assert_async().await;
+        m_platforms_drifted.assert_async().await;
+        m_platforms_synced.assert_async().await;
         m_patch.assert_async().await;
         let _ = std::fs::remove_file(&store_path);
     }

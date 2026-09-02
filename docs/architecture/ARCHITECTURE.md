@@ -70,7 +70,8 @@ Two distinct write pipelines live behind L2 (verified in code;
 
 - Strategy: GUI or JSON edit → `strategy_config_put` (validate, write
   `egressapikey-strategy.json`) → `strategy_apply` (compute plan, create
-  missing-on-resin platforms per ADR-0056, PATCH Resin `region_filters`;
+  missing-on-resin platforms per ADR-0056, PATCH Resin `region_filters`
+  only where the live row actually drifts — diff-then-skip per ADR-0057;
   never deletes whitebox entries). Landed: ticket 10 converged
   read/validate/apply/read-back into the one StrategyService module
   (`crates/resin-core/src/strategy_service.rs`, ADR-0052; ADR-0036 stays in
@@ -150,6 +151,9 @@ never automatic:
 3. **Reconcile** (ticket 14): a single user-triggered `reconcile_now` runs
    the previewed, serial strategy-apply + ports-restore with the whitebox
    ALWAYS winning (one-way); no "accept current state" reverse write exists.
+   The pass is wire-idempotent end to end (ADR-0057): the strategy half
+   diff-then-skips in-sync platforms, the ports half is TTL-throttled — a
+   second pass emits zero write requests.
 4. **Versioned whitebox** (ticket 15): every atomic whitebox write first
    copies the previous file to the sibling `backup/` directory (10 kept
    per file) and the listed backups roll back through the SAME

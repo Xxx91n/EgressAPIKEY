@@ -283,7 +283,10 @@ read-side/deep region edit — and the only sanctioned write path for
 egressapikey-strategy.json. Per ADR-0056, apply establishes
 missing-on-resin platforms (name-only create, then the region_filters
 PATCH) and never deletes whitebox entries — removal happens by editing
-the whitebox, never as an apply side effect.
+the whitebox, never as an apply side effect. Per ADR-0057, apply
+PATCHes only platforms whose live region set actually drifts from the
+computed plan (diff-then-skip on the snapshot's set rule), so a
+converged runtime takes zero strategy writes.
 _Avoid_: strategy monolith, vocabulary merge, three-source config
 
 ### Port Auth Info
@@ -423,9 +426,12 @@ runtime — strategy apply first, then the ports restore, stopping at the
 first failure. Direction is ONE-WAY: the whitebox ALWAYS wins; there is no
 "accept current state" reverse write, no automatic self-heal, and no
 background loop (ADR-0054 §A; ArgoCD ships selfHeal default-off for the
-same reason). A run is previewed before it executes and idempotent within
-its in-process TTL window; the snapshot re-check after either outcome is
-the evidence of convergence, not a promise.
+same reason). A run is previewed before it executes and wire-idempotent by
+two distinct mechanisms that must not be conflated: the strategy half
+diff-then-skips platforms whose live region set already matches (a
+converged runtime takes zero writes, ADR-0057), and the ports half stays
+inside its in-process TTL window; the snapshot re-check after either
+outcome is the evidence of convergence, not a promise.
 _Avoid_: self-heal, auto-sync, accept current state
 
 ### Whitebox Versioning (白盒版本化)
