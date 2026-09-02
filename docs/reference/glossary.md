@@ -2,6 +2,13 @@
 
 > **Superseded by [CONTEXT.md](../CONTEXT.md)** — kept here as the original term-history record; new terms are added to CONTEXT.md directly per ADR-0013.
 >
+> **Stale-reference warning**: this file is a historical record — entries
+> may reference symbols or behaviors deleted since they were written
+> (e.g. the platform_snapshot IPC, route_id/lane.rs, the A4-3 interceptor
+> header injection; see ADR-0014 / ADR-0015 / ADR-0050 and
+> architecture-recovery ticket 23). Never treat such a reference as
+> current; CONTEXT.md and docs/adr/ are the as-built truth.
+>
 > Domain terms used across ADRs, AGENTS.md, and docs/. Maintained by the
 > grill-with-docs / domain-modeling workflow. Add a term when an ADR or
 > plan introduces a term that is not self-explanatory.
@@ -24,6 +31,10 @@ ADR-0006 item 3 requires this for the A4-3 interceptor.
 
 ## routable-view
 
+> **Stale reference (historical)**: the `platform_snapshot` IPC mentioned
+> below was deleted (architecture-recovery ticket 23). This entry is kept
+> as term history only; current truth lives in CONTEXT.md.
+
 Resin admin endpoint: GET /api/v1/platforms/{id}/routable-view. Returns the
 list of nodes a platform can actually route to (after region_filters + node
 health). The shell is platform_snapshot IPC currently returns an empty
@@ -32,12 +43,23 @@ next-deep-work-1.
 
 ## route_id
 
+> **Deleted symbols (historical)**: `route_id()` and `lane.rs` no longer
+> exist — ADR-0014 deleted the interceptor identity line (route_id,
+> normalize_auth, the A4-3 interceptor) and ADR-0050 deleted the remaining
+> lane.rs module. This entry is kept as term history only.
+
 A stable u64 hash of the three-tuple (normalized_auth, body.model,
 request.path) computed by route_id() in crates/resin-core/src/lane.rs.
 The shell injects X-Resin-Account: ar-<16hex of route_id> so Resin anchors
 egress IP per unique (api key + upstream endpoint) pair. ADR-0003.
 
 ## X-Resin-Account
+
+> **Superseded mechanism (historical)**: the A4-3 interceptor described
+> below was deleted by ADR-0014, and ADR-0015 confirmed the thin-shell
+> forwarder — the shell no longer injects this header per (key, model);
+> port identity reaches Resin via the port→(platform, account) mapping
+> (see CONTEXT.md「Entry Port Mapping」).
 
 HTTP header Resin uses as the highest-priority account identity source
 (source priority: X-Resin-Account > URL identity segment > fixed_header).

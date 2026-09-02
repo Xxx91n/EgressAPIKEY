@@ -278,9 +278,12 @@ parse_nodes — the region-computation vocabulary); the display mapping is
 frontend `src/lib/strategy.ts` (StrategyId -> i18n key, many-to-one ->
 Resin allocation_policy). They are deliberately NOT merged into one enum;
 `resin_core::StrategyService` (strategy_service.rs) is the only owner of
-the strategyConfig lifecycle — read/validate/store/apply/auto-clean/snapshot
+the strategyConfig lifecycle — read/validate/store/apply/snapshot
 read-side/deep region edit — and the only sanctioned write path for
-egressapikey-strategy.json.
+egressapikey-strategy.json. Per ADR-0056, apply establishes
+missing-on-resin platforms (name-only create, then the region_filters
+PATCH) and never deletes whitebox entries — removal happens by editing
+the whitebox, never as an apply side effect.
 _Avoid_: strategy monolith, vocabulary merge, three-source config
 
 ### Port Auth Info
