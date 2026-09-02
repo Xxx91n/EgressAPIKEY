@@ -66,11 +66,6 @@ becomes a true statement.
   path is exactly the same `ResinClient` REST seam every other L2->L3
   assert uses (`strategy_apply` PATCH, `restore_ports_from_whitebox` POST);
   no L3->L2 write is introduced.
-- **Failure is honest, not silent.** If the create attempt fails, the
-  entry's `AppliedPlatform` reports `patched: false` with the create
-  failure in `reason` (the per-platform non-fatal reporting contract is
-  unchanged) and the whitebox entry is auto-cleaned only then — the user
-  sees in the report why the platform is not on Resin.
 - **Preview/apply lockstep.** The preview's `create_platform` action and
   apply's create path read the same live-platform list through the same
   Resin seam, so the same platform cannot be promised creation and receive
