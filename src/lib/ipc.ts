@@ -95,6 +95,14 @@ async function invokeHttp<T>(route: HttpRoute, args?: Record<string, unknown>): 
 
 const NAME_MAX = 128;
 
+// User-facing entry-port range (1024..65535), single source for every
+// TS-side user-range check in this module. Mirror of Rust
+// resin_core::MIN_USER_PORT (crates/resin-core/src/port_forwarder.rs);
+// the upper bound mirrors u16::MAX (Rust defines no dedicated MAX constant).
+// Keep both sides aligned when the range changes.
+const USER_PORT_MIN = 1024;
+const USER_PORT_MAX = 65535;
+
 // --- Phase 5-1: trace_id passthrough (ADR-0026 Q1-Q5) ---
 // Every IPC call automatically gets a UUID v4 trace_id injected into args.
 // The Rust side extracts __trace_id and opens a tracing::info_span! so
@@ -402,8 +410,8 @@ export interface ProcessRouteRule {
 
 export async function ipcProcessRouteAdd(process: string, targetPort: number): Promise<void> {
   assertShortName(process, "process");
-  if (!Number.isInteger(targetPort) || targetPort < 1024 || targetPort > 65535) {
-    throw new Error(`port ${targetPort} out of range (1024..65535)`);
+  if (!Number.isInteger(targetPort) || targetPort < USER_PORT_MIN || targetPort > USER_PORT_MAX) {
+    throw new Error(`port ${targetPort} out of range (${USER_PORT_MIN}..${USER_PORT_MAX})`);
   }
   await invoke("process_route_add", { process, targetPort });
 }
@@ -469,8 +477,8 @@ export async function ipcLeaseMap(): Promise<LeaseEntry[]> {
 export type { PortMapping };
 
 function assertPort(port: number): void {
-  if (!Number.isInteger(port) || port < 1024 || port > 65535) {
-    throw new Error(`port out of range (1024..65535): ${port}`);
+  if (!Number.isInteger(port) || port < USER_PORT_MIN || port > USER_PORT_MAX) {
+    throw new Error(`port out of range (${USER_PORT_MIN}..${USER_PORT_MAX}): ${port}`);
   }
 }
 
@@ -558,7 +566,7 @@ export interface PortAuthInfo {
 }
 
 export async function ipcPortAuthInfo(port: number): Promise<PortAuthInfo> {
-  if (port < 1024 || port > 65535) throw new Error(`port ${port} out of range (1024..65535)`);
+  if (port < USER_PORT_MIN || port > USER_PORT_MAX) throw new Error(`port ${port} out of range (${USER_PORT_MIN}..${USER_PORT_MAX})`);
   return invoke<PortAuthInfo>("port_auth_info", { port });
 }
 
@@ -577,7 +585,7 @@ export interface PortHealthCheck {
 /// sends a SOCKS5 greeting; for http ports it sends an HTTP CONNECT probe.
 /// Defaults to "socks5" when omitted (back-compat).
 export async function ipcPortHealthCheck(port: number, protocol?: string): Promise<PortHealthCheck> {
-  if (port < 1024 || port > 65535) throw new Error(`port ${port} out of range (1024..65535)`);
+  if (port < USER_PORT_MIN || port > USER_PORT_MAX) throw new Error(`port ${port} out of range (${USER_PORT_MIN}..${USER_PORT_MAX})`);
   const proto = (protocol ?? "socks5").toLowerCase();
   if (proto !== "socks5" && proto !== "http") throw new Error("protocol must be socks5 or http");
   return invoke<PortHealthCheck>("port_health_check", { port, protocol: proto });
@@ -643,7 +651,7 @@ export interface ExitIpProbe {
 }
 
 export function ipcProbeExitIp(port: number, protocol: string): Promise<ExitIpProbe> {
-  if (port < 1024 || port > 65535) throw new Error(`port ${port} out of range (1024..65535)`);
+  if (port < USER_PORT_MIN || port > USER_PORT_MAX) throw new Error(`port ${port} out of range (${USER_PORT_MIN}..${USER_PORT_MAX})`);
   const proto = protocol.toLowerCase();
   if (proto !== "socks5" && proto !== "http") throw new Error("protocol must be socks5 or http");
   return invoke<ExitIpProbe>("probe_exit_ip", { port, protocol: proto });
@@ -1263,7 +1271,7 @@ export async function ipcReconcileNow(): Promise<ReconcileReport> {
   const portsRestored = Array.isArray(r.portsRestored)
     ? r.portsRestored
         .map((x) => Number(x))
-        .filter((n) => Number.isInteger(n) && n >= 1024 && n <= 65535)
+        .filter((n) => Number.isInteger(n) && n >= USER_PORT_MIN && n <= USER_PORT_MAX)
         .slice(0, MAX_SNAPSHOT_ENTRIES)
     : [];
   const skip = Number(r.portsSkipped);
