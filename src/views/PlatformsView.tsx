@@ -77,6 +77,7 @@ export function PlatformsView() {
   const [dragOverPlatform, setDragOverPlatform] = useState<string | null>(null);
   const [splitRatio, setSplitRatio] = useState(0.4);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string; action?: { label: string; onClick: () => void } } | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createName, setCreateName] = useState("");
@@ -205,8 +206,23 @@ export function PlatformsView() {
 
   const showToast = (kind: "ok" | "err", msg: string, action?: { label: string; onClick: () => void }) => {
     setToast({ kind, msg, action });
-    window.setTimeout(() => setToast(null), 3500);
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
+      toastTimerRef.current = null;
+      setToast(null);
+    }, 3500);
   };
+
+  // Clear any pending toast timer on unmount so it never fires after the
+  // jsdom/test environment is torn down (unhandled "window is not defined").
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const copyCredentials = (port: number, auth: PortAuthInfo) => {
     const cred = auth.username + ":" + auth.password;
