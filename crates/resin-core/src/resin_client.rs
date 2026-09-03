@@ -118,17 +118,12 @@ impl ResinClient {
             match self.send(reqwest::Method::GET, path, None).await {
                 Ok(v) => return Ok(v),
                 Err(e) => {
-                    let s = format!("{e}");
-                    // Retry on network errors or 5xx; don't retry 4xx or parse errors
-                    let should_retry = s.contains("request send failed")
-                        || s.contains("-> 503")
-                        || s.contains("-> 502")
-                        || s.contains("-> 500")
-                        || s.contains("-> 504");
-                    if attempt < max_retries && should_retry {
+                    // Retry on network errors or 5xx; don't retry 4xx or parse
+                    // errors (T04/round5: classifier shared with send_with_retry)
+                    if attempt < max_retries && Self::is_transient_5xx(&e) {
                         tracing::warn!(
                             "resin_client: read retry {}/{} for {path} after: {}",
-                            attempt + 1, max_retries, s
+                            attempt + 1, max_retries, e
                         );
                         last_err = Some(e);
                         tokio::time::sleep(delay).await;
@@ -141,7 +136,59 @@ impl ResinClient {
         Err(last_err.unwrap_or_else(|| anyhow!("resin_client: exhausted read retries for {path}")))
     }
 
+    /// T04/round5: transient-failure classifier shared by send_read and the
+    /// write-retry wrapper below. Matches network errors and the 500/502/503/504
+    /// band rendered by send()'s error string; 4xx and parse errors never
+    /// retry (a rejected body is not transient).
+    fn is_transient_5xx(err: &anyhow::Error) -> bool {
+        let s = format!("{err}");
+        s.contains("request send failed")
+            || s.contains("-> 503")
+            || s.contains("-> 502")
+            || s.contains("-> 500")
+            || s.contains("-> 504")
+    }
+
+    /// T04/round5: generic 5xx retry wrapper over send() for write verbs
+    /// (POST/PATCH/PUT/DELETE). Same rule as send_read: 2 retries, 500ms
+    /// then 1000ms, no retry on 4xx, parse errors, or success. A retried
+    /// POST that actually landed (response lost) can re-apply on Resin; the
+    /// create paths here are name-keyed (duplicate POST returns the existing
+    /// row or a 4xx, never a second copy) and the action paths converge
+    /// idempotently, which keeps the retry honest. Each retry logs at warn
+    /// level with the failure reason so a flapping Resin stays visible.
+    async fn send_with_retry(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: Option<Value>,
+    ) -> Result<Value> {
+        let max_retries = 2u32;
+        let mut last_err = None;
+        for attempt in 0..=max_retries {
+            match self.send(method.clone(), path, body.clone()).await {
+                Ok(v) => return Ok(v),
+                Err(e) => {
+                    if attempt < max_retries && Self::is_transient_5xx(&e) {
+                        tracing::warn!(
+                            "resin_client: write retry {}/{} for {} {path} after: {}",
+                            attempt + 1, max_retries, method, e
+                        );
+                        last_err = Some(e);
+                        tokio::time::sleep(std::time::Duration::from_millis(if attempt == 0 { 500 } else { 1000 })).await;
+                        continue;
+                    }
+                    return Err(e);
+                }
+            }
+        }
+        Err(last_err.unwrap_or_else(|| {
+            anyhow!("resin_client: exhausted write retries for {} {path}", method)
+        }))
+    }
+
     async fn send(
+
         &self,
         method: reqwest::Method,
         path: &str,
@@ -198,7 +245,7 @@ impl ResinClient {
     /// body: free-form serde_json::Value (Resin accepts the fields described in
     /// DESIGN.md platform POST section); only `name` is required by Resin.
     pub async fn create_platform(&self, body: Value) -> Result<Value> {
-        self.send(reqwest::Method::POST, "/platforms", Some(body))
+        self.send_with_retry(reqwest::Method::POST, "/platforms", Some(body))
             .await
     }
 
@@ -237,7 +284,7 @@ impl ResinClient {
     /// DELETE /api/v1/platforms/{id}
     pub async fn delete_platform(&self, id: &str) -> Result<Value> {
         let path = format!("/platforms/{}", urlencoding(id));
-        self.send(reqwest::Method::DELETE, &path, None).await
+        self.send_with_retry(reqwest::Method::DELETE, &path, None).await
     }
 
     /// GET /api/v1/metrics/realtime/leases — active-lease snapshot used by the
@@ -257,7 +304,7 @@ impl ResinClient {
     /// (with a `url`) or "local" (with `content`). The webview supplies the
     /// fields via a free-form JSON body; Resin fetches the nodes itself.
     pub async fn create_subscription(&self, body: Value) -> Result<Value> {
-        self.send(reqwest::Method::POST, "/subscriptions", Some(body))
+        self.send_with_retry(reqwest::Method::POST, "/subscriptions", Some(body))
             .await
     }
 
@@ -270,7 +317,7 @@ impl ResinClient {
    /// DELETE /subscriptions/{id} - remove a subscription (204 -> Null).
    pub async fn delete_subscription(&self, id: &str) -> Result<Value> {
        let path = format!("/subscriptions/{}", urlencoding(id));
-       self.send(reqwest::Method::DELETE, &path, None).await
+       self.send_with_retry(reqwest::Method::DELETE, &path, None).await
    }
 
     /// POST /api/v1/subscriptions/{id}/actions/refresh - trigger Resin-native
@@ -284,7 +331,7 @@ impl ResinClient {
     /// No request body is sent; Resin kicks its scheduler tick synchronously.
     pub async fn refresh_subscription_native(&self, id: &str) -> Result<Value> {
         let path = format!("/subscriptions/{}/actions/refresh", urlencoding(id));
-        self.send(reqwest::Method::POST, &path, None).await
+        self.send_with_retry(reqwest::Method::POST, &path, None).await
     }
 
 
@@ -294,7 +341,7 @@ impl ResinClient {
     /// Used by the topology canvas hot-switch (Phase R1/R2).
     pub async fn update_platform(&self, id: &str, body: Value) -> Result<Value> {
         let path = format!("/platforms/{}", urlencoding(id));
-        self.send(reqwest::Method::PATCH, &path, Some(body)).await
+        self.send_with_retry(reqwest::Method::PATCH, &path, Some(body)).await
     }
 
     /// GET /api/v1/nodes - list all proxy nodes (the "C category" ip channels).
@@ -321,7 +368,7 @@ impl ResinClient {
    /// Used by T19-P3 node-pool per-card probe button.
    pub async fn probe_node_egress(&self, node_hash: &str) -> Result<Value> {
        let path = format!("/nodes/{}/actions/probe-egress", urlencoding(node_hash));
-       self.send(reqwest::Method::POST, &path, None).await
+       self.send_with_retry(reqwest::Method::POST, &path, None).await
    }
 
    /// POST /api/v1/nodes/{hash}/actions/probe-latency - on-demand latency probe
@@ -331,7 +378,7 @@ impl ResinClient {
    /// Used by T19-P3 node-pool per-card probe button.
    pub async fn probe_node_latency(&self, node_hash: &str) -> Result<Value> {
        let path = format!("/nodes/{}/actions/probe-latency", urlencoding(node_hash));
-       self.send(reqwest::Method::POST, &path, None).await
+       self.send_with_retry(reqwest::Method::POST, &path, None).await
    }
 
    /// POST /api/v1/platforms with the full create schema (P21 Milestone B).
@@ -345,7 +392,7 @@ impl ResinClient {
     /// create auto-{uid} independent platforms when a candidate key is dropped
     /// on the right pane's empty space, with a custom allocation_policy.
     pub async fn create_platform_with_fields(&self, body: Value) -> Result<Value> {
-        self.send(reqwest::Method::POST, "/platforms", Some(body))
+        self.send_with_retry(reqwest::Method::POST, "/platforms", Some(body))
             .await
     }
 
@@ -367,7 +414,7 @@ impl ResinClient {
 
     /// POST /api/v1/endpoints — create + immediately start a custom listener.
     pub async fn create_endpoint(&self, body: Value) -> Result<Value> {
-        self.send(reqwest::Method::POST, "/endpoints", Some(body)).await
+        self.send_with_retry(reqwest::Method::POST, "/endpoints", Some(body)).await
     }
 
     /// GET /api/v1/endpoints/{endpoint_id} — read a single endpoint.
@@ -379,13 +426,13 @@ impl ResinClient {
     /// PATCH /api/v1/endpoints/{endpoint_id} — update port or capabilities (hot-reload).
     pub async fn update_endpoint(&self, endpoint_id: &str, body: Value) -> Result<Value> {
         let path = format!("/endpoints/{}", urlencoding(endpoint_id));
-        self.send(reqwest::Method::PATCH, &path, Some(body)).await
+        self.send_with_retry(reqwest::Method::PATCH, &path, Some(body)).await
     }
 
     /// DELETE /api/v1/endpoints/{endpoint_id} — delete + close listener.
     pub async fn delete_endpoint(&self, endpoint_id: &str) -> Result<Value> {
         let path = format!("/endpoints/{}", urlencoding(endpoint_id));
-        self.send(reqwest::Method::DELETE, &path, None).await
+        self.send_with_retry(reqwest::Method::DELETE, &path, None).await
     }
 
     /// GET /api/v1/system/config — read the system-level configuration
@@ -398,7 +445,7 @@ impl ResinClient {
     /// PATCH /api/v1/system/config — update system-level configuration.
     /// T8-1: used to set max_consecutive_failures (circuit breaker threshold).
     pub async fn system_config_patch(&self, body: Value) -> Result<Value> {
-        self.send(reqwest::Method::PATCH, "/system/config", Some(body)).await
+        self.send_with_retry(reqwest::Method::PATCH, "/system/config", Some(body)).await
     }
 
     // ── Request logs (ticket 11: REST seam, replaces direct request_logs*.db read) ──
@@ -780,8 +827,171 @@ mod tests {
         m.assert_async().await;
     }
 
+    // T04/round5: write-path 5xx retry (send_with_retry). POST /subscriptions
+    // is the subscription_add transport; first attempt 503, second 201.
+    #[tokio::test]
+    async fn mockito_write_retry_503_then_201() {
+        let mut server = mockito::Server::new_async().await;
+        let m503 = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(503)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"transient"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let m201 = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{"name":"sub-retry","id":"44444444-4444-4444-4444-444444444444","source_type":"remote"}"#,
+            )
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .create_subscription(serde_json::json!({
+                "name": "sub-retry",
+                "url": "https://example.com/sub"
+            }))
+            .await
+            .expect("POST should succeed on the retried attempt");
+        assert_eq!(out["name"], "sub-retry");
+        m503.assert_async().await;
+        m201.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_write_retry_exhausts_after_three_attempts() {
+        // 3 attempts (initial + 2 retries) all 500 -> error surfaced, 3 hits.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(500)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"down"}"#)
+            .expect(3)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let err = c
+            .create_subscription(serde_json::json!({
+                "name": "sub-x",
+                "url": "https://example.com/sub"
+            }))
+            .await
+            .expect_err("persistent 500 must surface after 2 retries");
+        assert!(
+            format!("{err}").contains("-> 500"),
+            "error should carry the upstream status: {err}"
+        );
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_write_4xx_never_retried() {
+        // 4xx is a client error (e.g. Resin's update_interval >= 30s contract
+        // rejecting a below-floor value with 400): exactly one hit, no retry.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(400)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"update_interval: must be >= 30s"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let err = c
+            .create_subscription(serde_json::json!({
+                "name": "sub-fast",
+                "url": "https://example.com/sub",
+                "update_interval": "5s"
+            }))
+            .await
+            .expect_err("400 must fail without retry");
+        assert!(
+            format!("{err}").contains("-> 400"),
+            "error should carry the upstream status: {err}"
+        );
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_subscription_update_interval_three_states_wire_contract() {
+        // T04 F3: Resin parses update_interval as a Go time.Duration and
+        // enforces >= 30s (resin/internal/service/control_plane_subscription.go
+        // minSubscriptionUpdateInterval, create AND PATCH paths). Wire contract
+        // at the shell boundary: 30s and 1m pass through and are accepted; 5s
+        // is rejected 400 by Resin and the write-retry must NOT re-POST a
+        // rejected body (4xx never retries).
+        let mut server = mockito::Server::new_async().await;
+        let m30 = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .match_body(mockito::Matcher::Regex(r#""update_interval":"30s""#.to_string()))
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"name":"sub-30s","id":"55555555-5555-5555-5555-555555555555"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let m1m = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .match_body(mockito::Matcher::Regex(r#""update_interval":"1m""#.to_string()))
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"name":"sub-1m","id":"66666666-6666-6666-6666-666666666666"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let m5s = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .match_body(mockito::Matcher::Regex(r#""update_interval":"5s""#.to_string()))
+            .with_status(400)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"update_interval: must be >= 30s"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        c.create_subscription(serde_json::json!({
+            "name": "sub-30s", "url": "https://e.com/a", "update_interval": "30s"
+        }))
+        .await
+        .expect("30s is Resin's enforced floor: accepted");
+        c.create_subscription(serde_json::json!({
+            "name": "sub-1m", "url": "https://e.com/b", "update_interval": "1m"
+        }))
+        .await
+        .expect("1m above floor: accepted");
+        let err = c
+            .create_subscription(serde_json::json!({
+                "name": "sub-5s", "url": "https://e.com/c", "update_interval": "5s"
+            }))
+            .await
+            .expect_err("5s below Resin's >=30s floor: rejected");
+        assert!(format!("{err}").contains("-> 400"));
+        m30.assert_async().await;
+        m1m.assert_async().await;
+        m5s.assert_async().await;
+    }
+
     #[tokio::test]
     async fn mockito_update_platform_patches_allocation_policy() {
+
         let mut server = mockito::Server::new_async().await;
         let body = r#"{"id":"11111111-1111-1111-1111-111111111111","name":"OpenAI","allocation_policy":"PREFER_LOW_LATENCY"}"#;
         let m = server

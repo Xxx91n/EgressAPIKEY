@@ -17,6 +17,7 @@ function baseSnap(overrides: Partial<AuthoritativeSnapshot> = {}): Authoritative
     platforms: [],
     ports: [],
     routes: [],
+    subscriptions: [],
     ...overrides,
   };
 }

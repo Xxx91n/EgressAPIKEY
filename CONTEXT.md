@@ -229,14 +229,60 @@ a manual edit + test + commit cycle; the shell does not auto-follow
 upstream releases.
 _Avoid_: version pin, compat matrix, version tracker
 
-### Read Retry
+### Write Retry
 
-The automatic bounded retry (2 attempts, 500ms interval) applied
-only to ResinClient GET methods (list/get/snapshot). Write methods
-(POST/PATCH/DELETE) do not retry to avoid duplicate mutations. Lives
-in ResinClient, not in the IPC command layer, so all read-only IPC
+The bounded transient-failure retry applied to ResinClient write
+verbs (T04/round5): POST/PATCH/PUT/DELETE go through
+`send_with_retry` (2 retries, 500ms then 1000ms, warn log per retry
+with the failure reason) on the same 500/502/503/504 + network-error
+band as Read Retry; 4xx never retries (a rejected body is not
+transient). GET keeps `send_read`. Safe because the create paths
+are name-keyed (a duplicate POST returns the existing row or a 4xx,
+never a second copy) and the action paths converge idempotently.
+Lives in ResinClient, not in the IPC command layer, so all write IPC
 commands benefit transparently.
-_Avoid_: GET retry, idempotent retry, backoff
+_Avoid_: write retry loop, idempotent retry, backoff
+
+### Subscription Update Interval
+
+How often the Resin scheduler re-pulls a remote subscription
+(Go `time.Duration` string on `POST/PATCH /api/v1/subscriptions`).
+Resin v1.2.0 enforces a >= 30s floor on BOTH create and update
+(`control_plane_subscription.go` `minSubscriptionUpdateInterval`):
+the shell default is 30s, explicit values below the floor are
+rejected 400 and NOT retried by Write Retry. The 5s default proposal
+(T04) is blocked by this upstream contract — logged in
+docs/research/OPENAPI-GAP.md for a future Resin-side change.
+_Avoid_: poll interval, fetch interval, refresh interval
+
+### Subscription Lifecycle
+
+The full path a subscription travels: **import** (SubscriptionsView
+POSTs Resin /api/v1/subscriptions; the row is data, not routing) ->
+**bind** (the user names the subscription in a platform's whitebox
+`subscriptions: Vec<String>` — either via the inline bind step after
+import or the PlatformsView chips) -> **activate** (`strategy_apply`
+derives region_filters from the node pool and PATCHes Resin,
+diff-then-skip per ADR-0057) -> **observe** (the authoritative snapshot
+reverse-lookup shows which platforms consume the subscription).
+Importing is NOT binding, binding is NOT activating — the GUI now walks
+the user through all three beats instead of implying that import alone
+makes nodes routable. Per Round 5 T01 / R-A §3 (Gateway API
+backendRefs + ProxySQL LOAD-TO-RUNTIME anchoring).
+_Avoid_: import = effective, silent cascade, auto-bind-everything
+
+### Imported-but-unbound
+
+A subscription that exists on Resin (node_count > 0) but no whitebox
+platform's `subscriptions` list names it. Visible by construction:
+the authoritative snapshot's `subscriptions` reverse-lookup section
+(`consumed_by: []`, `resolvable: true`) feeds the SubscriptionsView
+row badge 未绑定 (amber) with a one-click inline bind step; a name
+referenced by the whitebox but missing from Resin renders 引用失效
+(red, `resolvable: false`). Zero consumers is not an error but must
+never be silent (R-A Q2 patch 4).
+_Avoid_: orphan subscription, dead import (nothing died — it was never
+wired)
 
 ### A-Class Strategy
 

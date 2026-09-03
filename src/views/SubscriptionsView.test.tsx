@@ -503,3 +503,286 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
       });
     });
   });
+
+// --- Round 5 T01 (issue 01): F1 inline bind step + F2 apply trigger + F4
+// reverse-lookup badge. Mocks cover the full closed loop: import -> inline
+// step (NON-modal) -> chips + optional ports -> strategy_config_put ->
+// strategy_apply -> port_bind_platform; badges come from the
+// authoritative_snapshot subscriptions reverse-lookup section.
+describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => {
+  beforeEach(() => {
+    useAppStore.setState({ subscriptions: [] });
+    invokeMock.mockReset();
+  });
+
+  function baseMock() {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      switch (cmd) {
+        case "subscription_list":
+          return [{ name: "mysub", node_count: 9, healthy_node_count: 7, last_error: "", last_checked: "" }];
+        case "node_pool_snapshot":
+          return { total_nodes: 9, healthy_nodes: 7, egress_ip_count: 3, healthy_egress_ip_count: 3 };
+        case "authoritative_snapshot":
+          return {
+            strategyVersion: 1,
+            platforms: [],
+            ports: [],
+            routes: [],
+            subscriptions: [
+              { name: "mysub", node_count: 9, healthy_node_count: 7, consumed_by: ["Alpha"], resolvable: true },
+              { name: "lonely", node_count: 1, healthy_node_count: 1, consumed_by: [], resolvable: true },
+              { name: "ghost", node_count: 0, healthy_node_count: 0, consumed_by: ["Beta"], resolvable: false },
+            ],
+            resinReachable: true,
+            lastCheckedAt: 1700000000,
+          };
+        case "strategy_config_get":
+          return {
+            version: 1,
+            platforms: [
+              { platform_name: "Alpha", a_class: "subscription", b_class: "random", subscriptions: [] },
+            ],
+            acknowledged: [],
+          };
+        default:
+          return undefined;
+      }
+    });
+  }
+
+  it("F4a: bound sub renders the emerald 'bound to N platforms' badge from the snapshot", async () => {
+    baseMock();
+    render(<SubscriptionsView />);
+    const badge = await screen.findByTestId("sub-bind-badge-mysub", {}, { timeout: 5000 });
+    expect(badge.textContent).toMatch(/Bound: 1 platform|已绑定 1 平台/i);
+  }, 20000);
+
+  it("F4b: unbound sub renders the amber 'Unbound' badge and a bind-now affordance", async () => {
+    baseMock();
+    render(<SubscriptionsView />);
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") {
+        return [
+          { name: "mysub", node_count: 9, healthy_node_count: 7, last_error: "", last_checked: "" },
+          { name: "lonely", node_count: 1, healthy_node_count: 1, last_error: "", last_checked: "" },
+        ];
+      }
+      if (cmd === "node_pool_snapshot") {
+        return { total_nodes: 9, healthy_nodes: 7, egress_ip_count: 3, healthy_egress_ip_count: 3 };
+      }
+      if (cmd === "authoritative_snapshot") {
+        return {
+          strategyVersion: 1,
+          platforms: [],
+          ports: [],
+          routes: [],
+          subscriptions: [
+            { name: "mysub", node_count: 9, healthy_node_count: 7, consumed_by: ["Alpha"], resolvable: true },
+            { name: "lonely", node_count: 1, healthy_node_count: 1, consumed_by: [], resolvable: true },
+          ],
+          resinReachable: true,
+          lastCheckedAt: 1700000000,
+        };
+      }
+      if (cmd === "strategy_config_get") {
+        return { version: 1, platforms: [{ platform_name: "Alpha", a_class: "subscription", b_class: "random", subscriptions: [] }], acknowledged: [] };
+      }
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    const badge = await screen.findByTestId("sub-bind-badge-lonely", {}, { timeout: 5000 });
+    expect(badge.textContent).toMatch(/Unbound|未绑定/i);
+    expect(screen.getByTestId("sub-bind-now-lonely")).toBeInTheDocument();
+  }, 20000);
+
+  it("F4c: dangling reference renders the red badge", async () => {
+    baseMock();
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") {
+        return [{ name: "ghost", node_count: 0, healthy_node_count: 0, last_error: "", last_checked: "" }];
+      }
+      if (cmd === "node_pool_snapshot") {
+        return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
+      }
+      if (cmd === "authoritative_snapshot") {
+        return {
+          strategyVersion: 1,
+          platforms: [],
+          ports: [],
+          routes: [],
+          subscriptions: [
+            { name: "ghost", node_count: 0, healthy_node_count: 0, consumed_by: ["Beta"], resolvable: false },
+          ],
+          resinReachable: true,
+          lastCheckedAt: 1700000000,
+        };
+      }
+      if (cmd === "strategy_config_get") {
+        return { version: 1, platforms: [{ platform_name: "Beta", a_class: "subscription", b_class: "random", subscriptions: ["ghost"] }], acknowledged: [] };
+      }
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    const badge = await screen.findByTestId("sub-bind-badge-ghost", {}, { timeout: 5000 });
+    expect(badge.textContent).toMatch(/Dangling reference|引用失效/i);
+  }, 20000);
+
+  it("F1a: import success opens the INLINE bind step (non-modal) with the auto-create chip", async () => {
+    baseMock();
+    render(<SubscriptionsView />);
+    const urlInput = await screen.findByPlaceholderText(/Subscription URL|订阅地址/i);
+    fireEvent.change(urlInput, { target: { value: "https://example.invalid/sub.yaml" } });
+    fireEvent.click(screen.getByRole("button", { name: /Import subscription|导入订阅/i }));
+    // The inline step replaces the form INSIDE the card (no dialog).
+    const step = await screen.findByTestId("bind-step", {}, { timeout: 10000 });
+    expect(step).toBeInTheDocument();
+    expect(screen.getByTestId("bind-create-chip")).toBeInTheDocument();
+    // The step is inline, not a modal: no dialog role exists in the tree.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // Confirm runs the closed loop: strategy_config_put -> strategy_apply.
+    fireEvent.click(screen.getByTestId("bind-confirm"));
+    await waitFor(() => {
+      const calls = invokeMock.mock.calls.map((c) => c[0]);
+      expect(calls).toContain("strategy_config_put");
+      expect(calls).toContain("strategy_apply");
+      expect(calls).toContain("platform_create_with_fields");
+    }, { timeout: 15000 });
+  }, 20000);
+
+  it("F1b: confirming an existing a_class=subscription platform does NOT re-create it", async () => {
+    baseMock();
+    // Alpha already consumes the sub? No — the config mock above has Alpha
+    // with an EMPTY subscriptions list, so the consumer oracle fires
+    // bindCreate=true. Here we pre-consume: Alpha.subs = ["mysub"] means
+    // bindCreate=false and the chip is pre-checked (✓).
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "strategy_config_get") {
+        return {
+          version: 1,
+          platforms: [
+            { platform_name: "Alpha", a_class: "subscription", b_class: "random", subscriptions: ["mysub"] },
+          ],
+          acknowledged: [],
+        };
+      }
+      if (cmd === "subscription_list") {
+        // The live row must NOT be "mysub" — the import name must pass the
+        // P20-3 duplicate guard, so the existing row is a different sub.
+        return [{ name: "pre-existing", node_count: 2, healthy_node_count: 2, last_error: "", last_checked: "" }];
+      }
+      if (cmd === "node_pool_snapshot") {
+        return { total_nodes: 9, healthy_nodes: 7, egress_ip_count: 3, healthy_egress_ip_count: 3 };
+      }
+      if (cmd === "authoritative_snapshot") {
+        return {
+          strategyVersion: 1,
+          platforms: [],
+          ports: [],
+          routes: [],
+          subscriptions: [
+            { name: "mysub", node_count: 9, healthy_node_count: 7, consumed_by: ["Alpha"], resolvable: true },
+          ],
+          resinReachable: true,
+          lastCheckedAt: 1700000000,
+        };
+      }
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    // Name the sub "mysub" explicitly so it matches the pre-consumed
+    // Alpha.subscriptions entry in the strategy_config_get mock.
+    const nameInput = await screen.findByPlaceholderText(/Subscription name|订阅名称/i);
+    fireEvent.change(nameInput, { target: { value: "mysub" } });
+    const urlInput = await screen.findByPlaceholderText(/Subscription URL|订阅地址/i);
+    fireEvent.change(urlInput, { target: { value: "https://example.invalid/sub.yaml" } });
+    fireEvent.click(screen.getByRole("button", { name: /Import subscription|导入订阅/i }));
+    await screen.findByTestId("bind-step", {}, { timeout: 10000 });
+    expect(screen.queryByTestId("bind-create-chip")).toBeNull();
+    // Alpha is a pre-checked consumer chip (✓ render) but the SELECTION is
+    // empty; the confirm button stays disabled until the user actively
+    // selects it. Click the chip first, then confirm.
+    fireEvent.click(screen.getByTestId("bind-chip-Alpha"));
+    fireEvent.click(screen.getByTestId("bind-confirm"));
+    // The put may throw inside handleBindConfirm's try (translateError path)
+    // or take a tick; poll the call log instead of asserting timing.
+    await waitFor(() => {
+      const calls = invokeMock.mock.calls.map((c) => c[0]);
+      expect(calls.filter((c) => c === "strategy_config_put").length).toBeGreaterThan(0);
+      if (calls.includes("strategy_config_put")) {
+        expect(calls).not.toContain("platform_create_with_fields");
+      }
+    }, { timeout: 15000 });
+  }, 20000);
+
+  it("F1c: entry ports render as a port multi-select and bound ports go through port_bind_platform", async () => {
+    baseMock();
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "port_list") {
+        return [
+          { port: 17990, protocol: "socks5", platform_name: "", account: "", label: "", enabled: true, auth_required: false },
+          { port: 17991, protocol: "socks5", platform_name: "", account: "", label: "", enabled: true, auth_required: false },
+        ];
+      }
+      if (cmd === "subscription_list") {
+        return [{ name: "mysub", node_count: 9, healthy_node_count: 7, last_error: "", last_checked: "" }];
+      }
+      if (cmd === "node_pool_snapshot") {
+        return { total_nodes: 9, healthy_nodes: 7, egress_ip_count: 3, healthy_egress_ip_count: 3 };
+      }
+      if (cmd === "authoritative_snapshot") {
+        return {
+          strategyVersion: 1,
+          platforms: [],
+          ports: [],
+          routes: [],
+          subscriptions: [
+            { name: "mysub", node_count: 9, healthy_node_count: 7, consumed_by: ["Alpha"], resolvable: true },
+          ],
+          resinReachable: true,
+          lastCheckedAt: 1700000000,
+        };
+      }
+      if (cmd === "strategy_config_get") {
+        return { version: 1, platforms: [{ platform_name: "Alpha", a_class: "subscription", b_class: "random", subscriptions: [] }], acknowledged: [] };
+      }
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    const urlInput = await screen.findByPlaceholderText(/Subscription URL|订阅地址/i);
+    fireEvent.change(urlInput, { target: { value: "https://example.invalid/sub.yaml" } });
+    fireEvent.click(screen.getByRole("button", { name: /Import subscription|导入订阅/i }));
+    await screen.findByTestId("bind-step", {}, { timeout: 10000 });
+    expect(screen.getByTestId("bind-port-17990")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("bind-port-17990"));
+    fireEvent.click(screen.getByTestId("bind-confirm"));
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("port_bind_platform", expect.objectContaining({ port: 17990 }));
+    }, { timeout: 15000 });
+  }, 20000);
+
+  it("F2: import triggers strategy_apply right after the subscription lands", async () => {
+    baseMock();
+    render(<SubscriptionsView />);
+    const urlInput = await screen.findByPlaceholderText(/Subscription URL|订阅地址/i);
+    fireEvent.change(urlInput, { target: { value: "https://example.invalid/sub.yaml" } });
+    fireEvent.click(screen.getByRole("button", { name: /Import subscription|导入订阅/i }));
+    await waitFor(() => {
+      const calls = invokeMock.mock.calls.map((c) => c[0]);
+      expect(calls).toContain("subscription_add");
+      expect(calls).toContain("strategy_apply");
+    }, { timeout: 15000 });
+  }, 20000);
+
+  it("F1d: skip closes the bind step without writing the whitebox", async () => {
+    baseMock();
+    render(<SubscriptionsView />);
+    const urlInput = await screen.findByPlaceholderText(/Subscription URL|订阅地址/i);
+    fireEvent.change(urlInput, { target: { value: "https://example.invalid/sub.yaml" } });
+    fireEvent.click(screen.getByRole("button", { name: /Import subscription|导入订阅/i }));
+    await screen.findByTestId("bind-step", {}, { timeout: 10000 });
+    fireEvent.click(screen.getByTestId("bind-skip"));
+    await waitFor(() => expect(screen.queryByTestId("bind-step")).toBeNull());
+    const calls = invokeMock.mock.calls.map((c) => c[0]);
+    expect(calls).not.toContain("strategy_config_put");
+  }, 20000);
+});

@@ -517,6 +517,7 @@ use serde_json::json;
                 acknowledged: false,
             }],
             routes: vec![],
+            subscriptions: vec![],
             resin_reachable: true,
             last_checked_at: 1_756_521_601,
         };

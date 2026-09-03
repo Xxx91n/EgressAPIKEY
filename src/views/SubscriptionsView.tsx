@@ -1,14 +1,26 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Rss, Download, Inbox, Trash2, Loader2, GripVertical, CheckCircle2, AlertCircle, Pencil, ArrowDownUp, ChevronDown } from "lucide-react";
+import { Rss, Download, Inbox, Trash2, Loader2, GripVertical, CheckCircle2, AlertCircle, Pencil, ArrowDownUp, ChevronDown, Link2 } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import {
   ipcSubscriptionAdd, ipcSubscriptionList, ipcSubscriptionRemove, ipcNodePoolSnapshot,
-  type SubscriptionSnapshotEntry,
+  ipcStrategyConfigGet, ipcStrategyConfigPut, ipcStrategyApply,
+  ipcPlatformCreateWithFields, ipcPortList, ipcPortBindPlatform,
+  ipcAuthoritativeSnapshot,
+  type SubscriptionSnapshotEntry, type StrategyConfig,
 } from "../lib/ipc";
 import { translateError } from "../lib/i18n-error";
 import { loadSubOrder, saveSubOrder } from "../lib/settings";
 import { usePoll } from "../hooks/usePoll";
+
+/// Round 5 T01 (issue 01 F1/D-22): state of the INLINE (never a modal) bind
+/// step. After a successful import the form area switches to a second step
+/// where the user optionally binds the new subscription to platforms (and,
+/// when entry ports exist, to ports). null = no active bind step.
+interface BindStep {
+  subName: string;
+  nodeCount: number;
+}
 
 /// SubscriptionsView - Resin subscription import surface (P20 rewrite).
 ///
@@ -50,12 +62,24 @@ export function SubscriptionsView() {
   // reorder. Reset (item 4) clears this to [] and re-renders from server only.
   const [localOrder, setLocalOrder] = useState<string[]>([]);
 
+  // Round 5 T01 (F1/D-22): the optional inline bind step. bindCreate
   // pre-selects "auto-create the same-name platform" ONLY when no
   // a_class=subscription platform already consumes the sub (issue: "若
   // a_class=subscription 已有则不重复").
+  const [bind, setBind] = useState<BindStep | null>(null);
+  const [bindBusy, setBindBusy] = useState(false);
   /** a_class=subscription platform names offered as bind chips. */
+  const [bindTargets, setBindTargets] = useState<string[]>([]);
   /** Existing consumers of the sub (chips pre-checked; never re-created). */
+  const [bindConsumers, setBindConsumers] = useState<string[]>([]);
   /** Current user selection (multi-select). */
+  const [bindSelected, setBindSelected] = useState<string[]>([]);
+  const [bindCreate, setBindCreate] = useState(false);
+  const [bindPorts, setBindPorts] = useState<number[]>([]);
+  const [bindPortOptions, setBindPortOptions] = useState<number[]>([]);
+  // Round 5 T01 (F4): subscription -> reverse-lookup row from the
+  // authoritative snapshot (consumed_by + resolvable), keyed by name.
+  const [subRows, setSubRows] = useState<Map<string, { consumed_by: string[]; resolvable: boolean }>>(new Map());
 
   // B2: persist form draft so navigating away+back keeps input contents.
   useEffect(() => { setSubFormDraft({ name, url }); }, [name, url, setSubFormDraft]);
@@ -209,6 +233,17 @@ export function SubscriptionsView() {
       void saveSubOrder(newOrder).catch((e) => console.warn("[SubscriptionsView] saveSubOrder failed", e));
       await new Promise((r) => setTimeout(r, 50));
       const finalList = await refreshWithRetry();
+      // Round 5 T01 (F2): the explicit activation beat. The Resin row is in
+      // and its nodes are arriving; one apply now derives region_filters so
+      // an a_class=subscription platform consumes the sub without a manual
+      // trip to the Platforms view. Best-effort: a failure keeps the import
+      // toast (the bind step below still works, apply is re-runnable).
+      try { await ipcStrategyApply(); } catch { /* reported via bind step */ }
+      // Round 5 T01 (F1/D-22): open the INLINE bind step right here in the
+      // form card (non-modal). A fresh import is by definition unbound; the
+      // step offers chips + optional auto-create + optional ports.
+      setBind({ subName: n, nodeCount: finalList.find((x) => x.name === n)?.node_count ?? 0 });
+      void loadBindData(n);
       try {
         const pool = await ipcNodePoolSnapshot();
         const total = Number(pool?.total_nodes ?? 0);
@@ -305,8 +340,177 @@ export function SubscriptionsView() {
     } catch { /* keep */ }
   };
 
+  // ---- Round 5 T01: F4 reverse-lookup data + F1 bind-step loaders ----
+
+  // F4: consume the authoritative_snapshot reverse-lookup section so every
+  // row can badge "bound to N platforms / unbound". Read-only, best-effort:
+  // outside Tauri the badge simply does not render.
+  const refreshSubRows = useCallback(async () => {
+    try {
+      const snap = await ipcAuthoritativeSnapshot();
+      const m = new Map<string, { consumed_by: string[]; resolvable: boolean }>();
+      for (const row of snap.subscriptions ?? []) {
+        m.set(row.name, { consumed_by: row.consumed_by ?? [], resolvable: row.resolvable !== false });
+      }
+      setSubRows(m);
+    } catch { /* outside Tauri / snapshot unavailable */ }
+  }, []);
+  useEffect(() => { void refreshSubRows(); }, [refreshSubRows, live.length]);
+
+  // F1: which a_class=subscription whitebox platforms already consume the
+  // subscription (the "do not duplicate" oracle) + the selectable chip list.
+  // Per the issue hint, only a_class=Subscription platforms consume a
+  // subscription, so the chips offer exactly those (+ the auto-create chip).
+  const loadBindData = useCallback(async (subName: string) => {
+    try {
+      const cfg: StrategyConfig = await ipcStrategyConfigGet();
+      const subClass = (cfg.platforms ?? []).filter((p) => p.a_class === "subscription");
+      setBindTargets(subClass.map((p) => p.platform_name));
+      setBindConsumers(
+        subClass.filter((p) => (p.subscriptions ?? []).includes(subName)).map((p) => p.platform_name),
+      );
+      // Auto-create pre-checks ONLY when no consumer exists yet; when one
+      // does, the confirm path appends the sub to that platform instead.
+      setBindCreate(subClass.every((p) => !(p.subscriptions ?? []).includes(subName)));
+    } catch {
+      setBindTargets([]); setBindConsumers([]); setBindCreate(true);
+    }
+    try {
+      const ports = await ipcPortList();
+      setBindPortOptions((ports ?? []).filter((p) => p.enabled).map((p) => p.port));
+    } catch {
+      setBindPortOptions([]);
+    }
+  }, []);
+
+  // F1 confirm: strategy_config_put -> strategy_apply (the PlatformsView
+  // chip chain) for EVERY selected platform plus the optional same-name
+  // auto-create; then the optional port bindings. One put + one apply for
+  // the whole batch (apply is diff-then-skip, ADR-0057, so re-applying an
+  // unchanged platform costs zero writes).
+  const handleBindConfirm = async () => {
+    if (!bind) return;
+    const subName = bind.subName;
+    const targets = [...bindSelected];
+    if (bindCreate && !targets.includes(subName)) targets.push(subName);
+    if (targets.length === 0) return;
+    setBindBusy(true); setToast(null);
+    const portsBound: number[] = [];
+    try {
+      // Auto-create the same-name platform on Resin when requested (issue
+      // F1 "自动建 platform"). The a_class/subscriptions semantics are L2
+      // whitebox vocabulary, so the Resin row is created with its own
+      // schema fields and the binding lands via strategy_config_put below;
+      // strategy_apply (ADR-0056) is the fallback establish path when the
+      // create 409s/fails for any reason.
+      if (bindCreate) {
+        try {
+          await ipcPlatformCreateWithFields({
+            name: subName,
+            allocation_policy: "BALANCED",
+            region_filters: [],
+          });
+        } catch {
+          // 409 = already exists on Resin: fall through, the whitebox put +
+          // apply below converge the row either way.
+        }
+      }
+      const cfg = await ipcStrategyConfigGet();
+      const platforms = [...(cfg.platforms ?? [])];
+      for (const name of targets) {
+        const idx = platforms.findIndex((p) => p.platform_name === name);
+        if (idx >= 0) {
+          const p = { ...platforms[idx] };
+          const subs = new Set(p.subscriptions ?? []);
+          subs.add(subName);
+          p.subscriptions = [...subs];
+          platforms[idx] = p;
+        } else {
+          platforms.push({
+            platform_name: name,
+            a_class: "subscription",
+            b_class: "random",
+            subscriptions: [subName],
+          });
+        }
+      }
+      await ipcStrategyConfigPut({ ...cfg, platforms });
+      // F2: explicit activation beat — apply derives region_filters from the
+      // current node pool, so the subscription is consumable without a trip
+      // to the Platforms view.
+      let applyOk = true;
+      try {
+        await ipcStrategyApply();
+      } catch {
+        applyOk = false;
+      }
+      // Ports bind to the auto-created platform, or to the single selected
+      // platform when the user bound to exactly one existing consumer.
+      const portTarget = bindCreate ? subName : targets.length === 1 ? targets[0] : "";
+      if (portTarget) {
+        for (const port of bindPorts) {
+          try {
+            const ok = await ipcPortBindPlatform(port, portTarget);
+            if (ok !== false) portsBound.push(port);
+          } catch { /* per-port failure reported via the bound count */ }
+        }
+      }
+      if (!applyOk) {
+        setToast({ kind: "err", msg: t("subscription.bindApplyFailed", { platform: targets.join(", ") }) });
+      } else {
+        setToast({
+          kind: "ok",
+          msg: t("subscription.importBound", {
+            platform: targets.join(", "),
+            ports: portsBound.length,
+            count: bind.nodeCount,
+          }),
+        });
+      }
+      setBind(null);
+      await refreshSubRows();
+      await refresh();
+    } catch (e: unknown) {
+      const msg = translateError(e, t);
+      setToast({ kind: "err", msg });
+    } finally {
+      setBindBusy(false);
+    }
+  };
+
+  const openBindStep = (subName: string, nodeCount: number) => {
+    setBind({ subName, nodeCount });
+    setBindSelected([]);
+    setBindPorts([]);
+    void loadBindData(subName);
+  };
+
+  // ---- P21 item 1: Pointer Events drag (WebView2-stable; HTML5 DnD showed
+  // a "禁止符号" because onDragStart never set e.dataTransfer.effectAllowed/
+  // setData — WebView2 suppresses the drag session entirely without them, and
+  // Tauri's webview intercepts text/plain drags for native window drag.
+  // Pointer Events are the same model env-manager's ProfilePage.svelte uses
+  // (onpointerdown / onpointerenter / onpointerup) — it works everywhere with
+  // zero deps and no image/dataTransfer ceremony.
+  // We stash the source index + drag ref in refs (survive re-renders), a
+  // hasDragged flag distinguishes a real drag from a click, and a window
+  // pointerup listener is registered once via useEffect so releasing the
+  // mouse outside any row still finishes the drag cleanly.
   const dragSrc = useRef<number | null>(null);
   const dragMoved = useRef(false);
+
+  useEffect(() => {
+    const onUp = () => {
+      if (dragSrc.current !== null && dragMoved.current) {
+        // released outside a valid drop target — cancel, keep original order
+        dragSrc.current = null;
+        dragMoved.current = false;
+        setDragOverIndex(null);
+      }
+    };
+    window.addEventListener("pointerup", onUp);
+    return () => window.removeEventListener("pointerup", onUp);
+  }, []);
 
   const onPointerDownRow = (e: React.PointerEvent, i: number) => {
     // Only left button starts a drag; right/middle are clicks.
@@ -359,6 +563,100 @@ export function SubscriptionsView() {
           <h2 className="text-sm font-semibold tracking-tight">{t("subscription.title")}</h2>
         </div>
         <div className="p-4 space-y-3">
+          {bind ? (
+            // ---- Round 5 T01 (F1 / D-22): the INLINE optional second step.
+            // Non-modal by decision: the import form above stays reachable
+            // through "Cancel", no dialog blocks the flow.
+            <div data-testid="bind-step" className="rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                <Link2 size={13} className="text-blue-600 dark:text-blue-400" />
+                {t("subscription.bindStepTitle", { name: bind.subName, count: bind.nodeCount })}
+              </div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t("subscription.bindHint")}</p>
+              <div className="flex flex-wrap gap-1" data-testid="bind-platform-chips">
+                {bindCreate && (
+                  <button
+                    type="button"
+                    onClick={() => setBindCreate(false)}
+                    title={t("subscription.bindCreateOff")}
+                    className="rounded px-2 py-0.5 text-[11px] border bg-blue-600 text-white border-blue-600"
+                    data-testid="bind-create-chip"
+                  >
+                    {t("subscription.bindCreate", { name: bind.subName })}
+                  </button>
+                )}
+                {bindTargets.length === 0 && !bindCreate && (
+                  <span className="text-[11px] text-zinc-400">{t("strategy.subscriptionSelect")}</span>
+                )}
+                {bindTargets.map((name) => {
+                  const selected = bindSelected.includes(name);
+                  const isConsumer = bindConsumers.includes(name);
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => {
+                        setBindSelected((sel) => selected ? sel.filter((x) => x !== name) : [...sel, name]);
+                      }}
+                      className={"rounded px-2 py-0.5 text-[11px] border transition " + (selected || isConsumer
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800")}
+                      data-testid={"bind-chip-" + name}
+                    >
+                      {name + (isConsumer ? " ✓" : "")}
+                    </button>
+                  );
+                })}
+              </div>
+              {bindPortOptions.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{t("subscription.bindPortsHint")}</span>
+                  <div className="flex flex-wrap gap-1" data-testid="bind-port-chips">
+                    {bindPortOptions.map((port) => {
+                      const selected = bindPorts.includes(port);
+                      return (
+                        <button
+                          key={port}
+                          type="button"
+                          onClick={() => {
+                            setBindPorts((sel) => selected ? sel.filter((x) => x !== port) : [...sel, port]);
+                          }}
+                          className={"rounded px-2 py-0.5 text-[11px] border transition font-mono " + (selected
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800")}
+                          data-testid={"bind-port-" + port}
+                        >
+                          {port}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleBindConfirm}
+                  disabled={bindBusy || (!bindCreate && bindSelected.length === 0)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors disabled:opacity-40"
+                  data-testid="bind-confirm"
+                >
+                  {bindBusy ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                  {t("subscription.bindConfirm")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBind(null)}
+                  disabled={bindBusy}
+                  className="px-3 py-1.5 rounded-md border border-zinc-300 dark:border-zinc-700 text-xs text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40"
+                  data-testid="bind-skip"
+                >
+                  {t("subscription.bindSkip")}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="grid grid-cols-1 gap-1.5">
             <label className="text-xs text-zinc-500 dark:text-zinc-400">{t("subscription.name")}</label>
             <input
@@ -390,6 +688,8 @@ export function SubscriptionsView() {
               </button>
             </div>
           </div>
+            </>
+          )}
           {toast && (
             <div className={"flex items-center gap-2 text-xs px-3 py-2 rounded-md " + (toast.kind === "ok"
                 ? "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-900"
@@ -446,6 +746,47 @@ export function SubscriptionsView() {
                   <span className="font-mono text-xs text-zinc-600 dark:text-zinc-300 truncate max-w-[60%]">{s.name}</span>
                 </span>
                 <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
+                  {t("subscription.imported", { count: s.node_count })}
+                  {/* Round 5 T01 (F4): reverse-lookup badge — "bound to N
+                      platforms / unbound", fed by the authoritative snapshot
+                      section. Dangling (resolvable=false) gets its own tint. */}
+                  {(() => {
+                    const row = subRows.get(s.name);
+                    if (!row) return null;
+                    const bound = row.consumed_by.length;
+                    return (
+                      <span
+                        data-testid={"sub-bind-badge-" + s.name}
+                        className={"inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium " + (bound > 0
+                          ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900"
+                          : row.resolvable
+                            ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900"
+                            : "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900")}
+                      >
+                        {row.resolvable
+                          ? (bound > 0
+                              ? t("subscription.boundTo", { count: bound })
+                              : t("subscription.unbound"))
+                          : t("subscription.danglingRef")}
+                      </span>
+                    );
+                  })()}
+                  {(() => {
+                    const row = subRows.get(s.name);
+                    if (row && row.consumed_by.length > 0) return null;
+                    return (
+                      <button
+                        onClick={() => openBindStep(s.name, s.node_count)}
+                        disabled={busy || bind !== null}
+                        aria-label={t("subscription.bindNow")}
+                        title={t("subscription.bindNow")}
+                        className="text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 p-1 disabled:opacity-40"
+                        data-testid={"sub-bind-now-" + s.name}
+                      >
+                        <Link2 size={13} />
+                      </button>
+                    );
+                  })()}
                   {t("subscription.imported", { count: s.node_count })}
                   <button
                     onClick={() => handleRename(s.name)}

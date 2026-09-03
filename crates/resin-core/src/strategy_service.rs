@@ -320,6 +320,50 @@ impl FsStrategyStore {
     }
 }
 
+/// Round 5 T01 / issue 01 F3: diff every whitebox platform's
+/// `subscriptions` members against the live Resin subscription names.
+/// Returns one (platform_name, dangling_names) pair per platform with at
+/// least one unresolvable member. Pure — the caller owns the live-name set
+/// so the check is unit-testable without a filesystem or HTTP.
+pub fn dangling_subscription_refs(
+    config: &StrategyConfig,
+    live_subscription_names: &std::collections::HashSet<String>,
+) -> Vec<(String, Vec<String>)> {
+    config
+        .platforms
+        .iter()
+        .filter_map(|ps| {
+            let dangling: Vec<String> = ps
+                .subscriptions
+                .iter()
+                .filter(|s| !live_subscription_names.contains(*s))
+                .cloned()
+                .collect();
+            if dangling.is_empty() {
+                None
+            } else {
+                Some((ps.platform_name.clone(), dangling))
+            }
+        })
+        .collect()
+}
+
+/// Extend an AppliedPlatform reason with the dangling-subscription clause.
+/// The "dangling subscription refs:" prefix is DISTINCT from the ADR-0056
+/// "create failed:" / "PATCH failed:" / "in sync" vocabulary so report
+/// consumers can tell the two failure families apart (issue 01 risk note).
+fn with_dangling_note(mut row: AppliedPlatform, dangling: &[String]) -> AppliedPlatform {
+    if dangling.is_empty() {
+        return row;
+    }
+    let note = format!("dangling subscription refs: {}", dangling.join(", "));
+    row.reason = Some(match row.reason {
+        Some(r) => format!("{r}; {note}"),
+        None => note,
+    });
+    row
+}
+
 /// Validate a full config document. Returns Err with the first violation.
 /// Mirrors the bounds the IPC layer historically enforced (AGENTS 7.5 caps
 /// stay at the TS/Rust boundary too; this is the single source of truth for
@@ -509,9 +553,33 @@ impl StrategyService<FsStrategyStore> {
             .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(String::from))
             .collect();
 
+        // Round 5 T01 / issue 01 F3: reference-resolution input. One extra
+        // GET /subscriptions ONLY when at least one whitebox platform lists
+        // subscriptions — a region/manual-only config keeps the exact
+        // ADR-0057 wire shape (zero new requests). The dangling list is
+        // merged into each platform's report row below; apply NEVER deletes
+        // the whitebox entry for a dangling ref (ADR-0056 discipline).
+        let dangling_by_platform: HashMap<String, Vec<String>> =
+            if config.platforms.iter().any(|ps| !ps.subscriptions.is_empty()) {
+                let subs_v = client.list_subscriptions().await.map_err(|e| e.to_string())?;
+                let live_subs: std::collections::HashSet<String> = items(&subs_v)
+                    .iter()
+                    .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(String::from))
+                    .collect();
+                dangling_subscription_refs(&config, &live_subs)
+                    .into_iter()
+                    .collect()
+            } else {
+                HashMap::new()
+            };
+
         let plan = compute_plan(&config, &nodes);
         let mut platforms = Vec::new();
         for (platform_name, regions) in &plan {
+            let dangling = dangling_by_platform
+                .get(platform_name)
+                .cloned()
+                .unwrap_or_default();
             if !live_names.contains(platform_name) {
                 // ADR-0056: the preview says "will be established" — make it
                 // true. Create the platform on Resin, then fall through to
@@ -525,12 +593,15 @@ impl StrategyService<FsStrategyStore> {
                     }
                     Err(e) => {
                         tracing::warn!(platform = %platform_name, error = %e.to_string(), "strategy_apply: create platform failed");
-                        platforms.push(AppliedPlatform {
-                            platform: platform_name.clone(),
-                            region_filters: regions.clone(),
-                            patched: false,
-                            reason: Some(format!("create failed: {e}")),
-                        });
+                        platforms.push(with_dangling_note(
+                            AppliedPlatform {
+                                platform: platform_name.clone(),
+                                region_filters: regions.clone(),
+                                patched: false,
+                                reason: Some(format!("create failed: {e}")),
+                            },
+                            &dangling,
+                        ));
                         continue;
                     }
                 }
@@ -558,39 +629,51 @@ impl StrategyService<FsStrategyStore> {
                     .map(|rp| rp.region_filters)
                     .unwrap_or_default();
                 if same_region_set(regions, &live_regions) {
-                    platforms.push(AppliedPlatform {
-                        platform: platform_name.clone(),
-                        region_filters: regions.clone(),
-                        patched: true,
-                        reason: Some("in sync".to_string()),
-                    });
+                    platforms.push(with_dangling_note(
+                        AppliedPlatform {
+                            platform: platform_name.clone(),
+                            region_filters: regions.clone(),
+                            patched: true,
+                            reason: Some("in sync".to_string()),
+                        },
+                        &dangling,
+                    ));
                     continue;
                 }
                 let body = serde_json::json!({ "region_filters": regions });
                 match client.update_platform(&id, body).await {
-                    Ok(_) => platforms.push(AppliedPlatform {
-                        platform: platform_name.clone(),
-                        region_filters: regions.clone(),
-                        patched: true,
-                        reason: None,
-                    }),
-                    Err(e) => {
-                        tracing::warn!(platform = %platform_name, error = %e.to_string(), "auto_strategy_apply: PATCH region_filters failed");
-                        platforms.push(AppliedPlatform {
+                    Ok(_) => platforms.push(with_dangling_note(
+                        AppliedPlatform {
                             platform: platform_name.clone(),
                             region_filters: regions.clone(),
-                            patched: false,
-                            reason: Some(format!("PATCH failed: {e}")),
-                        });
+                            patched: true,
+                            reason: None,
+                        },
+                        &dangling,
+                    )),
+                    Err(e) => {
+                        tracing::warn!(platform = %platform_name, error = %e.to_string(), "auto_strategy_apply: PATCH region_filters failed");
+                        platforms.push(with_dangling_note(
+                            AppliedPlatform {
+                                platform: platform_name.clone(),
+                                region_filters: regions.clone(),
+                                patched: false,
+                                reason: Some(format!("PATCH failed: {e}")),
+                            },
+                            &dangling,
+                        ));
                     }
                 }
             } else {
-                platforms.push(AppliedPlatform {
-                    platform: platform_name.clone(),
-                    region_filters: regions.clone(),
-                    patched: false,
-                    reason: Some("platform not found".to_string()),
-                });
+                platforms.push(with_dangling_note(
+                    AppliedPlatform {
+                        platform: platform_name.clone(),
+                        region_filters: regions.clone(),
+                        patched: false,
+                        reason: Some("platform not found".to_string()),
+                    },
+                    &dangling,
+                ));
             }
         }
         Ok(ApplyReport { platforms })
@@ -1223,12 +1306,16 @@ mod tests {
             .expect_at_least(1)
             .create_async()
             .await;
+        // T04/round5: a 4xx rejection (never retried by send_with_retry) keeps
+        // this a single-attempt semantics test; a 5xx here would now be
+        // re-POSTed twice by the write-path retry (locked separately by the
+        // resin_client mockito_retry_* tests).
         let m_create = server
             .mock("POST", "/api/v1/platforms")
             .match_header(bearer.0, bearer.1)
-            .with_status(500)
+            .with_status(400)
             .with_header("content-type", "application/json")
-            .with_body(r#"{"error":"boom"}"#)
+            .with_body(r#"{"error":"name rejected"}"#)
             .expect(1)
             .create_async()
             .await;
@@ -1473,5 +1560,199 @@ mod tests {
             .find(|p| p.get("name").and_then(|n| n.as_str()) == Some(name))
             .and_then(|p| p.get("id").and_then(|i| i.as_str()))
             .map(String::from)
+    }
+
+    // ---- Round 5 T01 / issue 01 F3: apply reference resolution ----
+
+    fn ps_sub(name: &str, subs: &[&str]) -> PlatformStrategy {
+        let mut p = ps(name, &[]);
+        p.a_class = crate::strategy_engine::AClassStrategy::Subscription;
+        p.subscriptions = subs.iter().map(|s| s.to_string()).collect();
+        p
+    }
+
+    /// A whitebox platform whose `subscriptions` mention a name that is not
+    /// live on Resin gets a "dangling subscription refs:" clause on its
+    /// report row (distinct from the "create failed:" vocabulary), the
+    /// region plan still derives from the RESOLVABLE members, the whitebox
+    /// entry survives, and the extra GET /subscriptions happens EXACTLY
+    /// once per apply (handoff wire-level count lock).
+    #[tokio::test]
+    async fn apply_reports_dangling_subscription_refs_exactly_once_per_pass() {
+        let store_path = apply_fixture_store_path("dangling");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        svc.store(&cfg(vec![ps_sub("alpha", &["ghost-sub", "live-sub"])]))
+            .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        // One healthy node tagged with the live subscription, region HK —
+        // the dangling name contributes no region (no poisoned derivation).
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0,"tags":[{"subscription_name":"live-sub"}]}]}"#,
+            )
+            .create_async()
+            .await;
+        let m_platforms = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["US"]}]}"#)
+            .expect_at_least(1)
+            .create_async()
+            .await;
+        // Wire count lock: exactly ONE list_subscriptions per apply pass.
+        let m_subs = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"name":"live-sub","node_count":1,"healthy_node_count":1}]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let m_patch = server
+            .mock("PATCH", "/api/v1/platforms/id-a")
+            .match_header(bearer.0, bearer.1)
+            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":"id-a"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("apply must succeed");
+        assert_eq!(report.platforms.len(), 1);
+        let p = &report.platforms[0];
+        assert_eq!(p.platform, "alpha");
+        assert!(p.patched, "resolvable members still derive: {p:?}");
+        assert_eq!(
+            p.reason.as_deref(),
+            Some("dangling subscription refs: ghost-sub"),
+            "dangling clause must be its own vocabulary, not create/PATCH wording: {p:?}"
+        );
+        // The whitebox entry KEEPS its subscriptions (apply never deletes
+        // desired state — the dangling ref is reported, not auto-cleaned).
+        let after = svc.get().unwrap();
+        assert_eq!(after.platforms[0].subscriptions.len(), 2);
+
+        m_nodes.assert_async().await;
+        m_platforms.assert_async().await;
+        m_subs.assert_async().await;
+        m_patch.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    /// Zero-extra-request rule: a config whose platforms reference no
+    /// subscriptions skips the resolution GET entirely (the ADR-0057 wire
+    /// shape for region/manual-only configs is untouched).
+    #[tokio::test]
+    async fn apply_skips_subscription_resolution_when_no_refs() {
+        let store_path = apply_fixture_store_path("nosubs");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+            .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[]}"#)
+            .create_async()
+            .await;
+        let m_platforms = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":[]}]}"#)
+            .expect_at_least(1)
+            .create_async()
+            .await;
+        // Any /subscriptions read would fail the test.
+        let m_subs = server
+            .mock("GET", "/api/v1/subscriptions")
+            .with_status(500)
+            .expect(0)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("apply must succeed");
+        assert_eq!(report.platforms[0].reason.as_deref(), Some("in sync"));
+
+        m_nodes.assert_async().await;
+        m_platforms.assert_async().await;
+        m_subs.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    #[test]
+    fn dangling_subscription_refs_lists_only_unresolvable_names_per_platform() {
+        let mut live = std::collections::HashSet::new();
+        live.insert("live-sub".to_string());
+        let config = cfg(vec![
+            ps_sub("clean", &[]),
+            ps_sub("ok", &["live-sub"]),
+            ps_sub("mixed", &["live-sub", "ghost-a", "ghost-b"]),
+        ]);
+        let out = dangling_subscription_refs(&config, &live);
+        assert_eq!(out.len(), 1, "clean + fully-resolvable platforms are absent: {out:?}");
+        assert_eq!(out[0].0, "mixed");
+        assert_eq!(out[0].1, vec!["ghost-a".to_string(), "ghost-b".to_string()]);
+    }
+
+    #[test]
+    fn with_dangling_note_composes_distinct_vocabulary() {
+        let row = AppliedPlatform {
+            platform: "a".into(),
+            region_filters: vec![],
+            patched: true,
+            reason: None,
+        };
+        // No dangling refs: reason untouched (ADR-0057 "in sync" contract
+        // stays byte-exact).
+        assert_eq!(with_dangling_note(row.clone(), &[]).reason, None);
+        let in_sync = AppliedPlatform { reason: Some("in sync".into()), ..row.clone() };
+        assert_eq!(
+            with_dangling_note(in_sync, &[]).reason.as_deref(),
+            Some("in sync"),
+        );
+        // Some + dangling: note appended after a "; " separator.
+        let in_sync = AppliedPlatform { reason: Some("in sync".into()), ..row.clone() };
+        assert_eq!(
+            with_dangling_note(in_sync, &["g".to_string()]).reason.as_deref(),
+            Some("in sync; dangling subscription refs: g"),
+        );
+        // None + dangling: note stands alone with its own prefix.
+        assert_eq!(
+            with_dangling_note(row, &["a".to_string(), "b".to_string()])
+                .reason
+                .as_deref(),
+            Some("dangling subscription refs: a, b"),
+        );
     }
 }

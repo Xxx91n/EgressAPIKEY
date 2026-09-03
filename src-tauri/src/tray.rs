@@ -552,6 +552,7 @@ mod tests {
                 },
             ],
             routes: vec![],
+            subscriptions: vec![],
             resin_reachable: true,
             last_checked_at: 42,
         };
@@ -585,6 +586,7 @@ mod tests {
                 acknowledged: true,
             }],
             routes: vec![],
+            subscriptions: vec![],
             resin_reachable: true,
             last_checked_at: 43,
             strategy_version: 1,

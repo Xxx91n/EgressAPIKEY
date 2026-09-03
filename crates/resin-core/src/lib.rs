@@ -49,7 +49,10 @@ pub use ip_reputation::{
 pub use port_forwarder::{parse_trace_body_ip, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT};
 pub use port_health::PortHealthSnapshot;
 pub use resin_client::ResinClient;
-pub use snapshot::{AuthoritativeSnapshot, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot};
+pub use snapshot::{
+    AuthoritativeSnapshot, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot,
+    SubscriptionSnapshot,
+};
 pub use strategy_engine::{compute_plan, parse_nodes, StrategyConfig};
 pub use strategy_service::{
     endpoint_live_ports, FsStrategyStore, ReconcileMemory, ReconcilePortsOutcome, StrategyService,

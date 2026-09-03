@@ -1164,11 +1164,31 @@ function snapRoute(v: unknown): ProcessRouteSnapshot | null {
   return null;
 }
 
+/** Round 5 T01 (F4): sanitize one subscription reverse-lookup row (untrusted). */
+function snapSubscriptionRow(v: unknown): SubscriptionReverseRow | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  const name = snapStr(r.name);
+  if (!name) return null;
+  const count = (x: unknown): number => {
+    const n = Number(x);
+    return Number.isFinite(n) && n >= 0 && n <= Number.MAX_SAFE_INTEGER ? n : 0;
+  };
+  return {
+    name,
+    node_count: count(r.node_count),
+    healthy_node_count: count(r.healthy_node_count),
+    consumed_by: snapStrArr(r.consumed_by),
+    resolvable: r.resolvable === true,
+  };
+}
+
 function snapSnapshot(v: unknown): AuthoritativeSnapshot {
   const r = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
   const platformsRaw = Array.isArray(r.platforms) ? r.platforms : [];
   const portsRaw = Array.isArray(r.ports) ? r.ports : [];
   const routesRaw = Array.isArray(r.routes) ? r.routes : [];
+  const subscriptionsRaw = Array.isArray(r.subscriptions) ? r.subscriptions : [];
   return {
     strategyVersion: Number(r.strategyVersion) === 1 ? 1 : 0,
     platforms: platformsRaw
@@ -1183,6 +1203,10 @@ function snapSnapshot(v: unknown): AuthoritativeSnapshot {
       .slice(0, MAX_SNAPSHOT_ENTRIES)
       .map(snapRoute)
       .filter((x): x is ProcessRouteSnapshot => x !== null),
+    subscriptions: subscriptionsRaw
+      .slice(0, MAX_SNAPSHOT_ENTRIES)
+      .map(snapSubscriptionRow)
+      .filter((x): x is SubscriptionReverseRow => x !== null),
     resinReachable: r.resinReachable === true,
     // Ticket 12: untrusted timestamp sanitized to a bounded Unix-seconds
     // number; a malformed value degrades to 0 instead of leaking junk.
@@ -1300,6 +1324,7 @@ export function snapshotPlatformName(p: StrategySnapshot): string {
    | { kind: "BindConflict"; data: { port: number; i18n_key: string } }
    | { kind: "InvalidStrategy"; data: { value: string; accepted: string[]; i18n_key: string } }
    | { kind: "ResinUpstream"; data: { status: number; excerpt: string; i18n_key: string } }
+   | { kind: "InvalidInput"; data: { msg: string; i18n_key: string } }
    | { kind: "Internal"; data: { msg: string; i18n_key: string } };
  
  /** Narrow a thrown/unknown value from invoke() into a typed IpcErr.

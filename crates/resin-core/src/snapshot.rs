@@ -223,6 +223,11 @@ pub struct AuthoritativeSnapshot {
     /// whitebox defines no routes.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routes: Vec<ProcessRouteSnapshot>,
+    /// Round 5 T01 / issue 01 F4: per-subscription reverse lookup
+    /// (consumed_by = whitebox platforms listing the subscription).
+    /// Empty when Resin is unreachable and the whitebox references nothing.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subscriptions: Vec<SubscriptionSnapshot>,
     /// Unix seconds when THIS snapshot was generated (ticket 12 / ADR-0054 §C).
     /// Pure metadata: stamped by the command layer, never participates in the
     /// three-state merge. Monotonic non-decreasing across consecutive calls.
@@ -462,6 +467,73 @@ pub fn parse_resin_platforms(v: &serde_json::Value) -> Vec<ResinPlatformRuntime>
             })
         })
         .collect()
+}
+
+/// Round 5 T01 / issue 01 F4: per-subscription reverse-lookup row (the
+/// Gateway API "attachedRoutes" analog). `resolvable` is true when Resin
+/// returned the row (name present in its subscriptions list); a false row
+/// means the whitebox references a subscription Resin no longer knows.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SubscriptionSnapshot {
+    pub name: String,
+    pub node_count: u64,
+    pub healthy_node_count: u64,
+    /// Whitebox platform names whose `subscriptions` list contains this
+    /// subscription (sorted, deduped). Empty = "未绑定" (unbound).
+    pub consumed_by: Vec<String>,
+    /// false when the subscription exists in the whitebox references but
+    /// Resin does not report it (dangling). Such rows come ONLY from the
+    /// whitebox; Resin-unknown names never produce a resolvable row.
+    pub resolvable: bool,
+}
+
+/// The pure F4 merge: union of the live Resin subscription rows and every
+/// subscription name referenced by the whitebox, each with its consuming
+/// platform list. Zero new write paths — both inputs are data the snapshot
+/// pass already holds (or one extra list_subscriptions read by the caller).
+/// Unions are name-keyed; a name that appears on both sides merges into one
+/// row (whitebox reference + Resin stats).
+pub fn merge_subscriptions(
+    live_subscriptions: &[(String, u64, u64)],
+    whitebox_refs: &[(String, Vec<String>)],
+) -> Vec<SubscriptionSnapshot> {
+    // consumed_by accumulator, name-keyed.
+    let mut consumers: HashMap<String, Vec<String>> = HashMap::new();
+    for (name, platforms) in whitebox_refs {
+        for p in platforms {
+            let entry = consumers.entry(name.clone()).or_default();
+            if !entry.contains(p) {
+                entry.push(p.clone());
+            }
+        }
+    }
+    for v in consumers.values_mut() {
+        v.sort();
+    }
+
+    let mut out: Vec<SubscriptionSnapshot> = live_subscriptions
+        .iter()
+        .map(|(name, node_count, healthy)| SubscriptionSnapshot {
+            name: name.clone(),
+            node_count: *node_count,
+            healthy_node_count: *healthy,
+            consumed_by: consumers.remove(name).unwrap_or_default(),
+            resolvable: true,
+        })
+        .collect();
+    // Whitebox-referenced names Resin does NOT report: dangling, surfaced
+    // with resolvable=false so "未绑定/引用失效" is a readable state.
+    for (name, platforms) in consumers {
+        out.push(SubscriptionSnapshot {
+            name,
+            node_count: 0,
+            healthy_node_count: 0,
+            consumed_by: platforms,
+            resolvable: false,
+        });
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
 }
 
 /// The three-state merge. This is the sanctioned merge point named by
@@ -931,6 +1003,7 @@ mod tests {
             platforms: merge_strategies(&cfg, &resin, &HashMap::new(), true),
             ports: merge_ports(&[], &[]),
             routes: vec![],
+            subscriptions: vec![],
             resin_reachable: true,
             last_checked_at: 1_700_000_000,
         };
@@ -1013,6 +1086,7 @@ mod tests {
             platforms: vec![],
             ports: vec![],
             routes: vec![],
+            subscriptions: vec![],
             resin_reachable: true,
             last_checked_at: 1,
         };
@@ -1030,6 +1104,75 @@ mod tests {
         assert!(v2.get("routes").is_some());
     }
 
+    // ---- Round 5 T01 / issue 01 F4: subscription reverse lookup ----
+
+    #[test]
+    fn merge_subscriptions_unions_live_rows_with_whitebox_refs() {
+        let live = vec![
+            ("alpha".to_string(), 10u64, 8u64),
+            ("beta".to_string(), 3, 0),
+        ];
+        // Whitebox: p1 consumes alpha + a dangling ghost; p2 also consumes
+        // alpha (multi-consumer, sorted); p3 references beta.
+        let refs = vec![
+            ("alpha".to_string(), vec!["p2".to_string(), "p1".to_string()]),
+            ("ghost".to_string(), vec!["p1".to_string()]),
+            ("beta".to_string(), vec!["p3".to_string()]),
+        ];
+        let out = merge_subscriptions(&live, &refs);
+        // Name-sorted for deterministic wire shape.
+        assert_eq!(
+            out.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(),
+            vec!["alpha", "beta", "ghost"]
+        );
+        let alpha = &out[0];
+        assert_eq!(alpha.node_count, 10);
+        assert_eq!(alpha.healthy_node_count, 8);
+        assert_eq!(alpha.consumed_by, vec!["p1".to_string(), "p2".to_string()]);
+        assert!(alpha.resolvable);
+        let beta = &out[1];
+        assert_eq!(beta.consumed_by, vec!["p3".to_string()]);
+        assert!(beta.resolvable);
+        // Dangling: whitebox-only name, zero stats, NOT resolvable.
+        let ghost = &out[2];
+        assert!(!ghost.resolvable);
+        assert_eq!(ghost.node_count, 0);
+        assert_eq!(ghost.consumed_by, vec!["p1".to_string()]);
+    }
+
+    #[test]
+    fn merge_subscriptions_empty_inputs_and_wire_shape() {
+        // Both empty -> empty vec (field skipped on the wire).
+        assert!(merge_subscriptions(&[], &[]).is_empty());
+        // Live-only: unbound rows carry an empty consumed_by.
+        let live = vec![("solo".to_string(), 1, 1)];
+        let out = merge_subscriptions(&live, &[]);
+        assert_eq!(out.len(), 1);
+        assert!(out[0].consumed_by.is_empty());
+        assert!(out[0].resolvable);
+        // Refs-only: every row is dangling.
+        let refs = vec![("orphan".to_string(), vec!["p".to_string()])];
+        let out2 = merge_subscriptions(&[], &refs);
+        assert!(!out2[0].resolvable);
+        // Wire shape: snake_case row fields under the top-level
+        // "subscriptions" key; empty section is omitted entirely.
+        let snap = AuthoritativeSnapshot {
+            strategy_version: 1,
+            platforms: vec![],
+            ports: vec![],
+            routes: vec![],
+            subscriptions: out2,
+            resin_reachable: true,
+            last_checked_at: 1,
+        };
+        let v = serde_json::to_value(&snap).unwrap();
+        assert_eq!(v["subscriptions"][0]["name"], "orphan");
+        assert_eq!(v["subscriptions"][0]["consumed_by"][0], "p");
+        assert_eq!(v["subscriptions"][0]["resolvable"], false);
+        let back: AuthoritativeSnapshot = serde_json::from_value(v).expect("round-trip");
+        assert_eq!(back, snap);
+    }
+
     // ---- ticket 12: lastCheckedAt + divergentSince + acknowledged ----
 
     #[test]
@@ -1039,6 +1182,7 @@ mod tests {
             platforms: vec![],
             ports: vec![],
             routes: vec![],
+            subscriptions: vec![],
             resin_reachable: false,
             last_checked_at: 1_756_521_600,
         };

@@ -189,6 +189,10 @@ pub async fn subscription_add(
         return Err(IpcError::from("subscription url must start with http:// or https://".to_string()));
     }
     // T8-5: validate update_interval Go duration format (default 30s).
+    // T04/round5: 30s is Resin's enforced floor (>= 30s,
+    // resin/internal/service/control_plane_subscription.go:130, create AND
+    // PATCH); a 5s default was investigated and rejected — a below-floor
+    // value 400s on POST. Gap documented in docs/research/OPENAPI-GAP.md.
     let update_interval = update_interval.unwrap_or_else(|| "30s".to_string());
     if update_interval.len() > 10 || update_interval.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
         return Err(IpcError::from("update_interval: invalid (max 10 chars, no control)".to_string()));

@@ -246,7 +246,7 @@ pub async fn authoritative_snapshot(
     // unreachable runtime (resin_reachable=false) instead of failing the
     // snapshot: the whitebox half is still assertable while the sidecar is down.
     let reachable = sidecar.mode() == crate::sidecar::RunningMode::Running;
-    let (mut resin_platforms, resin_endpoint_ports) = if reachable {
+    let (mut resin_platforms, resin_endpoint_ports, live_subscriptions) = if reachable {
         let client = resin_client(&sidecar)?;
         let platforms_v = client
             .list_platforms()
@@ -256,12 +256,21 @@ pub async fn authoritative_snapshot(
             .list_endpoints()
             .await
             .map_err(|e| map_resin_error(&e.to_string()))?;
+        // Round 5 T01 F4: one extra GET /api/v1/subscriptions so the
+        // reverse-lookup section can join Resin stats against the whitebox
+        // references. Read-only cosmetic section: a failed read degrades to
+        // an empty live list (whitebox refs still surface as dangling).
+        let subs_v = client.list_subscriptions().await.unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "authoritative_snapshot: list_subscriptions failed; subscriptions section degrades");
+            serde_json::Value::Array(vec![])
+        });
         (
             resin_core::snapshot::parse_resin_platforms(&platforms_v),
             endpoint_ports(&endpoints_v),
+            parse_live_subscriptions(&subs_v),
         )
     } else {
-        (vec![], vec![])
+        (vec![], vec![], vec![])
     };
     resin_platforms.sort_by(|a, b| a.name.cmp(&b.name));
 
@@ -280,6 +289,19 @@ pub async fn authoritative_snapshot(
 
     let mut platforms = resin_core::snapshot::merge_strategies(&config, &resin_platforms, &plan, strategy_path_exists);
     let mut ports = resin_core::snapshot::merge_ports(&all_ports, &resin_endpoint_ports);
+
+    // Round 5 T01 F4: subscription reverse lookup — union of live Resin
+    // subscription rows and every whitebox reference, each with its
+    // consuming platforms. Pure assembly of data already in hand; the
+    // platform rows' own `subscriptions` field stays untouched.
+    let whitebox_refs: Vec<(String, Vec<String>)> = config
+        .platforms
+        .iter()
+        .filter(|ps| !ps.subscriptions.is_empty())
+        .map(|ps| (ps.platform_name.clone(), ps.subscriptions.clone()))
+        .collect();
+    let subscriptions =
+        resin_core::snapshot::merge_subscriptions(&live_subscriptions, &whitebox_refs);
 
     // Ticket 12 / ADR-0054 §D: read-side exemption stamps. The whitebox
     // `acknowledged` arrays NEVER enter the three-state merge above — they
@@ -381,6 +403,7 @@ pub async fn authoritative_snapshot(
         platforms,
         ports,
         routes,
+        subscriptions,
         resin_reachable: reachable,
         // Ticket 12: generation instant of THIS snapshot; monotonic
         // non-decreasing across consecutive calls (wall clock).
@@ -397,11 +420,32 @@ pub async fn authoritative_snapshot(
     Ok(snapshot)
 }
 
+/// Round 5 T01 F4: parse GET /api/v1/subscriptions into (name, node_count,
+/// healthy_node_count) triples for the snapshot's reverse-lookup section.
+/// Accepts both the items-wrapper and bare-array shapes (mirrors
+/// `subscription_snapshot` in platform.rs); malformed rows are skipped.
+fn parse_live_subscriptions(v: &serde_json::Value) -> Vec<(String, u64, u64)> {
+    items_arr(v)
+        .iter()
+        .filter_map(|s| {
+            let name = s.get("name").and_then(|n| n.as_str())?;
+            if name.is_empty() {
+                return None;
+            }
+            let node_count = s.get("node_count").and_then(|n| n.as_u64()).unwrap_or(0);
+            let healthy = s
+                .get("healthy_node_count")
+                .and_then(|n| n.as_u64())
+                .unwrap_or(0);
+            Some((name.to_string(), node_count, healthy))
+        })
+        .collect()
+}
+
 /// Extract the set of listener ports from a GET /api/v1/endpoints response.
 /// Both the {"items":[..]} wrapper and bare-array shapes are accepted; the
 /// read-only "default" endpoint is included because a listener exists there.
-pub fn endpoint_ports(existing: &serde_json::Value) -> Vec<u16> {
-    let arr = if let Some(a) = existing.get("items").and_then(|i| i.as_array()) {
+pub fn endpoint_ports(existing: &serde_json::Value) -> Vec<u16> {    let arr = if let Some(a) = existing.get("items").and_then(|i| i.as_array()) {
         a.as_slice()
     } else if let Some(a) = existing.as_array() {
         a.as_slice()
