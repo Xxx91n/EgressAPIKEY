@@ -690,3 +690,20 @@ Round 4 closed 2026-09-02 (pre-push record; stacks landed under user-gated `but 
 Close gates at brain-run (2026-09-02, before push): verify-build vitest 339/339 across 19 files (records one non-fatal unhandled error: PlatformsView toast setTimeout fires after env teardown -> backlog B9); cargo resin-core 198+8, shell 94 + bindings 1; i18n 435x18; ipc-manifest 67; isolation-guard OK; staged exe release/windows-gui/EgressAPIKEY.exe rebuilt 2026-09-02 19:18 with chunk index-Cm9yQYAI confirmed inside binary via Node indexOf; workspace contains one known leftover: ticket 29's deliberately parked CHANGELOG blank-line hunk (rides with arch/22 lane ordering); but pull showed upstream zero-drift, merge order staged as arch/22-lane -> arch/23-lane -> arch/25.
 
 Backlog carried (decision parked with user): B2 Nodus SHA-256 errata (LOW), B3 eslint TS parser (MED), B4 vitest act() noise (LOW), B5 build-all.sh hardening (MED), B7 architecture-state.md section 15 stale dead-command-as-live (MED), B8 AGENTS.md 7.6 trailing MihomoController-ish bullets stale (LOW), B9 PlatformsView unhandled error in tests (LOW-MED).
+
+### 69. architecture-recovery Round 4 收口修复 — 8 票（30–37）文档漂移清理 + 死代码 + 幂等对齐，全核验落地
+
+Round 4 收口修复闭环 2026-09-03：大脑宏观核验（config-authority 三层链路实物追查 + 文档↔代码漂移审计）发现的残留漂移与死代码，拆 8 票分三波执行（W1.1 = 30/31/33/34/35，W1.2 = 32/37，W2 = 36），大脑逐票实物复核（不信报告自述），8 栈按序 `but land` 落地推送 origin/main（tip 0921a7b → c89f0eb）。
+
+- **30** architecture-state.md §15 死命令墓碑化：platform_snapshot/gateway_snapshot 及五条 gateway_* echo 改 [Removed — ticket 23 / ADR-0024] 墓碑；commands/mod.rs 结构性陈述改六域门面（零 #[tauri::command]，manifest 67）；存活测试名迁到 commands/tests.rs；过程叙述保留不整段删除。
+- **31** AGENTS.md §7.6 尾部 MihomoController 两条化石规则改条件式（若未来重新引入），消除与同节 mihomo.rs DELETED 声明的矛盾；三条安全语义（loopback-only / 禁前端 String 构造 / settings.json 服务端信任）原义保留；ADR-0050 垫为删除权威出处。
+- **32** PlatformsView toast 定时器纳入生命周期（useRef + unmount clearTimeout），消除 vitest 全量 unhandled "window is not defined"；语义等价 3.5s 不变。
+- **33** ARCHITECTURE.md as-built 修正：命令 44→67 跨 6 域文件（mod.rs 纯门面）、5 tabs→8 nav slots、stream_sensor 撤出命令类别、测试计数改「以 verify-build.sh 为准」。
+- **34** CONTEXT.md「Strategy Pipeline Vocabularies」移除 auto-clean（ADR-0056 建立而非删除）；docs/reference/glossary.md 文件头加 Stale-reference warning + routable-view/route_id/X-Resin-Account 三条历史墓碑（platform_snapshot/lane.rs/A4-3 interceptor 均已删）。
+- **35** strategy_service.rs clean_stale 死函数 + 3 单测删除、模块 docstring 去 auto-clean 宣称（ADR-0056 收尾）；cargo lib 198→195。
+- **36** apply diff-then-skip 幂等对齐（ADR-0057）：strategy_apply 只在 live 行漂移时 PATCH region_filters（同读零额外请求 + 快照同源大小写不敏感集合比对）；in-sync 平台报收敛不落错误桶；reconcile.rs m_patch 升级 expect(1) 真 assert；新增 2 个 wire 级测试；文档三层同步（CONTEXT 两种幂等机制分开表述 / AGENTS / ARCHITECTURE / CHANGELOG）；检查点 B 经用户重定向 atomcode 调研落地「改检测」。
+- **37** 工业配置权威心智模型调研落盘 docs/research/CONFIG_AUTHORITY_MENTAL_MODEL_RESEARCH.md：最佳拟合 = OpenGitOps 单机缩放 + Terraform 绑定存储 + K8s spec/status/observedGeneration；四环补充（generation 回显 / 定时复验 / sync×health 分离 / 写审计日志）。
+
+Close gates at close-out（2026-09-03）：verify-build exit 0（cargo resin-core lib 197 = 195+2 ADR-0057 锁 / 总 205 passed 0 failed；vitest 339/339 × 19 files；i18n 435×18；ipc-manifest 67；isolation-guard OK）；三层文档 0 漂移（CONTEXT 无 auto-clean + 含 ADR-0057 语义；ADR-0056/0057 在位；代码 clean_stale 零引用 + same_region_set 在位）；staged exe release/windows-gui/EgressAPIKEY.exe 14,159,360 B 嵌入 chunk index-UDo-zz7K（Node 命中）；git diff --check 净；but pull 上游零漂移。
+
+Backlog carried（决策驻留，由用户决定是否立票）：B2 Nodus SHA-256 errata（LOW）、B3 eslint TS parser（MED）、B4 vitest act() noise（LOW）、B5 build-all.sh hardening（MED）+ 票 37 四环补充（generation 回显 / 定时复验 / sync×health 分离 / 写审计日志）。过程疑点单独呈报不追认：票 35 检查点 A 批准证据未附、票 36 检查点 B 由 atomcode 调研代决、票 36 but move arch/34 重排已核验栈序、票 36/37 无 ctx 下 node spawn 直连 atomcode。
