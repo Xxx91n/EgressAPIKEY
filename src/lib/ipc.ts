@@ -65,9 +65,10 @@ const CMD_TO_HTTP: Record<string, HttpRoute | undefined> = {
   node_pool_snapshot:     { method: "GET",    path: "/api/v1/metrics/snapshots/node-pool" },
   // Port + gateway mirrors
   request_log_tail:        { method: "GET",    path: "/api/v1/request-logs" },
-  // Config / whitebox / system pass through the same /api/v1/* prefix
-  config_export:          { method: "GET",    path: "/api/v1/config/export" },
-  config_import:          { method: "POST",   path: "/api/v1/config/import" },
+  // system config passes through the same /api/v1/* prefix. config_export /
+  // config_import are intentionally ABSENT here (ADR-0061): they read/write
+  // the L2 whitebox files through the Tauri app_config_dir — no headless HTTP
+  // surface exists for local file I/O, so they are Tauri-only.
   system_config_get:      { method: "GET",    path: "/api/v1/system/config" },
   system_config_patch:    { method: "PATCH",  path: "/api/v1/system/config" },
 };
@@ -433,19 +434,20 @@ export async function ipcProcessRouteList(): Promise<ProcessRouteRule[]> {
   return invoke<ProcessRouteRule[]>("process_route_list");
 }
 
-/// Phase R4: export current platform + subscription config as JSON.
+/// Round 5 T07 / ADR-0061: export the L2 whitebox config (strategy + ports).
 export async function ipcConfigExport(): Promise<unknown> {
   return invoke("config_export");
 }
 
-/// Phase R4: import a config JSON. Auto-backs up before applying.
-/// Returns a summary { backup_path, platforms_created, platforms_skipped, subscriptions_created, subscriptions_skipped, errors }.
+/// Round 5 T07 / ADR-0061: import a whitebox config document. The backend
+/// validates schema + version and writes through the whitebox stores (never
+/// a direct Resin PATCH), then triggers reconcile. Returns a summary.
 export async function ipcConfigImport(config: unknown): Promise<{
-  backup_path: string;
   platforms_created: number;
   platforms_skipped: number;
   subscriptions_created: number;
   subscriptions_skipped: number;
+  ports_created: number;
   errors: string[];
 }> {
   return invoke("config_import", { config });

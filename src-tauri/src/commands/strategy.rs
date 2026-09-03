@@ -200,7 +200,7 @@ pub async fn strategy_platform_regions_set(
 
 /// Build the Service against the app config dir. The Service owns the only
 /// strategyConfig write path in the shell (ADR-0036 discipline, ticket 10).
-fn strategy_service(app: &AppHandle) -> Result<resin_core::StrategyService<resin_core::FsStrategyStore>, IpcError> {
+pub(crate) fn strategy_service(app: &AppHandle) -> Result<resin_core::StrategyService<resin_core::FsStrategyStore>, IpcError> {
     let dir = std::path::PathBuf::from(get_config_dir(app.clone())?);
     let path = dir.join("egressapikey-strategy.json");
     Ok(resin_core::StrategyService::new(resin_core::FsStrategyStore::new(path)))
@@ -582,8 +582,10 @@ pub async fn reconcile_now(
 /// The ports half of one reconcile pass. Mirrors the per-port body of
 /// `restore_ports_from_whitebox` (commands/common.rs) but fails loudly:
 /// the reconcile contract is fail-fast (issue 14), not best-effort. 409
-/// (endpoint already present) counts as satisfied, not an error.
-async fn reconcile_ports_half(
+/// (endpoint already present) counts as satisfied, not an error. Shared with
+/// `config_import` (Round 5 T07) so an import triggers the SAME one-way
+/// reconcile as `reconcile_now` (ADR-0054 §A) rather than a parallel path.
+pub(crate) async fn reconcile_ports_half(
     sidecar: &SidecarHandle,
     whitebox: &resin_core::WhiteboxConfigStore,
     now: u64,

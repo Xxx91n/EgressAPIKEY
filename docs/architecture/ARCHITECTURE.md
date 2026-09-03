@@ -72,6 +72,17 @@ write rule is untouched). This exception is legislated by ADR-0050-bis and
 is the complete read-exception list: `request_logs*.db` stay outside it and
 never enter backups (leak prevention, AGENTS.md §7.6).
 
+`config_export` / `config_import` (ADR-0061) are whitebox-source, not Resin:
+export reads `egressapikey-strategy.json` + `egressapikey-ports.json` verbatim
+into a versioned JSON container (`crates/resin-core/src/config_transfer.rs`);
+import validates both documents up front (any violation is a clear IpcError
+with **no write**), persists them through `StrategyService::store` /
+`WhiteboxConfigStore::apply`, then triggers the one-way reconcile — never a
+direct Resin read or PATCH. Subscriptions are Resin L3 state, not part of the
+whitebox config layer, so they are neither exported nor imported (the former
+Resin-derived subscription round-trip is gone; an "Include Resin derived"
+option is deferred to a later round).
+
 Two distinct write pipelines live behind L2 (verified in code;
 `strategy_config_put` / `strategy_apply` in
 `src-tauri/src/commands/strategy.rs`, `port_upsert` / `whitebox_reload` in

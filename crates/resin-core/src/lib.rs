@@ -25,6 +25,7 @@
 //! CoreConfig, sanitize_lanes, and the resin-core stub bin) was deleted per
 //! ADR-0050; that ADR records the reference evidence.
 
+pub mod config_transfer;
 pub mod db;
 pub mod ipc_error;
 pub mod ip_reputation;
@@ -41,6 +42,7 @@ pub mod throttle;
 pub mod whitebox_backup;
 pub mod whitebox_config;
 
+pub use config_transfer::{build_export_doc, parse_import_doc, ConfigImportDoc};
 pub use db::{DbPool, PortMapping};
 pub use ipc_error::{map_resin_error, IpcError};
 pub use ip_reputation::{
