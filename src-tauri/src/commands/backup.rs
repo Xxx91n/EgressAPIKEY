@@ -5,8 +5,9 @@
 use tauri::{AppHandle, Manager, State};
 use crate::sidecar::SidecarHandle;
 use resin_core::IpcError;
-use super::common::{items_arr, map_resin_error, resin_client};
-use super::platform::{ALLOWED_ALLOCATION_POLICIES, platform_id_for_name};
+use super::common::{map_resin_error, resin_client};
+use super::platform::platform_id_for_name;
+use super::strategy::{reconcile_ports_half, strategy_service};
 
 /// Create a zip backup of settings.json + resin state dir, return the temp path.
 #[tauri::command]
@@ -57,6 +58,11 @@ pub async fn backup_create(app: AppHandle) -> Result<String, IpcError> {
         let data = std::fs::read(&settings_path).map_err(|e| IpcError::from(e.to_string()))?;
         zip.write_all(&data).map_err(|e| IpcError::from(e.to_string()))?;
     }
+    // L3 private-file read exception (ADR-0050-bis): the two reads below are
+    // the ONLY legislated direct reads of Resin private state — read-only
+    // (never written back; L3 writes stay on the ResinClient REST seam,
+    // ADR-0042 S6), scoped to state.db/cache.db, never request_logs*.db
+    // (AGENTS.md §7.6), schema-blind. Ledger: ARCHITECTURE.md "Known exception".
     // Add resin state DB if it exists
     let state_db = resin_state.join("state.db");
     if state_db.is_file() {
@@ -190,251 +196,104 @@ pub async fn backup_list(
     Ok(names)
 }
 
-/// Phase R4: export the current platform + subscription config as JSON.
-/// This is the whitebox config layer — the user can save this file, edit it,
-/// and re-import it to restore or migrate their routing setup. The exported
-/// JSON contains the full platform schema (name, regex_filters, region_filters,
-/// allocation_policy, sticky_ttl) and subscription references (name, url).
-/// It does NOT contain node data (nodes are derived from subscriptions and
-/// fetched live by the Resin sidecar).
+/// Round 5 T07 / ADR-0061: export the L2 whitebox configuration as JSON.
+/// Reads `egressapikey-strategy.json` (via StrategyService, ADR-0036) and
+/// `egressapikey-ports.json` (via the WhiteboxConfigStore snapshot) and wraps
+/// them verbatim in a versioned container. It does NOT read Resin — Resin is
+/// the derived L3 runtime, and the "Include Resin derived" option is deferred
+/// (out of scope this round). The exported document re-imports through
+/// config_import's schema gate.
 #[tauri::command]
-pub async fn config_export(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, IpcError> {
-    let client = resin_client(&sidecar)?;
-    let platforms = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
-    let subscriptions = client
-        .list_subscriptions()
-        .await
-        .map_err(|e| map_resin_error(&e.to_string()))?;
-
-    let plat_items: Vec<serde_json::Value> = items_arr(&platforms)
-        .iter()
-        .filter_map(|p| {
-            let name = p.get("name").and_then(|n| n.as_str())?;
-            if name.is_empty() { return None; }
-            Some(serde_json::json!({
-                "name": name,
-                "regex_filters": p.get("regex_filters").cloned().unwrap_or(serde_json::Value::Null),
-                "region_filters": p.get("region_filters").cloned().unwrap_or(serde_json::Value::Null),
-                "allocation_policy": p.get("allocation_policy").and_then(|v| v.as_str()).unwrap_or("BALANCED"),
-                "sticky_ttl": p.get("sticky_ttl").and_then(|v| v.as_str()).unwrap_or("0s"),
-            }))
-        })
-        .collect();
-
-    let sub_items: Vec<serde_json::Value> = items_arr(&subscriptions)
-        .iter()
-        .filter_map(|s| {
-            let name = s.get("name").and_then(|n| n.as_str())?;
-            if name.is_empty() {
-                return None;
-            }
-            let url = s.get("url").and_then(|u| u.as_str()).unwrap_or("");
-            Some(serde_json::json!({ "name": name, "url": url }))
-        })
-        .collect();
-
-    Ok(serde_json::json!({
-        "version": 1,
-        "exported_at": chrono::Local::now().to_rfc3339(),
-        "platforms": plat_items,
-        "subscriptions": sub_items,
-    }))
+pub async fn config_export(
+    app: AppHandle,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+) -> Result<serde_json::Value, IpcError> {
+    let svc = strategy_service(&app)?;
+    let strategy = svc.get().map_err(IpcError::from)?;
+    let ports = whitebox.snapshot();
+    let exported_at = chrono::Local::now().to_rfc3339();
+    Ok(resin_core::build_export_doc(&strategy, &ports, &exported_at))
 }
 
-/// Phase R4: import a config JSON (from config_export or hand-edited).
-/// Validates the structure, auto-creates a backup via backup_create, then
-/// re-creates platforms and subscriptions via the Resin API. Existing
-/// platforms/subscriptions with the same name are skipped (idempotent).
-/// Returns a summary of what was created.
+/// Round 5 T07 / ADR-0061: import a config document (from config_export).
+/// Parses + validates the two whitebox documents up front (schema + version
+/// gate — any violation returns a clear IpcError and writes NOTHING), then
+/// persists them through the single sanctioned write entries:
+/// `StrategyService::store` (ADR-0036, versions the previous file) and
+/// `WhiteboxConfigStore::apply` (validate -> DB -> file backup-before-write
+/// -> atomic swap), and finally triggers the one-way reconcile (ADR-0054 §A)
+/// so Resin converges from the imported whitebox (diff-then-skip per
+/// ADR-0057; no direct Resin PATCH here). Subscriptions are not part of the
+/// whitebox config layer and are not touched — the former Resin-derived
+/// subscription import is gone.
 #[tauri::command]
 pub async fn config_import(
     app: AppHandle,
     sidecar: State<'_, SidecarHandle>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+    db: State<'_, resin_core::DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
     config: serde_json::Value,
 ) -> Result<serde_json::Value, IpcError> {
-    // Validate top-level structure
-    let platforms = config
-        .get("platforms")
-        .and_then(|v| v.as_array())
-        .ok_or_else(|| "config_import: missing 'platforms' array".to_string())?;
-    let subscriptions = config
-        .get("subscriptions")
-        .and_then(|v| v.as_array())
-        .ok_or_else(|| "config_import: missing 'subscriptions' array".to_string())?;
-
-    // Cap input size to prevent abuse (AGENTS s7.5: 256KB max)
+    // Cap input size before any parse (AGENTS s7.5: 256KB max).
     let config_str = serde_json::to_string(&config).map_err(|e| IpcError::from(e.to_string()))?;
     if config_str.len() > 262_144 {
         return Err(IpcError::from("config_import: config too large (max 256KB)".to_string()));
     }
 
-    // Auto-backup before applying (防呆: always backup before destructive change)
-    let backup_path = backup_create(app.clone()).await?;
+    // Parse + validate BOTH whitebox documents up front: any failure returns
+    // a clear error and writes nothing (no partial import).
+    let doc = resin_core::parse_import_doc(&config).map_err(IpcError::from)?;
 
-    let client = resin_client(&sidecar)?;
+    // Write the strategy half through the single sanctioned entry (ADR-0036).
+    let svc = strategy_service(&app)?;
+    svc.store(&doc.strategy).map_err(IpcError::from)?;
 
-    // Get existing names to skip duplicates (idempotent import)
-    let existing_plats = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
-    let existing_plat_names: std::collections::HashSet<String> = items_arr(&existing_plats)
-        .iter()
-        .filter_map(|p| {
-            p.get("name")
-                .and_then(|n| n.as_str())
-                .map(|s| s.to_string())
-        })
-        .collect();
-
-    let existing_subs = client
-        .list_subscriptions()
+    // Write the ports half through the single sanctioned entry (ADR-0055).
+    whitebox
+        .apply(&db, &forwarder, doc.ports.clone())
         .await
-        .map_err(|e| map_resin_error(&e.to_string()))?;
-    let existing_sub_names: std::collections::HashSet<String> = items_arr(&existing_subs)
-        .iter()
-        .filter_map(|s| {
-            s.get("name")
-                .and_then(|n| n.as_str())
-                .map(|s| s.to_string())
-        })
-        .collect();
+        .map_err(IpcError::from)?;
 
-    let mut platforms_created = 0u32;
-    let mut platforms_skipped = 0u32;
-    let mut subscriptions_created = 0u32;
-    let mut subscriptions_skipped = 0u32;
+    // Trigger the one-way reconcile (ADR-0054 §A / F2): strategy apply
+    // (diff-then-skip, ADR-0057) then ports re-assert — the SAME path as
+    // reconcile_now, fail-fast, whitebox always wins.
+    let client = resin_client(&sidecar)?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
     let mut errors: Vec<String> = Vec::new();
-
-    // Create platforms
-    for plat in platforms {
-        let name = plat.get("name").and_then(|n| n.as_str()).unwrap_or("");
-        if name.is_empty() || name.len() > 128 {
-            errors.push(format!("platform name invalid: {name}"));
-            continue;
+    match svc
+        .reconcile(&client, platform_id_for_name, async {
+            reconcile_ports_half(sidecar.inner(), whitebox.inner(), now).await
+        })
+        .await
+    {
+        Ok(report) => {
+            tracing::info!(
+                strategy_platforms = doc.strategy.platforms.len(),
+                ports = doc.ports.entry_ports.len(),
+                ports_restored = report.ports_restored.len(),
+                "config_import complete (whitebox write + reconcile)"
+            );
         }
-        if existing_plat_names.contains(name) {
-            platforms_skipped += 1;
-            continue;
-        }
-        match client.create_platform_from_name(name).await {
-            Ok(_) => {
-                platforms_created += 1;
-                // PATCH the platform with imported fields if any
-                let mut body = serde_json::Map::new();
-                if let Some(policy) = plat.get("allocation_policy").and_then(|v| v.as_str()) {
-                    if ALLOWED_ALLOCATION_POLICIES.contains(&policy) {
-                        body.insert(
-                            "allocation_policy".to_string(),
-                            serde_json::Value::String(policy.to_string()),
-                        );
-                    }
-                }
-                if let Some(filters) = plat.get("regex_filters").and_then(|v| v.as_array()) {
-                    if filters.len() <= 64 {
-                        let valid: Vec<serde_json::Value> = filters
-                            .iter()
-                            .filter(|f| {
-                                f.as_str().map_or(false, |s| {
-                                    s.len() <= 253
-                                        && !s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f)
-                                })
-                            })
-                            .cloned()
-                            .collect();
-                        body.insert("regex_filters".to_string(), serde_json::Value::Array(valid));
-                    }
-                }
-                if let Some(filters) = plat.get("region_filters").and_then(|v| v.as_array()) {
-                    if filters.len() <= 64 {
-                        let valid: Vec<serde_json::Value> = filters
-                            .iter()
-                            .filter(|f| {
-                                f.as_str().map_or(false, |s| {
-                                    s.len() <= 16
-                                        && !s
-                                            .bytes()
-                                            .any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')
-                                })
-                            })
-                            .cloned()
-                            .collect();
-                        body.insert(
-                            "region_filters".to_string(),
-                            serde_json::Value::Array(valid),
-                        );
-                    }
-                }
-                if let Some(ttl) = plat.get("sticky_ttl").and_then(|v| v.as_str()) {
-                    if ttl.len() <= 32 && !ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-                        body.insert(
-                            "sticky_ttl".to_string(),
-                            serde_json::Value::String(ttl.to_string()),
-                        );
-                    }
-                }
-                if !body.is_empty() {
-                    // Resolve name->id and PATCH
-                    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
-                    if let Some(id) = platform_id_for_name(&list, name) {
-                        if let Err(e) = client
-                            .update_platform(&id, serde_json::Value::Object(body))
-                            .await
-                        {
-                            tracing::warn!(platform = %name, error = %e.to_string(), "config_import: PATCH platform fields failed");
-                            errors.push(format!("platform {name}: PATCH failed: {e}"));
-                        }
-                    }
-                }
-            }
-            Err(e) => errors.push(format!("platform {name}: {e}")),
+        Err(e) => {
+            // The whitebox is already written (it is the truth, ADR-0036);
+            // Resin converges on the next apply / boot restore. Surface the
+            // reconcile failure in the summary rather than falsely failing
+            // the import after a successful write.
+            tracing::warn!(error = %e, "config_import: whitebox written; reconcile failed");
+            errors.push(format!("reconcile: {e}"));
         }
     }
-
-    // Create subscriptions (by URL — the Resin sidecar fetches nodes)
-    for sub in subscriptions {
-        let name = sub.get("name").and_then(|n| n.as_str()).unwrap_or("");
-        let url = sub.get("url").and_then(|u| u.as_str()).unwrap_or("");
-        if name.is_empty() || name.len() > 128 {
-            errors.push(format!("subscription name invalid: {name}"));
-            continue;
-        }
-        if existing_sub_names.contains(name) {
-            subscriptions_skipped += 1;
-            continue;
-        }
-        if !url.starts_with("http://") && !url.starts_with("https://") {
-            errors.push(format!(
-                "subscription {name}: url must start with http(s)://"
-            ));
-            continue;
-        }
-        // T20-P3: POST source_type=remote directly — Resin fetches nodes via its own clash.meta UA.
-        let body = serde_json::json!({
-            "name": name,
-            "source_type": "remote",
-            "url": url,
-            "update_interval": "30s",
-        });
-        match client.create_subscription(body).await {
-            Ok(_) => subscriptions_created += 1,
-            Err(e) => errors.push(format!("subscription {name}: {e}")),
-        }
-    }
-
-    tracing::info!(
-        platforms_created,
-        platforms_skipped,
-        subscriptions_created,
-        subscriptions_skipped,
-        error_count = errors.len(),
-        "config_import complete; backup at {}",
-        backup_path
-    );
 
     Ok(serde_json::json!({
-        "backup_path": backup_path,
-        "platforms_created": platforms_created,
-        "platforms_skipped": platforms_skipped,
-        "subscriptions_created": subscriptions_created,
-        "subscriptions_skipped": subscriptions_skipped,
+        "platforms_created": doc.strategy.platforms.len(),
+        "platforms_skipped": 0,
+        "subscriptions_created": 0,
+        "subscriptions_skipped": 0,
+        "ports_created": doc.ports.entry_ports.len(),
         "errors": errors,
     }))
 }

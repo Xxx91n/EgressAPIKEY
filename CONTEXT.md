@@ -155,6 +155,18 @@ app_data/backups with a crypto-random suffix. Uploadable to WebDAV
 starts_with confinement).
 _Avoid_: snapshot, checkpoint, save
 
+### Backup Scope
+
+The three-class ledger of what a backup may contain and what each class
+means for config authority: (a) config-layer backups — the two whitebox
+files plus their sibling `backup/` history (10 kept; the write-audit JSONL
+joins this class once it exists) under `app_config_dir()`, restorable
+through the same validate-before-swap write entry; (b) L3-derived backups —
+`state.db` / `cache.db` packaged read-only into the user-facing zip export
+by `backup_create`, never written back (ADR-0050-bis); (c)
+`request_logs*.db` — never enter backups, in any class (leak prevention).
+_Avoid_: backup layer, backup tier, backup kind
+
 ### Entry Port Mapping
 
 The SQLite table (reuses DbPool infra) that stores each Entry Port number

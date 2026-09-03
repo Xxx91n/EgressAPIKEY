@@ -63,6 +63,15 @@ needing to edit L3 state to change behavior is a bug. No new config storage
 may be introduced without re-legislating this subsection. Logs
 (`app_log_dir()`, Resin request logs) are observability data, not a layer.
 
+Known exception, read-only: `backup_create`
+(`src-tauri/src/commands/backup.rs`) reads `state.db` / `cache.db` directly
+from the Resin state dir, but only to package them into the user-facing zip
+export — it never writes them, and consistency during the backup is guarded
+by the Resin sidecar's own mutex (the shell only reads; the L3 REST-seam
+write rule is untouched). This exception is legislated by ADR-0050-bis and
+is the complete read-exception list: `request_logs*.db` stay outside it and
+never enter backups (leak prevention, AGENTS.md §7.6).
+
 Two distinct write pipelines live behind L2 (verified in code;
 `strategy_config_put` / `strategy_apply` in
 `src-tauri/src/commands/strategy.rs`, `port_upsert` / `whitebox_reload` in
