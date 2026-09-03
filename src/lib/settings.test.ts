@@ -25,8 +25,15 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   })),
 }));
 
+// T05: the diag-poll-interval wrapper pair goes through @tauri-apps/api/core
+// invoke, not LazyStore — mock it so §7.5 boundary behavior is testable.
+const invokeMock = vi.fn();
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (...args: unknown[]) => invokeMock(...args),
+}));
+
 // Import AFTER the mock so the module reads the mocked LazyStore.
-import { loadKeyCandidates, saveKeyCandidates, type KeyCandidate, loadNodeProbe, saveNodeProbe, batchChunkSize, type NodeProbeConfig, purgeLegacyDeadKeys } from "./settings";
+import { loadKeyCandidates, saveKeyCandidates, type KeyCandidate, loadNodeProbe, saveNodeProbe, batchChunkSize, type NodeProbeConfig, purgeLegacyDeadKeys, getDiagPollInterval, setDiagPollInterval } from "./settings";
 import * as settingsModule from "./settings";
 
 beforeEach(() => { backing.clear(); saveCalls = 0; });
@@ -158,5 +165,41 @@ describe("arch/02: legacy dead network keys are purged on startup, live keys unt
     expect(mod.saveGatewayBind).toBeUndefined();
     expect(mod.loadMihomoApi).toBeUndefined();
     expect(mod.saveMihomoApi).toBeUndefined();
+  });
+});
+
+describe("T05: diagPollInterval typed L1 wrapper pair (bare store invoke eliminated)", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation(async () => 5000);
+  });
+
+  it("getDiagPollInterval invokes the typed command and returns the number", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => (cmd === "get_diag_poll_interval" ? 8000 : 0));
+    await expect(getDiagPollInterval()).resolves.toBe(8000);
+    expect(invokeMock).toHaveBeenCalledWith("get_diag_poll_interval");
+  });
+
+  it("getDiagPollInterval falls back to 5000 when the command fails (outside Tauri)", async () => {
+    invokeMock.mockImplementation(async () => {
+      throw new Error("not in tauri");
+    });
+    await expect(getDiagPollInterval()).resolves.toBe(5000);
+  });
+
+  it("setDiagPollInterval accepts the §7.5 boundaries 100 and 24h", async () => {
+    invokeMock.mockImplementation(async () => undefined);
+    await expect(setDiagPollInterval(100)).resolves.toBeUndefined();
+    expect(invokeMock).toHaveBeenCalledWith("set_diag_poll_interval", { intervalMs: 100 });
+    await expect(setDiagPollInterval(24 * 60 * 60 * 1000)).resolves.toBeUndefined();
+  });
+
+  it("setDiagPollInterval rejects 0, negatives and above 24h at the TS boundary (no invoke)", async () => {
+    invokeMock.mockImplementation(async () => undefined);
+    for (const bad of [0, -1, 99, 24 * 60 * 60 * 1000 + 1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      await expect(setDiagPollInterval(bad)).rejects.toThrow(/interval_ms must be 100\.\.=86400000/);
+    }
+    // §7.5 contract: the out-of-range value never reaches the IPC layer.
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });

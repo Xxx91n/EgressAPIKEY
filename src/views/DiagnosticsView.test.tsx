@@ -30,8 +30,9 @@ describe("DiagnosticsView closed-loop tests", () => {
           http_method: "POST", http_status: 200, duration_ms: 150, resin_error: "" },
       ]);
       if (cmd === "get_sidecar_logs") return Promise.resolve(["line1", "line2"]);
-      if (cmd === "get_store_value") return Promise.resolve(5000);
-      if (cmd === "set_store_value") return Promise.resolve(undefined);
+      // T05: typed L1 command pair replaced the bare get/set_store_value bypass
+      if (cmd === "get_diag_poll_interval") return Promise.resolve(5000);
+      if (cmd === "set_diag_poll_interval") return Promise.resolve(undefined);
       if (cmd === "probe_exit_ip") return Promise.resolve({
         port: 1790, protocol: "http", exit_ip: "1.2.3.4", latency_ms: 50, status: 200,
       });
@@ -105,6 +106,28 @@ describe("DiagnosticsView closed-loop tests", () => {
       expect(invokeMock).toHaveBeenCalledWith("probe_exit_ip", expect.objectContaining({ port: 1790 }));
     });
   });
+
+  it("T05: loads poll interval via typed get_diag_poll_interval, never via bare get_store_value", async () => {
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("get_diag_poll_interval");
+    });
+    const commands = invokeMock.mock.calls.map((c: unknown[]) => c[0]);
+    expect(commands).not.toContain("get_store_value");
+    expect(commands).not.toContain("set_store_value");
+  });
+
+  it("T05: changing the poll selector persists via typed set_diag_poll_interval", async () => {
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("diag-poll-select")).toBeInTheDocument();
+    });
+    invokeMock.mockClear();
+    fireEvent.change(screen.getByTestId("diag-poll-select"), { target: { value: "10000" } });
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("set_diag_poll_interval", { intervalMs: 10000 });
+    });
+  });
 });
 
 
@@ -116,8 +139,9 @@ describe("T15-1: DiagnosticsView uses usePoll (not setInterval)", () => {
       if (cmd === "check_firewall_status") return Promise.resolve({ platform: "windows", firewall_on: true, inbound_blocked: true, detail: "Windows Firewall is ON." });
       if (cmd === "request_log_tail") return Promise.resolve([]);
       if (cmd === "get_sidecar_logs") return Promise.resolve([]);
-      if (cmd === "get_store_value") return Promise.resolve(5000);
-      if (cmd === "set_store_value") return Promise.resolve(undefined);
+      // T05: typed L1 command pair replaced the bare get/set_store_value bypass
+      if (cmd === "get_diag_poll_interval") return Promise.resolve(5000);
+      if (cmd === "set_diag_poll_interval") return Promise.resolve(undefined);
       return Promise.resolve(null);
     });
   });

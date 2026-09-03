@@ -18,6 +18,7 @@
  */
 
 import { LazyStore } from "@tauri-apps/plugin-store";
+import { invoke } from "@tauri-apps/api/core";
 
 const STORE = "settings.json";
 
@@ -341,4 +342,40 @@ export async function saveNodeProbe(cfg: NodeProbeConfig): Promise<void> {
 /// Exported for vitest coverage.
 export function batchChunkSize(configured: number, itemCount: number): number {
   return Math.max(1, Math.min(configured, itemCount, 10));
+}
+
+// --- T05 (Round 5): diagnostics poll interval — typed L1 wrapper pair ---
+// Replaces the former DiagnosticsView bare `invoke("get/set_store_value")`
+// bypass (those commands were never registered in generate_handler!, so the
+// old path failed at runtime and silently fell back to the 5000 default).
+// The L1 write surface stays "src/lib/settings.ts + typed commands".
+// §7.5 IPC input validation mirrors the Rust boundary: 100..=24h (ms).
+const DIAG_POLL_INTERVAL_MIN_MS = 100;
+const DIAG_POLL_INTERVAL_MAX_MS = 24 * 60 * 60 * 1000;
+
+/// T05: read the diagnostics poll interval (ms). Returns the 5000 default
+/// when unset or unavailable (outside Tauri / vitest).
+export async function getDiagPollInterval(): Promise<number> {
+  try {
+    const v = await invoke<number>("get_diag_poll_interval");
+    return typeof v === "number" ? v : 5000;
+  } catch {
+    return 5000;
+  }
+}
+
+/// T05: persist the diagnostics poll interval (ms).
+/// §7.5: rejects out-of-range values at the TS boundary before invoking.
+export async function setDiagPollInterval(ms: number): Promise<void> {
+  if (
+    typeof ms !== "number" ||
+    !Number.isFinite(ms) ||
+    ms < DIAG_POLL_INTERVAL_MIN_MS ||
+    ms > DIAG_POLL_INTERVAL_MAX_MS
+  ) {
+    throw new Error(
+      `interval_ms must be ${DIAG_POLL_INTERVAL_MIN_MS}..=${DIAG_POLL_INTERVAL_MAX_MS}`,
+    );
+  }
+  await invoke("set_diag_poll_interval", { intervalMs: Math.floor(ms) });
 }

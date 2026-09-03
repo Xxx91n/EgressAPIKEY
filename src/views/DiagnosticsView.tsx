@@ -5,6 +5,10 @@ import { Activity, Stethoscope, Flame, Globe, Server, Loader2, FolderOpen, Arrow
 import { openPath } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  getDiagPollInterval,
+  setDiagPollInterval,
+} from "../lib/settings";
+import {
   ipcGetSidecarStatus,
   ipcCheckFirewallStatus,
   ipcRequestLogTail,
@@ -63,12 +67,12 @@ export function DiagnosticsView() {
   const [healthProto, setHealthProto] = useState("socks5");
   const [healthResult, setHealthResult] = useState<PortHealthCheck | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
-  // Load poll interval from settings
+  // Load poll interval from settings (T05: typed L1 command pair, no bare store invoke)
   useEffect(() => {
     (async () => {
       try {
-        const stored = await invoke<number>("get_store_value", { key: "diagPollInterval", store: "settings.json" });
-        if (typeof stored === "number" && stored >= 1000 && stored <= 60000) setPollInterval(stored);
+        const stored = await getDiagPollInterval();
+        if (stored >= 1000 && stored <= 60000) setPollInterval(stored);
       } catch { /* default 5000 */ }
     })();
   }, []);
@@ -77,7 +81,7 @@ export function DiagnosticsView() {
   const handlePollChange = async (ms: number) => {
     const clamped = Math.max(1000, Math.min(60000, ms));
     setPollInterval(clamped);
-    try { await invoke("set_store_value", { key: "diagPollInterval", value: clamped, store: "settings.json" }); } catch { /* vitest no-op */ }
+    try { await setDiagPollInterval(clamped); } catch { /* vitest no-op */ }
   };
 
   // Main refresh: fetch all diagnostic data

@@ -204,6 +204,49 @@ pub async fn lightweight_set(
     Ok(())
 }
 
+/// T05 (Round 5): diagnostics poll interval (ms) — typed L1 command pair that
+/// replaces the former DiagnosticsView bare `invoke("get/set_store_value")`
+/// bypass (the store_value commands were never registered, so the old path
+/// failed at runtime and silently fell back to the 5000 default). §7.5 IPC
+/// input validation: the upper bound is a 24h ceiling in the LATENCY_CAP_MS
+/// style; the GUI keeps its own tighter 1000..=60000 picker on top.
+const DIAG_POLL_INTERVAL_MIN_MS: u64 = 100;
+const DIAG_POLL_INTERVAL_MAX_MS: u64 = 24 * 60 * 60 * 1000;
+
+/// §7.5 validation for set_diag_poll_interval: accepts 100..=24h, rejects
+/// everything else with IpcError::InvalidInput. Pure fn so the §7.5 boundary
+/// values are unit-testable without an AppHandle.
+fn validate_diag_poll_interval(interval_ms: u64) -> Result<(), IpcError> {
+    if interval_ms < DIAG_POLL_INTERVAL_MIN_MS || interval_ms > DIAG_POLL_INTERVAL_MAX_MS {
+        return Err(IpcError::invalid_input(&format!(
+            "interval_ms must be {DIAG_POLL_INTERVAL_MIN_MS}..={DIAG_POLL_INTERVAL_MAX_MS}"
+        )));
+    }
+    Ok(())
+}
+
+/// T05: read the diagnostics poll interval (ms) from settings.json; 5000 when
+/// unset or when the stored value is not a number.
+#[tauri::command]
+pub async fn get_diag_poll_interval(app: AppHandle) -> Result<u64, IpcError> {
+    let store = app.store("settings.json").map_err(|e| IpcError::from(e.to_string()))?;
+    Ok(store
+        .get("diagPollInterval")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(5000))
+}
+
+/// T05: persist the diagnostics poll interval (ms) to settings.json.
+/// §7.5: interval_ms accepted only within 100..=24h.
+#[tauri::command]
+pub async fn set_diag_poll_interval(app: AppHandle, interval_ms: u64) -> Result<(), IpcError> {
+    validate_diag_poll_interval(interval_ms)?;
+    let store = app.store("settings.json").map_err(|e| IpcError::from(e.to_string()))?;
+    store.set("diagPollInterval", serde_json::json!(interval_ms));
+    store.save().map_err(|e| IpcError::from(e.to_string()))?;
+    Ok(())
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn set_log_level(level: LogLevel) -> Result<String, IpcError> {
@@ -251,5 +294,52 @@ mod log_level_tests {
         }
         // Out-of-set values are rejected at deserialization.
         assert!(serde_json::from_str::<LogLevel>("\"fatal\"").is_err());
+    }
+}
+
+#[cfg(test)]
+mod diag_poll_interval_tests {
+    use super::*;
+
+    #[test]
+    fn diag_poll_interval_accepts_100_to_24h_including_boundaries() {
+        // §7.5: both inclusive endpoints are accepted.
+        assert!(validate_diag_poll_interval(100).is_ok());
+        assert!(validate_diag_poll_interval(1000).is_ok());
+        assert!(validate_diag_poll_interval(5000).is_ok());
+        assert!(validate_diag_poll_interval(60_000).is_ok());
+        assert!(validate_diag_poll_interval(DIAG_POLL_INTERVAL_MAX_MS).is_ok());
+    }
+
+    #[test]
+    fn diag_poll_interval_rejects_zero_and_sub_100() {
+        // Acceptance (e): 0 (and anything below the 100ms floor) is rejected.
+        assert!(validate_diag_poll_interval(0).is_err());
+        assert!(validate_diag_poll_interval(1).is_err());
+        assert!(validate_diag_poll_interval(99).is_err());
+    }
+
+    #[test]
+    fn diag_poll_interval_rejects_above_24h() {
+        // Negative input is unrepresentable in u64: a hostile wire value of
+        // -1 fails serde's u64 deserialization before this fn ever runs, so
+        // the Rust-side negative case IS the type boundary (the TS wrapper's
+        // assertInRange additionally rejects JS negative numbers).
+        assert!(validate_diag_poll_interval(DIAG_POLL_INTERVAL_MAX_MS + 1).is_err());
+        assert!(validate_diag_poll_interval(u64::MAX).is_err());
+    }
+
+    #[test]
+    fn diag_poll_interval_rejection_is_typed_invalid_input() {
+        // Acceptance (d): out-of-range returns IpcError::InvalidInput.
+        for bad in [0u64, 99, DIAG_POLL_INTERVAL_MAX_MS + 1, u64::MAX] {
+            match validate_diag_poll_interval(bad) {
+                Err(IpcError::InvalidInput { msg, i18n_key }) => {
+                    assert!(msg.contains("interval_ms must be 100..=86400000"), "msg: {msg}");
+                    assert_eq!(i18n_key, "error.badRequest");
+                }
+                other => panic!("expected InvalidInput for {bad}, got {other:?}"),
+            }
+        }
     }
 }

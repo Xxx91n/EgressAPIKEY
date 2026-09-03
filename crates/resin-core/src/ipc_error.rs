@@ -31,6 +31,14 @@ pub enum IpcError {
         excerpt: String,
         i18n_key: String,
     },
+    /// Command input failed §7.5 validation (range/length cap) at the Rust
+    /// boundary. Round 5 T05: introduced by the diag-poll-interval command
+    /// pair; msg carries the rejected bound for log display. Reuses the
+    /// existing "error.badRequest" locale key (no new i18n key, T05 不做清单).
+    InvalidInput {
+        msg: String,
+        i18n_key: String,
+    },
     /// Catch-all for internal errors (serde, IO, unexpected panic recovery).
     Internal {
         msg: String,
@@ -69,6 +77,15 @@ impl IpcError {
         }
     }
 
+    /// §7.5 input-validation rejection (Round 5 T05). Reuses the existing
+    /// "error.badRequest" locale key so no new i18n key is added.
+    pub fn invalid_input(msg: &str) -> Self {
+        Self::InvalidInput {
+            msg: msg.chars().take(256).collect(),
+            i18n_key: "error.badRequest".into(),
+        }
+    }
+
     /// Internal variant with a specific i18n key and the raw upstream error
     /// preserved in msg for log/debug display. Used by map_resin_error for
     /// recognized vocabulary that has no dedicated variant.
@@ -88,6 +105,7 @@ impl std::fmt::Display for IpcError {
             Self::ResinUpstream { status, excerpt, .. } => {
                 write!(f, "Resin upstream {status}: {excerpt}")
             }
+            Self::InvalidInput { msg, .. } => write!(f, "invalid input: {msg}"),
             Self::Internal { msg, .. } => write!(f, "internal: {msg}"),
         }
     }
@@ -260,6 +278,18 @@ mod tests {
         let back: IpcError = serde_json::from_str(&json).unwrap();
         assert_eq!(e, back);
         assert!(json.contains("\"kind\":\"Internal\""));
+    }
+
+    #[test]
+    fn ipc_error_invalid_input_serde_round_trip() {
+        // Round 5 T05: §7.5 range-rejection variant. Reuses error.badRequest
+        // so the frontend needs no new locale key.
+        let e = IpcError::invalid_input("interval_ms must be 100..=86400000");
+        let json = serde_json::to_string(&e).unwrap();
+        let back: IpcError = serde_json::from_str(&json).unwrap();
+        assert_eq!(e, back);
+        assert!(json.contains("\"kind\":\"InvalidInput\""));
+        assert!(json.contains("\"i18n_key\":\"error.badRequest\""));
     }
 
     // ---- map_resin_error(raw) — ticket 06 single implementation ----

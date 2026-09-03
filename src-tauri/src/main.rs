@@ -178,6 +178,10 @@ fn main() {
             commands::strategy_rollback,
             commands::lightweight_get,
             commands::lightweight_set,
+            // T05 (Round 5): typed diag poll interval pair — closes the L1
+            // bare get_store_value/set_store_value bypass in DiagnosticsView.
+            commands::get_diag_poll_interval,
+            commands::set_diag_poll_interval,
             commands::set_log_level,
             commands::get_log_level,
         ])

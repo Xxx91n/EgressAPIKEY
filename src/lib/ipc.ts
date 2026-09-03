@@ -1050,12 +1050,28 @@ export interface ProcessRouteSnapshotMissingOnResin {
 }
 export type ProcessRouteSnapshot = ProcessRouteSnapshotConsistent | ProcessRouteSnapshotMissingOnResin;
 
+/** Round 5 T01 (issue 01 F4): per-subscription reverse lookup — the Gateway
+ *  API attachedRoutes analog. consumed_by lists the whitebox platforms whose
+ *  `subscriptions` array names this subscription; empty = unbound. A row
+ *  with resolvable=false means the whitebox references a subscription Resin
+ *  no longer reports (dangling). */
+export interface SubscriptionReverseRow {
+  name: string;
+  node_count: number;
+  healthy_node_count: number;
+  consumed_by: string[];
+  resolvable: boolean;
+}
+
 export interface AuthoritativeSnapshot {
   strategyVersion: number;
   platforms: StrategySnapshot[];
   ports: PortSnapshot[];
   /** Ticket 17 (ADR-0055 D3): route family; empty when the whitebox has none. */
   routes: ProcessRouteSnapshot[];
+  /** Round 5 T01 (F4): subscription reverse lookup; empty when Resin is
+   *  unreachable and the whitebox references nothing. */
+  subscriptions: SubscriptionReverseRow[];
   resinReachable: boolean;
   /** Ticket 12 (ADR-0054 §C): Unix seconds when this snapshot was generated. */
   lastCheckedAt: number;
@@ -1413,6 +1429,14 @@ export function snapshotPlatformName(p: StrategySnapshot): string {
            data: {
              status: Number(data?.status ?? 0),
              excerpt: String(data?.excerpt ?? ""),
+             i18n_key: String(data?.i18n_key ?? ""),
+           },
+         };
+       case "InvalidInput":
+         return {
+           kind: "InvalidInput",
+           data: {
+             msg: String(data?.msg ?? ""),
              i18n_key: String(data?.i18n_key ?? ""),
            },
          };
