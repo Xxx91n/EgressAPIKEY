@@ -267,13 +267,14 @@ describe("SubscriptionsView item 2 row hint (ADR-0006 item 2)", () => {
       const row = Array.from(document.querySelectorAll("ul li"))
         .find((li) => /probe-bad/.test(li.textContent || ""));
       expect(row && /unexpected status 403 from https:\/\/example\.invalid\/x/.test(row.textContent || "")).toBe(true);
-      // The row must also carry a rose-tinted hint element (its classList
-      // contains the Tailwind text-rose-* token; we assert by classList
-      // membership, not the CSS-selector which fails on the `dark:` prefix
-      // in jsdom).
-      const roseEl = Array.from(row?.querySelectorAll("span") || [])
-        .find((sp) => Array.from(sp.classList).some((c) => c.startsWith("text-rose")));
-      expect(roseEl).toBeTruthy();
+      // T03 (round5): the rose hint span is replaced by the full red banner
+      // (sub-error-banner testid; red-300 border + red-50 bg are the spec'd
+      // Tailwind tokens asserted by classList, dodging the dark: prefix).
+      const banner = row?.querySelector('[data-testid="sub-error-banner"]');
+      if (!banner) throw new Error("sub-error-banner not rendered in the failed row");
+      expect(banner.className).toContain("border-red-300");
+      expect(banner.className).toContain("bg-red-50");
+      expect(banner.className).toContain("dark:bg-red-950/30");
     });
   });
 
@@ -301,11 +302,138 @@ describe("SubscriptionsView item 2 row hint (ADR-0006 item 2)", () => {
         .find((sp) => Array.from(sp.classList).some((c) => c.startsWith("text-emerald")));
       expect(emEl && /\b8\b/.test(emEl.textContent || "")).toBe(true);
     });
-    // No rose-tinted error span should appear when last_error is empty.
-    const roseEls = Array.from(document.querySelectorAll("ul li"))
-      .flatMap((li) => Array.from(li.querySelectorAll("span")))
-      .filter((sp) => Array.from(sp.classList).some((c) => c.startsWith("text-rose")));
-    expect(roseEls.length).toBe(0);
+    // T03 (round5): no red banner when last_error is empty; the healthy
+    // branch shows the green last-success check (aria-labelled svg).
+    expect(screen.queryByTestId("sub-error-banner")).toBeNull();
+    const healthyRow = Array.from(document.querySelectorAll("ul li"))
+      .find((li) => /probe-good/.test(li.textContent || ""));
+    const checkSvg = healthyRow?.querySelector('svg[aria-label="last check succeeded"]');
+    expect(checkSvg).toBeTruthy();
+  });
+});
+
+// --- T03 (round5): last_error promotion - banner / collapse / chip / 30s poll ---
+describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s poll)", () => {
+  beforeEach(() => {
+    useAppStore.setState({ subscriptions: [] });
+    invokeMock.mockReset();
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") return [];
+      return undefined;
+    });
+  });
+  afterEach(() => cleanup());
+
+  const errSub = (over: Record<string, unknown> = {}) => ({
+    name: "probe-bad",
+    node_count: 0,
+    healthy_node_count: 0,
+    last_error: "downloader: unexpected status 403 from https://example.invalid/x",
+    last_checked: "2026-08-02T10:54:41.0883134Z",
+    ...over,
+  });
+
+  it("F1a: failed sub renders the spec'd red banner with the collapsed summary", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") return [errSub()];
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    const banner = await screen.findByTestId("sub-error-banner");
+    expect(banner.className).toContain("border-red-300");
+    expect(banner.className).toContain("bg-red-50");
+    expect(banner.className).toContain("dark:bg-red-950/30");
+    // collapsed by default: the one-line summary, not the raw message
+    expect(banner.textContent).toContain("Fetch error:");
+  });
+
+  it("F1b: collapse toggle expands to the raw error and collapses back", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") return [errSub({
+        // > 80 chars so the collapsed summary truncates before the tail
+        last_error: "downloader: request failed with status 502 while pulling https://example.invalid/very/long/path/that/exceeds/eighty/characters/limit.yaml",
+      })];
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    const banner = await screen.findByTestId("sub-error-banner");
+    // collapsed: raw tail not shown
+    expect(banner.textContent).not.toContain("limit.yaml");
+    // aria-expanded lives on the toggle button (not the banner container)
+    fireEvent.click(screen.getByRole("button", { name: "Show error" }));
+    expect(screen.getByRole("button", { name: "Hide error" }).getAttribute("aria-expanded")).toBe("true");
+    expect(banner.textContent).toContain("limit.yaml");
+    fireEvent.click(screen.getByRole("button", { name: "Hide error" }));
+    expect(screen.getByRole("button", { name: "Show error" }).getAttribute("aria-expanded")).toBe("false");
+    expect(banner.textContent).not.toContain("limit.yaml");
+  });
+
+  it("F2a: import toast carries the red chip when the sub already has last_error", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_add") return undefined;
+      if (cmd === "subscription_list") return [errSub()];
+      if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    const urlInput = await screen.findByPlaceholderText(/Subscription URL/i);
+    fireEvent.change(urlInput, { target: { value: "https://example.invalid/sub.yaml" } });
+    fireEvent.click(screen.getByRole("button", { name: /import/i }));
+    await screen.findByTestId("toast-error-chip");
+    expect(screen.getByText(/a fetch error was detected/)).toBeTruthy();
+  });
+
+  it("F2b: import toast has no red chip when the sub fetched cleanly", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_add") return undefined;
+      if (cmd === "subscription_list") return [{ name: "ok-sub", node_count: 7, healthy_node_count: 7, last_error: "", last_checked: "2026-08-02T10:00:00Z" }];
+      if (cmd === "node_pool_snapshot") return { total_nodes: 7, healthy_nodes: 7, egress_ip_count: 3, healthy_egress_ip_count: 3 };
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    const urlInput = await screen.findByPlaceholderText(/Subscription URL/i);
+    fireEvent.change(urlInput, { target: { value: "https://example.invalid/sub.yaml" } });
+    fireEvent.click(screen.getByRole("button", { name: /import/i }));
+    await screen.findByText(/check the subscription list for any fetch errors/);
+    expect(screen.queryByTestId("toast-error-chip")).toBeNull();
+  });
+
+  it("F3: 30s poll toasts on the failure edge and the recovery edge, silent on steady state", async () => {
+    let batch = 0;
+    const batches = [
+      [{ name: "sub-x", node_count: 5, healthy_node_count: 5, last_error: "", last_checked: "2026-08-02T10:00:00Z" }],
+      [{ name: "sub-x", node_count: 5, healthy_node_count: 5, last_error: "", last_checked: "2026-08-02T10:00:30Z" }],
+      [{ name: "sub-x", node_count: 0, healthy_node_count: 0, last_error: "dial tcp 1.2.3.4:443: i/o timeout", last_checked: "2026-08-02T10:01:00Z" }],
+      [{ name: "sub-x", node_count: 5, healthy_node_count: 5, last_error: "", last_checked: "2026-08-02T10:01:30Z" }],
+    ];
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      invokeMock.mockImplementation(async (cmd: string) => {
+        if (cmd === "subscription_list") {
+          const b = batches[Math.min(batch, batches.length - 1)];
+          batch++;
+          return b;
+        }
+        return undefined;
+      });
+      render(<SubscriptionsView />);
+      // mount refresh consumes batch 0 (steady healthy): no toast, no banner
+      await waitFor(() => expect(screen.getByText(/sub-x/)).toBeInTheDocument());
+      expect(screen.queryByTestId("sub-error-banner")).toBeNull();
+      // poll 1 (baseline): steady healthy -> still silent
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(screen.queryByText(/fetch failed/i)).toBeNull();
+      // poll 2: healthy -> error edge -> failure toast + banner
+      await vi.advanceTimersByTimeAsync(30_000);
+      await waitFor(() => expect(screen.getByText(/Subscription sub-x fetch failed/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByTestId("sub-error-banner")).toBeTruthy());
+      // poll 3: error -> healthy edge -> recovery toast, banner cleared
+      await vi.advanceTimersByTimeAsync(30_000);
+      await waitFor(() => expect(screen.getByText(/Subscription sub-x fetch recovered/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.queryByTestId("sub-error-banner")).toBeNull());
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

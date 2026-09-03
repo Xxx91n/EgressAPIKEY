@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Rss, Download, Inbox, Trash2, Loader2, GripVertical, CheckCircle2, AlertCircle, Pencil, ArrowDownUp } from "lucide-react";
+import { Rss, Download, Inbox, Trash2, Loader2, GripVertical, CheckCircle2, AlertCircle, Pencil, ArrowDownUp, ChevronDown } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import {
   ipcSubscriptionAdd, ipcSubscriptionList, ipcSubscriptionRemove, ipcNodePoolSnapshot,
@@ -8,6 +8,7 @@ import {
 } from "../lib/ipc";
 import { translateError } from "../lib/i18n-error";
 import { loadSubOrder, saveSubOrder } from "../lib/settings";
+import { usePoll } from "../hooks/usePoll";
 
 /// SubscriptionsView - Resin subscription import surface (P20 rewrite).
 ///
@@ -41,13 +42,20 @@ export function SubscriptionsView() {
   const [url, setUrl] = useState(subFormDraft.url);
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState<SubscriptionSnapshotEntry[]>([]);
-  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
+  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string; withErrorHint?: boolean } | null>(null);
   // P20 item 6: HTML5 drag tracks the dragged index in a ref so re-renders do
   // not lose the in-flight drag; the browser owns the drag session lifetime.
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   // P20 item 6: local order override. Loaded once on mount, persisted on every
   // reorder. Reset (item 4) clears this to [] and re-renders from server only.
   const [localOrder, setLocalOrder] = useState<string[]>([]);
+
+  // pre-selects "auto-create the same-name platform" ONLY when no
+  // a_class=subscription platform already consumes the sub (issue: "若
+  // a_class=subscription 已有则不重复").
+  /** a_class=subscription platform names offered as bind chips. */
+  /** Existing consumers of the sub (chips pre-checked; never re-created). */
+  /** Current user selection (multi-select). */
 
   // B2: persist form draft so navigating away+back keeps input contents.
   useEffect(() => { setSubFormDraft({ name, url }); }, [name, url, setSubFormDraft]);
@@ -94,22 +102,82 @@ export function SubscriptionsView() {
   }, [applyOrder, localOrder]);
   useEffect(() => { void refresh(); }, [refresh]);
 
+  // T03 (round5): one-line error summary for toasts - Resin last_error can be
+  // a multi-line downloader dump; a toast only fits the first meaningful line.
+  const summarizeError = useCallback((raw: string): string => {
+    const first = (raw || "").split("\n").flatMap((l) => l.split("\r")).map((l) => l.trim()).filter(Boolean)[0] || "";
+    return first.length > 120 ? first.slice(0, 117) + "..." : first;
+  }, []);
+
+  // T03 (round5): edge-triggered 30s poll. Resin's 30s update_interval tick
+  // writes subscription.last_error without any push channel to the shell, so
+  // the view polls subscription_list every 30s (independent from the 5s
+  // snapshot poll) and compares (last_error, last_checked) per subscription
+  // against the previous poll. A transition into failure toasts a red banner,
+  // a transition back toasts recovery; steady states stay silent. uses the
+  // shared usePoll hook (visibility-paused) - not a second interval loop.
+  const prevSubStateRef = useRef<Map<string, { last_error: string; last_checked: string }> | null>(null);
+  const pollEdge = useCallback(async (signal: AbortSignal) => {
+    let lst: SubscriptionSnapshotEntry[];
+    try {
+      lst = await ipcSubscriptionList();
+    } catch { return; }
+    if (signal.aborted) return;
+    // Server list is the source of truth (same contract as refresh()); the
+    // re-sort by localOrder keeps a just-dragged order intact. This also
+    // clears a stale red banner in the same tick the recovery toast fires.
+    setLive(applyOrder(lst, localOrder));
+    const prev = prevSubStateRef.current;
+    const next = new Map<string, { last_error: string; last_checked: string }>();
+    for (const s of lst) next.set(s.name, { last_error: s.last_error || "", last_checked: s.last_checked || "" });
+    if (prev !== null) {
+      for (const [name, st] of next) {
+        const before = prev.get(name);
+        if (!before) continue; // brand-new subscription: import toast already covered it
+        const wasErr = before.last_error !== "";
+        const nowErr = st.last_error !== "";
+        if (!wasErr && nowErr) {
+          setToast({ kind: "err", msg: t("subscription.fetchFailed", { name, error: summarizeError(st.last_error) }) });
+        } else if (wasErr && !nowErr) {
+          setToast({ kind: "ok", msg: t("subscription.fetchRecovered", { name }) });
+        }
+      }
+    }
+    prevSubStateRef.current = next;
+  }, [applyOrder, localOrder, summarizeError, t]);
+  usePoll(pollEdge, { intervalMs: 30_000, fireImmediately: false });
+
   // P13 B4: Resin parses local subscription content on its 30s update_interval
   // tick. Poll up to 5 times at 3s so the user sees the real node_count within
   // ~15s instead of staying at 0.
-  const refreshWithRetry = useCallback(async () => {
+  // T03 (round5): exit early not only on nodes but also on a surfaced
+  // last_error - "imported but Resin cannot pull it" must be reported by the
+  // import toast instead of silently settling for 0 nodes.
+  const refreshWithRetry = useCallback(async (): Promise<SubscriptionSnapshotEntry[]> => {
+    let last: SubscriptionSnapshotEntry[] = [];
     for (let i = 0; i < 5; i++) {
       try {
         const lst = await ipcSubscriptionList();
         const ordered = applyOrder(lst, localOrder);
+        last = ordered;
         setLive(ordered);
         const total = ordered.reduce((s: number, x: SubscriptionSnapshotEntry) => s + x.node_count, 0);
-        if (total > 0) return;
-      } catch { return; }
+        if (total > 0) return ordered;
+        const failed = ordered.find((x) => (x.last_error || "").trim() !== "");
+        if (failed) {
+          setToast({ kind: "err", msg: t("subscription.importFetchFailed", { name: failed.name, error: summarizeError(failed.last_error) }) });
+          return ordered;
+        }
+      } catch { return last; }
       await new Promise((r) => setTimeout(r, 3000));
     }
-    try { setLive(applyOrder(await ipcSubscriptionList(), localOrder)); } catch {}
-  }, [applyOrder, localOrder]);
+    try {
+      const ordered = applyOrder(await ipcSubscriptionList(), localOrder);
+      last = ordered;
+      setLive(ordered);
+    } catch { /* keep last */ }
+    return last;
+  }, [applyOrder, localOrder, summarizeError, t]);
 
   // P20 item 3: check the live list for a duplicate name BEFORE posting to
   // Resin. Resin POST /api/v1/subscriptions is name-keyed - a second POST with
@@ -140,11 +208,18 @@ export function SubscriptionsView() {
       setLocalOrder(newOrder);
       void saveSubOrder(newOrder).catch((e) => console.warn("[SubscriptionsView] saveSubOrder failed", e));
       await new Promise((r) => setTimeout(r, 50));
-      await refreshWithRetry();
+      const finalList = await refreshWithRetry();
       try {
         const pool = await ipcNodePoolSnapshot();
         const total = Number(pool?.total_nodes ?? 0);
-        setToast({ kind: "ok", msg: t("subscription.importSuccess", { total }) });
+        const failedSub = finalList.find((x) => (x.last_error || "").trim() !== "");
+        setToast({
+          kind: "ok",
+          msg: failedSub
+            ? t("subscription.importSuccessWithHint", { total })
+            : t("subscription.importSuccess", { total }),
+          withErrorHint: failedSub !== undefined,
+        });
       } catch { /* node pool optional */ }
     } catch (e: unknown) {
       const msg = translateError(e, t);
@@ -230,32 +305,8 @@ export function SubscriptionsView() {
     } catch { /* keep */ }
   };
 
-  // ---- P21 item 1: Pointer Events drag (WebView2-stable; HTML5 DnD showed
-  // a "禁止符号" because onDragStart never set e.dataTransfer.effectAllowed/
-  // setData — WebView2 suppresses the drag session entirely without them, and
-  // Tauri's webview intercepts text/plain drags for native window drag.
-  // Pointer Events are the same model env-manager's ProfilePage.svelte uses
-  // (onpointerdown / onpointerenter / onpointerup) — it works everywhere with
-  // zero deps and no image/dataTransfer ceremony.
-  // We stash the source index + drag ref in refs (survive re-renders), a
-  // hasDragged flag distinguishes a real drag from a click, and a window
-  // pointerup listener is registered once via useEffect so releasing the
-  // mouse outside any row still finishes the drag cleanly.
   const dragSrc = useRef<number | null>(null);
   const dragMoved = useRef(false);
-
-  useEffect(() => {
-    const onUp = () => {
-      if (dragSrc.current !== null && dragMoved.current) {
-        // released outside a valid drop target — cancel, keep original order
-        dragSrc.current = null;
-        dragMoved.current = false;
-        setDragOverIndex(null);
-      }
-    };
-    window.addEventListener("pointerup", onUp);
-    return () => window.removeEventListener("pointerup", onUp);
-  }, []);
 
   const onPointerDownRow = (e: React.PointerEvent, i: number) => {
     // Only left button starts a drag; right/middle are clicks.
@@ -345,6 +396,15 @@ export function SubscriptionsView() {
                 : "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900")}>
               {toast.kind === "ok" ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
               <span>{toast.msg}</span>
+              {toast.kind === "ok" && toast.withErrorHint && (
+                <span
+                  data-testid="toast-error-chip"
+                  className="ml-auto shrink-0 inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 px-2 py-0.5 text-[11px] font-medium"
+                >
+                  <AlertCircle size={11} />
+                  {t("subscription.fetchErrorChip")}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -426,25 +486,63 @@ export function SubscriptionsView() {
   );
 }
 /// Item 2 / Option B: surface Resin last_error / last_checked / healthy
-/// so "imported ok but 0 nodes" is no longer a mute zero. The line below
-/// the row shows healthy count + an error hint in red when last_error is
-/// non-empty; last_checked in a tiny muted span when present.
+/// so "imported ok but 0 nodes" is no longer a mute zero.
+/// T03 (round5): the former 11px red text line is promoted to a full red
+/// banner (bg-red-50 / dark:bg-red-950/30 + red-300 border) so a fetch
+/// failure is impossible to miss, with a collapse toggle for the raw
+/// message, a green check when the sub has recovered since its last
+/// check (last_error empty + last_checked present), and the last-check
+/// timestamp kept as the "error since / checked at" anchor. The collapsed
+/// default keeps rows compact; the red border + one-line summary stay
+/// visible either way, so hiding the detail never hides the failure.
 function SubscriptionRowHint({ s, t }: { s: SubscriptionSnapshotEntry; t: ReturnType<typeof useTranslation>["t"] }) {
+  const [open, setOpen] = useState(false);
+  const hasError = (s.last_error || "").trim() !== "";
   const lc = (s.last_checked || "").replace(/\.\d+Z$/, "Z");
   const lcShort = lc ? lc.replace("T", " ").slice(0, 19) : "";
-  return (
-    <div className="mt-1 px-1 text-[11px] flex flex-wrap items-center gap-x-3 gap-y-0.5 leading-tight">
-      <span className={"shrink-0 " + (s.healthy_node_count > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-400 dark:text-zinc-500")}>
-        {t("subscription.healthy")} {s.healthy_node_count}
-      </span>
-      {lcShort && (
-        <span className="text-zinc-400 dark:text-zinc-500 font-mono">{lcShort}</span>
-      )}
-      {s.last_error && (
-        <span className="text-rose-600 dark:text-rose-400 break-all">
-          {s.last_error}
+  if (!hasError) {
+    // Healthy row hint: green check (recovered-or-never-failed) + healthy
+    // count + last_checked, exactly the old compact line.
+    return (
+      <div className="mt-1 px-1 text-[11px] flex flex-wrap items-center gap-x-3 gap-y-0.5 leading-tight">
+        <span className="shrink-0 inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+          {lcShort && <CheckCircle2 size={11} strokeWidth={2} aria-label={t("subscription.lastSuccess")} />}
+          {t("subscription.healthy")} {s.healthy_node_count}
         </span>
-      )}
+        {lcShort && (
+          <span className="text-zinc-400 dark:text-zinc-500 font-mono">{lcShort}</span>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div
+      data-testid="sub-error-banner"
+      className="mt-1 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-2 py-1.5 text-[11px] leading-tight"
+    >
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <AlertCircle size={12} className="shrink-0 text-red-600 dark:text-red-400" />
+        <span className="text-red-700 dark:text-red-300 break-all min-w-0 flex-1">
+          {open ? s.last_error : t("subscription.fetchErrorBanner", { error: s.last_error.trim().split("\n")[0].slice(0, 80) })}
+        </span>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={open ? t("subscription.hideError") : t("subscription.showError")}
+          className="shrink-0 inline-flex items-center gap-0.5 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 p-0.5"
+        >
+          <ChevronDown size={12} className={"transition-transform " + (open ? "rotate-180" : "")} />
+          {open ? t("subscription.hideError") : t("subscription.showError")}
+        </button>
+      </div>
+      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+        <span className="shrink-0 text-red-700 dark:text-red-300">
+          {t("subscription.healthy")} {s.healthy_node_count}
+        </span>
+        {lcShort && (
+          <span className="text-red-400 dark:text-red-500/80 font-mono">{lcShort}</span>
+        )}
+      </div>
     </div>
   );
 }
