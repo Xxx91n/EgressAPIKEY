@@ -549,3 +549,45 @@ use serde_json::json;
         assert!(mem.is_empty());
         let _ = &mut snap; // keep mut binding honest for future per-case edits
     }
+
+    // T02 (round5-config-authority) — subscription_refresh diff helpers. The
+    // command polls list_subscriptions after POST /actions/refresh (Resin
+    // returns only {"status":"ok"}) and decides `changed` from these pure fns.
+
+    #[test]
+    fn subscription_refresh_changed_detects_count_delta() {
+        let changed = |a: u64, b: u64| subscription_refresh_changed_changed(a, None, b, None);
+        assert!(changed(3, 4)); // count grew
+        assert!(changed(4, 3)); // count shrank (a prune is still a change)
+        assert!(!changed(3, 3)); // identical count, no version info
+    }
+
+    #[test]
+    fn subscription_refresh_changed_detects_version_bump() {
+        let v1 = json!("aaa");
+        let v2 = json!("bbb");
+        // Same count but the row's node_version moved => refresh produced a diff.
+        assert!(subscription_refresh_changed_changed(3, Some(&v1), 3, Some(&v2)));
+        // Identical count + identical version => converged, zero-change refresh.
+        assert!(!subscription_refresh_changed_changed(3, Some(&v1), 3, Some(&v1)));
+        // Missing version on either side degrades to a count-only comparison.
+        assert!(!subscription_refresh_changed_changed(3, None, 3, Some(&v2)));
+        assert!(!subscription_refresh_changed_changed(3, Some(&v1), 3, None));
+        assert!(!subscription_refresh_changed_changed(3, None, 3, None));
+    }
+
+    #[test]
+    fn extract_sub_row_stats_reads_count_and_version() {
+        let row = json!({ "id": "sub-1", "node_count": 7, "node_version": "v9" });
+        let (count, ver) = extract_sub_row_stats(&row);
+        assert_eq!(count, 7);
+        assert_eq!(ver, Some(json!("v9")));
+        // Resin may expose config_version instead of node_version.
+        let legacy = json!({ "node_count": 2, "config_version": 42 });
+        let (count, ver) = extract_sub_row_stats(&legacy);
+        assert_eq!(count, 2);
+        assert_eq!(ver, Some(json!(42)));
+        // Missing fields degrade to (0, None) — never panic on foreign rows.
+        let bare = json!({ "id": "sub-2" });
+        assert_eq!(extract_sub_row_stats(&bare), (0, None));
+    }

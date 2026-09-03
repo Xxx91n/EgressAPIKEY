@@ -90,10 +90,11 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(r).toEqual([{ name: "n", node_count: 7 }]);
   });
 
-  it("T19-P2: ipcSubscriptionRefresh forwards name and resolves node_count", async () => {
-    invokeMock.mockResolvedValue(42);
+  it("T02: ipcSubscriptionRefresh forwards name and resolves changed result", async () => {
+    const result = { node_count: 42, changed: true };
+    invokeMock.mockResolvedValue(result);
     const r = await ipcSubscriptionRefresh("main");
-    expect(r).toBe(42);
+    expect(r).toEqual(result);
     expect(invokeMock).toHaveBeenCalledWith("subscription_refresh", expect.objectContaining({ name: "main" }));
   });
 

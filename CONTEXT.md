@@ -50,6 +50,21 @@ Resin's scheduler parses the proxies and adds them to the global node
 pool. Update interval is configurable (default 30s for local subs).
 _Avoid_: feed, source, provider
 
+### Subscription Refresh Lifecycle
+
+What a per-subscription refresh in NodesView actually does. The shell
+POSTs Resin `/api/v1/subscriptions/{id}/actions/refresh` (blocking —
+fetch→parse→diff→apply run inline — but the body is only
+`{"status":"ok"}`, no change data), then polls `list_subscriptions`
+up to 5x at 500ms comparing `node_count` + `node_version` against the
+pre-refresh row to decide `changed`. The `subscription_refresh` IPC
+returns the real post-refresh `node_count` + `changed`; NodesView
+re-reads the node list into the app store and counts from
+`useAppStore.getState()` (never the pre-refresh closure snapshot):
+count moved → "Refreshed, N nodes in pool", unchanged → "No node
+count change; retry might be needed".
+_Avoid_: fire-and-forget refresh, optimistic refresh toast
+
 ### Node
 
 A proxy endpoint (hash, display_tag, region, egress_ip, health, failure

@@ -6,6 +6,7 @@ import { loadNodeProbe, batchChunkSize } from "../lib/settings";
 import { translateError } from "../lib/i18n-error";
 import { usePoll } from "../hooks/usePoll";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useAppStore, type NodeInfo } from "../store/appStore";
 
 /// NodesView — T4-3 collapsible tree by subscription (clash-verge-dev pattern).
 /// T19-P1: groups default-collapsed (seed-all after first refresh), hide-unhealthy toggle,
@@ -141,6 +142,7 @@ export function nextBatchProgress(
 export function NodesView() {
   const { t } = useTranslation();
   const [nodes, setNodes] = useState<NodeItem[]>([]);
+  const setStoreNodes = useAppStore((s) => s.setNodes);
   const [pool, setPool] = useState<PoolSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -175,7 +177,11 @@ export function NodesView() {
         ipcNodePoolSnapshot().catch(() => null),
         ipcIpReputationSnapshot().catch(() => ({ provider: null, status: "disabled", entries: [] })),
       ]);
-      if (rawNodes) setNodes(itemsArr(rawNodes));
+      if (rawNodes) {
+        const latestNodes = itemsArr(rawNodes);
+        setNodes(latestNodes);
+        setStoreNodes(latestNodes as unknown as NodeInfo[]);
+      }
       if (rawPool) setPool(rawPool as PoolSnapshot);
       setReputation(rawReputation);
       setLastRefresh(Date.now());
@@ -187,14 +193,13 @@ export function NodesView() {
   const handleRefreshSub = useCallback(async (subName: string) => {
     if (subName === "__untagged__") return; // no url to re-fetch
     setRefreshingSub(prev => new Set(prev).add(subName));
-    const before = nodes.length; // T21-P3: capture pre-click node count for delta
+    // closure fix: read post-refresh node count from the app store after refresh() to avoid the pre-refresh stale snapshot
     setLocalToast({ key: "refreshSent" }); // fire immediately so user sees feedback
     try {
-      await ipcSubscriptionRefresh(subName); // Resin Sync: blocks until remote fetch done
+      const result = await ipcSubscriptionRefresh(subName); // Resin blocks until refresh settles
       await refresh(); // re-read now-fresh Resin memory
-      const after = nodes.length; // note: nodes state from closure is pre-refresh; refresh() setNodes runs async
-      const delta = after - before;
-      if (delta > 0) {
+      const after = useAppStore.getState().nodes.length;
+      if (result.changed) {
         setLocalToast({ key: "refreshDone", opts: { count: after } });
       } else {
         setLocalToast({ key: "refreshNoChange" });
@@ -205,7 +210,7 @@ export function NodesView() {
     } finally {
       setRefreshingSub(prev => { const s = new Set(prev); s.delete(subName); return s; });
     }
-  }, [refresh, t, nodes.length]);
+  }, [refresh, setStoreNodes, t]);
 
   const handleProbeNode = useCallback(async (hash: string, kind: "egress" | "latency") => {
     const key = hash + "|" + kind;

@@ -2,7 +2,7 @@
 //!
 //! Extracted from the former commands/mod.rs monolith by architecture-recovery
 //! ticket 08: pure mechanical move - no behavior, naming, or IPC-surface change.
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use tauri_plugin_store::StoreExt;
 use crate::sidecar::SidecarHandle;
@@ -251,37 +251,122 @@ pub async fn subscription_remove(
 /// actually pulls new nodes. Resin's Scheduler re-fetches via its own clash.meta
 /// UA fetcher (cmd/resin/main.go const downloadUserAgent); the shell no longer
 /// re-fetches or converts the Clash YAML itself (P13 B4 chain deleted).
-/// Returns the post-refresh node_count so the UI can show a toast without a
-/// second list round trip.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubscriptionRefreshResult {
+    pub node_count: u64,
+    pub changed: bool,
+}
+
+pub fn extract_sub_row_stats(item: &serde_json::Value) -> (u64, Option<serde_json::Value>) {
+    let count = item.get("node_count").and_then(|v| v.as_u64()).unwrap_or(0);
+    let version = item
+        .get("node_version")
+        .cloned()
+        .or_else(|| item.get("config_version").cloned());
+    (count, version)
+}
+
+/// Returns the post-refresh node_count and changed status so the UI can show
+/// an accurate toast and avoid closure stale-read bugs.
+/// Waits up to 5 attempts (500ms interval) for Resin's diff/apply to settle.
+pub fn subscription_refresh_changed_changed(
+    initial: u64,
+    initial_version: Option<&serde_json::Value>,
+    latest: u64,
+    latest_version: Option<&serde_json::Value>,
+) -> bool {
+    if latest != initial {
+        return true;
+    }
+    match (initial_version, latest_version) {
+        (Some(prev), Some(curr)) if prev != curr => true,
+        _ => false,
+    }
+}
+
 #[tauri::command]
 pub async fn subscription_refresh(
     sidecar: State<'_, SidecarHandle>,
     name: String,
-) -> Result<u64, IpcError> {
+) -> Result<SubscriptionRefreshResult, IpcError> {
     validate_short_name(&name, "subscription")?;
     let client = resin_client(&sidecar)?;
-    let list = client
+    let initial_list = client
         .list_subscriptions()
         .await
         .map_err(|e| map_resin_error(&e.to_string()))?;
-    let items = items_arr(&list);
-    let id = subscription_id_for_name(&list, &name)
+    let id = subscription_id_for_name(&initial_list, &name)
         .ok_or_else(|| IpcError::from(format!("subscription not found: {name}")))?;
-    tracing::info!(subscription = %name, id = %id, "subscription_refresh: POST /actions/refresh");
+
+    let initial_item = items_arr(&initial_list)
+        .into_iter()
+        .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(id.as_str()));
+    let (initial_count, initial_ver) = initial_item
+        .as_ref()
+        .map(|it| extract_sub_row_stats(it))
+        .unwrap_or((0, None));
+
+    tracing::info!(subscription = %name, id = %id, initial_count, "subscription_refresh: POST /actions/refresh");
     client
         .refresh_subscription_native(&id)
         .await
         .map_err(|e| map_resin_error(&e.to_string()))?;
-    // Return the post-refresh node_count so the UI can show a toast.
-    // The /actions/refresh response body is empty on success; fall back to
-    // the existing list snapshot so the toast stays informative.
-    let node_count = items
-        .iter()
-        .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(id.as_str()))
-        .and_then(|p| p.get("node_count").and_then(|v| v.as_u64()))
-        .unwrap_or(0);
-    tracing::info!(subscription = %name, node_count, "subscription_refresh: action accepted");
-    Ok(node_count)
+
+    // Poll list_subscriptions until node_count or node_version changes (up to 5 retries, 500ms each).
+    let max_attempts = 5;
+    let poll_delay = std::time::Duration::from_millis(500);
+    let mut final_count = initial_count;
+    let mut changed = false;
+
+    for attempt in 1..=max_attempts {
+        let latest_list = match client.list_subscriptions().await {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(subscription = %name, attempt, error = %e, "subscription_refresh: poll list_subscriptions failed");
+                tokio::time::sleep(poll_delay).await;
+                continue;
+            }
+        };
+
+        if let Some(target) = items_arr(&latest_list)
+            .into_iter()
+            .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(id.as_str()))
+        {
+            let (latest_count, latest_ver) = extract_sub_row_stats(&target);
+            final_count = latest_count;
+            if subscription_refresh_changed_changed(
+                initial_count,
+                initial_ver.as_ref(),
+                latest_count,
+                latest_ver.as_ref(),
+            ) {
+                changed = true;
+                tracing::info!(
+                    subscription = %name,
+                    attempt,
+                    initial_count,
+                    latest_count,
+                    "subscription_refresh: detected subscription state change"
+                );
+                break;
+            }
+        }
+
+        if attempt < max_attempts {
+            tokio::time::sleep(poll_delay).await;
+        }
+    }
+
+    tracing::info!(
+        subscription = %name,
+        node_count = final_count,
+        changed,
+        "subscription_refresh: action settled"
+    );
+    Ok(SubscriptionRefreshResult {
+        node_count: final_count,
+        changed,
+    })
 }
 
 #[derive(Debug, Serialize)]

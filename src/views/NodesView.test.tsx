@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { invokeMock } from "../test/setup";
+import { useAppStore } from "../store/appStore";
 import { NodesView, parseDelayQuery, applyProbeResult, nextBatchProgress } from "./NodesView";
 
 /// vitest-isolation-guard: sub-header click helpers — BEGIN (ticket 18)
@@ -34,6 +35,65 @@ async function clickSubHeaderCollapse(name: string): Promise<void> {
 /// vitest-isolation-guard: sub-header click helpers — END
 
 describe("NodesView T4-3", () => {
+  // T02 closure fix: handleRefreshSub reads the POST-refresh node count from the app
+  // store (useAppStore.getState().nodes) after refresh() re-syncs it — the stale
+  // pre-refresh closure snapshot would still report 1.
+  it("T02: refresh toast reports post-refresh node count read from the store", async () => {
+    useAppStore.setState({ nodes: [] });
+    let refreshed = false;
+    const nodeOf = (hash: string, tag: string) => ({
+      node_hash: hash,
+      display_tag: hash.toUpperCase(),
+      region: "HK",
+      failure_count: 0,
+      has_outbound: true,
+      reference_latency_ms: 120,
+      egress_ip: "1.1.1.1",
+      tags: [{ subscription_name: "sub-alpha", tag }],
+    });
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") {
+        return refreshed
+          ? { items: [nodeOf("h1", "vmess"), nodeOf("h2", "ss")], total: 2 }
+          : { items: [nodeOf("h1", "vmess")], total: 1 };
+      }
+      if (cmd === "node_pool_snapshot") return { total_nodes: refreshed ? 2 : 1, healthy_nodes: refreshed ? 2 : 1, egress_ip_count: 1, healthy_egress_ip_count: 1 };
+      if (cmd === "ip_reputation_snapshot") return { provider: "ip_api", status: "ok", entries: [] };
+      if (cmd === "subscription_refresh") { refreshed = true; return { node_count: 2, changed: true }; }
+      return undefined;
+    });
+    render(<NodesView />);
+    await waitFor(() => expect(screen.getByText("sub-alpha")).toBeTruthy());
+    // mount refresh() synced the pre-refresh snapshot (1 node) into the store
+    expect(useAppStore.getState().nodes.length).toBe(1);
+    // per-sub refresh button lives in the sub header (title attr, icon-only)
+    fireEvent.click(screen.getByTitle("Refresh subscription"));
+    await waitFor(() => expect(screen.getByText("Refreshed, 2 nodes in pool")).toBeTruthy());
+    expect(useAppStore.getState().nodes.length).toBe(2);
+  });
+
+  // T02 F3 fallback: changed=false must show the no-change toast, never a fabricated count
+  it("T02b: changed=false shows the no-change fallback toast", async () => {
+    useAppStore.setState({ nodes: [] });
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "node_list") {
+        return {
+          items: [{ node_hash: "h1", display_tag: "H1", region: "HK", failure_count: 0, has_outbound: true, reference_latency_ms: 120, egress_ip: "1.1.1.1", tags: [{ subscription_name: "sub-alpha", tag: "vmess" }] }],
+          total: 1,
+        };
+      }
+      if (cmd === "node_pool_snapshot") return { total_nodes: 1, healthy_nodes: 1, egress_ip_count: 1, healthy_egress_ip_count: 1 };
+      if (cmd === "ip_reputation_snapshot") return { provider: "ip_api", status: "ok", entries: [] };
+      if (cmd === "subscription_refresh") return { node_count: 1, changed: false };
+      return undefined;
+    });
+    render(<NodesView />);
+    await waitFor(() => expect(screen.getByText("sub-alpha")).toBeTruthy());
+    fireEvent.click(screen.getByTitle("Refresh subscription"));
+    await waitFor(() => expect(screen.getByText("No node count change; retry might be needed")).toBeTruthy());
+  });
+
+
   beforeEach(() => {
     invokeMock.mockReset();
   });

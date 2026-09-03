@@ -327,11 +327,19 @@ export async function ipcNodePoolSnapshot(): Promise<{ total_nodes: number; heal
   return invoke("node_pool_snapshot");
 }
 
-/// T19-P2: refresh a subscription by re-fetching its url and PATCHing content.
-/// Resin-side endpoint is subscription_refresh; returns the post-refresh node count.
-export async function ipcSubscriptionRefresh(name: string): Promise<number> {
+/// T02-Round5: refresh a subscription. Resin POST /actions/refresh is
+/// synchronously blocking but its response body is empty, so the shell
+/// re-queries /subscriptions up to 5 x 500ms and returns the actual
+/// post-refresh node_count plus a changed flag derived from node_count /
+/// node_version drift. The UI uses changed to distinguish "no upstream
+/// diff" from a stale closure read.
+export interface SubscriptionRefreshResult {
+  node_count: number;
+  changed: boolean;
+}
+export async function ipcSubscriptionRefresh(name: string): Promise<SubscriptionRefreshResult> {
   assertShortName(name, "subscription");
-  return invoke<number>("subscription_refresh", { name });
+  return invoke<SubscriptionRefreshResult>("subscription_refresh", { name });
 }
 
 /// T19-P3: on-demand per-node probe. kind is "egress" or "latency". Returns
