@@ -188,6 +188,10 @@ fn main() {
             commands::set_diag_poll_interval,
             commands::set_log_level,
             commands::get_log_level,
+            // T21 (Round 5): request-log detail drawer — single entry (#R45)
+            // + captured payloads (#R46); §7.5 log_id boundary inside.
+            commands::request_log_detail,
+            commands::request_log_payloads,
         ])
         .setup(|app| {
             build_tray(app.handle())?;

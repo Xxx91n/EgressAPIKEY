@@ -154,7 +154,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 # Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):
 # entries must equal the #[tauri::command] set under src-tauri/src AND the
 # generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.
-# Do not hand-edit entries. Regenerated: 2026-09-03 (69 commands)
+# Do not hand-edit entries. Regenerated: 2026-09-03 (73 commands)
 backup_create = src-tauri/src/commands/backup.rs
 backup_upload = src-tauri/src/commands/backup.rs
 backup_list = src-tauri/src/commands/backup.rs
@@ -167,6 +167,8 @@ check_firewall_status = src-tauri/src/commands/diagnostics.rs
 probe_exit_ip = src-tauri/src/commands/diagnostics.rs
 metrics_probe_history = src-tauri/src/commands/diagnostics.rs
 metrics_realtime_throughput = src-tauri/src/commands/diagnostics.rs
+request_log_detail = src-tauri/src/commands/diagnostics.rs
+request_log_payloads = src-tauri/src/commands/diagnostics.rs
 platform_add = src-tauri/src/commands/platform.rs
 platform_remove = src-tauri/src/commands/platform.rs
 platform_list = src-tauri/src/commands/platform.rs

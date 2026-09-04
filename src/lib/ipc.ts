@@ -679,6 +679,8 @@ export function ipcCheckFirewallStatus(): Promise<FirewallStatus> {
 
 // T6-5 (ticket 11): Request log tail via Resin GET /api/v1/request-logs.
 export interface RequestLogEntry {
+  /** T21: Resin row UUID — key for the detail drawer; "" on old wire shapes. */
+  id: string;
   ts: string;
   platform_name: string;
   account: string;
@@ -692,6 +694,162 @@ export interface RequestLogEntry {
 
 export function ipcRequestLogTail(limit?: number): Promise<RequestLogEntry[]> {
   return invoke<RequestLogEntry[]>("request_log_tail", limit ? { limit } : {});
+}
+
+// T21 (Round 5): single request-log entry + captured payloads for the
+// DiagnosticsView detail drawer (RESIN_API_COVERAGE #R45/#R46). The row id
+// rides request_log_tail rows as of this ticket; §7.5 mirrors the Rust
+// validate_log_id (1..=64 chars, UUID hex+hyphen charset) and the payload
+// wire face is untrusted — coerced before render. Upstream returns
+// base64-encoded bodies ({req_headers_b64, req_body_b64, resp_headers_b64,
+// resp_body_b64, truncated{req_headers,req_body,resp_headers,resp_body}},
+// handler_requestlog.go:355-368) and 200-with-empty-strings when payload
+// logging is off.
+
+/** §7.5: mirror of the Rust validate_log_id — same UUID charset + 64 cap. */
+export function assertLogId(logId: string): void {
+  if (typeof logId !== "string" || logId.length === 0 || logId.length > 64) {
+    throw new Error("log_id must be a non-empty string of at most 64 chars");
+  }
+  if (!/^[0-9a-fA-F-]+$/.test(logId)) {
+    throw new Error("log_id must be a UUID (hex digits and hyphens only)");
+  }
+}
+
+export interface RequestLogDetail {
+  id: string;
+  ts: string;
+  proxy_type: number;
+  client_ip: string;
+  platform_id: string;
+  platform_name: string;
+  account: string;
+  target_host: string;
+  target_url: string;
+  node_hash: string;
+  node_tag: string;
+  egress_ip: string;
+  duration_ms: number;
+  first_byte_duration_ms: number;
+  net_ok: boolean;
+  http_method: string;
+  http_status: number;
+  resin_error: string;
+  ingress_bytes: number;
+  egress_bytes: number;
+  payload_present: boolean;
+  req_body_len: number;
+  resp_body_len: number;
+}
+
+export interface RequestLogPayloads {
+  req_headers_b64: string;
+  req_body_b64: string;
+  resp_headers_b64: string;
+  resp_body_b64: string;
+  truncated: {
+    req_headers: boolean;
+    req_body: boolean;
+    resp_headers: boolean;
+    resp_body: boolean;
+  };
+}
+
+const b64 = (v: unknown): string => (typeof v === "string" ? v : "");
+const bl = (v: unknown): boolean => v === true;
+const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+const str = (v: unknown): string => (typeof v === "string" ? v : "");
+
+export async function ipcRequestLogDetail(logId: string): Promise<RequestLogDetail> {
+  assertLogId(logId);
+  const raw = (await invoke<unknown>("request_log_detail", { logId })) as {
+    [k: string]: unknown;
+  } | null;
+  const r = raw && typeof raw === "object" ? raw : {};
+  // Coerce the untrusted wire face; unknown fields are dropped.
+  return {
+    id: str(r.id),
+    ts: str(r.ts),
+    proxy_type: num(r.proxy_type),
+    client_ip: str(r.client_ip),
+    platform_id: str(r.platform_id),
+    platform_name: str(r.platform_name),
+    account: str(r.account),
+    target_host: str(r.target_host),
+    target_url: str(r.target_url),
+    node_hash: str(r.node_hash),
+    node_tag: str(r.node_tag),
+    egress_ip: str(r.egress_ip),
+    duration_ms: num(r.duration_ms),
+    first_byte_duration_ms: num(r.first_byte_duration_ms),
+    net_ok: bl(r.net_ok),
+    http_method: str(r.http_method),
+    http_status: num(r.http_status),
+    resin_error: str(r.resin_error),
+    ingress_bytes: num(r.ingress_bytes),
+    egress_bytes: num(r.egress_bytes),
+    payload_present: bl(r.payload_present),
+    req_body_len: num(r.req_body_len),
+    resp_body_len: num(r.resp_body_len),
+  };
+}
+
+/** 1 MB display cap for one decoded payload part (issue T21 F2). */
+export const PAYLOAD_DISPLAY_CAP_BYTES = 1024 * 1024;
+
+/** Decode one upstream base64 payload part to UTF-8 text for display.
+ *  Invalid/empty input decodes to "" (payload logging off upstream);
+ *  parts over the cap are sliced BEFORE decode so a multi-MB body never
+ *  reaches the DOM — the flag drives the truncation label. */
+export function decodePayloadPart(
+  b64: unknown,
+  capBytes: number = PAYLOAD_DISPLAY_CAP_BYTES,
+): { text: string; bytes: number; displayTruncated: boolean } {
+  if (typeof b64 !== "string" || b64.length === 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(b64)) {
+    return { text: "", bytes: 0, displayTruncated: false };
+  }
+  let bytes: Uint8Array;
+  try {
+    const bin = atob(b64);
+    bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  } catch {
+    return { text: "", bytes: 0, displayTruncated: false };
+  }
+  if (bytes.byteLength > capBytes) {
+    return {
+      text: new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, capBytes)),
+      bytes: bytes.byteLength,
+      displayTruncated: true,
+    };
+  }
+  return {
+    text: new TextDecoder("utf-8", { fatal: false }).decode(bytes),
+    bytes: bytes.byteLength,
+    displayTruncated: false,
+  };
+}
+
+export async function ipcRequestLogPayloads(logId: string): Promise<RequestLogPayloads> {
+  assertLogId(logId);
+  const raw = (await invoke<unknown>("request_log_payloads", { logId })) as {
+    [k: string]: unknown;
+  } | null;
+  const r = raw && typeof raw === "object" ? raw : {};
+  const t = r.truncated && typeof r.truncated === "object"
+    ? (r.truncated as { [k: string]: unknown })
+    : {};
+  return {
+    req_headers_b64: b64(r.req_headers_b64),
+    req_body_b64: b64(r.req_body_b64),
+    resp_headers_b64: b64(r.resp_headers_b64),
+    resp_body_b64: b64(r.resp_body_b64),
+    truncated: {
+      req_headers: bl(t.req_headers),
+      req_body: bl(t.req_body),
+      resp_headers: bl(t.resp_headers),
+      resp_body: bl(t.resp_body),
+    },
+  };
 }
 
 // T19 (Round 5, ADR-0064): Resin metrics minimal set — realtime throughput

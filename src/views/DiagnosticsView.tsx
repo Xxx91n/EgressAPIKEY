@@ -20,6 +20,11 @@ import {
   ipcResetKernel,
   ipcMetricsRealtimeThroughput,
   ipcMetricsProbeHistory,
+  // T21 (Round 5): request-log detail drawer.
+  ipcRequestLogDetail,
+  ipcRequestLogPayloads,
+  decodePayloadPart,
+  PAYLOAD_DISPLAY_CAP_BYTES,
   type SidecarStatus,
   type FirewallStatus,
   type RequestLogEntry,
@@ -27,6 +32,8 @@ import {
   type PortHealthCheck,
   type MetricsThroughput,
   type MetricsProbeHistory,
+  type RequestLogDetail,
+  type RequestLogPayloads,
 } from "../lib/ipc";
 
 const btnCls = "px-2.5 py-1.5 rounded text-xs font-medium transition-colors bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5";
@@ -85,6 +92,35 @@ function MetricsSparkline({
   );
 }
 
+export /** T21: one collapsible payload half (headers/body). b64 decoded via
+ *  decodePayloadPart — 1 MB display cap enforced there, flag drives the label. */
+function PayloadPart({ label, b64, truncatedUpstream, testId }: {
+  label: string;
+  b64: string;
+  truncatedUpstream: boolean;
+  testId: string;
+}) {
+  const { t } = useTranslation();
+  const decoded = decodePayloadPart(b64);
+  if (!decoded.text && !truncatedUpstream) return null;
+  return (
+    <details className="rounded border border-zinc-200 dark:border-zinc-700">
+      <summary className="px-2 py-1 text-xs cursor-pointer text-zinc-600 dark:text-zinc-300">{label}</summary>
+      {truncatedUpstream && (
+        <p className="px-2 text-xs text-amber-600 dark:text-amber-400" data-testid={testId + "-upstream-truncated"}>
+          {t("diagnostics.payloadTruncatedUpstream")}
+        </p>
+      )}
+      {decoded.displayTruncated && (
+        <p className="px-2 text-xs text-amber-600 dark:text-amber-400" data-testid={testId + "-display-truncated"}>
+          {t("diagnostics.payloadDisplayTruncated", { n: PAYLOAD_DISPLAY_CAP_BYTES })}
+        </p>
+      )}
+      <pre className="px-2 py-1 text-xs whitespace-pre-wrap break-all max-h-48 overflow-y-auto" data-testid={testId}>{decoded.text}</pre>
+    </details>
+  );
+}
+
 export function DiagnosticsView() {
   const { t } = useTranslation();
   const [sidecarStatus, setSidecarStatus] = useState<SidecarStatus | null>(null);
@@ -111,6 +147,14 @@ export function DiagnosticsView() {
   const [metricsThroughput, setMetricsThroughput] = useState<MetricsThroughput | null>(null);
   const [metricsProbes, setMetricsProbes] = useState<MetricsProbeHistory | null>(null);
   const [probeRange, setProbeRange] = useState<"1h" | "24h" | "7d">("24h");
+  // T21 (Round 5): request-log detail drawer state (pull model — opened by
+  // clicking a request_log_tail row; the two detail commands are called only
+  // then, riding the same untrusted-coercion wrappers as the tail).
+  const [detailLogId, setDetailLogId] = useState<string | null>(null);
+  const [logDetail, setLogDetail] = useState<RequestLogDetail | null>(null);
+  const [logPayloads, setLogPayloads] = useState<RequestLogPayloads | null>(null);
+  const [detailBusy, setDetailBusy] = useState(false);
+  const [detailError, setDetailError] = useState(false);
   // Load poll interval from settings (T05: typed L1 command pair, no bare store invoke)
   useEffect(() => {
     (async () => {
@@ -151,6 +195,29 @@ export function DiagnosticsView() {
   const handleProbeRangeChange = (range: "1h" | "24h" | "7d") => {
     setProbeRange(range);
     void fetchProbeHistory(range);
+  };
+
+  // T21: open the detail drawer for one request-log row. Rows without an id
+  // (wire-shape regression or older sidecar) stay inert.
+  const openLogDetail = async (log: RequestLogEntry) => {
+    if (!log.id) return;
+    setDetailLogId(log.id);
+    setDetailBusy(true);
+    setDetailError(false);
+    setLogDetail(null);
+    setLogPayloads(null);
+    try {
+      const [d, payloads] = await Promise.all([
+        ipcRequestLogDetail(log.id),
+        ipcRequestLogPayloads(log.id).catch(() => null),
+      ]);
+      setLogDetail(d);
+      setLogPayloads(payloads);
+    } catch {
+      setDetailError(true);
+    } finally {
+      setDetailBusy(false);
+    }
   };
 
   // Main refresh: fetch all diagnostic data
@@ -355,7 +422,13 @@ export function DiagnosticsView() {
               </thead>
               <tbody>
                 {reqLogs.map((log, i) => (
-                  <tr key={i} className="border-t border-zinc-100 dark:border-zinc-800">
+                  <tr
+                    key={i}
+                    className={"border-t border-zinc-100 dark:border-zinc-800" + (log.id ? " cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800" : "")}
+                    data-testid="diag-log-row"
+                    title={log.id ? t("diagnostics.logDetail") : undefined}
+                    onClick={() => void openLogDetail(log)}
+                  >
                     <td className="px-2 py-1 text-zinc-500">{log.ts}</td>
                     <td className="px-2 py-1">{log.platform_name}</td>
                     <td className="px-2 py-1">{log.account}</td>
@@ -368,6 +441,67 @@ export function DiagnosticsView() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {detailLogId && (
+          <div className="rounded-md border border-zinc-300 dark:border-zinc-700 p-3 space-y-2 bg-zinc-50 dark:bg-zinc-900" data-testid="diag-log-detail">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{t("diagnostics.logDetail")}</p>
+              <button
+                data-testid="diag-log-detail-close"
+                className={btnCls}
+                onClick={() => setDetailLogId(null)}
+              >
+                {t("diagnostics.close")}
+              </button>
+            </div>
+            {detailBusy ? (
+              <p className="text-xs text-zinc-500 flex items-center gap-1" data-testid="diag-log-detail-busy">
+                <Loader2 size={12} className="animate-spin" />
+                {t("diagnostics.logDetail")}
+              </p>
+            ) : detailError ? (
+              <p className="text-xs text-red-600" data-testid="diag-log-detail-error">{t("diagnostics.detailUnavailable")}</p>
+            ) : logDetail ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-1 text-xs" data-testid="diag-log-detail-grid">
+                  {([
+                    ["id", logDetail.id],
+                    ["ts", logDetail.ts],
+                    ["http_method", logDetail.http_method],
+                    ["http_status", String(logDetail.http_status)],
+                    ["platform_name", logDetail.platform_name],
+                    ["account", logDetail.account],
+                    ["target_host", logDetail.target_host],
+                    ["target_url", logDetail.target_url],
+                    ["node_tag", logDetail.node_tag],
+                    ["egress_ip", logDetail.egress_ip],
+                    ["duration_ms", String(logDetail.duration_ms)],
+                    ["first_byte_duration_ms", String(logDetail.first_byte_duration_ms)],
+                    ["net_ok", logDetail.net_ok ? t("diagnostics.netOk") : t("diagnostics.netFail")],
+                    ["ingress_bytes", String(logDetail.ingress_bytes)],
+                    ["egress_bytes", String(logDetail.egress_bytes)],
+                    ["resin_error", logDetail.resin_error],
+                  ] as const).map(([k, v]) => (
+                    <div key={k} data-testid={"diag-log-detail-" + k}>
+                      <span className="font-mono text-zinc-500 dark:text-zinc-400">{k}</span>
+                      <p className="text-zinc-700 dark:text-zinc-300 break-all">{v || "—"}</p>
+                    </div>
+                  ))}
+                </div>
+                {logDetail.payload_present && logPayloads ? (
+                  <div className="space-y-1" data-testid="diag-log-payloads">
+                    <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">{t("diagnostics.payloadsTitle")}</p>
+                    <PayloadPart label={t("diagnostics.reqHeaders")} b64={logPayloads.req_headers_b64} truncatedUpstream={logPayloads.truncated.req_headers} testId="diag-payload-req-headers" />
+                    <PayloadPart label={t("diagnostics.reqBody")} b64={logPayloads.req_body_b64} truncatedUpstream={logPayloads.truncated.req_body} testId="diag-payload-req-body" />
+                    <PayloadPart label={t("diagnostics.respHeaders")} b64={logPayloads.resp_headers_b64} truncatedUpstream={logPayloads.truncated.resp_headers} testId="diag-payload-resp-headers" />
+                    <PayloadPart label={t("diagnostics.respBody")} b64={logPayloads.resp_body_b64} truncatedUpstream={logPayloads.truncated.resp_body} testId="diag-payload-resp-body" />
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-500" data-testid="diag-log-no-payload">{t("diagnostics.noPayload")}</p>
+                )}
+              </div>
+            ) : null}
           </div>
         )}
       </DiagCard>

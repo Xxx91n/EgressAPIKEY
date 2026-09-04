@@ -39,6 +39,8 @@ import {
   ipcReconcileNow, snapReconcilePlan,
   ipcSetLogLevel,
   ipcMetricsRealtimeThroughput, ipcMetricsProbeHistory,
+  ipcRequestLogDetail, ipcRequestLogPayloads,
+  assertLogId, decodePayloadPart, PAYLOAD_DISPLAY_CAP_BYTES,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -590,6 +592,98 @@ describe("T19 (ADR-0064) metrics minimal-set wrappers", () => {
       "metrics_probe_history",
       expect.not.objectContaining({ from: expect.anything(), to: expect.anything() }),
     );
+  });
+});
+
+describe("T21 (Round 5) request-log detail + payload wrappers", () => {
+  it("ipcRequestLogDetail forwards a valid UUID log_id", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({ id: "log-1", http_method: "POST", http_status: 200 });
+    const r = await ipcRequestLogDetail("0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b");
+    expect(invokeMock).toHaveBeenCalledWith(
+      "request_log_detail",
+      expect.objectContaining({ logId: "0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b" }),
+    );
+    expect(r.id).toBe("log-1");
+    expect(r.http_status).toBe(200);
+  });
+
+  it("ipcRequestLogDetail rejects an oversized log_id before invoke (TS §7.5)", async () => {
+    invokeMock.mockClear();
+    await expect(ipcRequestLogDetail("a".repeat(65))).rejects.toThrow(/64/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ipcRequestLogDetail rejects a non-UUID charset before invoke", async () => {
+    invokeMock.mockClear();
+    await expect(ipcRequestLogDetail("../etc/passwd")).rejects.toThrow(/UUID/);
+    await expect(ipcRequestLogDetail("has space")).rejects.toThrow(/UUID/);
+    await expect(ipcRequestLogDetail("")).rejects.toThrow(/64/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ipcRequestLogDetail coerces a null wire face to an all-default detail", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(null);
+    const r = await ipcRequestLogDetail("log-1");
+    expect(r.id).toBe("");
+    expect(r.payload_present).toBe(false);
+    expect(r.http_status).toBe(0);
+  });
+
+  it("ipcRequestLogPayloads forwards log_id and coerces the truncated flags", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({
+      req_headers_b64: btoa("x: 1"),
+      req_body_b64: btoa('{"a":1}'),
+      resp_body_b64: btoa("ok"),
+      truncated: { req_body: true },
+    });
+    const r = await ipcRequestLogPayloads("log-1");
+    expect(invokeMock).toHaveBeenCalledWith("request_log_payloads", expect.objectContaining({ logId: "log-1" }));
+    expect(r.req_body_b64).toBe(btoa('{"a":1}'));
+    expect(r.truncated.req_body).toBe(true);
+    expect(r.truncated.req_headers).toBe(false);
+    expect(r.resp_headers_b64).toBe("");
+  });
+
+  it("ipcRequestLogPayloads coerces a null wire face to empty strings", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(null);
+    const r = await ipcRequestLogPayloads("log-1");
+    expect(r.req_body_b64).toBe("");
+    expect(r.truncated.resp_body).toBe(false);
+  });
+
+  it("assertLogId accepts UUID shape and rejects the rest", () => {
+    expect(() => assertLogId("0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b")).not.toThrow();
+    expect(() => assertLogId("a".repeat(64))).not.toThrow();
+    expect(() => assertLogId("a".repeat(65))).toThrow(/64/);
+    expect(() => assertLogId("")).toThrow();
+    expect(() => assertLogId("a/b")).toThrow(/UUID/);
+    expect(() => assertLogId("a\tb")).toThrow(/UUID/);
+  });
+
+  it("decodePayloadPart decodes base64 to UTF-8 text", () => {
+    const r = decodePayloadPart(btoa('{"model":"gpt"}'));
+    expect(r.text).toBe('{"model":"gpt"}');
+    expect(r.displayTruncated).toBe(false);
+    expect(r.bytes).toBe(15);
+  });
+
+  it("decodePayloadPart returns empty text for invalid/empty input", () => {
+    expect(decodePayloadPart("").text).toBe("");
+    expect(decodePayloadPart(undefined).text).toBe("");
+    expect(decodePayloadPart("not!!valid").text).toBe("");
+  });
+
+  it("decodePayloadPart slices over-cap payloads before decode (1 MB display cap)", () => {
+    const big = "A".repeat(PAYLOAD_DISPLAY_CAP_BYTES + 1000);
+    const r = decodePayloadPart(btoa(big));
+    expect(r.displayTruncated).toBe(true);
+    expect(r.bytes).toBe(PAYLOAD_DISPLAY_CAP_BYTES + 1000);
+    // Sliced at the cap before UTF-8 decode.
+    expect(r.text.length).toBeLessThanOrEqual(PAYLOAD_DISPLAY_CAP_BYTES);
   });
 });
 

@@ -80,6 +80,10 @@ pub struct RequestLogEntry {
     pub http_status: i64,
     pub duration_ms: f64,
     pub resin_error: String,
+    /// T21: Resin row UUID (requestlog/repo.go:145) — the detail drawer's
+    /// key for GET /request-logs/{log_id}. Empty when the wire shape lacks
+    /// it (older sidecar), which leaves the row inert.
+    pub id: String,
 }
 
 /// Format a Resin request-log ts_ns (epoch nanos) as "YYYY-MM-DD HH:MM:SS"
@@ -114,6 +118,7 @@ pub fn request_log_entry_from_value(v: &serde_json::Value) -> RequestLogEntry {
         http_status: v.get("http_status").and_then(|x| x.as_i64()).unwrap_or(0),
         duration_ms: duration_ns as f64 / 1_000_000.0,
         resin_error: s("resin_error"),
+        id: s("id"),
     }
 }
 
@@ -436,6 +441,73 @@ pub async fn metrics_realtime_throughput(
         .map_err(|e| map_resin_error(&e.to_string()))
 }
 
+/// §7.5 boundary for the T21 request-log single-entry commands. Resin
+/// generates the row id as a UUID (requestlog/repo.go:145
+/// `uuid.NewString()`), so the shape is checked strictly — 1..=64 chars of
+/// ASCII hex digits and hyphens — which also rejects NUL/control characters,
+/// path separators and non-ASCII BEFORE any HTTP call leaves the shell.
+/// The 64-char cap (vs UUID's 36) is the issue-drafted extension room for a
+/// future upstream id scheme.
+pub(crate) const REQUEST_LOG_ID_MAX: usize = 64;
+
+pub(crate) fn validate_log_id(log_id: &str) -> Result<(), IpcError> {
+    if log_id.is_empty() {
+        return Err(IpcError::invalid_input("log_id must not be empty"));
+    }
+    if log_id.len() > REQUEST_LOG_ID_MAX {
+        return Err(IpcError::invalid_input(&format!(
+            "log_id exceeds {} chars",
+            REQUEST_LOG_ID_MAX
+        )));
+    }
+    if !log_id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-') {
+        return Err(IpcError::invalid_input(
+            "log_id must be a UUID (hex digits and hyphens only)",
+        ));
+    }
+    Ok(())
+}
+
+/// T21 (Round 5): GET /api/v1/request-logs/{log_id} — single request-log
+/// entry for the DiagnosticsView detail drawer (RESIN_API_COVERAGE #R45;
+/// handler_requestlog.go:174). §7.5 log_id boundary above. The wire Value
+/// is returned untrusted — the TS side coerces before rendering.
+#[tauri::command]
+pub async fn request_log_detail(
+    sidecar: State<'_, SidecarHandle>,
+    log_id: String,
+) -> Result<serde_json::Value, IpcError> {
+    validate_log_id(&log_id)?;
+    let client = resin_client(&sidecar)?;
+    tracing::debug!(%log_id, "request_log_detail: fetching single entry via REST");
+    client
+        .get_request_log(&log_id)
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
+}
+
+/// T21 (Round 5): GET /api/v1/request-logs/{log_id}/payloads — captured
+/// request/response payloads for the DiagnosticsView detail drawer
+/// (RESIN_API_COVERAGE #R46; handler_requestlog.go:198). Same §7.5 log_id
+/// boundary. Upstream returns base64 bodies ({req_headers_b64, req_body_b64,
+/// resp_headers_b64, resp_body_b64, truncated{...}} per
+/// handler_requestlog.go:355-368) and always answers 200 with empty strings
+/// when payload logging is off — the TS side decodes + display-truncates at
+/// 1 MB. Treated as untrusted wire data downstream.
+#[tauri::command]
+pub async fn request_log_payloads(
+    sidecar: State<'_, SidecarHandle>,
+    log_id: String,
+) -> Result<serde_json::Value, IpcError> {
+    validate_log_id(&log_id)?;
+    let client = resin_client(&sidecar)?;
+    tracing::debug!(%log_id, "request_log_payloads: fetching payloads via REST");
+    client
+        .get_request_log_payloads(&log_id)
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
+}
+
 #[cfg(test)]
 mod t19_metrics_range_tests {
     use super::validate_metrics_range;
@@ -499,5 +571,45 @@ mod t19_metrics_range_tests {
     fn rejects_oversized_timestamp() {
         let long = format!("2026-09-04T00:00:00{}Z", "0".repeat(80));
         assert!(validate_metrics_range(Some(long.as_str()), None).is_err());
+    }
+}
+
+#[cfg(test)]
+mod t21_log_id_tests {
+    use super::{validate_log_id, REQUEST_LOG_ID_MAX};
+
+    #[test]
+    fn accepts_standard_uuid() {
+        assert!(validate_log_id("0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b").is_ok());
+        assert!(validate_log_id("LOG-1").is_ok());
+    }
+
+    #[test]
+    fn accepts_uppercase_hex_and_short_ids() {
+        assert!(validate_log_id("ABCDEF0123456789ABCDEF0123456789").is_ok());
+        assert!(validate_log_id("a-b-c").is_ok());
+    }
+
+    #[test]
+    fn rejects_empty() {
+        assert!(validate_log_id("").is_err());
+    }
+
+    #[test]
+    fn rejects_over_64_chars() {
+        let long = "a".repeat(REQUEST_LOG_ID_MAX + 1);
+        assert!(validate_log_id(&long).is_err());
+        let edge = "a".repeat(REQUEST_LOG_ID_MAX);
+        assert!(validate_log_id(&edge).is_ok());
+    }
+
+    #[test]
+    fn rejects_non_uuid_charset() {
+        // NUL + control characters, path separators, spaces, non-ASCII.
+        assert!(validate_log_id("abc\0def").is_err());
+        assert!(validate_log_id("abc\u{7f}def").is_err());
+        assert!(validate_log_id("../etc/passwd").is_err());
+        assert!(validate_log_id("has space").is_err());
+        assert!(validate_log_id("汉字").is_err());
     }
 }

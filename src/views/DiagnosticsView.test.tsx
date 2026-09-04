@@ -25,10 +25,28 @@ describe("DiagnosticsView closed-loop tests", () => {
         detail: "Windows Firewall is ON.",
       });
       if (cmd === "request_log_tail") return Promise.resolve([
-        { ts: "2026-01-01 00:00:00", platform_name: "Default", account: "port-1790",
+        { id: "0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b", ts: "2026-01-01 00:00:00", platform_name: "Default", account: "port-1790",
           target_host: "api.openai.com:443", egress_ip: "1.2.3.4",
           http_method: "POST", http_status: 200, duration_ms: 150, resin_error: "" },
       ]);
+      // T21 (Round 5): detail drawer wire faces
+      if (cmd === "request_log_detail") return Promise.resolve({
+        id: "0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b", ts: "2026-01-01T00:00:00Z",
+        proxy_type: 1, client_ip: "127.0.0.1", platform_id: "p-1", platform_name: "Default",
+        account: "port-1790", target_host: "api.openai.com:443", target_url: "https://api.openai.com/v1/chat",
+        node_hash: "h1", node_tag: "us-1", egress_ip: "1.2.3.4",
+        duration_ms: 150, first_byte_duration_ms: 40, net_ok: true,
+        http_method: "POST", http_status: 200, resin_error: "",
+        ingress_bytes: 1024, egress_bytes: 2048, payload_present: true,
+        req_body_len: 5, resp_body_len: 2,
+      });
+      if (cmd === "request_log_payloads") return Promise.resolve({
+        req_headers_b64: btoa("content-type: application/json"),
+        req_body_b64: btoa('{"a":1}'),
+        resp_headers_b64: btoa("content-type: text/plain"),
+        resp_body_b64: btoa("ok"),
+        truncated: { req_headers: false, req_body: false, resp_headers: false, resp_body: false },
+      });
       if (cmd === "get_sidecar_logs") return Promise.resolve(["line1", "line2"]);
       // T05: typed L1 command pair replaced the bare get/set_store_value bypass
       if (cmd === "get_diag_poll_interval") return Promise.resolve(5000);
@@ -175,6 +193,59 @@ describe("DiagnosticsView closed-loop tests", () => {
     // 1h window (± a second of clock skew between the two Date() reads).
     expect(to - from).toBeGreaterThanOrEqual(3600_000 - 1000);
     expect(to - from).toBeLessThanOrEqual(3600_000 + 1000);
+  });
+
+
+  it("T21: clicking a request-log row opens the detail drawer with detail + payloads", async () => {
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("diag-log-table")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getAllByTestId("diag-log-row")[0]);
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("request_log_detail", expect.objectContaining({ logId: "0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b" }));
+      expect(invokeMock).toHaveBeenCalledWith("request_log_payloads", expect.objectContaining({ logId: "0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b" }));
+    });
+    expect(screen.getByTestId("diag-log-detail-grid")).toBeInTheDocument();
+    expect(screen.getByTestId("diag-log-detail-http_status")).toHaveTextContent("200");
+    expect(screen.getByTestId("diag-log-payloads")).toBeInTheDocument();
+    // Payload halves render decoded text inside <details>.
+    expect(screen.getByTestId("diag-payload-req-body")).toHaveTextContent('{"a":1}');
+  });
+
+  it("T21: drawer close button hides the drawer without extra detail calls", async () => {
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("diag-log-table")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getAllByTestId("diag-log-row")[0]);
+    await waitFor(() => {
+      expect(screen.getByTestId("diag-log-detail-grid")).toBeInTheDocument();
+    });
+    const detailCalls = invokeMock.mock.calls.filter((c: unknown[]) => c[0] === "request_log_detail").length;
+    fireEvent.click(screen.getByTestId("diag-log-detail-close"));
+    expect(screen.queryByTestId("diag-log-detail")).not.toBeInTheDocument();
+    expect(invokeMock.mock.calls.filter((c: unknown[]) => c[0] === "request_log_detail").length).toBe(detailCalls);
+  });
+
+  it("T21: a row without an id stays inert (no detail IPC)", async () => {
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("diag-log-table")).toBeInTheDocument();
+    });
+    // The negative-scenario fixture below has no id; verify via a fresh mock here.
+    invokeMock.mockClear();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "request_log_tail") return Promise.resolve([
+        { ts: "2026-01-01 00:00:00", platform_name: "NoId", account: "x", target_host: "h",
+          egress_ip: "1.1.1.1", http_method: "GET", http_status: 500, duration_ms: 1, resin_error: "boom" },
+      ]);
+      return Promise.resolve(null);
+    });
+    fireEvent.click(screen.getAllByTestId("diag-log-row")[0]);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(invokeMock.mock.calls.map((c: unknown[]) => c[0])).not.toContain("request_log_detail");
+    expect(screen.queryByTestId("diag-log-detail")).not.toBeInTheDocument();
   });
 });
 
