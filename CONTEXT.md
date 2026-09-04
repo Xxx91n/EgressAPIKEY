@@ -462,6 +462,23 @@ produce different leases, achieving per-strategy exit IP isolation without
 forking Resin.
 _Avoid_: strategy hint, account suffix, egress mode tag
 
+### Echo Command
+
+An IPC command that survives in the manifest with its full input
+validation but returns a constant success without touching Resin — the
+semantics live on the Resin sidecar side, so the shell body is an echo.
+Echo commands exist for two reasons: (1) IPC contract stability — the
+frontend command surface never shrinks behind a caller's back, so old
+GUI builds and test stubs keep working; (2) validation stays at the
+shell boundary (length caps, control chars, lane range) even when the
+body forwards nothing. `account_add` and `account_bind_ip` are the
+two surviving echoes since ADR-0050 deleted the kernel face; each call
+logs `tracing::warn!` (target `ipc.account_deprecated`). Removal
+condition: an echo is deleted only when the corresponding Resin REST
+endpoint disappears or changes shape (see the AGENTS.md §7.6 echo
+command list) — not merely because it has no caller.
+_Avoid_: no-op, stub, dead command (echoes are alive contract surface)
+
 ### White-box Config
 
 The user-editable configuration that the app reads back and honors as truth:

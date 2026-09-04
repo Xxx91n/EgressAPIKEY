@@ -287,7 +287,16 @@ export async function ipChannelDelete(name: string): Promise<boolean> {
   return invoke<boolean>("platform_remove", { name });
 }
 
+/**
+ * @deprecated since ADR-0050: account semantics are owned by the Resin
+ * sidecar; the shell command only validates input and echoes. Kept for IPC
+ * contract compatibility — no in-repo caller (see AGENTS.md §7.6 echo list).
+ */
 export async function ipcAccountBindIp(platform: string, account: string, ip: string): Promise<boolean> {
+  const meta = import.meta as { env?: { DEV?: boolean } };
+  if (meta.env?.DEV) {
+    console.warn("[ipc] account_bind_ip is deprecated since ADR-0050 (Resin owns account semantics)");
+  }
   assertShortName(platform, "platform");
   assertShortName(account, "account");
   assertIp(ip);

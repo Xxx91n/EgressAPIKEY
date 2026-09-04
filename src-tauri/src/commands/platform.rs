@@ -56,6 +56,10 @@ pub async fn platform_list_full(
     client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))
 }
 
+/// @deprecated since ADR-0050: account semantics are owned by the Resin
+/// sidecar (the forward proxy anchors sticky leases per account). The shell
+/// only validates input and echoes `Ok` — no behavior. Kept solely for IPC
+/// contract compatibility (no in-repo caller; see AGENTS.md §7.6 echo list).
 #[tauri::command]
 pub async fn account_add(
     sidecar: State<'_, SidecarHandle>,
@@ -63,6 +67,7 @@ pub async fn account_add(
     id: String,
     lane: usize,
 ) -> Result<(), IpcError> {
+    tracing::warn!(target: "ipc.account_deprecated", "account_add is deprecated since ADR-0050 (Resin owns account semantics); manage accounts via Resin directly");
     validate_short_name(&platform, "platform")?;
     validate_short_name(&id, "account")?;
     if lane >= MAX_LANES {
@@ -72,6 +77,10 @@ pub async fn account_add(
     Ok(())
 }
 
+/// @deprecated since ADR-0050: account semantics are owned by the Resin
+/// sidecar (sticky egress IPs are managed on the Resin side). The shell
+/// only validates input and echoes `true` — no behavior. Kept solely for
+/// IPC contract compatibility (no in-repo caller; see AGENTS.md §7.6 echo list).
 #[tauri::command]
 pub async fn account_bind_ip(
     sidecar: State<'_, SidecarHandle>,
@@ -79,6 +88,7 @@ pub async fn account_bind_ip(
     account: String,
     ip: String,
 ) -> Result<bool, IpcError> {
+    tracing::warn!(target: "ipc.account_deprecated", "account_bind_ip is deprecated since ADR-0050 (Resin owns account semantics); manage accounts via Resin directly");
     validate_short_name(&platform, "platform")?;
     validate_short_name(&account, "account")?;
     validate_ip(&ip)?;
