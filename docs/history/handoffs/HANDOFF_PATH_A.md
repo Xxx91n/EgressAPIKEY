@@ -89,7 +89,7 @@
 - acceptance：kill `resin.exe` 后 3 秒托盘变红 + 系统代理被关；再启动 sidecar，5s 内托盘转绿
 - test：`e2e/safety_net.spec.ts` 模拟 kill（powerShell stop-process）后断言托盘状态
 
-**G4：前端搬入 `Resin/webui` + 桌面化**
+**G4：IPC retarget + Resin 3 subscription endpoints + sidecar-status 事件订阅（webhook 端点 Resin 上游不存在）**
 - spec：`vendor/resin/webui` → `src/resin-views/`（保留 React/Vite/TS）。布局嵌入 Tauri webview 中分页作为子 view：
   - 把 Resin 3 个主页面（Platform/Account、Subscription、Lease）作为 `<ResinFrame>` 子组件引入
   - 你已有的 TopologyView（ReactFlow 拓扑画布）作为独立的「Topology」tab 与 Resin views 并排

@@ -175,7 +175,7 @@ Migrate to docs/architecture/ (reference level, some branches need):
 Migrate to CHANGELOG.md (process artifacts, milestones):
 
 - IPC retarget (sections 15-20)
-- Resin webhook (section 16)
+- Resin → shell signal channel (section 16; G4 = IPC retarget + sidecar-status event subscription, no HTTP webhook)
 - CI/CD release pipeline (section 17)
 - P9-P24 phases (sections 18-29)
 - R1-R2 refactor (section 23)
@@ -278,7 +278,7 @@ Migrate to docs/architecture/ (reference level):
 Migrate to CHANGELOG.md (process artifacts):
 
 - IPC retarget (sections 15-20)
-- Resin webhook (section 16)
+- Resin → shell signal channel (section 16; G4 = IPC retarget + sidecar-status event subscription, no HTTP webhook)
 - CI/CD release pipeline (section 17)
 - P9-P24 phases (sections 18-29)
 - R1-R2 refactor (section 23)

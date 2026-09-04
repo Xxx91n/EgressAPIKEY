@@ -34,7 +34,7 @@ Confidence：**高**（两套生态的事实性结论均有官方文档全文核
 - **B2. ArgoCD 的安全语义是「默认不自动纠正」：selfHeal 与 prune 均默认关，同步是显式/按策略触发**。事故教训（多源一致）：团队手动 `kubectl scale` 降载，auto-heal 在 ~90 秒内把副本拉回原值、压垮数据库引发级联——「紧急运维必须走 git 而非 kubectl」是纪律约束而非技术特性。本仓 ADR-0054 拒绝 auto-heal/后台自动 reconcile 引用的正是同一论据 \[S4\]\[S19\]\[S20\]。
 - **B3. 工业级「证明已生效」的机读机制 = spec/status 分离 + `observedGeneration` + conditions（reason/message/lastTransitionTime）**。controller 处理完一代 spec 后把 `status.observedGeneration` 置为 `metadata.generation`，从而区分「已按最新 spec 收敛」与「controller 还没看到/还没处理完」；ArgoCD 的 Deployment health（Progressing）同样把 observed generation 落后列为条件 \[S10\]\[S18\]\[S22\]。
 - **B4. Terraform 模型 = 配置文件是期望，`.tfstate` 是「remote object ↔ resource instance」的绑定存储；drift 靠每次 plan/apply 前的 refresh 暴露，HCP 提供定时只读 drift detection**。`-refresh-only`（0.15.4+）只探测与呈现漂移、不写状态不动作。已知教训：被管理资源的手工改动 = drift，下一次 apply 可能「无意销毁或重建」资源；state 文件丢失/损坏、多 actor 并发改同一 state、`ignore_changes` 漏标 \[S23\]\[S24\]\[S25\]。
-- **B5. 两轴与 diffing 的已知坑：同步成功仍可能立刻 OutOfSync；controller/webhook 改写与 server 默认值会造成「假漂移」，工业解法是字段级/owner 级 ignoreDifferences**。核心教训：「漂移判定」必须理解谁合法地改字段（server 默认、其他 controller、自家程序保留键），否则产生永久性噪音——这与 A1 里 Verge 的「程序自留键不可覆盖」是同一问题的两侧 \[S3\]\[S6\]。
+- **B5. 两轴与 diffing 的已知坑：同步成功仍可能立刻 OutOfSync；controller/webhook 改写与 server 默认值会造成「假漂移」（注：此外部 GitOps 机制与本仓无关——Resin 上游无 webhook/callback/push 出口，G4 信号通道为 sidecar-status 事件订阅），工业解法是字段级/owner 级 ignoreDifferences**。核心教训：「漂移判定」必须理解谁合法地改字段（server 默认、其他 controller、自家程序保留键），否则产生永久性噪音——这与 A1 里 Verge 的「程序自留键不可覆盖」是同一问题的两侧 \[S3\]\[S6\]。
 
 ### 2.3 成熟度与取舍
 

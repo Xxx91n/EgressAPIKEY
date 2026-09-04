@@ -1,6 +1,6 @@
 # Architecture State — Agent Instruction Layer
 
-> Purpose: runtime wiring state, sidecar lifecycle, ResinClient, IPC retarget, webhook, CI release pipeline.
+> Purpose: runtime wiring state, sidecar lifecycle, ResinClient, IPC retarget, G4 signal channel (sidecar-status event subscription, no HTTP webhook), CI release pipeline.
 > Extracted from AGENTS.md to keep root file under 32 KiB (progressive disclosure).
 > This file is read by agents when they need architecture implementation details.
 > Source: AGENTS.md ### sections 11-17, content unchanged (extraction only).
@@ -50,7 +50,9 @@
 - **e2e contract**: `e2e/platform_round_trip.spec.ts` runs against the Vite dev server (no native Tauri webview driver) and asserts the Platforms tab renders, the add-platform form round-trips through the optimistic `appStore` reducer (the IPC error is swallowed gracefully outside Tauri), and the five desktop tabs stay available. Backend round-trip is the release-exe smoke + the ResinClient mockito tests.
 - **Next**: G4 (copy Resin webui into `src/resin-views` for the real Platform / Subscription / node-account surface) + G5 (CI/CD three-platform release pipeline). [Landed — see §16 / §17]: G4 shipped differently (the Resin webui was NOT forked; the shell's own screens see live Resin data through this retarget), and G5 shipped as the CI release pipeline.
 
-## 16. Resin webhook into the desktop shell (G4, current commit)
+## 16. Resin → shell signal channel (G4: IPC retarget + sidecar-status event subscription, current commit)
+
+> Canonical wording: the Resin → shell signal = `app.listen("sidecar-status")` event subscription (no HTTP webhook endpoint — the Resin upstream Admin API is a pure pull model).
 
 - **Ponytail decision**: we did NOT physically copy Resin's `webui/` React app into a new `src/resin-views/`. The existing 5-tab desktop shell (Topology / Platforms / Subscriptions / ProcessRoute / Settings) already owns the desktop UX surface (Tauri webview, tray, theme, i18n); forking Resin's own providers/api/store/vite config would have re-engineered a working frontend for net-zero visual change. The real fork contract is making the shell SEE the live Resin data, which is the ResinClient + IPC retarget (G2 phase 2 + this commit).
 - **ResinClient now (3 endpoints added)**: `create_subscription(body)`, `list_subscriptions()`, `delete_subscription(id)` under `/api/v1/subscriptions`. `node_pool_snapshot()` already existed. The loopback + bearer-auth + non-2xx-error-excerpt guards are shared with the platform methods.
