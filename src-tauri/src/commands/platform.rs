@@ -171,6 +171,136 @@ pub async fn process_route_list(
     Ok(whitebox.snapshot().process_routes)
 }
 
+// ── Account header rules (round5 T16 / ADR-0063) ──────────────────
+// Thin IPC facades over the ResinClient account-header-rules family
+// (R32-R35). These are L3 pass-through reads/writes on the Resin
+// control plane — NO L2 whitebox file, no snapshot field, no reconcile
+// action (coexistence legislation in ADR-0063). §7.5: every string
+// input is length-capped and control-char-rejected BEFORE reaching
+// ResinClient (which re-validates defensively).
+
+/// §7.5 shared gate for account-header-rule string inputs: DNS-host
+/// style cap (253) + reject NUL/control characters.
+fn validate_rule_string(value: &str, field: &str) -> Result<(), IpcError> {
+    if value.trim().is_empty() {
+        return Err(IpcError::from(format!(
+            "account_header_rules: {field} must be non-empty"
+        )));
+    }
+    if value.len() > 253 {
+        return Err(IpcError::from(format!(
+            "account_header_rules: {field} length out of range (1..=253, got {})",
+            value.len()
+        )));
+    }
+    if value.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+        return Err(IpcError::from(format!(
+            "account_header_rules: {field} contains control characters"
+        )));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_account_header_rules(
+    sidecar: State<'_, SidecarHandle>,
+    keyword: Option<String>,
+) -> Result<serde_json::Value, IpcError> {
+    if let Some(k) = &keyword {
+        if k.len() > 253 {
+            return Err(IpcError::from(
+                "account_header_rules: keyword length out of range (<=253)".to_string(),
+            ));
+        }
+        if k.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err(IpcError::from(
+                "account_header_rules: keyword contains control characters".to_string(),
+            ));
+        }
+    }
+    let client = resin_client(&sidecar)?;
+    client
+        .list_account_header_rules(keyword.as_deref())
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
+}
+
+#[tauri::command]
+pub async fn put_account_header_rules(
+    sidecar: State<'_, SidecarHandle>,
+    url_prefix: String,
+    headers: Vec<String>,
+) -> Result<serde_json::Value, IpcError> {
+    validate_rule_string(&url_prefix, "url_prefix")?;
+    if headers.is_empty() {
+        return Err(IpcError::from(
+            "account_header_rules: headers must be a non-empty array".to_string(),
+        ));
+    }
+    if headers.len() > 64 {
+        return Err(IpcError::from(
+            "account_header_rules: headers length out of range (1..=64)".to_string(),
+        ));
+    }
+    for h in &headers {
+        validate_rule_string(h, "header")?;
+    }
+    let client = resin_client(&sidecar)?;
+    client
+        .put_account_header_rules(&url_prefix, &headers)
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
+}
+
+#[tauri::command]
+pub async fn resolve_account_header_rule(
+    sidecar: State<'_, SidecarHandle>,
+    url: String,
+) -> Result<serde_json::Value, IpcError> {
+    // resolve URL is an absolute http(s) URL, not a DNS host: cap at 2048.
+    if url.trim().is_empty() {
+        return Err(IpcError::from(
+            "account_header_rules: url must be non-empty".to_string(),
+        ));
+    }
+    if url.len() > 2048 {
+        return Err(IpcError::from(
+            "account_header_rules: url length out of range (1..=2048)".to_string(),
+        ));
+    }
+    if url.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+        return Err(IpcError::from(
+            "account_header_rules: url contains control characters".to_string(),
+        ));
+    }
+    // §7.6 URL convention: absolute http(s) only; Resin's
+    // parseHTTPAbsoluteURL would reject anything else anyway.
+    let lower = url.to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) {
+        return Err(IpcError::from(
+            "account_header_rules: url must be an absolute http(s) URL".to_string(),
+        ));
+    }
+    let client = resin_client(&sidecar)?;
+    client
+        .resolve_account_header_rule(&url)
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
+}
+
+#[tauri::command]
+pub async fn delete_account_header_rule(
+    sidecar: State<'_, SidecarHandle>,
+    url_prefix: String,
+) -> Result<serde_json::Value, IpcError> {
+    validate_rule_string(&url_prefix, "url_prefix")?;
+    let client = resin_client(&sidecar)?;
+    client
+        .delete_account_header_rule(&url_prefix)
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
+}
+
 #[tauri::command]
 pub async fn subscription_add(
     sidecar: State<'_, SidecarHandle>,

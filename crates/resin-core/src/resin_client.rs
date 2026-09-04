@@ -508,6 +508,88 @@ impl ResinClient {
         let path = format!("/request-logs/{}/payloads", urlencoding(log_id));
         self.send_read(&path).await
     }
+    // ── Account header rules (round5 T16; D-35 coexistence with process_route per ADR-0063) ──
+
+    /// GET /api/v1/account-header-rules?limit=1000&offset=0 — list all rules.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R32
+    /// Page size mirrors the bundled WebUI rules client (limit=1000) so the
+    /// full rule set comes back in one page (Resin's default page limit is
+    /// 50). `keyword` filters server-side over url_prefix + header values
+    /// when non-empty; the {"items":[...],"total","limit","offset"} wrapper
+    /// is passed through verbatim.
+    pub async fn list_account_header_rules(&self, keyword: Option<&str>) -> Result<Value> {
+        let mut path = String::from("/account-header-rules?limit=1000&offset=0");
+        if let Some(k) = keyword {
+            let k = k.trim();
+            if !k.is_empty() {
+                path.push_str("&keyword=");
+                path.push_str(&urlencoding(k));
+            }
+        }
+        self.send_read(&path).await
+    }
+
+    /// PUT /api/v1/account-header-rules/{url_prefix...} — upsert one rule.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R33
+    /// The url_prefix lives in the PATH (encoded with encodeURIComponent
+    /// semantics — see encode_uri_component); the body carries ONLY
+    /// {"headers":[...]} because Resin rejects a url_prefix field in the
+    /// body (handler_rules.go:75-78). 201 = created, 200 = updated. Header
+    /// names are validated by Resin as RFC 7230 tokens; length/control-char
+    /// caps here are the §7.5-style defensive mirror.
+    pub async fn put_account_header_rules(&self, url_prefix: &str, headers: &[String]) -> Result<Value> {
+        if url_prefix.trim().is_empty() {
+            return Err(anyhow!("resin_client: url_prefix cannot be empty"));
+        }
+        if url_prefix.len() > 253 {
+            return Err(anyhow!("resin_client: url_prefix length > 253"));
+        }
+        if url_prefix.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err(anyhow!("resin_client: url_prefix contains control characters"));
+        }
+        let path = format!("/account-header-rules/{}", encode_uri_component(url_prefix));
+        let body = serde_json::json!({ "headers": headers });
+        self.send_with_retry(reqwest::Method::PUT, &path, Some(body)).await
+    }
+
+    /// POST /api/v1/account-header-rules:resolve — matcher debug aid.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R34
+    /// Body is {"url": <absolute http(s) url>}; the response is
+    /// {"matched_url_prefix": ..., "headers": [...]} — empty fields mean NO
+    /// rule matched, which is a 200 result and not an error.
+    pub async fn resolve_account_header_rule(&self, url: &str) -> Result<Value> {
+        if url.trim().is_empty() {
+            return Err(anyhow!("resin_client: url cannot be empty"));
+        }
+        if url.len() > 2048 {
+            return Err(anyhow!("resin_client: url length > 2048"));
+        }
+        if url.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err(anyhow!("resin_client: url contains control characters"));
+        }
+        let body = serde_json::json!({ "url": url });
+        self.send_with_retry(reqwest::Method::POST, "/account-header-rules:resolve", Some(body)).await
+    }
+
+    /// DELETE /api/v1/account-header-rules/{url_prefix...} — remove one rule.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R35
+    /// Keyed by the normalized url_prefix (NOT an id); 204 -> Ok(Null). The
+    /// fallback rule "*" is rejected upstream with invalid_argument and
+    /// surfaces here as a 400 error string.
+    pub async fn delete_account_header_rule(&self, url_prefix: &str) -> Result<Value> {
+        if url_prefix.trim().is_empty() {
+            return Err(anyhow!("resin_client: url_prefix cannot be empty"));
+        }
+        if url_prefix.len() > 253 {
+            return Err(anyhow!("resin_client: url_prefix length > 253"));
+        }
+        if url_prefix.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err(anyhow!("resin_client: url_prefix contains control characters"));
+        }
+        let path = format!("/account-header-rules/{}", encode_uri_component(url_prefix));
+        self.send_with_retry(reqwest::Method::DELETE, &path, None).await
+    }
+
 }
 
 /// Filter query for ResinClient::request_logs. Empty/None fields are omitted
@@ -546,6 +628,26 @@ fn urlencoding(s: &str) -> String {
             }
         })
         .collect()
+}
+
+/// encodeURIComponent-compatible path-segment encoder for account-header-rule
+/// url_prefix values (round5 T16). The upstream contract test exercises
+/// `api.example.com%2Fv1` — the `/` MUST stay percent-encoded so the Go 1.22
+/// ServeMux `{prefix...}` wildcard receives one segment and unescapes it back
+/// to `api.example.com/v1`. Mirrors JS encodeURIComponent byte-for-byte
+/// (unreserved: A-Z a-z 0-9 - _ . ! ~ * ' ( )) to match the bundled WebUI
+/// rules client, the proven-good encoding against this exact server.
+fn encode_uri_component(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        let c = b as char;
+        if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '!' | '~' | '*' | '\'' | '(' | ')') {
+            out.push(c);
+        } else {
+            out.push_str(&format!("%{:02X}", b));
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -1378,6 +1480,189 @@ mod tests {
 
    #[test]
    fn t15_4_shared_client_returns_same_instance() {
+    // ── Account header rules mockito tests (round5 T16, R32-R35) ─────
+
+    #[tokio::test]
+    async fn mockito_list_account_header_rules_happy_path() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"items":[{"url_prefix":"api.example.com/v1","headers":["Authorization"],"updated_at":"2026-09-04T00:00:00Z"}],"total":1,"limit":1000,"offset":0}"#;
+        let m = server
+            .mock("GET", "/api/v1/account-header-rules?limit=1000&offset=0")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .list_account_header_rules(None)
+            .await
+            .expect("list_account_header_rules should succeed");
+        assert_eq!(out["total"], 1);
+        assert_eq!(out["items"][0]["url_prefix"], "api.example.com/v1");
+        assert_eq!(out["items"][0]["headers"][0], "Authorization");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_list_account_header_rules_keyword_filter() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"items":[{"url_prefix":"files.example.com/v2","headers":["X-Trace-Id"],"updated_at":"2026-09-04T00:00:00Z"}],"total":1,"limit":1000,"offset":0}"#;
+        let m = server
+            .mock("GET", "/api/v1/account-header-rules?limit=1000&offset=0&keyword=trace")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        // keyword is trimmed by the wrapper: " trace " -> "trace".
+        let out = c
+            .list_account_header_rules(Some(" trace "))
+            .await
+            .expect("keyword list should succeed");
+        assert_eq!(out["items"][0]["url_prefix"], "files.example.com/v2");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_put_account_header_rules_created_201() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"url_prefix":"api.example.com/v1","headers":["Authorization"],"updated_at":"2026-09-04T00:00:00Z"}"#;
+        let m = server
+            .mock("PUT", "/api/v1/account-header-rules/api.example.com%2Fv1")
+            .match_header("authorization", "Bearer testtok")
+            .match_header("content-type", "application/json")
+            .match_body(r#"{"headers":["Authorization"]}"#)
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .put_account_header_rules("api.example.com/v1", &["Authorization".to_string()])
+            .await
+            .expect("put_account_header_rules should succeed");
+        assert_eq!(out["url_prefix"], "api.example.com/v1");
+        assert_eq!(out["headers"][0], "Authorization");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_put_account_header_rules_400_invalid_header() {
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("PUT", "/api/v1/account-header-rules/api.example.com%2Fv1")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(400)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"invalid_argument","message":"headers[0]: \"bad header\" is not a valid HTTP header name (RFC 7230 token)"}"#)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let err = c
+            .put_account_header_rules("api.example.com/v1", &["bad header".to_string()])
+            .await
+            .expect_err("invalid header name must surface the upstream 400");
+        assert!(err.to_string().contains("400"), "error carries status: {err}");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_resolve_account_header_rule_matched() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"matched_url_prefix":"api.example.com","headers":["Authorization"]}"#;
+        let m = server
+            .mock("POST", "/api/v1/account-header-rules:resolve")
+            .match_header("authorization", "Bearer testtok")
+            .match_header("content-type", "application/json")
+            .match_body(mockito::Matcher::Regex(r#""url":"https://api.example.com/v1/chat".*"#.to_string()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .resolve_account_header_rule("https://api.example.com/v1/chat")
+            .await
+            .expect("resolve_account_header_rule should succeed");
+        assert_eq!(out["matched_url_prefix"], "api.example.com");
+        assert_eq!(out["headers"][0], "Authorization");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_resolve_account_header_rule_no_match_empty() {
+        let mut server = mockito::Server::new_async().await;
+        // No rule matched: 200 with empty fields, NOT an error (control_plane_rules.go:167-169).
+        let m = server
+            .mock("POST", "/api/v1/account-header-rules:resolve")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"matched_url_prefix":"","headers":[]}"#)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .resolve_account_header_rule("https://unmatched.example.org/x")
+            .await
+            .expect("no-match resolve is a 200 result");
+        assert_eq!(out["matched_url_prefix"], "");
+        assert_eq!(out["headers"].as_array().map(|a| a.len()), Some(0));
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_delete_account_header_rule_204_null() {
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("DELETE", "/api/v1/account-header-rules/files.example.com%2Fv2")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(204)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .delete_account_header_rule("files.example.com/v2")
+            .await
+            .expect("delete_account_header_rule should succeed");
+        assert!(out.is_null(), "204 no content -> Null, got {out}");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_delete_account_header_rule_404_not_found() {
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("DELETE", "/api/v1/account-header-rules/missing.example.com")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(404)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"not_found","message":"rule not found"}"#)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let err = c
+            .delete_account_header_rule("missing.example.com")
+            .await
+            .expect_err("unknown rule surfaces the upstream 404");
+        assert!(err.to_string().contains("404"), "error carries status: {err}");
+        m.assert_async().await;
+    }
+
         // Two calls to shared_client() must return pointers to the same Client.
         let a = shared_client();
         let b = shared_client();

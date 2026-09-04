@@ -434,6 +434,62 @@ export async function ipcProcessRouteList(): Promise<ProcessRouteRule[]> {
   return invoke<ProcessRouteRule[]>("process_route_list");
 }
 
+// ── Account header rules (round5 T16 / ADR-0063): Resin-side HTTP-header
+// routing family, R32-R35. Coexists with the process_route_* family —
+// see docs/architecture/PROCESS_ROUTE_VS_HEADER_RULES.md.
+
+/** §7.5 shared TS gate: DNS-host style cap (253) + reject control chars. */
+function assertRuleString(v: string, field: string): void {
+  if (!v || v.trim().length === 0 || v.length > 253 || /[\u0000-\u001f\u007f]/.test(v)) {
+    throw new Error(`${field} invalid (1..253 chars, no control chars)`);
+  }
+}
+
+/** GET /api/v1/account-header-rules (R32) — raw items-wrapper passthrough. */
+export async function ipcListAccountHeaderRules(
+  keyword?: string,
+): Promise<unknown> {
+  if (keyword !== undefined) {
+    if (keyword.length > 253 || /[\u0000-\u001f\u007f]/.test(keyword)) {
+      throw new Error("keyword invalid (<=253 chars, no control chars)");
+    }
+  }
+  return invoke("list_account_header_rules", { keyword });
+}
+
+/** PUT /api/v1/account-header-rules/{prefix} (R33) — upsert one rule. */
+export async function ipcPutAccountHeaderRules(
+  urlPrefix: string,
+  headers: string[],
+): Promise<unknown> {
+  assertRuleString(urlPrefix, "url_prefix");
+  if (!Array.isArray(headers) || headers.length === 0 || headers.length > 64) {
+    throw new Error("headers must be a non-empty array (1..64)");
+  }
+  for (const h of headers) {
+    assertRuleString(h, "header");
+  }
+  return invoke("put_account_header_rules", { urlPrefix, headers });
+}
+
+/** POST /api/v1/account-header-rules:resolve (R34) — matcher debug aid. */
+export async function ipcResolveAccountHeaderRule(url: string): Promise<unknown> {
+  if (!url || url.length > 2048 || /[\u0000-\u001f\u007f]/.test(url)) {
+    throw new Error("url invalid (1..2048 chars, no control chars)");
+  }
+  // §7.6 URL convention: absolute http(s) only (same as subscription_add).
+  if (!/^https?:\/\//i.test(url)) {
+    throw new Error("url must be an absolute http(s) URL");
+  }
+  return invoke("resolve_account_header_rule", { url });
+}
+
+/** DELETE /api/v1/account-header-rules/{prefix} (R35) — remove one rule. */
+export async function ipcDeleteAccountHeaderRule(urlPrefix: string): Promise<unknown> {
+  assertRuleString(urlPrefix, "url_prefix");
+  return invoke("delete_account_header_rule", { urlPrefix });
+}
+
 /// Round 5 T07 / ADR-0061: export the L2 whitebox config (strategy + ports).
 export async function ipcConfigExport(): Promise<unknown> {
   return invoke("config_export");

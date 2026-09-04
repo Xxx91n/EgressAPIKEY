@@ -127,6 +127,11 @@ fn main() {
             commands::process_route_add,
             commands::process_route_remove,
             commands::process_route_list,
+            // Round 5 T16 / ADR-0063: Resin account-header-rules family (R32-R35).
+            commands::list_account_header_rules,
+            commands::put_account_header_rules,
+            commands::resolve_account_header_rule,
+            commands::delete_account_header_rule,
             commands::subscription_add,
             commands::subscription_remove,
             commands::subscription_list,
