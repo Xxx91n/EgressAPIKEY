@@ -1168,6 +1168,28 @@ export async function ipcGetConfigDir(): Promise<string> {
   return invoke<string>("get_config_dir");
 }
 
+export interface AuditExportResult {
+  exported_to: string;
+  bytes: number;
+  rows: number;
+}
+
+/**
+ * Round 5 T11 / ADR-0059: export the append-only audit log to the path
+ * returned by the native save dialog (Settings > Storage "Export audit log").
+ * Validates the path at the TS boundary (non-empty, 1..4096 chars, no control
+ * chars) before invoking — AGENTS §7.5 validate-then-invoke contract.
+ */
+export async function ipcExportAuditLog(targetPath: string): Promise<AuditExportResult> {
+  if (targetPath.length === 0 || targetPath.length > 4096) {
+    throw new Error("target_path must be 1..4096 chars");
+  }
+  if (/[\u0000-\u001f\u007f]/.test(targetPath)) {
+    throw new Error("target_path must not contain control characters");
+  }
+  return invoke<AuditExportResult>("export_audit_log", { targetPath });
+}
+
 export interface StrategyConfig {
   version: number;
   platforms: PlatformStrategy[];

@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "P2C 지연 창",
     "resinLatencyDecayWindow": "지연 감쇠 창",
     "effectiveTitle": "적용된 설정(읽기 전용)",
-    "effectiveOpen": "유효 설정 화면 열기"
+    "effectiveOpen": "유효 설정 화면 열기",
+    "exportAuditLog": "감사 로그 내보내기",
+    "exportAuditLogDone": "감사 항목 {{rows}}개 내보냄 ({{bytes}}바이트)",
+    "exportAuditLogError": "감사 로그 내보내기 실패"
   },
   "strategy": {
     "aClass": "노드 선택 (A클래스)",

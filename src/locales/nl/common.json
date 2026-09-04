@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "P2C-latencyvenster",
     "resinLatencyDecayWindow": "Latency-afnamevenster",
     "effectiveTitle": "Effectieve configuratie (alleen-lezen)",
-    "effectiveOpen": "Effectieve-configuratie-weergave openen"
+    "effectiveOpen": "Effectieve-configuratie-weergave openen",
+    "exportAuditLog": "Auditlogboek exporteren",
+    "exportAuditLogDone": "{{rows}} audititems geëxporteerd ({{bytes}} bytes)",
+    "exportAuditLogError": "Audit-export mislukt"
   },
   "strategy": {
     "aClass": "Knoopselectie (A-klasse)",

@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "P2C लेटेंसी विंडो",
     "resinLatencyDecayWindow": "लेटेंसी क्षय विंडो",
     "effectiveTitle": "प्रभावी कॉन्फ़िगरेशन (केवल पढ़ने के लिए)",
-    "effectiveOpen": "प्रभावी कॉन्फ़िगरेशन दृश्य खोलें"
+    "effectiveOpen": "प्रभावी कॉन्फ़िगरेशन दृश्य खोलें",
+    "exportAuditLog": "ऑडिट लॉग निर्यात करें",
+    "exportAuditLogDone": "{{rows}} ऑडिट प्रविष्टियाँ निर्यात की गईं ({{bytes}} बाइट्स)",
+    "exportAuditLogError": "ऑडिट निर्यात विफल"
   },
   "strategy": {
     "aClass": "नोड चयन (A-वर्ग)",

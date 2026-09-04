@@ -521,7 +521,24 @@ pub async fn strategy_rollback(
         return Err(IpcError::from("backup_name invalid".to_string()));
     }
     let svc = strategy_service(&app)?;
-    svc.store_ref().rollback(&backup_name).map_err(IpcError::from)?;
+    // Round 5 T11 / ADR-0059: scope a rollback audit context so the row
+    // emitted by FsStrategyStore::store carries op:"rollback" + source_backup.
+    let audit_ctx = resin_core::audit::AuditCtx {
+        op: Some("rollback".into()),
+        actor: Some("gui:strategy_rollback".into()),
+        source_backup: Some(backup_name.clone()),
+        reason: None,
+    };
+    resin_core::audit::AUDIT_CTX
+        .scope(
+            audit_ctx,
+            async {
+                svc.store_ref()
+                    .rollback(&backup_name)
+                    .map_err(IpcError::from)
+            },
+        )
+        .await?;
     let client = resin_client(&sidecar)?;
     let report = svc
         .apply(&client, resolve_id_in)

@@ -114,6 +114,8 @@ fn main() {
             // #7: open config / log directory buttons in Settings.
             commands::get_config_dir,
             commands::get_log_dir,
+            // Round 5 T11 / ADR-0059: Settings > Storage "Export audit log".
+            commands::export_audit_log,
             // T2-2 (ADR-0016 Q2b): sidecar stderr ring buffer snapshot.
             commands::get_sidecar_logs,
             commands::get_sidecar_status,
@@ -232,6 +234,12 @@ fn main() {
             let cfg_dir = app.path().app_config_dir().unwrap_or_else(|_| {
                 std::env::temp_dir().join("com.egressapikey.desktop")
             });
+            // Round 5 T11 / ADR-0059: point the process-global audit log at
+            // audit.jsonl in the SAME directory as the two whitebox files
+            // (D-30: same level, never app_log_dir where rotation breaks the
+            // prev_hash chain). Best-effort only; init failure cannot block
+            // startup (argus principle).
+            resin_core::audit::init(cfg_dir.join(resin_core::audit::AUDIT_LOG_FILE));
             let db_path = cfg_dir.join("egressapikey.db");
             let db = match DbPool::open(&db_path) {
                 Ok(p) => {

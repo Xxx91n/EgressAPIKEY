@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "Okno opóźnienia P2C",
     "resinLatencyDecayWindow": "Okno zaniku opóźnienia",
     "effectiveTitle": "Konfiguracja efektywna (tylko do odczytu)",
-    "effectiveOpen": "Otwórz widok konfiguracji efektywnej"
+    "effectiveOpen": "Otwórz widok konfiguracji efektywnej",
+    "exportAuditLog": "Eksportuj dziennik audytu",
+    "exportAuditLogDone": "Wyeksportowano {{rows}} wpisów audytu ({{bytes}} bajtów)",
+    "exportAuditLogError": "Niepowodzenie eksportu audytu"
   },
   "strategy": {
     "aClass": "Wybór Węzłów (klasa A)",

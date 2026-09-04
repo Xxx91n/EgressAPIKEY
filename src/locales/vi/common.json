@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "Cửa sổ độ trễ P2C",
     "resinLatencyDecayWindow": "Cửa sổ suy giảm độ trễ",
     "effectiveTitle": "Cấu hình hiệu lực (chỉ đọc)",
-    "effectiveOpen": "Mở chế độ xem cấu hình hiệu lực"
+    "effectiveOpen": "Mở chế độ xem cấu hình hiệu lực",
+    "exportAuditLog": "Xuất nhật ký kiểm toán",
+    "exportAuditLogDone": "Đã xuất {{rows}} mục kiểm toán ({{bytes}} byte)",
+    "exportAuditLogError": "Xuất nhật ký kiểm toán thất bại"
   },
   "strategy": {
     "aClass": "Chọn Node (lớp A)",

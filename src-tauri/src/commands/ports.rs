@@ -581,10 +581,25 @@ pub async fn whitebox_rollback(
     if backup_name.is_empty() || backup_name.len() > 200 {
         return Err(IpcError::from("backup_name invalid".to_string()));
     }
-    let restored = whitebox
-        .rollback_to_backup(&db, &forwarder, &backup_name)
-        .await
-        .map_err(IpcError::from)?;
+    // Round 5 T11 / ADR-0059: scope a rollback audit context so the single
+    // row emitted by write_atomic carries op:"rollback" + source_backup.
+    let audit_ctx = resin_core::audit::AuditCtx {
+        op: Some("rollback".into()),
+        actor: Some("gui:whitebox_rollback".into()),
+        source_backup: Some(backup_name.clone()),
+        reason: None,
+    };
+    let restored = resin_core::audit::AUDIT_CTX
+        .scope(
+            audit_ctx,
+            async {
+                whitebox
+                    .rollback_to_backup(&db, &forwarder, &backup_name)
+                    .await
+                    .map_err(IpcError::from)
+            },
+        )
+        .await?;
     restore_ports_from_whitebox(&sidecar, &whitebox)
         .await
         .map_err(IpcError::from)?;

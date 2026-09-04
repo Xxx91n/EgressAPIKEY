@@ -296,9 +296,38 @@ impl StrategyConfigStore for FsStrategyStore {
 
     fn store(&self, config: &StrategyConfig) -> Result<(), String> {
         let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+        // Round 5 T11 / ADR-0059 audit: record the before/after content hashes
+        // around the write. before_hash = the CURRENT on-disk whitebox (the
+        // exact bytes backup_before_write is about to copy); after_hash = the
+        // NEW document (the bytes that land atomically). Rollback context
+        // (op:"rollback" + source_backup + reason) comes from the task-local
+        // AUDIT_CTX set by the strategy_rollback IPC command. The audit write
+        // is best-effort and never propagates (argus: audit never blocks).
+        let current = std::fs::read(&self.path).unwrap_or_default();
+        let before_hash = crate::audit::sha256_hex(&current);
+        let after_hash = crate::audit::sha256_hex(json.as_bytes());
+        let before_bytes = current.len() as u64;
+        let after_bytes = json.len() as u64;
         // ADR-0054 section B: version the previous file before the swap.
-        backup_before_write(&self.path, now_unix())?;
-        atomic_write_bytes(&self.path, json.as_bytes())
+        let write_result = (|| -> Result<(), String> {
+            backup_before_write(&self.path, now_unix())?;
+            atomic_write_bytes(&self.path, json.as_bytes())
+        })();
+        let ac = crate::audit::ctx();
+        let mut ev = crate::audit::event(
+            "L2:strategy",
+            ac.op.as_deref().unwrap_or("put"),
+            ac.actor.as_deref().unwrap_or("gui:strategy_config_put"),
+            before_hash,
+            after_hash,
+            if write_result.is_ok() { "ok" } else { "error:write failed" },
+            Some(before_bytes),
+            Some(after_bytes),
+        );
+        ev.source_backup = ac.source_backup;
+        ev.reason = ac.reason;
+        let _ = crate::audit::append(&ev);
+        write_result
     }
 }
 

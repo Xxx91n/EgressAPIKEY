@@ -1,8 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { invokeMock } from "../test/setup";
 import { SettingsView } from "./SettingsView";
 import { useAppStore } from "../store/appStore";
+
+// Round 5 T11 / ADR-0059: the Export audit log button uses the native save
+// dialog from @tauri-apps/plugin-dialog; mock it so the webview test can drive
+// the chosen path and assert the export_audit_log IPC fires with it.
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  save: vi.fn(),
+}));
+import { save as mockDialogSave } from "@tauri-apps/plugin-dialog";
 
 afterEach(() => cleanup());
 
@@ -156,6 +164,43 @@ describe("SettingsView T6-3 network layer card closed-loop", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("net-dns-upstreams")).toHaveValue("");
+    });
+  });
+});
+
+// Round 5 T11 / ADR-0059: Settings > Storage "Export audit log" button.
+describe("SettingsView T11 export audit log button (ADR-0059)", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    vi.mocked(mockDialogSave).mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "whitebox_get") return Promise.resolve({ version: 1, entry_ports: [], network: {} });
+      if (cmd === "whitebox_path") return Promise.resolve("/tmp/test.json");
+      if (cmd === "get_sidecar_status") return Promise.resolve({ api_port: 12345, mode: "running" });
+      if (cmd === "lightweight_get") return Promise.resolve({ enabled: true, delay_minutes: 10 });
+      if (cmd === "lightweight_set") return Promise.resolve(undefined);
+      if (cmd === "get_config_dir") return Promise.resolve("/tmp");
+      if (cmd === "export_audit_log") return Promise.resolve({ exported_to: "/tmp/audit.jsonl", bytes: 120, rows: 3 });
+      return Promise.resolve(undefined);
+    });
+  });
+
+  it("renders the Export audit log button in the Storage card", () => {
+    render(<SettingsView />);
+    expect(screen.getByRole("button", { name: "Export audit log" })).toBeInTheDocument();
+  });
+
+  it("fires export_audit_log with the save-dialog path and shows the exported summary", async () => {
+    vi.mocked(mockDialogSave).mockResolvedValue("/tmp/audit.jsonl");
+    render(<SettingsView />);
+    fireEvent.click(screen.getByRole("button", { name: "Export audit log" }));
+    await waitFor(() => {
+      const calls = invokeMock.mock.calls.filter(([cmd]) => cmd === "export_audit_log");
+      expect(calls.length).toBe(1);
+      expect(calls[0][1]).toMatchObject({ targetPath: "/tmp/audit.jsonl" });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("settings-audit-msg")).toHaveTextContent("Exported 3 audit entries");
     });
   });
 });

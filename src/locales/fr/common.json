@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "Fenêtre de latence P2C",
     "resinLatencyDecayWindow": "Fenêtre de décroissance de latence",
     "effectiveTitle": "Configuration effective (lecture seule)",
-    "effectiveOpen": "Ouvrir la vue de configuration effective"
+    "effectiveOpen": "Ouvrir la vue de configuration effective",
+    "exportAuditLog": "Exporter le journal d'audit",
+    "exportAuditLogDone": "{{rows}} entrées d'audit exportées ({{bytes}} octets)",
+    "exportAuditLogError": "Échec de l'export d'audit"
   },
   "strategy": {
     "aClass": "Sélection de Nœuds (classe A)",

@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "نافذة زمن الاستجابة P2C",
     "resinLatencyDecayWindow": "نافذة اضمحلال زمن الاستجابة",
     "effectiveTitle": "الإعدادات الفعلية (للقراءة فقط)",
-    "effectiveOpen": "فتح عرض التكوين الفعلي"
+    "effectiveOpen": "فتح عرض التكوين الفعلي",
+    "exportAuditLog": "تصدير سجل المراجعة",
+    "exportAuditLogDone": "تم تصدير {{rows}} إدخالات مراجعة ({{bytes}} بايت)",
+    "exportAuditLogError": "فشل تصدير المراجعة"
   },
   "strategy": {
     "aClass": "اختيار العقد (فئة A)",

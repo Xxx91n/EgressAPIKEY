@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "P2C-Latenzfenster",
     "resinLatencyDecayWindow": "Latenz-Abklingfenster",
     "effectiveTitle": "Effektive Konfiguration (schreibgeschützt)",
-    "effectiveOpen": "Effektive-Konfiguration-Ansicht öffnen"
+    "effectiveOpen": "Effektive-Konfiguration-Ansicht öffnen",
+    "exportAuditLog": "Auditprotokoll exportieren",
+    "exportAuditLogDone": "{{rows}} Audit-Einträge exportiert ({{bytes}} Bytes)",
+    "exportAuditLogError": "Audit-Export fehlgeschlagen"
   },
   "strategy": {
     "aClass": "Knotenauswahl (A-Klasse)",

@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "Ventana de latencia P2C",
     "resinLatencyDecayWindow": "Ventana de decaimiento de latencia",
     "effectiveTitle": "Configuración efectiva (solo lectura)",
-    "effectiveOpen": "Abrir la vista de configuración efectiva"
+    "effectiveOpen": "Abrir la vista de configuración efectiva",
+    "exportAuditLog": "Exportar registro de auditoría",
+    "exportAuditLogDone": "Se exportaron {{rows}} entradas de auditoría ({{bytes}} bytes)",
+    "exportAuditLogError": "Error al exportar la auditoría"
   },
   "strategy": {
     "aClass": "Selección de Nodos (clase A)",

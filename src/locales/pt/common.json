@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "Janela de latência P2C",
     "resinLatencyDecayWindow": "Janela de decaimento de latência",
     "effectiveTitle": "Configuração efetiva (somente leitura)",
-    "effectiveOpen": "Abrir a visão de configuração efetiva"
+    "effectiveOpen": "Abrir a visão de configuração efetiva",
+    "exportAuditLog": "Exportar registo de auditoria",
+    "exportAuditLogDone": "{{rows}} entradas de auditoria exportadas ({{bytes}} bytes)",
+    "exportAuditLogError": "Falha na exportação de auditoria"
   },
   "strategy": {
     "aClass": "Seleção de Nós (classe A)",

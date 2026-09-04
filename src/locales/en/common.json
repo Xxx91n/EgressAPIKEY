@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "P2C latency window",
     "resinLatencyDecayWindow": "Latency decay window",
     "effectiveTitle": "Effective config (read-only)",
-    "effectiveOpen": "Open the effective config view"
+    "effectiveOpen": "Open the effective config view",
+    "exportAuditLog": "Export audit log",
+    "exportAuditLogDone": "Exported {{rows}} audit entries ({{bytes}} bytes)",
+    "exportAuditLogError": "Audit export failed"
   },
   "strategy": {
     "aClass": "Node Selection (A-class)",

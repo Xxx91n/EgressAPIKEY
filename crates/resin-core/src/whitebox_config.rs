@@ -513,11 +513,36 @@ async fn apply_ports(
 /// Atomic whitebox write with versioning (ADR-0054 section B): the current
 /// file is copied to backup/ and rotated BEFORE the new bytes replace it.
 /// Callers have already validated; a failed backup aborts the write.
+/// Round 5 T11 / ADR-0059 audit: records a best-effort row with the
+/// before/after content hashes (never propagates; rollback context comes
+/// from the AUDIT_CTX task-local set by the whitebox_rollback IPC command).
 fn write_atomic(path: &Path, config: &WhiteboxConfig) -> Result<(), String> {
-    backup_before_write(path, now_unix())?;
+    let current = std::fs::read(path).unwrap_or_default();
     let bytes =
         serde_json::to_vec_pretty(config).map_err(|e| format!("encode whitebox config: {e}"))?;
-    atomic_write_bytes(path, &bytes)
+    let before_hash = crate::audit::sha256_hex(&current);
+    let after_hash = crate::audit::sha256_hex(&bytes);
+    let before_bytes = current.len() as u64;
+    let after_bytes = bytes.len() as u64;
+    let write_result = (|| -> Result<(), String> {
+        backup_before_write(path, now_unix())?;
+        atomic_write_bytes(path, &bytes)
+    })();
+    let ac = crate::audit::ctx();
+    let mut ev = crate::audit::event(
+        "L2:ports",
+        ac.op.as_deref().unwrap_or("apply"),
+        ac.actor.as_deref().unwrap_or("whitebox:apply"),
+        before_hash,
+        after_hash,
+        if write_result.is_ok() { "ok" } else { "error:write failed" },
+        Some(before_bytes),
+        Some(after_bytes),
+    );
+    ev.source_backup = ac.source_backup;
+    ev.reason = ac.reason;
+    let _ = crate::audit::append(&ev);
+    write_result
 }
 
 #[cfg(test)]

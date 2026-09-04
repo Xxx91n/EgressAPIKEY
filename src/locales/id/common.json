@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "Jendela latensi P2C",
     "resinLatencyDecayWindow": "Jendela peluruhan latensi",
     "effectiveTitle": "Konfigurasi efektif (baca-saja)",
-    "effectiveOpen": "Buka tampilan konfigurasi efektif"
+    "effectiveOpen": "Buka tampilan konfigurasi efektif",
+    "exportAuditLog": "Ekspor log audit",
+    "exportAuditLogDone": "Diekspor {{rows}} entri audit ({{bytes}} byte)",
+    "exportAuditLogError": "Gagal ekspor audit"
   },
   "strategy": {
     "aClass": "Pemilihan Node (kelas A)",

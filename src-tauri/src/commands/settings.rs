@@ -172,6 +172,43 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, IpcError> {
     }
 }
 
+/// Round 5 T11 / ADR-0059: export the append-only audit log (audit.jsonl) to
+/// a user-chosen path (Settings > Storage "Export audit log"). A plain copy
+/// of the live log; the "offline evidence package" zip (audit + backup/ +
+/// whitebox) is an optional stretch documented in the T11 report, not part of
+/// this minimal command. Best-effort: a missing log returns a clear error so
+/// the UI can surface it; a failed copy never touches app state.
+#[tauri::command]
+pub async fn export_audit_log(
+    app: AppHandle,
+    target_path: String,
+) -> Result<serde_json::Value, IpcError> {
+    if target_path.is_empty() || target_path.len() > 4096 {
+        return Err(IpcError::from("target_path must be 1..4096 chars".to_string()));
+    }
+    if target_path.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+        return Err(IpcError::from("target_path contains control characters".to_string()));
+    }
+    let cfg_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| IpcError::from(format!("app_config_dir: {e:?}")))?;
+    let src = cfg_dir.join(resin_core::audit::AUDIT_LOG_FILE);
+    if !src.is_file() {
+        return Err(IpcError::from(
+            "audit log not found; no audited writes recorded yet".to_string(),
+        ));
+    }
+    let bytes = std::fs::read(&src).map_err(|e| IpcError::from(format!("read audit log: {e}")))?;
+    let dst = std::path::PathBuf::from(&target_path);
+    std::fs::write(&dst, &bytes).map_err(|e| IpcError::from(format!("write export: {e}")))?;
+    Ok(serde_json::json!({
+        "exported_to": dst.to_string_lossy(),
+        "bytes": bytes.len() as u64,
+        "rows": bytes.iter().filter(|&&b| b == b'\n').count() as u64,
+    }))
+}
+
 /// T14-8: get lightweight mode config (enabled + delay_minutes).
 /// Reads from tauri-plugin-store settings.json — returns {enabled, delay_minutes}.
 #[tauri::command]

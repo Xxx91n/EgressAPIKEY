@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "หน้าต่างแฝงเวลา P2C",
     "resinLatencyDecayWindow": "หน้าต่างสลายแฝงเวลา",
     "effectiveTitle": "การตั้งค่าที่มีผลจริง (อ่านอย่างเดียว)",
-    "effectiveOpen": "เปิดมุมมองการกำหนดค่าที่มีผล"
+    "effectiveOpen": "เปิดมุมมองการกำหนดค่าที่มีผล",
+    "exportAuditLog": "ส่งออกบันทึกการตรวจสอบ",
+    "exportAuditLogDone": "ส่งออกรายการตรวจสอบ {{rows}} รายการ ({{bytes}} ไบต์)",
+    "exportAuditLogError": "การส่งออกบันทึกการตรวจสอบล้มเหลว"
   },
   "strategy": {
     "aClass": "การเลือกโหนด (คลาส A)",

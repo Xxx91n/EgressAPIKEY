@@ -578,3 +578,18 @@ ADR-0042 write entries, never a bypass), is itself backed up (reversible),
 and is followed by an automatic snapshot re-check. Backups are runtime data
 under `app_config_dir()` and never enter git (ADR-0054 §B).
 _Avoid_: undo stack, autosave, config trash bin
+
+### Audit Event
+
+One append-only JSONL row in `app_config_dir()/audit.jsonl` recording a
+mutation of the L2 authoritative config (strategy JSON write entry or
+whitebox `write_atomic`), per ADR-0059. Eight required fields: `schema`,
+`ts`, `audit_id`, `target`, `op` (`put`/`apply`/`rollback`), `actor` (e.g.
+`gui:strategy_config_put`), `before_hash`/`after_hash` (SHA-256 of full
+written content), `outcome` (`ok`/`failed`); a rollback row additionally
+carries `source_backup`, and every row chains to the previous one via
+`prev_hash` (row-to-row, survives rotation). Audit logging is best-effort:
+a failed append degrades to a tracing warning and never blocks the write
+or app startup (Argus principle). The log answers actor history; the
+10-deep backup ring answers content history.
+_Avoid_: change log, event sourcing, security audit trail

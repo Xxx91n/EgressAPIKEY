@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "P2C 延迟窗口",
     "resinLatencyDecayWindow": "延迟衰减窗口",
     "effectiveTitle": "生效配置（只读）",
-    "effectiveOpen": "打开生效配置视图"
+    "effectiveOpen": "打开生效配置视图",
+    "exportAuditLog": "导出审计日志",
+    "exportAuditLogDone": "已导出 {{rows}} 条审计记录（{{bytes}} 字节）",
+    "exportAuditLogError": "审计导出失败"
   },
   "strategy": {
     "aClass": "节点选择 (A类)",

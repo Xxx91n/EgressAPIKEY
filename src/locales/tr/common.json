@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "P2C gecikme penceresi",
     "resinLatencyDecayWindow": "Gecikme azalma penceresi",
     "effectiveTitle": "Etkin yapılandırma (salt okunur)",
-    "effectiveOpen": "Etkin yapılandırma görünümünü aç"
+    "effectiveOpen": "Etkin yapılandırma görünümünü aç",
+    "exportAuditLog": "Denetim günlüğünü dışa aktar",
+    "exportAuditLogDone": "{{rows}} denetim kaydı dışa aktarıldı ({{bytes}} bayt)",
+    "exportAuditLogError": "Denetim dışa aktarma başarısız"
   },
   "strategy": {
     "aClass": "Düğüm Seçimi (A sınıfı)",

@@ -26,6 +26,11 @@ rusqlite = { workspace = true }
 once_cell = { workspace = true }
 futures-util = { workspace = true }
 url = { workspace = true }
+# Round 5 T11 / ADR-0059: audit log SHA-256 + uuid. Both are already in the
+# workspace lockfile (transitive via reqwest/rustls), so this adds no new
+# fetch; they become direct deps so audit.rs can hash rows and mint ids.
+sha2 = { version = "0.10", default-features = false }
+uuid = { version = "1", features = ["v4"] }
 # Ticket 09 (tauri-specta pilot): optional, enabled only by the Tauri shell.
 specta = { version = "=2.0.0-rc.25", optional = true }
 

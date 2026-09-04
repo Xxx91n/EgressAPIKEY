@@ -249,7 +249,10 @@
     "resinP2cLatencyWindow": "P2C レイテンシーウィンドウ",
     "resinLatencyDecayWindow": "レイテンシー減衰ウィンドウ",
     "effectiveTitle": "有効な設定（読み取り専用）",
-    "effectiveOpen": "有効設定ビューを開く"
+    "effectiveOpen": "有効設定ビューを開く",
+    "exportAuditLog": "監査ログをエクスポート",
+    "exportAuditLogDone": "{{rows}} 件の監査エントリをエクスポートしました（{{bytes}} バイト）",
+    "exportAuditLogError": "監査ログのエクスポートに失敗しました"
   },
   "strategy": {
     "aClass": "ノード選択 (Aクラス)",

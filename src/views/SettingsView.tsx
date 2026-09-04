@@ -4,7 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
   import { useEffect, useMemo, useState, useRef } from "react";
 import {ArrowRight, Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap, RefreshCw} from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, ipcGetConfigDir,
+import { save } from "@tauri-apps/plugin-dialog";
+import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, ipcGetConfigDir, ipcExportAuditLog,
   ipcSystemConfigGet,
   ipcSystemConfigPatch, type StrategyApplyResult} from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
@@ -144,6 +145,9 @@ export function SettingsView() {
   const [configBusy, setConfigBusy] = useState(false);
   // surface it. Swallow errors (vitest, sidecar not running, IPC not registered).
   const [configMsg, setConfigMsg] = useState("");
+  // Round 5 T11 / ADR-0059: Export audit log button state.
+  const [auditBusy, setAuditBusy] = useState(false);
+  const [auditMsg, setAuditMsg] = useState("");
   // T15-v3-4: strategy config reload surface (ADR-0039 SS5)
   const [strategyConfigPath, setStrategyConfigPath] = useState("");
   const [strategyBusy, setStrategyBusy] = useState(false);
@@ -302,6 +306,31 @@ export function SettingsView() {
     } finally {
       setConfigBusy(false);
       setTimeout(() => setConfigMsg(""), 3000);
+    }
+  };
+
+  const doExportAuditLog = async () => {
+    setAuditBusy(true);
+    setAuditMsg("");
+    try {
+      const targetPath = await save({
+        title: t("settings.exportAuditLog"),
+        defaultPath: "egressapikey-audit.jsonl",
+        filters: [{ name: "JSONL", extensions: ["jsonl"] }],
+      });
+      if (!targetPath) {
+        setAuditBusy(false); // user cancelled the save dialog
+        return;
+      }
+      const result = await ipcExportAuditLog(targetPath);
+      setAuditMsg(
+        t("settings.exportAuditLogDone", { rows: result.rows, bytes: result.bytes }),
+      );
+    } catch (e) {
+      setAuditMsg(t("settings.exportAuditLogError") + ": " + translateError(e, t));
+    } finally {
+      setAuditBusy(false);
+      setTimeout(() => setAuditMsg(""), 6000);
     }
   };
 
@@ -581,6 +610,15 @@ export function SettingsView() {
             <ScrollText size={14} strokeWidth={1.75} />
             {t("settings.openLogDir")}
           </button>
+          {/* Round 5 T11 / ADR-0059: Export audit log button */}
+          <button
+            onClick={() => void doExportAuditLog()}
+            disabled={auditBusy}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {auditBusy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} strokeWidth={1.75} />}
+            {t("settings.exportAuditLog")}
+          </button>
           <button
             data-testid="settings-whitebox-reload"
             onClick={() => void reloadWhitebox()}
@@ -594,6 +632,16 @@ export function SettingsView() {
         {whiteboxPath ? (
           <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 break-all" data-testid="settings-whitebox-path">
             {t("settings.whiteboxPath")}: {whiteboxPath}
+          </p>
+        ) : null}
+        {/* Round 5 T11 / ADR-0059: audit export result message */}
+        {auditMsg ? (
+          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400" data-testid="settings-audit-msg">
+            {auditMsg.includes("failed") || auditMsg.includes("error") ? (
+              <span className="text-red-500 dark:text-red-400">{auditMsg}</span>
+            ) : (
+              <span className="text-green-600 dark:text-green-400">{auditMsg}</span>
+            )}
           </p>
         ) : null}
       </SectionCard>
