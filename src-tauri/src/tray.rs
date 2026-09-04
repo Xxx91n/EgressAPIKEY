@@ -49,7 +49,8 @@ pub struct TrayLabels {
     pub tooltip: &'static str,
 }
 
-/// Ticket 16 / ADR-0054 §E: per-locale copy for the one-shot drift notice.
+/// ADR-0060 (revising ADR-0054 §E): per-locale copy for the drift-episode
+/// edge notice.
 pub struct DriftNotice {
     pub title: &'static str,
     pub body: &'static str,
@@ -264,44 +265,39 @@ pub fn lang_for_str(s: &str) -> TrayLang {
     }
 }
 
-/// Ticket 16 / ADR-0054 §E: one-shot drift notify state machine. `armed`
-/// starts true; a fire on first unacknowledged drift disarms it; the state
-/// re-arms ONLY when a snapshot reports zero unacknowledged drift entries
-/// ("归零后再武装"). Process-local static (like DRIFT_MEMORY / RECONCILE_MEMORY):
-/// a restart re-arms naturally, which matches the per-process notify-once
-/// contract. Acknowledged entities never count as notifyable drift.
+/// ADR-0060 (revising ADR-0054 §E): drift-episode edge notify state. Holds
+/// only the previous snapshot's "any unacknowledged drift" boolean; the
+/// notification fires on that predicate's false→true rising edge. A
+/// process-local static (like DRIFT_MEMORY / RECONCILE_MEMORY): a restart
+/// resets to the no-drift baseline (ArgoCD recomputes current state every
+/// pass with no cross-process memory), so drift already present at boot
+/// notifies once. Acknowledged entities never count as notifyable drift.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct DriftNotifyState {
-    armed: bool,
+    prev_has_drift: bool,
 }
 
-impl DriftNotifyState {
-    /// The process starts armed: the first drift of this run must notify.
-    pub fn armed() -> Self {
-        Self { armed: true }
-    }
-}
-
-/// Process-local notify state (ticket 16 / ADR-0054 §E). Static so every
-/// authoritative_snapshot call shares the once-per-process contract.
+/// Process-local notify state (ADR-0054 §E as revised by ADR-0060). Static so
+/// every authoritative_snapshot call shares the per-drift-episode contract.
 static DRIFT_NOTIFY_STATE: once_cell::sync::Lazy<std::sync::Mutex<DriftNotifyState>> =
-    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(DriftNotifyState::armed()));
+    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(DriftNotifyState::default()));
 
-/// Pure transition of the one-shot notify state for one snapshot.
+/// Pure edge predicate of the drift-episode notify state (ADR-0060).
 ///
-/// * `unacknowledged_drift` — whether THIS snapshot contains at least one
+/// * `has_drift` — whether THIS snapshot contains at least one
 ///   NOT-acknowledged drift entry (divergent or missingOnResin).
-/// * Returns whether the tray should fire the one-shot notice.
+/// * `prev_has_drift` — the previous snapshot's value of the same predicate.
+/// * Returns whether the tray should fire the drift notice: only on the
+///   false→true rising edge of a drift episode (ArgoCD notifications
+///   when+oncePer / AWS Config compliance-transition isomorph).
 ///
-/// Semantics (issue 16): notify exactly once per process when unacknowledged
-/// drift FIRST appears; acknowledged entries never trigger; after a fire the
-/// state stays disarmed until a snapshot reports zero unacknowledged drift
-/// (re-arm), so a NEW drift episode can notify again. No notification loop.
-pub fn evaluate_drift_notice(state: &DriftNotifyState, unacknowledged_drift: bool) -> bool {
-    // Fire only on ACTUAL unacknowledged drift while armed. The re-arm on a
-    // zero-drift snapshot is state bookkeeping done by the call site — it
-    // must never itself emit a notification.
-    unacknowledged_drift && state.armed
+/// Semantics (issue 12, revising issue 16): notify once per drift EPISODE —
+/// the first snapshot with unacknowledged drift fires; sustained drift is
+/// silent; the falling edge (drift cleared, including via acknowledged
+/// exemptions) only updates the baseline and never emits; drift reappearing
+/// after a clear starts a new episode and fires again. No notification loop.
+pub fn should_fire_drift_notice(has_drift: bool, prev_has_drift: bool) -> bool {
+    has_drift && !prev_has_drift
 }
 
 /// Count unacknowledged drift entries (strategy + ports halves of the
@@ -330,9 +326,10 @@ pub fn count_unacknowledged_drift_entries(
     platforms + ports + routes
 }
 
-/// Fire the one-shot OS drift notification (best-effort). Returns true when
-/// the notification was dispatched. Never panics and never blocks the
-/// snapshot on a notification failure — a missed toast is logged, not fatal.
+/// Fire the drift-episode OS notification (best-effort, rising edge per
+/// ADR-0060). Returns true when the notification was dispatched. Never panics
+/// and never blocks the snapshot on a notification failure — a missed toast
+/// is logged, not fatal.
 pub fn fire_drift_notification(app: &AppHandle, snap: &resin_core::AuthoritativeSnapshot) -> bool {
     // Sidecar down = absence is not drift (ADR-0051): enabled entries report
     // missing_on_resin because there is nothing to compare against. Notifying
@@ -345,12 +342,10 @@ pub fn fire_drift_notification(app: &AppHandle, snap: &resin_core::Authoritative
         let mut guard = DRIFT_NOTIFY_STATE
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let fire = evaluate_drift_notice(&guard, has_drift);
-        if fire {
-            guard.armed = false;
-        } else if !has_drift {
-            guard.armed = true;
-        }
+        let fire = should_fire_drift_notice(has_drift, guard.prev_has_drift);
+        // Unconditional baseline update on BOTH edges (ADR-0060 F2): the
+        // falling edge only moves the baseline, it never emits.
+        guard.prev_has_drift = has_drift;
         fire
     };
     if !should_fire {
@@ -366,7 +361,7 @@ pub fn fire_drift_notification(app: &AppHandle, snap: &resin_core::Authoritative
         .show();
     match sent {
         Ok(_) => {
-            tracing::info!(target: "tray", "drift notification fired (one-shot, re-arms after drift clears)");
+            tracing::info!(target: "tray", "drift notification fired (drift-episode rising edge, silent while sustained)");
             true
         }
         Err(e) => {
@@ -477,23 +472,35 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    /// Ticket 16 / ADR-0054 §E: the notify-once state machine. First drift
-    /// fires (armed -> disarm); continuing drift stays silent; zero drift
-    /// re-arms; a NEW episode fires again.
+    /// ADR-0060: the drift-episode edge predicate. Rising edge fires;
+    /// sustained drift stays silent; the falling edge never fires; a new
+    /// episode after a clear fires again.
     #[test]
-    fn evaluate_drift_notice_once_per_episode() {
-        let mut state = DriftNotifyState::armed();
-        // first drift of the process fires
-        assert!(evaluate_drift_notice(&state, true));
-        state.armed = false;
-        // same episode still drifting: silent
-        assert!(!evaluate_drift_notice(&state, true));
-        state.armed = false;
-        // drift clears: re-arm (no fire on the clear itself)
-        assert!(!evaluate_drift_notice(&state, false));
-        state.armed = true;
-        // new drift episode: fires again
-        assert!(evaluate_drift_notice(&state, true));
+    fn should_fire_drift_notice_edge_predicate() {
+        // rising edge: no drift -> drift fires
+        assert!(should_fire_drift_notice(true, false));
+        // sustained drift (flat true): silent
+        assert!(!should_fire_drift_notice(true, true));
+        // falling edge (flat false, and drift cleared): silent
+        assert!(!should_fire_drift_notice(false, false));
+        assert!(!should_fire_drift_notice(false, true));
+    }
+
+    /// ADR-0060 F5 acknowledge self-consistency: exempting an entity moves
+    /// the baseline (falling edge) but must never re-arm into a re-notice;
+    /// the NEXT genuinely new drift after the exemption fires again.
+    #[test]
+    fn acknowledge_updates_baseline_without_renotice() {
+        let mut state = DriftNotifyState::default();
+        // episode 1: drift appears -> fires
+        assert!(should_fire_drift_notice(true, state.prev_has_drift));
+        state.prev_has_drift = true;
+        // user acknowledges the only drifting entity -> has_drift falls:
+        // baseline updates, NO re-notice
+        assert!(!should_fire_drift_notice(false, state.prev_has_drift));
+        state.prev_has_drift = false;
+        // a brand-new unacknowledged drift afterwards -> fires (new episode)
+        assert!(should_fire_drift_notice(true, state.prev_has_drift));
     }
 
     /// A snapshot whose only drift entries are acknowledged MUST NOT notify:

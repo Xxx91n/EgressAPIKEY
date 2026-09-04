@@ -126,7 +126,8 @@ boot.
 `route_acknowledged` rides the existing ADR-0054 section D/E machinery:
 `stamp_route_acknowledged` marks merged output read-side only;
 `count_unacknowledged_drift_entries` counts unacknowledged route drift;
-the once-per-process notify state machine is unchanged.
+route drift joins the same notify state machine (edge semantics since
+ADR-0060: per drift episode, not once per process).
 
 ## Consequences
 

@@ -4,6 +4,8 @@
 > word-for-word alignment pass verified the sections against the landed
 > code of tickets 12-15 and this ticket's §E implementation)
 > Date: 2026-08-30
+> Revised 2026-09-04 (round5 T12): §E notify semantics superseded by
+> ADR-0060 — per drift episode (rising edge), not once per process.
 > Ticket: architecture-recovery 12 (snapshot-metadata-acknowledged) — this
 > ticket writes the OVERVIEW and sections C (metadata) / D (exemptions).
 > Tickets 13-16 each land one remaining section by reference ("per
@@ -134,14 +136,18 @@ loop, all within the existing ADR lattice.
    amber) whenever `resinReachable` is false — sidecar-down absence is
    not drift (ADR-0051).
 
-### §E One-shot tray notify (ticket 16 — landed here)
+### §E Drift-episode edge tray notify (ticket 16 — landed here; revised by ADR-0060, round5 T12)
 
 1. The state machine is a pure pair in `src-tauri/src/tray.rs`:
-   `DriftNotifyState` (process-local, starts ARMED) +
-   `evaluate_drift_notice(state, unacknowledged_drift) -> bool` (fire only
-   on actual unacknowledged drift while armed). The static
-   `DRIFT_NOTIFY_STATE` mirrors `DRIFT_MEMORY` / `RECONCILE_MEMORY`: a
-   process restart re-arms, which IS the once-per-process contract.
+   `DriftNotifyState` (process-local, `prev_has_drift: bool`, defaults to
+   the no-drift baseline) + `should_fire_drift_notice(has_drift,
+   prev_has_drift) -> bool` — fire only on the false→true RISING edge of
+   the unacknowledged-drift predicate, i.e. **per drift episode (跃迁级，
+   非进程级)**, not once per process. The static `DRIFT_NOTIFY_STATE`
+   mirrors `DRIFT_MEMORY` / `RECONCILE_MEMORY`: a process restart resets to
+   the no-drift baseline, so drift already present at boot notifies once
+   (ArgoCD-style current-state recomputation, no cross-process memory).
+   (Superseded wording, issue 16 era: "starts ARMED + re-arm on zero".)
 2. **Where it hooks:** the tail of the `authoritative_snapshot` command —
    the ONLY sanctioned merge point. Every snapshot consumer (TopologyView
    5s poll, EffectiveConfigView open / manual re-check / reconcile
@@ -151,9 +157,12 @@ loop, all within the existing ADR lattice.
    divergent / missingOnResin platform entries and missingOnResin port
    entries whose stamped `acknowledged` flag is false. Acknowledged entries
    are exempt here but stay fully visible in the Effective Config view (§D).
-4. **Re-arm rule:** after a fire the state disarms; a later snapshot with
-   ZERO unacknowledged drift entries re-arms it, so a NEW drift episode can
-   notify again (issue 16: 归零后再武装). The re-arm itself never emits.
+4. **Episode rule (ADR-0060 D2/D3):** the first snapshot of a drift episode
+   (rising edge) fires; sustained drift is silent; the falling edge —
+   drift cleared by reconcile OR absorbed by acknowledged exemptions —
+   only updates the `prev_has_drift` baseline and never emits, so an
+   exemption can never re-arm into a re-notice of the same drift; drift
+   reappearing after a clear starts a NEW episode and notifies again.
 5. **Sidecar down = silence:** when `resin_reachable` is false the hook
    returns without notifying — sidecar-down absence is not drift
    (ADR-0051), and warning the user about drift while the engine is simply

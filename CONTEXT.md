@@ -423,6 +423,20 @@ GUI shows green/red status per port. Auto-triggered after port create/update.
 Modeled after clash-verge-rev CoreManager health check pattern.
 _Avoid_: port probe, listener test, connectivity check
 
+### Drift Notification
+
+The OS tray notification fired at the tail of `authoritative_snapshot`
+(`src-tauri/src/tray.rs`). Semantics are per drift EPISODE, not once per
+process (ADR-0060, revising ADR-0054 §E): the pure edge predicate
+`should_fire_drift_notice(has_drift, prev_has_drift)` fires only on the
+false→true rising edge of unacknowledged drift — sustained drift is
+silent, the falling edge (drift cleared OR absorbed by acknowledged
+exemptions) only updates the baseline and never emits, and drift
+reappearing after a clear starts a new episode. Industrial isomorphs:
+ArgoCD notifications `when` + `oncePer`, AWS Config compliance-state
+transition SNS. Sidecar-down absence never notifies (ADR-0051).
+_Avoid_: one-shot notify, armed/re-arm, once per process
+
 ### Strategy-Labeled Edge
 
 A topology canvas edge (B->C) annotated with the A-class strategy name that

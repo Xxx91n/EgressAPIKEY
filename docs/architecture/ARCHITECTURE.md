@@ -186,10 +186,12 @@ never automatic:
    per file) and the listed backups roll back through the SAME
    validate-before-swap -> apply chain — never a bypass.
 
-**Tray notification** (ticket 16): once per process, the FIRST snapshot
-containing unacknowledged drift fires one OS notification (state machine in
-`src-tauri/src/tray.rs`, hooked on the snapshot command tail); the state
-re-arms only after a snapshot reports zero unacknowledged drift. Sidecar-down
+**Tray notification** (ticket 16; edge semantics per ADR-0060): per drift
+EPISODE, the first snapshot where unacknowledged drift appears (false→true
+rising edge) fires one OS notification (state machine in
+`src-tauri/src/tray.rs`, hooked on the snapshot command tail); sustained
+drift is silent, the falling edge (cleared or acknowledged) only updates the
+baseline, and drift reappearing after a clear notifies again. Sidecar-down
 absence never notifies (ADR-0051). See `docs/how-to/WHY-NOT-EFFECTIVE.md`
 for the user-facing troubleshooting table.
 
