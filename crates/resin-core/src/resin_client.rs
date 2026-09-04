@@ -591,6 +591,39 @@ impl ResinClient {
         self.send_with_retry(reqwest::Method::DELETE, &path, None).await
     }
 
+    /// GET /api/v1/metrics/realtime/throughput — realtime ingress/egress
+    /// throughput ring samples. T19 minimal set (ADR-0064): the shell sends
+    /// no from/to params, so Resin's parseMetricsTimeRange applies its own
+    /// defaults (to=now, from=to-1h). Response shape (handler_metrics.go:147):
+    /// {"step_seconds": N, "items": [{"ts","ingress_bps","egress_bps"}]}.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R47
+    pub async fn realtime_throughput(&self) -> Result<Value> {
+        self.send_read("/metrics/realtime/throughput").await
+    }
+
+    /// GET /api/v1/metrics/history/probes?from=<RFC3339>&to=<RFC3339> —
+    /// probe-count history buckets from Resin's metrics.db. T19 minimal set
+    /// (ADR-0064). `from`/`to` are RFC3339Nano strings (handler_metrics.go:15):
+    /// Resin rejects anything else with 400 INVALID_ARGUMENT, so the IPC layer
+    /// boundary-validates and converts before calling this. None passes no
+    /// param at all — Resin then applies its own defaults (to=now,
+    /// from=to-1h), so the shell never re-derives time semantics. Response:
+    /// {"bucket_seconds": N, "items": [{"bucket_start","bucket_end","total_count"}]}.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R53
+    pub async fn probe_history(&self, from: Option<&str>, to: Option<&str>) -> Result<Value> {
+        let mut path = "/metrics/history/probes".to_string();
+        let mut sep = '?';
+        if let Some(f) = from {
+            path.push(sep);
+            sep = '&';
+            path.push_str(&format!("from={}", urlencoding(f)));
+        }
+        if let Some(t) = to {
+            path.push(sep);
+            path.push_str(&format!("to={}", urlencoding(t)));
+        }
+        self.send_read(&path).await
+    }
 
     /// Resolve a platform name to its Resin UUID (Round 5 T17, crack #6).
     ///
@@ -1977,5 +2010,97 @@ mod tests {
         // A non-list object (unexpected backend shape) resolves nothing.
         assert_eq!(resolve_id_in(&serde_json::json!({"foo": 1}), "x"), None);
         assert_eq!(resolve_id_in(&Value::Null, "x"), None);
+    }
+    // ── T19 metrics minimal-set mockito tests (ADR-0064) ─────────────
+
+    #[tokio::test]
+    async fn mockito_realtime_throughput_happy_path_no_params() {
+        // The shell sends no from/to; Resin's parseMetricsTimeRange defaults
+        // apply upstream (to=now, from=to-1h). Assert the path has no query.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", "/api/v1/metrics/realtime/throughput")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{"step_seconds":10,"items":[{"ts":"2026-09-04T00:00:00Z","ingress_bps":1200,"egress_bps":3400}]}"#,
+            )
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .realtime_throughput()
+            .await
+            .expect("realtime_throughput should succeed against mockito");
+        assert_eq!(out["step_seconds"], 10);
+        assert_eq!(out["items"][0]["ingress_bps"], 1200);
+        assert_eq!(out["items"][0]["egress_bps"], 3400);
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_probe_history_sends_rfc3339_from_to() {
+        // from/to arrive at this layer as RFC3339Nano strings already
+        // boundary-validated by the IPC layer; assert they ride the query
+        // string URL-encoded (`:` is escaped by the shared urlencoding helper).
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", mockito::Matcher::Any)
+            .match_header("authorization", "Bearer testtok")
+            .match_query(mockito::Matcher::AllOf(vec![
+                mockito::Matcher::UrlEncoded(
+                    "from".into(),
+                    "2026-09-04T00%3A00%3A00Z".into(),
+                ),
+                mockito::Matcher::UrlEncoded("to".into(), "2026-09-04T01%3A00%3A00Z".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"{"bucket_seconds":60,"items":[{"bucket_start":"2026-09-04T00:00:00Z","bucket_end":"2026-09-04T00:01:00Z","total_count":3}]}"#,
+            )
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .probe_history(Some("2026-09-04T00:00:00Z"), Some("2026-09-04T01:00:00Z"))
+            .await
+            .expect("probe_history should succeed against mockito");
+        assert_eq!(out["bucket_seconds"], 60);
+        assert_eq!(out["items"][0]["total_count"], 3);
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_probe_history_without_to_omits_param() {
+        // to=None must not append an empty &to= — Resin then applies its
+        // to=now default. Match on the from param only.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", mockito::Matcher::Any)
+            .match_header("authorization", "Bearer testtok")
+            .match_query(mockito::Matcher::AllOf(vec![mockito::Matcher::UrlEncoded(
+                "from".into(),
+                "2026-09-04T00%3A00%3A00Z".into(),
+            )]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"bucket_seconds":60,"items":[]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .probe_history(Some("2026-09-04T00:00:00Z"), None)
+            .await
+            .expect("probe_history without to should succeed");
+        assert_eq!(out["items"], serde_json::json!([]));
+        m.assert_async().await;
     }
 }
