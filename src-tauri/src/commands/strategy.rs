@@ -6,9 +6,9 @@ use tauri::{AppHandle, State};
 use crate::sidecar::SidecarHandle;
 use resin_core::DbPool;
 use resin_core::IpcError;
+use resin_core::resolve_id_in;
 use super::common::{items_arr, map_resin_error, resin_client, validate_short_name};
 use super::settings::{get_config_dir};
-use super::platform::{platform_id_for_name};
 
 /// Ticket 12 / ADR-0054 §C: process-local first-drift memory backing
 /// `divergentSince`. Keyed by entity id (platform name, or decimal port
@@ -175,7 +175,7 @@ pub async fn strategy_apply(
     let svc = strategy_service(&app)?;
     let client = resin_client(&sidecar)?;
     let report = svc
-        .apply(&client, platform_id_for_name)
+        .apply(&client, resolve_id_in)
         .await
         .map_err(IpcError::from)?;
     serde_json::to_value(&report).map_err(|e| IpcError::from(e.to_string()))
@@ -524,7 +524,7 @@ pub async fn strategy_rollback(
     svc.store_ref().rollback(&backup_name).map_err(IpcError::from)?;
     let client = resin_client(&sidecar)?;
     let report = svc
-        .apply(&client, platform_id_for_name)
+        .apply(&client, resolve_id_in)
         .await
         .map_err(IpcError::from)?;
     serde_json::to_value(&report).map_err(|e| IpcError::from(e.to_string()))
@@ -567,7 +567,7 @@ pub async fn reconcile_now(
         .map(|d| d.as_secs())
         .unwrap_or(0);
     let report = svc
-        .reconcile(&client, platform_id_for_name, async {
+        .reconcile(&client, resolve_id_in, async {
             reconcile_ports_half(sidecar_ref, whitebox_ref, now).await
         })
         .await

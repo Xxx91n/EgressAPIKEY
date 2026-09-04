@@ -32,6 +32,7 @@ use std::sync::OnceLock;
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
 use url::Url;
+use crate::ipc_error::IpcError;
 
 /// Loopback-only connection to the Resin sidecar admin REST API.
 ///
@@ -590,6 +591,93 @@ impl ResinClient {
         self.send_with_retry(reqwest::Method::DELETE, &path, None).await
     }
 
+
+    /// Resolve a platform name to its Resin UUID (Round 5 T17, crack #6).
+    ///
+    /// Resin's endpoint design is hybrid: list endpoints are name-keyed
+    /// (`GET /platforms` rows carry `name`+`id`) while single-resource
+    /// endpoints are UUID-keyed (`DELETE /platforms/{id}`, `GET
+    /// /platforms/{id}/leases`). Every name-knowing caller previously
+    /// re-implemented the "list all -> match name -> take id" two-step hop;
+    /// this helper (plus the pure `resolve_id_in`) is the one canonical
+    /// implementation. Miss resolves to `IpcError::NotFound` — NOT a panic
+    /// and not a stringly error (F3/§7.5).
+    ///
+    /// The list GET failure is mapped through `map_resin_error` so upstream
+    /// errors keep their typed face (`ResinUpstream` for a 5xx, etc.) exactly
+    /// as the former inline command bodies produced.
+    ///
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R07
+    pub async fn resolve_platform_id_by_name(&self, name: &str) -> Result<String, IpcError> {
+        validate_resolve_name(name, "platform")?;
+        let list = self
+            .list_platforms()
+            .await
+            .map_err(|e| crate::ipc_error::map_resin_error(&e.to_string()))?;
+        resolve_id_in(&list, name)
+            .ok_or_else(|| IpcError::not_found(&format!("platform not found: {name}")))
+    }
+
+    /// Resolve a subscription name to its Resin UUID (Round 5 T17, crack #6).
+    /// Same hybrid-shape motivation and error contract as
+    /// `resolve_platform_id_by_name`, over `GET /subscriptions`.
+    ///
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R25
+    pub async fn resolve_subscription_id_by_name(&self, name: &str) -> Result<String, IpcError> {
+        validate_resolve_name(name, "subscription")?;
+        let list = self
+            .list_subscriptions()
+            .await
+            .map_err(|e| crate::ipc_error::map_resin_error(&e.to_string()))?;
+        resolve_id_in(&list, name)
+            .ok_or_else(|| IpcError::not_found(&format!("subscription not found: {name}")))
+    }
+}
+
+/// §7.5 boundary validation for name→UUID resolution (Round 5 T17 F3): the
+/// name is a DNS-host-scale identifier, so cap it at 253 chars and reject
+/// NUL/control characters. Returns `IpcError::InvalidInput` — never panics,
+/// mirroring the per-endpoint guards above (create_platform_from_name etc.).
+fn validate_resolve_name(name: &str, field: &str) -> Result<(), IpcError> {
+    if name.is_empty() || name.len() > 253 {
+        return Err(IpcError::invalid_input(&format!(
+            "{field} name length out of range (1..=253)"
+        )));
+    }
+    if name.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+        return Err(IpcError::invalid_input(&format!(
+            "{field} name contains control characters"
+        )));
+    }
+    Ok(())
+}
+
+/// Pure name→id lookup over a Resin list response (Round 5 T17). Accepts the
+/// items-wrapper shape `{"items":[...]}` OR a bare array (Resin v1.2.0 uses
+/// both — same contract as the shell-side `items_arr` and the core-side
+/// `items` helpers, so every historical caller shape keeps resolving). A row
+/// whose `id` is missing/empty is skipped rather than matched. Shared by the
+/// async `resolve_*_by_name` helpers and the fn-pointer resolution seams in
+/// `strategy_service::apply`/`reconcile` (whose signatures are wire-pinned by
+/// their mockito suites — the single-GET two-step hop stays there).
+pub fn resolve_id_in(v: &Value, want: &str) -> Option<String> {
+    let rows: &[Value] = if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
+        arr
+    } else if let Some(arr) = v.as_array() {
+        arr
+    } else {
+        &[]
+    };
+    for row in rows {
+        let name = row.get("name").and_then(|n| n.as_str()).unwrap_or("");
+        if name == want {
+            let id = row.get("id").and_then(|n| n.as_str()).unwrap_or("");
+            if !id.is_empty() {
+                return Some(id.to_string());
+            }
+        }
+    }
+    None
 }
 
 /// Filter query for ResinClient::request_logs. Empty/None fields are omitted
@@ -1478,8 +1566,6 @@ mod tests {
        m.assert_async().await;
    }
 
-   #[test]
-   fn t15_4_shared_client_returns_same_instance() {
     // ── Account header rules mockito tests (round5 T16, R32-R35) ─────
 
     #[tokio::test]
@@ -1663,10 +1749,233 @@ mod tests {
         m.assert_async().await;
     }
 
+   #[test]
+   fn t15_4_shared_client_returns_same_instance() {
         // Two calls to shared_client() must return pointers to the same Client.
         let a = shared_client();
         let b = shared_client();
         // Pointer equality: same address = same Client
         assert!(std::ptr::eq(a, b), "shared_client() returned different Client instances");
+    }
+
+    // ── Round 5 T17 (crack #6): name→UUID resolution helpers ──────────
+
+    #[tokio::test]
+    async fn mockito_resolve_platform_id_by_name_hit() {
+        // F4 case 1 (hit): name exists in the items-wrapper list -> the UUID.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"plat-uuid-1","name":"alpha","region_filters":["US"]}],"total":1}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let id = c
+            .resolve_platform_id_by_name("alpha")
+            .await
+            .expect("resolve_platform_id_by_name hit should return the id");
+        assert_eq!(id, "plat-uuid-1");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_resolve_platform_id_by_name_miss_is_not_found() {
+        // F4 case 2 (miss): name absent -> typed IpcError::NotFound with the
+        // same message text the former stringly rejection produced.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"plat-uuid-2","name":"beta"}],"total":1}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let err = c
+            .resolve_platform_id_by_name("ghost")
+            .await
+            .expect_err("miss should error");
+        assert!(
+            matches!(
+                &err,
+                IpcError::NotFound { msg, i18n_key }
+                    if msg == "platform not found: ghost" && i18n_key == "error.notFound"
+            ),
+            "got {err:?}"
+        );
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_resolve_platform_id_by_name_non_json_is_internal() {
+        // F4 case 3 (parse failure): a 200 whose application/json body does
+        // not decode -> send() errors and map_resin_error surfaces the
+        // Internal catch-all (the enum has no Backend variant; the issue
+        // draft's "Backend" maps here — see T17 report deviation note).
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("this is not json{")
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let err = c
+            .resolve_platform_id_by_name("alpha")
+            .await
+            .expect_err("malformed body should error");
+        assert!(matches!(err, IpcError::Internal { .. }), "got {err:?}");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_resolve_subscription_id_by_name_hit() {
+        // F4 case 1 (hit), subscription face. Bare-array responses resolve
+        // too (the same mixed-shape contract the shell items_arr handled).
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"[{"id":"sub-uuid-7","name":"main","node_count":12}]"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let id = c
+            .resolve_subscription_id_by_name("main")
+            .await
+            .expect("resolve_subscription_id_by_name hit should return the id");
+        assert_eq!(id, "sub-uuid-7");
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_resolve_subscription_id_by_name_miss_is_not_found() {
+        // F4 case 2 (miss), subscription face: absent name AND the
+        // empty-id-row skip (a matched row without an id cannot resolve).
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                r#"[{"id":"","name":"empty-id"},{"name":"no-id-field"},{"id":"sub-uuid-8","name":"other"}]"#,
+            )
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        for want in ["empty-id", "no-id-field", "ghost"] {
+            let err = c
+                .resolve_subscription_id_by_name(want)
+                .await
+                .expect_err("unresolvable name should error");
+            assert!(
+                matches!(
+                    &err,
+                    IpcError::NotFound { msg, i18n_key }
+                        if msg == format!("subscription not found: {want}")
+                            && i18n_key == "error.notFound"
+                ),
+                "want={want} got {err:?}"
+            );
+        }
+        m.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn mockito_resolve_subscription_id_by_name_non_json_is_internal() {
+        // F4 case 3 (parse failure), subscription face.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("<html>oops</html>")
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let err = c
+            .resolve_subscription_id_by_name("main")
+            .await
+            .expect_err("malformed body should error");
+        assert!(matches!(err, IpcError::Internal { .. }), "got {err:?}");
+        m.assert_async().await;
+    }
+
+    #[test]
+    fn resolve_helpers_reject_bad_names_before_any_http() {
+        // F3/§7.5: DNS-host length cap (253) + NUL/control rejection, both
+        // surfacing as IpcError::InvalidInput (never a panic). Validation
+        // fires before the list GET, so no mockito server is even needed.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let c = ResinClient::new("http://127.0.0.1:1", "tok".into()).unwrap();
+        for name in [
+            "",                                  // empty
+            &"a".repeat(254),                    // over the 253 cap
+            "bad\0nul",                          // NUL
+            "bad\nnewline",                      // control char
+            "bad\u{7f}del",                      // DEL
+        ] {
+            for helper in ["platform", "subscription"] {
+                let err = rt.block_on(if helper == "platform" {
+                    async { c.resolve_platform_id_by_name(name).await.err().unwrap() }
+                } else {
+                    async { c.resolve_subscription_id_by_name(name).await.err().unwrap() }
+                });
+                assert!(
+                    matches!(&err, IpcError::InvalidInput { .. }),
+                    "name={name:?} helper={helper} got {err:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn resolve_id_in_semantics_lock() {
+        // Pure resolver contract: items-wrapper OR bare array, first
+        // name match with a NON-empty id, no row -> None.
+        let wrapper = serde_json::json!({
+            "items": [
+                {"id": "", "name": "dup"},
+                {"id": "second", "name": "dup"},
+                {"id": "third", "name": "other"},
+            ],
+            "total": 3,
+        });
+        assert_eq!(
+            resolve_id_in(&wrapper, "dup"),
+            Some("second".to_string()),
+            "empty-id rows are skipped, a later same-name row still resolves"
+        );
+        let bare = serde_json::json!([{"id": "x1", "name": "solo"}]);
+        assert_eq!(resolve_id_in(&bare, "solo"), Some("x1".to_string()));
+        assert_eq!(resolve_id_in(&bare, "absent"), None);
+        // A non-list object (unexpected backend shape) resolves nothing.
+        assert_eq!(resolve_id_in(&serde_json::json!({"foo": 1}), "x"), None);
+        assert_eq!(resolve_id_in(&Value::Null, "x"), None);
     }
 }

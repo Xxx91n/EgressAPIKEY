@@ -40,10 +40,13 @@ use serde_json::json;
     }
 
     #[test]
-    fn platform_id_for_name_matches() {
+    fn resolve_id_in_matches() {
+        // Round 5 T17: the shell platform_id_for_name/subscription_id_for_name
+        // duplicates were deleted; these locks now pin the shared
+        // resin-core::resolve_id_in the command bodies resolve through.
         let v = json!([{ "name": "Foo", "id": "uuid-1" }]);
-        assert_eq!(platform_id_for_name(&v, "Foo"), Some("uuid-1".to_string()));
-        assert_eq!(platform_id_for_name(&v, "Bar"), None);
+        assert_eq!(resin_core::resolve_id_in(&v, "Foo"), Some("uuid-1".to_string()));
+        assert_eq!(resin_core::resolve_id_in(&v, "Bar"), None);
     }
 
     /// Ticket 17 / ADR-0055: the conflict rule moved to document level in
@@ -137,16 +140,18 @@ use serde_json::json;
     }
 
     #[test]
-    fn platform_id_for_name_reads_resin_items_wrapper() {
+    fn resolve_id_in_reads_resin_items_wrapper() {
+        // Round 5 T17: wrapper-shape lock migrated from the deleted
+        // platform_id_for_name to the shared resin-core resolver.
         let v = json!({
             "items": [ { "id": "uuid-9", "name": "Anthropic" } ],
             "total": 1,
         });
         assert_eq!(
-            platform_id_for_name(&v, "Anthropic"),
+            resin_core::resolve_id_in(&v, "Anthropic"),
             Some("uuid-9".to_string())
         );
-        assert_eq!(platform_id_for_name(&v, "Missing"), None);
+        assert_eq!(resin_core::resolve_id_in(&v, "Missing"), None);
     }
 
     #[test]
@@ -201,16 +206,18 @@ use serde_json::json;
     }
 
     #[test]
-    fn subscription_id_for_name_reads_resin_items_wrapper() {
+    fn resolve_id_in_reads_subscription_items_wrapper() {
+        // Round 5 T17: subscription shape lock migrated from the deleted
+        // subscription_id_for_name to the shared resin-core resolver.
         let v = json!({
             "items": [ { "id": "sub-uuid-1", "name": "main" } ],
             "total": 1,
         });
         assert_eq!(
-            subscription_id_for_name(&v, "main"),
+            resin_core::resolve_id_in(&v, "main"),
             Some("sub-uuid-1".to_string())
         );
-        assert_eq!(subscription_id_for_name(&v, "nope"), None);
+        assert_eq!(resin_core::resolve_id_in(&v, "nope"), None);
     }
     #[test]
     fn validate_port_mapping_rejects_privileged_and_bad_proto() {

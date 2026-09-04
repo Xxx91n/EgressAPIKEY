@@ -7,7 +7,7 @@ use tauri::{AppHandle, State};
 use tauri_plugin_store::StoreExt;
 use crate::sidecar::SidecarHandle;
 use resin_core::{DbPool, IpcError};
-use resin_core::{MAX_LANES, ReputationClient, ReputationProvider, ReputationSnapshot, parse_public_ips};
+use resin_core::{MAX_LANES, ReputationClient, ReputationProvider, ReputationSnapshot, parse_public_ips, resolve_id_in};
 use super::common::{KEY_MAX_LEN, items_arr, map_resin_error, resin_client, validate_ip, validate_short_name};
 
 #[tauri::command]
@@ -28,9 +28,9 @@ pub async fn platform_remove(
 ) -> Result<bool, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
-    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
-    let id =
-        platform_id_for_name(&list, &name).ok_or_else(|| format!("platform not found: {name}"))?;
+    // Round 5 T17: name→UUID two-step hop now lives in ResinClient
+    // (resolve_platform_id_by_name); miss = typed IpcError::NotFound.
+    let id = client.resolve_platform_id_by_name(&name).await?;
     client
         .delete_platform(&id)
         .await
@@ -93,18 +93,10 @@ pub fn platform_names(v: &serde_json::Value) -> Vec<String> {
         .collect()
 }
 
-pub fn platform_id_for_name(v: &serde_json::Value, want: &str) -> Option<String> {
-    for p in items_arr(v) {
-        let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
-        if name == want {
-            let id = p.get("id").and_then(|n| n.as_str()).unwrap_or("");
-            if !id.is_empty() {
-                return Some(id.to_string());
-            }
-        }
-    }
-    None
-}
+// Round 5 T17 (crack #6): the former platform_id_for_name /
+// subscription_id_for_name duplicates are deleted — the name→UUID two-step
+// hop now lives once in resin-core (resin_client::resolve_id_in for the
+// fn-pointer seams, ResinClient::resolve_*_by_name for the command bodies).
 
 /// Ticket 17 / ADR-0055 D2: the ONLY write entry for process routes. The
 /// rule family lives in the L2 whitebox (egressapikey-ports.json
@@ -361,12 +353,9 @@ pub async fn subscription_remove(
 ) -> Result<bool, IpcError> {
     validate_short_name(&name, "subscription")?;
     let client = resin_client(&sidecar)?;
-    let list = client
-        .list_subscriptions()
-        .await
-        .map_err(|e| map_resin_error(&e.to_string()))?;
-    let id = subscription_id_for_name(&list, &name)
-        .ok_or_else(|| format!("subscription not found: {name}"))?;
+    // Round 5 T17: name→UUID two-step hop centralized in ResinClient; the
+    // list GET count is unchanged and a miss resolves to typed NotFound.
+    let id = client.resolve_subscription_id_by_name(&name).await?;
     client
         .delete_subscription(&id)
         .await
@@ -551,10 +540,9 @@ pub async fn platform_update(
 ) -> Result<serde_json::Value, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
-    // Resolve name -> id (same pattern as platform_remove).
-    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
-    let id =
-        platform_id_for_name(&list, &name).ok_or_else(|| format!("platform not found: {name}"))?;
+    // Round 5 T17: name→UUID resolution centralized in ResinClient (F2);
+    // same single list_platforms GET as before, miss = typed NotFound.
+    let id = client.resolve_platform_id_by_name(&name).await?;
 
     // Build the PATCH body with only the fields the caller provided. Validate
     // each at the IPC boundary (AGENTS 7.5) so a hostile webview cannot send
@@ -778,9 +766,9 @@ pub async fn platform_leases(
 ) -> Result<serde_json::Value, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
-    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
-    let id =
-        platform_id_for_name(&list, &name).ok_or_else(|| format!("platform not found: {name}"))?;
+    // Round 5 T17: name→UUID two-step hop centralized in ResinClient; miss
+    // = typed IpcError::NotFound instead of a stringly error round-trip.
+    let id = client.resolve_platform_id_by_name(&name).await?;
     client.platform_leases(&id).await.map_err(|e| map_resin_error(&e.to_string()))
 }
 
@@ -817,19 +805,6 @@ pub fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotE
             }
         })
         .collect()
-}
-
-pub fn subscription_id_for_name(v: &serde_json::Value, want: &str) -> Option<String> {
-    for p in items_arr(v) {
-        let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
-        if name == want {
-            let id = p.get("id").and_then(|n| n.as_str()).unwrap_or("");
-            if !id.is_empty() {
-                return Some(id.to_string());
-            }
-        }
-    }
-    None
 }
 
 /// One active lease row from Resin /api/v1/metrics/realtime/leases, projected

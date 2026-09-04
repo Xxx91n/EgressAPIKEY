@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager, State};
 use crate::sidecar::SidecarHandle;
 use resin_core::IpcError;
 use super::common::{map_resin_error, resin_client};
-use super::platform::platform_id_for_name;
+use resin_core::resolve_id_in;
 use super::strategy::{reconcile_ports_half, strategy_service};
 
 /// Create a zip backup of settings.json + resin state dir, return the temp path.
@@ -265,7 +265,7 @@ pub async fn config_import(
         .unwrap_or(0);
     let mut errors: Vec<String> = Vec::new();
     match svc
-        .reconcile(&client, platform_id_for_name, async {
+        .reconcile(&client, resolve_id_in, async {
             reconcile_ports_half(sidecar.inner(), whitebox.inner(), now).await
         })
         .await

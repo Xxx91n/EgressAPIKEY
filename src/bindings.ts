@@ -35,6 +35,17 @@ export type IpcError =
 	status: number,
 	excerpt: string,
 	i18n_key: string,
+} } |
+/**
+ *  Name-based lookup miss (Round 5 T17, crack #6): the typed face of the
+ *  former stringly `format!("platform not found: {name}")` rejections the
+ *  name→UUID call sites produced through `IpcError::from(String)`.
+ *  Reuses the existing "error.notFound" locale key (already present in
+ *  all 18 catalogs), so no new i18n key is added.
+ */
+{ kind: "NotFound"; data: {
+	msg: string,
+	i18n_key: string,
 } } | 
 /**  Catch-all for internal errors (serde, IO, unexpected panic recovery). */
 { kind: "Internal"; data: {
