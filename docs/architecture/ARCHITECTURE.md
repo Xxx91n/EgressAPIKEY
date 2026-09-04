@@ -29,7 +29,7 @@ Resin Go Sidecar (bundle.externalBin)
 
 Resin-pattern Core (crates/resin-core/) - shell-side support crate (ADR-0050)
 
-- resin_client.rs: loopback-only async REST client (SSRF guard + Bearer)
+- resin_client.rs: loopback-only async REST client (SSRF guard + Bearer) — full endpoint coverage table: [RESIN_API_COVERAGE.md](RESIN_API_COVERAGE.md) (ADR-0062)
 - whitebox_config.rs: egressapikey-ports.json store (ADR-0036); db.rs: SQLite port mapping
 - port_forwarder.rs / port_health.rs / strategy_engine.rs / stream_sensor.rs / ip_reputation.rs / ipc_error.rs: live shell support modules
 - platform.rs: Platform/Account registry (shell SharedRegistry state)

@@ -243,6 +243,7 @@ impl ResinClient {
     }
 
     /// POST /api/v1/platforms
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R08
     /// body: free-form serde_json::Value (Resin accepts the fields described in
     /// DESIGN.md platform POST section); only `name` is required by Resin.
     pub async fn create_platform(&self, body: Value) -> Result<Value> {
@@ -251,6 +252,7 @@ impl ResinClient {
     }
 
     /// Convenience: create a platform with just a name. Sticky TTL, filters,
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R08
     /// allocation policy left at Resin defaults.
     pub async fn create_platform_from_name(&self, name: &str) -> Result<Value> {
         if name.trim().is_empty() {
@@ -272,23 +274,27 @@ impl ResinClient {
     }
 
     /// GET /api/v1/platforms
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R07
     pub async fn list_platforms(&self) -> Result<Value> {
         self.send_read("/platforms").await
     }
 
     /// GET /api/v1/platforms/{id}
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R10
     pub async fn get_platform(&self, id: &str) -> Result<Value> {
         let path = format!("/platforms/{}", urlencoding(id));
         self.send_read(&path).await
     }
 
     /// DELETE /api/v1/platforms/{id}
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R12
     pub async fn delete_platform(&self, id: &str) -> Result<Value> {
         let path = format!("/platforms/{}", urlencoding(id));
         self.send_with_retry(reqwest::Method::DELETE, &path, None).await
     }
 
     /// GET /api/v1/metrics/realtime/leases — active-lease snapshot used by the
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R49
     /// desktop Topology view in place of the dead resin-core LeaseTable.
     pub async fn active_leases(&self) -> Result<Value> {
         self.send_read("/metrics/realtime/leases")
@@ -310,18 +316,21 @@ impl ResinClient {
     }
 
     /// GET /subscriptions - list all subscriptions (raw array).
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R25
     pub async fn list_subscriptions(&self) -> Result<Value> {
         self.send_read("/subscriptions")
             .await
     }
 
    /// DELETE /subscriptions/{id} - remove a subscription (204 -> Null).
+   /// @see docs/architecture/RESIN_API_COVERAGE.md #R29
    pub async fn delete_subscription(&self, id: &str) -> Result<Value> {
        let path = format!("/subscriptions/{}", urlencoding(id));
        self.send_with_retry(reqwest::Method::DELETE, &path, None).await
    }
 
     /// POST /api/v1/subscriptions/{id}/actions/refresh - trigger Resin-native
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R30
     /// remote subscription refresh. Resin's Scheduler re-pulls the remote URL
     /// via its own clash.meta UA fetcher (cmd/resin/main.go const downloadUserAgent).
     /// The shell no longer re-fetches or converts the Clash YAML itself
@@ -337,6 +346,7 @@ impl ResinClient {
 
 
    /// PATCH /api/v1/platforms/{id} - update platform fields (allocation_policy,
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R11
    /// regex_filters, region_filters, sticky_ttl, etc). Resin validates the
    /// body and returns 400 with a descriptive error for invalid enum values.
     /// Used by the topology canvas hot-switch (Phase R1/R2).
@@ -346,6 +356,7 @@ impl ResinClient {
     }
 
     /// GET /api/v1/nodes - list all proxy nodes (the "C category" ip channels).
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R36
     /// Resin paginates this endpoint (default limit < total); without an
     /// explicit limit the frontend gets a stale partial view while the node-pool
     /// snapshot grows. We pass an explicit limit (and optional offset) so the
@@ -356,6 +367,7 @@ impl ResinClient {
     }
 
    /// GET /api/v1/nodes?platform_id=<id>&limit=500 - the routable node list
+   /// @see docs/architecture/RESIN_API_COVERAGE.md #R36
    /// for a single platform (Resin DESIGN.md "list nodes" with platform_id filter).
    pub async fn list_nodes_for_platform(&self, platform_id: &str) -> Result<Value> {
        let path = format!("/nodes?limit=500&platform_id={}", platform_id);
@@ -363,6 +375,7 @@ impl ResinClient {
    }
 
    /// POST /api/v1/nodes/{hash}/actions/probe-egress - on-demand egress probe
+   /// @see docs/architecture/RESIN_API_COVERAGE.md #R38
    /// (Resin v1.2.0 HandleProbeEgress). Requests cloudflare.com/cdn-cgi/trace
    /// through the node, returns {egress_ip, region, latency_ewma_ms}. Resin
    /// updates the node's egress_ip + TD-EWMA + routing as a side effect.
@@ -373,6 +386,7 @@ impl ResinClient {
    }
 
    /// POST /api/v1/nodes/{hash}/actions/probe-latency - on-demand latency probe
+   /// @see docs/architecture/RESIN_API_COVERAGE.md #R39
    /// (Resin v1.2.0 HandleProbeLatency). Requests latency_test_url (default
    /// https://www.gstatic.com/generate_204) through the node, returns
    /// {latency_ewma_ms}. Resin updates the node's TD-EWMA for that domain.
@@ -383,6 +397,7 @@ impl ResinClient {
    }
 
    /// POST /api/v1/platforms with the full create schema (P21 Milestone B).
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R08
     /// Accepts a free-form body (serde_json::Value) so the GUI form can pass
     /// exactly the fields Resin DESIGN.md lists for platform creation:
     ///   name (required), sticky_ttl, regex_filters, region_filters,
@@ -398,6 +413,7 @@ impl ResinClient {
     }
 
     /// GET /api/v1/platforms/{id}/leases — list live leases on a platform (P21).
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R20
     /// Resin returns an items-wrapper; the caller parses (account, egress_ip,
     /// node_hash, expiry) to surface the keys already bound to an exit IP on
     /// this platform. This is the "right pane already-active accounts" view.
@@ -409,34 +425,40 @@ impl ResinClient {
     // ── Endpoint management (Resin v1.2.0) ───────────────────────────
 
     /// GET /api/v1/endpoints — list all inbound endpoints (default + custom).
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R15
     pub async fn list_endpoints(&self) -> Result<Value> {
         self.send_read("/endpoints").await
     }
 
     /// POST /api/v1/endpoints — create + immediately start a custom listener.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R16
     pub async fn create_endpoint(&self, body: Value) -> Result<Value> {
         self.send_with_retry(reqwest::Method::POST, "/endpoints", Some(body)).await
     }
 
     /// GET /api/v1/endpoints/{endpoint_id} — read a single endpoint.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R17
     pub async fn get_endpoint(&self, endpoint_id: &str) -> Result<Value> {
         let path = format!("/endpoints/{}", urlencoding(endpoint_id));
         self.send_read(&path).await
     }
 
     /// PATCH /api/v1/endpoints/{endpoint_id} — update port or capabilities (hot-reload).
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R18
     pub async fn update_endpoint(&self, endpoint_id: &str, body: Value) -> Result<Value> {
         let path = format!("/endpoints/{}", urlencoding(endpoint_id));
         self.send_with_retry(reqwest::Method::PATCH, &path, Some(body)).await
     }
 
     /// DELETE /api/v1/endpoints/{endpoint_id} — delete + close listener.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R19
     pub async fn delete_endpoint(&self, endpoint_id: &str) -> Result<Value> {
         let path = format!("/endpoints/{}", urlencoding(endpoint_id));
         self.send_with_retry(reqwest::Method::DELETE, &path, None).await
     }
 
     /// GET /api/v1/system/config — read the system-level configuration
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R03
     /// (max_consecutive_failures, cache_flush_interval, probe_timeout, etc.).
     /// T8-1: used by the circuit breaker Settings panel to display current values.
     pub async fn system_config_get(&self) -> Result<Value> {
@@ -444,6 +466,7 @@ impl ResinClient {
     }
 
     /// PATCH /api/v1/system/config — update system-level configuration.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R06
     /// T8-1: used to set max_consecutive_failures (circuit breaker threshold).
     pub async fn system_config_patch(&self, body: Value) -> Result<Value> {
         self.send_with_retry(reqwest::Method::PATCH, "/system/config", Some(body)).await
@@ -452,6 +475,7 @@ impl ResinClient {
     // ── Request logs (ticket 11: REST seam, replaces direct request_logs*.db read) ──
 
     /// GET /api/v1/request-logs?limit=N — tail of the Resin request log
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R44
     /// (architecture-recovery ticket 11; ADR-0005 Q6 said probe the endpoint
     /// before coding: the endpoint was verified in the bundled sidecar
     /// (docs/RESIN_UPSTREAM_MANIFEST.yaml v1.2.0): the embedded WebUI calls
@@ -498,12 +522,14 @@ impl ResinClient {
     }
 
     /// GET /api/v1/request-logs/{log_id} — single request log entry.
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R45
     pub async fn get_request_log(&self, log_id: &str) -> Result<Value> {
         let path = format!("/request-logs/{}", urlencoding(log_id));
         self.send_read(&path).await
     }
 
     /// GET /api/v1/request-logs/{log_id}/payloads — captured request/response
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R46
     /// bodies for a log entry (only present when payload logging is enabled).
     pub async fn get_request_log_payloads(&self, log_id: &str) -> Result<Value> {
         let path = format!("/request-logs/{}/payloads", urlencoding(log_id));
