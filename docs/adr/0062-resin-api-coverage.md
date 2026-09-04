@@ -59,12 +59,21 @@ remark. Row ids `R01..R58` are stable anchors; ResinClient public endpoint metho
   state that ADR-0057 diff-then-skip already keeps converged; preview-filter
   (read-only dry-run) duplicates the ADR-0054 shell-side in-memory snapshot and
   stays the one sanctioned wiring candidate for a later ticket (T23).
+- The four GeoIP endpoints `GET /geoip/status` (R40), `GET|POST /geoip/lookup`
+  (R41/R42), `POST /geoip/actions/update-now` (R43) are deliberate
+  non-adoptions per [ADR-0065](0065-geoip-provider-selection.md) (classified
+  by round5 T20): they return a pure geographic region with no fraud/abuse
+  dimension, while the shell's IP-reputation need is served by third-party
+  providers (`crates/resin-core/src/ip_reputation.rs`, L1 keys in
+  `settings.json`).
 
 **D4 — Next-round wiring roadmap (shell side, not an upstream upgrade list).** T16
 (account-header-rules CRUD ×4: R32-R35), T19 (12 metrics endpoints: R47-R58 except the
 wired R49/R56), T20 (GeoIP rationale ADR: R40-R43), T21 (expose R45/R46 + R22 detail),
 T17 (resolve or delete the 5 orphan methods). T22 classified R09/R13/R14 as
-deliberate non-adoptions (ADR-0066), closing its roadmap entry. This section
+deliberate non-adoptions (ADR-0066), closing its roadmap entry. T20 documented the GeoIP selection
+([ADR-0065](0065-geoip-provider-selection.md)), flipping R40-R43
+空白 → 故意不接 and closing its roadmap entry. This section
 is the "what to wire next" ledger; it deliberately does NOT track upstream Resin API
 changes (that is outside T13 scope per the issue 不做清单).
 

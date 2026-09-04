@@ -19,8 +19,8 @@ their row id.
 | 已对接 wired | ResinClient method exists AND is called by shell code (IPC command or resin-core service) | 22 |
 | 装饰 decorative | IPC command registered but its body does NOT call the endpoint it is named after | 0 |
 | 孤儿 orphan | ResinClient method exists with zero external callers (client unit tests only) | 4 |
-| 空白 blank | No ResinClient method, no IPC command — upstream-only surface | 26 |
-| 故意不接 deliberate | Unwired BY DECISION; reason recorded in ADR-0062 D3 or the cited ticket | 6 |
+| 空白 blank | No ResinClient method, no IPC command — upstream-only surface | 22 |
+| 故意不接 deliberate | Unwired BY DECISION; reason recorded in ADR-0062 D3 or the cited ticket | 10 |
 
 > The 装饰 bucket is currently EMPTY. reports/03 §2 #3 flagged `system_config_get/patch`
 > as decorative commands, but their bodies have called `client.system_config_*` since T8-1
@@ -95,10 +95,10 @@ lists only the tag-filter DB migration), so this table matches the bundled v1.2.
 | R37 | GET /api/v1/nodes/{hash} | handler_node.go:177 | — | — | 空白 | — | v1.0 | 单节点详情列表已覆盖 |
 | R38 | POST /api/v1/nodes/{hash}/actions/probe-egress | handler_node.go:190 | probe_node_egress:369 | node_probe | 已对接 | T19-P3 | v1.2.0 | 副作用更新 egress_ip/TD-EWMA |
 | R39 | POST /api/v1/nodes/{hash}/actions/probe-latency | handler_node.go:203 | probe_node_latency:379 | node_probe | 已对接 | T19-P3 | v1.2.0 | TD-EWMA 更新 |
-| R40 | GET /api/v1/geoip/status | handler_geoip.go:11 | — | — | 空白 | T20 | v1.0 | ip_reputation_snapshot 走第三方（IPQS/AbuseIPDB）；T20 立 ADR 解释 |
-| R41 | GET /api/v1/geoip/lookup | handler_geoip.go:19 | — | — | 空白 | T20 | v1.0 | 单 IP 查询 |
-| R42 | POST /api/v1/geoip/lookup | handler_geoip.go:50 | — | — | 空白 | T20 | v1.0 | 批量查询 |
-| R43 | POST /api/v1/geoip/actions/update-now | handler_geoip.go:39 | — | — | 空白 | T20 | v1.0 | 手动触发 GeoIP 更新 |
+| R40 | GET /api/v1/geoip/status | handler_geoip.go:11 | — | — | 故意不接 | ADR-0065 | v1.0 | 纯地理 region 无信誉维度；ip_reputation_snapshot 走第三方（IPQS/AbuseIPDB，ADR-0065） |
+| R41 | GET /api/v1/geoip/lookup | handler_geoip.go:19 | — | — | 故意不接 | ADR-0065 | v1.0 | 单 IP region 查询 — 纯地理，无信誉维度（ADR-0065） |
+| R42 | POST /api/v1/geoip/lookup | handler_geoip.go:50 | — | — | 故意不接 | ADR-0065 | v1.0 | 批量 region 查询 — 纯地理，无信誉维度（ADR-0065） |
+| R43 | POST /api/v1/geoip/actions/update-now | handler_geoip.go:39 | — | — | 故意不接 | ADR-0065 | v1.0 | Resin 自身 GeoIP 库刷新；shell 不消费其数据（ADR-0065） |
 | R44 | GET /api/v1/request-logs | handler_requestlog.go:16 | request_logs:464 | request_log_tail | 已对接 | arch-recovery 11 | v1.0 | 8 过滤参数 + cursor；REST 化封死 request_logs*.db 直读 |
 | R45 | GET /api/v1/request-logs/{log_id} | handler_requestlog.go:174 | get_request_log:500 | — | 孤儿 | T21 | v1.0 | 单条详情待 IPC 暴露 |
 | R46 | GET /api/v1/request-logs/{log_id}/payloads | handler_requestlog.go:198 | get_request_log_payloads:507 | — | 孤儿 | T21 | v1.0 | 仅 payload logging 开启时有 body |

@@ -35,6 +35,13 @@ Resin-pattern Core (crates/resin-core/) - shell-side support crate (ADR-0050)
 - platform.rs: Platform/Account registry (shell SharedRegistry state)
 - lane/lease/tdewma/gateway/mihomo modules + CoreConfig + stub bin: deleted in ADR-0050 (zero external references)
 
+IP reputation is a shell-side capability: `ip_reputation.rs` queries third-party
+providers (IPQualityScore fraud score, AbuseIPDB abuse confidence; keys in L1
+`settings.json`) because the decision input is egress-IP trust, not geography.
+Resin's built-in GeoIP endpoints (`/api/v1/geoip/*`, rows R40-R43 in
+[RESIN_API_COVERAGE.md](RESIN_API_COVERAGE.md)) return region strings only and
+are deliberately unwired — selection rationale in ADR-0065.
+
 ### Config Authority (配置权威)
 
 > This subsection legislates the three-layer configuration authority model. It
