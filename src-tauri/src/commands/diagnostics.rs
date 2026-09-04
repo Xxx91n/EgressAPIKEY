@@ -320,3 +320,184 @@ pub struct ExitIpProbe {
     pub latency_ms: u64,
     pub status: u16,
 }
+
+// ── T19 (Round 5, ADR-0064): Resin metrics minimal set ─────────────────────
+// Two endpoints of the 12 registered by resin/internal/api/handler_metrics.go
+// (裂痕 #5): GET /metrics/realtime/throughput (#R47) and GET
+// /metrics/history/probes (#R53). Pull model (spec: no WebSocket push); the
+// Ghost G3 health poll is a separate channel and is untouched. The remaining
+// 10 endpoints stay documented as blank in RESIN_API_COVERAGE.md pending a
+// full-set round (issue F1/F3).
+
+/// §7.5 input validation for the metrics history window (issue F4). Parsed +
+/// bounded at the IPC boundary before Resin ever sees the query string —
+/// the TS wrapper applies the same rules first (dual cover), this is the
+/// second line. Rules:
+///   - from/to parse as RFC3339 (handler_metrics.go:15 parses
+///     time.RFC3339Nano; anything else is a 400 upstream — reject earlier).
+///     Note: the issue draft said "Unix timestamp"; the upstream Go source is
+///     authoritative and takes RFC3339Nano (ADR-0064 deviation note).
+///   - both present: from must be strictly before to (handler_metrics.go:38).
+///   - to must not be more than METRICS_FUTURE_SKEW in the future (client
+///     clock is trusted for `now` defaults; a future `to` is a bug).
+///   - window (to - from, or now - from when to is omitted) is capped at
+///     METRICS_MAX_WINDOW_SECS so a hostile caller cannot make Resin scan an
+///     unbounded metrics.db range.
+/// Returns the validated strings ready for ResinClient::probe_history.
+pub(crate) const METRICS_FUTURE_SKEW_SECS: i64 = 300;
+pub(crate) const METRICS_MAX_WINDOW_SECS: i64 = 7 * 24 * 3600;
+
+pub(crate) fn validate_metrics_range(
+    from: Option<&str>,
+    to: Option<&str>,
+) -> Result<(Option<String>, Option<String>), IpcError> {
+    let parse = |s: &str, field: &str| -> Result<chrono::DateTime<chrono::Utc>, IpcError> {
+        if s.len() > 64 {
+            return Err(IpcError::invalid_input(&format!(
+                "metrics '{field}' exceeds 64 chars"
+            )));
+        }
+        chrono::DateTime::parse_from_rfc3339(s)
+            .map(|d| d.with_timezone(&chrono::Utc))
+            .map_err(|_| {
+                IpcError::invalid_input(&format!("metrics '{field}' must be RFC3339"))
+            })
+    };
+    let from_dt = from.map(|s| parse(s, "from")).transpose()?;
+    let to_dt = to.map(|s| parse(s, "to")).transpose()?;
+    let now = chrono::Utc::now();
+    let skew = chrono::Duration::seconds(METRICS_FUTURE_SKEW_SECS);
+    let window_cap = chrono::Duration::seconds(METRICS_MAX_WINDOW_SECS);
+    if let Some(t) = to_dt {
+        if t > now + skew {
+            return Err(IpcError::invalid_input("metrics 'to' is in the future"));
+        }
+    }
+    match (from_dt, to_dt) {
+        (Some(f), Some(t)) => {
+            if f >= t {
+                return Err(IpcError::invalid_input(
+                    "metrics 'from' must be before 'to'",
+                ));
+            }
+            if t - f > window_cap {
+                return Err(IpcError::invalid_input(
+                    "metrics window exceeds 7 days",
+                ));
+            }
+        }
+        (Some(f), None) => {
+            if now - f > window_cap {
+                return Err(IpcError::invalid_input(
+                    "metrics window exceeds 7 days",
+                ));
+            }
+        }
+        _ => {}
+    }
+    Ok((from.map(str::to_string), to.map(str::to_string)))
+}
+
+/// T19 (ADR-0064): GET /api/v1/metrics/history/probes — probe-count history
+/// buckets for the Diagnostics metrics card. from/to are RFC3339 strings,
+/// boundary-validated per §7.5 (see validate_metrics_range); both optional,
+/// in which case Resin applies its own defaults (to=now, from=to-1h).
+/// Response shape (handler_metrics.go:351): {"bucket_seconds": N,
+/// "items": [{"bucket_start","bucket_end","total_count"}]}. Treated as
+/// untrusted wire data downstream (TS coerces items to an array).
+#[tauri::command]
+pub async fn metrics_probe_history(
+    sidecar: State<'_, SidecarHandle>,
+    from: Option<String>,
+    to: Option<String>,
+) -> Result<serde_json::Value, IpcError> {
+    let (from, to) = validate_metrics_range(from.as_deref(), to.as_deref())?;
+    let client = resin_client(&sidecar)?;
+    tracing::debug!(?from, ?to, "metrics_probe_history: querying Resin history buckets");
+    client
+        .probe_history(from.as_deref(), to.as_deref())
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
+}
+
+/// T19 (ADR-0064): GET /api/v1/metrics/realtime/throughput — realtime
+/// ingress/egress ring samples for the Diagnostics metrics card. No input
+/// params (issue F4: realtime 无入参) — Resin's parseMetricsTimeRange defaults
+/// apply upstream (last hour). Response shape (handler_metrics.go:147):
+/// {"step_seconds": N, "items": [{"ts","ingress_bps","egress_bps"}]}.
+#[tauri::command]
+pub async fn metrics_realtime_throughput(
+    sidecar: State<'_, SidecarHandle>,
+) -> Result<serde_json::Value, IpcError> {
+    let client = resin_client(&sidecar)?;
+    client
+        .realtime_throughput()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
+}
+
+#[cfg(test)]
+mod t19_metrics_range_tests {
+    use super::validate_metrics_range;
+
+    #[test]
+    fn accepts_none_none() {
+        assert!(validate_metrics_range(None, None).is_ok());
+    }
+
+    #[test]
+    fn accepts_valid_one_hour_window() {
+        let (from, to) = validate_metrics_range(
+            Some("2026-09-04T00:00:00Z"),
+            Some("2026-09-04T01:00:00Z"),
+        )
+        .expect("valid window must pass");
+        assert_eq!(from.as_deref(), Some("2026-09-04T00:00:00Z"));
+        assert_eq!(to.as_deref(), Some("2026-09-04T01:00:00Z"));
+    }
+
+    #[test]
+    fn rejects_non_rfc3339_from() {
+        // Unix seconds are NOT accepted (upstream parses RFC3339Nano).
+        assert!(validate_metrics_range(Some("1727654400"), None).is_err());
+        assert!(validate_metrics_range(Some("not-a-time"), None).is_err());
+        assert!(validate_metrics_range(None, Some("2026-09-04 00:00:00Z")).is_err());
+    }
+
+    #[test]
+    fn rejects_from_after_to() {
+        assert!(validate_metrics_range(
+            Some("2026-09-04T01:00:00Z"),
+            Some("2026-09-04T00:00:00Z"),
+        )
+        .is_err());
+        assert!(validate_metrics_range(
+            Some("2026-09-04T01:00:00Z"),
+            Some("2026-09-04T01:00:00Z"),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn rejects_future_to() {
+        let far = chrono::Utc::now() + chrono::Duration::hours(2);
+        assert!(validate_metrics_range(None, Some(far.to_rfc3339().as_str())).is_err());
+    }
+
+    #[test]
+    fn rejects_window_over_seven_days() {
+        assert!(validate_metrics_range(
+            Some("2026-08-01T00:00:00Z"),
+            Some("2026-09-04T00:00:00Z"),
+        )
+        .is_err());
+        // from-only window (to defaults to now upstream) is capped the same.
+        assert!(validate_metrics_range(Some("2026-08-01T00:00:00Z"), None).is_err());
+    }
+
+    #[test]
+    fn rejects_oversized_timestamp() {
+        let long = format!("2026-09-04T00:00:00{}Z", "0".repeat(80));
+        assert!(validate_metrics_range(Some(long.as_str()), None).is_err());
+    }
+}

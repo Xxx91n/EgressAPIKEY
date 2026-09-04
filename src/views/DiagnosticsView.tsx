@@ -18,11 +18,15 @@ import {
   ipcStrategyVerify,
   ipcCloseAllConnections,
   ipcResetKernel,
+  ipcMetricsRealtimeThroughput,
+  ipcMetricsProbeHistory,
   type SidecarStatus,
   type FirewallStatus,
   type RequestLogEntry,
   type ExitIpProbe,
   type PortHealthCheck,
+  type MetricsThroughput,
+  type MetricsProbeHistory,
 } from "../lib/ipc";
 
 const btnCls = "px-2.5 py-1.5 rounded text-xs font-medium transition-colors bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5";
@@ -42,6 +46,42 @@ function DiagField({ label, children }: { label: string; children: React.ReactNo
       <span className="text-xs text-zinc-500 dark:text-zinc-400">{label}</span>
       {children}
     </div>
+  );
+}
+
+// T19 (ADR-0064): zero-dependency inline SVG line chart. Recharts was
+// considered and rejected for the minimal set (ponytail: no new deps for a
+// two-card diagnostic; revisit when the full 12-endpoint Metrics tab lands).
+// Renders one polyline per series over a shared time axis; empty/NaN input
+// renders as the empty-state string instead of a broken axis.
+function MetricsSparkline({
+  points,
+  color,
+}: {
+  points: { ts: number; value: number }[];
+  color: string;
+}) {
+  if (points.length === 0) return null;
+  const W = 480;
+  const H = 96;
+  const xs = points.map((p) => p.ts);
+  const ys = points.map((p) => p.value);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const maxY = Math.max(...ys, 0);
+  const spanX = maxX - minX || 1;
+  const spanY = maxY || 1;
+  const path = points
+    .map((p, i) => {
+      const x = ((p.ts - minX) / spanX) * (W - 4) + 2;
+      const y = H - 2 - (p.value / spanY) * (H - 6);
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24" data-testid="metrics-sparkline">
+      <path d={path} fill="none" stroke={color} strokeWidth="1.5" />
+    </svg>
   );
 }
 
@@ -67,6 +107,10 @@ export function DiagnosticsView() {
   const [healthProto, setHealthProto] = useState("socks5");
   const [healthResult, setHealthResult] = useState<PortHealthCheck | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
+  // T19 (ADR-0064): Resin metrics minimal-set state (pull model).
+  const [metricsThroughput, setMetricsThroughput] = useState<MetricsThroughput | null>(null);
+  const [metricsProbes, setMetricsProbes] = useState<MetricsProbeHistory | null>(null);
+  const [probeRange, setProbeRange] = useState<"1h" | "24h" | "7d">("24h");
   // Load poll interval from settings (T05: typed L1 command pair, no bare store invoke)
   useEffect(() => {
     (async () => {
@@ -84,20 +128,49 @@ export function DiagnosticsView() {
     try { await setDiagPollInterval(clamped); } catch { /* vitest no-op */ }
   };
 
+  // T19 (ADR-0064): probe-history fetch with a from/to window computed here.
+  // toISOString() is RFC3339 with millis — accepted by the upstream
+  // RFC3339Nano parser; the window is boundary-validated on both the TS and
+  // the Rust command side (§7.5 dual cover).
+  const PROBE_RANGE_MS: Record<string, number> = {
+    "1h": 3600_000,
+    "24h": 24 * 3600_000,
+    "7d": 7 * 24 * 3600_000,
+  };
+  const fetchProbeHistory = async (range: string) => {
+    const to = new Date();
+    const from = new Date(Date.now() - (PROBE_RANGE_MS[range] ?? PROBE_RANGE_MS["24h"]));
+    try {
+      const r = await ipcMetricsProbeHistory(from.toISOString(), to.toISOString());
+      setMetricsProbes(r);
+    } catch {
+      setMetricsProbes(null);
+    }
+  };
+
+  const handleProbeRangeChange = (range: "1h" | "24h" | "7d") => {
+    setProbeRange(range);
+    void fetchProbeHistory(range);
+  };
+
   // Main refresh: fetch all diagnostic data
   const refreshDiagnostics = async () => {
     setDiagBusy(true);
     try {
-      const [status, fw, logs, sideLogs] = await Promise.all([
+      const [status, fw, logs, sideLogs, tp] = await Promise.all([
         ipcGetSidecarStatus().catch(() => null),
         ipcCheckFirewallStatus().catch(() => null),
         ipcRequestLogTail(50).catch(() => []),
         invoke<string[]>("get_sidecar_logs").catch(() => []),
+        // T19 (ADR-0064): realtime throughput rides the same poll cycle.
+        ipcMetricsRealtimeThroughput().catch(() => null),
       ]);
       if (status) setSidecarStatus(status);
       if (fw) setFirewallStatus(fw);
       setReqLogs(Array.isArray(logs) ? logs : []);
       setSidecarLogs(Array.isArray(sideLogs) ? sideLogs : []);
+      setMetricsThroughput(tp);
+      void fetchProbeHistory(probeRange);
     } finally {
       setDiagBusy(false);
     }
@@ -390,6 +463,58 @@ export function DiagnosticsView() {
         <FolderOpen size={14} strokeWidth={1.75} />
         {t("diagnostics.openLogDir")}
       </button>
+
+      {/* T19 (ADR-0064): Resin metrics minimal set — realtime throughput +
+          probe history. Pull model; rides the diagnostics poll cycle. */}
+      <DiagCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("metrics.title")}>
+        <div className="space-y-3">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("metrics.throughput")}</span>
+              {metricsThroughput && metricsThroughput.items.length > 0 && (
+                <span className="text-xs text-zinc-400" data-testid="metrics-throughput-latest">
+                  ↓ {(metricsThroughput.items[metricsThroughput.items.length - 1].egress_bps / 1000).toFixed(1)} kb/s
+                </span>
+              )}
+            </div>
+            {metricsThroughput && metricsThroughput.items.length > 0 ? (
+              <MetricsSparkline
+                points={metricsThroughput.items
+                  .filter((p) => p && typeof p.ts === "string" && Number.isFinite(Date.parse(p.ts)))
+                  .map((p) => ({ ts: Date.parse(p.ts), value: Number(p.egress_bps) || 0 }))}
+                color="#3b82f6"
+              />
+            ) : (
+              <p className="text-xs text-zinc-500" data-testid="metrics-throughput-empty">{t("metrics.noData")}</p>
+            )}
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("metrics.probeHistory")}</span>
+              <select
+                data-testid="metrics-probe-range"
+                value={probeRange}
+                onChange={(e) => handleProbeRangeChange(e.target.value as "1h" | "24h" | "7d")}
+                className="text-xs rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1"
+              >
+                <option value="1h">1h</option>
+                <option value="24h">24h</option>
+                <option value="7d">7d</option>
+              </select>
+            </div>
+            {metricsProbes && metricsProbes.items.length > 0 ? (
+              <MetricsSparkline
+                points={metricsProbes.items
+                  .filter((b) => b && typeof b.bucket_start === "string" && Number.isFinite(Date.parse(b.bucket_start)))
+                  .map((b) => ({ ts: Date.parse(b.bucket_start), value: Number(b.total_count) || 0 }))}
+                color="#10b981"
+              />
+            ) : (
+              <p className="text-xs text-zinc-500" data-testid="metrics-probes-empty">{t("metrics.noData")}</p>
+            )}
+          </div>
+        </div>
+      </DiagCard>
 
       {/* T8-2: Strategy verification */}
       <DiagCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("strategyVerify.title")}>

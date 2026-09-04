@@ -694,6 +694,89 @@ export function ipcRequestLogTail(limit?: number): Promise<RequestLogEntry[]> {
   return invoke<RequestLogEntry[]>("request_log_tail", limit ? { limit } : {});
 }
 
+// T19 (Round 5, ADR-0064): Resin metrics minimal set — realtime throughput
+// (#R47) + probe history (#R53). Pull model (no WebSocket push). from/to are
+// RFC3339 strings at this boundary (upstream handler_metrics.go:15 parses
+// time.RFC3339Nano); validated here first, then re-validated at the Rust
+// command boundary (§7.5 dual cover). The Rust response is untrusted wire
+// data: items are coerced to an array before use.
+export interface MetricsThroughputPoint {
+  ts: string;
+  ingress_bps: number;
+  egress_bps: number;
+}
+
+export interface MetricsThroughput {
+  step_seconds?: number;
+  items: MetricsThroughputPoint[];
+}
+
+export interface MetricsProbeBucket {
+  bucket_start: string;
+  bucket_end: string;
+  total_count: number;
+}
+
+export interface MetricsProbeHistory {
+  bucket_seconds?: number;
+  items: MetricsProbeBucket[];
+}
+
+const METRICS_RFC3339_RE =
+  /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:?\d{2})$/;
+const METRICS_MAX_WINDOW_MS = 7 * 24 * 3600 * 1000;
+const METRICS_FUTURE_SKEW_MS = 5 * 60 * 1000;
+
+function assertMetricsTimestamp(v: string, field: string): void {
+  if (v.length > 64) throw new Error(`metrics '${field}' exceeds 64 chars`);
+  if (!METRICS_RFC3339_RE.test(v)) {
+    throw new Error(`metrics '${field}' must be an RFC3339 timestamp`);
+  }
+}
+
+export async function ipcMetricsRealtimeThroughput(): Promise<MetricsThroughput> {
+  const res = await invoke<MetricsThroughput>("metrics_realtime_throughput");
+  const items = (res as { items?: unknown } | null)?.items;
+  return {
+    step_seconds: (res as { step_seconds?: number } | null)?.step_seconds,
+    items: Array.isArray(items) ? (items as MetricsThroughputPoint[]) : [],
+  };
+}
+
+export async function ipcMetricsProbeHistory(
+  from?: string,
+  to?: string,
+): Promise<MetricsProbeHistory> {
+  if (from !== undefined) assertMetricsTimestamp(from, "from");
+  if (to !== undefined) assertMetricsTimestamp(to, "to");
+  if (from !== undefined && to !== undefined) {
+    const f = Date.parse(from);
+    const t = Date.parse(to);
+    if (!(f < t)) throw new Error("metrics 'from' must be before 'to'");
+    if (t - f > METRICS_MAX_WINDOW_MS) {
+      throw new Error("metrics window exceeds 7 days");
+    }
+  } else if (from !== undefined) {
+    if (Date.now() - Date.parse(from) > METRICS_MAX_WINDOW_MS) {
+      throw new Error("metrics window exceeds 7 days");
+    }
+  }
+  if (to !== undefined && Date.parse(to) - Date.now() > METRICS_FUTURE_SKEW_MS) {
+    throw new Error("metrics 'to' is in the future");
+  }
+  const args: { from?: string; to?: string } = {};
+  if (from !== undefined) args.from = from;
+  if (to !== undefined) args.to = to;
+  const res = await invoke<MetricsProbeHistory>("metrics_probe_history", args);
+  const items = (res as { items?: unknown } | null)?.items;
+  return {
+    bucket_seconds: (res as { bucket_seconds?: number } | null)?.bucket_seconds,
+    items: Array.isArray(items) ? (items as MetricsProbeBucket[]) : [],
+  };
+}
+
+
+
 export interface NetworkConfig {
   dns_upstreams?: string[];
   max_idle_conns?: number;

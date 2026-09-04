@@ -162,6 +162,10 @@ fn main() {
             commands::probe_exit_ip,
             commands::check_firewall_status,
             commands::request_log_tail,
+            // T19 (Round 5, ADR-0064): Resin metrics minimal set —
+            // history/probes (#R53) + realtime/throughput (#R47).
+            commands::metrics_probe_history,
+            commands::metrics_realtime_throughput,
             commands::whitebox_path,
             commands::whitebox_get,
             commands::whitebox_reload,

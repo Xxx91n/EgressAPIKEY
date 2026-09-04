@@ -33,6 +33,15 @@ describe("DiagnosticsView closed-loop tests", () => {
       // T05: typed L1 command pair replaced the bare get/set_store_value bypass
       if (cmd === "get_diag_poll_interval") return Promise.resolve(5000);
       if (cmd === "set_diag_poll_interval") return Promise.resolve(undefined);
+      // T19 (ADR-0064): metrics minimal set
+      if (cmd === "metrics_realtime_throughput") return Promise.resolve({
+        step_seconds: 10,
+        items: [{ ts: "2026-09-04T00:00:00Z", ingress_bps: 1000, egress_bps: 2000 }],
+      });
+      if (cmd === "metrics_probe_history") return Promise.resolve({
+        bucket_seconds: 60,
+        items: [{ bucket_start: "2026-09-04T00:00:00Z", bucket_end: "2026-09-04T00:01:00Z", total_count: 3 }],
+      });
       if (cmd === "probe_exit_ip") return Promise.resolve({
         port: 1790, protocol: "http", exit_ip: "1.2.3.4", latency_ms: 50, status: 200,
       });
@@ -128,6 +137,45 @@ describe("DiagnosticsView closed-loop tests", () => {
       expect(invokeMock).toHaveBeenCalledWith("set_diag_poll_interval", { intervalMs: 10000 });
     });
   });
+
+  it("T19: renders Resin metrics card with throughput + probe history charts", async () => {
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      // Both metrics fetches ride the initial poll cycle.
+      expect(invokeMock).toHaveBeenCalledWith("metrics_realtime_throughput", expect.anything());
+      expect(invokeMock).toHaveBeenCalledWith("metrics_probe_history", expect.anything());
+    });
+    // Two sparklines render (throughput + probe history) — no empty state.
+    expect(screen.getAllByTestId("metrics-sparkline")).toHaveLength(2);
+    expect(screen.queryByTestId("metrics-throughput-empty")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("metrics-probes-empty")).not.toBeInTheDocument();
+  });
+
+  it("T19: probe-history range change refetches with a new from/to window", async () => {
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("metrics-probe-range")).toBeInTheDocument();
+    });
+    invokeMock.mockClear();
+    fireEvent.change(screen.getByTestId("metrics-probe-range"), { target: { value: "1h" } });
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(
+        "metrics_probe_history",
+        expect.objectContaining({ from: expect.any(String), to: expect.any(String) }),
+      );
+    });
+    const args = invokeMock.mock.calls
+      .filter((c: unknown[]) => c[0] === "metrics_probe_history")
+      .map((c: unknown[]) => c[1] as { from: string; to: string })
+      .pop();
+    expect(args).toBeDefined();
+    const from = Date.parse(args!.from);
+    const to = Date.parse(args!.to);
+    expect(from).toBeLessThan(to);
+    // 1h window (± a second of clock skew between the two Date() reads).
+    expect(to - from).toBeGreaterThanOrEqual(3600_000 - 1000);
+    expect(to - from).toBeLessThanOrEqual(3600_000 + 1000);
+  });
 });
 
 
@@ -142,6 +190,9 @@ describe("T15-1: DiagnosticsView uses usePoll (not setInterval)", () => {
       // T05: typed L1 command pair replaced the bare get/set_store_value bypass
       if (cmd === "get_diag_poll_interval") return Promise.resolve(5000);
       if (cmd === "set_diag_poll_interval") return Promise.resolve(undefined);
+      // T19 (ADR-0064): metrics minimal set (also needed in usePoll block)
+      if (cmd === "metrics_realtime_throughput") return Promise.resolve({ step_seconds: 10, items: [] });
+      if (cmd === "metrics_probe_history") return Promise.resolve({ bucket_seconds: 60, items: [] });
       return Promise.resolve(null);
     });
   });
@@ -190,6 +241,14 @@ describe("DiagnosticsView negative tests", () => {
     render(<DiagnosticsView />);
     await waitFor(() => {
       expect(screen.getByTestId("diag-no-logs")).toBeInTheDocument();
+    });
+  });
+
+  it("T19: metrics card shows empty state when IPC rejects", async () => {
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("metrics-throughput-empty")).toBeInTheDocument();
+      expect(screen.getByTestId("metrics-probes-empty")).toBeInTheDocument();
     });
   });
 });

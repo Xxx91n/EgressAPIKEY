@@ -38,6 +38,7 @@ import {
   ipcAuthoritativeSnapshot,
   ipcReconcileNow, snapReconcilePlan,
   ipcSetLogLevel,
+  ipcMetricsRealtimeThroughput, ipcMetricsProbeHistory,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -518,6 +519,77 @@ describe("T6-5 firewall + request log tail", () => {
     await ipcRequestLogTail();
     // When no limit is provided, the wrapper still passes an object (possibly with __trace_id).
   expect(invokeMock).toHaveBeenCalledWith("request_log_tail", expect.anything());
+  });
+});
+
+describe("T19 (ADR-0064) metrics minimal-set wrappers", () => {
+  it("ipcMetricsRealtimeThroughput forwards with no params and coerces items", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({ step_seconds: 10, items: [{ ts: "2026-09-04T00:00:00Z", ingress_bps: 1, egress_bps: 2 }] });
+    const r = await ipcMetricsRealtimeThroughput();
+    expect(invokeMock).toHaveBeenCalledWith("metrics_realtime_throughput", expect.anything());
+    expect(r.items).toHaveLength(1);
+    expect(r.step_seconds).toBe(10);
+  });
+
+  it("ipcMetricsRealtimeThroughput coerces missing items to empty array", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(null);
+    const r = await ipcMetricsRealtimeThroughput();
+    expect(r.items).toEqual([]);
+  });
+
+  it("ipcMetricsProbeHistory forwards RFC3339 from/to", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({ bucket_seconds: 60, items: [] });
+    await ipcMetricsProbeHistory("2026-09-04T00:00:00Z", "2026-09-04T01:00:00Z");
+    expect(invokeMock).toHaveBeenCalledWith(
+      "metrics_probe_history",
+      expect.objectContaining({ from: "2026-09-04T00:00:00Z", to: "2026-09-04T01:00:00Z" }),
+    );
+  });
+
+  it("ipcMetricsProbeHistory rejects non-RFC3339 from (TS §7.5 guard)", async () => {
+    invokeMock.mockClear();
+    await expect(
+      ipcMetricsProbeHistory("1727654400", undefined),
+    ).rejects.toThrow(/RFC3339/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("ipcMetricsProbeHistory rejects from >= to", async () => {
+    await expect(
+      ipcMetricsProbeHistory("2026-09-04T01:00:00Z", "2026-09-04T00:00:00Z"),
+    ).rejects.toThrow(/before/);
+    await expect(
+      ipcMetricsProbeHistory("2026-09-04T00:00:00Z", "2026-09-04T00:00:00Z"),
+    ).rejects.toThrow(/before/);
+  });
+
+  it("ipcMetricsProbeHistory rejects windows over 7 days", async () => {
+    await expect(
+      ipcMetricsProbeHistory("2026-08-01T00:00:00Z", "2026-09-04T00:00:00Z"),
+    ).rejects.toThrow(/7 days/);
+    // from-only window (to defaults upstream to now) capped the same way.
+    await expect(
+      ipcMetricsProbeHistory("2026-08-01T00:00:00Z", undefined),
+    ).rejects.toThrow(/7 days/);
+  });
+
+  it("ipcMetricsProbeHistory rejects future to", async () => {
+    const far = new Date(Date.now() + 2 * 3600 * 1000).toISOString();
+    await expect(ipcMetricsProbeHistory(undefined, far)).rejects.toThrow(/future/);
+  });
+
+  it("ipcMetricsProbeHistory omits params when both undefined", async () => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({ bucket_seconds: 60, items: [] });
+    await ipcMetricsProbeHistory();
+    // The invoke wrapper injects __trace_id, so assert no from/to keys ride along.
+    expect(invokeMock).toHaveBeenCalledWith(
+      "metrics_probe_history",
+      expect.not.objectContaining({ from: expect.anything(), to: expect.anything() }),
+    );
   });
 });
 
