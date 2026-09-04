@@ -1051,7 +1051,35 @@ export interface AuthoritativeSnapshot {
   resinReachable: boolean;
   /** Ticket 12 (ADR-0054 §C): Unix seconds when this snapshot was generated. */
   lastCheckedAt: number;
+  /** Round 5 T09 (ADR-0058): whitebox write-authority generation + observed
+   *  (last green apply) generation and the derived convergence phase. */
+  strategyGeneration: number;
+  strategyAppliedGeneration: number;
+  convergePhase: ConvergePhase;
+  /** Unix seconds of the last green apply pass; undefined = never green. */
+  lastApplyAt?: number;
+  /** Reason of the last not-green apply pass; undefined when green/never. */
+  lastApplyError?: string;
 }
+
+/** Round 5 T09 (ADR-0058 D-28): top-level convergence phase. The Rust enum
+ *  serializes in its PascalCase variant form over the wire; mirrored here. */
+export type ConvergePhase =
+  | "NeverApplied"
+  | "PendingApply"
+  | "ApplyFailed"
+  | "Converged"
+  | "Drifted"
+  | "Unknown";
+
+const CONVERGE_PHASES: readonly ConvergePhase[] = [
+  "NeverApplied",
+  "PendingApply",
+  "ApplyFailed",
+  "Converged",
+  "Drifted",
+  "Unknown",
+];
 
 const MAX_SNAPSHOT_ENTRIES = 4096;
 const SNAPSHOT_STR_MAX = 512;
@@ -1211,7 +1239,26 @@ function snapSnapshot(v: unknown): AuthoritativeSnapshot {
     // Ticket 12: untrusted timestamp sanitized to a bounded Unix-seconds
     // number; a malformed value degrades to 0 instead of leaking junk.
     lastCheckedAt: snapTs(r.lastCheckedAt) ?? 0,
+    // Round 5 T09 (ADR-0058): untrusted generation counters + phase. A
+    // malformed counter degrades to 0; a malformed phase degrades to
+    // "Unknown" (honest: we do not know what the wire said).
+    strategyGeneration: snapCounter(r.strategyGeneration),
+    strategyAppliedGeneration: snapCounter(r.strategyAppliedGeneration),
+    convergePhase: ((): ConvergePhase => {
+      const s = typeof r.convergePhase === "string" ? r.convergePhase : "";
+      return (CONVERGE_PHASES as readonly string[]).includes(s)
+        ? (s as ConvergePhase)
+        : "Unknown";
+    })(),
+    lastApplyAt: snapTs(r.lastApplyAt),
+    lastApplyError: r.lastApplyError === undefined || r.lastApplyError === null ? undefined : snapStr(r.lastApplyError) || undefined,
   };
+}
+
+/** Round 5 T09: bounded non-negative integer counter (generation fields). */
+function snapCounter(v: unknown): number {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 && n <= Number.MAX_SAFE_INTEGER ? n : 0;
 }
 
 /// Read back the merged effective configuration in one call. No inputs to

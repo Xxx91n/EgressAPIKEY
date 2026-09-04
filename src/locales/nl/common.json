@@ -502,6 +502,12 @@
     "reconcileConfirm": "Nu toepassen",
     "reconcileWorking": "Bezig met afstemmen…",
     "routesSection": "Procesroutes",
-    "route": "Route"
+    "route": "Route",
+    "convergeConverged": "Effectief om {{time}} (rev {{rev}})",
+    "convergeFailed": "ApplyFailed · {{reason}}",
+    "convergePending": "In wachtrij · klik om te reconciliëren",
+    "convergeNever": "Nooit toegepast",
+    "convergeDrifted": "Toegepast · live status geweken",
+    "convergeUnknown": "Convergentie onbekend (Resin offline)"
   }
 }

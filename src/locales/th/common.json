@@ -502,6 +502,12 @@
     "reconcileConfirm": "ใช้เลย",
     "reconcileWorking": "กำลังซิงค์…",
     "routesSection": "เส้นทางของโปรเซส",
-    "route": "เส้นทาง"
+    "route": "เส้นทาง",
+    "convergeConverged": "มีผลเมื่อ {{time}} (rev {{rev}})",
+    "convergeFailed": "ใช้งานล้มเหลว · {{reason}}",
+    "convergePending": "รอการใช้งาน · คลิกเพื่อปรับให้ตรง",
+    "convergeNever": "ยังไม่เคยใช้งาน",
+    "convergeDrifted": "ใช้งานแล้ว · สถานะจริงเหลื่อมล้ำ",
+    "convergeUnknown": "สถานะการลู่เข้าไม่ทราบ (Resin ออฟไลน์)"
   }
 }

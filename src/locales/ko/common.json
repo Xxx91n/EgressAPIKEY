@@ -502,6 +502,12 @@
     "reconcileConfirm": "지금 적용",
     "reconcileWorking": "동기화 중…",
     "routesSection": "프로세스 라우팅",
-    "route": "라우트"
+    "route": "라우트",
+    "convergeConverged": "{{time}}에 적용됨 (rev {{rev}})",
+    "convergeFailed": "적용 실패 · {{reason}}",
+    "convergePending": "적용 대기 · 클릭하여 수렴",
+    "convergeNever": "적용된 적 없음",
+    "convergeDrifted": "적용됨 · 라이브 상태 불일치",
+    "convergeUnknown": "수렴 상태 알 수 없음 (Resin 오프라인)"
   }
 }

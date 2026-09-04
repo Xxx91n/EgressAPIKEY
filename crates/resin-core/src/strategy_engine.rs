@@ -125,6 +125,30 @@ pub struct StrategyConfig {
     /// ≤64 members × 1..128 chars (no control chars), duplicates rejected.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acknowledged: Vec<String>,
+    /// Round 5 T09 / ADR-0058: write-authority generation counter. Bumped by
+    /// EVERY sanctioned store-path write (service `store`, deep region edit,
+    /// rollback) after validate, before the file lands. Absent in a v1 file
+    /// = 0 = "never applied" (k8s habit: a fresh boot is not a fake alarm).
+    #[serde(default)]
+    pub generation: u64,
+    /// Observed generation: the value `generation` had when the last FULLY
+    /// GREEN apply pass returned. Written back inside the same store entry by
+    /// `StrategyService::apply` (R-B Q2); failures keep the old value and
+    /// record `last_apply_error` instead.
+    #[serde(default)]
+    pub applied_generation: u64,
+    /// Unix seconds of the last apply pass that returned green (refreshed
+    /// even for a diff-then-skip zero-PATCH pass, Terraform re-apply style).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_apply_at: Option<u64>,
+    /// KEP-1623 style failure record: reason+message of the last apply pass
+    /// that did NOT return fully green. Cleared by the next green pass.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_apply_error: Option<String>,
+    /// Unix seconds of the last whitebox write (any store-path write,
+    /// including non-apply edits). Pure metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<u64>,
 }
 
 impl Default for StrategyConfig {
@@ -133,6 +157,11 @@ impl Default for StrategyConfig {
             version: 1,
             platforms: vec![],
             acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
         }
     }
 }
@@ -459,6 +488,11 @@ mod tests {
         let config = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
             platforms: vec![PlatformStrategy {
                 platform_name: "p1".into(),
                 a_class: AClassStrategy::Region,

@@ -502,6 +502,12 @@
     "reconcileConfirm": "Zastosuj teraz",
     "reconcileWorking": "Synchronizowanie…",
     "routesSection": "Trasy procesów",
-    "route": "Reguła"
+    "route": "Reguła",
+    "convergeConverged": "Obowiązuje od {{time}} (rev {{rev}})",
+    "convergeFailed": "ApplyFailed · {{reason}}",
+    "convergePending": "Oczekuje na zastosowanie · kliknij, aby uzgodnić",
+    "convergeNever": "Nigdy nie zastosowano",
+    "convergeDrifted": "Zastosowano · stan live rozbieżny",
+    "convergeUnknown": "Zbieżność nieznana (Resin offline)"
   }
 }

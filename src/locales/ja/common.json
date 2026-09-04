@@ -502,6 +502,12 @@
     "reconcileConfirm": "今すぐ適用",
     "reconcileWorking": "同期中…",
     "routesSection": "プロセスルート",
-    "route": "ルート"
+    "route": "ルート",
+    "convergeConverged": "{{time}} に適用済み (rev {{rev}})",
+    "convergeFailed": "適用失敗 · {{reason}}",
+    "convergePending": "適用待ち · クリックで収束",
+    "convergeNever": "未適用",
+    "convergeDrifted": "適用済み · 実行状態が乖離",
+    "convergeUnknown": "収束状態不明（Resin オフライン）"
   }
 }

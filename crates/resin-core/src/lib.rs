@@ -50,7 +50,7 @@ pub use port_forwarder::{parse_trace_body_ip, PortForwarder, MAX_ENTRY_PORTS, MI
 pub use port_health::PortHealthSnapshot;
 pub use resin_client::ResinClient;
 pub use snapshot::{
-    AuthoritativeSnapshot, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot,
+    AuthoritativeSnapshot, ConvergePhase, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot,
     SubscriptionSnapshot,
 };
 pub use strategy_engine::{compute_plan, parse_nodes, StrategyConfig};

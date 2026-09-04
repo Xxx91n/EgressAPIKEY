@@ -502,6 +502,12 @@
     "reconcileConfirm": "Jetzt anwenden",
     "reconcileWorking": "Gleiche ab…",
     "routesSection": "Prozessrouten",
-    "route": "Route"
+    "route": "Route",
+    "convergeConverged": "Wirksam um {{time}} (Rev {{rev}})",
+    "convergeFailed": "ApplyFailed · {{reason}}",
+    "convergePending": "Ausstehend · zum Abgleich klicken",
+    "convergeNever": "Nie angewendet",
+    "convergeDrifted": "Angewendet · Live-State abweichend",
+    "convergeUnknown": "Konvergenz unbekannt (Resin offline)"
   }
 }

@@ -232,6 +232,92 @@ pub struct AuthoritativeSnapshot {
     /// Pure metadata: stamped by the command layer, never participates in the
     /// three-state merge. Monotonic non-decreasing across consecutive calls.
     pub last_checked_at: u64,
+    /// Round 5 T09 / ADR-0058: the whitebox write-authority generation
+    /// (equal to the strategy config's `generation` counter at snapshot time).
+    #[serde(default)]
+    pub strategy_generation: u64,
+    /// The generation the last FULLY GREEN apply pass landed at; equality
+    /// with `strategy_generation` is the `Converged` precondition.
+    #[serde(default)]
+    pub strategy_applied_generation: u64,
+    /// Round 5 T09 / ADR-0058 (D-28): top-level convergence phase — the
+    /// "wrote it, did it take effect?" axis, orthogonal to the per-entry
+    /// three-state (ADR-0051). Derived by `derive_converge_phase`.
+    pub converge_phase: ConvergePhase,
+    /// Unix seconds of the last green apply pass (None = never green).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_apply_at: Option<u64>,
+    /// Failure record of the last not-green apply pass (None when green or
+    /// never attempted). KEP-1623 style: reason + message in one string.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_apply_error: Option<String>,
+}
+
+/// Round 5 T09 / ADR-0058 (D-28): top-level convergence phase of the
+/// strategy whitebox. Six states, mutually exclusive, derived from the
+/// generation pair + error record + Resin reachability:
+/// - `NeverApplied`: generation == 0 (k8s habit — a fresh boot is not a
+///   fake "pending apply" alarm).
+/// - `Unknown`: Resin was unreachable, so convergence cannot be asserted.
+/// - `ApplyFailed`: applied < generation with a recorded error.
+/// - `PendingApply`: applied < generation with no error (writes happened
+///   since the last green pass; the next apply should converge).
+/// - `Drifted`: applied == generation but the merged entries show
+///   unacknowledged drift (someone/something moved Resin out from under
+///   the applied generation).
+/// - `Converged`: applied == generation and no unacknowledged drift.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ConvergePhase {
+    NeverApplied,
+    PendingApply,
+    ApplyFailed,
+    Converged,
+    Drifted,
+    Unknown,
+}
+
+impl ConvergePhase {
+    /// Stable snake_case wire tag (mirrors the per-entry `state_tag` style).
+    pub fn tag(&self) -> &'static str {
+        match self {
+            ConvergePhase::NeverApplied => "never_applied",
+            ConvergePhase::PendingApply => "pending_apply",
+            ConvergePhase::ApplyFailed => "apply_failed",
+            ConvergePhase::Converged => "converged",
+            ConvergePhase::Drifted => "drifted",
+            ConvergePhase::Unknown => "unknown",
+        }
+    }
+}
+
+/// Pure derivation of the top-level convergence phase (ADR-0058, D-28).
+/// `unacknowledged_drift` is true when ANY merged entry (platform/port/route)
+/// is in a drift state AND is not marked acknowledged — the same read-side
+/// exemption discipline as the per-entry merge (ADR-0054 §D).
+pub fn derive_converge_phase(
+    generation: u64,
+    applied_generation: u64,
+    last_apply_error: Option<&str>,
+    resin_reachable: bool,
+    unacknowledged_drift: bool,
+) -> ConvergePhase {
+    if generation == 0 {
+        return ConvergePhase::NeverApplied;
+    }
+    if !resin_reachable {
+        return ConvergePhase::Unknown;
+    }
+    if applied_generation < generation {
+        if last_apply_error.is_some() {
+            ConvergePhase::ApplyFailed
+        } else {
+            ConvergePhase::PendingApply
+        }
+    } else if unacknowledged_drift {
+        ConvergePhase::Drifted
+    } else {
+        ConvergePhase::Converged
+    }
 }
 
 /// Process-local first-drift memory for `divergentSince` (ticket 12 /
@@ -828,6 +914,11 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
             platforms: vec![strategy_entry("alpha", &["us", "hk"])],
         };
         let resin = vec![runtime("alpha", &["hk", "us"], "BALANCED")];
@@ -868,6 +959,11 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
             platforms: vec![strategy_entry("alpha", &["jp"])],
         };
         let resin = vec![runtime("alpha", &["us"], "PREFER_LOW_LATENCY")];
@@ -894,6 +990,11 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
             platforms: vec![strategy_entry("ghost", &["hk"])],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
@@ -911,6 +1012,11 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
             platforms: vec![strategy_entry("alpha", &["us", "hk", "us"])],
         };
         let resin = vec![runtime("alpha", &["HK", "US"], "BALANCED")];
@@ -931,6 +1037,11 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
             platforms: vec![strategy_entry("alpha", &[])],
         };
         let mut computed = HashMap::new();
@@ -995,6 +1106,11 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
             platforms: vec![strategy_entry("alpha", &["hk"]), strategy_entry("beta", &["us"])],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
@@ -1006,6 +1122,11 @@ mod tests {
             subscriptions: vec![],
             resin_reachable: true,
             last_checked_at: 1_700_000_000,
+            strategy_generation: 0,
+            strategy_applied_generation: 0,
+            converge_phase: ConvergePhase::NeverApplied,
+            last_apply_at: None,
+            last_apply_error: None,
         };
         snap.ports = merge_ports(&[port_mapping(17990, true)], &[17990]);
         let v = serde_json::to_value(&snap).expect("serialize");
@@ -1089,6 +1210,11 @@ mod tests {
             subscriptions: vec![],
             resin_reachable: true,
             last_checked_at: 1,
+            strategy_generation: 0,
+            strategy_applied_generation: 0,
+            converge_phase: ConvergePhase::NeverApplied,
+            last_apply_at: None,
+            last_apply_error: None,
         };
         let v = serde_json::to_value(&snap).unwrap();
         assert!(v.get("routes").is_none(), "empty routes must be omitted");
@@ -1164,6 +1290,11 @@ mod tests {
             subscriptions: out2,
             resin_reachable: true,
             last_checked_at: 1,
+            strategy_generation: 0,
+            strategy_applied_generation: 0,
+            converge_phase: ConvergePhase::NeverApplied,
+            last_apply_at: None,
+            last_apply_error: None,
         };
         let v = serde_json::to_value(&snap).unwrap();
         assert_eq!(v["subscriptions"][0]["name"], "orphan");
@@ -1185,6 +1316,11 @@ mod tests {
             subscriptions: vec![],
             resin_reachable: false,
             last_checked_at: 1_756_521_600,
+            strategy_generation: 0,
+            strategy_applied_generation: 0,
+            converge_phase: ConvergePhase::NeverApplied,
+            last_apply_at: None,
+            last_apply_error: None,
         };
         let v = serde_json::to_value(&snap).expect("serialize");
         assert_eq!(v["lastCheckedAt"], 1_756_521_600i64);
@@ -1200,6 +1336,11 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
             platforms: vec![strategy_entry("alpha", &["jp"])],
         };
         let resin = vec![runtime("alpha", &["us"], "BALANCED")];
@@ -1255,6 +1396,11 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
             platforms: vec![strategy_entry("alpha", &["hk"]), strategy_entry("beta", &["us"])],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
@@ -1330,5 +1476,225 @@ mod tests {
         let back2: StrategySnapshot = serde_json::from_value(v2).unwrap();
         assert_eq!(back2, stamped);
         assert_ne!(back2, missing);
+    }
+
+    // ---- Round 5 T09 / ADR-0058: ConvergePhase derivation (D-28) ----
+    #[test]
+    fn derive_converge_phase_table() {
+        use ConvergePhase::*;
+        // (gen, applied, error, reachable, unack_drift, expected)
+        let table: &[(u64, u64, Option<&str>, bool, bool, ConvergePhase)] = &[
+            (0, 0, None, true, false, NeverApplied),
+            (0, 0, Some("boom"), true, false, NeverApplied),
+            (3, 1, None, false, false, Unknown),
+            (3, 1, Some("PATCH failed: 500"), true, false, ApplyFailed),
+            (3, 1, None, true, false, PendingApply),
+            (3, 3, None, true, true, Drifted),
+            (3, 3, None, true, false, Converged),
+            // acknowledged drift does NOT break convergence (ADR-0054 D).
+            (3, 3, Some("stale"), true, false, Converged),
+            // Resin-down outranks the drift flag but not NeverApplied.
+            (3, 3, None, false, true, Unknown),
+        ];
+        for (i, (gen, applied, err, reachable, drift, expected)) in table.iter().enumerate() {
+            let got = derive_converge_phase(*gen, *applied, *err, *reachable, *drift);
+            assert_eq!(got, *expected, "row {i}: gen={gen} applied={applied} err={err:?} reachable={reachable} drift={drift}");
+        }
+    }
+
+    #[test]
+    fn converge_phase_tags_are_stable_snake_case() {
+        assert_eq!(ConvergePhase::NeverApplied.tag(), "never_applied");
+        assert_eq!(ConvergePhase::PendingApply.tag(), "pending_apply");
+        assert_eq!(ConvergePhase::ApplyFailed.tag(), "apply_failed");
+        assert_eq!(ConvergePhase::Converged.tag(), "converged");
+        assert_eq!(ConvergePhase::Drifted.tag(), "drifted");
+        assert_eq!(ConvergePhase::Unknown.tag(), "unknown");
+    }
+
+    #[test]
+    fn snapshot_serializes_converge_phase_fields_camel_case() {
+        let snap = AuthoritativeSnapshot {
+            strategy_version: 1,
+            platforms: vec![],
+            ports: vec![],
+            routes: vec![],
+            subscriptions: vec![],
+            resin_reachable: true,
+            last_checked_at: 1_700_000_000,
+            strategy_generation: 5,
+            strategy_applied_generation: 4,
+            converge_phase: ConvergePhase::PendingApply,
+            last_apply_at: Some(1_699_999_000),
+            last_apply_error: None,
+        };
+        let v = serde_json::to_value(&snap).unwrap();
+        assert_eq!(v["strategyGeneration"], serde_json::json!(5));
+        assert_eq!(v["strategyAppliedGeneration"], serde_json::json!(4));
+        assert_eq!(v["convergePhase"], serde_json::json!("PendingApply"));
+        assert_eq!(v["lastApplyAt"], serde_json::json!(1_699_999_000));
+        assert!(v.get("lastApplyError").is_none(), "None must be omitted");
+    }
+
+    // ---- Round 5 T10 / ADR-0058 (issue 10 F2 / acceptance a): the FULL
+    // valid-case table. issue 10 F2 counts applied x gen x error x
+    // reachable x drift = 3x3x2x2x2 = 72 raw combinations, of which exactly
+    // 36 are representable store states: applied never exceeds generation
+    // through the write entries (apply only catches up), and a coherent
+    // file keeps last_apply_error set only while applied < gen (the green
+    // write-back clears it, D-26). Every valid row is enumerated below;
+    // the degenerate leftovers are locked separately in
+    // issue10_derive_converge_phase_boundary_states.
+    #[test]
+    fn issue10_derive_converge_phase_full_valid_table() {
+        use ConvergePhase::*;
+        // (gen, applied, error, reachable, unack_drift, expected)
+        let table: &[(u64, u64, Option<&str>, bool, bool, ConvergePhase)] = &[
+            // gen == 0 (never-written whitebox): NeverApplied outranks
+            // everything - Resin-down and unacknowledged drift included.
+            (0, 0, None, true, false, NeverApplied),
+            (0, 0, None, true, true, NeverApplied),
+            (0, 0, None, false, false, NeverApplied),
+            (0, 0, None, false, true, NeverApplied),
+            // applied < gen: PendingApply (no error) / ApplyFailed (error).
+            // Drift is orthogonal here: a pending apply stays pending
+            // whether or not the live state also drifted meanwhile.
+            (1, 0, None, true, false, PendingApply),
+            (1, 0, None, true, true, PendingApply),
+            (1, 0, Some("PATCH failed: 500"), true, false, ApplyFailed),
+            (1, 0, Some("PATCH failed: 500"), true, true, ApplyFailed),
+            (1, 0, None, false, false, Unknown),
+            (1, 0, None, false, true, Unknown),
+            (1, 0, Some("PATCH failed: 500"), false, false, Unknown),
+            (1, 0, Some("PATCH failed: 500"), false, true, Unknown),
+            (3, 0, None, true, false, PendingApply),
+            (3, 0, None, true, true, PendingApply),
+            (3, 0, Some("PATCH failed: 500"), true, false, ApplyFailed),
+            (3, 0, Some("PATCH failed: 500"), true, true, ApplyFailed),
+            (3, 0, None, false, false, Unknown),
+            (3, 0, None, false, true, Unknown),
+            (3, 0, Some("PATCH failed: 500"), false, false, Unknown),
+            (3, 0, Some("PATCH failed: 500"), false, true, Unknown),
+            (3, 1, None, true, false, PendingApply),
+            (3, 1, None, true, true, PendingApply),
+            (3, 1, Some("PATCH failed: 500"), true, false, ApplyFailed),
+            (3, 1, Some("PATCH failed: 500"), true, true, ApplyFailed),
+            (3, 1, None, false, false, Unknown),
+            (3, 1, None, false, true, Unknown),
+            (3, 1, Some("PATCH failed: 500"), false, false, Unknown),
+            (3, 1, Some("PATCH failed: 500"), false, true, Unknown),
+            // applied == gen: Converged / Drifted by the unacknowledged-
+            // drift flag; Resin-down still reads Unknown (honesty outranks).
+            (1, 1, None, true, false, Converged),
+            (1, 1, None, true, true, Drifted),
+            (1, 1, None, false, false, Unknown),
+            (1, 1, None, false, true, Unknown),
+            (3, 3, None, true, false, Converged),
+            (3, 3, None, true, true, Drifted),
+            (3, 3, None, false, false, Unknown),
+            (3, 3, None, false, true, Unknown),
+        ];
+        assert_eq!(table.len(), 36, "issue 10 mandates exactly 36 valid rows");
+        for (i, (gen, applied, err, reachable, drift, expected)) in table.iter().enumerate() {
+            let got = derive_converge_phase(*gen, *applied, *err, *reachable, *drift);
+            assert_eq!(got, *expected, "row {i}: gen={gen} applied={applied} err={err:?} reachable={reachable} drift={drift}");
+        }
+    }
+
+    // Boundary states a coherent store cannot produce but the pure
+    // derivation must still classify deterministically (issue 10 F2
+    // "all legal + boundary states").
+    #[test]
+    fn issue10_derive_converge_phase_boundary_states() {
+        use ConvergePhase::*;
+        let table: &[(u64, u64, Option<&str>, bool, bool, ConvergePhase)] = &[
+            // A green pass clears last_apply_error (D-26), so an error
+            // beside applied == gen is stale - it must never mask
+            // convergence, and drift still wins over the stale record.
+            (3, 3, Some("stale"), true, false, Converged),
+            (3, 3, Some("stale"), true, true, Drifted),
+            // A fresh file (gen == 0) cannot carry an error; a hand-built
+            // doc with one must not flip the phase out of NeverApplied.
+            (0, 0, Some("boom"), true, false, NeverApplied),
+            (0, 0, Some("boom"), false, true, NeverApplied),
+            // applied > gen cannot occur through the write entries (apply
+            // only catches up, never runs ahead); the derivation must stay
+            // total and treat the state like the == branch, never panic.
+            (1, 3, None, true, false, Converged),
+            (1, 3, Some("stale"), true, true, Drifted),
+        ];
+        for (i, (gen, applied, err, reachable, drift, expected)) in table.iter().enumerate() {
+            let got = derive_converge_phase(*gen, *applied, *err, *reachable, *drift);
+            assert_eq!(got, *expected, "boundary row {i}: gen={gen} applied={applied} err={err:?} reachable={reachable} drift={drift}");
+        }
+    }
+
+    // Acceptance (b): the two axes are ORTHOGONAL. The same snapshot reads
+    // Drifted at the top level while a per-entry row is divergent, and the
+    // acknowledged exemption greys the badge WITHOUT resolving the phase
+    // (only a green apply write-back can); the per-entry three-state tag
+    // is never rewritten by the top-level axis (ADR-0051 untouched).
+    #[test]
+    fn issue10_converge_phase_is_orthogonal_to_per_entry_state() {
+        // gen == applied (the last apply landed) but Resin moved since:
+        // desired-vs-live disagrees NOW (per-entry divergent) while the
+        // write-authority history says Drifted (top level).
+        let cfg = StrategyConfig {
+            version: 1,
+            acknowledged: vec![],
+            generation: 3,
+            applied_generation: 3,
+            last_apply_at: Some(1_700_000_000),
+            last_apply_error: None,
+            updated_at: None,
+            platforms: vec![strategy_entry("alpha", &["us", "hk"])],
+        };
+        let resin = vec![runtime("alpha", &["us", "jp"], "BALANCED")];
+        let map = HashMap::new();
+        let mut platforms = merge_strategies(&cfg, &resin, &map, true);
+        assert_eq!(platforms[0].state_tag(), "divergent");
+        assert!(!platforms[0].acknowledged());
+
+        // Same rules as the command tail (commands/strategy.rs:407-416):
+        // the drift flag is computed FROM the per-entry axis, then fed to
+        // the pure phase derivation beside the generation pair.
+        let unacknowledged_drift = platforms
+            .iter()
+            .any(|e| e.state_tag() != "consistent" && !e.acknowledged());
+        assert!(unacknowledged_drift);
+        assert_eq!(
+            derive_converge_phase(
+                cfg.generation,
+                cfg.applied_generation,
+                cfg.last_apply_error.as_deref(),
+                true,
+                unacknowledged_drift,
+            ),
+            ConvergePhase::Drifted,
+            "same snapshot: Drifted on top, divergent per entry"
+        );
+
+        // Acknowledged exemption (ADR-0054 D): the badge greys (flag set),
+        // the per-entry tag is UNTOUCHED, and the identical generation pair
+        // now reads Converged - the exemption crosses the axis boundary
+        // only through the read-side flag.
+        stamp_platform_acknowledged(&mut platforms, &["alpha".to_string()]);
+        assert!(platforms[0].acknowledged());
+        assert_eq!(platforms[0].state_tag(), "divergent", "acknowledged must not touch the three-state tag");
+        let unacknowledged_drift = platforms
+            .iter()
+            .any(|e| e.state_tag() != "consistent" && !e.acknowledged());
+        assert!(!unacknowledged_drift);
+        assert_eq!(
+            derive_converge_phase(
+                cfg.generation,
+                cfg.applied_generation,
+                cfg.last_apply_error.as_deref(),
+                true,
+                unacknowledged_drift,
+            ),
+            ConvergePhase::Converged,
+            "exempted drift no longer breaks top-level convergence"
+        );
     }
 }

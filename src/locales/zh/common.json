@@ -502,6 +502,12 @@
     "reconcileConfirm": "立即执行",
     "reconcileWorking": "正在同步…",
     "routesSection": "进程路由",
-    "route": "路由"
+    "route": "路由",
+    "convergeConverged": "已生效于 {{time}} (rev {{rev}})",
+    "convergeFailed": "应用失败 · {{reason}}",
+    "convergePending": "待应用 · 点击立即收敛",
+    "convergeNever": "从未应用",
+    "convergeDrifted": "已应用 · 运行态已漂移",
+    "convergeUnknown": "收敛状态未知（Resin 离线）"
   }
 }

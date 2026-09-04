@@ -502,6 +502,12 @@
     "reconcileConfirm": "تطبيق الآن",
     "reconcileWorking": "جارٍ المزامنة…",
     "routesSection": "مسارات العمليات",
-    "route": "مسار"
+    "route": "مسار",
+    "convergeConverged": "سارٍ منذ {{time}} (rev {{rev}})",
+    "convergeFailed": "فشل التطبيق · {{reason}}",
+    "convergePending": "بانتظار التطبيق · انقر للمطابقة",
+    "convergeNever": "لم يُطبَّق قط",
+    "convergeDrifted": "مُطبَّق · الحالة الحية منحرفة",
+    "convergeUnknown": "حالة التقارب غير معروفة (Resin غير متصل)"
   }
 }

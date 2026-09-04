@@ -284,6 +284,49 @@ never be silent (R-A Q2 patch 4).
 _Avoid_: orphan subscription, dead import (nothing died — it was never
 wired)
 
+### Generation
+
+The whitebox write-authority counter (round5 T09 / ADR-0058, k8s
+`metadata.generation` anchoring). Every sanctioned store-path write of
+`egressapikey-strategy.json` (IPC put, deep region edit, rollback,
+apply's own write-back) bumps it by one inside the write entry, after
+validate and before the file lands. `egressapikey-ports.json` carries
+its own SINGLE-generation counter (Crossplane local-type rule: writer
+and applier are one process, the apply completes synchronously).
+`generation = 0` means the file is untouched since the counter was
+introduced — never surface that as "pending apply".
+_Avoid_: revision (UI copy uses rev N for display, the field is
+generation), version (that is the schema `version` byte), epoch
+
+### AppliedGeneration
+
+The observed half of the pair (k8s `status.observedGeneration`): the
+generation the last FULLY GREEN `strategy_apply` pass landed at,
+written back inside the same store entry after the pass returns
+(R-B Q2). A green pass — including a diff-then-skip zero-PATCH pass —
+converges the pair and refreshes `last_apply_at`; a failed pass keeps
+the old value and records `last_apply_error` instead (faking
+convergence is the bug class the counter exists to expose). The ports
+half has NO applied generation by design.
+_Avoid_: last applied revision, apply attempt counter (failures are
+not counted here)
+
+### ConvergePhase
+
+The top-level, six-state convergence phase derived in the
+authoritative snapshot (D-28), orthogonal to the per-entry three-state
+of ADR-0051: `NeverApplied` (generation 0) / `Unknown` (Resin down —
+honesty outranks guessing) / `ApplyFailed` (applied < generation with
+an error record) / `PendingApply` (applied < generation, no error) /
+`Drifted` (applied == generation but unacknowledged entry drift) /
+`Converged` (applied == generation, no unacknowledged drift).
+EffectiveConfigView renders it as the header chip: green 已生效于
+HH:MM (rev N), red ApplyFailed · reason, amber 待应用 · 点击立即收敛
+(clicking opens the existing reconcile preview). Zero new requests —
+pure derivation over the snapshot already pulled.
+_Avoid_: sync status (that is the per-entry three-state), health
+(nothing here probes Resin health), auto-reconcile trigger
+
 ### A-Class Strategy
 
 A strategy that controls which IP nodes enter a Platform. Modes (mutually

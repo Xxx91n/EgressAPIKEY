@@ -502,6 +502,12 @@
     "reconcileConfirm": "Terapkan sekarang",
     "reconcileWorking": "Menyinkronkan…",
     "routesSection": "Rute proses",
-    "route": "Rute"
+    "route": "Rute",
+    "convergeConverged": "Efektif pada {{time}} (rev {{rev}})",
+    "convergeFailed": "ApplyFailed · {{reason}}",
+    "convergePending": "Menunggu penerapan · klik untuk rekonsiliasi",
+    "convergeNever": "Belum pernah diterapkan",
+    "convergeDrifted": "Diterapkan · status live menyimpang",
+    "convergeUnknown": "Konvergensi tidak diketahui (Resin offline)"
   }
 }

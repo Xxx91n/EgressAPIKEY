@@ -502,6 +502,12 @@
     "reconcileConfirm": "Şimdi uygula",
     "reconcileWorking": "Uzlaştırılıyor…",
     "routesSection": "İşlem rotaları",
-    "route": "Kural"
+    "route": "Kural",
+    "convergeConverged": "{{time}} itibarıyla geçerli (rev {{rev}})",
+    "convergeFailed": "ApplyFailed · {{reason}}",
+    "convergePending": "Uygulama bekliyor · uzlaştırmak için tıkla",
+    "convergeNever": "Hiç uygulanmadı",
+    "convergeDrifted": "Uygulandı · canlı durum saptı",
+    "convergeUnknown": "Yakınsama bilinmiyor (Resin çevrimdışı)"
   }
 }

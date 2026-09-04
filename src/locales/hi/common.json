@@ -502,6 +502,12 @@
     "reconcileConfirm": "अभी लागू करें",
     "reconcileWorking": "सिंक हो रहा है…",
     "routesSection": "प्रक्रिया रूट",
-    "route": "रूट"
+    "route": "रूट",
+    "convergeConverged": "{{time}} पर लागू (rev {{rev}})",
+    "convergeFailed": "ApplyFailed · {{reason}}",
+    "convergePending": "लागू होना बाकी · समाधान हेतु क्लिक करें",
+    "convergeNever": "कभी लागू नहीं",
+    "convergeDrifted": "लागू · लाइव स्थिति भिन्न",
+    "convergeUnknown": "अभिसरण अज्ञात (Resin ऑफ़लाइन)"
   }
 }

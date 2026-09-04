@@ -502,6 +502,12 @@
     "reconcileConfirm": "Apply now",
     "reconcileWorking": "Reconciling…",
     "routesSection": "Process routes",
-    "route": "Route"
+    "route": "Route",
+    "convergeConverged": "Effective at {{time}} (rev {{rev}})",
+    "convergeFailed": "ApplyFailed · {{reason}}",
+    "convergePending": "Pending apply · click to reconcile",
+    "convergeNever": "Never applied",
+    "convergeDrifted": "Applied · live state drifted",
+    "convergeUnknown": "Convergence unknown (Resin down)"
   }
 }

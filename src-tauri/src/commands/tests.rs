@@ -520,6 +520,11 @@ use serde_json::json;
             subscriptions: vec![],
             resin_reachable: true,
             last_checked_at: 1_756_521_601,
+            strategy_generation: 0,
+            strategy_applied_generation: 0,
+            converge_phase: resin_core::ConvergePhase::NeverApplied,
+            last_apply_at: None,
+            last_apply_error: None,
         };
         let v = serde_json::to_value(&snap).unwrap();
         // Top-level field is camelCase (TS wrapper convention).

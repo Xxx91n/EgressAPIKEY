@@ -18,6 +18,9 @@ function baseSnap(overrides: Partial<AuthoritativeSnapshot> = {}): Authoritative
     ports: [],
     routes: [],
     subscriptions: [],
+    strategyGeneration: 0,
+    strategyAppliedGeneration: 0,
+    convergePhase: "NeverApplied",
     ...overrides,
   };
 }

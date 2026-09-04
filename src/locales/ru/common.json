@@ -502,6 +502,12 @@
     "reconcileConfirm": "Применить сейчас",
     "reconcileWorking": "Синхронизация…",
     "routesSection": "Маршруты процессов",
-    "route": "Маршрут"
+    "route": "Маршрут",
+    "convergeConverged": "Применено в {{time}} (rev {{rev}})",
+    "convergeFailed": "Ошибка применения · {{reason}}",
+    "convergePending": "Ожидает применения · нажмите для сверки",
+    "convergeNever": "Никогда не применялось",
+    "convergeDrifted": "Применено · живое состояние разошлось",
+    "convergeUnknown": "Сходимость неизвестна (Resin недоступен)"
   }
 }

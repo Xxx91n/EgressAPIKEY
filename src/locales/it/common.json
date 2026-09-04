@@ -502,6 +502,12 @@
     "reconcileConfirm": "Applica ora",
     "reconcileWorking": "Riconciliazione…",
     "routesSection": "Route di processo",
-    "route": "Regola"
+    "route": "Regola",
+    "convergeConverged": "Effettivo alle {{time}} (rev {{rev}})",
+    "convergeFailed": "ApplyFailed · {{reason}}",
+    "convergePending": "Applicazione in attesa · clicca per riconciliare",
+    "convergeNever": "Mai applicato",
+    "convergeDrifted": "Applicato · lo stato live è divergente",
+    "convergeUnknown": "Convergenza sconosciuta (Resin offline)"
   }
 }

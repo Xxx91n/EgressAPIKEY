@@ -101,6 +101,68 @@ function desiredRegions(p: StrategySnapshot): string {
   return (p.state === "divergent" ? p.whitebox_regions : p.regions).join(", ");
 }
 
+// Round 5 T09 / ADR-0058: top-level convergence chip. Data comes from the
+// SAME 5s/open snapshot pull as the rest of the view (zero new requests).
+// Converged => green "effective at HH:MM (rev N)"; ApplyFailed => red with
+// the recorded reason; PendingApply => amber, clickable, opens the reconcile
+// preview; the remaining phases (NeverApplied/Drifted/Unknown) render their
+// own honest labels instead of masquerading as one of the three.
+function ConvergeChip({ snap, onReconcile }: { snap: AuthoritativeSnapshot; onReconcile: () => void }) {
+  const { t } = useTranslation();
+  const phase = snap.convergePhase ?? "Unknown";
+  const time = snap.lastApplyAt
+    ? new Date(snap.lastApplyAt * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "";
+  const common = { "data-testid": "ec-converge-chip", "data-phase": phase } as const;
+  const chip =
+    "ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium";
+  if (phase === "Converged") {
+    return (
+      <span {...common} className={chip + " bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"}>
+        {t("effectiveConfig.convergeConverged", { time: time || t("effectiveConfig.notRecorded"), rev: snap.strategyAppliedGeneration })}
+      </span>
+    );
+  }
+  if (phase === "ApplyFailed") {
+    return (
+      <span {...common} className={chip + " bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"}>
+        {t("effectiveConfig.convergeFailed", { reason: snap.lastApplyError || t("effectiveConfig.notRecorded") })}
+      </span>
+    );
+  }
+  if (phase === "PendingApply") {
+    return (
+      <button
+        {...common}
+        onClick={onReconcile}
+        title={t("effectiveConfig.reconcile")}
+        className={chip + " bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-400"}
+      >
+        {t("effectiveConfig.convergePending")}
+      </button>
+    );
+  }
+  if (phase === "NeverApplied") {
+    return (
+      <span {...common} className={chip + " bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"}>
+        {t("effectiveConfig.convergeNever")}
+      </span>
+    );
+  }
+  if (phase === "Drifted") {
+    return (
+      <span {...common} className={chip + " bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"}>
+        {t("effectiveConfig.convergeDrifted")}
+      </span>
+    );
+  }
+  return (
+    <span {...common} className={chip + " bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"}>
+      {t("effectiveConfig.convergeUnknown")}
+    </span>
+  );
+}
+
 function liveRegions(p: StrategySnapshot): string {
   if (p.state === "consistent") return p.regions.join(", ");
   if (p.state === "divergent") return p.resin_regions.join(", ");
@@ -197,6 +259,9 @@ export function EffectiveConfigView() {
       <div className="flex items-center gap-2 flex-wrap">
         <ClipboardCheck size={16} strokeWidth={1.75} />
         <h2 className="text-sm font-semibold tracking-tight">{t("nav.effectiveConfig")}</h2>
+        {/* Round 5 T09 / ADR-0058: top-level convergence chip (green
+            Converged / red ApplyFailed / amber PendingApply-reconcile). */}
+        {snap ? <ConvergeChip snap={snap} onReconcile={() => setPreviewOpen(true)} /> : null}
         <span className="text-xs text-zinc-500 dark:text-zinc-400" data-testid="ec-last-checked">
           {t("effectiveConfig.lastCheckedAt")}: {lastChecked || t("effectiveConfig.notRecorded")}
         </span>

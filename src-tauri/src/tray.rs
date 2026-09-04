@@ -555,6 +555,11 @@ mod tests {
             subscriptions: vec![],
             resin_reachable: true,
             last_checked_at: 42,
+            strategy_generation: 0,
+            strategy_applied_generation: 0,
+            converge_phase: resin_core::ConvergePhase::NeverApplied,
+            last_apply_at: None,
+            last_apply_error: None,
         };
         // only the unacknowledged missing platform counts; the acknowledged
         // divergent platform and the acknowledged missing port are exempt,
@@ -589,6 +594,11 @@ mod tests {
             subscriptions: vec![],
             resin_reachable: true,
             last_checked_at: 43,
+            strategy_generation: 0,
+            strategy_applied_generation: 0,
+            converge_phase: resin_core::ConvergePhase::NeverApplied,
+            last_apply_at: None,
+            last_apply_error: None,
             strategy_version: 1,
         };
         assert_eq!(count_unacknowledged_drift_entries(&acked), 0);

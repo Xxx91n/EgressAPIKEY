@@ -313,8 +313,14 @@ impl FsStrategyStore {
     /// SAME validate + store write entry as strategy_config_put (ADR-0036).
     /// The rollback write is itself backed up, so a rollback is reversible.
     pub fn rollback(&self, backup_name: &str) -> Result<StrategyConfig, String> {
-        let config: StrategyConfig = read_backup_parsed(&self.path, backup_name)?;
+        let mut config: StrategyConfig = read_backup_parsed(&self.path, backup_name)?;
         validate(&config)?;
+        // T09 / ADR-0058: a rollback IS a write-authority change — bump the
+        // generation here (the store trait's store() is a byte-dump and must
+        // stay counter-agnostic; the service-level store() owns the bump for
+        // the IPC put path, this is the store-adjacent rollback path).
+        config.generation = config.generation.wrapping_add(1);
+        config.updated_at = Some(now_unix());
         self.store(&config)?;
         Ok(config)
     }
@@ -471,9 +477,17 @@ impl<S: StrategyConfigStore> StrategyService<S> {
     }
 
     /// Validate + persist. The write entry for strategyConfig (ADR-0036).
-    pub fn store(&self, config: &StrategyConfig) -> Result<(), String> {
-        validate(config)?;
-        self.store.store(config)
+    /// Round 5 T09 / ADR-0058: the generation counter is bumped HERE — after
+    /// validate, before the file lands — so every sanctioned write (IPC put,
+    /// deep region edit, rollback, apply's own write-back) serially advances
+    /// the write-authority generation. The caller passes its config by value
+    /// and the bumped document is what lands on disk.
+    pub fn store(&self, mut config: StrategyConfig) -> Result<StrategyConfig, String> {
+        validate(&config)?;
+        config.generation = config.generation.wrapping_add(1);
+        config.updated_at = Some(now_unix());
+        self.store.store(&config)?;
+        Ok(config)
     }
 
     /// Compute the A-class plan without touching Resin (pure read used by
@@ -517,10 +531,8 @@ impl<S: StrategyConfigStore> StrategyService<S> {
                 b_class_params: Default::default(),
             }),
         }
-        self.store(&config)?;
-        Ok(config)
+        self.store(config)
     }
-
 }
 
 impl StrategyService<FsStrategyStore> {
@@ -676,6 +688,37 @@ impl StrategyService<FsStrategyStore> {
                 ));
             }
         }
+
+        // Round 5 T09 / ADR-0058 (D-26): apply-generation write-back. All
+        // green => applied_generation catches up to the generation the
+        // write-back itself will LAND at (store() bumps, so that is
+        // generation + 1) and the error slot clears — inside the same store
+        // write entry (R-B Q2). Anything not green => the old applied value
+        // stays (no fake convergence) and the failure is recorded. A green
+        // pass over an already-converged world (diff-then-skip, zero PATCH)
+        // still refreshes last_apply_at — Terraform re-apply semantics.
+        // ConvergePhase keys on applied == gen, which holds after every
+        // green pass by this construction.
+        if platforms.iter().all(|p| p.patched) {
+            let mut green = self.get()?;
+            green.applied_generation = green.generation.wrapping_add(1);
+            green.last_apply_at = Some(now_unix());
+            green.last_apply_error = None;
+            self.store(green)?;
+        } else {
+            let failed = platforms
+                .iter()
+                .find(|p| !p.patched)
+                .map(|p| p.reason.clone().unwrap_or_else(|| "apply failed".to_string()))
+                .unwrap_or_else(|| "apply failed".to_string());
+            let mut stale = self.get()?;
+            stale.last_apply_error = Some(failed);
+            // The error write goes through the same store entry: generation
+            // bumps (a whitebox write happened), applied_generation does not
+            // catch up — applied < gen with an error = ApplyFailed phase.
+            self.store(stale)?;
+        }
+
         Ok(ApplyReport { platforms })
     }
 
@@ -727,7 +770,16 @@ mod tests {
     }
 
     fn cfg(platforms: Vec<PlatformStrategy>) -> StrategyConfig {
-        StrategyConfig { version: 1, platforms, acknowledged: vec![] }
+        StrategyConfig {
+            version: 1,
+            platforms,
+            acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
+        }
     }
 
     /// In-memory store for fixtures.
@@ -800,7 +852,237 @@ mod tests {
         let svc = StrategyService::new(MemStore(serde_json::Value::Null));
         let mut bad = cfg(vec![ps("A", &["US"])]);
         bad.version = 9;
-        assert!(svc.store(&bad).is_err());
+        assert!(svc.store(bad).is_err());
+    }
+
+    // ---- Round 5 T09 / ADR-0058: generation counter (F2) ----
+    #[test]
+    fn store_bumps_generation_serially_and_stamps_updated_at() {
+        let dir = std::env::temp_dir().join(format!("strategy-svc-gen-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("egressapikey-strategy.json");
+        let svc = StrategyService::new(FsStrategyStore::new(path.clone()));
+        // Every sanctioned store-path write bumps by exactly one: IPC put
+        // equivalent (store), deep region edit, rollback.
+        let g1 = svc.store(cfg(vec![ps("A", &["US"])])).unwrap();
+        assert_eq!(g1.generation, 1);
+        let t1 = g1.updated_at.unwrap();
+        let g2 = svc
+            .set_platform_regions("A", vec!["HK".to_string()])
+            .unwrap();
+        assert_eq!(g2.generation, 2);
+        let t2 = g2.updated_at.unwrap();
+        assert!(t2 >= t1, "updated_at must advance or hold (same-second ok)");
+        // apply-generation write-back (F3) also lands through store(): the
+        // error path bumps too. Verify via a direct green write-back below.
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn strategy_config_v1_file_deserializes_with_generation_zero_never_applied() {
+        // Acceptance (a): a v1 file (no generation fields) loads with
+        // generation=0 = NeverApplied — zero-migration serde(default) compat.
+        let dir = std::env::temp_dir().join(format!("strategy-svc-v1-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("egressapikey-strategy.json");
+        std::fs::write(
+            &path,
+            r#"{"version":1,"platforms":[{"platform_name":"Old","a_class":"region","b_class":"random","regions":["US"]}]}"#,
+        )
+        .unwrap();
+        let svc = StrategyService::new(FsStrategyStore::new(path.clone()));
+        let v1 = svc.get().unwrap();
+        assert_eq!(v1.version, 1);
+        assert_eq!(v1.generation, 0);
+        assert_eq!(v1.applied_generation, 0);
+        assert_eq!(v1.last_apply_at, None);
+        assert_eq!(v1.last_apply_error, None);
+        assert_eq!(v1.updated_at, None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ---- Round 5 T09 / ADR-0058: apply write-back (F3, D-26) ----
+    #[tokio::test]
+    async fn apply_green_write_back_applies_generation_inside_store_entry() {
+        let store_path = apply_fixture_store_path("gen-green");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        let stored = svc.store(cfg(vec![ps("alpha", &["HK"])]));
+        assert!(stored.is_ok());
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0}]}"#)
+            .expect_at_least(1)
+            .create_async()
+            .await;
+        // Two phases: drifted, then in-sync on the write-back re-read? No —
+        // the write-back re-read happens AFTER the PATCH loop, the live row
+        // is already synced by then; the single drifted registration covers
+        // both reads.
+        let m_platforms = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["US"]}]}"#)
+            .expect_at_least(2)
+            .create_async()
+            .await;
+        let m_patch = server
+            .mock("PATCH", "/api/v1/platforms/id-a")
+            .match_header(bearer.0, bearer.1)
+            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":"id-a"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = svc.apply(&c, platform_id_for_name_fixture).await.expect("apply green");
+        assert!(report.platforms[0].patched);
+
+        // The write-back: applied_generation caught up, error slot cleared,
+        // last_apply_at stamped. gen >= applied always; equality is what the
+        // ConvergePhase derivation keys on (the write-back's own store()
+        // bump means the landed file reads gen = N+1, applied = gen).
+        let after = svc.get().unwrap();
+        assert_eq!(after.applied_generation, after.generation, "green pass must converge the counter pair");
+        assert!(after.applied_generation >= 1, "write-back went through store(): {after:?}");
+        assert_eq!(after.last_apply_error, None);
+        assert!(after.last_apply_at.is_some());
+
+        m_nodes.assert_async().await;
+        m_platforms.assert_async().await;
+        m_patch.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    #[tokio::test]
+    async fn apply_green_diff_skip_pass_still_refreshes_last_apply_at() {
+        // Same-generation re-apply (Terraform re-apply semantics): a fully
+        // green pass over an already-converged world emits ZERO PATCH but
+        // still refreshes last_apply_at and converges the counter pair.
+        let store_path = apply_fixture_store_path("gen-resync");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        svc.store(cfg(vec![ps("alpha", &["HK"])]))
+            .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0}]}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let m_platforms = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["HK"]}]}"#)
+            .expect(2)
+            .create_async()
+            .await;
+        let m_patch = server
+            .mock("PATCH", mockito::Matcher::Any)
+            .with_status(500)
+            .expect(0)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let before = svc.get().unwrap();
+        let report = svc.apply(&c, platform_id_for_name_fixture).await.expect("pass green");
+        assert_eq!(report.platforms[0].reason.as_deref(), Some("in sync"));
+        let after = svc.get().unwrap();
+        assert_eq!(after.applied_generation, after.generation);
+        assert!(after.last_apply_at.is_some(), "zero-PATCH green pass still stamps apply time");
+        assert!(after.last_apply_at >= before.last_apply_at);
+        m_nodes.assert_async().await;
+        m_platforms.assert_async().await;
+        m_patch.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    #[tokio::test]
+    async fn apply_failure_keeps_old_applied_and_records_last_apply_error() {
+        // D-26 failure path: anything not green keeps applied_generation at
+        // its old value (no fake convergence) and records the failure reason.
+        let store_path = apply_fixture_store_path("gen-fail");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        svc.store(cfg(vec![ps("alpha", &["HK"])]))
+            .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0}]}"#)
+            .create_async()
+            .await;
+        let m_platforms = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["US"]}]}"#)
+            .expect_at_least(1)
+            .create_async()
+            .await;
+        // PATCH 400: per-platform failure, apply stays "successful" overall
+        // but is NOT green — the write-back must record the error.
+        let m_patch = server
+            .mock("PATCH", "/api/v1/platforms/id-a")
+            .match_header(bearer.0, bearer.1)
+            .with_status(400)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"error":"region rejected"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = svc.apply(&c, platform_id_for_name_fixture).await.expect("apply reports per-platform");
+        assert!(!report.platforms[0].patched);
+
+        let after = svc.get().unwrap();
+        assert_eq!(after.applied_generation, 0, "failure must NOT converge the counter");
+        assert!(
+            after.last_apply_error.as_deref().unwrap_or("").contains("PATCH failed"),
+            "failure reason must be recorded: {after:?}"
+        );
+        // last_apply_at is untouched by a failed pass (only green passes
+        // stamp it — the field means "last time it actually worked").
+        assert_eq!(after.last_apply_at, None);
+        m_nodes.assert_async().await;
+        m_platforms.assert_async().await;
+        m_patch.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
     }
 
     // ---- set_platform_regions (deep edit for the canvas) ----
@@ -880,10 +1162,10 @@ mod tests {
         let path = dir.join("egressapikey-strategy.json");
         let svc = StrategyService::new(FsStrategyStore::new(path.clone()));
         // First write: no previous file, no backup.
-        svc.store(&cfg(vec![ps("A", &["US"])])).unwrap();
+        svc.store(cfg(vec![ps("A", &["US"])])).unwrap();
         assert!(svc.store_ref().list_backups().unwrap().is_empty());
         // Second write: previous content backed up before the swap.
-        svc.store(&cfg(vec![ps("B", &["EU"])])).unwrap();
+        svc.store(cfg(vec![ps("B", &["EU"])])).unwrap();
         let backups = svc.store_ref().list_backups().unwrap();
         assert_eq!(backups.len(), 1);
         let raw = std::fs::read_to_string(
@@ -902,8 +1184,8 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("egressapikey-strategy.json");
         let svc = StrategyService::new(FsStrategyStore::new(path.clone()));
-        svc.store(&cfg(vec![ps("A", &["US"])])).unwrap();
-        svc.store(&cfg(vec![ps("B", &["EU"])])).unwrap();
+        svc.store(cfg(vec![ps("A", &["US"])])).unwrap();
+        svc.store(cfg(vec![ps("B", &["EU"])])).unwrap();
         let backup_name = svc.store_ref().list_backups().unwrap()[0].file_name.clone();
         let rolled = svc.store_ref().rollback(&backup_name).unwrap();
         assert_eq!(rolled.platforms[0].platform_name, "A");
@@ -939,13 +1221,13 @@ mod tests {
         let fsvc = StrategyService::new(FsStrategyStore::new(path.clone()));
         let mut cfg_doc = cfg(vec![ps("A", &["US"])]);
         cfg_doc.acknowledged = vec!["A".to_string()];
-        fsvc.store(&cfg_doc).unwrap();
+        fsvc.store(cfg_doc).unwrap();
         let reloaded = fsvc.get().unwrap();
         assert_eq!(reloaded.acknowledged, vec!["A".to_string()]);
         // skip_serializing_if: empty list writes NO acknowledged key.
         let mut empty = cfg(vec![]);
         empty.acknowledged = vec![];
-        fsvc.store(&empty).unwrap();
+        fsvc.store(empty).unwrap();
         let raw = std::fs::read_to_string(&path).unwrap();
         assert!(!raw.contains("acknowledged"), "empty exemption list must not appear in the file");
         let _ = std::fs::remove_file(&path);
@@ -996,13 +1278,19 @@ mod tests {
         // missing -> None -> defaults
         let svc = StrategyService::new(store);
         assert!(svc.get().unwrap().platforms.is_empty());
-        // store + reload
+        // store + reload (T09: store() bumps generation 0->1 and stamps
+        // updated_at, so the reloaded doc differs from the input in exactly
+        // those two write-authority fields).
         let c = cfg(vec![ps("Anthropic", &["US", "HK"])]);
-        svc.store(&c).unwrap();
+        let landed = svc.store(c.clone()).unwrap();
+        assert_eq!(landed.generation, 1);
+        assert!(landed.updated_at.is_some());
         let raw = std::fs::read_to_string(&path).unwrap();
         assert!(raw.contains("\"platform_name\""));
         let reloaded = svc.get().unwrap();
-        assert_eq!(reloaded, c);
+        assert_eq!(reloaded, landed);
+        assert_eq!(reloaded.generation, 1);
+        assert!(reloaded.updated_at.is_some());
         // set_platform_regions persists through the same file
         svc.set_platform_regions("Anthropic", vec!["SG".to_string()]).unwrap();
         let again = svc.get().unwrap();
@@ -1193,7 +1481,7 @@ mod tests {
         let store_path = apply_fixture_store_path("create");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+        svc.store(cfg(vec![ps("alpha", &["HK"])]))
             .unwrap();
 
         let mut server = mockito::Server::new_async().await;
@@ -1283,7 +1571,7 @@ mod tests {
         let store_path = apply_fixture_store_path("failcreate");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+        svc.store(cfg(vec![ps("alpha", &["HK"])]))
             .unwrap();
 
         let mut server = mockito::Server::new_async().await;
@@ -1353,7 +1641,7 @@ mod tests {
         let store_path = apply_fixture_store_path("live");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+        svc.store(cfg(vec![ps("alpha", &["HK"])]))
             .unwrap();
 
         let mut server = mockito::Server::new_async().await;
@@ -1422,7 +1710,7 @@ mod tests {
         let store_path = apply_fixture_store_path("insync");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+        svc.store(cfg(vec![ps("alpha", &["HK"])]))
             .unwrap();
 
         let mut server = mockito::Server::new_async().await;
@@ -1484,7 +1772,7 @@ mod tests {
         let store_path = apply_fixture_store_path("twice");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+        svc.store(cfg(vec![ps("alpha", &["HK"])]))
             .unwrap();
 
         let mut server = mockito::Server::new_async().await;
@@ -1582,7 +1870,7 @@ mod tests {
         let store_path = apply_fixture_store_path("dangling");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(&cfg(vec![ps_sub("alpha", &["ghost-sub", "live-sub"])]))
+        svc.store(cfg(vec![ps_sub("alpha", &["ghost-sub", "live-sub"])]))
             .unwrap();
 
         let mut server = mockito::Server::new_async().await;
@@ -1665,7 +1953,7 @@ mod tests {
         let store_path = apply_fixture_store_path("nosubs");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(&cfg(vec![ps("alpha", &["HK"])]))
+        svc.store(cfg(vec![ps("alpha", &["HK"])]))
             .unwrap();
 
         let mut server = mockito::Server::new_async().await;

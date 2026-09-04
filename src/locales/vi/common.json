@@ -502,6 +502,12 @@
     "reconcileConfirm": "Áp dụng ngay",
     "reconcileWorking": "Đang đồng bộ…",
     "routesSection": "Định tuyến tiến trình",
-    "route": "Luật"
+    "route": "Luật",
+    "convergeConverged": "Có hiệu lực lúc {{time}} (rev {{rev}})",
+    "convergeFailed": "ApplyFailed · {{reason}}",
+    "convergePending": "Chờ áp dụng · bấm để đối chiếu",
+    "convergeNever": "Chưa bao giờ áp dụng",
+    "convergeDrifted": "Đã áp dụng · trạng thái live lệch",
+    "convergeUnknown": "Chưa rõ hội tụ (Resin ngoại tuyến)"
   }
 }

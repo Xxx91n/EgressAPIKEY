@@ -419,3 +419,131 @@ describe("EffectiveConfigView reconcile preview coverage (ticket 19)", () => {
     expect(beta).toHaveTextContent("→");
   });
 });
+
+// Round 5 T09 / ADR-0058: the top-level convergence chip. The REAL en
+// catalog is wired in so the assertions lock the shipped wording values.
+describe("EffectiveConfigView converge chip (round5 T09)", () => {
+  beforeAll(() => {
+    i18next.addResourceBundle("en", "translation", { effectiveConfig: enCommon.effectiveConfig }, true, true);
+  });
+
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") return Promise.resolve(baseSnap());
+      return Promise.resolve([]);
+    });
+  });
+
+  it("Converged renders the green chip with apply time and rev", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") {
+        return Promise.resolve(baseSnap({
+          strategyGeneration: 3,
+          strategyAppliedGeneration: 3,
+          convergePhase: "Converged",
+          lastApplyAt: TS,
+        }));
+      }
+      return Promise.resolve([]);
+    });
+    render(<EffectiveConfigView />);
+    const chip = await screen.findByTestId("ec-converge-chip");
+    expect(chip).toHaveAttribute("data-phase", "Converged");
+    expect(chip).toHaveTextContent(enCommon.effectiveConfig.convergeConverged
+      .replace("{{time}}", new Date(TS * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
+      .replace("{{rev}}", "3"));
+  });
+
+  it("ApplyFailed renders the red chip with the recorded reason", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") {
+        return Promise.resolve(baseSnap({
+          strategyGeneration: 3,
+          strategyAppliedGeneration: 2,
+          convergePhase: "ApplyFailed",
+          lastApplyError: "PATCH failed: 500",
+        }));
+      }
+      return Promise.resolve([]);
+    });
+    render(<EffectiveConfigView />);
+    const chip = await screen.findByTestId("ec-converge-chip");
+    expect(chip).toHaveAttribute("data-phase", "ApplyFailed");
+    expect(chip).toHaveTextContent("ApplyFailed · PATCH failed: 500");
+  });
+
+  it("PendingApply renders an amber clickable chip that opens the reconcile preview", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") {
+        return Promise.resolve(baseSnap({
+          strategyGeneration: 3,
+          strategyAppliedGeneration: 2,
+          convergePhase: "PendingApply",
+          platforms: [
+            { state: "divergent", platform_name: "beta", platform_id: "b", whitebox_regions: ["hk"], resin_regions: ["us"], resin_allocation_policy: "p2c", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], acknowledged: false },
+          ],
+        }));
+      }
+      return Promise.resolve([]);
+    });
+    render(<EffectiveConfigView />);
+    const chip = await screen.findByTestId("ec-converge-chip");
+    expect(chip).toHaveAttribute("data-phase", "PendingApply");
+    expect(chip.tagName).toBe("BUTTON");
+    fireEvent.click(chip);
+    expect(await screen.findByTestId("ec-preview-dialog")).toBeInTheDocument();
+  });
+
+  it("NeverApplied and Unknown render their honest labels, not the three main states", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") {
+        return Promise.resolve(baseSnap({ strategyGeneration: 0, strategyAppliedGeneration: 0, convergePhase: "NeverApplied" }));
+      }
+      return Promise.resolve([]);
+    });
+    const { unmount } = render(<EffectiveConfigView />);
+    let chip = await screen.findByTestId("ec-converge-chip");
+    expect(chip).toHaveAttribute("data-phase", "NeverApplied");
+    expect(chip).toHaveTextContent(enCommon.effectiveConfig.convergeNever);
+    unmount();
+
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") {
+        return Promise.resolve(baseSnap({ strategyGeneration: 2, strategyAppliedGeneration: 2, convergePhase: "Unknown", resinReachable: false }));
+      }
+      return Promise.resolve([]);
+    });
+    render(<EffectiveConfigView />);
+    chip = await screen.findByTestId("ec-converge-chip");
+    expect(chip).toHaveAttribute("data-phase", "Unknown");
+    expect(chip).toHaveTextContent(enCommon.effectiveConfig.convergeUnknown);
+  });
+
+  it("Drifted renders the amber edge-state chip beside a per-entry divergent row", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") {
+        return Promise.resolve(baseSnap({
+          strategyGeneration: 3,
+          strategyAppliedGeneration: 3,
+          convergePhase: "Drifted",
+          platforms: [
+            { state: "divergent", platform_name: "beta", platform_id: "b", whitebox_regions: ["hk"], resin_regions: ["us"], resin_allocation_policy: "p2c", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: TS, acknowledged: false },
+          ],
+        }));
+      }
+      return Promise.resolve([]);
+    });
+    render(<EffectiveConfigView />);
+    const chip = await screen.findByTestId("ec-converge-chip");
+    expect(chip).toHaveAttribute("data-phase", "Drifted");
+    expect(chip).toHaveTextContent(enCommon.effectiveConfig.convergeDrifted);
+  });
+
+  it("no snapshot yet => no chip", async () => {
+    invokeMock.mockImplementation(() => new Promise(() => {})); // never resolves
+    render(<EffectiveConfigView />);
+    await screen.findByTestId("ec-view");
+    expect(screen.queryByTestId("ec-converge-chip")).toBeNull();
+  });
+});

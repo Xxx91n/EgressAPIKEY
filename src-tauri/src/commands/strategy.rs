@@ -162,7 +162,9 @@ pub async fn strategy_config_put(
     let svc = strategy_service(&app)?;
     let typed: resin_core::StrategyConfig =
         serde_json::from_value(config).map_err(|e| IpcError::from(format!("strategy config invalid: {e}")))?;
-    svc.store(&typed).map_err(IpcError::from)
+    // T09 / ADR-0058: store() bumps generation and stamps updated_at.
+    svc.store(typed).map_err(IpcError::from)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -398,6 +400,29 @@ pub async fn authoritative_snapshot(
         }
     }
 
+    // Round 5 T09 / ADR-0058 (D-28): top-level convergence phase. Pure
+    // derivation over data already in hand: the generation pair comes from
+    // the whitebox strategy doc read at the top of this command, the drift
+    // flag reuses the per-entry three-state stamps (acknowledged entries are
+    // exempt per ADR-0054 D — known drift never masks convergence).
+    let drift_platforms = platforms
+        .iter()
+        .any(|e| e.state_tag() != "consistent" && !e.acknowledged());
+    let drift_ports = ports
+        .iter()
+        .any(|e| e.state_tag() != "consistent" && !e.acknowledged());
+    let drift_routes = routes
+        .iter()
+        .any(|e| e.state_tag() != "consistent" && !e.acknowledged());
+    let unacknowledged_drift = drift_platforms || drift_ports || drift_routes;
+    let converge_phase = resin_core::snapshot::derive_converge_phase(
+        config.generation,
+        config.applied_generation,
+        config.last_apply_error.as_deref(),
+        reachable,
+        unacknowledged_drift,
+    );
+
     let snapshot = resin_core::AuthoritativeSnapshot {
         strategy_version: config.version,
         platforms,
@@ -408,6 +433,11 @@ pub async fn authoritative_snapshot(
         // Ticket 12: generation instant of THIS snapshot; monotonic
         // non-decreasing across consecutive calls (wall clock).
         last_checked_at: now,
+        strategy_generation: config.generation,
+        strategy_applied_generation: config.applied_generation,
+        converge_phase,
+        last_apply_at: config.last_apply_at,
+        last_apply_error: config.last_apply_error,
     };
 
     // Ticket 16 / ADR-0054 §E: one-shot drift notice. Hooked on the only

@@ -63,7 +63,7 @@ async fn reconcile_twice_second_pass_zero_changes() {
     let store_path = dir.join("egressapikey-strategy.json");
     let _ = std::fs::remove_file(&store_path);
     let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-    svc.store(&fixture_config()).unwrap();
+    svc.store(fixture_config()).unwrap();
 
     let bearer = ("authorization", "Bearer testtok");
 
@@ -220,7 +220,7 @@ async fn reconcile_fails_fast_strategy_error_skips_ports() {
     let store_path = dir.join("egressapikey-strategy.json");
     let _ = std::fs::remove_file(&store_path);
     let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-    svc.store(&fixture_config()).unwrap();
+    svc.store(fixture_config()).unwrap();
 
     // No mocks at all: every request 404s -> apply() fails.
     let _ = server;

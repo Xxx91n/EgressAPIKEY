@@ -50,6 +50,17 @@ pub struct WhiteboxConfig {
     /// route family (process names). Read-side presentation only.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub route_acknowledged: Vec<String>,
+    /// Round 5 T09 / ADR-0058 (D-27): write-authority generation counter —
+    /// ports half is SINGLE-generation by design: the writer and the apply
+    /// executor are the same process (`WhiteboxConfigStore::apply` completes
+    /// synchronously), the Crossplane "external resource needs a second
+    /// observed generation" case does not exist here. Bumped by every
+    /// accepted apply. Absent in a v1 file = 0.
+    #[serde(default)]
+    pub generation: u64,
+    /// Unix seconds of the last accepted whitebox write. Pure metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<u64>,
 }
 
 impl WhiteboxConfig {
@@ -61,6 +72,8 @@ impl WhiteboxConfig {
             acknowledged: Vec::new(),
             process_routes: Vec::new(),
             route_acknowledged: Vec::new(),
+            generation: 0,
+            updated_at: None,
         }
     }
 }
@@ -425,10 +438,19 @@ impl WhiteboxConfigStore {
         &self,
         db: &DbPool,
         forwarder: &PortForwarder,
-        next: WhiteboxConfig,
+        mut next: WhiteboxConfig,
     ) -> Result<usize, String> {
         validate(&next)?;
         let _guard = self.writer.lock().await;
+        // Round 5 T09 / ADR-0058 (D-27): single-generation counter bump —
+        // every ACCEPTED apply advances the ports write-authority generation
+        // past the CURRENT committed value (not the incoming doc's: callers
+        // hand-build documents that may not carry the latest counter). The
+        // swap below may still fail after this (rollback restores the
+        // previous config), but a rejected-because-invalid file never bumps:
+        // validate() ran first.
+        next.generation = self.snapshot().generation.wrapping_add(1);
+        next.updated_at = Some(now_unix());
         let previous = self.snapshot();
         let started = apply_ports(db, forwarder, &next.entry_ports).await?;
         if let Err(e) = write_atomic(&self.path, &next) {
@@ -764,6 +786,59 @@ mod tests {
             .is_err());
         // The active config is unchanged after the rejected rollback.
         assert_eq!(store.snapshot().entry_ports[0].port, 17991);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Round 5 T09 / ADR-0058 (D-27): every ACCEPTED apply bumps the ports
+    /// single-generation counter and stamps updated_at. A v1 file (no
+    /// generation fields) loads with generation=0 — serde(default) zero
+    /// migration, and apply #1 lands at generation=1.
+    #[tokio::test]
+    async fn apply_bumps_generation_and_v1_file_loads_at_zero() {
+        let dir =
+            std::env::temp_dir().join(format!("egressapikey-wb-gen-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(WHITEBOX_CONFIG_FILE);
+        let db = DbPool::open_in_memory().unwrap();
+        let forwarder = PortForwarder::new(db.clone(), "127.0.0.1", 1, "");
+        // Seed from a v1-shaped document (no generation/updated_at keys).
+        let v1_doc: WhiteboxConfig =
+            serde_json::from_str(r#"{"version":1,"entry_ports":[]}"#).unwrap();
+        assert_eq!(v1_doc.generation, 0);
+        let store = WhiteboxConfigStore::open(path.clone(), v1_doc).await.unwrap();
+        assert_eq!(store.snapshot().generation, 0);
+        assert_eq!(store.snapshot().updated_at, None);
+
+        store
+            .apply(&db, &forwarder, WhiteboxConfig::from_ports(vec![mapping(17990)]))
+            .await
+            .unwrap();
+        let after1 = store.snapshot();
+        assert_eq!(after1.generation, 1);
+        assert!(after1.updated_at.is_some());
+
+        store
+            .apply(&db, &forwarder, WhiteboxConfig::from_ports(vec![mapping(17991)]))
+            .await
+            .unwrap();
+        store
+            .apply(&db, &forwarder, WhiteboxConfig::from_ports(vec![mapping(17991)]))
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        let after2 = store.snapshot();
+        assert!(
+            after2.generation >= 2 && after2.generation >= after1.generation,
+            "generation must advance monotonically: after1={}, after2={}",
+            after1.generation,
+            after2.generation
+        );
+        assert!(after2.updated_at.unwrap() >= after1.updated_at.unwrap());
+
+        // NO applied_generation on the ports half (D-27: local type is
+        // single-generation — the field must not exist on this struct).
+        // Verified by compilation of the struct definition itself.
         let _ = std::fs::remove_dir_all(&dir);
     }
 
