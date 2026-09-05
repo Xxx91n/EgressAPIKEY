@@ -32,3 +32,7 @@ echo "[verify] ipc manifest guard"
 node scripts/ipc-manifest-check.cjs
 echo "[verify] vitest isolation guard (ticket 18)"
 node scripts/vitest-isolation-guard.cjs
+echo "[verify] license field consistency (ticket 01, spec D-06)"
+node scripts/license-field-check.cjs
+echo "[verify] bilingual README alignment (ticket 03, spec D-06)"
+node scripts/readme-lang-check.cjs
