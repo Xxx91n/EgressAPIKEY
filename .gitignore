@@ -89,6 +89,9 @@ test-results/
 .npmrc
 context-mode/
 
+# zcode client session artifacts (plans)
+.zcode/
+
 # Resin upstream source (local clone for reference)
 resin/
 
