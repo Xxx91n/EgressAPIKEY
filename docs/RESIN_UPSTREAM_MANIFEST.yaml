@@ -17,7 +17,15 @@
 
 repo: "Resinat/Resin"
 version: "v1.2.0"
-license: "MIT"
+# Two-layer license value (ADR-0067 D1/D2; ADR-0017 amendment 2026-09-05):
+# layer 1 "declared" = Resin's own resin/LICENSE (MIT);
+# layer 2 "dependency-tree" = the compiled sidecar binary conveys
+# GPL-3.0-or-later obligations via github.com/sagernet/sing-box v1.12.21
+# (pinned in resin/go.mod; sing-box's LICENSE is a GNU GPLv3-or-later
+# application notice). Registry with full citations: THIRD_PARTY.md.
+license:
+  declared: "MIT"
+  dependency_tree: "GPL-3.0-or-later (via sing-box)"
 # Asset naming pattern: resin-<os>-<arch>.{zip|tar.gz}
 # Windows: resin-windows-amd64.zip (contains resin.exe)
 # macOS arm64: resin-darwin-arm64.tar.gz

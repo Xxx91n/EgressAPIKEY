@@ -130,6 +130,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 - Every phase/feature commit MUST be pushed (`git push`) so the project is always traceable. Do not accumulate local-only work across phases.
 - `.gitattributes` LF policy is authoritative; `git diff --check` must be clean before each commit. Never commit with CRLF outside the allow set (`.bat`, `.ps1`, `.cmd`).
 - `git config core.autocrlf false` at repo level (set at init). Do not re-enable autocrlf.
+- **Session-artifact hygiene (untrack recipe)**: session-local dirs (`.zcode/`, `.codex-tmp/`, `.omx/`, `context-mode/`, `.scratch/`) must never enter git tracking; each gets a single literal-line `.gitignore` entry (no wildcard broadening). A tracked leftover is untracked with `git rm -r --cached <path>` — the one permitted index operation outside but's write set; disk files are preserved (never delete). Re-verify with `git status` and `git ls-files <path>`: both must come back empty for the path.
 - **Build is part of the commit (verified P23)**: a code commit is unfinished until the freshly-built `release/<os>-gui/EgressAPIKEY.exe` exists, embeds the latest Vite chunk hash (see section 5 hard close-loop), and has been smoke-launched. A pushed source-only commit is traceable but the user cannot test the change. The `target/` dir and `release/` are gitignored so the exe itself is NOT committed - what you commit is the SOURCE; the freshly staged exe is the deliverable that lives outside git. Treat `release/windows-gui/EgressAPIKEY.exe` as the user-facing artifact; do not deliver a stale exe even if AGENTS.md was already updated.
 
 ### 7. File integrity (host protocol)
@@ -258,6 +259,13 @@ reconcile_now = src-tauri/src/commands/strategy.rs
 ### 10. Update this file in the same commit that changes the project
 
 - AGENTS.md is the source of truth. When structure, conventions, module boundaries, tech stack, or release/push protocol changes, update this file in the SAME commit that introduces the change.
+
+### 11. License layering & third-party provenance (ADR-0067)
+
+- The repo declares GPL-3.0-or-later via the root `LICENSE` (official verbatim GNU text — never reword it) and the three fields `README.md` License section / root `Cargo.toml` `[workspace.package].license` / `package.json` `license`, kept equal by `scripts/license-field-check.cjs` (mounting into verify-build belongs to the CI-gate ticket; run `node scripts/license-field-check.cjs` before committing license-touching changes). Member crates inherit via `license.workspace = true`, never hardcode.
+- `THIRD_PARTY.md` is the single registry for third-party components and records the two-layer value per component: declared license vs dependency-tree truth. Resin v1.2.0 = declared MIT + dependency-tree GPL-3.0-or-later via sing-box (`resin/go.mod` pins `github.com/sagernet/sing-box v1.12.21`; sing-box's upstream LICENSE is GPLv3-or-later).
+- Mere-aggregation invariant (ADR-0067 D3): shell ↔ sidecar interact only over the loopback REST seam (`ResinClient`). No FFI, no in-process linking, no source embedding in either direction — breaking this voids the license layering and requires revisiting ADR-0067.
+- On any `docs/RESIN_UPSTREAM_MANIFEST.yaml` version bump: re-verify the license facts against upstream originals at the exact new tag (go.mod + LICENSE URL quotes, never memory) and update `THIRD_PARTY.md` + the manifest two-layer `license` field in the same commit (ADR-0017 amendment).
 
 ## Agent skills
 

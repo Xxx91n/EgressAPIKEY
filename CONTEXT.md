@@ -691,3 +691,38 @@ UUID rides the tail rows as of this ticket); payload capture depends on
 Resin's payload-logging setting and surfaces 200-with-empty-strings when off.
 _Avoid_: re-scanning request_logs*.db directly, rendering multi-MB bodies
 unsliced, treating an empty payload body as an error
+
+### License Layering
+
+The repo-wide license model (ADR-0067 D1): one root `LICENSE`
+(GPL-3.0-or-later, official verbatim text) with per-layer effective values —
+own shell source GPL-3.0-or-later, vendored Resin source MIT, compiled
+sidecar binary GPL-3.0-or-later by dependency-tree truth. Declared vs
+dependency-tree values are different facts and both are recorded
+(`THIRD_PARTY.md`); the declared value never erases obligations inherited
+through dependencies.
+_Avoid_: bare "MIT" for the Resin sidecar, editing the LICENSE text, one
+flat license value for the whole tree
+
+### Mere Aggregation
+
+The legal boundary that keeps the shell (GPL-3.0-or-later) and the Resin
+sidecar (MIT source / GPL-conveying binary) independent works distributed
+side by side (ADR-0067 D3): they interact exclusively over the loopback REST
+seam (`ResinClient`), with no in-process linking, no source embedding, no
+shared struct surface. Under mere aggregation, each side keeps its own
+terms; breaking the seam (FFI, vendoring one into the other) voids this
+analysis and requires revisiting ADR-0067.
+_Avoid_: FFI into resin, embedding the Go tree in the shell, calling the
+REST seam "linking"
+
+### Third-Party Provenance
+
+The evidence discipline for third-party components (ADR-0067 D2): every
+vendored/bundled component is registered in `THIRD_PARTY.md` with {version,
+distribution form, declared license, dependency-tree truth, upstream link},
+and every license claim cites upstream originals (go.mod, LICENSE at the
+exact tag URL) — never memory. On any upstream version bump, the registry is
+re-verified and updated in the same commit (ADR-0017 amendment).
+_Avoid_: license claims without a source link, updating the manifest without
+the registry, relying on a component's declared license alone
