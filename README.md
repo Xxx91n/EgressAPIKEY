@@ -10,9 +10,9 @@ English | [简体中文](README_CN.md)
 
 ## What & why
 
-EgressAPIKEY is a desktop application (Tauri 2 + React 19) that sits between your AI gateway (OmniRoute / LiteLLM / CLIProxy) and upstream OpenAI-compatible v1 providers. It exposes many socks5/http entry ports; each port is the identity of one (platform, account) pair, and a vendored Resin Go sidecar guarantees a distinct sticky exit IP per pair — one AI API key never shares an egress IP with another unless you decide it should.
+EgressAPIKEY is a desktop application (Tauri 2 + React 19) that sits between your AI gateway (OmniRoute / LiteLLM / CLIProxy) and upstream OpenAI-compatible v1 providers. It exposes many socks5/http entry ports; each port is the identity of one (platform, account) pair, and a Resin Go sidecar — its binary pulled at build time from the upstream Release by scripts/fetch_resin.sh (resin/ on disk is a gitignored local reference clone, not part of the repo) — guarantees a distinct sticky exit IP per pair — one AI API key never shares an egress IP with another unless you decide it should.
 
-A single unified proxy cannot carry per-key identity for HTTPS upstreams (the CONNECT tunnel hides the destination), so multi-port is the correct identity mechanism ([ADR-0012](docs/adr/0012-route-correction-thin-shell-multi-port.md)). The shell backend core is `crates/resin-core` (Rust: tokio, reqwest, rusqlite); the proxy engine is the Resin sidecar v1.2.0, vendored under [`resin/`](resin/) and reachable only over a loopback REST seam.
+A single unified proxy cannot carry per-key identity for HTTPS upstreams (the CONNECT tunnel hides the destination), so multi-port is the correct identity mechanism ([ADR-0012](docs/adr/0012-route-correction-thin-shell-multi-port.md)). The shell backend core is `crates/resin-core` (Rust: tokio, reqwest, rusqlite); the proxy engine is the Resin sidecar v1.2.0, whose binary is pulled at build time from the upstream Release by [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh) — the `resin/` directory on disk is a gitignored local reference clone — and it is reachable only over a loopback REST seam.
 
 ## Download
 
@@ -79,7 +79,7 @@ Issues and pull requests are welcome — open a [GitHub Issue](https://github.co
 
 ## Third-party notices
 
-The Resin Go sidecar (v1.2.0, vendored under [`resin/`](resin/), upstream [github.com/Resinat/Resin](https://github.com/Resinat/Resin)) carries a two-layer license value: **declared MIT** (per its own `LICENSE`) while its compiled dependency tree conveys **GPL-3.0-or-later** obligations via `github.com/sagernet/sing-box v1.12.21` (pinned in `resin/go.mod`). The shell and the sidecar are separate processes interacting only over a loopback REST seam (mere aggregation). Full registry with citations: [THIRD_PARTY.md](THIRD_PARTY.md) · decision record: [ADR-0067](docs/adr/0067-license-layering-provenance.md) · complete license text: [LICENSE](LICENSE).
+The Resin Go sidecar (v1.2.0, its binary pulled at build time from the upstream Release by [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh), upstream [github.com/Resinat/Resin](https://github.com/Resinat/Resin)) carries a two-layer license value: **declared MIT** (per its own `LICENSE`) while its compiled dependency tree conveys **GPL-3.0-or-later** obligations via `github.com/sagernet/sing-box v1.12.21` (pinned in `resin/go.mod`). The shell and the sidecar are separate processes interacting only over a loopback REST seam (mere aggregation). Full registry with citations: [THIRD_PARTY.md](THIRD_PARTY.md) · decision record: [ADR-0067](docs/adr/0067-license-layering-provenance.md) · complete license text: [LICENSE](LICENSE).
 
 ## License
 
