@@ -48,6 +48,7 @@ EgressAPIKEY is a Tauri 2 + React 19 desktop app: an L7 proxy gateway specialize
 - Frontend: `src/` (React 19, TS, Vite, Tailwind, ReactFlow 12, Zustand 5, react-i18next)
 - Docs: `docs/architecture/ARCHITECTURE.md`, `docs/history/phases/PROJECT_PLAN.md`, `docs/architecture/MEMORY_REUSE_DECISION.md`
 - Release artifacts: `release/` (gitignored except tags)
+- README homepage: `README.md` is the EN-canonical front page (`README_CN.md` is the CN mirror, kept bilingual-gated). Its section skeleton, dynamic-only badges (license → `LICENSE`, CI → `.github/workflows/ci.yml`, release → Releases), download-first ordering, screenshot placeholder, and compliance NOTE follow architecture-recovery spec §4 D-04/D-05/D-10 — preserve the skeleton order on edit, route deep content to `docs/` instead of duplicating it, and keep the top language-switch line linked to the CN mirror. The `## License` section body must stay exactly `GPL-3.0-or-later` (machine-checked by `scripts/license-field-check.cjs`), the Resin wording carries the two-layer license value + `THIRD_PARTY.md` pointer (§11), and removed tech (axum / mihomo, ADR-0050) must not reappear.
 
 ---
 

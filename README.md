@@ -1,100 +1,86 @@
 # EgressAPIKEY
 
-> Formerly **ai-api-route**. Renamed per ADR-0013.
+**Multi-port socks5/http forwarder between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas.**
 
-[中文](README_CN.md)
+[![License](https://img.shields.io/github/license/Xxx91n/EgressAPIKEY?style=flat-square)](https://github.com/Xxx91n/EgressAPIKEY/blob/main/LICENSE) [![CI](https://img.shields.io/github/actions/workflow/status/Xxx91n/EgressAPIKEY/ci.yml?style=flat-square&label=CI)](https://github.com/Xxx91n/EgressAPIKEY/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/Xxx91n/EgressAPIKEY?style=flat-square)](https://github.com/Xxx91n/EgressAPIKEY/releases)
 
-**Multi-port socks5/http forwarder between AI gateways and upstream v1 providers — exit-IP routing for AI API keys, with a topology canvas.**
+English | [简体中文](README_CN.md)
 
-A desktop application (Tauri 2 + React 19) that sits between an AI gateway (omniroute/litellm/cliproxy) and upstream v1 providers. It exposes many socks5/http entry ports; each port is the identity for a (platform, account) pair mapped onto a Resin Go sidecar. Topology canvas + allocation strategies route each port to exit IPs. HTTPS upstreams are opaque to a single unified proxy, so multi-port is the correct identity mechanism (ADR-0012).
+> Formerly **ai-api-route** — renamed per [ADR-0013](docs/adr/0013-project-rename-egressapikey.md).
 
-## Quick start
+## What & why
 
-```powershell
+EgressAPIKEY is a desktop application (Tauri 2 + React 19) that sits between your AI gateway (OmniRoute / LiteLLM / CLIProxy) and upstream OpenAI-compatible v1 providers. It exposes many socks5/http entry ports; each port is the identity of one (platform, account) pair, and a vendored Resin Go sidecar guarantees a distinct sticky exit IP per pair — one AI API key never shares an egress IP with another unless you decide it should.
+
+A single unified proxy cannot carry per-key identity for HTTPS upstreams (the CONNECT tunnel hides the destination), so multi-port is the correct identity mechanism ([ADR-0012](docs/adr/0012-route-correction-thin-shell-multi-port.md)). The shell backend core is `crates/resin-core` (Rust: tokio, reqwest, rusqlite); the proxy engine is the Resin sidecar v1.2.0, vendored under [`resin/`](resin/) and reachable only over a loopback REST seam.
+
+## Download
+
+**Desktop** — installers (MSI / NSIS / deb / AppImage / dmg) and one portable, drop-and-run executable per OS are published on the [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) page. No tagged release yet — artifacts ship with the first tagged release.
+
+**Headless server** — the same control surface (Platforms, Subscriptions, Nodes, Topology) served in any browser at `http://127.0.0.1:14200`, for Linux servers, Docker, or a remote VPS. The admin bearer token is injected server-side; the browser never sees it. The `@egressapikey/server` npm launcher is **not published to npm** — run from source:
+
+```bash
+git clone https://github.com/Xxx91n/EgressAPIKEY.git
+cd EgressAPIKEY
+pnpm install && pnpm build
+cargo build --release -p egressapikey-app --bin egressapikey-headless --features headless
+bash scripts/fetch_resin.sh   # pins the sidecar into src-tauri/binaries/ (or build resin/ with Go)
+target/release/egressapikey-headless --dist dist --binary-dir src-tauri/binaries --no-browser
+```
+
+On Windows the binary is `target\release\egressapikey-headless.exe`. Deployment layouts (systemd unit, Docker, env table, TLS reverse proxy): [docs/how-to/HEADLESS_DEPLOYMENT.md](docs/how-to/HEADLESS_DEPLOYMENT.md) · operations (logs, health, shutdown): [docs/how-to/HEADLESS_RUNBOOK.md](docs/how-to/HEADLESS_RUNBOOK.md)
+
+## Features
+
+- **Entry port = identity** — one (platform, account) pair per port; Resin binds the sticky exit IP natively
+- **SSE session stickiness** — a streaming response locks its node until completion, auto-switching on failure
+- **Per-request TCP freshness** — `pool_max_idle_per_host(0)` keeps every request on a fresh connection
+- **Strategy engine** — A-class decides which IPs enter a platform (region / quality / subscription source), B-class decides how a port picks its exit (random / round-robin / low-latency)
+- **Topology canvas** — drag-to-connect hot-patches per-platform region filters on the live sidecar
+- **Zero adaptation** — point your gateway at an entry port; client code stays unchanged
+- **Headless twin** — the full GUI control surface over HTTP, without the desktop shell
+
+## Screenshots
+
+<!-- PLACEHOLDER: real topology-canvas / platforms screenshots are user-provided assets, deliberately not fabricated. -->
+<!-- Suggested drop-in: full-width PNG (<=1280px), one for the topology canvas, one for the platforms dual-pane. -->
+
+_Screenshots pending — this slot is reserved._
+
+## Quick start (development)
+
+Prerequisites: Node.js 20+ with pnpm, Rust stable, and the platform webview requirements ([Tauri v2 prerequisites](https://tauri.app/start/prerequisites/) — Linux needs `webkit2gtk-4.1` and friends).
+
+```bash
+git clone https://github.com/Xxx91n/EgressAPIKEY.git
+cd EgressAPIKEY
 pnpm install
 pnpm tauri dev
 ```
 
-## Key design
+## Documentation
 
-- **Entry port = identity** — each exposed port is one (platform, account) pair; Resin binds sticky-IP per port natively (ADR-0012/0014/0015)
-- **Per-request TCP** — `pool_max_idle_per_host(0)` guarantees fresh connections
-- **SSE session stickiness** — stream locks node until completion, auto-switches on failure
-- **Zero adaptation** — OmniRoute users change one proxy address; client code unchanged
-- **Backup safety** — backups write into the per-user app data dir (not the shared system temp), with a path-confinement guard so a compromised webview cannot exfiltrate arbitrary files via the WebDAV upload path
+| Document | Purpose |
+| --- | --- |
+| [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) | Layers, data flow, config authority (L1/L2/L3), tech stack |
+| [docs/adr/](docs/adr/) | Architectural decision records (numbered, append-only) |
+| [docs/how-to/HEADLESS_DEPLOYMENT.md](docs/how-to/HEADLESS_DEPLOYMENT.md) | Headless server deployment (systemd, Docker, TLS) |
+| [docs/how-to/HEADLESS_RUNBOOK.md](docs/how-to/HEADLESS_RUNBOOK.md) | Headless operations (logs, health, shutdown, troubleshooting) |
+| [docs/how-to/RELEASE.md](docs/how-to/RELEASE.md) | Release pipeline: CI matrix, artifact groups |
 
-## Headless server
+## Compliance notice
 
-The same control surface (Platforms, Subscriptions, Nodes, Topology) is
-available in a browser without the Tauri desktop shell — useful for Linux
-servers, Docker containers, or a remote VPS:
+> **Compliance Note** — This project is for legitimate use only: routing API keys you own, personal automation, research, and learning. You are solely responsible for complying with all applicable laws, regulations, and upstream provider terms of service in your jurisdiction. The authors assume no liability for any misuse.
 
-```bash
-npm install -g @egressapikey/server
-egressapikey-server
-# → open http://127.0.0.1:14200/ in any browser
-```
+## Contributing
 
-The launcher spawns the Rust `egressapikey-headless` binary, which starts
-the Resin Go sidecar, serves the prebuilt React SPA, and proxies
-`/api/v1/*` + `/metrics/*` to the local Resin control plane with the
-admin bearer injected server-side — the browser never sees the token.
-SSE / WebSocket streams pass through via `Body::from_stream`.
+Issues and pull requests are welcome — open a [GitHub Issue](https://github.com/Xxx91n/EgressAPIKEY/issues). Before your first PR, read [AGENTS.md](AGENTS.md) (repo conventions: i18n full-key coverage, test-per-behavior, license-field discipline) and the [architecture overview](docs/architecture/ARCHITECTURE.md). A dedicated `CONTRIBUTING.md` with desktop dev-environment setup is on the roadmap.
 
-- Docs: [`docs/how-to/HEADLESS_DEPLOYMENT.md`](docs/how-to/HEADLESS_DEPLOYMENT.md) (systemd unit, env table, TLS reverse proxy) and [`docs/how-to/HEADLESS_RUNBOOK.md`](docs/how-to/HEADLESS_RUNBOOK.md) (logs, health, shutdown, troubleshooting)
-- ADR: [`docs/adr/0043-headless-server-build-separation.md`](docs/adr/0043-headless-server-build-separation.md) (source relocation + `required-features = ["headless"]` gating + CI job split)
-- Release artifact: `release/<os>-backend/` — self-contained directory with `egressapikey-headless` + `dist/` + `resin` siblings
+## Third-party notices
 
-## Platform & IP-channel routing
-
-The **Topology** tab is a three-column key-to-egress canvas (entry port → platforms → IP channels):
-
-- **A: entry proxy port** — the conceptual Resin forward-proxy entry; always connected to every platform.
-- **B: platforms** — one node per Resin platform; an edge from a platform to a node-group means the platform's `region_filters` includes that region. Drag-to-connect hot-PATCHes the platform `region_filters` on the live Resin sidecar; deleting an edge removes the region. Every topology drag saves a backup first (防呆).
-- **C: IP channels / nodes** — one node per region-grouped Resin node set; shows healthy/total count and routable-node count.
-
-The **Platforms** tab is a dual-pane key-to-platform surface:
-
-- **Left pane**: candidate key combinations (upstream v1 endpoint + API key), stored locally in `settings.json#keyCandidates` — never sent to Resin until activated.
-- **Right pane**: live Resin platforms + per-platform leases. Drag a key from the left into the right pane's empty space to create an `auto-{uid}` independent platform (POST /platforms with `BALANCED`); drop a key onto an existing platform to attach it. Solid-border cards are auto-independents; dashed-border cards are manual platforms. Per-platform `allocation_policy` is a 5-label egress policy selector (random/sequential → `BALANCED`, latency → `PREFER_LOW_LATENCY`, quality → `PREFER_IDLE_IP`).
-
-The **Nodes** tab is a collapsible tree grouped by subscription source (clash-verge-dev pattern). Each subscription expands to show its nodes with real-time latency (green <200ms / yellow 200-500ms / red >500ms / gray timeout), `display_tag`, `region`, and health. Plus a protocol-weight reference card (SSE suitability: http/socks5/vmess=1.0, shadowsocks=0.7, hysteria2/tuic/wireguard=0.1). The Platforms tab hosts the strategy engine panel (ADR-0022): A-class selects which IPs enter a platform (manual / region / quality_score / subscription_source, gated by auto-probe liveness), B-class selects how the port picks an exit IP (random / round-robin / low-latency). Whitebox config at `egressapikey-strategy.json`.
-
-The **Diagnostics** tab is a full diagnostics hub (sole entry point, no redundancy with Settings): sidecar status card (port/mode/PID/healthz/IPC latency), firewall status (cross-platform: Windows Get-NetFirewallProfile / Linux systemctl-ufw-firewalld / macOS pfctl, all with 5s timeout + CREATE_NO_WINDOW), request log table with configurable auto-poll (default 5s, 1s-60s range), exit IP probe (HTTP+SOCKS5 to 1.1.1.1/cdn-cgi/trace), port health check (TCP connect latency), sidecar log buffer, and a log directory button. Replaces the former cramped Settings > Diagnostics panel (T7 refactor).
-
-## Docs
-
-| File | Purpose |
-|------|---------|
-| `docs/architecture/MEMORY_REUSE_DECISION.md` | Compressed research memory — read first |
-| `docs/architecture/ARCHITECTURE.md` | Layers, data flow, tech stack, fallback plan |
-| `docs/history/phases/PROJECT_PLAN.md` | Phased delivery (P0–P9) and success criteria |
-| `docs/how-to/RELEASE.md` | Release pipeline: CI matrix, artifact groups, iOS-class note |
-
-## Tech stack
-
-| Layer | Technology |
-|-------|-----------|
-| Desktop shell | Tauri 2 (Rust) |
-| Frontend | React 19, TypeScript, ReactFlow 12, Zustand 5, Tailwind CSS |
-| Backend | Rust (tokio, axum, reqwest, rusqlite) |
-| Proxy core | Resin Go sidecar v1.2.0 (github.com/Resinat/Resin) |
+The Resin Go sidecar (v1.2.0, vendored under [`resin/`](resin/), upstream [github.com/Resinat/Resin](https://github.com/Resinat/Resin)) carries a two-layer license value: **declared MIT** (per its own `LICENSE`) while its compiled dependency tree conveys **GPL-3.0-or-later** obligations via `github.com/sagernet/sing-box v1.12.21` (pinned in `resin/go.mod`). The shell and the sidecar are separate processes interacting only over a loopback REST seam (mere aggregation). Full registry with citations: [THIRD_PARTY.md](THIRD_PARTY.md) · decision record: [ADR-0067](docs/adr/0067-license-layering-provenance.md) · complete license text: [LICENSE](LICENSE).
 
 ## License
 
 GPL-3.0-or-later
-
-## i18n
-
-Decoupled catalog under `src/locales/<locale>/*.json`. 18 base locales today (`en`, `zh`, `ja`, `es`, `fr`, `de`, `ko`, `ru`, `pt`, `ar`, `it`, `nl`, `pl`, `tr`, `vi`, `th`, `id`, `hi`); `en` is the canonical key set. `pnpm i18n:scan` extracts keys; `pnpm i18n:check` fails the build on any missing/extra locale key vs `en`. New user-visible strings must touch every base locale in the same commit; see AGENTS.md `/init conventions` section 3.
-
-## Tests & build
-
-```powershell
-bash scripts/verify-build.sh   # cargo build+test, tsc, vite build, vitest, i18n check
-bash scripts/build-all.sh      # local reproduction of the CI matrix (backend tarball + GUI if tauri-cli installed)
-```
-
-## Release artifacts
-
-CI builds five artifact groups into `release/` (published to the GitHub Release): Windows GUI, Linux/debian GUI, macOS GUI (universal/arm64), plus per-OS headless backend tarballs. iPadOS cannot run a Tauri desktop shell; the Apple-silicon desktop sibling is the macOS `.dmg`. See `docs/how-to/RELEASE.md`.
