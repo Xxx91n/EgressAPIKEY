@@ -23,6 +23,8 @@
     "dist/**",
     ".codegraph/**",
     "docs/history/**",
-    "docs/adr/**"
+    "docs/adr/**",
+    // LICENSE is the official GPL-3.0 verbatim text - never lint it as markdown
+    "LICENSE"
   ]
 }
