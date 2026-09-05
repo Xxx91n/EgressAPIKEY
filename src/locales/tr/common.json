@@ -451,7 +451,20 @@
     "refresh": "Yenile",
     "noLogs": "Kayıt yok",
     "closeAllConnections": "Tüm bağlantıları kapat",
-    "resetKernel": "Çekirdeği sıfırla"
+    "resetKernel": "Çekirdeği sıfırla",
+    "logDetail": "Günlük ayrıntısı",
+    "close": "Kapat",
+    "detailUnavailable": "Günlük ayrıntısı kullanılamıyor",
+    "payloadsTitle": "Yükler",
+    "reqHeaders": "İstek başlıkları",
+    "reqBody": "İstek gövdesi",
+    "respHeaders": "Yanıt başlıkları",
+    "respBody": "Yanıt gövdesi",
+    "noPayload": "Bu kayıt için yakalanan yük yok",
+    "payloadTruncatedUpstream": "Yukarı akışta kısaltıldı (yük sınırı)",
+    "payloadDisplayTruncated": "{{n}} bayttan fazla — yalnızca ilk {{n}} bayt gösteriliyor",
+    "netOk": "tamam",
+    "netFail": "başarısız"
   },
   "strategyVerify": {
     "title": "Strateji doğrulama",
@@ -512,5 +525,11 @@
     "convergeNever": "Hiç uygulanmadı",
     "convergeDrifted": "Uygulandı · canlı durum saptı",
     "convergeUnknown": "Yakınsama bilinmiyor (Resin çevrimdışı)"
+  },
+  "metrics": {
+    "title": "Resin Metrikleri",
+    "throughput": "Gerçek zamanlı aktarım hızı (çıkış)",
+    "probeHistory": "Sonda geçmişi",
+    "noData": "Metrik verisi yok"
   }
 }

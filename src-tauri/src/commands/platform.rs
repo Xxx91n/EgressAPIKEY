@@ -424,8 +424,11 @@ pub async fn subscription_refresh(
         .list_subscriptions()
         .await
         .map_err(|e| map_resin_error(&e.to_string()))?;
-    let id = subscription_id_for_name(&initial_list, &name)
-        .ok_or_else(|| IpcError::from(format!("subscription not found: {name}")))?;
+    // Round 5 T17: the name→id hop goes through the shared pure resolver.
+    // The initial row stats are extracted from the SAME list response, so
+    // the request shape (one GET before the refresh POST) is unchanged.
+    let id = resolve_id_in(&initial_list, &name)
+        .ok_or_else(|| IpcError::not_found(&format!("subscription not found: {name}")))?;
 
     let initial_item = items_arr(&initial_list)
         .into_iter()

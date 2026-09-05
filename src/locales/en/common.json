@@ -451,7 +451,20 @@
     "refresh": "Refresh",
     "noLogs": "No log entries",
     "closeAllConnections": "Close All Connections",
-    "resetKernel": "Reset Kernel"
+    "resetKernel": "Reset Kernel",
+    "logDetail": "Log detail",
+    "close": "Close",
+    "detailUnavailable": "Log detail unavailable",
+    "payloadsTitle": "Payloads",
+    "reqHeaders": "Request headers",
+    "reqBody": "Request body",
+    "respHeaders": "Response headers",
+    "respBody": "Response body",
+    "noPayload": "No payloads captured for this entry",
+    "payloadTruncatedUpstream": "Truncated upstream (payload cap)",
+    "payloadDisplayTruncated": "Over {{n}} bytes — showing the first {{n}} bytes only",
+    "netOk": "ok",
+    "netFail": "failed"
   },
   "strategyVerify": {
     "title": "Strategy Verification",
@@ -512,5 +525,11 @@
     "convergeNever": "Never applied",
     "convergeDrifted": "Applied · live state drifted",
     "convergeUnknown": "Convergence unknown (Resin down)"
+  },
+  "metrics": {
+    "title": "Resin Metrics",
+    "throughput": "Realtime throughput (egress)",
+    "probeHistory": "Probe history",
+    "noData": "No metrics data"
   }
 }

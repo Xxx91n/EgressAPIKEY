@@ -451,7 +451,20 @@
     "refresh": "Làm mới",
     "noLogs": "Không có mục nhật ký",
     "closeAllConnections": "Đóng tất cả kết nối",
-    "resetKernel": "Đặt lại kernel"
+    "resetKernel": "Đặt lại kernel",
+    "logDetail": "Chi tiết bản ghi",
+    "close": "Đóng",
+    "detailUnavailable": "Chi tiết bản ghi không khả dụng",
+    "payloadsTitle": "Tải trọng",
+    "reqHeaders": "Tiêu đề yêu cầu",
+    "reqBody": "Nội dung yêu cầu",
+    "respHeaders": "Tiêu đề phản hồi",
+    "respBody": "Nội dung phản hồi",
+    "noPayload": "Không có tải trọng nào được ghi cho mục này",
+    "payloadTruncatedUpstream": "Bị cắt ở thượng nguồn (giới hạn tải trọng)",
+    "payloadDisplayTruncated": "Quá {{n}} byte — chỉ hiển thị {{n}} byte đầu tiên",
+    "netOk": "ok",
+    "netFail": "thất bại"
   },
   "strategyVerify": {
     "title": "Xác minh chiến lược",
@@ -512,5 +525,11 @@
     "convergeNever": "Chưa bao giờ áp dụng",
     "convergeDrifted": "Đã áp dụng · trạng thái live lệch",
     "convergeUnknown": "Chưa rõ hội tụ (Resin ngoại tuyến)"
+  },
+  "metrics": {
+    "title": "Chỉ số Resin",
+    "throughput": "Thông lượng thời gian thực (đi ra)",
+    "probeHistory": "Lịch sử thăm dò",
+    "noData": "Không có dữ liệu chỉ số"
   }
 }

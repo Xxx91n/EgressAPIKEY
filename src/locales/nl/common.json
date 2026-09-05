@@ -451,7 +451,20 @@
     "refresh": "Vernieuwen",
     "noLogs": "Geen logvermeldingen",
     "closeAllConnections": "Alle verbindingen sluiten",
-    "resetKernel": "Kernel resetten"
+    "resetKernel": "Kernel resetten",
+    "logDetail": "Logdetail",
+    "close": "Sluiten",
+    "detailUnavailable": "Logdetail niet beschikbaar",
+    "payloadsTitle": "Payloads",
+    "reqHeaders": "Verzoekheaders",
+    "reqBody": "Verzoektekst",
+    "respHeaders": "Antwoordheaders",
+    "respBody": "Antwoordtekst",
+    "noPayload": "Geen payloads vastgelegd voor dit item",
+    "payloadTruncatedUpstream": "Stroomopwaarts afgekapt (payload-limiet)",
+    "payloadDisplayTruncated": "Meer dan {{n}} bytes — alleen de eerste {{n}} bytes worden getoond",
+    "netOk": "ok",
+    "netFail": "mislukt"
   },
   "strategyVerify": {
     "title": "Strategie verificatie",
@@ -512,5 +525,11 @@
     "convergeNever": "Nooit toegepast",
     "convergeDrifted": "Toegepast · live status geweken",
     "convergeUnknown": "Convergentie onbekend (Resin offline)"
+  },
+  "metrics": {
+    "title": "Resin-metrieken",
+    "throughput": "Realtime doorvoer (uitgaand)",
+    "probeHistory": "Probe-geschiedenis",
+    "noData": "Geen metrische gegevens"
   }
 }

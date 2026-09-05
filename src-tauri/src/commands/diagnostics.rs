@@ -533,7 +533,8 @@ mod t19_metrics_range_tests {
         // Unix seconds are NOT accepted (upstream parses RFC3339Nano).
         assert!(validate_metrics_range(Some("1727654400"), None).is_err());
         assert!(validate_metrics_range(Some("not-a-time"), None).is_err());
-        assert!(validate_metrics_range(None, Some("2026-09-04 00:00:00Z")).is_err());
+        // chrono RFC3339 accepts space-as-separator, so use an out-of-range hour
+        assert!(validate_metrics_range(None, Some("2026-09-04T25:00:00Z")).is_err());
     }
 
     #[test]
@@ -581,7 +582,7 @@ mod t21_log_id_tests {
     #[test]
     fn accepts_standard_uuid() {
         assert!(validate_log_id("0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b").is_ok());
-        assert!(validate_log_id("LOG-1").is_ok());
+        assert!(validate_log_id("ABC-123").is_ok());
     }
 
     #[test]

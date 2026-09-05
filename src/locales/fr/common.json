@@ -451,7 +451,20 @@
     "refresh": "Actualiser",
     "noLogs": "Aucune entrée de journal",
     "closeAllConnections": "Fermer toutes les connexions",
-    "resetKernel": "Réinitialiser le noyau"
+    "resetKernel": "Réinitialiser le noyau",
+    "logDetail": "Détail du journal",
+    "close": "Fermer",
+    "detailUnavailable": "Détail du journal indisponible",
+    "payloadsTitle": "Charges utiles",
+    "reqHeaders": "En-têtes de la requête",
+    "reqBody": "Corps de la requête",
+    "respHeaders": "En-têtes de la réponse",
+    "respBody": "Corps de la réponse",
+    "noPayload": "Aucune charge utile capturée pour cette entrée",
+    "payloadTruncatedUpstream": "Tronqué en amont (plafond de charge utile)",
+    "payloadDisplayTruncated": "Plus de {{n}} octets — seuls les premiers {{n}} octets sont affichés",
+    "netOk": "ok",
+    "netFail": "échec"
   },
   "strategyVerify": {
     "title": "Vérification de stratégie",
@@ -512,5 +525,11 @@
     "convergeNever": "Jamais appliqué",
     "convergeDrifted": "Appliqué · l'état live a divergé",
     "convergeUnknown": "Convergence inconnue (Resin hors ligne)"
+  },
+  "metrics": {
+    "title": "Métriques Resin",
+    "throughput": "Débit temps réel (sortant)",
+    "probeHistory": "Historique des sondes",
+    "noData": "Aucune donnée de métriques"
   }
 }

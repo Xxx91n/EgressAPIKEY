@@ -707,3 +707,16 @@ Round 4 收口修复闭环 2026-09-03：大脑宏观核验（config-authority �
 Close gates at close-out（2026-09-03）：verify-build exit 0（cargo resin-core lib 197 = 195+2 ADR-0057 锁 / 总 205 passed 0 failed；vitest 339/339 × 19 files；i18n 435×18；ipc-manifest 67；isolation-guard OK）；三层文档 0 漂移（CONTEXT 无 auto-clean + 含 ADR-0057 语义；ADR-0056/0057 在位；代码 clean_stale 零引用 + same_region_set 在位）；staged exe release/windows-gui/EgressAPIKEY.exe 14,159,360 B 嵌入 chunk index-UDo-zz7K（Node 命中）；git diff --check 净；but pull 上游零漂移。
 
 Backlog carried（决策驻留，由用户决定是否立票）：B2 Nodus SHA-256 errata（LOW）、B3 eslint TS parser（MED）、B4 vitest act() noise（LOW）、B5 build-all.sh hardening（MED）+ 票 37 四环补充（generation 回显 / 定时复验 / sync×health 分离 / 写审计日志）。过程疑点单独呈报不追认：票 35 检查点 A 批准证据未附、票 36 检查点 B 由 atomcode 调研代决、票 36 but move arch/34 重排已核验栈序、票 36/37 无 ctx 下 node spawn 直连 atomcode。
+
+### 70. architecture-recovery Round 5 收口修复 — 22 票（01–22，T15 关闭）文档漂移 + 订阅链路 + 上游 Resin 对接，整轮验证落地
+
+Round 5 收口闭环（2026-09-05）：大脑宏观调研（R-A/R-B/R-C 三次 atomcode 联网深调研落 OS temp + 3 份子代理仓库调研）拆 22 票分三波执行（W1 订阅链路 / W2 心智模型裂痕 / W3 票37四环 / W4 上游对接），逐票实物复核（不信报告自述），分支全部未 push（WORKFLOW §4.2）。
+
+- **W1 订阅链路**（T01-T04）：subscription_add 串联平台/端口/apply 四拍闭环（bind-step 行内引导 + 反查段 merge_subscriptions + dangling 引用解析）；refresh 真等 Resin + NodesView 闭包修复；last_error 红横幅 + 30s 边沿轮询；POST 写动词 5xx 重试（F2 5s 默认被 Resin 上游 floor ≥30s 阻塞 → GAP-01 落 OPENAPI-GAP.md，待提 PR 给 Resin 官方）。
+- **W2 裂痕治理**（T05-T08）：diagPollInterval 打字命令对（67→69）；backup_create L3 例外立法（ADR-0050-bis）；config_export/import 白盒为真源（ADR-0061）；account_* echo 墓碑。
+- **W3 四环落地**（T09-T12，T10 携 T09 面同 commit）：generation/applied_generation 双代回显（strategy 双代 D-26 / ports 单代 D-27，ADR-0058）+ ConvergePhase 六态（36+6 表驱动）；audit.jsonl append-only 写审计（ADR-0059，8 必填字段 + SHA-256 prev_hash 链 + export_audit_log）；tray 漂移通知升级边沿谓词（ADR-0060，ADR-0054 §E 措辞修订）。
+- **W4 上游对接**（T13-T22）：RESIN_API_COVERAGE 58 行五类分桶（ADR-0062，装饰桶=0 → T15 前提推翻关闭）；G4 webhook 误称全文修订；account-header-rules 4 端点接入（ADR-0063 共存不替代）；name→UUID helper 9 处切换（T17）；platform schema 5 列 12 字段（T18）；metrics 最小集 2/12（ADR-0064，RFC3339 契约勘误）；GeoIP 第三方选型（ADR-0065）；request-log 详情抽屉（R45/R46，1MB 截断）；platform actions 三行故意不接（ADR-0066）。
+
+Close gates at close-out（2026-09-05，大脑终跑）：verify-build.sh exit 0（cargo resin-core lib 256 passed / egressapikey-app lib 114 passed；vitest 394/394 × 20 files；i18n 483×18；ipc-manifest 78 = 定义=注册=manifest；isolation-guard OK）；build-all.sh exit 0（chunk index-BWUZ2RQg 在 staged exe 字节内命中 + 冒烟 alive 5s、tracing initialized、drift 边沿通知真机触发）；三层文档一致性 A/B/C 全过（17 CONTEXT 词条×代码符号 / 10 ADR ACCEPTED / 9 决策抽查）。收口过程中修复 7 处真实源码缺陷（T17 lib.rs re-export 孤儿丢失、msg deref、async block 类型、T19 UrlEncoded 双重编码×2、miss-loop expect(1)→(3)、chrono 空格分隔断言、LOG-1 非 hex 断言、log-1 夹具、inert 行 fixture 时序）。push 未执行（用户「push 前停下等指令」）。
+
+Backlog carried（决策驻留，由用户决定是否立票）：B2 Nodus SHA-256 errata（LOW）、B3 eslint TS parser（MED）、B4 vitest act() noise（LOW）、B5 build-all.sh hardening（MED）+ GAP-01 Resin update_interval floor 降限或 force-refresh 端点（提 PR 上游）+ 票 37 四环下半（定时复验 / per-entity oncePer 二期 / Recharts 全集轮）+ T23 preview-filter 接线候选。过程疑点单独呈报不追认：T19 本地 vitest/tsc 与 CI-only 命令字面冲突（自报）、T19 amend T17 分支 commit（越权修孤儿头）、T14 报告「工作区在位」与磁盘不符（收口补修）、T06 吞 T07 backup.rs / T01 吞 T04 代码 / T07 吞 T03 CHANGELOG（用户已裁定接受现状 A）、CI-only 命令来源经用户质询（位于 ZCode 全局 AGENTS.md 非 Codex 目录，待用户裁定去留）。

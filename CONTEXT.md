@@ -130,11 +130,18 @@ _Avoid_: traffic analyzer, stream handler
 ### IP Reputation Provider
 
 An external API that scores an egress IP's trustworthiness.
-Pluggable providers: IPQualityScore (fraud_score 0-100), AbuseIPDB
-(abuse confidence score), ip-api.com (proxy/hosting/mobile flags),
-ipinfo.io (geo+ASN). The Strategy Layer queries these on boundary
-scores; local sliding-window cache avoids burning API quotas.
-_Avoid_: IP checker, fraud detector, blacklist
+Pluggable providers (the three `ReputationProvider` variants in
+`ip_reputation.rs`): IPQualityScore (fraud_score 0-100), AbuseIPDB
+(abuse confidence score), ip-api.com (proxy/hosting/mobile flags).
+Data source selection (ADR-0065): the shell calls these third-party HTTP
+APIs directly and deliberately does NOT use Resin's built-in GeoIP
+endpoints (`/api/v1/geoip/*`, R40-R43) — those return a geographic region
+only, with no fraud/abuse dimension, while the shell's need is an
+egress-IP trust verdict; GeoIP stays 故意不接 unless upstream ever adds
+reputation signals (a new ADR is required to revisit). Local TTL cache
+avoids burning API quotas.
+_Avoid_: IP checker, fraud detector, blacklist, Resin GeoIP as the
+reputation source
 
 ### Protocol Weight
 
@@ -607,3 +614,80 @@ a failed append degrades to a tracing warning and never blocks the write
 or app startup (Argus principle). The log answers actor history; the
 10-deep backup ring answers content history.
 _Avoid_: change log, event sourcing, security audit trail
+
+### G4 (Signal Channel)
+
+How the shell learns Resin-side state changes (T14 Round 5; revises the
+"G4 webhook" misnomer per ADR-0024 / ADR-0050): there is NO HTTP webhook —
+the Resin upstream Admin API is a pure pull model (GET/POST/PATCH/DELETE)
+with zero webhook/callback/push egress (grep evidence in ADR-0062 D6). G4's
+real shape = IPC retarget (shell `#[tauri::command]`s call ResinClient
+REST) + sidecar-status event subscription: the shell-side Ghost G3 health
+poll emits `sidecar-status` (healthy/unhealthy/restarting/terminated), and
+TopologyView `app.listen("sidecar-status")` raises the red banner. The
+signal origin is the shell's own poller, never a Resin push.
+_Avoid_: Resin webhook, push notification, callback channel
+
+### Account Header Rule
+
+A Resin control-plane rule (round5 T16; R32-R35) that maps a URL prefix
+(`host[/path]`, longest-prefix match, `*` wildcard fallback) to a list
+of HTTP header NAMES. On the reverse-proxy data plane, when a platform's
+`empty_account_behavior` is `ACCOUNT_HEADER_RULE`, Resin extracts the
+account identity from the first of those request headers that carries a
+value and routes to that account's sticky lease. Shell-side it is four thin
+IPC pass-throughs (`list/put/resolve/delete_account_header_rule*`) over
+the ResinClient seam — L3 control-plane state, NOT one of the three config
+layers, and coexists with the OS-level process routes (ADR-0063, D-35).
+_Avoid_: X-Resin-Account value routing (the rule stores header NAMES to
+extract from), header-rule-to-port mapping (that is process_route)
+
+### Name-to-UUID Resolution
+
+How a shell-side caller turns a user-visible name ("alpha") into the Resin
+UUID a single-resource endpoint needs ("DELETE /platforms/{id}"). Resin's
+endpoint design is hybrid — list endpoints are name-keyed (rows carry
+`name`+`id`), single-resource endpoints are UUID-keyed — so every caller
+once re-implemented the "list all → match name → take id" two-step hop
+(crack #6: 9 command bodies at Round 5 research time). T17 centralized it:
+`ResinClient::resolve_platform_id_by_name` / `resolve_subscription_id_by_name`
+(one list GET + §7.5 name validation: 253-char DNS-host cap, NUL/control
+rejected as `IpcError::InvalidInput`) for command bodies, and the pure
+`resin_core::resolve_id_in` for the fn-pointer seams
+(`strategy_service::apply`/`reconcile`, whose single-GET wire shape is
+pinned) and for `subscription_refresh` (the same list response also feeds
+the pre-refresh row stats). A name miss surfaces as the typed
+`IpcError::NotFound` carrying the historical message text ("platform not
+found: {name}") with the pre-existing `error.notFound` locale key.
+_Avoid_: name→id two-step hop in command bodies, stringly not-found error,
+duplicate id_for_name helpers
+
+### Platform Action
+
+One of three upstream Resin POST endpoints under `/api/v1/platforms` that
+trigger a server-side operation instead of reading or writing a resource:
+`reset-to-default` (R13, recompiles a platform from env defaults),
+`rebuild-routable-view` (R14, rebuilds Resin's internal routable node view),
+and `preview-filter` (R09, dry-run node listing for a filter spec — no state
+change). All three are deliberate non-adoptions per ADR-0066 (round5 T22):
+reset-to-default would let the shell mutate L3 behind the L2 whitebox as the
+source of truth; the routable view is maintained by Resin itself and kept
+converged by ADR-0057 diff-then-skip on apply; filter preview already exists
+shell-side as the ADR-0054 in-memory snapshot. preview-filter stays the one
+wiring candidate for a later ticket (T23); any change to this classification
+must revisit ADR-0066 and flip the RESIN_API_COVERAGE rows in the same commit.
+_Avoid_: wiring reset-to-default through the shell, treating the action
+endpoints as unexamined blanks, resurrecting them without ADR-0066
+
+### Request Log Detail
+
+The single-entry view over one Resin request-log row (round5 T21; R45/R46):
+`request_log_detail` re-reads the full wire face of one row (timing,
+first-byte, byte counts, upstream error fields) and `request_log_payloads`
+fetches the captured request/response halves — base64-encoded upstream,
+display-decoded shell-side with a 1 MB per-part cap plus upstream truncation
+flags. The drawer opens by clicking a `request_log_tail` row (the row `id`
+UUID rides the tail rows as of this ticket); payload capture depends on
+Resin's payload-logging setting and surfaces 200-with-empty-strings when off.
+_Avoid_: re-scanning request_logs*.db directly, rendering multi-MB bodies
+unsliced, treating an empty payload body as an error

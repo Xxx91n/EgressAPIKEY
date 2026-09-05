@@ -451,7 +451,20 @@
     "refresh": "Segarkan",
     "noLogs": "Tidak ada entri log",
     "closeAllConnections": "Tutup semua koneksi",
-    "resetKernel": "Reset kernel"
+    "resetKernel": "Reset kernel",
+    "logDetail": "Detail log",
+    "close": "Tutup",
+    "detailUnavailable": "Detail log tidak tersedia",
+    "payloadsTitle": "Payload",
+    "reqHeaders": "Header permintaan",
+    "reqBody": "Isi permintaan",
+    "respHeaders": "Header respons",
+    "respBody": "Isi respons",
+    "noPayload": "Tidak ada payload yang ditangkap untuk entri ini",
+    "payloadTruncatedUpstream": "Dipotong di hulu (batas payload)",
+    "payloadDisplayTruncated": "Lebih dari {{n}} byte — hanya menampilkan {{n}} byte pertama",
+    "netOk": "ok",
+    "netFail": "gagal"
   },
   "strategyVerify": {
     "title": "Verifikasi strategi",
@@ -512,5 +525,11 @@
     "convergeNever": "Belum pernah diterapkan",
     "convergeDrifted": "Diterapkan · status live menyimpang",
     "convergeUnknown": "Konvergensi tidak diketahui (Resin offline)"
+  },
+  "metrics": {
+    "title": "Metrik Resin",
+    "throughput": "Throughput realtime (keluar)",
+    "probeHistory": "Riwayat probe",
+    "noData": "Tidak ada data metrik"
   }
 }

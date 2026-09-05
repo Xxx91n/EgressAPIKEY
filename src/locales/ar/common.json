@@ -451,7 +451,20 @@
     "refresh": "تحديث",
     "noLogs": "لا توجد سجلات",
     "closeAllConnections": "إغلاق كل الاتصالات",
-    "resetKernel": "إعادة تعيين النواة"
+    "resetKernel": "إعادة تعيين النواة",
+    "logDetail": "تفاصيل السجل",
+    "close": "إغلاق",
+    "detailUnavailable": "تفاصيل السجل غير متوفرة",
+    "payloadsTitle": "الحمولات",
+    "reqHeaders": "ترويسات الطلب",
+    "reqBody": "جسم الطلب",
+    "respHeaders": "ترويسات الاستجابة",
+    "respBody": "جسم الاستجابة",
+    "noPayload": "لا توجد حمولات ملتقطة لهذا الإدخال",
+    "payloadTruncatedUpstream": "مقتطع في المنبع (سقف الحمولة)",
+    "payloadDisplayTruncated": "أكثر من {{n}} بايت — يعرض أول {{n}} بايت فقط",
+    "netOk": "سليم",
+    "netFail": "فشل"
   },
   "strategyVerify": {
     "title": "التحقق من الاستراتيجية",
@@ -512,5 +525,11 @@
     "convergeNever": "لم يُطبَّق قط",
     "convergeDrifted": "مُطبَّق · الحالة الحية منحرفة",
     "convergeUnknown": "حالة التقارب غير معروفة (Resin غير متصل)"
+  },
+  "metrics": {
+    "title": "مقاييس Resin",
+    "throughput": "الإنتاجية الفورية (الصادر)",
+    "probeHistory": "سجل الفحوصات",
+    "noData": "لا توجد بيانات مقاييس"
   }
 }

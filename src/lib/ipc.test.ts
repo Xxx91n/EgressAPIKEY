@@ -598,13 +598,13 @@ describe("T19 (ADR-0064) metrics minimal-set wrappers", () => {
 describe("T21 (Round 5) request-log detail + payload wrappers", () => {
   it("ipcRequestLogDetail forwards a valid UUID log_id", async () => {
     invokeMock.mockReset();
-    invokeMock.mockResolvedValue({ id: "log-1", http_method: "POST", http_status: 200 });
+    invokeMock.mockResolvedValue({ id: "abc123", http_method: "POST", http_status: 200 });
     const r = await ipcRequestLogDetail("0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b");
     expect(invokeMock).toHaveBeenCalledWith(
       "request_log_detail",
       expect.objectContaining({ logId: "0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b" }),
     );
-    expect(r.id).toBe("log-1");
+    expect(r.id).toBe("abc123");
     expect(r.http_status).toBe(200);
   });
 
@@ -625,7 +625,7 @@ describe("T21 (Round 5) request-log detail + payload wrappers", () => {
   it("ipcRequestLogDetail coerces a null wire face to an all-default detail", async () => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue(null);
-    const r = await ipcRequestLogDetail("log-1");
+    const r = await ipcRequestLogDetail("abc123");
     expect(r.id).toBe("");
     expect(r.payload_present).toBe(false);
     expect(r.http_status).toBe(0);
@@ -639,8 +639,8 @@ describe("T21 (Round 5) request-log detail + payload wrappers", () => {
       resp_body_b64: btoa("ok"),
       truncated: { req_body: true },
     });
-    const r = await ipcRequestLogPayloads("log-1");
-    expect(invokeMock).toHaveBeenCalledWith("request_log_payloads", expect.objectContaining({ logId: "log-1" }));
+    const r = await ipcRequestLogPayloads("abc123");
+    expect(invokeMock).toHaveBeenCalledWith("request_log_payloads", expect.objectContaining({ logId: "abc123" }));
     expect(r.req_body_b64).toBe(btoa('{"a":1}'));
     expect(r.truncated.req_body).toBe(true);
     expect(r.truncated.req_headers).toBe(false);
@@ -650,7 +650,7 @@ describe("T21 (Round 5) request-log detail + payload wrappers", () => {
   it("ipcRequestLogPayloads coerces a null wire face to empty strings", async () => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue(null);
-    const r = await ipcRequestLogPayloads("log-1");
+    const r = await ipcRequestLogPayloads("abc123");
     expect(r.req_body_b64).toBe("");
     expect(r.truncated.resp_body).toBe(false);
   });

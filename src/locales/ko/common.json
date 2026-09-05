@@ -451,7 +451,20 @@
     "refresh": "새로고침",
     "noLogs": "로그 항목 없음",
     "closeAllConnections": "모든 연결 닫기",
-    "resetKernel": "커널 재설정"
+    "resetKernel": "커널 재설정",
+    "logDetail": "로그 상세",
+    "close": "닫기",
+    "detailUnavailable": "로그 상세를 사용할 수 없습니다",
+    "payloadsTitle": "페이로드",
+    "reqHeaders": "요청 헤더",
+    "reqBody": "요청 본문",
+    "respHeaders": "응답 헤더",
+    "respBody": "응답 본문",
+    "noPayload": "이 항목에 대해 캡처된 페이로드가 없습니다",
+    "payloadTruncatedUpstream": "업스트림에서 잘림 (페이로드 상한)",
+    "payloadDisplayTruncated": "{{n}}바이트 초과 — 처음 {{n}}바이트만 표시",
+    "netOk": "정상",
+    "netFail": "실패"
   },
   "strategyVerify": {
     "title": "전략 검증",
@@ -512,5 +525,11 @@
     "convergeNever": "적용된 적 없음",
     "convergeDrifted": "적용됨 · 라이브 상태 불일치",
     "convergeUnknown": "수렴 상태 알 수 없음 (Resin 오프라인)"
+  },
+  "metrics": {
+    "title": "Resin 메트릭",
+    "throughput": "실시간 처리량(송신)",
+    "probeHistory": "프로브 기록",
+    "noData": "메트릭 데이터 없음"
   }
 }

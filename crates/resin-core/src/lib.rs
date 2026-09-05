@@ -25,6 +25,7 @@
 //! CoreConfig, sanitize_lanes, and the resin-core stub bin) was deleted per
 //! ADR-0050; that ADR records the reference evidence.
 
+pub mod audit;
 pub mod config_transfer;
 pub mod db;
 pub mod ipc_error;
@@ -50,7 +51,7 @@ pub use ip_reputation::{
 };
 pub use port_forwarder::{parse_trace_body_ip, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT};
 pub use port_health::PortHealthSnapshot;
-pub use resin_client::ResinClient;
+pub use resin_client::{resolve_id_in, ResinClient};
 pub use snapshot::{
     AuthoritativeSnapshot, ConvergePhase, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot,
     SubscriptionSnapshot,

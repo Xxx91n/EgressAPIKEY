@@ -39,6 +39,15 @@ pub enum IpcError {
         msg: String,
         i18n_key: String,
     },
+    /// Name-based lookup miss (Round 5 T17, crack #6): the typed face of the
+    /// former stringly `format!("platform not found: {name}")` rejections the
+    /// name→UUID call sites produced through `IpcError::from(String)`.
+    /// Reuses the existing "error.notFound" locale key (already present in
+    /// all 18 catalogs), so no new i18n key is added.
+    NotFound {
+        msg: String,
+        i18n_key: String,
+    },
     /// Catch-all for internal errors (serde, IO, unexpected panic recovery).
     Internal {
         msg: String,
@@ -86,6 +95,16 @@ impl IpcError {
         }
     }
 
+    /// Name-based lookup miss (Round 5 T17). `msg` carries the same human
+    /// sentence the former stringly rejections used ("platform not found:
+    /// {name}"); the i18n key reuses the existing "error.notFound" entry.
+    pub fn not_found(msg: &str) -> Self {
+        Self::NotFound {
+            msg: msg.chars().take(256).collect(),
+            i18n_key: "error.notFound".into(),
+        }
+    }
+
     /// Internal variant with a specific i18n key and the raw upstream error
     /// preserved in msg for log/debug display. Used by map_resin_error for
     /// recognized vocabulary that has no dedicated variant.
@@ -106,6 +125,7 @@ impl std::fmt::Display for IpcError {
                 write!(f, "Resin upstream {status}: {excerpt}")
             }
             Self::InvalidInput { msg, .. } => write!(f, "invalid input: {msg}"),
+            Self::NotFound { msg, .. } => write!(f, "{msg}"),
             Self::Internal { msg, .. } => write!(f, "internal: {msg}"),
         }
     }
@@ -290,6 +310,20 @@ mod tests {
         assert_eq!(e, back);
         assert!(json.contains("\"kind\":\"InvalidInput\""));
         assert!(json.contains("\"i18n_key\":\"error.badRequest\""));
+    }
+
+    #[test]
+    fn ipc_error_not_found_serde_round_trip() {
+        // Round 5 T17: name→UUID lookup miss. Reuses the existing
+        // error.notFound locale key (present in all 18 catalogs).
+        let e = IpcError::not_found("platform not found: alpha");
+        assert!(matches!(e, IpcError::NotFound { ref msg, ref i18n_key }
+            if msg == "platform not found: alpha" && i18n_key == "error.notFound"));
+        let json = serde_json::to_string(&e).unwrap();
+        let back: IpcError = serde_json::from_str(&json).unwrap();
+        assert_eq!(e, back);
+        assert!(json.contains("\"kind\":\"NotFound\""));
+        assert!(json.contains("\"i18n_key\":\"error.notFound\""));
     }
 
     // ---- map_resin_error(raw) — ticket 06 single implementation ----

@@ -3668,10 +3668,12 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "specta",
  "tokio",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]

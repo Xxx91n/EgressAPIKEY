@@ -114,6 +114,11 @@ mod tests {
                 b_class_params: Default::default(),
             }],
             acknowledged: vec![],
+            generation: 3,
+            applied_generation: 2,
+            last_apply_at: Some(1_700_000_000),
+            last_apply_error: None,
+            updated_at: Some(1_700_000_100),
         }
     }
 

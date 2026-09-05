@@ -535,6 +535,7 @@ impl ResinClient {
         let path = format!("/request-logs/{}/payloads", urlencoding(log_id));
         self.send_read(&path).await
     }
+
     // ── Account header rules (round5 T16; D-35 coexistence with process_route per ADR-0063) ──
 
     /// GET /api/v1/account-header-rules?limit=1000&offset=0 — list all rules.
@@ -1936,7 +1937,7 @@ mod tests {
             .with_body(
                 r#"[{"id":"","name":"empty-id"},{"name":"no-id-field"},{"id":"sub-uuid-8","name":"other"}]"#,
             )
-            .expect(1)
+            .expect(3)
             .create_async()
             .await;
         let base = server.url();
@@ -1950,7 +1951,7 @@ mod tests {
                 matches!(
                     &err,
                     IpcError::NotFound { msg, i18n_key }
-                        if msg == format!("subscription not found: {want}")
+                        if *msg == format!("subscription not found: {want}")
                             && i18n_key == "error.notFound"
                 ),
                 "want={want} got {err:?}"
@@ -2000,11 +2001,11 @@ mod tests {
             "bad\u{7f}del",                      // DEL
         ] {
             for helper in ["platform", "subscription"] {
-                let err = rt.block_on(if helper == "platform" {
-                    async { c.resolve_platform_id_by_name(name).await.err().unwrap() }
+                let err = if helper == "platform" {
+                    rt.block_on(async { c.resolve_platform_id_by_name(name).await.err().unwrap() })
                 } else {
-                    async { c.resolve_subscription_id_by_name(name).await.err().unwrap() }
-                });
+                    rt.block_on(async { c.resolve_subscription_id_by_name(name).await.err().unwrap() })
+                };
                 assert!(
                     matches!(&err, IpcError::InvalidInput { .. }),
                     "name={name:?} helper={helper} got {err:?}"
@@ -2077,11 +2078,8 @@ mod tests {
             .mock("GET", mockito::Matcher::Any)
             .match_header("authorization", "Bearer testtok")
             .match_query(mockito::Matcher::AllOf(vec![
-                mockito::Matcher::UrlEncoded(
-                    "from".into(),
-                    "2026-09-04T00%3A00%3A00Z".into(),
-                ),
-                mockito::Matcher::UrlEncoded("to".into(), "2026-09-04T01%3A00%3A00Z".into()),
+                mockito::Matcher::UrlEncoded("from".into(), "2026-09-04T00:00:00Z".into()),
+                mockito::Matcher::UrlEncoded("to".into(), "2026-09-04T01:00:00Z".into()),
             ]))
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -2110,10 +2108,7 @@ mod tests {
         let m = server
             .mock("GET", mockito::Matcher::Any)
             .match_header("authorization", "Bearer testtok")
-            .match_query(mockito::Matcher::AllOf(vec![mockito::Matcher::UrlEncoded(
-                "from".into(),
-                "2026-09-04T00%3A00%3A00Z".into(),
-            )]))
+            .match_query(mockito::Matcher::AllOf(vec![mockito::Matcher::UrlEncoded("from".into(), "2026-09-04T00:00:00Z".into())]))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"bucket_seconds":60,"items":[]}"#)

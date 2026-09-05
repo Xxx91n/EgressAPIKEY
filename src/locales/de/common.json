@@ -451,7 +451,20 @@
     "refresh": "Aktualisieren",
     "noLogs": "Keine Protokolleinträge",
     "closeAllConnections": "Alle Verbindungen schließen",
-    "resetKernel": "Kernel zurücksetzen"
+    "resetKernel": "Kernel zurücksetzen",
+    "logDetail": "Protokolldetail",
+    "close": "Schließen",
+    "detailUnavailable": "Protokolldetail nicht verfügbar",
+    "payloadsTitle": "Nutzdaten",
+    "reqHeaders": "Anfrage-Header",
+    "reqBody": "Anfragekörper",
+    "respHeaders": "Antwort-Header",
+    "respBody": "Antwortkörper",
+    "noPayload": "Für diesen Eintrag wurden keine Nutzdaten erfasst",
+    "payloadTruncatedUpstream": "Upstream gekürzt (Nutzdaten-Obergrenze)",
+    "payloadDisplayTruncated": "Mehr als {{n}} Bytes — nur die ersten {{n}} Bytes werden angezeigt",
+    "netOk": "ok",
+    "netFail": "fehlgeschlagen"
   },
   "strategyVerify": {
     "title": "Strategieüberprüfung",
@@ -512,5 +525,11 @@
     "convergeNever": "Nie angewendet",
     "convergeDrifted": "Angewendet · Live-State abweichend",
     "convergeUnknown": "Konvergenz unbekannt (Resin offline)"
+  },
+  "metrics": {
+    "title": "Resin-Metriken",
+    "throughput": "Echtzeit-Durchsatz (Ausgang)",
+    "probeHistory": "Probe-Verlauf",
+    "noData": "Keine Metrikdaten"
   }
 }

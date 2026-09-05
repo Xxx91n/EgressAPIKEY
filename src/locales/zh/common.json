@@ -451,7 +451,20 @@
     "refresh": "刷新",
     "noLogs": "无日志记录",
     "closeAllConnections": "关闭所有连接",
-    "resetKernel": "重置内核"
+    "resetKernel": "重置内核",
+    "logDetail": "日志详情",
+    "close": "关闭",
+    "detailUnavailable": "日志详情不可用",
+    "payloadsTitle": "载荷",
+    "reqHeaders": "请求头",
+    "reqBody": "请求体",
+    "respHeaders": "响应头",
+    "respBody": "响应体",
+    "noPayload": "该条目未捕获载荷",
+    "payloadTruncatedUpstream": "上游已截断（载荷上限）",
+    "payloadDisplayTruncated": "超过 {{n}} 字节 — 仅显示前 {{n}} 字节",
+    "netOk": "正常",
+    "netFail": "失败"
   },
   "strategyVerify": {
     "title": "策略验证",
@@ -512,5 +525,11 @@
     "convergeNever": "从未应用",
     "convergeDrifted": "已应用 · 运行态已漂移",
     "convergeUnknown": "收敛状态未知（Resin 离线）"
+  },
+  "metrics": {
+    "title": "Resin 指标",
+    "throughput": "实时吞吐（出口）",
+    "probeHistory": "探测历史",
+    "noData": "暂无指标数据"
   }
 }

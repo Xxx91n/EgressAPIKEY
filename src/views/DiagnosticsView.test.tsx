@@ -229,18 +229,18 @@ describe("DiagnosticsView closed-loop tests", () => {
   });
 
   it("T21: a row without an id stays inert (no detail IPC)", async () => {
-    render(<DiagnosticsView />);
-    await waitFor(() => {
-      expect(screen.getByTestId("diag-log-table")).toBeInTheDocument();
-    });
-    // The negative-scenario fixture below has no id; verify via a fresh mock here.
-    invokeMock.mockClear();
+    // Negative fixture (row WITHOUT id) must be installed before render,
+    // otherwise the beforeEach default row (which HAS an id) is what renders.
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "request_log_tail") return Promise.resolve([
         { ts: "2026-01-01 00:00:00", platform_name: "NoId", account: "x", target_host: "h",
           egress_ip: "1.1.1.1", http_method: "GET", http_status: 500, duration_ms: 1, resin_error: "boom" },
       ]);
       return Promise.resolve(null);
+    });
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("diag-log-table")).toBeInTheDocument();
     });
     fireEvent.click(screen.getAllByTestId("diag-log-row")[0]);
     await new Promise((r) => setTimeout(r, 20));

@@ -1726,6 +1726,8 @@ export function snapshotPlatformName(p: StrategySnapshot): string {
    | { kind: "InvalidStrategy"; data: { value: string; accepted: string[]; i18n_key: string } }
    | { kind: "ResinUpstream"; data: { status: number; excerpt: string; i18n_key: string } }
    | { kind: "InvalidInput"; data: { msg: string; i18n_key: string } }
+   /** Round 5 T17: name→UUID lookup miss (error.notFound locale key). */
+   | { kind: "NotFound"; data: { msg: string; i18n_key: string } }
    | { kind: "Internal"; data: { msg: string; i18n_key: string } };
  
  /** Narrow a thrown/unknown value from invoke() into a typed IpcErr.
@@ -1765,6 +1767,16 @@ export function snapshotPlatformName(p: StrategySnapshot): string {
        case "InvalidInput":
          return {
            kind: "InvalidInput",
+           data: {
+             msg: String(data?.msg ?? ""),
+             i18n_key: String(data?.i18n_key ?? ""),
+           },
+         };
+       case "NotFound":
+         // Round 5 T17: name→UUID lookup miss keeps its i18n_key so the GUI
+         // renders the locale "Not found" line instead of the Internal text.
+         return {
+           kind: "NotFound",
            data: {
              msg: String(data?.msg ?? ""),
              i18n_key: String(data?.i18n_key ?? ""),

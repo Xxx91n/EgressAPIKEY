@@ -451,7 +451,20 @@
     "refresh": "Обновить",
     "noLogs": "Нет записей в журнале",
     "closeAllConnections": "Закрыть все соединения",
-    "resetKernel": "Сбросить ядро"
+    "resetKernel": "Сбросить ядро",
+    "logDetail": "Сведения записи",
+    "close": "Закрыть",
+    "detailUnavailable": "Сведения записи недоступны",
+    "payloadsTitle": "Полезные данные",
+    "reqHeaders": "Заголовки запроса",
+    "reqBody": "Тело запроса",
+    "respHeaders": "Заголовки ответа",
+    "respBody": "Тело ответа",
+    "noPayload": "Для этой записи полезные данные не зафиксированы",
+    "payloadTruncatedUpstream": "Усечено выше по цепочке (лимит полезных данных)",
+    "payloadDisplayTruncated": "Более {{n}} байт — показаны только первые {{n}} байт",
+    "netOk": "успешно",
+    "netFail": "сбой"
   },
   "strategyVerify": {
     "title": "Проверка стратегии",
@@ -512,5 +525,11 @@
     "convergeNever": "Никогда не применялось",
     "convergeDrifted": "Применено · живое состояние разошлось",
     "convergeUnknown": "Сходимость неизвестна (Resin недоступен)"
+  },
+  "metrics": {
+    "title": "Метрики Resin",
+    "throughput": "Пропускная способность (исходящая)",
+    "probeHistory": "История проб",
+    "noData": "Нет данных метрик"
   }
 }

@@ -451,7 +451,20 @@
     "refresh": "Aggiorna",
     "noLogs": "Nessuna voce di log",
     "closeAllConnections": "Chiudi tutte le connessioni",
-    "resetKernel": "Resetta kernel"
+    "resetKernel": "Resetta kernel",
+    "logDetail": "Dettaglio del log",
+    "close": "Chiudi",
+    "detailUnavailable": "Dettaglio del log non disponibile",
+    "payloadsTitle": "Payload",
+    "reqHeaders": "Intestazioni della richiesta",
+    "reqBody": "Corpo della richiesta",
+    "respHeaders": "Intestazioni della risposta",
+    "respBody": "Corpo della risposta",
+    "noPayload": "Nessun payload catturato per questa voce",
+    "payloadTruncatedUpstream": "Troncato a monte (limite payload)",
+    "payloadDisplayTruncated": "Oltre {{n}} byte — mostrati solo i primi {{n}} byte",
+    "netOk": "ok",
+    "netFail": "errore"
   },
   "strategyVerify": {
     "title": "Verifica strategia",
@@ -512,5 +525,11 @@
     "convergeNever": "Mai applicato",
     "convergeDrifted": "Applicato · lo stato live è divergente",
     "convergeUnknown": "Convergenza sconosciuta (Resin offline)"
+  },
+  "metrics": {
+    "title": "Metriche Resin",
+    "throughput": "Throughput in tempo reale (in uscita)",
+    "probeHistory": "Cronologia sonde",
+    "noData": "Nessun dato metrico"
   }
 }

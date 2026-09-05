@@ -451,7 +451,20 @@
     "refresh": "更新",
     "noLogs": "ログエントリなし",
     "closeAllConnections": "全接続を閉じる",
-    "resetKernel": "カーネルをリセット"
+    "resetKernel": "カーネルをリセット",
+    "logDetail": "ログ詳細",
+    "close": "閉じる",
+    "detailUnavailable": "ログ詳細を表示できません",
+    "payloadsTitle": "ペイロード",
+    "reqHeaders": "リクエストヘッダー",
+    "reqBody": "リクエストボディ",
+    "respHeaders": "レスポンスヘッダー",
+    "respBody": "レスポンスボディ",
+    "noPayload": "このエントリのペイロードは記録されていません",
+    "payloadTruncatedUpstream": "上流で切断されました（ペイロード上限）",
+    "payloadDisplayTruncated": "{{n}} バイトを超えました — 先頭 {{n}} バイトのみ表示",
+    "netOk": "正常",
+    "netFail": "失敗"
   },
   "strategyVerify": {
     "title": "戦略検証",
@@ -512,5 +525,11 @@
     "convergeNever": "未適用",
     "convergeDrifted": "適用済み · 実行状態が乖離",
     "convergeUnknown": "収束状態不明（Resin オフライン）"
+  },
+  "metrics": {
+    "title": "Resin メトリクス",
+    "throughput": "リアルタイムスループット（送信）",
+    "probeHistory": "プローブ履歴",
+    "noData": "メトリクスデータなし"
   }
 }

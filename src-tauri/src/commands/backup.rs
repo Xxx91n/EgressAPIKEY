@@ -246,8 +246,9 @@ pub async fn config_import(
     let doc = resin_core::parse_import_doc(&config).map_err(IpcError::from)?;
 
     // Write the strategy half through the single sanctioned entry (ADR-0036).
+    // T09: store() bumps generation and returns the landed document.
     let svc = strategy_service(&app)?;
-    svc.store(&doc.strategy).map_err(IpcError::from)?;
+    svc.store(doc.strategy.clone()).map_err(IpcError::from)?;
 
     // Write the ports half through the single sanctioned entry (ADR-0055).
     whitebox

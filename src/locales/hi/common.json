@@ -451,7 +451,20 @@
     "refresh": "ताज़ा करें",
     "noLogs": "कोई लॉग प्रविष्टि नहीं",
     "closeAllConnections": "सभी कनेक्शन बंद करें",
-    "resetKernel": "कर्नेल रीसेट करें"
+    "resetKernel": "कर्नेल रीसेट करें",
+    "logDetail": "लॉग विवरण",
+    "close": "बंद करें",
+    "detailUnavailable": "लॉग विवरण अनुपलब्ध",
+    "payloadsTitle": "पेलोड",
+    "reqHeaders": "अनुरोध हेडर",
+    "reqBody": "अनुरोध बॉडी",
+    "respHeaders": "प्रतिक्रिया हेडर",
+    "respBody": "प्रतिक्रिया बॉडी",
+    "noPayload": "इस प्रविष्टि के लिए कोई पेलोड कैप्चर नहीं हुआ",
+    "payloadTruncatedUpstream": "अपस्ट्रीम पर कटा हुआ (पेलोड सीमा)",
+    "payloadDisplayTruncated": "{{n}} बाइट से अधिक — केवल पहले {{n}} बाइट दिखाए जा रहे हैं",
+    "netOk": "ठीक",
+    "netFail": "विफल"
   },
   "strategyVerify": {
     "title": "रणनीति सत्यापन",
@@ -512,5 +525,11 @@
     "convergeNever": "कभी लागू नहीं",
     "convergeDrifted": "लागू · लाइव स्थिति भिन्न",
     "convergeUnknown": "अभिसरण अज्ञात (Resin ऑफ़लाइन)"
+  },
+  "metrics": {
+    "title": "Resin मेट्रिक्स",
+    "throughput": "रीयलटाइम थ्रूपुट (आउटगोइंग)",
+    "probeHistory": "प्रोब इतिहास",
+    "noData": "कोई मेट्रिक डेटा नहीं"
   }
 }

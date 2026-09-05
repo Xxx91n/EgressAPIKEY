@@ -451,7 +451,20 @@
     "refresh": "รีเฟรช",
     "noLogs": "ไม่มีรายการบันทึก",
     "closeAllConnections": "ปิดการเชื่อมต่อทั้งหมด",
-    "resetKernel": "รีเซ็ตเคอร์เนล"
+    "resetKernel": "รีเซ็ตเคอร์เนล",
+    "logDetail": "รายละเอียดบันทึก",
+    "close": "ปิด",
+    "detailUnavailable": "รายละเอียดบันทึกไม่พร้อมใช้งาน",
+    "payloadsTitle": "เพย์โหลด",
+    "reqHeaders": "ส่วนหัวคำขอ",
+    "reqBody": "เนื้อหาคำขอ",
+    "respHeaders": "ส่วนหัวการตอบสนอง",
+    "respBody": "เนื้อหาการตอบสนอง",
+    "noPayload": "ไม่มีเพย์โหลดที่บันทึกไว้สำหรับรายการนี้",
+    "payloadTruncatedUpstream": "ถูกตัดต้นทาง (เพดานเพย์โหลด)",
+    "payloadDisplayTruncated": "เกิน {{n}} ไบต์ — แสดงเฉพาะ {{n}} ไบต์แรก",
+    "netOk": "ปกติ",
+    "netFail": "ล้มเหลว"
   },
   "strategyVerify": {
     "title": "การตรวจสอบกลยุทธ์",
@@ -512,5 +525,11 @@
     "convergeNever": "ยังไม่เคยใช้งาน",
     "convergeDrifted": "ใช้งานแล้ว · สถานะจริงเหลื่อมล้ำ",
     "convergeUnknown": "สถานะการลู่เข้าไม่ทราบ (Resin ออฟไลน์)"
+  },
+  "metrics": {
+    "title": "เมตริกของ Resin",
+    "throughput": "ความเร็วแบบเรียลไทม์ (ขาออก)",
+    "probeHistory": "ประวัติการตรวจสอบ",
+    "noData": "ไม่มีข้อมูลเมตริก"
   }
 }

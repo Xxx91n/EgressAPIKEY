@@ -451,7 +451,20 @@
     "refresh": "Atualizar",
     "noLogs": "Sem entradas de log",
     "closeAllConnections": "Fechar todas as conexões",
-    "resetKernel": "Reiniciar núcleo"
+    "resetKernel": "Reiniciar núcleo",
+    "logDetail": "Detalhe do registo",
+    "close": "Fechar",
+    "detailUnavailable": "Detalhe do registo indisponível",
+    "payloadsTitle": "Cargas",
+    "reqHeaders": "Cabeçalhos do pedido",
+    "reqBody": "Corpo do pedido",
+    "respHeaders": "Cabeçalhos da resposta",
+    "respBody": "Corpo da resposta",
+    "noPayload": "Sem cargas capturadas para esta entrada",
+    "payloadTruncatedUpstream": "Truncado a montante (limite de carga)",
+    "payloadDisplayTruncated": "Mais de {{n}} bytes — exibindo apenas os primeiros {{n}} bytes",
+    "netOk": "ok",
+    "netFail": "falha"
   },
   "strategyVerify": {
     "title": "Verificação de estratégia",
@@ -512,5 +525,11 @@
     "convergeNever": "Nunca aplicado",
     "convergeDrifted": "Aplicado · estado ao vivo divergiu",
     "convergeUnknown": "Convergência desconhecida (Resin offline)"
+  },
+  "metrics": {
+    "title": "Métricas do Resin",
+    "throughput": "Taxa em tempo real (saída)",
+    "probeHistory": "Histórico de sondas",
+    "noData": "Sem dados de métricas"
   }
 }

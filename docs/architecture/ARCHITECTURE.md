@@ -132,7 +132,13 @@ enabled-but-listenerless, and consistent when the port is disabled or absent
 (inert by intent); route drift joins the unacknowledged-drift counter and the
 acknowledged vocabulary; the one-way reconcile converges routes through the
 existing ports-restore half (Resin has no per-process API — verified against
-upstream). The snapshot is the ONLY sanctioned cross-store merge point.
+upstream). The snapshot is the ONLY sanctioned cross-store merge point. The Resin-side account-header-rules family (R32-R35, wired by
+round5 ticket 16 / ADR-0063) is the proxy-data-plane counterpart — URL-prefix
+→ header-name rules for account extraction on the reverse proxy — and is
+deliberately NOT an L2 config family: four thin IPC pass-throughs over the
+ResinClient seam, no whitebox file, no snapshot/reconcile participation; the
+coexistence comparison lives in
+[PROCESS_ROUTE_VS_HEADER_RULES.md](PROCESS_ROUTE_VS_HEADER_RULES.md).
 
 Landed wiring (ticket 07 / ADR-0051 — views consume the one authoritative
 snapshot; the former view-layer cross-store merge is deleted, its diagram
@@ -203,12 +209,23 @@ ADR-0051): the former `TopologyView.tsx` `sync()`-time merge of
 `crates/resin-core/src/snapshot.rs` (pure, unit-tested against the three
 legislated fixtures). Adding a new view-layer merge is a review blocker.
 
+Upstream Resin also exposes three platform action POST endpoints
+(reset-to-default R13, rebuild-routable-view R14, preview-filter R09 in
+[RESIN_API_COVERAGE.md](RESIN_API_COVERAGE.md)); all three are deliberate
+non-adoptions per ADR-0066 (round5 T22): reset-to-default would rewrite L3
+platform config from env defaults behind the L2 whitebox's back,
+rebuild-routable-view re-derives Resin-internal pool state that
+diff-then-skip already keeps converged, and preview-filter duplicates the
+ADR-0054 shell-side in-memory snapshot (it stays the one wiring candidate
+for a later ticket).
+
 ## Data flow
 
 1. boot_resin allocates port, spawns Go sidecar, polls /healthz
 2. Frontend IPC -> #[tauri::command] validates -> ResinClient -> Resin REST
 3. Ghost health poll: 3s /healthz, 3 fails -> tray red + clear OS proxy
 4. TopologyView subscribes sidecar-status -> red banner on unhealthy
+5. Resin Admin API is a pure pull model — no webhook / callback / push exit; the sole Resin → shell signal is Ghost G3's health poll emitting `sidecar-status` (G4, see CONTEXT.md「G4 (Signal Channel)」)
 
 ## Tech stack
 
