@@ -7,6 +7,11 @@ on:
       - 'AGENTS.md'
       - 'docs/**'
       - 'CHANGELOG.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'CODE_OF_CONDUCT.md'
+      - 'PULL_REQUEST_TEMPLATE.md'
+      - '.github/ISSUE_TEMPLATE/**'
       - '.github/workflows/docs-lint.yml'
   push:
     branches: [main, master]
@@ -14,6 +19,11 @@ on:
       - 'AGENTS.md'
       - 'docs/**'
       - 'CHANGELOG.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'CODE_OF_CONDUCT.md'
+      - 'PULL_REQUEST_TEMPLATE.md'
+      - '.github/ISSUE_TEMPLATE/**'
       - '.github/workflows/docs-lint.yml'
 
 jobs:
@@ -30,15 +40,22 @@ jobs:
             README.md
             README_CN.md
             CHANGELOG.md
+            CONTRIBUTING.md
+            SECURITY.md
+            CODE_OF_CONDUCT.md
+            PULL_REQUEST_TEMPLATE.md
+            .github/ISSUE_TEMPLATE/*.md
             docs/**/*.md
           configPath: .markdownlint-cli2.jsonc
 
-      - name: Dead-link check (docs/ references in AGENTS.md and README)
+      - name: Dead-link check (docs/ references in AGENTS.md, README and community files)
         run: |
           set -e
           errors=0
-          # Extract docs/ path references from AGENTS.md, README.md, README_CN.md
-          for ref in $(grep -ohE 'docs/[a-zA-Z0-9_/]+\.md' AGENTS.md README.md README_CN.md 2>/dev/null | sort -u); do
+          # Extract docs/ path references from AGENTS.md, README.md, README_CN.md,
+          # CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, PULL_REQUEST_TEMPLATE.md,
+          # .github/ISSUE_TEMPLATE/*.md
+          for ref in $(grep -ohE 'docs/[a-zA-Z0-9_/]+\.md' AGENTS.md README.md README_CN.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md PULL_REQUEST_TEMPLATE.md .github/ISSUE_TEMPLATE/*.md 2>/dev/null | sort -u); do
             if [ ! -f "$ref" ]; then
               echo "::error::Dead link: $ref (referenced in AGENTS.md or README)"
               errors=$((errors + 1))
