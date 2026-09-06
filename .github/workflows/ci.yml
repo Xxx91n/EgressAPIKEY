@@ -29,7 +29,6 @@ jobs:
           node-version: "22"
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - name: verify-build (cargo build+test, tsc, vite, vitest, i18n)
         run: bash scripts/verify-build.sh
@@ -51,7 +50,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
@@ -101,7 +99,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: corepack enable
       - name: Build backend binary
         run: cargo build --release --target ${{ matrix.target }} -p egressapikey-app --bin egressapikey-headless --features headless
       - name: Package backend
@@ -110,7 +107,6 @@ jobs:
           set -e
           # Fetch resin sidecar binary (headless stage is self-contained)
           bash scripts/fetch_resin.sh
-          corepack enable
           # Install deps + build frontend dist (headless serves the SPA)
           pnpm install --frozen-lockfile
           pnpm build
@@ -189,7 +185,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
-      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - name: fetch Resin Go sidecar binary (windows powershell / unix bash)
         shell: bash
@@ -278,7 +273,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
-      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - name: fetch Resin Go sidecar binary (windows powershell / unix bash)
         shell: bash
