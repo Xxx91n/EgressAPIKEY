@@ -740,4 +740,4 @@ Close gates（2026-09-06，大脑终跑；本轮 docs+scripts-only 零前端/内
 
 Backlog（用户决定是否立票）：G1 token 轮换（公开前唯一阻塞）、land+push 授权、W3 两条违规追认、L-4 分支清理、CI verify run（ci.yml 零 run 缺口，land+push 后 workflow_dispatch）、首发 tag/Release、gitleaks 常驻 CI。存量：Round 5 backlog（GAP-01 提 PR / T23 / 票 37 四环下半 / B2-B5 / CI-only 命令去留）。
 
-land/push：未执行——land 对远端目标即 push（but land 语义核实），push 前停等用户明确指令。
+land/push：2026-09-06 用户授权后完成——主栈（01→02→02-fix1→03→04→06）--whole-stack land + 01-fix1 + 05 + closeout-riders 依序落并推送，origin/main = 01ab4bf（Round 6 全量落并点，release 编排提交随后叠加）；首发编排（CHANGELOG 并版 [Unreleased]→[0.1.0] + tag v0.1.0 + workflow_dispatch ci.yml）与 CI verify 权威证据见 CI run 记录。

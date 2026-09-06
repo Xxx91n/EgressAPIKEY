@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_No unreleased changes._
+
+## [0.1.0] - 2026-09-06
+
 ### Added
 
 - docs/ governance hierarchy: `docs/history/` (phases, handoffs, prompts), `docs/architecture/`, `docs/how-to/`, `docs/reference/`, `docs/research/`
@@ -31,6 +35,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - (round6 02, spec D-04/D-05/D-10) README.md homepage industrial rewrite: D-04 skeleton in place (H1+slogan → 3 dynamic traceable badges license/CI/release → language switch line → what/why → download-first with Releases installers/portable + headless source-run and "not published to npm" note → 7 features → screenshot placeholder → quick start → docs routing table → compliance NOTE → contributing → third-party notices → License); D-05 drift cleared on the EN surface — axum removed (ADR-0050), backend core stated as crates/resin-core, Resin described as vendored v1.2.0 with the two-layer license value (declared MIT + dependency-tree GPL-3.0-or-later via sing-box), npm 404 replaced by source-run wording, zero mihomo references (CN residue owned by ticket 03); AGENTS.md gains the README-homepage operating note; `## License` body unchanged (license-field-check invariant holds)
 - (round6 04, spec D-07) community health files minimum viable set: root `CONTRIBUTING.md` (desktop dev-environment setup, verify-build workflow, repo-convention pointers, inbound=outbound GPL-3.0-or-later contribution licensing per ADR-0067 D5), `SECURITY.md` (supported versions + GitHub private vulnerability reporting guidance), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1 verbatim with maintainer enforcement contact), `.github/ISSUE_TEMPLATE/` bug + feature templates (legal name/about frontmatter, blank issues disabled, Discussions contact link), root `PULL_REQUEST_TEMPLATE.md` (verification checklist), README Contributing section updated (roadmap line replaced with real links: CONTRIBUTING / SECURITY / CoC / Discussions), AGENTS.md community-files operating note, GitHub Discussions enabled (has_discussions=true); GOVERNANCE / FUNDING / SUPPORT stay deferred (P2)
 - (round6 03, spec D-06) bilingual README gate: README_CN.md rewritten as a structural mirror of the 02 EN-final skeleton — mihomo residues deleted (the `scripts/download-mihomo.ps1` quick-start step and the mihomo sidecar architecture diagram, now the Resin sidecar), axum dropped from the tech rows, the npm 404 replaced by the headless source-run wording ("not published to npm"), Resin described over the loopback REST seam with the two-layer license value, and the compliance NOTE / docs routing table / third-party notices / screenshot placeholder landed so CN carries every EN section (是什么与为什么 → 下载 → 特性 → 截图 → 快速开始（开发） → 文档 → 合规声明 → 参与贡献 → 第三方声明 → 许可); new `scripts/readme-lang-check.cjs` machine-guards the alignment — explicit EN<->CN heading mapping (order + no extras on either side), `GPL-3.0-or-later` License anchor in BOTH files, language cross-links in both directions, and the D-05 drift tokens (mihomo / axum / the unpublished npm global install) banned from both homepages; this gate plus ticket 01's `license-field-check.cjs` are mounted in `scripts/verify-build.sh` (structure and `set -euo pipefail` exit aggregation kept, so any guard failure fails the whole gate) and the CI verify job inherits both through the same script; AGENTS.md i18n block records the README pair as gated
+- Tauri 2 + React 19 desktop app: L7 proxy gateway for AI API keys
+- Resin Go sidecar integration (v1.2.0): platform, subscription, node-pool, leases API
+- Topology canvas: three-column key-to-egress routing (entry proxy -> platforms -> IP channels)
+- 49 ADRs (MADR format) covering architecture decisions
+- 18-locale i18n support (en, zh, ja, es, fr, de, ko, ru, pt, ar, hi, id, it, nl, pl, th, tr, vi)
+- CI/CD: 5-artifact-group release pipeline (windows-gui, linux-gui, macos-gui, gui-portable, headless-backend)
+- Ghost safety net: sidecar health poll + OS proxy clear on 3 consecutive failures
+- IPC retarget to Resin sidecar (G2 phase 2): 11 commands forward to live Resin admin REST
+- Ponytail debt ledger: 6 source-tagged markers tracked
 
 ### Changed
 
@@ -49,6 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - (architecture-recovery 11) request_log_tail retargeted to Resin GET /api/v1/request-logs; direct request_logs*.db read deleted; RESIN_UPSTREAM_MANIFEST compat note added
 - (architecture-recovery 20) single-owner throttle model: poll rhythm (adaptive interval + exponential backoff) and lightweight close-delay arithmetic consolidated into `crates/resin-core/src/throttle.rs` (`ThrottleParams`); parameter values unchanged at both call sites so the external rhythm is identical (legacy-equivalence tests pin every formula); `spawn_watcher_with` cadence seam + tokio virtual-time tests for multi-client coexistence and the shared pause flag
 - (round5 T12, ADR-0060) drift tray notification upgraded from one-shot-per-process to per-drift-episode edge semantics: `DriftNotifyState{armed}` is replaced by `{prev_has_drift}` and the pure predicate `should_fire_drift_notice(has_drift, prev_has_drift)` fires only on the false→true rising edge of unacknowledged drift — sustained drift never re-notifies, the falling edge (drift cleared or absorbed by acknowledged exemptions) updates the baseline unconditionally and never emits (the "exempt → re-arm" re-notice path is structurally gone), and drift reappearing after a clear starts a new episode; process restart resets to the no-drift baseline (ArgoCD notifications when+oncePer / AWS Config compliance-transition isomorph, R-B §3 Q3); hook point (`authoritative_snapshot` tail), 5s poll rhythm, sidecar-down silence, and IPC contract all unchanged; ADR-0054 §E reworded "once per process" → "per drift episode (跃迁级，非进程级)" with ADR-0060 as the new legislation; CONTEXT.md gains the Drift Notification term; ARCHITECTURE.md / AGENTS.md / ADR-0055 wording aligned; per-entity oncePer dedup explicitly deferred to a second phase; tests: tray state machine truth-table + acknowledge-baseline unit tests (tray module tests 7→8)
+- Folder renamed from ai-api-route to EgressAPIKEY (all artifacts aligned)
+- IPC commands retargeted from local SharedGateway/SharedRegistry to Resin sidecar REST
 
 ### Deprecated
 
@@ -59,41 +74,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - (architecture-recovery 18) NodesView vitest flake eliminated by test isolation only (zero product-code changes): root cause = sub-header expand clicks landing before the default-collapse seeding effect (NodesView.tsx seeding useEffect wholesale-overwrites `collapsed` with every subscription), which inverts the toggle (expand -> collapse) under full-suite CPU contention - standalone runs always green, full-suite 2/6 rounds failed at T4-3c; all 11 sub-header clicks in NodesView.test.tsx now route through `clickSubHeaderExpand`/`clickSubHeaderCollapse` helpers that await the settled chevron state first; new scannable guard `scripts/vitest-isolation-guard.cjs` (raw sub-header clicks outside the guarded helper block fail the build) wired into verify-build.sh; build-all.sh: `TRIPLE` used-before-assignment under `set -u` fixed (backend sidecar staging aborted every run); evidence: post-fix 5/5 full-suite green 338/338 + 6/6 standalone green 26/26
 - (round5 T02) subscription_refresh now reports the real post-refresh node count plus a `changed` flag instead of fire-and-forget: Resin's `/actions/refresh` blocks inline (fetch→parse→diff→apply) but returns only `{"status":"ok"}`, so the shell re-reads `list_subscriptions` up to 5x at 500ms and diffs `node_count`/`node_version` (config_version fallback) against the pre-refresh row; NodesView's closure stale-read is fixed — after the refresh the view re-reads the list into the app store and takes the toast count from `useAppStore.getState().nodes.length`, so "Refreshed, N nodes in pool" reports the fresh pool size rather than the pre-refresh snapshot; `changed: false` shows the "No node count change; retry might be needed" fallback toast instead of a fabricated success count; TS wrapper returns typed `SubscriptionRefreshResult { node_count, changed }` (IPC manifest unchanged — same command name); i18n untouched (existing refreshDone/refreshNoChange/refreshSent keys cover both states, 444×18); tests: shell lib 101 (+3 diff-helper locks: count delta, version bump, row-stats extraction), vitest 354 (+2: closure-fix count toast via title-attr button, no-change fallback toast)
 - (round5 T04) ResinClient write-path 5xx retry: POST/PATCH/PUT/DELETE now go through `send_with_retry` (2 retries, 500ms then 1000ms, warn-level log per retry with the failure reason; transient classifier extracted and shared with the existing GET read retry), covering subscription_add's POST /subscriptions and every other write verb; 4xx never retries; 4 new mockito wire tests (503-then-201 recovery, 3x-500 exhaust, 400 no-retry, update_interval 30s/1m/5s three-state wire contract). update_interval default stays 30s: the T04 ticket's 5s default proposal is blocked by Resin v1.2.0's enforced >= 30s floor on create AND PATCH (control_plane_subscription.go minSubscriptionUpdateInterval) — a 5s POST would 400 on every import; the gap is logged as GAP-01 in docs/research/OPENAPI-GAP.md and CONTEXT.md gains Write Retry + Subscription Update Interval terms
-
 - (round5 T16, ADR-0063) Resin account-header-rules family wired (R32-R35): four ResinClient methods + four IPC commands + four TS wrappers (list/put/resolve/delete_account_header_rule*), url_prefix percent-encoded into the path (encodeURIComponent semantics, %2F kept for the Go ServeMux wildcard), §7.5 validation both boundaries (253-char cap, control chars, http(s)-only resolve URL); coexists with process_route_* per D-35 — comparison doc docs/architecture/PROCESS_ROUTE_VS_HEADER_RULES.md; IPC manifest 70 → 74; 8 mockito tests in resin_client.rs; no GUI tab this round (IPC-only per issue 不做清单).
+- Headless white-screen fix: isTauri guard + SPA fallback + ErrorBoundary + items-unwrap (T22)
+- Topology connection race/resync/drag fixes (T20-T22)
+- Orphan-sidecar process bug: SidecarHandle.child Mutex<Option<CommandChild>> + Exit event kill (P22)
+- Subscription drag-reorder: Pointer Events replacing broken HTML5 DnD (P20-P21)
 
 ### Removed
 
 - **arch/26 (architecture-recovery ticket 26, ADR-0050 follow-through)**: `crates/resin-core/src/lib.rs` crate-root re-export face slimmed to exactly the src-tauri consumption set — 78→35 names deleted: `ReputationEntry`, `platform::{Account, Platform, PlatformRegistry}`, `port_forwarder::{detect_protocol, resin_identity}`, `port_health::{adaptive_interval, HealthState, PortHealthEntry}`, `strategy::StrategyId`, `strategy_engine::{a_class_regions, liveness_filter, AClassStrategy, BClassParams, NodeSummary, PlatformStrategy}`, `strategy_service::{clean_stale, compute_reconcile_plan, validate as validate_strategy_config, AppliedPlatform, ApplyReport, ReconcilePlan, ReconcileReport, StrategyConfigStore, RECONCILE_PORT_TTL_SECS}`, `stream_sensor::{classify_http_headers, StreamKind, StreamSensor, StreamSensorSnapshot}`, `whitebox_backup` helpers (`atomic_write_bytes`, `backup_before_write`, `backup_dir`, `backup_list`, `now_unix`, `parse_backup_name`, `read_backup`, `read_backup_parsed`, `validate_backup_name`, `BACKUP_DIR_NAME`, `WHITEBOX_BACKUP_KEEP`), `whitebox_config::{parse_legacy_l1_routes, validate as validate_whitebox_config, MAX_PROCESS_ROUTES}`. Internal fixes to keep imports honest: `port_forwarder.rs` now imports `stream_sensor` via its module path; `tests/reconcile.rs` imports via module paths. Scripted export-vs-consumption diff is empty on both sides; `MAX_LANES` stays as a lib.rs-local const (AGENTS.md §7.5 contract). Pure subtraction, zero additions.
-
 - resin-core dead kernel face (ADR-0050): mihomo/gateway/lane/lease/tdewma modules, CoreConfig/sanitize_lanes/lane constants, and the resin-core stub bin; headless product surface remains the egressapikey-headless bin (ADR-0043)
 - Unused resin-core dependencies: axum, hyper, bytes, http, thiserror, clap, tracing-subscriber, fxhash, tower (dev), http-body-util (dev)
 - `docs/CONTEXT.md` (root `CONTEXT.md` is the canonical copy)
 - (architecture-recovery 24) strategy.rs dead catalog face
 - (architecture-recovery 23) four dead IPC lanes with zero runtime consumers deleted: `platform_snapshot`, `gateway_snapshot`, `port_reload`, `stream_sensor_snapshot` (Rust commands, TS wrappers, CMD_TO_HTTP entries, passthrough tests, LaneSnapshot machinery, specta-pilot membership); IPC manifest 71 -> 67: `StrategyId::parse`, `StrategyId::to_resin_allocation_policy` (Rust-side strategy↔allocation_policy mapping), `protocol_weight`, `strategy_catalog`/`StrategyInfo` deleted with their 4 self-referential tests (resin-core lib tests 199→195); `snapshot.rs` keep-import-honest placeholder line and the top-level `StrategyId` import it propped up purified; `lib.rs` re-export narrowed to `StrategyId`; the repo's only strategy↔allocation_policy mapping is now `src/lib/strategy.ts` (display/PATCH use, header comment added); `StrategyId` type + `as_str` kept (live `b_class_of` consumer)
-
-## [0.1.0] - 2026-08-19
-
-### Added
-
-- Tauri 2 + React 19 desktop app: L7 proxy gateway for AI API keys
-- Resin Go sidecar integration (v1.2.0): platform, subscription, node-pool, leases API
-- Topology canvas: three-column key-to-egress routing (entry proxy -> platforms -> IP channels)
-- 49 ADRs (MADR format) covering architecture decisions
-- 18-locale i18n support (en, zh, ja, es, fr, de, ko, ru, pt, ar, hi, id, it, nl, pl, th, tr, vi)
-- CI/CD: 5-artifact-group release pipeline (windows-gui, linux-gui, macos-gui, gui-portable, headless-backend)
-- Ghost safety net: sidecar health poll + OS proxy clear on 3 consecutive failures
-- IPC retarget to Resin sidecar (G2 phase 2): 11 commands forward to live Resin admin REST
-- Ponytail debt ledger: 6 source-tagged markers tracked
-
-### Changed
-
-- Folder renamed from ai-api-route to EgressAPIKEY (all artifacts aligned)
-- IPC commands retargeted from local SharedGateway/SharedRegistry to Resin sidecar REST
-
-### Fixed
-
-- Headless white-screen fix: isTauri guard + SPA fallback + ErrorBoundary + items-unwrap (T22)
-- Topology connection race/resync/drag fixes (T20-T22)
-- Orphan-sidecar process bug: SidecarHandle.child Mutex<Option<CommandChild>> + Exit event kill (P22)
-- Subscription drag-reorder: Pointer Events replacing broken HTML5 DnD (P20-P21)
