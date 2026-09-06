@@ -6,7 +6,12 @@ IS_CI="${CI:-false}"
 
 echo "[verify] cargo build"
 if [ "$IS_CI" = "true" ]; then
-  cargo build --workspace --quiet
+  if [ "$(uname -s 2>/dev/null)" = "Linux" ] || [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+    echo "[verify] NOTE: non-Windows CI - app crate skipped (Windows-only compile surface; GUI jobs cover it)"
+    cargo build -p resin-core --quiet
+  else
+    cargo build --workspace --quiet
+  fi
 else
   cargo build -p resin-core --quiet
   cargo build -p egressapikey-app --features custom-protocol --quiet || echo "[verify] WARN: egressapikey-app build skipped (host linker issue)"
@@ -14,7 +19,11 @@ fi
 
 echo "[verify] cargo test"
 if [ "$IS_CI" = "true" ]; then
-  cargo test --workspace --quiet
+  if [ "$(uname -s 2>/dev/null)" = "Linux" ] || [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
+    cargo test -p resin-core --quiet
+  else
+    cargo test --workspace --quiet
+  fi
 else
   cargo test -p resin-core --lib --quiet
 fi
