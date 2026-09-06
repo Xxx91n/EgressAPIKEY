@@ -720,3 +720,24 @@ Round 5 收口闭环（2026-09-05）：大脑宏观调研（R-A/R-B/R-C 三次 a
 Close gates at close-out（2026-09-05，大脑终跑）：verify-build.sh exit 0（cargo resin-core lib 256 passed / egressapikey-app lib 114 passed；vitest 394/394 × 20 files；i18n 483×18；ipc-manifest 78 = 定义=注册=manifest；isolation-guard OK）；build-all.sh exit 0（chunk index-BWUZ2RQg 在 staged exe 字节内命中 + 冒烟 alive 5s、tracing initialized、drift 边沿通知真机触发）；三层文档一致性 A/B/C 全过（17 CONTEXT 词条×代码符号 / 10 ADR ACCEPTED / 9 决策抽查）。收口过程中修复 7 处真实源码缺陷（T17 lib.rs re-export 孤儿丢失、msg deref、async block 类型、T19 UrlEncoded 双重编码×2、miss-loop expect(1)→(3)、chrono 空格分隔断言、LOG-1 非 hex 断言、log-1 夹具、inert 行 fixture 时序）。push 未执行（用户「push 前停下等指令」）。
 
 Backlog carried（决策驻留，由用户决定是否立票）：B2 Nodus SHA-256 errata（LOW）、B3 eslint TS parser（MED）、B4 vitest act() noise（LOW）、B5 build-all.sh hardening（MED）+ GAP-01 Resin update_interval floor 降限或 force-refresh 端点（提 PR 上游）+ 票 37 四环下半（定时复验 / per-entity oncePer 二期 / Recharts 全集轮）+ T23 preview-filter 接线候选。过程疑点单独呈报不追认：T19 本地 vitest/tsc 与 CI-only 命令字面冲突（自报）、T19 amend T17 分支 commit（越权修孤儿头）、T14 报告「工作区在位」与磁盘不符（收口补修）、T06 吞 T07 backup.rs / T01 吞 T04 代码 / T07 吞 T03 CHANGELOG（用户已裁定接受现状 A）、CI-only 命令来源经用户质询（位于 ZCode 全局 AGENTS.md 非 Codex 目录，待用户裁定去留）。
+
+## §71 — Round 6: OSS 公开化与仓库首页专业化（8 票闭环，2026-09-06）
+
+Round 6 承接 Round 5 的 backlog 面（README 不专业 / GitHub 社区配套缺失 / 转公开准备），8 票（6 执行 + 2 复核修复）分 4 波落地，全部经大脑逐票实物复核（REVIEW-W1..W4）。
+
+- **01 license-layering-provenance**：保持 GPL-3.0-or-later（atomcode R-A2：MIT→GPL 单向兼容 + 侧车依赖树经 sing-box v1.12.21 携带 GPL 义务使全仓声明自洽）；根 LICENSE（官方全文逐字节）+ THIRD_PARTY.md 双层值 + ADR-0067（D1-D5，mere-aggregation 边界立法）+ ADR-0017 依赖树扫描增补 + MANIFEST 双层字段 + scripts/license-field-check.cjs（只写不挂，挂载归 03）。
+- **05 repo-profile-hygiene**：gh 描述 LL7→L7 + 6 topics；.zcode/ 加 ignore + 已追踪 plan 文件取消追踪（磁盘保留）；根目录卫生核对表全绿。
+- **01-fix1 license-lint-ignore**（大脑 L-1）：LICENSE 入 markdownlint ignores（官方文本永不按 md 审）。
+- **02 readme-en-rewrite**：EN 首页工业重写（D-04 骨架：H1+slogan→3 动态徽章→语言切换→what/why→下载前置→7 特性→截图占位→quickstart→docs 路由→合规 NOTE→Contributing→第三方→License）；D-05 漂移清零（axum/mihomo/npm 404→源码运行口径/Resin 双层/后端核心=crates/resin-core）。
+- **02-fix1 resin-vendoring-wording**（大脑 L-2）：3 处 vendored 措辞改构建期拉取模型 + 2 处 gitignored resin/ 死链移除。
+- **03 readme-cn-sync**：CN 镜像 EN 最终骨架（87 行 10 H2 一一对应）；scripts/readme-lang-check.cjs（11 项：双语结构/License 锚点/互链/D-05 词汇）挂入 verify-build.sh（与 license-field-check 同挂，set -euo pipefail 结构未动）。
+- **04 community-files-mvs**：CONTRIBUTING（桌面开发环境节 + inbound=outbound，ADR-0067 D5 落地）/ SECURITY / CoC（Covenant 2.1）/ issue 模板 ×2（name/about 合法）+ config.yml + PR 模板；Discussions 已开启（gh 读回验证）。
+- **06 public-launch-preflight**：gitleaks 全历史（371 commits / 21 命中三分类：G1 真订阅 token 在已推送历史 → 用户轮换为公开前唯一阻塞；G2-G4 i18n 假阳性；16 条未推送冲突快照）；一致性 15/15；根目录清单 14/14；docs-lint glob 扩至社区文件（*.md 严格作用域）；ci.yml 零 run 证据缺口登记；health 28%（land 前 API 只读默认分支）。
+
+Close gates（2026-09-06，大脑终跑；本轮 docs+scripts-only 零前端/内核代码变动——chunk hash 与 R5 同为 index-BWUZ2RQg 佐证）：verify-build.sh exit 0（cargo resin-core 256 passed / egressapikey-app 114 passed；vitest 394/394 × 20 files；i18n 483×18；ipc-manifest 78；isolation-guard OK；license-field-check 6/6；readme-lang-check 11/11）；build-all.sh exit 0（MSI+NSIS+portable staged，chunk index-BWUZ2RQg 在 exe 字节内命中 + 冒烟 ALIVE=TITLE=EgressAPIKEY WS 36.2MB）。
+
+大脑复核发现与过程违规（呈报不追认）：L-1 LICENSE lint 缺口→01-fix1；L-2 README vendoring 措辞死链→02-fix1；L-3 报告级 CHANGELOG [0.1.0] 事实小误（首发行程改并入既有版本节）；L-4 杂散裸分支 refs/heads/list 持 8c31e22e（未推送，卫生项待用户授权清理）；F-1 CONTEXT Sidecar 词条 mihomo 残留（本收口修正）；F-2 docs/README ADR 计数 49→68（本收口修正）。过程：03 窗口自行裁决不补 i18n/Tests/Release 三段（实质正确待追认）；04 超票面 PVR PATCH（私有仓库无效果已登记）；06 gitleaks 本机下载执行（优于 handoff 字面方案，已披露）；W1 期跨窗口 AGENTS.md hunk 归属污染与裸 git rm 短暂使用（见 REVIEW 记录）。
+
+Backlog（用户决定是否立票）：G1 token 轮换（公开前唯一阻塞）、land+push 授权、W3 两条违规追认、L-4 分支清理、CI verify run（ci.yml 零 run 缺口，land+push 后 workflow_dispatch）、首发 tag/Release、gitleaks 常驻 CI。存量：Round 5 backlog（GAP-01 提 PR / T23 / 票 37 四环下半 / B2-B5 / CI-only 命令去留）。
+
+land/push：未执行——land 对远端目标即 push（but land 语义核实），push 前停等用户明确指令。

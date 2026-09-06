@@ -86,7 +86,7 @@ _Avoid_: watchdog, monitor, guardian
 
 The Resin Go binary (resin-x86_64-pc-<abi>.exe) spawned by the Tauri
 shell as a child process. Owns the P2C scheduler, TD-EWMA latency
-tracking, sticky-IP lease table, and mihomo node runtime. The shell
+tracking, sticky-IP lease table, and node runtime. The shell
 communicates with it via loopback REST (admin token never crosses to
 the webview).
 _Avoid_: kernel, engine, daemon

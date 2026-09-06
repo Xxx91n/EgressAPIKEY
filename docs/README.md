@@ -5,7 +5,7 @@
 | Directory | Purpose | Diataxis quadrant |
 |---|---|---|
 | `architecture/` | System architecture, design decisions | Explanation |
-| `adr/` | Architecture Decision Records (49 ADRs, MADR format) | Reference (decisions) |
+| `adr/` | Architecture Decision Records (68 ADRs: 67 numbered + 1 bis, MADR format) | Reference (decisions) |
 | `how-to/` | Operational guides (deployment, release, runbook) | How-to |
 | `reference/` | Glossary, API references | Reference |
 | `research/` | Research findings, protocol analysis | Explanation |
