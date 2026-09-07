@@ -317,11 +317,24 @@ export interface SubscriptionSnapshotEntry {
   last_checked: string;
 }
 
-export async function ipcSubscriptionAdd(name: string, url: string, updateInterval?: string): Promise<void> {
+/**
+ * Round 7 ticket 01 (D-C1.1): pipeline="establish" opts into the backend
+ * five-step cascade (resolve -> whitebox platform -> strategy apply).
+ * Absent/undefined = the legacy import-only POST (no cascade).
+ */
+export async function ipcSubscriptionAdd(
+  name: string,
+  url: string,
+  updateInterval?: string,
+  pipeline?: "establish",
+): Promise<void> {
   assertShortName(name, "subscription");
   if (!url || url.length > 4096) throw new Error("subscription url invalid");
   if (!/^https?:\/\//.test(url)) throw new Error("subscription url must start with http:// or https://");
-  await invoke("subscription_add", { name, url, updateInterval: updateInterval ?? null });
+  if (pipeline !== undefined && pipeline !== "establish") {
+    throw new Error("pipeline must be \"establish\" when provided");
+  }
+  await invoke("subscription_add", { name, url, updateInterval: updateInterval ?? null, pipeline: pipeline ?? null });
 }
 
 export async function ipcSubscriptionRemove(name: string): Promise<boolean> {
