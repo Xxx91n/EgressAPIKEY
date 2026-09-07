@@ -17,6 +17,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::strategy_engine::{AClassStrategy, EstablishStep, PlatformStrategy, StrategyConfig, SubscriptionPhase, SubscriptionStatus};
 
 
 /// Per-platform agreement between the L2 whitebox strategy config and the
@@ -919,7 +920,6 @@ mod tests {
 
     use super::*;
     use crate::strategy::StrategyId;
-    use crate::strategy_engine::{AClassStrategy, EstablishStep, PlatformStrategy, StrategyConfig, SubscriptionPhase, SubscriptionStatus};
     use serde_json::json;
 
     fn strategy_entry(name: &str, regions: &[&str]) -> PlatformStrategy {
@@ -950,6 +950,7 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            subscriptions: vec![],
             generation: 0,
             applied_generation: 0,
             last_apply_at: None,
@@ -1001,6 +1002,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["jp"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["us"], "PREFER_LOW_LATENCY")];
         let snap = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -1032,6 +1034,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("ghost", &["hk"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
         let snap = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -1054,6 +1057,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["us", "hk", "us"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["HK", "US"], "BALANCED")];
         let snap = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -1079,6 +1083,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &[])],
+            subscriptions: vec![],
         };
         let mut computed = HashMap::new();
         computed.insert("alpha".to_string(), vec!["sg".to_string()]);
@@ -1382,6 +1387,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["jp"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["us"], "BALANCED")];
         let mut merged = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -1442,6 +1448,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["hk"]), strategy_entry("beta", &["us"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
         let mut platforms = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -1689,6 +1696,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["us", "hk"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["us", "jp"], "BALANCED")];
         let map = HashMap::new();

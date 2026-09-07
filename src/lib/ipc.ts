@@ -1481,7 +1481,7 @@ export interface AuthoritativeSnapshot {
   subscriptions: SubscriptionReverseRow[];
   /** Round 7 T02: per-subscription establish-phase STATUS rows (whitebox
    *  projections); empty when no cascade has ever recorded a phase. */
-  subscriptionPhases: SubscriptionPhaseRow[];
+  subscriptionPhases?: SubscriptionPhaseRow[];
   resinReachable: boolean;
   /** Ticket 12 (ADR-0054 §C): Unix seconds when this snapshot was generated. */
   lastCheckedAt: number;

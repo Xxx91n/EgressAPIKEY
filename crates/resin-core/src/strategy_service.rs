@@ -959,6 +959,7 @@ mod tests {
             version: 1,
             platforms,
             acknowledged: vec![],
+            subscriptions: vec![],
             generation: 0,
             applied_generation: 0,
             last_apply_at: None,
@@ -2324,7 +2325,7 @@ mod tests {
         let svc = StrategyService::new(FsStrategyStore::new(dir.clone()));
 
         // Seed a desired-state write (generation bumps 0 -> 1).
-        let seeded = svc.store(cfg(vec![ps("A", &["HK"])]));
+        let seeded = svc.store(cfg(vec![ps("A", &["HK"])]))?;
         assert_eq!(seeded.generation, 1);
 
         // A green apply write-back converges the pair (ADR-0058 D3 shape).
