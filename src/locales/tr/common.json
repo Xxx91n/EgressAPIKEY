@@ -531,5 +531,30 @@
     "throughput": "Gerçek zamanlı aktarım hızı (çıkış)",
     "probeHistory": "Sonda geçmişi",
     "noData": "Metrik verisi yok"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ geçerli rev {{rev}}",
+      "PendingApply": "⋯ bekliyor rev {{rev}}",
+      "ApplyFailed": "✕ başarısız rev {{rev}}",
+      "NeverApplied": "○ hiç",
+      "Drifted": "↯ saptı",
+      "Unknown": "? bilinmiyor"
+    },
+    "tooltip": {
+      "expectedRev": "Desired rev: {{rev}}",
+      "appliedRev": "Applied rev: {{rev}}",
+      "appliedAt": "Son uygulama: {{time}}",
+      "error": "Neden: {{reason}}",
+      "neverApplied": "Bu yapılandırma hiç uygulanmadı",
+      "clickHint": "Effective Config'i açmak için tıkla"
+    },
+    "sideRail": {
+      "PendingApply": "Uygulama bekliyor",
+      "ApplyFailed": "Uygulama başarısız",
+      "NeverApplied": "Hiç uygulanmadı",
+      "Drifted": "Canlı durum saptı",
+      "Unknown": "Yakınsama bilinmiyor (Resin çevrimdışı)"
+    }
   }
 }

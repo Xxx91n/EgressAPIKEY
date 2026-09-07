@@ -531,5 +531,30 @@
     "throughput": "ความเร็วแบบเรียลไทม์ (ขาออก)",
     "probeHistory": "ประวัติการตรวจสอบ",
     "noData": "ไม่มีข้อมูลเมตริก"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ มีผล rev {{rev}}",
+      "PendingApply": "⋯ รอ rev {{rev}}",
+      "ApplyFailed": "✕ ล้มเหลว rev {{rev}}",
+      "NeverApplied": "○ ไม่เคย",
+      "Drifted": "↯ เหลื่อมล้ำ",
+      "Unknown": "? ไม่ทราบ"
+    },
+    "tooltip": {
+      "expectedRev": "Desired rev: {{rev}}",
+      "appliedRev": "Applied rev: {{rev}}",
+      "appliedAt": "ใช้งานล่าสุดเมื่อ {{time}}",
+      "error": "เหตุผล: {{reason}}",
+      "neverApplied": "การตั้งค่านี้ยังไม่เคยถูกใช้งาน",
+      "clickHint": "คลิกเพื่อเปิด Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "รอการใช้งาน",
+      "ApplyFailed": "ใช้งานล้มเหลว",
+      "NeverApplied": "ยังไม่เคยใช้งาน",
+      "Drifted": "สถานะจริงเหลื่อมล้ำ",
+      "Unknown": "สถานะการลู่เข้าไม่ทราบ (Resin ออฟไลน์)"
+    }
   }
 }

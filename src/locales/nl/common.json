@@ -531,5 +531,30 @@
     "throughput": "Realtime doorvoer (uitgaand)",
     "probeHistory": "Probe-geschiedenis",
     "noData": "Geen metrische gegevens"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ effectief rev {{rev}}",
+      "PendingApply": "⋯ in de wacht rev {{rev}}",
+      "ApplyFailed": "✕ mislukt rev {{rev}}",
+      "NeverApplied": "○ nooit",
+      "Drifted": "↯ afgeweken",
+      "Unknown": "? onbekend"
+    },
+    "tooltip": {
+      "expectedRev": "Gewenste rev: {{rev}}",
+      "appliedRev": "Toegepaste rev: {{rev}}",
+      "appliedAt": "Laatst toegepast om {{time}}",
+      "error": "Reden: {{reason}}",
+      "neverApplied": "Deze configuratie is nog nooit toegepast",
+      "clickHint": "Klik om Effective Config te openen"
+    },
+    "sideRail": {
+      "PendingApply": "Toepassen in wachtrij",
+      "ApplyFailed": "Toepassen mislukt",
+      "NeverApplied": "Nooit toegepast",
+      "Drifted": "Live-status geweken",
+      "Unknown": "Convergentie onbekend (Resin offline)"
+    }
   }
 }

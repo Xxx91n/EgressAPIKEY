@@ -14,6 +14,12 @@ import { NodesView } from "./views/NodesView";
 import { DiagnosticsView } from "./views/DiagnosticsView";
 import { useTheme } from "./lib/useTheme";
 import { LogPanel } from "./components/LogPanel";
+// Architecture-recovery ticket 06 (D-C2.1): the TopConvergeStatus pill in the
+// header and the SideRailConvergeDot in the nav share one snapshot owned by
+// App.tsx — see snapshot fetch useEffect below.
+import { TopConvergeStatus } from "./components/TopConvergeStatus";
+import { SideRailConvergeDot } from "./components/SideRailConvergeDot";
+import { ipcAuthoritativeSnapshot, type AuthoritativeSnapshot, type ConvergePhase } from "./lib/ipc";
 import { loadLocale, loadTheme, loadView } from "./lib/settings";
 
 
@@ -65,13 +71,22 @@ const NAV_ITEMS = [
   { key: "settings", icon: SettingsIcon },
 ] as const;
 
-function SideRail() {
+function SideRail({ railConverge, railError }: { railConverge?: ConvergePhase; railError?: string }) {
   const { t } = useTranslation();
   const view = useAppStore((s) => s.view);
   const setView = useAppStore((s) => s.setView);
 
   return (
     <nav className="w-14 flex flex-col items-center gap-1 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 py-3 shrink-0">
+      {/* Architecture-recovery ticket 06 (D-C2.1, checkpoint C): single 4px
+          convergence dot at the top of the rail. Converged renders
+          `display: none`; never opacity. Per-entry Health lives inside
+          EffectiveConfigView (ArgoCD #22059 — Sync vs Health separate). */}
+      <div className="w-9 h-1 flex items-center justify-center mb-1">
+        {railConverge ? (
+          <SideRailConvergeDot convergePhase={railConverge} lastApplyError={railError} />
+        ) : null}
+      </div>
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
         const active = view === item.key;
@@ -109,6 +124,10 @@ export default function App() {
   // the persisted view and setView() swaps it — the user sees a topology flash.
   // Hold a minimal loader until the persisted view has been read.
   const [bootstrapped, setBootstrapped] = useState(false);
+  // Architecture-recovery ticket 06 (D-C2.1, checkpoint A): one snapshot
+  // owned here, passed down to TopConvergeStatus (header pill) and
+  // SideRailConvergeDot (rail dot). The children never reach for IPC.
+  const [snap, setSnap] = useState<AuthoritativeSnapshot | null>(null);
 
   // Bootstrap persisted prefs once on mount (no-op outside Tauri/vitest).
   useEffect(() => {
@@ -135,6 +154,24 @@ export default function App() {
     return () => { cancelled = true; };
   }, [setLocale, setTheme, setView, i18n]);
 
+  // Ticket 06: re-pull the snapshot whenever the user navigates (the existing
+  // EffectiveConfigView also does its own fetch — the two paths converge on
+  // the same IPC and the same authoritative snapshot). No persistent polling:
+  // T07 owns the global poll cadence.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const next = await ipcAuthoritativeSnapshot();
+        if (!cancelled) setSnap(next);
+      } catch {
+        // Honour the existing "no snapshot yet => no chip" contract: a fetch
+        // failure degrades to no pill rather than a misleading Unknown pill.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [view]);
+
   if (!bootstrapped) {
     return (
       <div className="h-full flex items-center justify-center bg-white dark:bg-zinc-950">
@@ -145,12 +182,31 @@ export default function App() {
   return (
     <ErrorBoundary>
     <div className="h-full flex bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100" onContextMenu={(e) => e.preventDefault()}>
-      <SideRail />
+      <SideRail
+        railConverge={snap?.convergePhase}
+        railError={snap?.lastApplyError}
+      />
       <div className="flex-1 flex flex-col min-w-0">
         <header className="px-5 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
           <Navigation size={16} className="text-zinc-400" strokeWidth={1.75} />
           <h1 className="text-sm font-semibold tracking-tight">{t("app.title")}</h1>
           <span className="text-xs text-zinc-400 dark:text-zinc-500 hidden sm:inline">· {t("app.tagline")}</span>
+          {/* Architecture-recovery ticket 06 (D-C2.1): the global Sync pill.
+              ArgoCD #22059 — Sync vs Health are kept SEPARATE: this pill is
+              the top-level ConvergePhase only; per-entry drift badges live
+              inside EffectiveConfigView and are NOT merged here. */}
+          {snap ? (
+            <span className="ml-auto">
+              <TopConvergeStatus
+                convergePhase={snap.convergePhase}
+                generation={snap.strategyGeneration}
+                appliedGeneration={snap.strategyAppliedGeneration}
+                lastApplyAt={snap.lastApplyAt}
+                lastApplyError={snap.lastApplyError}
+                onOpenDetail={() => setView("effectiveConfig")}
+              />
+            </span>
+          ) : null}
         </header>
         <main className="flex-1 overflow-auto">
           {view === "topology" && <Suspense fallback={<div className="flex-1 flex items-center justify-center text-sm text-zinc-400">Loading...</div>}><TopologyView /></Suspense>}
