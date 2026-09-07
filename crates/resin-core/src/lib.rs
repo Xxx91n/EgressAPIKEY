@@ -56,8 +56,9 @@ pub use port_health::PortHealthSnapshot;
 pub use resin_client::{resolve_id_in, ResinClient};
 pub use snapshot::{
     AuthoritativeSnapshot, ConvergePhase, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot,
-    SubscriptionSnapshot,
+    SubscriptionPhaseSnapshot, SubscriptionSnapshot,
 };
+pub use strategy_engine::{compute_plan, parse_nodes, EstablishStep, StrategyConfig, SubscriptionPhase};
 pub use strategy_engine::{compute_plan, parse_nodes, StrategyConfig};
 pub use strategy_service::{
     endpoint_live_ports, FsStrategyStore, ReconcileMemory, ReconcilePortsOutcome, StrategyService,

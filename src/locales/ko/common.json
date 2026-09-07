@@ -333,7 +333,13 @@
     "importBound": "가져와 플랫폼 {{platform}}에 연결됨 (포트 {{ports}}개 바인딩), 노드 수 {{count}}",
     "boundTo": "바인딩됨: 플랫폼 {{count}}개",
     "unbound": "미바인딩",
-    "danglingRef": "끊긴 참조"
+    "danglingRef": "끊긴 참조",
+    "phaseNever": "미수립",
+    "phaseImporting": "가져오는 중",
+    "phaseEstablishing": "수립 중",
+    "phaseConverged": "수립됨",
+    "phaseFailed": "실패",
+    "phaseNeedsApproval": "승인 필요"
   },
   "theme": {
     "label": "테마",

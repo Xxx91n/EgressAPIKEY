@@ -333,7 +333,13 @@
     "importBound": "İçe aktarıldı ve {{platform}} platformuna bağlandı ({{ports}} port bağlı), {{count}} düğüm",
     "boundTo": "Bağlı: {{count}} platform",
     "unbound": "Bağlanmadı",
-    "danglingRef": "Kopuk referans"
+    "danglingRef": "Kopuk referans",
+    "phaseNever": "Hiç kurulmadı",
+    "phaseImporting": "İçe aktarılıyor",
+    "phaseEstablishing": "Kuruluyor",
+    "phaseConverged": "Kuruldu",
+    "phaseFailed": "Başarısız",
+    "phaseNeedsApproval": "Onay bekliyor"
   },
   "theme": {
     "label": "Tema",
