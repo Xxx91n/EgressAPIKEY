@@ -71,6 +71,11 @@ obligations are listed under it. On any `RESIN_UPSTREAM_MANIFEST.yaml`
 version bump this registry is re-verified against upstream originals at the
 new tag in the same commit (enforced by the ADR-0017 amendment below).
 
+External readers (evaluators, redistributors, auditors) should start from
+[UPSTREAM.md](../architecture/UPSTREAM.md) — the single-page router over the
+coverage ledger, the version manifest, this registry, and the layering
+decision — rather than hunting the four documents individually.
+
 ### D3 — Mere-aggregation boundary (invariant)
 
 The Tauri shell (`src-tauri/` + `crates/resin-core/` + `src/`) and the Resin

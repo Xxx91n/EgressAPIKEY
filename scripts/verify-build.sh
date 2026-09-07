@@ -45,3 +45,5 @@ echo "[verify] license field consistency (ticket 01, spec D-06)"
 node scripts/license-field-check.cjs
 echo "[verify] bilingual README alignment (ticket 03, spec D-06)"
 node scripts/readme-lang-check.cjs
+echo "[verify] upstream router integrity (ticket 14, spec D-C3.9)"
+node scripts/upstream-router-check.cjs

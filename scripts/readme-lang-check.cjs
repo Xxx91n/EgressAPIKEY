@@ -182,6 +182,23 @@ for (const pair of [["README.md", en, "README_CN.md"], ["README_CN.md", cn, "REA
   );
 }
 
+// 9 (ticket 14, spec D-C3.9). Homepage Documentation-table coverage for the
+// upstream-router pair: both homepages must link docs/architecture/UPSTREAM.md
+// and docs/RELEASE_NOTES.md (the ticket 14 products) so the router page and
+// the per-release notes stay reachable from the front doors.
+const REQUIRED_DOC_LINKS = [
+  "docs/architecture/UPSTREAM.md",
+  "docs/RELEASE_NOTES.md",
+];
+for (const pair of [["README.md", en], ["README_CN.md", cn]]) {
+  const missing = REQUIRED_DOC_LINKS.filter((l) => !pair[1].text.includes(l));
+  record(
+    pair[0] + " links the upstream-router pair (UPSTREAM + RELEASE_NOTES)",
+    missing.length === 0,
+    missing.length ? "missing: " + JSON.stringify(missing) : ""
+  );
+}
+
 // 8 (ticket 10). Mirror coverage: assets/readme hero + architecture + 3 screenshot
 // slots must be referenced in BOTH homepages (same relative paths, D-C3.1/D-C3.2).
 const REQUIRED_ASSETS = [
@@ -215,4 +232,4 @@ if (failed > 0) {
   console.error("readme-lang-check: FAILED (" + failed + " error(s))");
   process.exit(1);
 }
-console.log("readme-lang-check: OK (" + checks.length + " checks - EN<->CN structure, License anchors, cross-links, D-05 tokens, sync comments, asset coverage)");
+console.log("readme-lang-check: OK (" + checks.length + " checks - EN<->CN structure, License anchors, cross-links, D-05 tokens, sync comments, asset coverage, upstream-router pair coverage)");

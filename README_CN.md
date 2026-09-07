@@ -1,4 +1,4 @@
-<!-- synced-with: README.md @ 01ab4bf9cb728279bf69e92e14e26bc1439b25b2 -->
+<!-- synced-with: README.md @ 716787583fedb4aac54cac2889346b2e77172343 -->
 
 # EgressAPIKEY
 
@@ -112,6 +112,8 @@ pnpm tauri dev
 | 文档 | 用途 |
 | --- | --- |
 | [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) | 分层、数据流、配置权威（L1/L2/L3）、技术栈 |
+| [docs/architecture/UPSTREAM.md](docs/architecture/UPSTREAM.md) | 上游 Resin 对接总纲：API 覆盖清单、版本清单、第三方义务 |
+| [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | 每版本发布说明：兼容性声明与升级注意事项 |
 | [docs/adr/](docs/adr/) | 架构决策记录（编号、只追加） |
 | [docs/how-to/HEADLESS_DEPLOYMENT.md](docs/how-to/HEADLESS_DEPLOYMENT.md) | 无头服务器部署（systemd、Docker、TLS） |
 | [docs/how-to/HEADLESS_RUNBOOK.md](docs/how-to/HEADLESS_RUNBOOK.md) | 无头服务器运维（日志、健康、停机、故障排查） |

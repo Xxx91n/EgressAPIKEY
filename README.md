@@ -1,4 +1,4 @@
-<!-- synced-with: README_CN.md @ 202e20b1da3903888d86c6664f9f5e1eb4029a4e -->
+<!-- synced-with: README_CN.md @ 716787583fedb4aac54cac2889346b2e77172343 -->
 
 # EgressAPIKEY
 
@@ -112,6 +112,8 @@ pnpm tauri dev
 | Document | Purpose |
 | --- | --- |
 | [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) | Layers, data flow, config authority (L1/L2/L3), tech stack |
+| [docs/architecture/UPSTREAM.md](docs/architecture/UPSTREAM.md) | Upstream Resin integration router: API coverage, version manifest, third-party obligations |
+| [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | Per-release notes with compatibility declarations and upgrade notes |
 | [docs/adr/](docs/adr/) | Architectural decision records (numbered, append-only) |
 | [docs/how-to/HEADLESS_DEPLOYMENT.md](docs/how-to/HEADLESS_DEPLOYMENT.md) | Headless server deployment (systemd, Docker, TLS) |
 | [docs/how-to/HEADLESS_RUNBOOK.md](docs/how-to/HEADLESS_RUNBOOK.md) | Headless operations (logs, health, shutdown, troubleshooting) |
