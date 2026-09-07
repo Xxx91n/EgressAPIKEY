@@ -793,3 +793,86 @@ describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => 
     expect(calls).not.toContain("strategy_config_put");
   }, 20000);
 });
+
+// --- Round 7 T02 (D-C1.2): establish-phase chip — 6-state render ---
+describe("SubscriptionsView T02: subscription phase chips (6-state palette)", () => {
+  beforeEach(() => {
+    useAppStore.setState({ subscriptions: [], subscriptionPhases: [] });
+    invokeMock.mockReset();
+  });
+
+  const SIX_ROWS = [
+    { name: "s-never", phase: "Never" },
+    { name: "s-importing", phase: "Importing" },
+    { name: "s-establishing", phase: "Establishing", stage: "platform" },
+    { name: "s-converged", phase: "Converged" },
+    { name: "s-failed", phase: "Failed", stage: "apply", phase_error: "strategy apply: PATCH 500" },
+    { name: "s-approval", phase: "NeedsApproval" },
+  ];
+
+  function sixPhaseMock() {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") {
+        return SIX_ROWS.map((r) => ({ name: r.name, node_count: 3, healthy_node_count: 3, last_error: "", last_checked: "" }));
+      }
+      if (cmd === "authoritative_snapshot") {
+        return {
+          strategyVersion: 1,
+          platforms: [],
+          ports: [],
+          routes: [],
+          subscriptions: [],
+          subscriptionPhases: SIX_ROWS,
+          resinReachable: true,
+          lastCheckedAt: 1700000000,
+        };
+      }
+      return undefined;
+    });
+  }
+
+  it("renders each of the 6 states with its ConvergeChip-palette tint", async () => {
+    sixPhaseMock();
+    render(<SubscriptionsView />);
+    // Amber in-flight family.
+    const never = await screen.findByTestId("sub-phase-chip-s-never", {}, { timeout: 10000 });
+    expect(never.getAttribute("data-phase")).toBe("Never");
+    expect(never.className).toContain("bg-amber-100");
+    const importing = screen.getByTestId("sub-phase-chip-s-importing");
+    expect(importing.getAttribute("data-phase")).toBe("Importing");
+    expect(importing.className).toContain("bg-amber-100");
+    const establishing = screen.getByTestId("sub-phase-chip-s-establishing");
+    expect(establishing.getAttribute("data-phase")).toBe("Establishing");
+    expect(establishing.className).toContain("bg-amber-100");
+    expect(establishing.textContent).toContain("platform");
+    // Terminal green.
+    const converged = screen.getByTestId("sub-phase-chip-s-converged");
+    expect(converged.getAttribute("data-phase")).toBe("Converged");
+    expect(converged.className).toContain("bg-green-100");
+    // Failed red + reason tooltip.
+    const failed = screen.getByTestId("sub-phase-chip-s-failed");
+    expect(failed.getAttribute("data-phase")).toBe("Failed");
+    expect(failed.className).toContain("bg-red-100");
+    expect(failed.getAttribute("title")).toContain("PATCH 500");
+    // NeedsApproval zinc (the ConvergeChip Unknown tint).
+    const approval = screen.getByTestId("sub-phase-chip-s-approval");
+    expect(approval.getAttribute("data-phase")).toBe("NeedsApproval");
+    expect(approval.className).toContain("bg-zinc-200");
+  }, 20000);
+
+  it("absent status row renders the Never chip (identity element)", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") {
+        return [{ name: "plain", node_count: 1, healthy_node_count: 1, last_error: "", last_checked: "" }];
+      }
+      if (cmd === "authoritative_snapshot") {
+        return { strategyVersion: 1, platforms: [], ports: [], routes: [], subscriptions: [], subscriptionPhases: [], resinReachable: true, lastCheckedAt: 1 };
+      }
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    const chip = await screen.findByTestId("sub-phase-chip-plain", {}, { timeout: 10000 });
+    expect(chip.getAttribute("data-phase")).toBe("Never");
+    expect(chip.className).toContain("bg-amber-100");
+  }, 20000);
+});

@@ -49,8 +49,12 @@ use serde::{Deserialize, Serialize};
 use crate::resin_client::ResinClient;
 use crate::strategy::StrategyId;
 use crate::strategy_engine::{AClassStrategy, PlatformStrategy};
+use crate::strategy_engine::{EstablishStep, SubscriptionPhase};
 use crate::strategy_service::{StrategyConfigStore, StrategyService};
 use crate::snapshot::ConvergePhase;
+use crate::db::{DbPool, PortMapping};
+use crate::port_forwarder::PortForwarder;
+use crate::whitebox_config::WhiteboxConfigStore;
 
 /// Retry budget per event. Exponential backoff base (seconds): 2, 4, 8, 16…
 /// capped by `retry_delay`. After MAX_ATTEMPTS the event parks in Failed
@@ -400,29 +404,89 @@ pub async fn apply_strategy(
 
 /// One full pass of the five-step cascade for one subscription. Public so
 /// the integration test and the drain loop share one implementation.
+///
+/// Round 7 T02 (D-C1.2): the pass also DRIVES the persisted phase state
+/// machine — Importing while the data-landing beats run, Establishing with
+/// the platform/bind/apply sub-step while the whitebox beats run, Converged
+/// on an all-green pass, Failed(stage, reason) on the first failure. Every
+/// transition goes through `StrategyService::record_subscription_phase`
+/// (the ONE store entry — validated, versioned, audited; generation does
+/// NOT move, see the status-subresource note there). A FAILED phase write
+/// itself never fails the cascade: the pipeline report is the source of
+/// truth for the caller, the chip degrades to the last recorded phase
+/// (honest staleness beats a broken import).
 pub async fn run_pipeline(
     client: &ResinClient,
     svc: &StrategyService<crate::strategy_service::FsStrategyStore>,
     name: &str,
     url: &str,
 ) -> PipelineReport {
+    // The user's establish request is the trigger — the phase leaves Never.
+    let _ = svc.record_subscription_phase(name, SubscriptionPhase::Importing, None, None);
+
     let s1 = ensure_subscription(client, name, url).await;
     let s2 = if s1.is_failed() {
         StepStatus::Failed("upstream step failed".to_string())
     } else {
         resolve_subscription(client, name).await
     };
-    let (s3, s4) = if s2.is_failed() {
-        (StepStatus::Failed("upstream step failed".to_string()), StepStatus::Failed("upstream step failed".to_string()))
+    if s1.is_failed() || s2.is_failed() {
+        // Data-landing failure: the phase parks on Failed with the sub-step
+        // that produced it (Import/Resolve; steps after a failure are
+        // skipped, so the FIRST failed step is the stage).
+        let (stage, reason) = failed_stage(EstablishStep::Import, &[&s1, &s2]);
+        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Failed, Some(stage), Some(reason));
+        return PipelineReport {
+            subscription: name.to_string(),
+            steps: [s1, s2, StepStatus::Failed("upstream step failed".to_string()), StepStatus::Failed("upstream step failed".to_string()), StepStatus::Failed("upstream step failed".to_string())],
+        };
+    }
+
+    let _ = svc.record_subscription_phase(name, SubscriptionPhase::Establishing, Some(EstablishStep::Platform), None);
+    let (s3, s4) = ensure_platform(client, svc, name).await;
+    if s3.is_failed() || s4.is_failed() {
+        let (stage, reason) = failed_stage(EstablishStep::Platform, &[&s3, &s4]);
+        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Failed, Some(stage), Some(reason));
+        return PipelineReport {
+            subscription: name.to_string(),
+            steps: [s1, s2, s3, s4, StepStatus::Failed("upstream step failed".to_string())],
+        };
+    }
+
+    let _ = svc.record_subscription_phase(name, SubscriptionPhase::Establishing, Some(EstablishStep::Apply), None);
+    let s5 = apply_strategy(client, svc).await;
+    if let StepStatus::Failed(reason) = &s5 {
+        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Failed, Some(EstablishStep::Apply), Some(reason.clone()));
     } else {
-        ensure_platform(client, svc, name).await
-    };
-    let s5 = if s3.is_failed() || s4.is_failed() {
-        StepStatus::Failed("upstream step failed".to_string())
-    } else {
-        apply_strategy(client, svc).await
-    };
+        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Converged, None, None);
+    }
     PipelineReport { subscription: name.to_string(), steps: [s1, s2, s3, s4, s5] }
+}
+
+/// First failure in an ordered step run: its stage tag + KEP-1623-style
+/// reason (the reason the failed step itself recorded). A run where every
+/// step somehow reports failure without a Failed variant cannot happen —
+/// the caller only invokes this when at least one step IS Failed.
+fn failed_stage(base: EstablishStep, steps: &[&StepStatus]) -> (EstablishStep, String) {
+    // Canonical beat order; the base stage anchors the caller's section and
+    // each position past it advances one beat (T03 inserts Port between Bind
+    // and Apply — the order already carries the slot).
+    const ORDER: [EstablishStep; 6] = [
+        EstablishStep::Import,
+        EstablishStep::Resolve,
+        EstablishStep::Platform,
+        EstablishStep::Bind,
+        EstablishStep::Port,
+        EstablishStep::Apply,
+    ];
+    let base_idx = ORDER.iter().position(|s| *s == base).unwrap_or(0);
+    for (idx, step) in steps.iter().enumerate() {
+        if let StepStatus::Failed(reason) = step {
+            let stage = ORDER[(base_idx + idx).min(ORDER.len() - 1)];
+            return (stage, reason.clone());
+        }
+    }
+    (base, "cascade failed".to_string())
 }
 
 /// Terminal criterion (spec D-C1.1) as a PURE function: consumed_by non-empty
@@ -441,6 +505,198 @@ pub fn is_terminal_state(
     }
     matches!(phase, ConvergePhase::Converged)
         || (matches!(phase, ConvergePhase::Drifted) && drifted_entries_all_acknowledged)
+}
+
+// ---------------------------------------------------------------------------
+// Optional default-port tail (architecture-recovery Round 7 ticket 03, spec
+// D-C1.3): the establish cascade may END by creating ONE socks5 entry port
+// bound to the freshly established platform — only when the user did not
+// provide a binding target. Everything the step needs (ResinClient, DbPool,
+// PortForwarder, WhiteboxConfigStore) is resin-core-owned; the shell passes
+// its Tauri-managed handles at the call site (subscription_add, right after
+// a green drain pass — no drain/run_pipeline signature churn, the shared
+// 5-step report shape is untouched).
+//
+// Conflict law (D-C1.3): the user's pre-existing state ALWAYS wins. A
+// whitebox row already bound to this platform (the user's own binding
+// target, or this step's own pass-1 product = idempotence), a row holding
+// the candidate port for another platform, a foreign Resin listener, or a
+// 409 from the create POST: every one of those logs a WARNING and returns
+// AlreadyPresent — never an overwrite, never an error. Only genuinely
+// retryable failures (suggest drained, Resin unreachable, whitebox write
+// rejected) return Failed so they park/backoff like any other step.
+// ---------------------------------------------------------------------------
+
+/// Suggest a free entry port — the same ADR-0031 algorithm the shell's
+/// `port_suggest` command has always run: used ports from the DbPool (the
+/// whitebox's SQLite sync partner), scan 17990..=65535 skipping used, probe
+/// each candidate with a loopback TcpListener bind, first free port wins;
+/// an OS-assigned ephemeral port is the fallback when the whole range is
+/// blocked. The command now delegates here so the GUI and the pipeline
+/// suggest identically (one implementation, not two).
+pub fn suggest_free_entry_port(db: &DbPool) -> Result<u16, String> {
+    let used: std::collections::HashSet<u16> =
+        db.list_ports()?.into_iter().map(|m| m.port).collect();
+    for candidate in 17990u16..=65535u16 {
+        if used.contains(&candidate) {
+            continue;
+        }
+        if std::net::TcpListener::bind(("127.0.0.1", candidate)).is_ok() {
+            return Ok(candidate);
+        }
+    }
+    Ok(std::net::TcpListener::bind("127.0.0.1:0")
+        .map_err(|e| format!("port_suggest: no free port: {e}"))?
+        .local_addr()
+        .map_err(|e| format!("port_suggest: no local addr: {e}"))?
+        .port())
+}
+
+/// Resin endpoint port numbers from a list response (items wrapper or bare
+/// array — the `items_of` tolerance). The `default` management endpoint is
+/// excluded: only shell-owned custom listeners count as conflicts.
+fn custom_endpoint_ports(v: &serde_json::Value) -> Vec<u16> {
+    items_of(v)
+        .iter()
+        .filter(|ep| ep.get("id").and_then(|i| i.as_str()) != Some("default"))
+        .filter_map(|ep| {
+            ep.get("port")
+                .and_then(|p| p.as_u64())
+                .and_then(|p| u16::try_from(p).ok())
+        })
+        .collect()
+}
+
+/// Step 6 — the OPTIONAL default-port (D-C1.3, ticket 03). The shell's
+/// subscription_add invokes it right after a green establish pass; the step
+/// is idempotent (a re-invocation after a retried pass writes nothing), so
+/// the level-triggered re-run discipline holds without owning queue state.
+pub async fn ensure_default_port(
+    client: &ResinClient,
+    db: &DbPool,
+    forwarder: &PortForwarder,
+    whitebox: &WhiteboxConfigStore,
+    platform_name: &str,
+    user_port: Option<u16>,
+) -> StepStatus {
+    // (a) Binding-target conflict / idempotence: a whitebox row already
+    // bound to this platform (ANY port). A pre-existing binding means the
+    // user HAS a binding target — "only when the user did not provide one".
+    let snapshot = whitebox.snapshot();
+    if let Some(existing) = snapshot.entry_ports.iter().find(|row| row.platform_name == platform_name) {
+        tracing::warn!(
+            platform = %platform_name,
+            port = existing.port,
+            "subscription_pipeline: entry port already bound to this platform; default-port skipped (warning, not overwritten)"
+        );
+        return StepStatus::AlreadyPresent;
+    }
+    // (b) Candidate port: the user's explicit binding target wins (suggest
+    // skipped); otherwise the ADR-0031 suggestion probe.
+    let port = match user_port {
+        // §7.5: the IPC boundary already rejected privileged ports; this
+        // core-side guard only keeps a deterministic input bug from burning
+        // the whole retry budget.
+        Some(p) if p < crate::port_forwarder::MIN_USER_PORT => {
+            tracing::warn!(
+                platform = %platform_name,
+                port = p,
+                "subscription_pipeline: user-provided default_port is privileged; default-port skipped"
+            );
+            return StepStatus::AlreadyPresent;
+        }
+        Some(p) => p,
+        None => match suggest_free_entry_port(db) {
+            Ok(p) => p,
+            Err(e) => return StepStatus::Failed(format!("suggest default port: {e}")),
+        },
+    };
+    // (c) Same-number conflict: another platform already holds this port in
+    // the whitebox. Suggest never picks a used port, so this fires only for
+    // user-provided ports.
+    if snapshot.entry_ports.iter().any(|row| row.port == port) {
+        tracing::warn!(
+            platform = %platform_name,
+            port,
+            "subscription_pipeline: port already bound to another platform; default-port skipped (warning, not overwritten)"
+        );
+        return StepStatus::AlreadyPresent;
+    }
+    // (d) Resin-level conflict: a foreign listener on the port is left
+    // INTACT (restore_ports_from_whitebox precedent: conflict = skip).
+    let live = match client.list_endpoints().await {
+        Ok(v) => v,
+        Err(e) => return StepStatus::Failed(format!("list endpoints: {e}")),
+    };
+    if custom_endpoint_ports(&live).contains(&port) {
+        tracing::warn!(
+            platform = %platform_name,
+            port,
+            "subscription_pipeline: Resin already listens on the port; default-port skipped (warning, not overwritten)"
+        );
+        return StepStatus::AlreadyPresent;
+    }
+    // (e) Create the socks5 listener — the exact endpoint body port_upsert
+    // sends for a socks5 mapping (allow_http_forward is true for socks5
+    // too; require_proxy_auth_info defaults on, matching the GUI's default
+    // for new ports).
+    let body = serde_json::json!({
+        "port": port,
+        "allow_management": false,
+        "allow_proxy": true,
+        "allow_http_forward": true,
+        "allow_http_reverse": false,
+        "allow_socks5": true,
+        "require_proxy_auth_info": true,
+    });
+    if let Err(e) = client.create_endpoint(body).await {
+        let msg = format!("{e}");
+        if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage") {
+            tracing::warn!(
+                platform = %platform_name,
+                port,
+                error = %msg,
+                "subscription_pipeline: Resin reports the port taken; default-port skipped (warning, not overwritten)"
+            );
+            return StepStatus::AlreadyPresent;
+        }
+        return StepStatus::Failed(format!("create endpoint: {msg}"));
+    }
+    // (f) Whitebox write through the ONE write entry (validate -> SQLite ->
+    // listeners -> atomic JSON -> swap; ADR-0042 S2, generation bump per
+    // ADR-0058 D-27). Identity defaults mirror port_upsert's.
+    let mapping = PortMapping {
+        port,
+        protocol: "socks5".to_string(),
+        platform_name: platform_name.to_string(),
+        account: format!("port-{port}"),
+        label: String::new(),
+        enabled: true,
+        auth_required: true,
+    };
+    let mut next = whitebox.snapshot();
+    // Race guard: a row may have landed between the read and this write.
+    if next.entry_ports.iter().any(|row| row.port == port) {
+        tracing::warn!(
+            platform = %platform_name,
+            port,
+            "subscription_pipeline: default-port skipped, port landed concurrently (warning, not overwritten)"
+        );
+        return StepStatus::AlreadyPresent;
+    }
+    next.entry_ports.push(mapping);
+    next.entry_ports.sort_by_key(|row| row.port);
+    match whitebox.apply(db, forwarder, next).await {
+        Ok(_) => {
+            tracing::info!(
+                platform = %platform_name,
+                port,
+                "subscription_pipeline: default socks5 entry port created"
+            );
+            StepStatus::Written
+        }
+        Err(e) => StepStatus::Failed(format!("whitebox store: {e}")),
+    }
 }
 
 #[cfg(test)]
@@ -489,6 +745,33 @@ mod tests {
         assert!(is_terminal_state(&consumer, false, ConvergePhase::Drifted, true));
         // Drifted with UNacknowledged drift -> not terminal
         assert!(!is_terminal_state(&consumer, false, ConvergePhase::Drifted, false));
+    }
+
+    #[test]
+    fn failed_stage_maps_first_failure_to_section_beat() {
+        let ok = StepStatus::Written;
+        // Data-landing section: first failure = Import beat, second = Resolve.
+        let f_import = StepStatus::Failed("create: 500".to_string());
+        let f_resolve = StepStatus::Failed("resolve: nodes empty".to_string());
+        let (stage, reason) = failed_stage(EstablishStep::Import, &[&f_import, &f_resolve]);
+        assert_eq!(stage, EstablishStep::Import);
+        assert_eq!(reason, "create: 500");
+        let (stage, reason) = failed_stage(EstablishStep::Import, &[&ok, &f_resolve]);
+        assert_eq!(stage, EstablishStep::Resolve);
+        assert_eq!(reason, "resolve: nodes empty");
+        // Whitebox section: platform beat then bind beat.
+        let f_platform = StepStatus::Failed("create platform: 409".to_string());
+        let (stage, reason) = failed_stage(EstablishStep::Platform, &[&f_platform, &StepStatus::Failed("x".into())]);
+        assert_eq!(stage, EstablishStep::Platform);
+        assert_eq!(reason, "create platform: 409");
+        let (stage, reason) = failed_stage(EstablishStep::Platform, &[&ok, &StepStatus::Failed("bind: 500".into())]);
+        assert_eq!(stage, EstablishStep::Bind);
+        assert_eq!(reason, "bind: 500");
+        // Apply section: single beat.
+        let f_apply = StepStatus::Failed("strategy apply: PATCH 500".to_string());
+        let (stage, reason) = failed_stage(EstablishStep::Apply, &[&f_apply]);
+        assert_eq!(stage, EstablishStep::Apply);
+        assert_eq!(reason, "strategy apply: PATCH 500");
     }
 
     // ---- queue mechanics (level-triggered + bounded) ----
@@ -960,5 +1243,276 @@ mod tests {
         };
         assert!(!partial.all_ok());
         assert_eq!(partial.first_error(), Some("PATCH failed: 500"));
+    }
+
+    // ---- ticket 03 (D-C1.3): the optional default-port tail ----
+    //
+    // Three checkpoint branches (A): default-create success / user-provided
+    // port / existing same-name port; plus checkpoint B (conflict = warning,
+    // never an overwrite, never an error) asserted at both the whitebox and
+    // the Resin level. Fixtures are REAL resin-core stores (in-memory
+    // DbPool + temp-file WhiteboxConfigStore + dummy PortForwarder — the
+    // forwarder no longer binds listeners), so the assertions run against
+    // the actual write entry, not a mock.
+
+    async fn port_fixture(
+        tag: &str,
+    ) -> (DbPool, PortForwarder, WhiteboxConfigStore, std::path::PathBuf) {
+        let db = DbPool::open_in_memory().unwrap();
+        let forwarder = PortForwarder::new(db.clone(), "127.0.0.1", 1, "");
+        let path = std::env::temp_dir().join(format!(
+            "sub-pipeline-port-{tag}-{}.json",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let whitebox = WhiteboxConfigStore::open(
+            path.clone(),
+            crate::whitebox_config::WhiteboxConfig::from_ports(vec![]),
+        )
+        .await
+        .unwrap();
+        (db, forwarder, whitebox, path)
+    }
+
+    async fn mock_endpoints_empty(server: &mut mockito::ServerGuard) -> mockito::Mock {
+        server
+            .mock("GET", "/api/v1/endpoints")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": []}).to_string())
+            .expect(1)
+            .create_async()
+            .await
+    }
+
+    /// BRANCH A1 — default create success: no user port, no pre-existing
+    /// binding -> the ADR-0031 suggest probe picks a port, the socks5
+    /// endpoint POSTs, and the whitebox (plus its SQLite partner) carries
+    /// exactly one bound row with port_upsert's identity defaults.
+    #[tokio::test]
+    async fn default_port_created_when_user_provides_nothing() {
+        let (db, forwarder, whitebox, path) = port_fixture("def-ok").await;
+        let mut server = mockito::Server::new_async().await;
+        let m_list = mock_endpoints_empty(&mut server).await;
+        // The suggested port is a runtime property — the body matcher pins
+        // the SHAPE (socks5 proxy listener), not the number.
+        let m_create = server
+            .mock("POST", "/api/v1/endpoints")
+            .match_header(BEARER.0, BEARER.1)
+            .match_body(mockito::Matcher::PartialJson(
+                json!({"allow_socks5": true, "allow_proxy": true, "allow_management": false}),
+            ))
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "ep-new"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let client = ResinClient::new(&base, "testtok".into()).unwrap();
+        let status = ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", None).await;
+        assert!(matches!(status, StepStatus::Written), "default port must be created: {status:?}");
+
+        let rows = db.list_ports().unwrap();
+        assert_eq!(rows.len(), 1, "exactly one row: {rows:?}");
+        assert_eq!(rows[0].protocol, "socks5");
+        assert_eq!(rows[0].platform_name, "newsub");
+        assert_eq!(rows[0].account, format!("port-{}", rows[0].port));
+        assert!(rows[0].enabled);
+        assert!(rows[0].auth_required);
+        assert!(rows[0].port >= crate::port_forwarder::MIN_USER_PORT);
+        assert_eq!(whitebox.snapshot().entry_ports.len(), 1);
+
+        m_list.assert_async().await;
+        m_create.assert_async().await;
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// BRANCH A2 — user-provided port: the explicit binding target wins and
+    /// the suggest probe is skipped (the created row is the user's port,
+    /// not the 17990-baseline the suggest would have picked).
+    #[tokio::test]
+    async fn default_port_user_provided_skips_suggest() {
+        let (db, forwarder, whitebox, path) = port_fixture("def-user").await;
+        let mut server = mockito::Server::new_async().await;
+        let m_list = mock_endpoints_empty(&mut server).await;
+        let m_create = server
+            .mock("POST", "/api/v1/endpoints")
+            .match_header(BEARER.0, BEARER.1)
+            .match_body(mockito::Matcher::PartialJson(json!({"port": 24310})))
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "ep-user"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let client = ResinClient::new(&base, "testtok".into()).unwrap();
+        let status =
+            ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", Some(24310)).await;
+        assert!(matches!(status, StepStatus::Written), "{status:?}");
+        let rows = db.list_ports().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].port, 24310, "user-provided port must win over suggest");
+
+        m_list.assert_async().await;
+        m_create.assert_async().await;
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// BRANCH A3 — existing same-name/same-port entry: the whitebox row
+    /// already bound to the platform (or the requested port) wins. The step
+    /// short-circuits BEFORE any wire call (no endpoint mocks at all — any
+    /// request would 404 and fail the step), warns, and returns
+    /// AlreadyPresent; the existing row is byte-identical afterwards
+    /// (checkpoint B: warning, not overwrite, not error).
+    #[tokio::test]
+    async fn default_port_existing_entry_warns_and_skips() {
+        let (db, forwarder, whitebox, path) = port_fixture("def-conflict").await;
+        let seeded = crate::db::PortMapping {
+            port: 18500,
+            protocol: "socks5".into(),
+            platform_name: "other".into(),
+            account: "port-18500".into(),
+            label: String::new(),
+            enabled: true,
+            auth_required: true,
+        };
+        whitebox
+            .apply(
+                &db,
+                &forwarder,
+                crate::whitebox_config::WhiteboxConfig::from_ports(vec![seeded.clone()]),
+            )
+            .await
+            .unwrap();
+
+        // No server at all: the step must not touch the wire. A dead-socket
+        // client proves any attempted call would fail loudly.
+        let client = ResinClient::new("http://127.0.0.1:1", "t".into()).unwrap();
+        // Same-port conflict (requested port held by another platform)...
+        let status =
+            ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", Some(18500)).await;
+        assert!(
+            matches!(status, StepStatus::AlreadyPresent),
+            "conflict must skip, not fail: {status:?}"
+        );
+        // ...and same-PLATFORM conflict (the idempotence face: a row bound
+        // to this platform on any port also skips).
+        let status2 =
+            ensure_default_port(&client, &db, &forwarder, &whitebox, "other", Some(18501)).await;
+        assert!(matches!(status2, StepStatus::AlreadyPresent), "{status2:?}");
+
+        let rows = db.list_ports().unwrap();
+        assert_eq!(rows.len(), 1, "no row added");
+        assert_eq!(rows[0].platform_name, "other", "existing port untouched");
+        assert_eq!(rows[0].port, 18500);
+        assert_eq!(whitebox.snapshot().entry_ports, vec![seeded], "whitebox untouched");
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// Checkpoint B (Resin level): a foreign Resin listener on the candidate
+    /// port is left INTACT — warn + skip, no POST, no whitebox adoption.
+    #[tokio::test]
+    async fn default_port_resin_conflict_warns_and_skips() {
+        let (db, forwarder, whitebox, path) = port_fixture("def-resin-conflict").await;
+        let mut server = mockito::Server::new_async().await;
+        let m_list = server
+            .mock("GET", "/api/v1/endpoints")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({"items": [{"id": "ep-foreign", "port": 24311, "allow_socks5": true}]})
+                    .to_string(),
+            )
+            .expect(1)
+            .create_async()
+            .await;
+        // NO POST mock: an attempted create would 404 and fail the step.
+
+        let base = server.url();
+        let client = ResinClient::new(&base, "testtok".into()).unwrap();
+        let status =
+            ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", Some(24311)).await;
+        assert!(matches!(status, StepStatus::AlreadyPresent), "{status:?}");
+        assert!(db.list_ports().unwrap().is_empty(), "foreign listener must not be adopted");
+        assert!(whitebox.snapshot().entry_ports.is_empty());
+        m_list.assert_async().await;
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// §7.5 mirror: a privileged user port never reaches Resin or the
+    /// whitebox — warn + skip (the IPC boundary rejects it first; this is
+    /// the defensive core-side guard).
+    #[tokio::test]
+    async fn default_port_privileged_user_port_skips() {
+        let (db, forwarder, whitebox, path) = port_fixture("def-priv").await;
+        let client = ResinClient::new("http://127.0.0.1:1", "t".into()).unwrap();
+        let status = ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", Some(80)).await;
+        assert!(matches!(status, StepStatus::AlreadyPresent), "{status:?}");
+        assert!(db.list_ports().unwrap().is_empty());
+        assert!(whitebox.snapshot().entry_ports.is_empty());
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// Idempotence: the second call over the converged world skips via the
+    /// platform-binding check BEFORE any wire call (the suggest probe
+    /// itself is local, but no endpoint GET/POST may repeat).
+    #[tokio::test]
+    async fn default_port_idempotent_second_call_zero_writes() {
+        let (db, forwarder, whitebox, path) = port_fixture("def-idem").await;
+        // Seed pass-1's product directly: one socks5 row bound to newsub.
+        whitebox
+            .apply(
+                &db,
+                &forwarder,
+                crate::whitebox_config::WhiteboxConfig::from_ports(vec![crate::db::PortMapping {
+                    port: 17990,
+                    protocol: "socks5".into(),
+                    platform_name: "newsub".into(),
+                    account: "port-17990".into(),
+                    label: String::new(),
+                    enabled: true,
+                    auth_required: true,
+                }]),
+            )
+            .await
+            .unwrap();
+        // Dead-socket client: any wire call fails the assertion.
+        let client = ResinClient::new("http://127.0.0.1:1", "t".into()).unwrap();
+        let status = ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", None).await;
+        assert!(matches!(status, StepStatus::AlreadyPresent), "{status:?}");
+        assert_eq!(db.list_ports().unwrap().len(), 1, "zero writes on re-run");
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// The suggest algorithm: never returns a privileged port, and a port
+    /// present in the DbPool's used-set is skipped (17990 seeded -> the
+    /// answer must not be 17990).
+    #[test]
+    fn suggest_free_entry_port_skips_used_and_stays_unprivileged() {
+        let db = DbPool::open_in_memory().unwrap();
+        // Baseline pick on an empty DB is unprivileged.
+        let base = suggest_free_entry_port(&db).unwrap();
+        assert!(base >= crate::port_forwarder::MIN_USER_PORT, "got {base}");
+        // Seed 17990 as used (the same replace the whitebox write entry
+        // performs) — the next pick must skip it.
+        db.replace_ports(&[PortMapping {
+            port: 17990,
+            protocol: "socks5".into(),
+            platform_name: "seed".into(),
+            account: "port-17990".into(),
+            label: String::new(),
+            enabled: true,
+            auth_required: true,
+        }])
+        .unwrap();
+        let got = suggest_free_entry_port(&db).unwrap();
+        assert_ne!(got, 17990, "used port must be skipped");
+        assert!(got >= crate::port_forwarder::MIN_USER_PORT, "got {got}");
     }
 }

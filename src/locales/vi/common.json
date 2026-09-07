@@ -333,7 +333,13 @@
     "importBound": "Đã nhập và kết nối nền tảng {{platform}} (gắn {{ports}} cổng), số node {{count}}",
     "boundTo": "Đã gắn: {{count}} nền tảng",
     "unbound": "Chưa gắn",
-    "danglingRef": "Tham chiếu đứt"
+    "danglingRef": "Tham chiếu đứt",
+    "phaseNever": "Chưa thiết lập",
+    "phaseImporting": "Đang nhập",
+    "phaseEstablishing": "Đang thiết lập",
+    "phaseConverged": "Đã thiết lập",
+    "phaseFailed": "Thất bại",
+    "phaseNeedsApproval": "Cần phê duyệt"
   },
   "theme": {
     "label": "Giao diện",

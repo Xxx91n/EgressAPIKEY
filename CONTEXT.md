@@ -337,6 +337,29 @@ a silent auto-heal (ADR-0054).
 _Avoid_: callback cascade (nothing chained by callbacks — one reconciler
 drains a queue), auto-establish (the user's import opt-in IS the trigger)
 
+### SubscriptionPhase
+
+The per-subscription establish-phase STATUS record (Round 7 ticket 02,
+D-C1.2) — the chip on each subscription row. Persisted in the strategy
+whitebox top-level `subscriptions` array (NOT the per-platform name refs);
+six states: **Never** (no row = the identity element — a cascade never ran),
+**Importing** (data-landing beats: create_subscription + resolve),
+**Establishing** (whitebox beats; the `stage` column names the beat:
+platform/bind/port/apply), **Converged** (terminal green: every step wrote
+or skipped), **Failed** (`stage` + `phase_error` say where and why —
+persistent, survives restarts; a fresh user action re-walks the machine),
+**NeedsApproval** (reserved — T03's conflict flow is the first producer).
+STATUS, not spec: writes go through the ONE store entry (validate, backup
+ring, audit row) but never bump the generation counter — the k8s
+status-subresource rule; a status write must not flip ADR-0058's top-level
+ConvergePhase into a fake PendingApply. Wire shape: parent field camelCase
+(`subscriptionPhases`), row fields snake_case; a malformed phase degrades
+to Never on the TS side (never to a terminal state).
+_Avoid_: subscription status field vs `PlatformStrategy::subscriptions`
+(the latter is the name-reference list), phase as desired state (it is an
+observation — the cascade report is the truth), applying-generating
+(counter never moves on status writes)
+
 ### Generation
 
 The whitebox write-authority counter (round5 T09 / ADR-0058, k8s
