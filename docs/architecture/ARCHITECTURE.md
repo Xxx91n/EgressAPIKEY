@@ -219,6 +219,20 @@ diff-then-skip already keeps converged, and preview-filter duplicates the
 ADR-0054 shell-side in-memory snapshot (it stays the one wiring candidate
 for a later ticket).
 
+Subscription establish cascade (Round 7 ticket 01,
+`crates/resin-core/src/subscription_pipeline.rs`): an import that asks for
+it (`subscription_add pipeline=establish`) continues past the POST into a
+level-triggered five-step cascade — create_subscription (skipped when the
+name is already on Resin) -> resolve (nodes landed) -> establish the
+a_class=subscription platform (whitebox entry through the ONE Service
+store entry + Resin row via the ADR-0056 create seam) -> strategy apply
+(diff-then-skip, ADR-0057; generation write-back, ADR-0058). Every step
+is idempotent, a failed step is persistent state with backoff retries
+(parked after 5), and the enqueue IS the user-triggered reconcile — no
+background loop, no auto-heal (ADR-0054). Terminal =
+consumed_by non-empty AND the target platform not missing on Resin AND
+ConvergePhase in {Converged, Drifted(acknowledged)}.
+
 ## Data flow
 
 1. boot_resin allocates port, spawns Go sidecar, polls /healthz

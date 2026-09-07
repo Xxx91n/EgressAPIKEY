@@ -504,10 +504,11 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
     });
   });
 
-// --- Round 5 T01 (issue 01): F1 inline bind step + F2 apply trigger + F4
-// reverse-lookup badge. Mocks cover the full closed loop: import -> inline
-// step (NON-modal) -> chips + optional ports -> strategy_config_put ->
-// strategy_apply -> port_bind_platform; badges come from the
+// --- Round 5 T01 (issue 01) / Round 7 ticket 01 (D-C1.8): F1 inline bind
+// step + F4 reverse-lookup badge. The import path passes pipeline=establish
+// (the backend cascade owns resolve/platform/apply now); the inline bind
+// step still runs strategy_config_put -> strategy_apply for user-selected
+// EXTRA platforms + port_bind_platform; badges come from the
 // authoritative_snapshot subscriptions reverse-lookup section.
 describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => {
   beforeEach(() => {
@@ -760,17 +761,23 @@ describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => 
     }, { timeout: 15000 });
   }, 20000);
 
-  it("F2: import triggers strategy_apply right after the subscription lands", async () => {
+  it("F2 (D-C1.8): import passes pipeline=establish and the import path no longer calls strategy_apply directly", async () => {
     baseMock();
     render(<SubscriptionsView />);
     const urlInput = await screen.findByPlaceholderText(/Subscription URL|订阅地址/i);
     fireEvent.change(urlInput, { target: { value: "https://example.invalid/sub.yaml" } });
     fireEvent.click(screen.getByRole("button", { name: /Import subscription|导入订阅/i }));
     await waitFor(() => {
-      const calls = invokeMock.mock.calls.map((c) => c[0]);
-      expect(calls).toContain("subscription_add");
-      expect(calls).toContain("strategy_apply");
+      expect(invokeMock).toHaveBeenCalledWith(
+        "subscription_add",
+        expect.objectContaining({ url: "https://example.invalid/sub.yaml", pipeline: "establish" }),
+      );
     }, { timeout: 15000 });
+    // The backend cascade owns the establish now; the frontend import path
+    // must not hand-run strategy_apply (checkpoint C: exactly one
+    // ipcStrategyApply call site remains — the bind step).
+    const applyCalls = invokeMock.mock.calls.filter((c) => c[0] === "strategy_apply");
+    expect(applyCalls.length).toBe(0);
   }, 20000);
 
   it("F1d: skip closes the bind step without writing the whitebox", async () => {
