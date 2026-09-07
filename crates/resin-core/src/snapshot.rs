@@ -17,8 +17,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::strategy_engine::{AClassStrategy, EstablishStep, PlatformStrategy, StrategyConfig, SubscriptionPhase, SubscriptionStatus};
 
-use crate::strategy_engine::StrategyConfig;
 
 /// Per-platform agreement between the L2 whitebox strategy config and the
 /// L3 Resin runtime platform row. Serde is camelCase so the TS discriminated
@@ -228,6 +228,12 @@ pub struct AuthoritativeSnapshot {
     /// Empty when Resin is unreachable and the whitebox references nothing.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub subscriptions: Vec<SubscriptionSnapshot>,
+    /// Round 7 T02 (D-C1.2): per-subscription establish-phase STATUS rows,
+    /// read from the strategy whitebox already in hand. Empty when no
+    /// cascade has ever recorded a phase (every live subscription reads
+    /// phase Never on the UI side).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subscription_phases: Vec<SubscriptionPhaseSnapshot>,
     /// Unix seconds when THIS snapshot was generated (ticket 12 / ADR-0054 §C).
     /// Pure metadata: stamped by the command layer, never participates in the
     /// three-state merge. Monotonic non-decreasing across consecutive calls.
@@ -251,6 +257,37 @@ pub struct AuthoritativeSnapshot {
     /// never attempted). KEP-1623 style: reason + message in one string.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_apply_error: Option<String>,
+}
+
+/// Round 7 T02 (D-C1.2): one subscription's establish-phase STATUS row on
+/// the `authoritative_snapshot` wire. Projected straight from the strategy
+/// whitebox `subscriptions` array (STATUS, not spec — see
+/// `strategy_engine::SubscriptionStatus`); read-only, zero new requests.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SubscriptionPhaseSnapshot {
+    /// Subscription name (the row key).
+    pub name: String,
+    /// Wire tag mirrors the Rust variant name (PascalCase — the
+    /// `ConvergePhase` convention). TS mirrors the same union.
+    pub phase: SubscriptionPhase,
+    /// Present only while Establishing / Failed (snake_case wire tag).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage: Option<EstablishStep>,
+    /// Present only while Failed — the KEP-1623-style reason.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phase_error: Option<String>,
+}
+
+impl SubscriptionPhaseSnapshot {
+    /// Project one whitebox status row onto the wire.
+    pub fn from_status(row: &SubscriptionStatus) -> Self {
+        Self {
+            name: row.name.clone(),
+            phase: row.phase,
+            stage: row.stage,
+            phase_error: row.phase_error.clone(),
+        }
+    }
 }
 
 /// Round 5 T09 / ADR-0058 (D-28): top-level convergence phase of the
@@ -883,7 +920,6 @@ mod tests {
 
     use super::*;
     use crate::strategy::StrategyId;
-    use crate::strategy_engine::{AClassStrategy, PlatformStrategy};
     use serde_json::json;
 
     fn strategy_entry(name: &str, regions: &[&str]) -> PlatformStrategy {
@@ -914,6 +950,7 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            subscriptions: vec![],
             generation: 0,
             applied_generation: 0,
             last_apply_at: None,
@@ -965,6 +1002,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["jp"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["us"], "PREFER_LOW_LATENCY")];
         let snap = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -996,6 +1034,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("ghost", &["hk"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
         let snap = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -1018,6 +1057,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["us", "hk", "us"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["HK", "US"], "BALANCED")];
         let snap = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -1043,6 +1083,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &[])],
+            subscriptions: vec![],
         };
         let mut computed = HashMap::new();
         computed.insert("alpha".to_string(), vec!["sg".to_string()]);
@@ -1120,6 +1161,7 @@ mod tests {
             ports: merge_ports(&[], &[]),
             routes: vec![],
             subscriptions: vec![],
+            subscription_phases: vec![],
             resin_reachable: true,
             last_checked_at: 1_700_000_000,
             strategy_generation: 0,
@@ -1208,6 +1250,7 @@ mod tests {
             ports: vec![],
             routes: vec![],
             subscriptions: vec![],
+            subscription_phases: vec![],
             resin_reachable: true,
             last_checked_at: 1,
             strategy_generation: 0,
@@ -1288,6 +1331,7 @@ mod tests {
             ports: vec![],
             routes: vec![],
             subscriptions: out2,
+            subscription_phases: vec![],
             resin_reachable: true,
             last_checked_at: 1,
             strategy_generation: 0,
@@ -1314,6 +1358,7 @@ mod tests {
             ports: vec![],
             routes: vec![],
             subscriptions: vec![],
+            subscription_phases: vec![],
             resin_reachable: false,
             last_checked_at: 1_756_521_600,
             strategy_generation: 0,
@@ -1342,6 +1387,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["jp"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["us"], "BALANCED")];
         let mut merged = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -1402,6 +1448,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["hk"]), strategy_entry("beta", &["us"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
         let mut platforms = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -1520,6 +1567,7 @@ mod tests {
             ports: vec![],
             routes: vec![],
             subscriptions: vec![],
+            subscription_phases: vec![],
             resin_reachable: true,
             last_checked_at: 1_700_000_000,
             strategy_generation: 5,
@@ -1648,6 +1696,7 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["us", "hk"])],
+            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["us", "jp"], "BALANCED")];
         let map = HashMap::new();
@@ -1696,5 +1745,50 @@ mod tests {
             ConvergePhase::Converged,
             "exempted drift no longer breaks top-level convergence"
         );
+    }
+
+    #[test]
+    fn subscription_phases_serialize_camel_case_parent_snake_case_rows() {
+        let snap = AuthoritativeSnapshot {
+            strategy_version: 1,
+            platforms: vec![],
+            ports: vec![],
+            routes: vec![],
+            subscriptions: vec![],
+            subscription_phases: vec![
+                SubscriptionPhaseSnapshot {
+                    name: "sub-a".to_string(),
+                    phase: SubscriptionPhase::Establishing,
+                    stage: Some(EstablishStep::Platform),
+                    phase_error: None,
+                },
+                SubscriptionPhaseSnapshot {
+                    name: "sub-b".to_string(),
+                    phase: SubscriptionPhase::Failed,
+                    stage: Some(EstablishStep::Apply),
+                    phase_error: Some("PATCH failed: 500".to_string()),
+                },
+            ],
+            resin_reachable: true,
+            last_checked_at: 1_700_000_000,
+            strategy_generation: 0,
+            strategy_applied_generation: 0,
+            converge_phase: ConvergePhase::NeverApplied,
+            last_apply_at: None,
+            last_apply_error: None,
+        };
+        let v = serde_json::to_value(&snap).expect("serialize");
+        // Parent field rides the camelCase convention (TS AuthoritativeSnapshot).
+        assert!(v.get("subscriptionPhases").is_some(), "parent field must be camelCase on the wire");
+        // Row fields stay snake_case like every other per-variant payload.
+        assert_eq!(v["subscriptionPhases"][0]["phase"], "Establishing");
+        assert_eq!(v["subscriptionPhases"][0]["stage"], "platform");
+        assert_eq!(v["subscriptionPhases"][1]["phase"], "Failed");
+        assert_eq!(v["subscriptionPhases"][1]["phase_error"], "PATCH failed: 500");
+        // None fields drop (skip_serializing_if).
+        assert!(v["subscriptionPhases"][0].get("phase_error").is_none());
+        // Round-trip stays equal (contract stability for the TS wrapper).
+        let back: AuthoritativeSnapshot = serde_json::from_value(v).expect("deserialize");
+        assert_eq!(back, snap);
     }
 }

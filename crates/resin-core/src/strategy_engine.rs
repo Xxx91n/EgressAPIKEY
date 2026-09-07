@@ -112,6 +112,77 @@ fn default_quality_top_n() -> usize {
     10
 }
 
+/// Round 7 T02 (spec D-C1.2): user-facing establish-cascade phase for ONE
+/// subscription. Persisted as a STATUS row in the strategy whitebox
+/// (`SubscriptionStatus`, top-level `subscriptions` array — the per-platform
+/// `PlatformStrategy::subscriptions` NAME REFS are a different field).
+/// Wire tags mirror the `ConvergePhase` style: unit variants serialize as
+/// their PascalCase variant name.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SubscriptionPhase {
+    /// No establish cascade has ever run for this subscription. The ABSENT
+    /// status row also reads as `Never` — the state machine's identity
+    /// element (a v1 file without the array is all-Never, zero migration).
+    Never,
+    /// The data-landing beats are running (create_subscription / resolve).
+    Importing,
+    /// The whitebox+apply beats are running; the sub-step rides the
+    /// `stage` column (platform/bind/port/apply per spec D-C1.2).
+    Establishing,
+    /// Terminal green: every cascade step wrote or skipped.
+    Converged,
+    /// A cascade step failed persistently; `stage` says where and
+    /// `phase_error` carries the KEP-1623-style reason.
+    Failed,
+    /// Reserved (T03 owns the first producer): a default-port conflict or
+    /// similar needs explicit user consent before the cascade continues.
+    NeedsApproval,
+}
+
+/// Cascade sub-step tag for `Establishing` / `Failed` status rows. Serde
+/// tags are stable snake_case, matching the per-entry state_tag style.
+/// `Import`/`Resolve` appear ONLY on `Failed` rows (data-landing failures);
+/// `Establishing` uses the spec's platform/bind/port/apply sub-steps.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum EstablishStep {
+    /// create_subscription beat (the import POST itself).
+    Import,
+    /// resolve beat (nodes not landed yet — Resin fetcher still pulling).
+    Resolve,
+    /// establish-platform beat (whitebox entry + ADR-0056 create seam).
+    Platform,
+    /// strategy_config_put beat (the subscriptions-ref binding; fused into
+    /// the platform write today, kept distinct for the wire contract).
+    Bind,
+    /// Default-port binding (T03 owns the producer; reserved tag).
+    Port,
+    /// strategy_apply beat (ADR-0057 diff-then-skip + ADR-0058 write-back).
+    Apply,
+}
+
+/// One subscription's establish-phase STATUS row in the strategy whitebox
+/// (`egressapikey-strategy.json` top-level `subscriptions` array). STATUS,
+/// not spec: writes go through the ONE store entry (validate + versioned
+/// backup + audit — the generation-aware path) but do NOT bump the
+/// desired-state generation. k8s status-subresource rule: a status write is
+/// not a write-authority change; bumping would flip ADR-0058's top-level
+/// ConvergePhase into a false PendingApply after every successful cascade
+/// (spec D-C1.6: existing ADR conclusions must not be broken).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SubscriptionStatus {
+    /// Subscription name — the row key (1..128 chars, unique in the array).
+    pub name: String,
+    pub phase: SubscriptionPhase,
+    /// Present only while Establishing / Failed (see `EstablishStep`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage: Option<EstablishStep>,
+    /// Present only while Failed — the reason (KEP-1623 style; ≤1024
+    /// chars, NUL rejected).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phase_error: Option<String>,
+}
+
 /// The whitebox strategy config document.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StrategyConfig {
@@ -125,6 +196,13 @@ pub struct StrategyConfig {
     /// ≤64 members × 1..128 chars (no control chars), duplicates rejected.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acknowledged: Vec<String>,
+    /// Round 7 T02 (D-C1.2): per-subscription establish-phase STATUS rows.
+    /// ABSENT in a v1 file = empty = every subscription reads phase `Never`
+    /// (the same zero-migration serde-default story as `generation`).
+    /// Writes go ONLY through `StrategyService::record_subscription_phase`
+    /// (status subresource — no generation bump).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub subscriptions: Vec<SubscriptionStatus>,
     /// Round 5 T09 / ADR-0058: write-authority generation counter. Bumped by
     /// EVERY sanctioned store-path write (service `store`, deep region edit,
     /// rollback) after validate, before the file lands. Absent in a v1 file
@@ -157,6 +235,7 @@ impl Default for StrategyConfig {
             version: 1,
             platforms: vec![],
             acknowledged: vec![],
+            subscriptions: vec![],
             generation: 0,
             applied_generation: 0,
             last_apply_at: None,

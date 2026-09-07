@@ -333,7 +333,13 @@
     "importBound": "आयात और प्लेटफ़ॉर्म {{platform}} से जुड़ा ({{ports}} पोर्ट बाइंड), नोड संख्या {{count}}",
     "boundTo": "बाइंड: {{count}} प्लेटफ़ॉर्म",
     "unbound": "अनबाइंड",
-    "danglingRef": "टूटा संदर्भ"
+    "danglingRef": "टूटा संदर्भ",
+    "phaseNever": "कभी स्थापित नहीं",
+    "phaseImporting": "आयात हो रहा है",
+    "phaseEstablishing": "स्थापित हो रहा है",
+    "phaseConverged": "स्थापित",
+    "phaseFailed": "विफल",
+    "phaseNeedsApproval": "अनुमोदन आवश्यक"
   },
   "theme": {
     "label": "थीम",
