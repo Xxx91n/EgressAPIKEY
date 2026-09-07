@@ -25,7 +25,10 @@ use std::sync::Mutex as StdMutex;
 
 use serde::Serialize;
 
-use crate::strategy_engine::{compute_plan, parse_nodes, NodeSummary, PlatformStrategy, StrategyConfig};
+use crate::strategy_engine::{
+    compute_plan, parse_nodes, EstablishStep, NodeSummary, PlatformStrategy, StrategyConfig, SubscriptionPhase,
+    SubscriptionStatus,
+};
 use crate::whitebox_backup::{
     atomic_write_bytes, backup_before_write, backup_list, now_unix, read_backup_parsed,
     WhiteboxBackupEntry,
@@ -42,6 +45,12 @@ pub const MAX_SUBSCRIPTIONS_PER_PLATFORM: usize = 64;
 pub const MAX_TOP_N: usize = 1000;
 pub const MAX_PLATFORM_NAME_LEN: usize = 128;
 pub const MAX_REGION_LEN: usize = 32;
+/// Round 7 T02: ceiling for the per-subscription phase status array. Far
+/// above realistic subscription counts; keeps a hand-edited file from
+/// growing unbounded (AGENTS 7.5 bounded-collection template).
+pub const MAX_SUBSCRIPTION_STATUS_ROWS: usize = 512;
+/// Round 7 T02: KEP-1623-style reason ceiling for `phase_error`.
+pub const MAX_PHASE_ERROR_LEN: usize = 1024;
 
 /// Result of `StrategyService::apply`: per-platform PATCH outcome, serde
 /// shaped exactly like the former command-layer JSON (TS contract unchanged).
@@ -438,7 +447,66 @@ pub fn validate(config: &StrategyConfig) -> Result<(), String> {
             return Err(format!("manual_nodes list too long (max {MAX_PLATFORMS})"));
         }
     }
-    validate_acknowledged(&config.acknowledged, "acknowledged")
+    validate_acknowledged(&config.acknowledged, "acknowledged")?;
+    validate_subscription_statuses(&config.subscriptions)
+}
+
+/// Round 7 T02 (D-C1.2): shape checks for the per-subscription establish-
+/// phase STATUS array. Same discipline as `validate_acknowledged`: serde
+/// already rejects wrong JSON types at parse time, these checks cap the
+/// array, reject duplicate/malformed row keys, and lock the phase<->stage
+/// <->phase_error invariants so a hand-edited file cannot smuggle junk
+/// through ANY store path (the write entry validates before landing).
+fn validate_subscription_statuses(rows: &[SubscriptionStatus]) -> Result<(), String> {
+    if rows.len() > MAX_SUBSCRIPTION_STATUS_ROWS {
+        return Err(format!(
+            "subscriptions status array too long (max {MAX_SUBSCRIPTION_STATUS_ROWS})"
+        ));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for (i, row) in rows.iter().enumerate() {
+        if row.name.is_empty() || row.name.len() > MAX_PLATFORM_NAME_LEN {
+            return Err(format!("subscriptions[{i}].name must be 1..{MAX_PLATFORM_NAME_LEN} chars"));
+        }
+        if row.name.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err(format!("subscriptions[{i}].name contains control characters"));
+        }
+        if !seen.insert(row.name.clone()) {
+            return Err(format!("duplicate subscriptions entry: {}", row.name));
+        }
+        let carrying_stage = row.stage.is_some();
+        let carrying_error = row.phase_error.is_some();
+        match row.phase {
+            SubscriptionPhase::Establishing | SubscriptionPhase::Failed => {
+                if !carrying_stage {
+                    return Err(format!("subscriptions[{i}] ({}) phase requires a stage", row.name));
+                }
+            }
+            _ => {
+                if carrying_stage {
+                    return Err(format!("subscriptions[{i}] ({}) phase must not carry a stage", row.name));
+                }
+            }
+        }
+        if row.phase == SubscriptionPhase::Failed {
+            match row.phase_error.as_deref() {
+                None => return Err(format!("subscriptions[{i}] ({}) Failed requires a phase_error", row.name)),
+                Some(e) => {
+                    if e.is_empty() || e.len() > MAX_PHASE_ERROR_LEN {
+                        return Err(format!(
+                            "subscriptions[{i}].phase_error must be 1..{MAX_PHASE_ERROR_LEN} chars"
+                        ));
+                    }
+                    if e.bytes().any(|b| b == 0) {
+                        return Err(format!("subscriptions[{i}].phase_error contains NUL"));
+                    }
+                }
+            }
+        } else if carrying_error {
+            return Err(format!("subscriptions[{i}] ({}) phase must not carry a phase_error", row.name));
+        }
+    }
+    Ok(())
 }
 
 /// Ticket 12 / ADR-0054 §D: shared shape checks for a whitebox
@@ -561,6 +629,94 @@ impl<S: StrategyConfigStore> StrategyService<S> {
             }),
         }
         self.store(config)
+    }
+
+    /// Round 7 T02 (D-C1.2): record ONE subscription's establish-phase
+    /// STATUS row (upsert by name). This is the sanctioned write path for the
+    /// whitebox `subscriptions` status array — it re-enters `store` so the
+    /// write is validated, versioned (backup ring) and audited exactly like
+    /// every other strategy mutation (ADR-0036 / ADR-0059 invariants), BUT
+    /// the landed document keeps the CURRENT generation: a status write is
+    /// not a desired-state write (k8s status-subresource rule), and bumping
+    /// would flip ADR-0058's top-level ConvergePhase into a false
+    /// PendingApply after every cascade. The in-memory generation counter
+    /// rides the document across the read-modify-write, so two phase writes
+    /// in a row never regress or duplicate the counter.
+    pub fn record_subscription_phase(
+        &self,
+        name: &str,
+        phase: SubscriptionPhase,
+        stage: Option<EstablishStep>,
+        phase_error: Option<String>,
+    ) -> Result<StrategyConfig, String> {
+        if name.is_empty() || name.len() > MAX_PLATFORM_NAME_LEN {
+            return Err("subscription name must be 1..128 chars".to_string());
+        }
+        if name.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err("subscription name contains control characters".to_string());
+        }
+        if let Some(err) = phase_error.as_deref() {
+            if err.len() > MAX_PHASE_ERROR_LEN {
+                return Err(format!("phase_error too long (max {MAX_PHASE_ERROR_LEN} chars)"));
+            }
+            if err.bytes().any(|b| b == 0) {
+                return Err("phase_error contains NUL".to_string());
+            }
+        }
+        // Shape lock: only Establishing/Failed carry a stage; the terminal
+        // green state and the data-landing state never do.
+        match (phase, stage) {
+            (SubscriptionPhase::Establishing, Some(EstablishStep::Platform))
+            | (SubscriptionPhase::Establishing, Some(EstablishStep::Bind))
+            | (SubscriptionPhase::Establishing, Some(EstablishStep::Port))
+            | (SubscriptionPhase::Establishing, Some(EstablishStep::Apply))
+            | (SubscriptionPhase::Failed, Some(EstablishStep::Import))
+            | (SubscriptionPhase::Failed, Some(EstablishStep::Resolve))
+            | (SubscriptionPhase::Failed, Some(EstablishStep::Platform))
+            | (SubscriptionPhase::Failed, Some(EstablishStep::Bind))
+            | (SubscriptionPhase::Failed, Some(EstablishStep::Port))
+            | (SubscriptionPhase::Failed, Some(EstablishStep::Apply)) => {}
+            (SubscriptionPhase::Establishing | SubscriptionPhase::Failed, None) => {
+                return Err("Establishing/Failed require a stage".to_string());
+            }
+            (_, Some(_)) => {
+                return Err(format!("{phase:?} rows never carry a stage"));
+            }
+            // Flat phases (Never/Importing/Converged/NeedsApproval) carry
+            // neither column — the legal no-payload case.
+            (_, None) => {}
+        }
+        if phase == SubscriptionPhase::Failed && phase_error.is_none() {
+            return Err("Failed requires a phase_error reason".to_string());
+        }
+        if phase != SubscriptionPhase::Failed && phase_error.is_some() {
+            return Err(format!("{phase:?} rows never carry a phase_error"));
+        }
+
+        let mut config = self.get()?;
+        // Upsert by name (the row key). Pre-existing rows never lose their
+        // slot — status history is not orderable, the array is a map.
+        match config.subscriptions.iter_mut().find(|s| s.name == name) {
+            Some(row) => {
+                row.phase = phase;
+                row.stage = stage;
+                row.phase_error = phase_error;
+            }
+            None => config.subscriptions.push(SubscriptionStatus {
+                name: name.to_string(),
+                phase,
+                stage,
+                phase_error,
+            }),
+        }
+        if config.subscriptions.len() > MAX_SUBSCRIPTION_STATUS_ROWS {
+            return Err(format!(
+                "subscriptions status array too long (max {MAX_SUBSCRIPTION_STATUS_ROWS})"
+            ));
+        }
+        // Landed generation stays at the CURRENT value: status, not spec.
+        self.store.store(&config)?;
+        Ok(config)
     }
 }
 
@@ -803,6 +959,7 @@ mod tests {
             version: 1,
             platforms,
             acknowledged: vec![],
+            subscriptions: vec![],
             generation: 0,
             applied_generation: 0,
             last_apply_at: None,
@@ -2071,5 +2228,186 @@ mod tests {
                 .as_deref(),
             Some("dangling subscription refs: a, b"),
         );
+    }
+
+    // ---- Round 7 T02 (D-C1.2): subscription phase status array ----
+
+    /// Phase tests persist across calls, so they use the REAL store (a temp
+    /// file) — MemStore::store is a deliberate no-op fixture.
+    fn fs_service(tag: &str) -> (StrategyService<FsStrategyStore>, PathBuf) {
+        let path = std::env::temp_dir().join(format!("phase-status-{tag}-{}.json", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        (StrategyService::new(FsStrategyStore::new(path.clone())), path)
+    }
+
+    fn status(name: &str, phase: SubscriptionPhase) -> SubscriptionStatus {
+        SubscriptionStatus { name: name.to_string(), phase, stage: None, phase_error: None }
+    }
+
+    /// Checkpoint A (D-C1.2): the Never -> Importing -> Establishing ->
+    /// Converged sequence lands as an upsert (one row per name, no dupes),
+    /// and the mid-flight stage rides the row.
+    #[test]
+    fn phase_transition_sequence_never_importing_establishing_converged() {
+        let (svc, _path) = fs_service("seq");
+        // Never: only reachable as the ABSENCE of a row; recording it
+        // explicitly is also legal (a cascade that resets a stale row).
+        let after = svc.record_subscription_phase("sub-a", SubscriptionPhase::Never, None, None).unwrap();
+        assert_eq!(after.subscriptions, vec![status("sub-a", SubscriptionPhase::Never)]);
+
+        let after = svc.record_subscription_phase("sub-a", SubscriptionPhase::Importing, None, None).unwrap();
+        assert_eq!(after.subscriptions[0].phase, SubscriptionPhase::Importing);
+        assert!(after.subscriptions[0].stage.is_none());
+
+        let after = svc
+            .record_subscription_phase("sub-a", SubscriptionPhase::Establishing, Some(EstablishStep::Platform), None)
+            .unwrap();
+        assert_eq!(after.subscriptions[0].phase, SubscriptionPhase::Establishing);
+        assert_eq!(after.subscriptions[0].stage, Some(EstablishStep::Platform));
+
+        let after = svc
+            .record_subscription_phase("sub-a", SubscriptionPhase::Establishing, Some(EstablishStep::Apply), None)
+            .unwrap();
+        assert_eq!(after.subscriptions[0].stage, Some(EstablishStep::Apply));
+
+        let after = svc.record_subscription_phase("sub-a", SubscriptionPhase::Converged, None, None).unwrap();
+        assert_eq!(after.subscriptions.len(), 1, "upsert, never duplicate");
+        assert_eq!(after.subscriptions[0].phase, SubscriptionPhase::Converged);
+        assert!(after.subscriptions[0].stage.is_none(), "terminal green drops the stage");
+        assert!(after.subscriptions[0].phase_error.is_none());
+    }
+
+    /// Checkpoint A (D-C1.2): failure write-back persists Failed(stage,
+    /// reason); a later retry overwrites it; the row survives OTHER writes
+    /// (a region edit must not clobber status history).
+    #[test]
+    fn failed_phase_persists_stage_and_reason() {
+        let (svc, _path) = fs_service("fail");
+        svc.record_subscription_phase("sub-x", SubscriptionPhase::Establishing, Some(EstablishStep::Bind), None).unwrap();
+        let after = svc
+            .record_subscription_phase(
+                "sub-x",
+                SubscriptionPhase::Failed,
+                Some(EstablishStep::Bind),
+                Some("strategy apply: PATCH 500".to_string()),
+            )
+            .unwrap();
+        assert_eq!(after.subscriptions[0].phase, SubscriptionPhase::Failed);
+        assert_eq!(after.subscriptions[0].stage, Some(EstablishStep::Bind));
+        assert_eq!(after.subscriptions[0].phase_error.as_deref(), Some("strategy apply: PATCH 500"));
+
+        // The status row survives an unrelated deep edit.
+        svc.store(cfg(vec![ps("A", &["HK"])]));
+        let reread = svc.get().unwrap();
+        // store() replaced the whole document via cfg() — the status array
+        // was reset by that DESIRED-state write. That is correct semantics:
+        // a put is a full-document replace. Status writes never do this.
+        assert!(reread.subscriptions.is_empty(), "desired-state put is a full replace");
+
+        // A fresh status row on the new document re-lands cleanly.
+        let after2 = svc
+            .record_subscription_phase("sub-y", SubscriptionPhase::Failed, Some(EstablishStep::Resolve), Some("nodes not landed".to_string()))
+            .unwrap();
+        assert_eq!(after2.subscriptions.len(), 1);
+        assert_eq!(after2.subscriptions[0].stage, Some(EstablishStep::Resolve));
+    }
+
+    /// Checkpoint B (D-C1.2): the status write is generation-aware in the
+    /// ADR-0058 sense — it travels the ONE store entry (FsStrategyStore,
+    /// validate + backup + audit) but does NOT bump the desired-state
+    /// generation (k8s status-subresource rule). The pair stays converged
+    /// across a cascade, so ADR-0058's top-level ConvergePhase cannot be
+    /// flipped into a false PendingApply by a status write.
+    #[test]
+    fn fs_status_write_keeps_generation_stable_and_lands_on_disk() {
+        let dir = std::env::temp_dir().join(format!("phase-status-{}.json", std::process::id()));
+        let _ = std::fs::remove_file(&dir);
+        let svc = StrategyService::new(FsStrategyStore::new(dir.clone()));
+
+        // Seed a desired-state write (generation bumps 0 -> 1).
+        let seeded = svc.store(cfg(vec![ps("A", &["HK"])])).unwrap();
+        assert_eq!(seeded.generation, 1);
+
+        // A green apply write-back converges the pair (ADR-0058 D3 shape).
+        let mut green = svc.get().unwrap();
+        green.applied_generation = green.generation;
+        green.last_apply_at = Some(now_unix());
+        svc.store_ref().store(&green).unwrap();
+        let converged = svc.get().unwrap();
+        assert_eq!(converged.generation, converged.applied_generation);
+
+        // The phase write: generation pair MUST NOT move.
+        let after = svc
+            .record_subscription_phase("sub-a", SubscriptionPhase::Establishing, Some(EstablishStep::Platform), None)
+            .unwrap();
+        assert_eq!(after.generation, converged.generation, "status write must not bump generation");
+        assert_eq!(after.applied_generation, converged.applied_generation, "status write must not fake convergence");
+        assert_eq!(after.updated_at, converged.updated_at, "status write is not a desired-state write");
+
+        // ... and the row actually landed in the FILE (not just memory).
+        let raw = std::fs::read_to_string(&dir).unwrap();
+        let doc: StrategyConfig = serde_json::from_str(&raw).unwrap();
+        assert_eq!(doc.subscriptions.len(), 1);
+        assert_eq!(doc.subscriptions[0].name, "sub-a");
+        assert_eq!(doc.subscriptions[0].phase, SubscriptionPhase::Establishing);
+
+        // v1-file compat: a document WITHOUT the array still parses, and the
+        // array is omitted on serialize while empty (skip_serializing_if).
+        let v1: StrategyConfig = serde_json::from_str(&json!({
+            "version": 1,
+            "platforms": []
+        }).to_string()).unwrap();
+        assert!(v1.subscriptions.is_empty());
+        let ser = serde_json::to_string(&StrategyConfig::default()).unwrap();
+        assert!(!ser.contains("\"subscriptions\""), "empty status array must not serialize");
+
+        let _ = std::fs::remove_file(&dir);
+    }
+
+    /// Shape locks: stage/phase_error invariants + bounds are enforced by
+    /// the write path AND by validate() (hand-edited files included).
+    #[test]
+    fn phase_row_shape_locks() {
+        let (svc, _path) = fs_service("shape");
+        // Establishing/Failed REQUIRE a stage...
+        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Establishing, None, None).is_err());
+        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Failed, None, Some("r".into())).is_err());
+        // ...but the data-landing phases never carry one...
+        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Importing, Some(EstablishStep::Import), None).is_err());
+        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Converged, Some(EstablishStep::Apply), None).is_err());
+        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Never, None, Some("r".into())).is_err());
+        // ...Failed requires a reason; others never carry one.
+        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Failed, Some(EstablishStep::Platform), None).is_err());
+        // Name hygiene (AGENTS 7.5): empty / oversized / control chars.
+        assert!(svc.record_subscription_phase("", SubscriptionPhase::Never, None, None).is_err());
+        assert!(svc.record_subscription_phase(&"x".repeat(129), SubscriptionPhase::Never, None, None).is_err());
+        assert!(svc.record_subscription_phase("a\u{0}b", SubscriptionPhase::Never, None, None).is_err());
+        // Reason bounds.
+        let long = "x".repeat(MAX_PHASE_ERROR_LEN + 1);
+        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Failed, Some(EstablishStep::Import), Some(long)).is_err());
+        let nul = "bad\u{0}reason".to_string();
+        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Failed, Some(EstablishStep::Import), Some(nul)).is_err());
+
+        // validate() rejects the same junk in a hand-edited document.
+        let mut bad = cfg(vec![]);
+        bad.subscriptions = vec![SubscriptionStatus {
+            name: "dup".into(), phase: SubscriptionPhase::Never, stage: None, phase_error: None,
+        }, SubscriptionStatus {
+            name: "dup".into(), phase: SubscriptionPhase::Never, stage: None, phase_error: None,
+        }];
+        assert!(validate(&bad).is_err(), "duplicate rows rejected");
+        bad.subscriptions = vec![SubscriptionStatus {
+            name: "s".into(), phase: SubscriptionPhase::Converged, stage: Some(EstablishStep::Apply), phase_error: None,
+        }];
+        assert!(validate(&bad).is_err(), "Converged with a stage rejected");
+        bad.subscriptions = vec![SubscriptionStatus {
+            name: "s".into(), phase: SubscriptionPhase::Failed, stage: Some(EstablishStep::Import), phase_error: None,
+        }];
+        assert!(validate(&bad).is_err(), "Failed without a reason rejected");
+        // A legal row passes.
+        bad.subscriptions = vec![SubscriptionStatus {
+            name: "s".into(), phase: SubscriptionPhase::Failed, stage: Some(EstablishStep::Import), phase_error: Some("boom".into()),
+        }];
+        assert!(validate(&bad).is_ok());
     }
 }
