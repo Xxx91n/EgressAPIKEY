@@ -1,0 +1,20 @@
+# EgressAPIKEY
+
+> Multi-port socks5/http forwarder between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas. Desktop shell (Tauri 2 + React 19) over a Resin Go sidecar reachable only through a loopback REST seam. License: GPL-3.0-or-later.
+
+## Docs
+
+- [README](README.md): project overview, download, features, quick start (English)
+- [README_CN](README_CN.md): Chinese mirror of the README (简体中文)
+- [docs index](docs/README.md): map of the documentation tree (architecture, ADRs, how-to, reference)
+
+## Agent & architecture
+
+- [AGENTS.md](AGENTS.md): operating instructions and conventions for coding agents — storage layers L1/L2/L3, IPC command manifest, CI gates
+- [ARCHITECTURE](docs/architecture/ARCHITECTURE.md): config authority layers, runtime wiring, Resin sidecar lifecycle
+- [CONTEXT.md](CONTEXT.md): domain glossary / ubiquitous language
+
+## Key ADRs
+
+- [ADR-0067 — License layering & provenance](docs/adr/0067-license-layering-provenance.md): GPL-3.0-or-later shell; Resin sidecar declared MIT with a GPL-3.0-or-later dependency tree (sing-box); mere-aggregation invariant
+- [ADRs](docs/adr/): full index of architecture decision records (MADR format)

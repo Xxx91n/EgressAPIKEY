@@ -4,6 +4,10 @@
 
 <!-- What does this PR change, and why? Link related issues with "Fixes #<issue>". -->
 
+## Screenshots / Recordings
+
+<!-- Required when this PR changes user-visible UI, layouts, or renders (new components, restyled views, tray/tray-menu changes, window chrome). Attach before/after screenshots, short screen recordings, or links to a running build. For purely internal / non-visual PRs (backend, IPC, resin-core, docs, scripts), write "N/A" and a one-line reason. -->
+
 ## Change type
 
 - [ ] Bug fix (behavior change limited to the fix)

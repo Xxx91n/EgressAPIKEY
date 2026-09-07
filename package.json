@@ -1,6 +1,7 @@
 {
   "name": "EgressAPIKEY",
   "version": "0.1.0",
+  "description": "Multi-port socks5/http forwarder between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas.",
   "license": "GPL-3.0-or-later",
   "private": true,
   "type": "module",
