@@ -1,4 +1,3 @@
-import * as React from "react";
 import { useTranslation } from "react-i18next";
 import type { ConvergePhase } from "../lib/ipc";
 import { ConvergeTooltip } from "./ConvergeTooltip";

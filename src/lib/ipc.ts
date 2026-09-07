@@ -1406,6 +1406,70 @@ export interface SubscriptionReverseRow {
   resolvable: boolean;
 }
 
+/** Round 7 T02 (D-C1.2): establish-cascade phase of ONE subscription, as
+ *  recorded in the strategy whitebox (STATUS, not spec). Wire tags mirror
+ *  the Rust enum's PascalCase variant serialization (ConvergePhase style). */
+export type SubscriptionPhase =
+  | "Never"
+  | "Importing"
+  | "Establishing"
+  | "Converged"
+  | "Failed"
+  | "NeedsApproval";
+
+/** Cascade sub-step tag (Rust `EstablishStep`; snake_case on the wire).
+ *  import/resolve appear only on Failed rows; port is reserved for T03. */
+export type SubscriptionStage = "import" | "resolve" | "platform" | "bind" | "port" | "apply";
+
+const SUBSCRIPTION_PHASES: readonly SubscriptionPhase[] = [
+  "Never",
+  "Importing",
+  "Establishing",
+  "Converged",
+  "Failed",
+  "NeedsApproval",
+];
+const SUBSCRIPTION_STAGES: readonly SubscriptionStage[] = [
+  "import",
+  "resolve",
+  "platform",
+  "bind",
+  "port",
+  "apply",
+];
+
+/** Round 7 T02: one whitebox phase status row (snake_case row fields, the
+ *  per-variant wire convention; the parent field is camelCase). */
+export interface SubscriptionPhaseRow {
+  name: string;
+  phase: SubscriptionPhase;
+  stage?: SubscriptionStage;
+  phase_error?: string;
+}
+
+/** Round 7 T02: sanitize one phase row (untrusted). A malformed phase
+ *  degrades to "Never" — the state machine's identity element, honest
+ *  "nothing recorded" — never to Converged/Failed (no fake green/red). */
+function snapSubscriptionPhaseRow(v: unknown): SubscriptionPhaseRow | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  const name = snapStr(r.name);
+  if (!name) return null;
+  const phaseTag = typeof r.phase === "string" ? r.phase : "";
+  const phase = (SUBSCRIPTION_PHASES as readonly string[]).includes(phaseTag)
+    ? (phaseTag as SubscriptionPhase)
+    : "Never";
+  const stageTag = typeof r.stage === "string" ? r.stage : "";
+  const stage = (SUBSCRIPTION_STAGES as readonly string[]).includes(stageTag)
+    ? (stageTag as SubscriptionStage)
+    : undefined;
+  const phaseError =
+    r.phase_error === undefined || r.phase_error === null ? undefined : snapStr(r.phase_error) || undefined;
+  return phase === "Never" && stageTag === "" && phaseError === undefined
+    ? { name, phase }
+    : { name, phase, ...(stage !== undefined ? { stage } : {}), ...(phaseError !== undefined ? { phase_error: phaseError } : {}) };
+}
+
 export interface AuthoritativeSnapshot {
   strategyVersion: number;
   platforms: StrategySnapshot[];
@@ -1415,6 +1479,9 @@ export interface AuthoritativeSnapshot {
   /** Round 5 T01 (F4): subscription reverse lookup; empty when Resin is
    *  unreachable and the whitebox references nothing. */
   subscriptions: SubscriptionReverseRow[];
+  /** Round 7 T02: per-subscription establish-phase STATUS rows (whitebox
+   *  projections); empty when no cascade has ever recorded a phase. */
+  subscriptionPhases?: SubscriptionPhaseRow[];
   resinReachable: boolean;
   /** Ticket 12 (ADR-0054 §C): Unix seconds when this snapshot was generated. */
   lastCheckedAt: number;
@@ -1602,6 +1669,10 @@ function snapSnapshot(v: unknown): AuthoritativeSnapshot {
       .slice(0, MAX_SNAPSHOT_ENTRIES)
       .map(snapSubscriptionRow)
       .filter((x): x is SubscriptionReverseRow => x !== null),
+    subscriptionPhases: (Array.isArray(r.subscriptionPhases) ? r.subscriptionPhases : [])
+      .slice(0, MAX_SNAPSHOT_ENTRIES)
+      .map(snapSubscriptionPhaseRow)
+      .filter((x): x is SubscriptionPhaseRow => x !== null),
     resinReachable: r.resinReachable === true,
     // Ticket 12: untrusted timestamp sanitized to a bounded Unix-seconds
     // number; a malformed value degrades to 0 instead of leaking junk.
