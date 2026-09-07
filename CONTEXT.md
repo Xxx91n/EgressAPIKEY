@@ -647,6 +647,27 @@ TopologyView `app.listen("sidecar-status")` raises the red banner. The
 signal origin is the shell's own poller, never a Resin push.
 _Avoid_: Resin webhook, push notification, callback channel
 
+### Global Converge Loop
+
+The whole-app feedback circuit that keeps "did my change take effect?"
+always on screen (Round 7 ticket 07, spec D-C2.2/D-C2.3): one
+`subscribeToConverge()` subscription in `src/store/appStore.ts` (mounted
+once in App.tsx) owns the `AuthoritativeSnapshot` cadence — 5s polling in
+the foreground, backoff to 30s once ConvergePhase is `Converged` AND
+`lastApplyAt` is more than 60s old (a settled green world earns the slow
+heartbeat; a fresh apply stays watched closely), an immediate refresh on
+the existing G4 `sidecar-status` event, and a full pause while the
+document is hidden (visibility API). Every surface reads the same
+`convergeSnapshot` store field (header pill, rail dot) and the Rust tray
+mirrors the same phase edge-driven (repaint only on phase CHANGE):
+Converged silent / Drifted + PendingApply amber / ApplyFailed red until
+the next green apply / Unknown + NeverApplied grey. Display truth only —
+the loop writes nothing (ADR-0051; writes keep flowing through the
+Authoritative Write Entries).
+_Avoid_: per-view polling ownership (views may refresh, only the
+subscription owns cadence), webhook trigger (the loop rides polling +
+the G4 event), write path (a mirror never mutates config)
+
 ### Account Header Rule
 
 A Resin control-plane rule (round5 T16; R32-R35) that maps a URL prefix

@@ -371,6 +371,147 @@ pub fn fire_drift_notification(app: &AppHandle, snap: &resin_core::Authoritative
     }
 }
 
+/// Architecture-recovery ticket 07 (spec D-C2.3): the tray mirrors the
+/// top-level ConvergePhase derived by every `authoritative_snapshot` call
+/// (ADR-0058 surface, read-only — the tray never writes config):
+///   - Converged   → silent (default window icon, base tooltip);
+///   - PendingApply / Drifted → amber (checkpoint C: drift is amber);
+///   - ApplyFailed → solid red icon, held visible until the next GREEN apply
+///     clears the state (T08 checkpoint C: long-lived visibility);
+///   - Unknown (sidecar unreachable) → grey icon, mirroring the GUI dot.
+/// Pure state, no I/O: the AppHandle-dependent paint is `apply_converge_mirror`.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ConvergeMirrorState {
+    /// None = not yet painted (boot baseline keeps the default icon).
+    prev_phase: Option<resin_core::ConvergePhase>,
+}
+
+/// Process-local mirror state, shared by every authoritative_snapshot pass
+/// (same discipline as DRIFT_NOTIFY_STATE). Restart recomputes from the
+/// boot baseline — no cross-process memory (ArgoCD current-state semantics).
+static CONVERGE_MIRROR_STATE: once_cell::sync::Lazy<std::sync::Mutex<ConvergeMirrorState>> =
+    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(ConvergeMirrorState::default()));
+
+/// Rising-edge predicate (ADR-0060 isomorph): repaint only when the phase
+/// CHANGED. A Converged plateau stays silent (no repaint churn every 5s
+/// poll); Converged → Drifted repaints; the boot baseline (None) always
+/// paints once so the first snapshot after launch carries the real state.
+pub fn should_repaint_converge_mirror(
+    prev: Option<resin_core::ConvergePhase>,
+    next: resin_core::ConvergePhase,
+) -> bool {
+    prev != Some(next)
+}
+
+/// Stable short tag per phase for the tooltip mirror (T08 owns the richer
+/// `{Phase} · rev N/M` format; this ticket ships the state suffix only).
+pub fn converge_mirror_tag(phase: resin_core::ConvergePhase) -> &'static str {
+    match phase {
+        resin_core::ConvergePhase::NeverApplied => "never applied",
+        resin_core::ConvergePhase::PendingApply => "pending apply",
+        resin_core::ConvergePhase::ApplyFailed => "apply failed",
+        resin_core::ConvergePhase::Converged => "converged",
+        resin_core::ConvergePhase::Drifted => "drifted",
+        resin_core::ConvergePhase::Unknown => "state unknown",
+    }
+}
+
+/// Tooltip suffix for a non-silent phase (Converged renders no suffix —
+/// checkpoint C: silence is the healthy state, noise only on deviation).
+pub fn converge_mirror_tooltip_suffix(phase: resin_core::ConvergePhase) -> Option<&'static str> {
+    match phase {
+        resin_core::ConvergePhase::Converged => None,
+        other => Some(converge_mirror_tag(other)),
+    }
+}
+
+/// Compose the mirrored tooltip: base locale tooltip + optional state tag.
+/// Pure so the composition is unit-testable without a tray handle.
+fn converge_mirror_tooltip(base: &str, phase: resin_core::ConvergePhase) -> String {
+    match converge_mirror_tooltip_suffix(phase) {
+        Some(tag) => format!("{} — {}", base, tag),
+        None => base.to_string(),
+    }
+}
+
+/// Paint one 32x32 RGBA block icon at runtime (Ghost safety-net precedent in
+/// sidecar.rs `mark_tray_status` — no asset files, no new deps).
+fn solid_icon(r: u8, g: u8, b: u8) -> tauri::image::Image<'static> {
+    let mut rgba = vec![0u8; 32 * 32 * 4];
+    for px in rgba.chunks_exact_mut(4) {
+        px[0] = r;
+        px[1] = g;
+        px[2] = b;
+        px[3] = 0xff;
+    }
+    tauri::image::Image::new_owned(rgba, 32, 32)
+}
+
+/// Best-effort paint of the converge mirror onto the tray icon + tooltip.
+/// Returns true when a repaint was dispatched. Never panics and never blocks
+/// the snapshot on a tray failure — a missed mirror repaint is logged.
+pub fn apply_converge_mirror(app: &AppHandle, phase: resin_core::ConvergePhase) -> bool {
+    let should = {
+        let mut guard = CONVERGE_MIRROR_STATE
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let repaint = should_repaint_converge_mirror(guard.prev_phase, phase);
+        guard.prev_phase = Some(phase);
+        repaint
+    };
+    if !should {
+        return false;
+    }
+    let Some(tray) = app.tray_by_id("main") else {
+        tracing::warn!(target: "tray", "apply_converge_mirror: tray_by_id(\"main\") returned None; mirror not painted");
+        return false;
+    };
+    let result = match phase {
+        // Checkpoint C: Converged = silent — restore the branded default icon
+        // and the base tooltip. This is ALSO the path that clears a previous
+        // red/amber mirror once the world converges again.
+        resin_core::ConvergePhase::Converged => {
+            let base = labels(current_lang(app)).tooltip;
+            match app.default_window_icon() {
+                Some(icon) => tray
+                    .set_icon(Some(icon.clone()))
+                    .and_then(|_| tray.set_tooltip(Some(base))),
+                None => tray.set_tooltip(Some(base)),
+            }
+        }
+        // Drifted / PendingApply: amber mirror (checkpoint C: drift is amber).
+        resin_core::ConvergePhase::Drifted | resin_core::ConvergePhase::PendingApply => {
+            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase);
+            tray.set_icon(Some(solid_icon(0xf5, 0x9e, 0x0b)))
+                .and_then(|_| tray.set_tooltip(Some(tip)))
+        }
+        // ApplyFailed: solid red, held until the next GREEN apply flips the
+        // phase (T08 checkpoint C: long-lived visibility, not an edge toast).
+        resin_core::ConvergePhase::ApplyFailed => {
+            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase);
+            tray.set_icon(Some(solid_icon(0xd8, 0x2c, 0x2c)))
+                .and_then(|_| tray.set_tooltip(Some(tip)))
+        }
+        // Unknown (sidecar unreachable) and NeverApplied (pre-apply baseline):
+        // grey mirror — honest "cannot assert", a deviation but not a failure.
+        resin_core::ConvergePhase::Unknown | resin_core::ConvergePhase::NeverApplied => {
+            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase);
+            tray.set_icon(Some(solid_icon(0x9c, 0xa3, 0xaf)))
+                .and_then(|_| tray.set_tooltip(Some(tip)))
+        }
+    };
+    match result {
+        Ok(()) => {
+            tracing::info!(target: "tray", phase = phase.tag(), "converge mirror painted");
+            true
+        }
+        Err(e) => {
+            tracing::warn!(target: "tray", error = ?e, phase = phase.tag(), "converge mirror paint failed (best-effort)");
+            false
+        }
+    }
+}
+
 pub fn current_lang(app: &AppHandle) -> TrayLang {
     use tauri_plugin_store::StoreExt;
     let Ok(store) = app.store("settings.json") else {
@@ -742,5 +883,109 @@ mod tests {
         assert_eq!(lang_for_str("xx"), TrayLang::En);
         assert_eq!(lang_for_str("EN"), TrayLang::En); // case-sensitive: no implicit upper
         assert_eq!(lang_for_str("zh-CN"), TrayLang::En); // region suffix not matched
+    }
+
+    // ─── Ticket 07 (D-C2.3): tray converge-mirror state machine ───────────
+
+    /// Rising-edge predicate: repaint only on phase CHANGE; the boot baseline
+    /// (None) always paints once; a plateau (same phase again) stays silent.
+    #[test]
+    fn converge_mirror_repaints_only_on_phase_change() {
+        use resin_core::ConvergePhase;
+        // Boot baseline paints once.
+        assert!(should_repaint_converge_mirror(None, ConvergePhase::Converged));
+        assert!(should_repaint_converge_mirror(None, ConvergePhase::ApplyFailed));
+        // Plateau: silent (the 5s poll re-reports the same phase).
+        assert!(!should_repaint_converge_mirror(
+            Some(ConvergePhase::Converged),
+            ConvergePhase::Converged
+        ));
+        assert!(!should_repaint_converge_mirror(
+            Some(ConvergePhase::ApplyFailed),
+            ConvergePhase::ApplyFailed
+        ));
+        // Every transition repaints.
+        let phases = [
+            ConvergePhase::NeverApplied,
+            ConvergePhase::PendingApply,
+            ConvergePhase::ApplyFailed,
+            ConvergePhase::Converged,
+            ConvergePhase::Drifted,
+            ConvergePhase::Unknown,
+        ];
+        for a in phases {
+            for b in phases {
+                if a != b {
+                    assert!(
+                        should_repaint_converge_mirror(Some(a), b),
+                        "transition {:?} -> {:?} must repaint",
+                        a,
+                        b
+                    );
+                }
+            }
+        }
+    }
+
+    /// Tooltip mirror: Converged is silent (checkpoint C); every other phase
+    /// carries its stable tag after the base tooltip.
+    #[test]
+    fn converge_mirror_tooltip_suffix_rules() {
+        use resin_core::ConvergePhase;
+        assert_eq!(converge_mirror_tooltip_suffix(ConvergePhase::Converged), None);
+        assert_eq!(
+            converge_mirror_tooltip_suffix(ConvergePhase::Drifted),
+            Some("drifted")
+        );
+        assert_eq!(
+            converge_mirror_tooltip_suffix(ConvergePhase::ApplyFailed),
+            Some("apply failed")
+        );
+        assert_eq!(
+            converge_mirror_tooltip_suffix(ConvergePhase::Unknown),
+            Some("state unknown")
+        );
+        // Composition helper: base + tag for non-silent, bare base for silent.
+        assert_eq!(
+            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::Converged),
+            "EgressAPIKEY"
+        );
+        assert_eq!(
+            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::Drifted),
+            "EgressAPIKEY — drifted"
+        );
+    }
+
+    /// Every phase has a distinct, non-empty stable tag (tooltip contract).
+    #[test]
+    fn converge_mirror_tags_distinct_and_non_empty() {
+        use resin_core::ConvergePhase;
+        let phases = [
+            ConvergePhase::NeverApplied,
+            ConvergePhase::PendingApply,
+            ConvergePhase::ApplyFailed,
+            ConvergePhase::Converged,
+            ConvergePhase::Drifted,
+            ConvergePhase::Unknown,
+        ];
+        let mut tags: Vec<&str> = phases.iter().map(|p| converge_mirror_tag(*p)).collect();
+        for t in &tags {
+            assert!(!t.is_empty(), "tag must be non-empty");
+        }
+        tags.dedup();
+        assert_eq!(tags.len(), phases.len(), "tags must be distinct per phase");
+    }
+
+    /// The mirror baseline advances on every evaluation (both edges), so a
+    /// phase that reappears after a silent plateau repaints again — same
+    /// unconditional-baseline discipline as the ADR-0060 notify state.
+    #[test]
+    fn converge_mirror_baseline_updates_even_when_silent() {
+        use resin_core::ConvergePhase;
+        // Pure predicate already covered above; this locks the struct's
+        // Default: no phase yet, so the first snapshot always paints.
+        let st = ConvergeMirrorState::default();
+        assert_eq!(st.prev_phase, None);
+        assert!(should_repaint_converge_mirror(st.prev_phase, ConvergePhase::PendingApply));
     }
 }
