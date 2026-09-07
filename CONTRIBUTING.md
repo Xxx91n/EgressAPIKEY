@@ -64,6 +64,7 @@ These are enforced by reviewers and CI; full operating rules live in [AGENTS.md]
 
 - The repository carries a pull request template (`PULL_REQUEST_TEMPLATE.md`); complete its verification checklist before requesting review.
 - Link the issue the PR resolves (`Fixes #<issue>`).
+- Fill the `## Screenshots / Recordings` section in the template when the PR changes user-visible UI, layouts, or renders; write `N/A` with a one-line reason for backend, IPC, resin-core, docs, or scripts-only PRs.
 - Keep diffs reviewable; split unrelated changes into separate PRs.
 
 ## Contribution licensing

@@ -37,6 +37,7 @@ const LICENSE_VALUE = "GPL-3.0-or-later";
 // EN heading <-> CN heading, in mirror order. This table IS the lock.
 const SECTION_MAP = [
   ["What & why", "是什么与为什么"],
+  ["Architecture", "架构"],
   ["Download", "下载"],
   ["Features", "特性"],
   ["Screenshots", "截图"],
@@ -167,6 +168,39 @@ function diffDetail(side, got, want) {
     + orderNote;
 }
 
+
+// 7 (ticket 10). Sync-comment format on both homepages: first line must be
+// "<!-- synced-with: <counterpart> @ <40-hex sha> -->" (spec D-C3.2).
+const SYNC_RE = /^<!-- synced-with: (README\.md|README_CN\.md) @ ([0-9a-f]{40}) -->$/;
+for (const pair of [["README.md", en, "README_CN.md"], ["README_CN.md", cn, "README.md"]]) {
+  const first = pair[1].lines[0] || "";
+  const m = first.match(SYNC_RE);
+  record(
+    pair[0] + " commit-hash sync comment (format + counterpart)",
+    m !== null && m[1] === pair[2],
+    "first line " + JSON.stringify(first) + " does not match '<!-- synced-with: " + pair[2] + " @ <sha> -->'"
+  );
+}
+
+// 8 (ticket 10). Mirror coverage: assets/readme hero + architecture + 3 screenshot
+// slots must be referenced in BOTH homepages (same relative paths, D-C3.1/D-C3.2).
+const REQUIRED_ASSETS = [
+  "assets/readme/hero.svg",
+  "assets/readme/hero-dark.svg",
+  "assets/readme/architecture.svg",
+  "assets/readme/topology.png",
+  "assets/readme/platforms.png",
+  "assets/readme/effective-config.png",
+];
+for (const pair of [["README.md", en], ["README_CN.md", cn]]) {
+  const missing = REQUIRED_ASSETS.filter((a) => !pair[1].text.includes(a));
+  record(
+    pair[0] + " references all 6 readme assets (mirror coverage)",
+    missing.length === 0,
+    missing.length ? "missing: " + JSON.stringify(missing) : ""
+  );
+}
+
 // Report (style matches scripts/license-field-check.cjs).
 let failed = 0;
 for (const c of checks) {
@@ -181,4 +215,4 @@ if (failed > 0) {
   console.error("readme-lang-check: FAILED (" + failed + " error(s))");
   process.exit(1);
 }
-console.log("readme-lang-check: OK (" + checks.length + " checks - EN<->CN structure, License anchors, cross-links, D-05 tokens)");
+console.log("readme-lang-check: OK (" + checks.length + " checks - EN<->CN structure, License anchors, cross-links, D-05 tokens, sync comments, asset coverage)");

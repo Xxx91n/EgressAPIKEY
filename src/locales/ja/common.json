@@ -531,5 +531,30 @@
     "throughput": "リアルタイムスループット（送信）",
     "probeHistory": "プローブ履歴",
     "noData": "メトリクスデータなし"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ 適用済み rev {{rev}}",
+      "PendingApply": "⋯ 適用待ち rev {{rev}}",
+      "ApplyFailed": "✕ 失敗 rev {{rev}}",
+      "NeverApplied": "○ 未適用",
+      "Drifted": "↯ 乖離",
+      "Unknown": "? 不明"
+    },
+    "tooltip": {
+      "expectedRev": "Desired rev: {{rev}}",
+      "appliedRev": "Applied rev: {{rev}}",
+      "appliedAt": "最終適用時刻 {{time}}",
+      "error": "理由：{{reason}}",
+      "neverApplied": "この構成はまだ適用されていません",
+      "clickHint": "クリックで Effective Config を開く"
+    },
+    "sideRail": {
+      "PendingApply": "適用待ち",
+      "ApplyFailed": "適用失敗",
+      "NeverApplied": "未適用",
+      "Drifted": "実行状態が乖離",
+      "Unknown": "収束状態不明（Resin オフライン）"
+    }
   }
 }
