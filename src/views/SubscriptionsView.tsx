@@ -8,6 +8,7 @@ import {
   ipcPlatformCreateWithFields, ipcPortList, ipcPortBindPlatform,
   ipcAuthoritativeSnapshot,
   type SubscriptionSnapshotEntry, type StrategyConfig,
+  type SubscriptionPhaseRow,
 } from "../lib/ipc";
 import { translateError } from "../lib/i18n-error";
 import { loadSubOrder, saveSubOrder } from "../lib/settings";
@@ -48,6 +49,10 @@ export function SubscriptionsView() {
   const { t } = useTranslation();
   const localAdd = useAppStore((s) => s.addSubscription);
   const localSubs = useAppStore((s) => s.subscriptions);
+  // Round 7 T02 (D-C1.2): the establish-phase stream lives in the appStore;
+  // this view subscribes to it and feeds it from its own snapshot pull.
+  const setSubscriptionPhases = useAppStore((s) => s.setSubscriptionPhases);
+  const subscriptionPhases = useAppStore((s) => s.subscriptionPhases);
   const subFormDraft = useAppStore((s) => s.subFormDraft);
   const setSubFormDraft = useAppStore((s) => s.setSubFormDraft);
   const [name, setName] = useState(subFormDraft.name);
@@ -351,6 +356,9 @@ export function SubscriptionsView() {
         m.set(row.name, { consumed_by: row.consumed_by ?? [], resolvable: row.resolvable !== false });
       }
       setSubRows(m);
+      // Round 7 T02 (D-C1.2): mirror the establish-phase stream into the
+      // appStore (the snapshot is already in hand — zero new requests).
+      setSubscriptionPhases(snap.subscriptionPhases ?? []);
     } catch { /* outside Tauri / snapshot unavailable */ }
   }, []);
   useEffect(() => { void refreshSubRows(); }, [refreshSubRows, live.length]);
@@ -492,6 +500,11 @@ export function SubscriptionsView() {
   // zero deps and no image/dataTransfer ceremony.
   // We stash the source index + drag ref in refs (survive re-renders), a
   // hasDragged flag distinguishes a real drag from a click, and a window
+  // Round 7 T02 (D-C1.2): name -> establish-phase STATUS row lookup for
+  // the per-row chip. Absent row = Never (the state machine's identity).
+  const phaseRowMap = new Map<string, SubscriptionPhaseRow>();
+  for (const row of subscriptionPhases) phaseRowMap.set(row.name, row);
+
   // pointerup listener is registered once via useEffect so releasing the
   // mouse outside any row still finishes the drag cleanly.
   const dragSrc = useRef<number | null>(null);
@@ -769,6 +782,12 @@ export function SubscriptionsView() {
                       </span>
                     );
                   })()}
+                  {/* Round 7 T02 (D-C1.2): establish-phase chip — Never when the
+                      whitebox has no status row for this subscription yet. */}
+                  {(() => {
+                    const prow = phaseRowMap.get(s.name);
+                    return prow ? <SubscriptionPhaseChip row={prow} t={t} /> : <SubscriptionPhaseChip row={{ name: s.name, phase: "Never" }} t={t} />;
+                  })()}
                   {(() => {
                     const row = subRows.get(s.name);
                     if (row && row.consumed_by.length > 0) return null;
@@ -884,4 +903,51 @@ function SubscriptionRowHint({ s, t }: { s: SubscriptionSnapshotEntry; t: Return
       </div>
     </div>
   );
+}
+
+/// Round 7 T02 (D-C1.2): per-subscription establish-phase chip. Colour +
+/// copy follow the ConvergeChip tint system (EffectiveConfigView): green =
+/// converged, red = failed (+ reason tooltip), amber = in-flight, zinc =
+/// needs approval. The sub-step renders as a lowercase technical token
+/// (mono) — it names a pipeline beat, not a locale string.
+function SubscriptionPhaseChip({
+  row, t,
+}: {
+  row: SubscriptionPhaseRow;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const chip = "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium";
+  const common = { "data-testid": "sub-phase-chip-" + row.name, "data-phase": row.phase } as const;
+  const amber = chip + " bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400";
+  switch (row.phase) {
+    case "Converged":
+      return (
+        <span {...common} className={chip + " bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"}>
+          {t("subscription.phaseConverged")}
+        </span>
+      );
+    case "Failed":
+      return (
+        <span {...common} title={row.phase_error || undefined} className={chip + " bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"}>
+          {t("subscription.phaseFailed")}
+        </span>
+      );
+    case "Establishing":
+      return (
+        <span {...common} className={amber}>
+          {t("subscription.phaseEstablishing")}
+          {row.stage ? <span className="ml-1 font-mono lowercase text-[10px]">&middot; {row.stage}</span> : null}
+        </span>
+      );
+    case "Importing":
+      return <span {...common} className={amber}>{t("subscription.phaseImporting")}</span>;
+    case "NeedsApproval":
+      return (
+        <span {...common} className={chip + " bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"}>
+          {t("subscription.phaseNeedsApproval")}
+        </span>
+      );
+    default:
+      return <span {...common} className={amber}>{t("subscription.phaseNever")}</span>;
+  }
 }

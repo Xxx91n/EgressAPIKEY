@@ -333,7 +333,13 @@
     "importBound": "นำเข้าและเชื่อมต่อแพลตฟอร์ม {{platform}} (ผูก {{ports}} พอร์ต), โหนด {{count}}",
     "boundTo": "ผูกแล้ว: {{count}} แพลตฟอร์ม",
     "unbound": "ยังไม่ผูก",
-    "danglingRef": "การอ้างอิงขาด"
+    "danglingRef": "การอ้างอิงขาด",
+    "phaseNever": "ยังไม่ได้สร้าง",
+    "phaseImporting": "กำลังนำเข้า",
+    "phaseEstablishing": "กำลังสร้าง",
+    "phaseConverged": "สร้างแล้ว",
+    "phaseFailed": "ล้มเหลว",
+    "phaseNeedsApproval": "ต้องการการอนุมัติ"
   },
   "theme": {
     "label": "ธีม",
