@@ -6,6 +6,7 @@
 
 English | [简体中文](README_CN.md)
 
+> AI / automation agents: see [llms.txt](llms.txt) for a machine-readable map.
 > Formerly **ai-api-route** — renamed per [ADR-0013](docs/adr/0013-project-rename-egressapikey.md).
 
 ## What & why

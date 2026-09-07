@@ -6,6 +6,7 @@
 
 [English](README.md) | 简体中文
 
+> AI / automation agents：机器可读的仓库地图见 [llms.txt](llms.txt)。
 > 原名 **ai-api-route** —— 按 [ADR-0013](docs/adr/0013-project-rename-egressapikey.md) 改名。
 
 ## 是什么与为什么
