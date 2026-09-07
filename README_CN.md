@@ -1,3 +1,5 @@
+<!-- synced-with: README.md @ 01ab4bf9cb728279bf69e92e14e26bc1439b25b2 -->
+
 # EgressAPIKEY
 
 **面向 AI 网关与上游服务商的多端口 socks5/http 转发器 —— 为 AI API Key 提供粘性出口 IP 路由，并配有拓扑画布。**
@@ -8,12 +10,54 @@
 
 > 原名 **ai-api-route** —— 按 [ADR-0013](docs/adr/0013-project-rename-egressapikey.md) 改名。
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-dark.svg">
+    <img src="assets/readme/hero.svg" alt="EgressAPIKEY — sticky exit-IP routing for AI API keys" width="1200">
+  </picture>
+</p>
+
 ## 是什么与为什么
 
 EgressAPIKEY 是一款桌面应用（Tauri 2 + React 19），位于你的 AI 网关（OmniRoute / LiteLLM / CLIProxy）与上游 OpenAI 兼容 v1 服务商之间。它暴露多个 socks5/http 入口端口；每个端口即一个（平台，账户）身份对的标识，Resin Go 侧车保证每一对都拥有独立的粘性出口 IP —— 除非你明确允许，一个 AI API Key 绝不与其他 Key 共享出口 IP。
 
 单一统一代理无法为 HTTPS 上游携带按 Key 的身份（CONNECT 隧道对目的地不可见），因此多端口才是正确的身份机制（[ADR-0012](docs/adr/0012-route-correction-thin-shell-multi-port.md)）。壳侧后端核心是 `crates/resin-core`（Rust：tokio、reqwest、rusqlite）；代理引擎是 Resin 侧车 v1.2.0，仅通过环回 REST 接缝访问（构建期由 `scripts/fetch_resin.sh` 获取）。
 
+## 架构
+
+请求流向：AI 网关 → 入口端口 → resin-core → Resin 侧车 → 各自独立的粘性出口 IP。
+
+<p align="center">
+  <img src="assets/readme/architecture.svg" alt="架构：AI 网关到入口端口到 resin-core 到 Resin 侧车到出口节点" width="1200">
+</p>
+
+<details>
+<summary>Mermaid 源码（GitHub 原生渲染；上方 <code>assets/readme/architecture.svg</code> 由此渲染）</summary>
+
+```mermaid
+graph LR
+  subgraph GW["AI gateway (OmniRoute / LiteLLM / CLIProxy)"]
+    G["client requests"]
+  end
+  subgraph SHELL["EgressAPIKEY shell (Tauri 2 + resin-core)"]
+    EP["Entry ports<br/>:18000…:18049<br/>one per (platform, account)"]
+    RC["resin-core<br/>strategy · whitebox · ResinClient"]
+  end
+  subgraph SIDECAR["Resin sidecar (Go, loopback REST)"]
+    SG["sing-box egress engine"]
+  end
+  N1["Exit IP 1<br/>(platform A · account 1)"]
+  N2["Exit IP 2<br/>(platform A · account 2)"]
+  N3["Exit IP 3<br/>(platform B · account 1)"]
+  G --> EP
+  EP --> RC
+  RC -- "loopback REST seam" --> SG
+  SG --> N1
+  SG --> N2
+  SG --> N3
+```
+
+</details>
 ## 下载
 
 **桌面版** —— 安装包（MSI / NSIS / deb / AppImage / dmg）与每平台一个免安装、开箱即用的可执行文件发布在 [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) 页面。目前尚无 tagged release —— 产物将随首个 tagged release 一并发布。
@@ -43,10 +87,14 @@ Windows 下二进制为 `target\release\egressapikey-headless.exe`。部署布�
 
 ## 截图
 
-<!-- 占位：真实的拓扑画布 / 平台页截图是用户提供的资产，刻意不代生成。 -->
-<!-- 建议投放：全宽 PNG（<=1280px），拓扑画布一张、平台双栏一张。 -->
+<!-- 占位：以下三张截图是用户提供的资产，刻意不代生成（readme-crafter 规则）。 -->
+<!-- 投放：拿到真实 PNG（<=1280px）后，把每个注释块替换为 <img src="assets/readme/<名称>.png" width="1200">。 -->
 
-_截图待补 —— 此位预留。_
+<!-- SLOT topology: assets/readme/topology.png —— 拓扑画布（平台连线到出口节点）。 -->
+<!-- SLOT platforms: assets/readme/platforms.png —— 平台双栏（平台列表 + 账户）。 -->
+<!-- SLOT effective-config: assets/readme/effective-config.png —— Effective Config 视图与收敛阶段徽标。 -->
+
+_截图待补 —— 预留给真实截屏：拓扑画布、平台双栏、Effective Config 视图。_
 
 ## 快速开始（开发）
 

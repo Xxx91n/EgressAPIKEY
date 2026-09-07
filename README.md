@@ -1,3 +1,5 @@
+<!-- synced-with: README_CN.md @ 202e20b1da3903888d86c6664f9f5e1eb4029a4e -->
+
 # EgressAPIKEY
 
 **Multi-port socks5/http forwarder between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas.**
@@ -8,12 +10,54 @@ English | [简体中文](README_CN.md)
 
 > Formerly **ai-api-route** — renamed per [ADR-0013](docs/adr/0013-project-rename-egressapikey.md).
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-dark.svg">
+    <img src="assets/readme/hero.svg" alt="EgressAPIKEY — sticky exit-IP routing for AI API keys" width="1200">
+  </picture>
+</p>
+
 ## What & why
 
 EgressAPIKEY is a desktop application (Tauri 2 + React 19) that sits between your AI gateway (OmniRoute / LiteLLM / CLIProxy) and upstream OpenAI-compatible v1 providers. It exposes many socks5/http entry ports; each port is the identity of one (platform, account) pair, and a Resin Go sidecar — its binary pulled at build time from the upstream Release by scripts/fetch_resin.sh (resin/ on disk is a gitignored local reference clone, not part of the repo) — guarantees a distinct sticky exit IP per pair — one AI API key never shares an egress IP with another unless you decide it should.
 
 A single unified proxy cannot carry per-key identity for HTTPS upstreams (the CONNECT tunnel hides the destination), so multi-port is the correct identity mechanism ([ADR-0012](docs/adr/0012-route-correction-thin-shell-multi-port.md)). The shell backend core is `crates/resin-core` (Rust: tokio, reqwest, rusqlite); the proxy engine is the Resin sidecar v1.2.0, whose binary is pulled at build time from the upstream Release by [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh) — the `resin/` directory on disk is a gitignored local reference clone — and it is reachable only over a loopback REST seam.
 
+## Architecture
+
+Request flow: AI gateway → entry ports → resin-core → Resin sidecar → distinct sticky exit IPs.
+
+<p align="center">
+  <img src="assets/readme/architecture.svg" alt="Architecture: AI gateway to entry ports to resin-core to Resin sidecar to exit nodes" width="1200">
+</p>
+
+<details>
+<summary>Mermaid source (GitHub renders this natively; <code>assets/readme/architecture.svg</code> above is rendered from it)</summary>
+
+```mermaid
+graph LR
+  subgraph GW["AI gateway (OmniRoute / LiteLLM / CLIProxy)"]
+    G["client requests"]
+  end
+  subgraph SHELL["EgressAPIKEY shell (Tauri 2 + resin-core)"]
+    EP["Entry ports<br/>:18000…:18049<br/>one per (platform, account)"]
+    RC["resin-core<br/>strategy · whitebox · ResinClient"]
+  end
+  subgraph SIDECAR["Resin sidecar (Go, loopback REST)"]
+    SG["sing-box egress engine"]
+  end
+  N1["Exit IP 1<br/>(platform A · account 1)"]
+  N2["Exit IP 2<br/>(platform A · account 2)"]
+  N3["Exit IP 3<br/>(platform B · account 1)"]
+  G --> EP
+  EP --> RC
+  RC -- "loopback REST seam" --> SG
+  SG --> N1
+  SG --> N2
+  SG --> N3
+```
+
+</details>
 ## Download
 
 **Desktop** — installers (MSI / NSIS / deb / AppImage / dmg) and one portable, drop-and-run executable per OS are published on the [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) page. No tagged release yet — artifacts ship with the first tagged release.
@@ -43,10 +87,14 @@ On Windows the binary is `target\release\egressapikey-headless.exe`. Deployment 
 
 ## Screenshots
 
-<!-- PLACEHOLDER: real topology-canvas / platforms screenshots are user-provided assets, deliberately not fabricated. -->
-<!-- Suggested drop-in: full-width PNG (<=1280px), one for the topology canvas, one for the platforms dual-pane. -->
+<!-- PLACEHOLDER: the three screenshots below are user-provided assets, deliberately NOT fabricated (readme-crafter rule). -->
+<!-- Drop-in: replace each comment block with <img src="assets/readme/<name>.png" width="1200"> once the real PNG (<=1280px) is provided. -->
 
-_Screenshots pending — this slot is reserved._
+<!-- SLOT topology: assets/readme/topology.png — the topology canvas with platforms wired to exit nodes. -->
+<!-- SLOT platforms: assets/readme/platforms.png — the platforms dual-pane (platform list + accounts). -->
+<!-- SLOT effective-config: assets/readme/effective-config.png — the Effective Config view with the converge-phase chip. -->
+
+_Screenshots pending — reserved for real captures: topology canvas, platforms dual-pane, Effective Config view._
 
 ## Quick start (development)
 
