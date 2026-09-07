@@ -18,6 +18,7 @@
 //! - strategy: B-class StrategyId type (shell strategy vocabulary)
 //! - strategy_engine: A/B-class strategy evaluation (shell-side)
 //! - strategy_service: StrategyConfig pipeline owner (read/validate/store/apply/snapshot, ADR-0052)
+//! - subscription_pipeline: subscription -> platform -> apply establish cascade (Round 7 ticket 01, D-C1.1)
 //! - stream_sensor: AI stream (SSE/WS) classification
 //! - whitebox_config: egressapikey-ports.json whitebox store (ADR-0036)
 //!
@@ -38,6 +39,7 @@ pub mod snapshot;
 pub mod strategy;
 pub mod strategy_engine;
 pub mod strategy_service;
+pub mod subscription_pipeline;
 pub mod stream_sensor;
 pub mod throttle;
 pub mod whitebox_backup;
@@ -59,6 +61,9 @@ pub use snapshot::{
 pub use strategy_engine::{compute_plan, parse_nodes, StrategyConfig};
 pub use strategy_service::{
     endpoint_live_ports, FsStrategyStore, ReconcileMemory, ReconcilePortsOutcome, StrategyService,
+};
+pub use subscription_pipeline::{
+    EstablishEvent, PipelineReport, StepStatus, SubscriptionPipeline, MAX_ATTEMPTS, MAX_QUEUE,
 };
 pub use whitebox_backup::WhiteboxBackupEntry;
 pub use whitebox_config::{

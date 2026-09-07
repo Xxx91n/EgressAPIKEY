@@ -148,6 +148,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 - Free-form string identifiers (e.g. `authority`) passed to a bounded table or future registry MUST be length-capped (≤253 chars per DNS host) and reject NUL/control characters. The bounded table itself MUST enforce a capacity ceiling (e.g. 256 entries) so a hostile or buggy caller cannot grow memory unbounded. (The TdEwma table this rule was written for was deleted in ADR-0050; the rule stays as the template for any successor.)
 - Numeric inputs (`latency_ms`, etc.) that feed an EMA or accumulator MUST be capped to a plausible ceiling before entering the kernel (e.g. `LATENCY_CAP_MS = 24h`) so u64::MAX cannot poison the EMA.
 - Do NOT lock the whole `SharedGateway` across an await; commands lock for one short critical section and return. (Current commands are sync; if a future command is async, keep the same invariant.)
+- `subscription_add`'s optional `pipeline` parameter (Round 7 ticket 01) accepts exactly `"establish"` or `null`; any other value is rejected at the IPC layer (Rust) and at the TS wrapper before invoking. The parameter only opts the ALREADY-validated subscription import into the backend establish cascade — it never relaxes the name/url/update_interval validation above, and the pipeline queue is bounded (64 entries) with per-entry attempt caps (5) so repeated enqueues cannot grow memory or hammer Resin.
 
 ### 7.6. Sidecar SSRF guard + IPC surface discipline (Re8 audit)
 
