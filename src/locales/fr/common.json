@@ -333,7 +333,13 @@
     "importBound": "Importé et connecté à la plateforme {{platform}} ({{ports}} ports liés), {{count}} nœuds",
     "boundTo": "Lié : {{count}} plateforme(s)",
     "unbound": "Non lié",
-    "danglingRef": "Référence cassée"
+    "danglingRef": "Référence cassée",
+    "phaseNever": "Jamais établie",
+    "phaseImporting": "Importation",
+    "phaseEstablishing": "Établissement",
+    "phaseConverged": "Établie",
+    "phaseFailed": "Échec",
+    "phaseNeedsApproval": "Approbation requise"
   },
   "theme": {
     "label": "Thème",

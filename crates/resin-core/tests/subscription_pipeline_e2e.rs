@@ -138,6 +138,18 @@ async fn e2e_sub_then_platform_then_apply_in_wire_order() {
     // at the post-bump value). Ref present, no duplicate entry.
     let cfg = svc.get().unwrap();
     assert_eq!(cfg.generation, 2);
+    // Round 7 T02 (D-C1.2): the pass drove the phase state machine. The
+    // status write landed in the SAME store entry machinery but did NOT
+    // move the generation counter (asserted above — status ≠ spec).
+    assert_eq!(
+        cfg.subscriptions,
+        vec![resin_core::strategy_engine::SubscriptionStatus {
+            name: "e2e-sub".to_string(),
+            phase: resin_core::strategy_engine::SubscriptionPhase::Converged,
+            stage: None,
+            phase_error: None,
+        }]
+    );
     assert_eq!(cfg.platforms.len(), 1);
     assert!(cfg.platforms.iter().any(|ps| ps.platform_name == "e2e-sub"
         && ps.a_class == AClassStrategy::Subscription

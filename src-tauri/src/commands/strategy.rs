@@ -423,12 +423,22 @@ pub async fn authoritative_snapshot(
         unacknowledged_drift,
     );
 
+    // Round 7 T02 (D-C1.2): per-subscription establish-phase STATUS rows,
+    // projected straight from the strategy whitebox read at the top of this
+    // command — zero new requests, read-only surface (spec D-C2.6 discipline).
+    let subscription_phases = config
+        .subscriptions
+        .iter()
+        .map(resin_core::SubscriptionPhaseSnapshot::from_status)
+        .collect::<Vec<_>>();
+
     let snapshot = resin_core::AuthoritativeSnapshot {
         strategy_version: config.version,
         platforms,
         ports,
         routes,
         subscriptions,
+        subscription_phases,
         resin_reachable: reachable,
         // Ticket 12: generation instant of THIS snapshot; monotonic
         // non-decreasing across consecutive calls (wall clock).

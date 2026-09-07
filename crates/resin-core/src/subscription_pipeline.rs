@@ -400,29 +400,89 @@ pub async fn apply_strategy(
 
 /// One full pass of the five-step cascade for one subscription. Public so
 /// the integration test and the drain loop share one implementation.
+///
+/// Round 7 T02 (D-C1.2): the pass also DRIVES the persisted phase state
+/// machine — Importing while the data-landing beats run, Establishing with
+/// the platform/bind/apply sub-step while the whitebox beats run, Converged
+/// on an all-green pass, Failed(stage, reason) on the first failure. Every
+/// transition goes through `StrategyService::record_subscription_phase`
+/// (the ONE store entry — validated, versioned, audited; generation does
+/// NOT move, see the status-subresource note there). A FAILED phase write
+/// itself never fails the cascade: the pipeline report is the source of
+/// truth for the caller, the chip degrades to the last recorded phase
+/// (honest staleness beats a broken import).
 pub async fn run_pipeline(
     client: &ResinClient,
     svc: &StrategyService<crate::strategy_service::FsStrategyStore>,
     name: &str,
     url: &str,
 ) -> PipelineReport {
+    // The user's establish request is the trigger — the phase leaves Never.
+    let _ = svc.record_subscription_phase(name, SubscriptionPhase::Importing, None, None);
+
     let s1 = ensure_subscription(client, name, url).await;
     let s2 = if s1.is_failed() {
         StepStatus::Failed("upstream step failed".to_string())
     } else {
         resolve_subscription(client, name).await
     };
-    let (s3, s4) = if s2.is_failed() {
-        (StepStatus::Failed("upstream step failed".to_string()), StepStatus::Failed("upstream step failed".to_string()))
+    if s1.is_failed() || s2.is_failed() {
+        // Data-landing failure: the phase parks on Failed with the sub-step
+        // that produced it (Import/Resolve; steps after a failure are
+        // skipped, so the FIRST failed step is the stage).
+        let (stage, reason) = failed_stage(EstablishStep::Import, &[&s1, &s2]);
+        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Failed, Some(stage), Some(reason));
+        return PipelineReport {
+            subscription: name.to_string(),
+            steps: [s1, s2, StepStatus::Failed("upstream step failed".to_string()), StepStatus::Failed("upstream step failed".to_string()), StepStatus::Failed("upstream step failed".to_string())],
+        };
+    }
+
+    let _ = svc.record_subscription_phase(name, SubscriptionPhase::Establishing, Some(EstablishStep::Platform), None);
+    let (s3, s4) = ensure_platform(client, svc, name).await;
+    if s3.is_failed() || s4.is_failed() {
+        let (stage, reason) = failed_stage(EstablishStep::Platform, &[&s3, &s4]);
+        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Failed, Some(stage), Some(reason));
+        return PipelineReport {
+            subscription: name.to_string(),
+            steps: [s1, s2, s3, s4, StepStatus::Failed("upstream step failed".to_string())],
+        };
+    }
+
+    let _ = svc.record_subscription_phase(name, SubscriptionPhase::Establishing, Some(EstablishStep::Apply), None);
+    let s5 = apply_strategy(client, svc).await;
+    if let StepStatus::Failed(reason) = &s5 {
+        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Failed, Some(EstablishStep::Apply), Some(reason.clone()));
     } else {
-        ensure_platform(client, svc, name).await
-    };
-    let s5 = if s3.is_failed() || s4.is_failed() {
-        StepStatus::Failed("upstream step failed".to_string())
-    } else {
-        apply_strategy(client, svc).await
-    };
+        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Converged, None, None);
+    }
     PipelineReport { subscription: name.to_string(), steps: [s1, s2, s3, s4, s5] }
+}
+
+/// First failure in an ordered step run: its stage tag + KEP-1623-style
+/// reason (the reason the failed step itself recorded). A run where every
+/// step somehow reports failure without a Failed variant cannot happen —
+/// the caller only invokes this when at least one step IS Failed.
+fn failed_stage(base: EstablishStep, steps: &[&StepStatus]) -> (EstablishStep, String) {
+    // Canonical beat order; the base stage anchors the caller's section and
+    // each position past it advances one beat (T03 inserts Port between Bind
+    // and Apply — the order already carries the slot).
+    const ORDER: [EstablishStep; 6] = [
+        EstablishStep::Import,
+        EstablishStep::Resolve,
+        EstablishStep::Platform,
+        EstablishStep::Bind,
+        EstablishStep::Port,
+        EstablishStep::Apply,
+    ];
+    let base_idx = ORDER.iter().position(|s| *s == base).unwrap_or(0);
+    for (idx, step) in steps.iter().enumerate() {
+        if let StepStatus::Failed(reason) = step {
+            let stage = ORDER[(base_idx + idx).min(ORDER.len() - 1)];
+            return (stage, reason.clone());
+        }
+    }
+    (base, "cascade failed".to_string())
 }
 
 /// Terminal criterion (spec D-C1.1) as a PURE function: consumed_by non-empty
@@ -489,6 +549,33 @@ mod tests {
         assert!(is_terminal_state(&consumer, false, ConvergePhase::Drifted, true));
         // Drifted with UNacknowledged drift -> not terminal
         assert!(!is_terminal_state(&consumer, false, ConvergePhase::Drifted, false));
+    }
+
+    #[test]
+    fn failed_stage_maps_first_failure_to_section_beat() {
+        let ok = StepStatus::Written;
+        // Data-landing section: first failure = Import beat, second = Resolve.
+        let f_import = StepStatus::Failed("create: 500".to_string());
+        let f_resolve = StepStatus::Failed("resolve: nodes empty".to_string());
+        let (stage, reason) = failed_stage(EstablishStep::Import, &[&f_import, &f_resolve]);
+        assert_eq!(stage, EstablishStep::Import);
+        assert_eq!(reason, "create: 500");
+        let (stage, reason) = failed_stage(EstablishStep::Import, &[&ok, &f_resolve]);
+        assert_eq!(stage, EstablishStep::Resolve);
+        assert_eq!(reason, "resolve: nodes empty");
+        // Whitebox section: platform beat then bind beat.
+        let f_platform = StepStatus::Failed("create platform: 409".to_string());
+        let (stage, reason) = failed_stage(EstablishStep::Platform, &[&f_platform, &StepStatus::Failed("x".into())]);
+        assert_eq!(stage, EstablishStep::Platform);
+        assert_eq!(reason, "create platform: 409");
+        let (stage, reason) = failed_stage(EstablishStep::Platform, &[&ok, &StepStatus::Failed("bind: 500".into())]);
+        assert_eq!(stage, EstablishStep::Bind);
+        assert_eq!(reason, "bind: 500");
+        // Apply section: single beat.
+        let f_apply = StepStatus::Failed("strategy apply: PATCH 500".to_string());
+        let (stage, reason) = failed_stage(EstablishStep::Apply, &[&f_apply]);
+        assert_eq!(stage, EstablishStep::Apply);
+        assert_eq!(reason, "strategy apply: PATCH 500");
     }
 
     // ---- queue mechanics (level-triggered + bounded) ----
