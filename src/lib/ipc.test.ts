@@ -75,10 +75,21 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  it("subscription_add forwards name + url to the backend", async () => {
+  it("subscription_add forwards name + url to the backend (pipeline null by default)", async () => {
     invokeMock.mockResolvedValue(undefined);
     await ipcSubscriptionAdd("n", "https://x.invalid/sub");
-    expect(invokeMock).toHaveBeenCalledWith("subscription_add", expect.objectContaining({ name: "n", url: "https://x.invalid/sub" }));
+    expect(invokeMock).toHaveBeenCalledWith("subscription_add", expect.objectContaining({ name: "n", url: "https://x.invalid/sub", pipeline: null }));
+  });
+
+  it("subscription_add forwards pipeline=establish when requested (round7 T01)", async () => {
+    invokeMock.mockResolvedValue(undefined);
+    await ipcSubscriptionAdd("n", "https://x.invalid/sub", undefined, "establish");
+    expect(invokeMock).toHaveBeenCalledWith("subscription_add", expect.objectContaining({ pipeline: "establish" }));
+  });
+
+  it("subscription_add rejects a pipeline value other than establish", async () => {
+    await expect(ipcSubscriptionAdd("n", "https://x.invalid/sub", undefined, "auto" as never)).rejects.toThrow(/establish/);
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it("subscription_remove forwards the name", async () => {

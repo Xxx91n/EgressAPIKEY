@@ -71,6 +71,7 @@ fn main() {
                 .build(),
         )
         .manage(registry)
+        .manage(commands::SubscriptionPipelineState::default())
         .manage(LightweightController::default())
         // Closing the main window hides to tray instead of quitting the app
         // (problem 5). The tray "Quit" item is the real exit path; the tray
