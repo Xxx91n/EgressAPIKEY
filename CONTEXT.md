@@ -318,6 +318,25 @@ never be silent (R-A Q2 patch 4).
 _Avoid_: orphan subscription, dead import (nothing died — it was never
 wired)
 
+### Cascade Phase
+
+The establish cascade a subscription walks after an import that asked for
+it (Round 7 ticket 01, `subscription_add pipeline=establish`):
+**create_subscription** (skip when the name is already on Resin) ->
+**resolve** (node_count > 0 — Resin's own fetcher landed the nodes) ->
+**establish platform** (the whitebox gains an a_class=subscription entry
+named after the sub through the Service store entry, then the Resin row
+is created when missing, ADR-0056) -> **strategy_config_put** (fused into
+the same store entry as the previous beat) -> **strategy_apply**
+(diff-then-skip, ADR-0057; generation write-back, ADR-0058). Level-
+triggered and idempotent per step: a re-run over a converged world emits
+zero writes. Terminal = consumed_by non-empty AND the target platform not
+missing on Resin AND ConvergePhase in {Converged, Drifted(acknowledged)}.
+A failed step is persistent state (backoff retries, then parked) — never
+a silent auto-heal (ADR-0054).
+_Avoid_: callback cascade (nothing chained by callbacks — one reconciler
+drains a queue), auto-establish (the user's import opt-in IS the trigger)
+
 ### Generation
 
 The whitebox write-authority counter (round5 T09 / ADR-0058, k8s
