@@ -531,5 +531,30 @@
     "throughput": "Echtzeit-Durchsatz (Ausgang)",
     "probeHistory": "Probe-Verlauf",
     "noData": "Keine Metrikdaten"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ wirksam rev {{rev}}",
+      "PendingApply": "⋯ ausstehend rev {{rev}}",
+      "ApplyFailed": "✕ fehler rev {{rev}}",
+      "NeverApplied": "○ nie",
+      "Drifted": "↯ abweichung",
+      "Unknown": "? unbekannt"
+    },
+    "tooltip": {
+      "expectedRev": "Soll-Revision: {{rev}}",
+      "appliedRev": "Angewendete Revision: {{rev}}",
+      "appliedAt": "Zuletzt angewendet um {{time}}",
+      "error": "Grund: {{reason}}",
+      "neverApplied": "Auf diese Konfiguration wurde noch nie angewendet",
+      "clickHint": "Klicken, um Effective Config zu öffnen"
+    },
+    "sideRail": {
+      "PendingApply": "Apply ausstehend",
+      "ApplyFailed": "Apply fehlgeschlagen",
+      "NeverApplied": "Nie angewendet",
+      "Drifted": "Live-State abweichend",
+      "Unknown": "Konvergenz unbekannt (Resin offline)"
+    }
   }
 }
