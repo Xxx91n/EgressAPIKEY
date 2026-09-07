@@ -531,5 +531,30 @@
     "throughput": "Throughput realtime (keluar)",
     "probeHistory": "Riwayat probe",
     "noData": "Tidak ada data metrik"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ efektif rev {{rev}}",
+      "PendingApply": "⋯ tertunda rev {{rev}}",
+      "ApplyFailed": "✕ gagal rev {{rev}}",
+      "NeverApplied": "○ belum pernah",
+      "Drifted": "↯ menyimpang",
+      "Unknown": "? tidak diketahui"
+    },
+    "tooltip": {
+      "expectedRev": "Desired rev: {{rev}}",
+      "appliedRev": "Applied rev: {{rev}}",
+      "appliedAt": "Penerapan terakhir pukul {{time}}",
+      "error": "Alasan: {{reason}}",
+      "neverApplied": "Konfigurasi ini belum pernah diterapkan",
+      "clickHint": "Klik untuk membuka Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "Penerapan tertunda",
+      "ApplyFailed": "Penerapan gagal",
+      "NeverApplied": "Belum pernah diterapkan",
+      "Drifted": "Status live menyimpang",
+      "Unknown": "Konvergensi tidak diketahui (Resin offline)"
+    }
   }
 }

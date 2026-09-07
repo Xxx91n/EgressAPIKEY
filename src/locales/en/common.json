@@ -531,5 +531,30 @@
     "throughput": "Realtime throughput (egress)",
     "probeHistory": "Probe history",
     "noData": "No metrics data"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ rev {{rev}}",
+      "PendingApply": "⋯ rev {{rev}}",
+      "ApplyFailed": "✕ rev {{rev}}",
+      "NeverApplied": "○ never",
+      "Drifted": "↯ drifted",
+      "Unknown": "? unknown"
+    },
+    "tooltip": {
+      "expectedRev": "Desired rev: {{rev}}",
+      "appliedRev": "Applied rev: {{rev}}",
+      "appliedAt": "Last applied at {{time}}",
+      "error": "Reason: {{reason}}",
+      "neverApplied": "Apply has never run on this configuration",
+      "clickHint": "Click to open Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "Apply pending",
+      "ApplyFailed": "Apply failed",
+      "NeverApplied": "Never applied",
+      "Drifted": "Live state drifted",
+      "Unknown": "Convergence unknown (Resin down)"
+    }
   }
 }

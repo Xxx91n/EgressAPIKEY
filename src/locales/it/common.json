@@ -531,5 +531,30 @@
     "throughput": "Throughput in tempo reale (in uscita)",
     "probeHistory": "Cronologia sonde",
     "noData": "Nessun dato metrico"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ effettivo rev {{rev}}",
+      "PendingApply": "⋯ in attesa rev {{rev}}",
+      "ApplyFailed": "✕ errore rev {{rev}}",
+      "NeverApplied": "○ mai",
+      "Drifted": "↯ divergente",
+      "Unknown": "? sconosciuto"
+    },
+    "tooltip": {
+      "expectedRev": "Revisione desiderata: {{rev}}",
+      "appliedRev": "Revisione applicata: {{rev}}",
+      "appliedAt": "Ultima applicazione alle {{time}}",
+      "error": "Motivo: {{reason}}",
+      "neverApplied": "Questa configurazione non è mai stata applicata",
+      "clickHint": "Clicca per aprire Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "Applicazione in attesa",
+      "ApplyFailed": "Applicazione non riuscita",
+      "NeverApplied": "Mai applicato",
+      "Drifted": "Stato live divergente",
+      "Unknown": "Convergenza sconosciuta (Resin offline)"
+    }
   }
 }

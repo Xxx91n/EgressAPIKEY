@@ -531,5 +531,30 @@
     "throughput": "실시간 처리량(송신)",
     "probeHistory": "프로브 기록",
     "noData": "메트릭 데이터 없음"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ 적용됨 rev {{rev}}",
+      "PendingApply": "⋯ 대기 rev {{rev}}",
+      "ApplyFailed": "✕ 실패 rev {{rev}}",
+      "NeverApplied": "○ 미적용",
+      "Drifted": "↯ 불일치",
+      "Unknown": "? 알수없음"
+    },
+    "tooltip": {
+      "expectedRev": "Desired rev: {{rev}}",
+      "appliedRev": "Applied rev: {{rev}}",
+      "appliedAt": "최근 적용 시각 {{time}}",
+      "error": "사유: {{reason}}",
+      "neverApplied": "이 구성은 아직 적용된 적이 없습니다",
+      "clickHint": "클릭하여 Effective Config 열기"
+    },
+    "sideRail": {
+      "PendingApply": "적용 대기",
+      "ApplyFailed": "적용 실패",
+      "NeverApplied": "적용된 적 없음",
+      "Drifted": "라이브 상태 불일치",
+      "Unknown": "수렴 상태 알 수 없음 (Resin 오프라인)"
+    }
   }
 }
