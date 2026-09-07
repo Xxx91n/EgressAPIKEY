@@ -71,24 +71,11 @@ pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapp
 /// probes each candidate with TcpListener::bind, returns first available.
 #[tauri::command]
 pub async fn port_suggest(db: State<'_, DbPool>) -> Result<u16, IpcError> {
-    let used: std::collections::HashSet<u16> = db
-        .list_ports()
-        .map_err(IpcError::from)?
-        .into_iter()
-        .map(|m| m.port)
-        .collect();
-    for candidate in 17990u16..=65535u16 {
-        if used.contains(&candidate) { continue; }
-        if std::net::TcpListener::bind(("127.0.0.1", candidate)).is_ok() {
-            return Ok(candidate);
-        }
-    }
-    // Fallback: OS-assigned free port (port 0)
-    Ok(std::net::TcpListener::bind("127.0.0.1:0")
-        .map_err(|e| IpcError::from(format!("port_suggest: no free port: {e}")))?
-        .local_addr()
-        .map_err(|e| IpcError::from(format!("port_suggest: no local addr: {e}")))?
-        .port())
+    // Ticket 03: the ADR-0031 algorithm now lives in resin-core so the
+    // establish cascade's default-port tail and this command suggest
+    // identically (one implementation, not two).
+    resin_core::subscription_pipeline::suggest_free_entry_port(&db)
+        .map_err(IpcError::from)
 }
 
 /// Upsert one entry-port via the whitebox config transaction

@@ -307,10 +307,14 @@ pub async fn delete_account_header_rule(
 pub async fn subscription_add(
     sidecar: State<'_, SidecarHandle>,
     app: AppHandle,
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     name: String,
     url: String,
     update_interval: Option<String>,
     pipeline: Option<String>,
+    default_port: Option<u16>,
 ) -> Result<(), IpcError> {
     validate_short_name(&name, "subscription")?;
     if url.trim().is_empty() {
@@ -330,6 +334,19 @@ pub async fn subscription_add(
     let update_interval = update_interval.unwrap_or_else(|| "30s".to_string());
     if update_interval.len() > 10 || update_interval.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
         return Err(IpcError::from("update_interval: invalid (max 10 chars, no control)".to_string()));
+    }
+    // Ticket 03 (D-C1.3): the user's explicit binding target for the
+    // cascade's optional default-port tail. Provided -> the suggest probe is
+    // skipped. §7.5 numeric boundary: reject privileged ports here so a
+    // hostile caller cannot burn the pipeline's retry budget on a
+    // deterministic rejection.
+    if let Some(dp) = default_port {
+        if dp < resin_core::MIN_USER_PORT {
+            return Err(IpcError::from(format!(
+                "default_port {dp} is privileged (< {})",
+                resin_core::MIN_USER_PORT
+            )));
+        }
     }
     let client = resin_client(&sidecar)?;
 
@@ -367,10 +384,31 @@ pub async fn subscription_add(
                     subscription: name.clone(),
                     url: url.clone(),
                 }) {
-                    let _reports = pipeline_state
+                    let reports = pipeline_state
                         .0
                         .drain(&client, &svc, resin_core::whitebox_backup::now_unix())
                         .await;
+                    // Ticket 03 (D-C1.3): the cascade's OPTIONAL default-port
+                    // tail — only after a GREEN establish pass, and only when
+                    // the user did not provide a binding target. Conflicts
+                    // (already-bound platform, taken port, foreign Resin
+                    // listener) are warnings inside the step itself; the
+                    // import result stays Ok either way.
+                    // Scope the tail to THIS call's subscription: a drain
+                    // may also re-run other queued events, whose tail runs at
+                    // their own subscription_add (level-triggered per call).
+                    if reports.iter().any(|r| r.subscription == name && r.all_ok()) {
+                        let port_status = resin_core::subscription_pipeline::ensure_default_port(
+                            &client,
+                            &db,
+                            &forwarder,
+                            &whitebox,
+                            &name,
+                            default_port,
+                        )
+                        .await;
+                        tracing::info!(subscription = %name, ?port_status, "subscription_add: default-port tail settled");
+                    }
                 }
             }
             Ok(())

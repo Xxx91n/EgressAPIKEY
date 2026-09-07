@@ -327,6 +327,7 @@ export async function ipcSubscriptionAdd(
   url: string,
   updateInterval?: string,
   pipeline?: "establish",
+  defaultPort?: number,
 ): Promise<void> {
   assertShortName(name, "subscription");
   if (!url || url.length > 4096) throw new Error("subscription url invalid");
@@ -334,7 +335,17 @@ export async function ipcSubscriptionAdd(
   if (pipeline !== undefined && pipeline !== "establish") {
     throw new Error("pipeline must be \"establish\" when provided");
   }
-  await invoke("subscription_add", { name, url, updateInterval: updateInterval ?? null, pipeline: pipeline ?? null });
+  // Round 7 ticket 03 (D-C1.3): optional explicit binding target for the
+  // cascade's default-port tail. Provided => the backend skips the suggest
+  // probe; same range discipline as the port wrappers (§7.5 mirrored).
+  if (defaultPort !== undefined) assertPort(defaultPort);
+  await invoke("subscription_add", {
+    name,
+    url,
+    updateInterval: updateInterval ?? null,
+    pipeline: pipeline ?? null,
+    defaultPort: defaultPort ?? null,
+  });
 }
 
 export async function ipcSubscriptionRemove(name: string): Promise<boolean> {
