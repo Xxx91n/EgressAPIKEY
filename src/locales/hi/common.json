@@ -531,5 +531,30 @@
     "throughput": "रीयलटाइम थ्रूपुट (आउटगोइंग)",
     "probeHistory": "प्रोब इतिहास",
     "noData": "कोई मेट्रिक डेटा नहीं"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ लागू rev {{rev}}",
+      "PendingApply": "⋯ लंबित rev {{rev}}",
+      "ApplyFailed": "✕ विफल rev {{rev}}",
+      "NeverApplied": "○ कभी नहीं",
+      "Drifted": "↯ भिन्न",
+      "Unknown": "? अज्ञात"
+    },
+    "tooltip": {
+      "expectedRev": "Desired rev: {{rev}}",
+      "appliedRev": "Applied rev: {{rev}}",
+      "appliedAt": "अंतिम लागू समय {{time}}",
+      "error": "कारण: {{reason}}",
+      "neverApplied": "इस कॉन्फ़िगरेशन पर कभी apply नहीं चला",
+      "clickHint": "Effective Config खोलने के लिए क्लिक करें"
+    },
+    "sideRail": {
+      "PendingApply": "लागू होना बाकी",
+      "ApplyFailed": "लागू करने में विफल",
+      "NeverApplied": "कभी लागू नहीं",
+      "Drifted": "लाइव स्थिति भिन्न",
+      "Unknown": "अभिसरण अज्ञात (Resin ऑफ़लाइन)"
+    }
   }
 }

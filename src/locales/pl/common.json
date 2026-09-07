@@ -531,5 +531,30 @@
     "throughput": "Przepustowość w czasie rzeczywistym (wyjściowa)",
     "probeHistory": "Historia sond",
     "noData": "Brak danych metryk"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ zastosowane rev {{rev}}",
+      "PendingApply": "⋯ oczekuje rev {{rev}}",
+      "ApplyFailed": "✕ błąd rev {{rev}}",
+      "NeverApplied": "○ nigdy",
+      "Drifted": "↯ rozbieżność",
+      "Unknown": "? nieznane"
+    },
+    "tooltip": {
+      "expectedRev": "Pożądana rewizja: {{rev}}",
+      "appliedRev": "Zastosowana rewizja: {{rev}}",
+      "appliedAt": "Ostatnio zastosowano o {{time}}",
+      "error": "Powód: {{reason}}",
+      "neverApplied": "Ta konfiguracja nigdy nie została zastosowana",
+      "clickHint": "Kliknij, aby otworzyć Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "Oczekuje na zastosowanie",
+      "ApplyFailed": "Zastosowanie nieudane",
+      "NeverApplied": "Nigdy nie zastosowano",
+      "Drifted": "Stan live rozbieżny",
+      "Unknown": "Zbieżność nieznana (Resin offline)"
+    }
   }
 }

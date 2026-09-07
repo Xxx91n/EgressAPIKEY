@@ -531,5 +531,30 @@
     "throughput": "الإنتاجية الفورية (الصادر)",
     "probeHistory": "سجل الفحوصات",
     "noData": "لا توجد بيانات مقاييس"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ سارٍ rev {{rev}}",
+      "PendingApply": "⋯ بانتظار rev {{rev}}",
+      "ApplyFailed": "✕ فشل rev {{rev}}",
+      "NeverApplied": "○ لم يُطبَّق",
+      "Drifted": "↯ منحرفة",
+      "Unknown": "? غير معروف"
+    },
+    "tooltip": {
+      "expectedRev": "Desired rev: {{rev}}",
+      "appliedRev": "Applied rev: {{rev}}",
+      "appliedAt": "آخر تطبيق في {{time}}",
+      "error": "السبب: {{reason}}",
+      "neverApplied": "لم يُطبَّق هذا التشكيل قط",
+      "clickHint": "انقر لفتح Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "بانتظار التطبيق",
+      "ApplyFailed": "فشل التطبيق",
+      "NeverApplied": "لم يُطبَّق قط",
+      "Drifted": "الحالة الحية منحرفة",
+      "Unknown": "التقارب غير معروف (Resin غير متصل)"
+    }
   }
 }

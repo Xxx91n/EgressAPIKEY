@@ -531,5 +531,30 @@
     "throughput": "Пропускная способность (исходящая)",
     "probeHistory": "История проб",
     "noData": "Нет данных метрик"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ применено rev {{rev}}",
+      "PendingApply": "⋯ ожидает rev {{rev}}",
+      "ApplyFailed": "✕ ошибка rev {{rev}}",
+      "NeverApplied": "○ никогда",
+      "Drifted": "↯ расхождение",
+      "Unknown": "? неизвестно"
+    },
+    "tooltip": {
+      "expectedRev": "Желаемая rev: {{rev}}",
+      "appliedRev": "Применённая rev: {{rev}}",
+      "appliedAt": "Последнее применение в {{time}}",
+      "error": "Причина: {{reason}}",
+      "neverApplied": "К этой конфигурации ещё не применялось",
+      "clickHint": "Нажмите, чтобы открыть Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "Ожидает применения",
+      "ApplyFailed": "Ошибка применения",
+      "NeverApplied": "Никогда не применялось",
+      "Drifted": "Живое состояние разошлось",
+      "Unknown": "Сходимость неизвестна (Resin недоступен)"
+    }
   }
 }

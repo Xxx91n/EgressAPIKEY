@@ -531,5 +531,30 @@
     "throughput": "Débit temps réel (sortant)",
     "probeHistory": "Historique des sondes",
     "noData": "Aucune donnée de métriques"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ effectif rév {{rev}}",
+      "PendingApply": "⋯ en attente rév {{rev}}",
+      "ApplyFailed": "✕ échec rév {{rev}}",
+      "NeverApplied": "○ jamais",
+      "Drifted": "↯ divergé",
+      "Unknown": "? inconnu"
+    },
+    "tooltip": {
+      "expectedRev": "Révision souhaitée : {{rev}}",
+      "appliedRev": "Révision appliquée : {{rev}}",
+      "appliedAt": "Dernière application à {{time}}",
+      "error": "Raison : {{reason}}",
+      "neverApplied": "Aucune application n'a encore eu lieu sur cette configuration",
+      "clickHint": "Cliquer pour ouvrir Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "Application en attente",
+      "ApplyFailed": "Échec d'application",
+      "NeverApplied": "Jamais appliqué",
+      "Drifted": "État live divergent",
+      "Unknown": "Convergence inconnue (Resin hors ligne)"
+    }
   }
 }
