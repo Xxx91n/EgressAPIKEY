@@ -19,7 +19,7 @@ import { LogPanel } from "./components/LogPanel";
 // App.tsx — see snapshot fetch useEffect below.
 import { TopConvergeStatus } from "./components/TopConvergeStatus";
 import { SideRailConvergeDot } from "./components/SideRailConvergeDot";
-import { ipcAuthoritativeSnapshot, type AuthoritativeSnapshot, type ConvergePhase } from "./lib/ipc";
+import { type ConvergePhase } from "./lib/ipc";
 import { loadLocale, loadTheme, loadView } from "./lib/settings";
 
 
@@ -124,10 +124,14 @@ export default function App() {
   // the persisted view and setView() swaps it — the user sees a topology flash.
   // Hold a minimal loader until the persisted view has been read.
   const [bootstrapped, setBootstrapped] = useState(false);
-  // Architecture-recovery ticket 06 (D-C2.1, checkpoint A): one snapshot
-  // owned here, passed down to TopConvergeStatus (header pill) and
-  // SideRailConvergeDot (rail dot). The children never reach for IPC.
-  const [snap, setSnap] = useState<AuthoritativeSnapshot | null>(null);
+  // Architecture-recovery ticket 06 (D-C2.1, checkpoint A): one snapshot,
+  // passed down to TopConvergeStatus (header pill) and SideRailConvergeDot
+  // (rail dot). The children never reach for IPC. Ticket 07 (D-C2.2): the
+  // snapshot is owned by the appStore global converge subscription — the
+  // poll cadence, sidecar-status boost, and visibility pause live there.
+  const snap = useAppStore((s) => s.convergeSnapshot);
+  const refreshConvergeSnapshot = useAppStore((s) => s.refreshConvergeSnapshot);
+  const subscribeToConverge = useAppStore((s) => s.subscribeToConverge);
 
   // Bootstrap persisted prefs once on mount (no-op outside Tauri/vitest).
   useEffect(() => {
@@ -154,23 +158,18 @@ export default function App() {
     return () => { cancelled = true; };
   }, [setLocale, setTheme, setView, i18n]);
 
-  // Ticket 06: re-pull the snapshot whenever the user navigates (the existing
-  // EffectiveConfigView also does its own fetch — the two paths converge on
-  // the same IPC and the same authoritative snapshot). No persistent polling:
-  // T07 owns the global poll cadence.
+  // Ticket 06/07: refresh immediately on navigation (the existing
+  // EffectiveConfigView also does its own fetch — every path converges on
+  // the same IPC and the same authoritative snapshot); the global poll
+  // cadence in the appStore subscription keeps it fresh afterwards.
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const next = await ipcAuthoritativeSnapshot();
-        if (!cancelled) setSnap(next);
-      } catch {
-        // Honour the existing "no snapshot yet => no chip" contract: a fetch
-        // failure degrades to no pill rather than a misleading Unknown pill.
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [view]);
+    void refreshConvergeSnapshot();
+  }, [view, refreshConvergeSnapshot]);
+
+  // Ticket 07 (D-C2.2): global converge subscription — 5s foreground polling
+  // (30s once Converged settles >60s), immediate refresh on sidecar-status
+  // events (the existing G4 retarget channel), paused while hidden.
+  useEffect(() => subscribeToConverge(), [subscribeToConverge]);
 
   if (!bootstrapped) {
     return (

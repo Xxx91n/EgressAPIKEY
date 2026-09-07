@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { saveView } from "../lib/settings";
+// Round 7 T02 (D-C1.2): type-only import — erased at build, no runtime cycle.
+import type { SubscriptionPhaseRow } from "../lib/ipc";
+import { listen } from "@tauri-apps/api/event";
+import { ipcAuthoritativeSnapshot, type AuthoritativeSnapshot } from "../lib/ipc";
 
 /// One Platform + its accounts (Resin Platform/Account model).
 export interface Platform {
@@ -69,8 +73,20 @@ export interface AppState {
   nodes: NodeInfo[];
   processRoutes: ProcessRoute[];
   subscriptions: Subscription[];
+  /** Round 7 T02 (D-C1.2): per-subscription establish-phase STATUS rows,
+   *  mirrored from the authoritative snapshot stream (App-level pull +
+   *  SubscriptionsView refresh feed the same field; data identical). */
+  subscriptionPhases: SubscriptionPhaseRow[];
   locale: Locale;
   theme: Theme;
+  /// Ticket 07 (D-C2.2): the globally-subscribed authoritative snapshot.
+  /// Display truth only (ADR-0051); null until the first fetch lands and on
+  /// fetch failure (the ticket-06 "no pill" contract, not a fake Unknown).
+  convergeSnapshot: AuthoritativeSnapshot | null;
+  /// Whether the global converge subscription is wired (subscribeToConverge).
+  convergeSubscribed: boolean;
+  /// Checkpoint D: polling is paused while the document is hidden.
+  convergePausedByVisibility: boolean;
 
   setView: (v: View) => void;
   setSubFormDraft: (d: SubFormDraft) => void;
@@ -84,8 +100,11 @@ export interface AppState {
   removeProcessRoute: (id: string) => void;
   setProcessRoutes: (routes: ProcessRoute[]) => void;
   addSubscription: (url: string, nodeCount: number) => void;
+  setSubscriptionPhases: (rows: SubscriptionPhaseRow[]) => void;
   setLocale: (l: Locale) => void;
   setTheme: (t: Theme) => void;
+  refreshConvergeSnapshot: () => Promise<void>;
+  subscribeToConverge: () => () => void;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -97,8 +116,12 @@ export const useAppStore = create<AppState>((set) => ({
   nodes: [],
   processRoutes: [],
   subscriptions: [],
+  subscriptionPhases: [],
   locale: "en",
   theme: "system",
+  convergeSnapshot: null,
+  convergeSubscribed: false,
+  convergePausedByVisibility: false,
 
   setView: (view) => { set({ view }); void saveView(view); },
   setSubFormDraft: (subFormDraft) => set({ subFormDraft }),
@@ -150,10 +173,162 @@ export const useAppStore = create<AppState>((set) => ({
       subscriptions: [...s.subscriptions, { id: uid(), url, nodeCount }],
     })),
   setProcessRoutes: (routes) => set({ processRoutes: routes }),
+  setSubscriptionPhases: (subscriptionPhases) => set({ subscriptionPhases }),
   setLocale: (locale) => set({ locale }),
   setTheme: (theme) => set({ theme }),
+  refreshConvergeSnapshot: () => convergeRefresh(),
+  subscribeToConverge: () => convergeSubscribe(),
 }));
 
 /// T14-4: re-export useShallow for ergonomic multi-field selection
 /// Usage: const { field1, field2 } = useAppStore(useShallow((s) => ({ field1: s.field1, field2: s.field2 })))
 export { useShallow };
+
+// ─── Ticket 07 (spec D-C2.2): the global converge loop ──────────────────────
+// One subscription owns the authoritative-snapshot cadence for the whole app:
+//   - checkpoint A: 5s foreground polling (default); once the phase is
+//     Converged AND lastApplyAt is more than CONVERGE_SETTLE_SECONDS (60s)
+//     old, the cadence backs off to 30s — a settled green world does not
+//     need a 5s heartbeat, but a fresh green apply is still watched closely;
+//   - checkpoint B: an immediate refresh whenever the sidecar-status event
+//     fires (the existing Resin G4 IPC retarget channel from sidecar.rs,
+//     reused verbatim — no new channel; the string payload is untrusted and
+//     unused, the event is a trigger only, AGENTS §7.6 discipline);
+//   - checkpoint D: polling pauses while the document is hidden (visibility
+//     API) and a resume refetches immediately before re-arming.
+// The snapshot is display truth (ADR-0051): nothing here writes config, and
+// every write still flows through the ADR-0036 / ADR-0042 entries.
+
+/// Foreground polling cadence (checkpoint A: default 5s).
+export const CONVERGE_POLL_INTERVAL_MS = 5_000;
+/// Backoff cadence while Converged is settled (checkpoint A: 30s).
+export const CONVERGE_POLL_CONVERGED_MS = 30_000;
+/// A Converged phase only earns the slow cadence once the last green apply
+/// is at least this old (checkpoint A: lastApplyAt > 60s).
+export const CONVERGE_SETTLE_SECONDS = 60;
+
+/// Event channel owned by src-tauri/src/sidecar.rs (G3 health poll / G4).
+export const SIDECAR_STATUS_EVENT = "sidecar-status";
+
+/// Pure cadence selector (checkpoint A). Injected nowSec keeps it testable
+/// without fake timers. Converged + settled apply → 30s; everything else
+/// (including a fresh Converged apply within the settle window) stays 5s.
+export function convergePollIntervalMs(
+  snap: AuthoritativeSnapshot | null,
+  nowSec: number
+): number {
+  if (
+    snap !== null &&
+    snap.convergePhase === "Converged" &&
+    typeof snap.lastApplyAt === "number" &&
+    nowSec - snap.lastApplyAt > CONVERGE_SETTLE_SECONDS
+  ) {
+    return CONVERGE_POLL_CONVERGED_MS;
+  }
+  return CONVERGE_POLL_INTERVAL_MS;
+}
+
+// Module-scope controller state: timers and event unlisteners are process
+// resources, not render state — the observable parts are store fields.
+let convergeTimer: ReturnType<typeof setTimeout> | null = null;
+let convergeUnlistenSidecar: (() => void) | null = null;
+let convergeOnVisibility: (() => void) | null = null;
+let convergeInFlight = false;
+/// Rises on every subscribe/unsubscribe so a late-resolving listen() from a
+/// discarded subscription cannot leak its unlisten into the next one
+/// (React StrictMode double-mounts effects in dev).
+let convergeGeneration = 0;
+
+function convergeClearTimer(): void {
+  if (convergeTimer !== null) {
+    clearTimeout(convergeTimer);
+    convergeTimer = null;
+  }
+}
+
+function convergeSchedule(): void {
+  if (convergeTimer !== null) return;
+  // Only the global subscription arms the cadence: one-shot refreshes (the
+  // App navigation path, tests) must not start polling on their own.
+  if (!useAppStore.getState().convergeSubscribed) return;
+  if (useAppStore.getState().convergePausedByVisibility) return;
+  const delay = convergePollIntervalMs(
+    useAppStore.getState().convergeSnapshot,
+    Date.now() / 1000
+  );
+  convergeTimer = setTimeout(() => {
+    convergeTimer = null;
+    void useAppStore.getState().refreshConvergeSnapshot();
+  }, delay);
+}
+
+async function convergeRefresh(): Promise<void> {
+  if (convergeInFlight) return;
+  convergeInFlight = true;
+  try {
+    const snap = await ipcAuthoritativeSnapshot();
+    useAppStore.setState({ convergeSnapshot: snap });
+  } catch {
+    // Ticket 06 contract: a fetch failure degrades to no pill (null), never
+    // to a misleading Unknown pill. The loop keeps running; the next poll
+    // (or sidecar-status boost) may catch the sidecar coming back.
+    useAppStore.setState({ convergeSnapshot: null });
+  } finally {
+    convergeInFlight = false;
+  }
+  convergeSchedule();
+}
+
+function convergeSubscribe(): () => void {
+  if (useAppStore.getState().convergeSubscribed) return convergeUnsubscribe;
+  const gen = ++convergeGeneration;
+  useAppStore.setState({
+    convergeSubscribed: true,
+    convergePausedByVisibility:
+      typeof document === "undefined" ? false : document.visibilityState === "hidden",
+  });
+  // Checkpoint B: sidecar lifecycle transitions (healthy/unhealthy/
+  // terminated/restarting from the G3 health poll) refetch immediately.
+  void listen(SIDECAR_STATUS_EVENT, () => {
+    void useAppStore.getState().refreshConvergeSnapshot();
+  })
+    .then((unlisten) => {
+      if (gen === convergeGeneration) convergeUnlistenSidecar = unlisten;
+      else unlisten();
+    })
+    .catch(() => { /* outside Tauri: polling still runs */ });
+  // Checkpoint D: hidden clears the timer; a resume refetches once and lets
+  // the refresh re-arm the cadence from the (possibly changed) phase.
+  convergeOnVisibility = () => {
+    const hidden =
+      typeof document === "undefined" ? false : document.visibilityState === "hidden";
+    if (useAppStore.getState().convergePausedByVisibility === hidden) return;
+    useAppStore.setState({ convergePausedByVisibility: hidden });
+    if (hidden) {
+      convergeClearTimer();
+    } else {
+      void useAppStore.getState().refreshConvergeSnapshot();
+    }
+  };
+  document.addEventListener("visibilitychange", convergeOnVisibility);
+  void useAppStore.getState().refreshConvergeSnapshot();
+  return convergeUnsubscribe;
+}
+
+function convergeUnsubscribe(): void {
+  convergeGeneration++;
+  convergeClearTimer();
+  if (convergeOnVisibility !== null) {
+    document.removeEventListener("visibilitychange", convergeOnVisibility);
+    convergeOnVisibility = null;
+  }
+  if (convergeUnlistenSidecar !== null) {
+    try {
+      convergeUnlistenSidecar();
+    } catch {
+      /* ignore double-unlisten */
+    }
+    convergeUnlistenSidecar = null;
+  }
+  useAppStore.setState({ convergeSubscribed: false, convergePausedByVisibility: false });
+}

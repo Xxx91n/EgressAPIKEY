@@ -447,6 +447,13 @@ pub async fn authoritative_snapshot(
     // polling, no background loop. Best-effort: a failed toast is logged.
     crate::tray::fire_drift_notification(&app, &snapshot);
 
+    // Architecture-recovery ticket 07 (spec D-C2.3): mirror the top-level
+    // convergence phase on the tray (icon colour + tooltip tag). Same hook
+    // point discipline as the drift notice above: every snapshot consumer
+    // feeds one edge-driven state machine — no extra polling, no new IPC.
+    // Best-effort: a failed tray repaint is logged, never fatal.
+    crate::tray::apply_converge_mirror(&app, snapshot.converge_phase);
+
     Ok(snapshot)
 }
 
