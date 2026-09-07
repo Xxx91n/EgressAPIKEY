@@ -118,6 +118,7 @@ mod tests {
             applied_generation: 2,
             last_apply_at: Some(1_700_000_000),
             last_apply_error: None,
+            subscriptions: vec![],
             updated_at: Some(1_700_000_100),
         }
     }
