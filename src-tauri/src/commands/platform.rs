@@ -3,7 +3,7 @@
 //! Extracted from the former commands/mod.rs monolith by architecture-recovery
 //! ticket 08: pure mechanical move - no behavior, naming, or IPC-surface change.
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_store::StoreExt;
 use crate::sidecar::SidecarHandle;
 use resin_core::{DbPool, IpcError};
@@ -306,9 +306,11 @@ pub async fn delete_account_header_rule(
 #[tauri::command]
 pub async fn subscription_add(
     sidecar: State<'_, SidecarHandle>,
+    app: AppHandle,
     name: String,
     url: String,
     update_interval: Option<String>,
+    pipeline: Option<String>,
 ) -> Result<(), IpcError> {
     validate_short_name(&name, "subscription")?;
     if url.trim().is_empty() {
@@ -339,14 +341,38 @@ pub async fn subscription_add(
     // endpoint, the 30s tick lands the first background fetch within seconds.
     tracing::info!(subscription = %name, url = %url, "subscription_add: POST source_type=remote");
     let body = serde_json::json!({
-        "name": name,
+        "name": name.clone(),
         "source_type": "remote",
-        "url": url,
+        "url": url.clone(),
         "update_interval": update_interval,
     });
     match client.create_subscription(body).await {
         Ok(v) => {
             tracing::info!(?v, "subscription_add: Resin accepted subscription");
+            // Round 7 ticket 01 (D-C1.1): pipeline=establish opts INTO the
+            // five-step cascade (resolve -> whitebox platform -> apply).
+            // The enqueue + drain is the user-triggered reconcile — no
+            // background loop (ADR-0054 discipline). Without the parameter
+            // the behavior is exactly the legacy import-only POST.
+            if pipeline.as_deref() == Some("establish") {
+                let svc = super::strategy::strategy_service(&app)?;
+                let pipeline_state = app.state::<SubscriptionPipelineState>();
+                // Level-triggered enqueue (coalesces per name; bounded queue).
+                // A partial failure is persistent state inside the queue
+                // (backoff + parking); the IPC still returns Ok — the import
+                // itself succeeded. The drain is the single reconciler pass,
+                // running on this command task: no background loop owns it
+                // (ADR-0054 user-triggered discipline).
+                if pipeline_state.0.enqueue(resin_core::EstablishEvent {
+                    subscription: name.clone(),
+                    url: url.clone(),
+                }) {
+                    let _reports = pipeline_state
+                        .0
+                        .drain(&client, &svc, resin_core::whitebox_backup::now_unix())
+                        .await;
+                }
+            }
             Ok(())
         }
         Err(e) => {
@@ -355,6 +381,12 @@ pub async fn subscription_add(
         }
     }
 }
+
+/// Round 7 ticket 01: process-local pipeline queue managed as Tauri state
+/// (same pattern as DRIFT_NOTIFY_STATE / LightweightController — one owner,
+/// no background task; drain runs on the command task that enqueued).
+#[derive(Default)]
+pub struct SubscriptionPipelineState(pub resin_core::SubscriptionPipeline);
 
 #[tauri::command]
 pub async fn subscription_remove(

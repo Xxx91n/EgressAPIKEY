@@ -225,7 +225,11 @@ export function SubscriptionsView() {
     } catch { /* dev: allow */ }
     localAdd(u, 0);
     try {
-      await ipcSubscriptionAdd(n, u);
+      // Round 7 ticket 01 (D-C1.8): the backend owns the establish cascade
+      // now (resolve -> whitebox platform -> diff-then-skip apply). The
+      // former manual ipcStrategyApply fallback here is DELETED — the
+      // optional inline bind step below remains for extra platforms/ports.
+      await ipcSubscriptionAdd(n, u, undefined, "establish");
       // Push the new sub name into the local order so it stays at the tail
       // of the hand-sorted list on subsequent refreshes.
       const newOrder = [...localOrder, n];
@@ -233,12 +237,6 @@ export function SubscriptionsView() {
       void saveSubOrder(newOrder).catch((e) => console.warn("[SubscriptionsView] saveSubOrder failed", e));
       await new Promise((r) => setTimeout(r, 50));
       const finalList = await refreshWithRetry();
-      // Round 5 T01 (F2): the explicit activation beat. The Resin row is in
-      // and its nodes are arriving; one apply now derives region_filters so
-      // an a_class=subscription platform consumes the sub without a manual
-      // trip to the Platforms view. Best-effort: a failure keeps the import
-      // toast (the bind step below still works, apply is re-runnable).
-      try { await ipcStrategyApply(); } catch { /* reported via bind step */ }
       // Round 5 T01 (F1/D-22): open the INLINE bind step right here in the
       // form card (non-modal). A fresh import is by definition unbound; the
       // step offers chips + optional auto-create + optional ports.
