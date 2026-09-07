@@ -531,5 +531,30 @@
     "throughput": "Thông lượng thời gian thực (đi ra)",
     "probeHistory": "Lịch sử thăm dò",
     "noData": "Không có dữ liệu chỉ số"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ hiệu lực rev {{rev}}",
+      "PendingApply": "⋯ chờ rev {{rev}}",
+      "ApplyFailed": "✕ lỗi rev {{rev}}",
+      "NeverApplied": "○ chưa",
+      "Drifted": "↯ lệch",
+      "Unknown": "? chưa rõ"
+    },
+    "tooltip": {
+      "expectedRev": "Desired rev: {{rev}}",
+      "appliedRev": "Applied rev: {{rev}}",
+      "appliedAt": "Áp dụng lần cuối lúc {{time}}",
+      "error": "Lý do: {{reason}}",
+      "neverApplied": "Cấu hình này chưa từng được áp dụng",
+      "clickHint": "Bấm để mở Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "Đang chờ áp dụng",
+      "ApplyFailed": "Áp dụng thất bại",
+      "NeverApplied": "Chưa từng áp dụng",
+      "Drifted": "Trạng thái live lệch",
+      "Unknown": "Chưa rõ hội tụ (Resin ngoại tuyến)"
+    }
   }
 }

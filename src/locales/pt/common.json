@@ -531,5 +531,30 @@
     "throughput": "Taxa em tempo real (saída)",
     "probeHistory": "Histórico de sondas",
     "noData": "Sem dados de métricas"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ efetivo rev {{rev}}",
+      "PendingApply": "⋯ pendente rev {{rev}}",
+      "ApplyFailed": "✕ falhou rev {{rev}}",
+      "NeverApplied": "○ nunca",
+      "Drifted": "↯ divergente",
+      "Unknown": "? desconhecido"
+    },
+    "tooltip": {
+      "expectedRev": "Revisão desejada: {{rev}}",
+      "appliedRev": "Revisão aplicada: {{rev}}",
+      "appliedAt": "Última aplicação às {{time}}",
+      "error": "Motivo: {{reason}}",
+      "neverApplied": "Esta configuração nunca foi aplicada",
+      "clickHint": "Clique para abrir o Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "Aplicação pendente",
+      "ApplyFailed": "Falha ao aplicar",
+      "NeverApplied": "Nunca aplicado",
+      "Drifted": "Estado ao vivo divergente",
+      "Unknown": "Convergência desconhecida (Resin offline)"
+    }
   }
 }

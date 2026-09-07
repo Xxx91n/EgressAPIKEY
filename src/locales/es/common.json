@@ -531,5 +531,30 @@
     "throughput": "Rendimiento en tiempo real (salida)",
     "probeHistory": "Historial de sondeos",
     "noData": "Sin datos de métricas"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ efectivo rev {{rev}}",
+      "PendingApply": "⋯ pendiente rev {{rev}}",
+      "ApplyFailed": "✕ falló rev {{rev}}",
+      "NeverApplied": "○ nunca",
+      "Drifted": "↯ divergente",
+      "Unknown": "? desconocido"
+    },
+    "tooltip": {
+      "expectedRev": "Revisión deseada: {{rev}}",
+      "appliedRev": "Revisión aplicada: {{rev}}",
+      "appliedAt": "Última aplicación a las {{time}}",
+      "error": "Motivo: {{reason}}",
+      "neverApplied": "Esta configuración nunca se ha aplicado",
+      "clickHint": "Clic para abrir Effective Config"
+    },
+    "sideRail": {
+      "PendingApply": "Aplicación pendiente",
+      "ApplyFailed": "Aplicación fallida",
+      "NeverApplied": "Nunca aplicado",
+      "Drifted": "Estado en vivo divergente",
+      "Unknown": "Convergencia desconocida (Resin caído)"
+    }
   }
 }
