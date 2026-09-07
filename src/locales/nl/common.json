@@ -333,7 +333,13 @@
     "importBound": "Geïmporteerd en verbonden met platform {{platform}} ({{ports}} poorten gekoppeld), {{count}} knooppunten",
     "boundTo": "Gekoppeld: {{count}} platform(s)",
     "unbound": "Niet gekoppeld",
-    "danglingRef": "Verbroken verwijzing"
+    "danglingRef": "Verbroken verwijzing",
+    "phaseNever": "Nooit opgezet",
+    "phaseImporting": "Importeren",
+    "phaseEstablishing": "Opzetten",
+    "phaseConverged": "Opgezet",
+    "phaseFailed": "Mislukt",
+    "phaseNeedsApproval": "Goedkeuring vereist"
   },
   "theme": {
     "label": "Thema",

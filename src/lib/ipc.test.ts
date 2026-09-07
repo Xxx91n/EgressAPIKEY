@@ -1082,3 +1082,62 @@ describe("ticket 17: route snapshot sanitizers", () => {
     expect(snap.routes).toEqual([]);
   });
 });
+
+// --- Round 7 T02 (D-C1.2): subscription_phases sanitizers ---
+describe("ticket T02: subscriptionPhases sanitizers", () => {
+  it("passes well-formed phase rows through (camelCase parent field)", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategyVersion: 1,
+      resinReachable: true,
+      lastCheckedAt: 0,
+      platforms: [],
+      ports: [],
+      subscriptionPhases: [
+        { name: "sub-a", phase: "Establishing", stage: "platform" },
+        { name: "sub-b", phase: "Failed", stage: "apply", phase_error: "PATCH 500" },
+        { name: "sub-c", phase: "Converged" },
+      ],
+    });
+    const snap = await ipcAuthoritativeSnapshot();
+    expect(snap.subscriptionPhases).toEqual([
+      { name: "sub-a", phase: "Establishing", stage: "platform" },
+      { name: "sub-b", phase: "Failed", stage: "apply", phase_error: "PATCH 500" },
+      { name: "sub-c", phase: "Converged" },
+    ]);
+  });
+
+  it("degrades malformed phases to Never (identity), never to a terminal state", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategyVersion: 1,
+      resinReachable: true,
+      lastCheckedAt: 0,
+      platforms: [],
+      ports: [],
+      subscriptionPhases: [
+        { name: "junk", phase: "TotallyUnknown" },
+        { name: "junk-stage", phase: "Establishing", stage: "not-a-stage" },
+        null,
+        { phase: "Converged" },
+      ],
+    });
+    const snap = await ipcAuthoritativeSnapshot();
+    // Rows without a name are dropped; junk phase/stage degrade to Never /
+    // drop; the null row is dropped.
+    expect(snap.subscriptionPhases).toEqual([
+      { name: "junk", phase: "Never" },
+      { name: "junk-stage", phase: "Establishing" },
+    ]);
+  });
+
+  it("snapshots WITHOUT a subscriptionPhases array degrade to an empty list", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategyVersion: 1,
+      resinReachable: false,
+      lastCheckedAt: 0,
+      platforms: [],
+      ports: [],
+    });
+    const snap = await ipcAuthoritativeSnapshot();
+    expect(snap.subscriptionPhases).toEqual([]);
+  });
+});

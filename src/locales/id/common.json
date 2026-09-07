@@ -333,7 +333,13 @@
     "importBound": "Diimpor dan terhubung ke platform {{platform}} ({{ports}} port terikat), {{count}} node",
     "boundTo": "Terikat: {{count}} platform",
     "unbound": "Belum terikat",
-    "danglingRef": "Referensi putus"
+    "danglingRef": "Referensi putus",
+    "phaseNever": "Belum terbentuk",
+    "phaseImporting": "Mengimpor",
+    "phaseEstablishing": "Menyiapkan",
+    "phaseConverged": "Terbentuk",
+    "phaseFailed": "Gagal",
+    "phaseNeedsApproval": "Perlu persetujuan"
   },
   "theme": {
     "label": "Tema",

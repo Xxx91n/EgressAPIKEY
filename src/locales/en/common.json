@@ -333,7 +333,13 @@
     "importBound": "Imported and connected platform {{platform}} ({{ports}} ports bound), {{count}} nodes",
     "boundTo": "Bound: {{count}} platform(s)",
     "unbound": "Unbound",
-    "danglingRef": "Dangling reference"
+    "danglingRef": "Dangling reference",
+    "phaseNever": "Never established",
+    "phaseImporting": "Importing",
+    "phaseEstablishing": "Establishing",
+    "phaseConverged": "Established",
+    "phaseFailed": "Failed",
+    "phaseNeedsApproval": "Needs approval"
   },
   "theme": {
     "label": "Theme",

@@ -333,7 +333,13 @@
     "importBound": "Zaimportowano i połączono z platformą {{platform}} (powiązano portów: {{ports}}), węzłów: {{count}}",
     "boundTo": "Powiązane: {{count}} platform(y)",
     "unbound": "Niepowiązane",
-    "danglingRef": "Martwe odwołanie"
+    "danglingRef": "Martwe odwołanie",
+    "phaseNever": "Nigdy nie ustanowiono",
+    "phaseImporting": "Importowanie",
+    "phaseEstablishing": "Ustanawianie",
+    "phaseConverged": "Ustanowiono",
+    "phaseFailed": "Błąd",
+    "phaseNeedsApproval": "Wymaga zatwierdzenia"
   },
   "theme": {
     "label": "Motyw",

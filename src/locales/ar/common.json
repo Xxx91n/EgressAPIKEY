@@ -333,7 +333,13 @@
     "importBound": "تم الاستيراد والاتصال بالمنصة {{platform}} ({{ports}} منافذ مربوطة)، عدد العقد {{count}}",
     "boundTo": "مرتبط: {{count}} منصة",
     "unbound": "غير مرتبط",
-    "danglingRef": "مرجع مكسور"
+    "danglingRef": "مرجع مكسور",
+    "phaseNever": "لم تُنشأ",
+    "phaseImporting": "جارٍ الاستيراد",
+    "phaseEstablishing": "جارٍ الإنشاء",
+    "phaseConverged": "مُنشأة",
+    "phaseFailed": "فشل",
+    "phaseNeedsApproval": "بحاجة إلى موافقة"
   },
   "theme": {
     "label": "السمة",

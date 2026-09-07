@@ -333,7 +333,13 @@
     "importBound": "Импортировано и подключено к платформе {{platform}} (привязано портов: {{ports}}), узлов: {{count}}",
     "boundTo": "Привязано: платформ {{count}}",
     "unbound": "Не привязано",
-    "danglingRef": "Битая ссылка"
+    "danglingRef": "Битая ссылка",
+    "phaseNever": "Не установлена",
+    "phaseImporting": "Импорт",
+    "phaseEstablishing": "Установка",
+    "phaseConverged": "Установлена",
+    "phaseFailed": "Ошибка",
+    "phaseNeedsApproval": "Требует подтверждения"
   },
   "theme": {
     "label": "Тема",

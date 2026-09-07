@@ -333,7 +333,13 @@
     "importBound": "Importiert und Plattform {{platform}} verbunden ({{ports}} Ports gebunden), {{count}} Knoten",
     "boundTo": "Gebunden: {{count}} Plattform(en)",
     "unbound": "Ungebunden",
-    "danglingRef": "Ungültiger Verweis"
+    "danglingRef": "Ungültiger Verweis",
+    "phaseNever": "Nie eingerichtet",
+    "phaseImporting": "Importieren",
+    "phaseEstablishing": "Einrichtung läuft",
+    "phaseConverged": "Eingerichtet",
+    "phaseFailed": "Fehlgeschlagen",
+    "phaseNeedsApproval": "Freigabe erforderlich"
   },
   "theme": {
     "label": "Design",

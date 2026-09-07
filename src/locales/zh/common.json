@@ -333,7 +333,13 @@
     "importBound": "已导入并连接平台 {{platform}}（绑定 {{ports}} 个端口），节点数 {{count}}",
     "boundTo": "已绑定 {{count}} 平台",
     "unbound": "未绑定",
-    "danglingRef": "引用失效"
+    "danglingRef": "引用失效",
+    "phaseNever": "未建立",
+    "phaseImporting": "导入中",
+    "phaseEstablishing": "建立中",
+    "phaseConverged": "已建立",
+    "phaseFailed": "失败",
+    "phaseNeedsApproval": "待确认"
   },
   "theme": {
     "label": "主题",

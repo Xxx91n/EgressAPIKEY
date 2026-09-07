@@ -333,7 +333,13 @@
     "importBound": "インポートしプラットフォーム {{platform}} に接続（{{ports}} ポート バインド）、ノード数 {{count}}",
     "boundTo": "バインド済み: {{count}} プラットフォーム",
     "unbound": "未バインド",
-    "danglingRef": "参照切れ"
+    "danglingRef": "参照切れ",
+    "phaseNever": "未確立",
+    "phaseImporting": "インポート中",
+    "phaseEstablishing": "確立中",
+    "phaseConverged": "確立済み",
+    "phaseFailed": "失敗",
+    "phaseNeedsApproval": "承認待ち"
   },
   "theme": {
     "label": "テーマ",
