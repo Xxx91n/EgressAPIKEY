@@ -531,5 +531,30 @@
     "throughput": "实时吞吐（出口）",
     "probeHistory": "探测历史",
     "noData": "暂无指标数据"
+  },
+  "topConverge": {
+    "compact": {
+      "Converged": "✓ 已生效 rev {{rev}}",
+      "PendingApply": "⋯ 待应用 rev {{rev}}",
+      "ApplyFailed": "✕ 失败 rev {{rev}}",
+      "NeverApplied": "○ 从未",
+      "Drifted": "↯ 漂移",
+      "Unknown": "? 未知"
+    },
+    "tooltip": {
+      "expectedRev": "期望版本：{{rev}}",
+      "appliedRev": "已生效版本：{{rev}}",
+      "appliedAt": "最近生效时间 {{time}}",
+      "error": "原因：{{reason}}",
+      "neverApplied": "本配置尚未执行过 apply",
+      "clickHint": "点击打开生效配置"
+    },
+    "sideRail": {
+      "PendingApply": "待应用",
+      "ApplyFailed": "应用失败",
+      "NeverApplied": "从未应用",
+      "Drifted": "运行态已漂移",
+      "Unknown": "收敛状态未知（Resin 离线）"
+    }
   }
 }
