@@ -542,6 +542,7 @@
       "Unknown": "? bilinmiyor"
     },
     "tooltip": {
+      "header": "Yakınsama",
       "expectedRev": "Desired rev: {{rev}}",
       "appliedRev": "Applied rev: {{rev}}",
       "appliedAt": "Son uygulama: {{time}}",

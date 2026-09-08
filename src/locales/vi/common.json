@@ -542,6 +542,7 @@
       "Unknown": "? chưa rõ"
     },
     "tooltip": {
+      "header": "Hội tụ",
       "expectedRev": "Desired rev: {{rev}}",
       "appliedRev": "Applied rev: {{rev}}",
       "appliedAt": "Áp dụng lần cuối lúc {{time}}",

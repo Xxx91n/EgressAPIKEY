@@ -542,6 +542,7 @@
       "Unknown": "? 未知"
     },
     "tooltip": {
+      "header": "收敛",
       "expectedRev": "期望版本：{{rev}}",
       "appliedRev": "已生效版本：{{rev}}",
       "appliedAt": "最近生效时间 {{time}}",

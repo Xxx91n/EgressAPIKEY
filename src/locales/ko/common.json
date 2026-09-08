@@ -542,6 +542,7 @@
       "Unknown": "? 알수없음"
     },
     "tooltip": {
+      "header": "수렴",
       "expectedRev": "Desired rev: {{rev}}",
       "appliedRev": "Applied rev: {{rev}}",
       "appliedAt": "최근 적용 시각 {{time}}",

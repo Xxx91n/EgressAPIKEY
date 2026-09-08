@@ -5,7 +5,7 @@
 module.exports = {
   input: ["src/**/*.{ts,tsx}"],
   output: "src/locales/$LOCALE/$NAMESPACE.json",
-  locales: ["en", "zh", "ja", "es", "fr", "de", "ko", "ru", "pt", "ar"],
+  locales: ["en", "zh", "ja", "es", "fr", "de", "ko", "ru", "pt", "ar", "it", "nl", "pl", "tr", "vi", "th", "id", "hi"],
   defaultLocale: "en",
   defaultNamespace: "common",
   namespace: "common",

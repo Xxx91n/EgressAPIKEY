@@ -542,6 +542,7 @@
       "Unknown": "? ไม่ทราบ"
     },
     "tooltip": {
+      "header": "การลู่เข้า",
       "expectedRev": "Desired rev: {{rev}}",
       "appliedRev": "Applied rev: {{rev}}",
       "appliedAt": "ใช้งานล่าสุดเมื่อ {{time}}",

@@ -542,6 +542,7 @@
       "Unknown": "? tidak diketahui"
     },
     "tooltip": {
+      "header": "Konvergensi",
       "expectedRev": "Desired rev: {{rev}}",
       "appliedRev": "Applied rev: {{rev}}",
       "appliedAt": "Penerapan terakhir pukul {{time}}",

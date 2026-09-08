@@ -542,6 +542,7 @@
       "Unknown": "? nieznane"
     },
     "tooltip": {
+      "header": "Zbieżność",
       "expectedRev": "Pożądana rewizja: {{rev}}",
       "appliedRev": "Zastosowana rewizja: {{rev}}",
       "appliedAt": "Ostatnio zastosowano o {{time}}",

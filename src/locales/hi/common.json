@@ -542,6 +542,7 @@
       "Unknown": "? अज्ञात"
     },
     "tooltip": {
+      "header": "अभिसरण",
       "expectedRev": "Desired rev: {{rev}}",
       "appliedRev": "Applied rev: {{rev}}",
       "appliedAt": "अंतिम लागू समय {{time}}",

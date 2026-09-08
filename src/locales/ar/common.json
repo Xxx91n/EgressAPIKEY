@@ -542,6 +542,7 @@
       "Unknown": "? غير معروف"
     },
     "tooltip": {
+      "header": "التقارب",
       "expectedRev": "Desired rev: {{rev}}",
       "appliedRev": "Applied rev: {{rev}}",
       "appliedAt": "آخر تطبيق في {{time}}",

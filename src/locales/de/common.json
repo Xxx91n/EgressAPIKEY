@@ -542,6 +542,7 @@
       "Unknown": "? unbekannt"
     },
     "tooltip": {
+      "header": "Konvergenz",
       "expectedRev": "Soll-Revision: {{rev}}",
       "appliedRev": "Angewendete Revision: {{rev}}",
       "appliedAt": "Zuletzt angewendet um {{time}}",

@@ -542,6 +542,7 @@
       "Unknown": "? onbekend"
     },
     "tooltip": {
+      "header": "Convergentie",
       "expectedRev": "Gewenste rev: {{rev}}",
       "appliedRev": "Toegepaste rev: {{rev}}",
       "appliedAt": "Laatst toegepast om {{time}}",
