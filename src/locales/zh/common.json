@@ -339,7 +339,10 @@
     "phaseEstablishing": "建立中",
     "phaseConverged": "已建立",
     "phaseFailed": "失败",
-    "phaseNeedsApproval": "待确认"
+    "phaseNeedsApproval": "待确认",
+    "cascadeShow": "展开补偿记录",
+    "cascadeHide": "收起补偿记录",
+    "cascadeDetail": "补偿"
   },
   "theme": {
     "label": "主题",

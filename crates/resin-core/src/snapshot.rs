@@ -17,7 +17,10 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::strategy_engine::{AClassStrategy, EstablishStep, PlatformStrategy, StrategyConfig, SubscriptionPhase, SubscriptionStatus};
+use crate::strategy_engine::{
+    AClassStrategy, CascadeError, EstablishStep, PlatformStrategy, StrategyConfig, SubscriptionPhase,
+    SubscriptionStatus,
+};
 
 
 /// Per-platform agreement between the L2 whitebox strategy config and the
@@ -276,6 +279,11 @@ pub struct SubscriptionPhaseSnapshot {
     /// Present only while Failed — the KEP-1623-style reason.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phase_error: Option<String>,
+    /// Round 7 T04 (D-C1.4): the persisted partial-failure compensation
+    /// record (schema-locked `{ stage, reason, rollback_actions[] }`).
+    /// Read-side projection only — the snapshot never writes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_cascade_error: Option<CascadeError>,
 }
 
 impl SubscriptionPhaseSnapshot {
@@ -286,6 +294,7 @@ impl SubscriptionPhaseSnapshot {
             phase: row.phase,
             stage: row.stage,
             phase_error: row.phase_error.clone(),
+            last_cascade_error: row.last_cascade_error.clone(),
         }
     }
 }
@@ -1761,12 +1770,23 @@ mod tests {
                     phase: SubscriptionPhase::Establishing,
                     stage: Some(EstablishStep::Platform),
                     phase_error: None,
+                    last_cascade_error: None,
                 },
                 SubscriptionPhaseSnapshot {
                     name: "sub-b".to_string(),
                     phase: SubscriptionPhase::Failed,
                     stage: Some(EstablishStep::Apply),
                     phase_error: Some("PATCH failed: 500".to_string()),
+                    last_cascade_error: Some(CascadeError {
+                        stage: EstablishStep::Apply,
+                        reason: "PATCH failed: 500".to_string(),
+                        rollback_actions: vec![
+                            "sub: kept (user data)".to_string(),
+                            "plat: deleted on Resin (cascade-created, apply failed)".to_string(),
+                            "port: none (not run)".to_string(),
+                            "apply: failed on sub-b".to_string(),
+                        ],
+                    }),
                 },
             ],
             resin_reachable: true,
@@ -1785,6 +1805,14 @@ mod tests {
         assert_eq!(v["subscriptionPhases"][0]["stage"], "platform");
         assert_eq!(v["subscriptionPhases"][1]["phase"], "Failed");
         assert_eq!(v["subscriptionPhases"][1]["phase_error"], "PATCH failed: 500");
+        // Round 7 T04 (D-C1.4): the cascade failure record rides the row with
+        // its snake_case payload; sub-b carries it, sub-a drops it.
+        assert_eq!(v["subscriptionPhases"][1]["last_cascade_error"]["stage"], "apply");
+        assert_eq!(
+            v["subscriptionPhases"][1]["last_cascade_error"]["rollback_actions"][1],
+            "plat: deleted on Resin (cascade-created, apply failed)"
+        );
+        assert!(v["subscriptionPhases"][0].get("last_cascade_error").is_none());
         // None fields drop (skip_serializing_if).
         assert!(v["subscriptionPhases"][0].get("phase_error").is_none());
         // Round-trip stays equal (contract stability for the TS wrapper).

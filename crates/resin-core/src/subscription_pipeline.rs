@@ -38,8 +38,13 @@
 //! Failure model (D-C1.1 allow clause): a failed step is PERSISTENT STATE —
 //! the event stays queued with attempts + last_error and is retried by the
 //! caller with exponential backoff (`retry_delay`), capped at
-//! MAX_ATTEMPTS. This ticket does NOT compensate partial failure (T04 owns
-//! rollback) and does NOT own UI phase state (T02 owns SubscriptionPhase).
+//! MAX_ATTEMPTS. UI phase state is T02's SubscriptionPhase. Since T04
+//! (D-C1.4) a failed pass ALSO runs `compensate_failed_cascade` — the
+//! partial-failure compensation that deletes only what THIS pass created
+//! (never the strategy whitebox, never the subscription) and persists the
+//! ordered sub/plat/port/apply marking as `last_cascade_error` on the
+//! subscription's status row via
+//! `StrategyService::record_cascade_failure`.
 
 use std::collections::VecDeque;
 use std::sync::Mutex as StdMutex;
@@ -380,25 +385,28 @@ pub async fn ensure_platform<S: StrategyConfigStore>(
 
 /// Step 5: strategy_apply — the existing diff-then-skip apply (ADR-0057) +
 /// generation write-back (ADR-0058 D3). In-sync platforms cost zero PATCH.
+/// Returns the step status plus the platform the failure BELONGS to (the
+/// first non-patched report row) — T04's compensation keys on that owner so
+/// it never deletes a cascade resource for a failure this cascade did not
+/// cause. `None` = the apply pass failed without a platform-scoped row
+/// (transport-level failure) or did not run.
 pub async fn apply_strategy(
     client: &ResinClient,
     svc: &StrategyService<crate::strategy_service::FsStrategyStore>,
-) -> StepStatus {
+) -> (StepStatus, Option<String>) {
     match svc.apply(client, crate::resin_client::resolve_id_in).await {
         Ok(report) => {
             if report.platforms.iter().all(|p| p.patched) {
-                StepStatus::Written
+                (StepStatus::Written, None)
             } else {
-                let reason = report
-                    .platforms
-                    .iter()
-                    .find(|p| !p.patched)
+                let failed = report.platforms.iter().find(|p| !p.patched);
+                let reason = failed
                     .and_then(|p| p.reason.clone())
                     .unwrap_or_else(|| "apply failed".to_string());
-                StepStatus::Failed(reason)
+                (StepStatus::Failed(reason), failed.map(|p| p.platform.clone()))
             }
         }
-        Err(e) => StepStatus::Failed(format!("strategy apply: {e}")),
+        Err(e) => (StepStatus::Failed(format!("strategy apply: {e}")), None),
     }
 }
 
@@ -435,7 +443,12 @@ pub async fn run_pipeline(
         // that produced it (Import/Resolve; steps after a failure are
         // skipped, so the FIRST failed step is the stage).
         let (stage, reason) = failed_stage(EstablishStep::Import, &[&s1, &s2]);
-        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Failed, Some(stage), Some(reason));
+        // T04 (D-C1.4): nothing past the subscription exists yet, so the
+        // compensation is a recorded no-op — the subscription itself (even
+        // when this pass just created it) is the user's original data and
+        // is NEVER deleted.
+        let actions = compensate_failed_cascade(client, name, false, None).await;
+        let _ = svc.record_cascade_failure(name, stage, &reason, actions);
         return PipelineReport {
             subscription: name.to_string(),
             steps: [s1, s2, StepStatus::Failed("upstream step failed".to_string()), StepStatus::Failed("upstream step failed".to_string()), StepStatus::Failed("upstream step failed".to_string())],
@@ -446,7 +459,14 @@ pub async fn run_pipeline(
     let (s3, s4) = ensure_platform(client, svc, name).await;
     if s3.is_failed() || s4.is_failed() {
         let (stage, reason) = failed_stage(EstablishStep::Platform, &[&s3, &s4]);
-        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Failed, Some(stage), Some(reason));
+        // T04 (D-C1.4): the Resin platform row was NOT created this pass
+        // (s4 failed — a create that returned Err is treated as not
+        // created), so the compensation is a recorded no-op: only the
+        // subscription survives. The whitebox entry this pass may have
+        // written is L2 desired state and is NEVER deleted here (checkpoint
+        // B: whitebox deletion is another ticket's path).
+        let actions = compensate_failed_cascade(client, name, false, None).await;
+        let _ = svc.record_cascade_failure(name, stage, &reason, actions);
         return PipelineReport {
             subscription: name.to_string(),
             steps: [s1, s2, s3, s4, StepStatus::Failed("upstream step failed".to_string())],
@@ -454,10 +474,19 @@ pub async fn run_pipeline(
     }
 
     let _ = svc.record_subscription_phase(name, SubscriptionPhase::Establishing, Some(EstablishStep::Apply), None);
-    let s5 = apply_strategy(client, svc).await;
+    let (s5, failing_platform) = apply_strategy(client, svc).await;
     if let StepStatus::Failed(reason) = &s5 {
-        let _ = svc.record_subscription_phase(name, SubscriptionPhase::Failed, Some(EstablishStep::Apply), Some(reason.clone()));
+        // T04 (D-C1.4): the platform row exists. Compensation deletes it
+        // ONLY when this pass created it (s4 Written) AND the apply failure
+        // belongs to it — a failure owned by an unrelated platform must not
+        // delete this cascade's resource (that platform may even be
+        // already in sync).
+        let created_this_pass = matches!(s4, StepStatus::Written);
+        let actions =
+            compensate_failed_cascade(client, name, created_this_pass, failing_platform.as_deref()).await;
+        let _ = svc.record_cascade_failure(name, EstablishStep::Apply, reason, actions);
     } else {
+        // Converged also clears last_cascade_error (record_subscription_phase).
         let _ = svc.record_subscription_phase(name, SubscriptionPhase::Converged, None, None);
     }
     PipelineReport { subscription: name.to_string(), steps: [s1, s2, s3, s4, s5] }
@@ -697,6 +726,97 @@ pub async fn ensure_default_port(
         }
         Err(e) => StepStatus::Failed(format!("whitebox store: {e}")),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Partial-failure compensation (architecture-recovery Round 7 ticket 04, spec
+// D-C1.4): a failed establish pass compensates ONLY the resources THIS pass
+// created. The law (ADR-0054-compliant explicit rollback — never a silent
+// auto-heal, never an L3->L2 write):
+//   - the subscription is the user's original data and is NEVER deleted;
+//   - the strategy whitebox (L2 desired state) is NEVER touched — whitebox
+//     deletion is another ticket's path (checkpoint B);
+//   - what CAN be undone is the Resin-side platform row created by this
+//     pass's `ensure_platform`, and only when the apply failure BELONGS to
+//     it (a failure owned by an unrelated platform must not delete this
+//     cascade's resource).
+// The default-port tail (T03) only arms after a GREEN pass, so it can never
+// be part of a failed establish marking here.
+// ---------------------------------------------------------------------------
+
+/// Collapse control characters (C0 + DEL) to spaces so an embedded error
+/// string can never smuggle a NUL into the persisted marking (the whitebox
+/// validator rejects NUL) or a line break into a one-line UI hover.
+fn sanitize_action(s: String) -> String {
+    s.chars()
+        .map(|c| if (c as u32) < 0x20 || (c as u32) == 0x7f { ' ' } else { c })
+        .collect()
+}
+
+/// Compensate one failed cascade pass and return the ordered partial-failure
+/// marking: STRICTLY one entry per cascade step in sub/plat/port/apply order
+/// (the `last_cascade_error.rollback_actions[]` schema lock). Best-effort: a
+/// failed DELETE is recorded in the marking and never fails the phase record.
+///
+/// `platform_created_this_pass` — the pass's ensure_platform Resin half
+/// returned Written. `failing_platform` — the platform the apply failure
+/// belongs to (`apply_strategy`'s owner probe); `None` on pre-apply
+/// failures and transport-level apply errors.
+pub async fn compensate_failed_cascade(
+    client: &ResinClient,
+    name: &str,
+    platform_created_this_pass: bool,
+    failing_platform: Option<&str>,
+) -> Vec<String> {
+    let mut actions = Vec::with_capacity(4);
+    // [0] sub — kept, always: the subscription is the user's original data.
+    actions.push("sub: kept (user data)".to_string());
+    // [1] plat — delete ONLY the Resin row this pass created, and only when
+    // the apply failure belongs to it.
+    if platform_created_this_pass {
+        match failing_platform {
+            Some(owner) if owner == name => match delete_cascade_platform(client, name).await {
+                Ok(()) => {
+                    actions.push("plat: deleted on Resin (cascade-created, apply failed)".to_string())
+                }
+                Err(e) => actions.push(sanitize_action(format!("plat: delete failed ({e})"))),
+            },
+            Some(owner) => actions.push(sanitize_action(format!(
+                "plat: kept (apply failure owned by {})",
+                owner
+            ))),
+            None => actions.push("plat: kept (apply failure not platform-scoped)".to_string()),
+        }
+    } else {
+        actions.push("plat: none (not created this pass)".to_string());
+    }
+    // [2] port — the default-port tail never arms on a failed pass.
+    actions.push("port: none (not run)".to_string());
+    // [3] apply — the failing beat itself (or not reached on earlier failures).
+    actions.push(match failing_platform {
+        Some(owner) => sanitize_action(format!("apply: failed on {}", owner)),
+        None => "apply: not reached".to_string(),
+    });
+    actions
+}
+
+/// Delete the Resin platform row `name` — the ONLY deletion this ticket's
+/// compensation path performs. The id is resolved from a fresh live read;
+/// an already-absent row is an idempotent no-op (per-step idempotence law).
+async fn delete_cascade_platform(client: &ResinClient, name: &str) -> Result<(), String> {
+    let live = client
+        .list_platforms()
+        .await
+        .map_err(|e| format!("list platforms: {e}"))?;
+    let Some(id) = crate::resin_client::resolve_id_in(&live, name) else {
+        return Ok(()); // already gone — nothing to compensate
+    };
+    client
+        .delete_platform(&id)
+        .await
+        .map_err(|e| format!("delete platform {name}: {e}"))?;
+    tracing::info!(platform = %name, "subscription_pipeline: compensated cascade-created platform (deleted on Resin)");
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1063,7 +1183,7 @@ mod tests {
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(json!({"items": [{"id": "id-flaky", "name": "flaky", "region_filters": []}]}).to_string())
-            .expect(2)
+            .expect(3) // apply initial + apply per-platform re-read + T04 compensation resolve read
             .create_async()
             .await;
         let m_create_platform = server
@@ -1072,6 +1192,16 @@ mod tests {
             .with_status(201)
             .with_header("content-type", "application/json")
             .with_body(json!({"id": "id-flaky", "name": "flaky"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        // T04 (D-C1.4): the compensation deletes the cascade-created platform.
+        let m_delete_platform = server
+            .mock("DELETE", "/api/v1/platforms/id-flaky")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "id-flaky"}).to_string())
             .expect(1)
             .create_async()
             .await;
@@ -1113,6 +1243,27 @@ mod tests {
         // and records last_apply_error — no fake convergence.
         let cfg = svc.get().unwrap();
         assert!(cfg.last_apply_error.is_some(), "failure must be persistent state");
+        // T04 checkpoint B: the whitebox entry this cascade wrote is L2
+        // desired state and SURVIVES the compensation (whitebox deletion is
+        // another ticket's path).
+        assert!(
+            cfg.platforms.iter().any(|ps| ps.platform_name == "flaky"
+                && ps.a_class == AClassStrategy::Subscription),
+            "whitebox entry must survive the compensation: {cfg:?}"
+        );
+        // T04 checkpoint A branch 1: the failure record persists with the
+        // ordered sub/plat/port/apply marking; the cascade-created Resin
+        // platform row was deleted.
+        let row = cfg.subscriptions.iter().find(|r| r.name == "flaky").expect("status row");
+        assert_eq!(row.phase, SubscriptionPhase::Failed);
+        assert_eq!(row.stage, Some(EstablishStep::Apply));
+        let ce = row.last_cascade_error.as_ref().expect("cascade error record");
+        assert_eq!(ce.stage, EstablishStep::Apply);
+        assert_eq!(ce.rollback_actions.len(), 4, "strictly one entry per step: {ce:?}");
+        assert_eq!(ce.rollback_actions[0], "sub: kept (user data)");
+        assert_eq!(ce.rollback_actions[1], "plat: deleted on Resin (cascade-created, apply failed)");
+        assert_eq!(ce.rollback_actions[2], "port: none (not run)");
+        assert_eq!(ce.rollback_actions[3], "apply: failed on flaky");
 
         m_subs_absent.assert_async().await;
         m_subs_present.assert_async().await;
@@ -1122,6 +1273,437 @@ mod tests {
         m_create_platform.assert_async().await;
         m_nodes.assert_async().await;
         m_patch.assert_async().await;
+        m_delete_platform.assert_async().await;
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// Checkpoint A branch 2 — sub OK + platform FAIL: the Resin platform
+    /// row was never created, so the compensation is a recorded no-op (only
+    /// the subscription survives; the whitebox entry written by the cascade's
+    /// first half stays as desired state — checkpoint B).
+    #[tokio::test]
+    async fn pipeline_platform_create_fails_nothing_compensated() {
+        let (svc, path) = temp_store("plat-fail");
+        let mut server = mockito::Server::new_async().await;
+        // Subscription hits: ensure read (absent) + create + resolve read.
+        // Apply never runs, so the dangling-ref read does NOT happen.
+        let m_subs_absent = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": []}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let m_create_sub = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "s1", "name": "platfail"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let m_subs_present = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": [{"id": "s1", "name": "platfail", "node_count": 2}]}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let m_platforms_empty = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": []}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        // The ONE failing write: POST /platforms 500s (3 attempts with the
+        // write retry).
+        let m_create_platform = server
+            .mock("POST", "/api/v1/platforms")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(500)
+            .expect(3)
+            .create_async()
+            .await;
+        // NO DELETE mock: the compensation must not touch the wire — nothing
+        // was created this pass.
+
+        let base = server.url();
+        let client = ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = run_pipeline(&client, &svc, "platfail", "https://example.invalid/pf.yaml").await;
+        assert!(!report.all_ok(), "{report:?}");
+        assert!(matches!(report.steps[0], StepStatus::Written), "sub green: {report:?}");
+        assert!(matches!(report.steps[2], StepStatus::Written), "whitebox half wrote: {report:?}");
+        assert!(matches!(report.steps[3], StepStatus::Failed(_)), "Resin create failed: {report:?}");
+        assert!(matches!(report.steps[4], StepStatus::Failed(_)), "apply never ran: {report:?}");
+        let cfg = svc.get().unwrap();
+        assert!(
+            cfg.platforms.iter().any(|ps| ps.platform_name == "platfail"),
+            "whitebox entry kept (checkpoint B): {cfg:?}"
+        );
+        let row = cfg.subscriptions.iter().find(|r| r.name == "platfail").expect("row");
+        assert_eq!(row.phase, SubscriptionPhase::Failed);
+        assert_eq!(row.stage, Some(EstablishStep::Bind), "Resin-create half maps to the bind beat (T02 ORDER)");
+        let ce = row.last_cascade_error.as_ref().expect("cascade error record");
+        assert_eq!(ce.rollback_actions.len(), 4);
+        assert_eq!(ce.rollback_actions[0], "sub: kept (user data)");
+        assert_eq!(ce.rollback_actions[1], "plat: none (not created this pass)");
+        assert_eq!(ce.rollback_actions[2], "port: none (not run)");
+        assert_eq!(ce.rollback_actions[3], "apply: not reached");
+
+        m_subs_absent.assert_async().await;
+        m_create_sub.assert_async().await;
+        m_subs_present.assert_async().await;
+        m_platforms_empty.assert_async().await;
+        m_create_platform.assert_async().await;
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// Checkpoint A branch 3 — sub FAIL: nothing was created (the presence
+    /// read itself failed), so the compensation is a recorded no-op, and the
+    /// failure record still persists for the UI.
+    #[tokio::test]
+    async fn pipeline_subscription_fails_nothing_compensated() {
+        let (svc, path) = temp_store("sub-fail");
+        let mut server = mockito::Server::new_async().await;
+        // The ONE failing read: list subscriptions 500s (3 attempts with the
+        // read retry) -> step 1 fails -> everything after is skipped.
+        let m_subs_absent = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(500)
+            .expect(3)
+            .create_async()
+            .await;
+        // No other mocks: any further wire call would 404 loudly.
+
+        let base = server.url();
+        let client = ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = run_pipeline(&client, &svc, "subfail", "https://example.invalid/sf.yaml").await;
+        assert!(!report.all_ok(), "{report:?}");
+        assert!(matches!(report.steps[0], StepStatus::Failed(_)), "step 1 failed: {report:?}");
+        for (i, step) in report.steps.iter().enumerate().skip(1) {
+            assert!(matches!(step, StepStatus::Failed(_)), "step {i} skipped-failed: {step:?}");
+        }
+        let cfg = svc.get().unwrap();
+        assert!(cfg.platforms.is_empty(), "nothing written to the whitebox: {cfg:?}");
+        let row = cfg.subscriptions.iter().find(|r| r.name == "subfail").expect("row");
+        assert_eq!(row.phase, SubscriptionPhase::Failed);
+        assert_eq!(row.stage, Some(EstablishStep::Import));
+        let ce = row.last_cascade_error.as_ref().expect("cascade error record");
+        assert_eq!(
+            ce.rollback_actions,
+            vec![
+                "sub: kept (user data)".to_string(),
+                "plat: none (not created this pass)".to_string(),
+                "port: none (not run)".to_string(),
+                "apply: not reached".to_string(),
+            ]
+        );
+        m_subs_absent.assert_async().await;
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// Checkpoint B (D-C1.4) — a whitebox-declared platform is NEVER touched
+    /// by the compensation path: the user platform stays in the whitebox AND
+    /// on Resin while the cascade-created platform is deleted (branch 1).
+    #[tokio::test]
+    async fn compensation_never_deletes_whitebox_declared_platform() {
+        let (svc, path) = temp_store("ckpt-b-keep");
+        // Seed the USER platform (a_class=Region — user-authored, not a
+        // cascade product) already converged on Resin.
+        svc.store(StrategyConfig {
+            platforms: vec![PlatformStrategy {
+                platform_name: "user-plat".into(),
+                a_class: AClassStrategy::Region,
+                b_class: StrategyId::Random,
+                manual_nodes: vec![],
+                regions: vec!["HK".into()],
+                subscriptions: vec![],
+                top_n: 10,
+                b_class_params: Default::default(),
+            }],
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        // Subscription hits: ensure read (absent) + resolve + apply dangling
+        // read (present — the cascade adds the guarded ref).
+        let m_subs_absent = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": []}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let m_subs_present = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": [{"id": "s1", "name": "guarded", "node_count": 3}]}).to_string())
+            .expect(2)
+            .create_async()
+            .await;
+        let m_create_sub = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "s1", "name": "guarded"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        // Platform reads: (1) ensure presence read — user-plat only;
+        // (2..) apply initial + per-platform re-reads (2 platforms) + the T04
+        // compensation resolve read — user-plat + guarded.
+        let m_p_user = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": [{"id": "id-user", "name": "user-plat", "region_filters": ["HK"]}]}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let m_p_both = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": [
+                {"id": "id-user", "name": "user-plat", "region_filters": ["HK"]},
+                {"id": "id-guarded", "name": "guarded", "region_filters": []}
+            ]}).to_string())
+            .expect(4)
+            .create_async()
+            .await;
+        let m_create_platform = server
+            .mock("POST", "/api/v1/platforms")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "id-guarded", "name": "guarded"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        // One node serves both plans: user-plat (Region HK, in sync — no
+        // PATCH) and guarded (subscription tag HK -> drift -> PATCH fails).
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": [{"node_hash": "h1", "region": "HK", "has_outbound": true, "failure_count": 0, "tags": [{"subscription_name": "guarded"}]}]}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let m_patch = server
+            .mock("PATCH", "/api/v1/platforms/id-guarded")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(500)
+            .expect(3)
+            .create_async()
+            .await;
+        // ONLY the cascade-created platform is deleted. NO DELETE mock exists
+        // for id-user: if the compensation ever touched the user platform it
+        // would 404 and flip the recorded action to "delete failed".
+        let m_delete = server
+            .mock("DELETE", "/api/v1/platforms/id-guarded")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "id-guarded"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let client = ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = run_pipeline(&client, &svc, "guarded", "https://example.invalid/guarded.yaml").await;
+        assert!(!report.all_ok(), "apply failure must fail the pass: {report:?}");
+
+        let cfg = svc.get().unwrap();
+        // Checkpoint B: BOTH whitebox entries survive — the user platform
+        // verbatim, the cascade-created entry as desired state for a retry.
+        assert!(
+            cfg.platforms.iter().any(|ps| ps.platform_name == "user-plat"),
+            "user platform must survive: {cfg:?}"
+        );
+        assert!(cfg.platforms.iter().any(|ps| ps.platform_name == "guarded"));
+        let row = cfg.subscriptions.iter().find(|r| r.name == "guarded").expect("status row");
+        let ce = row.last_cascade_error.as_ref().expect("cascade error record");
+        assert_eq!(ce.rollback_actions[1], "plat: deleted on Resin (cascade-created, apply failed)");
+        assert_eq!(ce.rollback_actions[3], "apply: failed on guarded");
+
+        m_subs_absent.assert_async().await;
+        m_subs_present.assert_async().await;
+        m_create_sub.assert_async().await;
+        m_p_user.assert_async().await;
+        m_p_both.assert_async().await;
+        m_create_platform.assert_async().await;
+        m_nodes.assert_async().await;
+        m_patch.assert_async().await;
+        m_delete.assert_async().await;
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// Checkpoint B (D-C1.4) — no overreach: when the apply failure belongs
+    /// to an UNRELATED platform, the cascade-created platform is KEPT even
+    /// though this pass created it (deleting a resource this cascade did not
+    /// fail would churn a converged row on every retry).
+    #[tokio::test]
+    async fn compensation_keeps_platform_when_failure_owned_elsewhere() {
+        let (svc, path) = temp_store("ckpt-b-foreign");
+        // Seed the user platform DRIFTING on Resin (computed US vs live []) —
+        // its PATCH is the failure owner.
+        svc.store(StrategyConfig {
+            platforms: vec![PlatformStrategy {
+                platform_name: "user-plat".into(),
+                a_class: AClassStrategy::Region,
+                b_class: StrategyId::Random,
+                manual_nodes: vec![],
+                regions: vec!["US".into()],
+                subscriptions: vec![],
+                top_n: 10,
+                b_class_params: Default::default(),
+            }],
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let m_subs_absent = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": []}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let m_subs_present = server
+            .mock("GET", "/api/v1/subscriptions")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": [{"id": "s1", "name": "foreign-ok", "node_count": 3}]}).to_string())
+            .expect(2)
+            .create_async()
+            .await;
+        let m_create_sub = server
+            .mock("POST", "/api/v1/subscriptions")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "s1", "name": "foreign-ok"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let m_p_user = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": [{"id": "id-user", "name": "user-plat", "region_filters": []}]}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        // Apply initial + per-platform re-reads (2 platforms). The
+        // compensation makes NO wire call here (nothing to delete), so the
+        // count stops at 3.
+        let m_p_both = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": [
+                {"id": "id-user", "name": "user-plat", "region_filters": []},
+                {"id": "id-foreign", "name": "foreign-ok", "region_filters": []}
+            ]}).to_string())
+            .expect(3)
+            .create_async()
+            .await;
+        let m_create_platform = server
+            .mock("POST", "/api/v1/platforms")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "id-foreign", "name": "foreign-ok"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"items": [
+                {"node_hash": "h-us", "region": "US", "has_outbound": true, "failure_count": 0, "tags": []},
+                {"node_hash": "h-hk", "region": "HK", "has_outbound": true, "failure_count": 0, "tags": [{"subscription_name": "foreign-ok"}]}
+            ]}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        // user-plat's PATCH is the failing write; foreign-ok's PATCH lands.
+        let m_patch_user = server
+            .mock("PATCH", "/api/v1/platforms/id-user")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(500)
+            .expect(3)
+            .create_async()
+            .await;
+        let m_patch_foreign = server
+            .mock("PATCH", "/api/v1/platforms/id-foreign")
+            .match_header(BEARER.0, BEARER.1)
+            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "id-foreign"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        // NO DELETE mock at all: the failure belongs to user-plat, so the
+        // compensation must not touch the wire. Any DELETE would 404 and
+        // flip the recorded action away from "kept (apply failure owned by".
+
+        let base = server.url();
+        let client = ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = run_pipeline(&client, &svc, "foreign-ok", "https://example.invalid/fo.yaml").await;
+        assert!(!report.all_ok(), "{report:?}");
+
+        let cfg = svc.get().unwrap();
+        assert!(cfg.platforms.iter().any(|ps| ps.platform_name == "user-plat"));
+        assert!(
+            cfg.platforms.iter().any(|ps| ps.platform_name == "foreign-ok"),
+            "cascade-created platform kept (no overreach): {cfg:?}"
+        );
+        let row = cfg.subscriptions.iter().find(|r| r.name == "foreign-ok").expect("status row");
+        let ce = row.last_cascade_error.as_ref().expect("cascade error record");
+        assert_eq!(ce.rollback_actions[1], "plat: kept (apply failure owned by user-plat)");
+        assert_eq!(ce.rollback_actions[3], "apply: failed on user-plat");
+
+        m_subs_absent.assert_async().await;
+        m_subs_present.assert_async().await;
+        m_create_sub.assert_async().await;
+        m_p_user.assert_async().await;
+        m_p_both.assert_async().await;
+        m_create_platform.assert_async().await;
+        m_nodes.assert_async().await;
+        m_patch_user.assert_async().await;
+        m_patch_foreign.assert_async().await;
         let _ = std::fs::remove_file(path);
     }
 

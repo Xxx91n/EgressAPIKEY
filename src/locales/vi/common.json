@@ -339,7 +339,10 @@
     "phaseEstablishing": "Đang thiết lập",
     "phaseConverged": "Đã thiết lập",
     "phaseFailed": "Thất bại",
-    "phaseNeedsApproval": "Cần phê duyệt"
+    "phaseNeedsApproval": "Cần phê duyệt",
+    "cascadeShow": "Hiện chi tiết hoàn tác",
+    "cascadeHide": "Ẩn chi tiết hoàn tác",
+    "cascadeDetail": "hoàn tác"
   },
   "theme": {
     "label": "Giao diện",

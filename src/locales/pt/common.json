@@ -339,7 +339,10 @@
     "phaseEstablishing": "A estabelecer",
     "phaseConverged": "Estabelecida",
     "phaseFailed": "Falhou",
-    "phaseNeedsApproval": "Requer aprovação"
+    "phaseNeedsApproval": "Requer aprovação",
+    "cascadeShow": "Mostrar detalhes da reversão",
+    "cascadeHide": "Ocultar detalhes da reversão",
+    "cascadeDetail": "reversão"
   },
   "theme": {
     "label": "Tema",

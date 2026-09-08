@@ -339,7 +339,10 @@
     "phaseEstablishing": "Creazione",
     "phaseConverged": "Stabilita",
     "phaseFailed": "Errore",
-    "phaseNeedsApproval": "Richiede approvazione"
+    "phaseNeedsApproval": "Richiede approvazione",
+    "cascadeShow": "Mostra dettagli rollback",
+    "cascadeHide": "Nascondi dettagli rollback",
+    "cascadeDetail": "rollback"
   },
   "theme": {
     "label": "Tema",

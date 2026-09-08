@@ -875,4 +875,84 @@ describe("SubscriptionsView T02: subscription phase chips (6-state palette)", ()
     expect(chip.getAttribute("data-phase")).toBe("Never");
     expect(chip.className).toContain("bg-amber-100");
   }, 20000);
+
+  it("T04 (checkpoint C): a Failed row with last_cascade_error expands its compensation record", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") {
+        return [{ name: "cascade-f", node_count: 3, healthy_node_count: 3, last_error: "", last_checked: "" }];
+      }
+      if (cmd === "authoritative_snapshot") {
+        return {
+          strategyVersion: 1,
+          platforms: [],
+          ports: [],
+          routes: [],
+          subscriptions: [],
+          subscriptionPhases: [
+            {
+              name: "cascade-f",
+              phase: "Failed",
+              stage: "apply",
+              phase_error: "PATCH failed: 500",
+              last_cascade_error: {
+                stage: "apply",
+                reason: "PATCH failed: 500",
+                rollback_actions: [
+                  "sub: kept (user data)",
+                  "plat: deleted on Resin (cascade-created, apply failed)",
+                  "port: none (not run)",
+                  "apply: failed on cascade-f",
+                ],
+              },
+            },
+          ],
+          resinReachable: true,
+          lastCheckedAt: 1700000000,
+        };
+      }
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    // The Failed chip renders red with the reason on hover (title).
+    const chip = await screen.findByTestId("sub-phase-chip-cascade-f", {}, { timeout: 10000 });
+    expect(chip.getAttribute("data-phase")).toBe("Failed");
+    expect(chip.getAttribute("title")).toContain("PATCH failed: 500");
+    // The marking row is collapsed by default.
+    expect(screen.queryByTestId("sub-cascade-detail-cascade-f")).toBeNull();
+    // Expanding shows the ordered sub/plat/port/apply marking.
+    fireEvent.click(screen.getByTestId("sub-cascade-toggle-cascade-f"));
+    const detail = await screen.findByTestId("sub-cascade-detail-cascade-f");
+    expect(detail.textContent).toContain("sub: kept (user data)");
+    expect(detail.textContent).toContain("plat: deleted on Resin (cascade-created, apply failed)");
+    expect(detail.textContent).toContain("port: none (not run)");
+    expect(detail.textContent).toContain("apply: failed on cascade-f");
+    // Collapse hides it again.
+    fireEvent.click(screen.getByTestId("sub-cascade-toggle-cascade-f"));
+    await waitFor(() => expect(screen.queryByTestId("sub-cascade-detail-cascade-f")).toBeNull());
+  }, 20000);
+
+  it("T04: a Failed row WITHOUT a persisted record renders the plain chip (no toggle)", async () => {
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === "subscription_list") {
+        return [{ name: "legacy-f", node_count: 2, healthy_node_count: 2, last_error: "", last_checked: "" }];
+      }
+      if (cmd === "authoritative_snapshot") {
+        return {
+          strategyVersion: 1,
+          platforms: [],
+          ports: [],
+          routes: [],
+          subscriptions: [],
+          subscriptionPhases: [{ name: "legacy-f", phase: "Failed", stage: "apply", phase_error: "legacy boom" }],
+          resinReachable: true,
+          lastCheckedAt: 1700000000,
+        };
+      }
+      return undefined;
+    });
+    render(<SubscriptionsView />);
+    const chip = await screen.findByTestId("sub-phase-chip-legacy-f", {}, { timeout: 10000 });
+    expect(chip.getAttribute("title")).toContain("legacy boom");
+    expect(screen.queryByTestId("sub-cascade-toggle-legacy-f")).toBeNull();
+  }, 20000);
 });

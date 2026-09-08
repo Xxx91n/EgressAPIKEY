@@ -148,6 +148,7 @@ async fn e2e_sub_then_platform_then_apply_in_wire_order() {
             phase: resin_core::strategy_engine::SubscriptionPhase::Converged,
             stage: None,
             phase_error: None,
+            last_cascade_error: None,
         }]
     );
     assert_eq!(cfg.platforms.len(), 1);

@@ -339,7 +339,10 @@
     "phaseEstablishing": "Opzetten",
     "phaseConverged": "Opgezet",
     "phaseFailed": "Mislukt",
-    "phaseNeedsApproval": "Goedkeuring vereist"
+    "phaseNeedsApproval": "Goedkeuring vereist",
+    "cascadeShow": "Rollback-details tonen",
+    "cascadeHide": "Rollback-details verbergen",
+    "cascadeDetail": "rollback"
   },
   "theme": {
     "label": "Thema",

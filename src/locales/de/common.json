@@ -339,7 +339,10 @@
     "phaseEstablishing": "Einrichtung läuft",
     "phaseConverged": "Eingerichtet",
     "phaseFailed": "Fehlgeschlagen",
-    "phaseNeedsApproval": "Freigabe erforderlich"
+    "phaseNeedsApproval": "Freigabe erforderlich",
+    "cascadeShow": "Rollback-Details anzeigen",
+    "cascadeHide": "Rollback-Details ausblenden",
+    "cascadeDetail": "Rollback"
   },
   "theme": {
     "label": "Design",

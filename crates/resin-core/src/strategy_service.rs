@@ -26,8 +26,8 @@ use std::sync::Mutex as StdMutex;
 use serde::Serialize;
 
 use crate::strategy_engine::{
-    compute_plan, parse_nodes, EstablishStep, NodeSummary, PlatformStrategy, StrategyConfig, SubscriptionPhase,
-    SubscriptionStatus,
+    compute_plan, parse_nodes, CascadeError, EstablishStep, NodeSummary, PlatformStrategy, StrategyConfig,
+    SubscriptionPhase, SubscriptionStatus,
 };
 use crate::whitebox_backup::{
     atomic_write_bytes, backup_before_write, backup_list, now_unix, read_backup_parsed,
@@ -51,6 +51,12 @@ pub const MAX_REGION_LEN: usize = 32;
 pub const MAX_SUBSCRIPTION_STATUS_ROWS: usize = 512;
 /// Round 7 T02: KEP-1623-style reason ceiling for `phase_error`.
 pub const MAX_PHASE_ERROR_LEN: usize = 1024;
+/// Round 7 T04 (D-C1.4): `last_cascade_error.rollback_actions` caps. The
+/// marking is a fixed 4-slot sub/plat/port/apply record, so 8 is bound +
+/// headroom, not an extension point (schema is locked).
+pub const MAX_ROLLBACK_ACTIONS: usize = 8;
+/// Round 7 T04 (D-C1.4): one compensation-action string ceiling.
+pub const MAX_ROLLBACK_ACTION_LEN: usize = 256;
 
 /// Result of `StrategyService::apply`: per-platform PATCH outcome, serde
 /// shaped exactly like the former command-layer JSON (TS contract unchanged).
@@ -505,6 +511,44 @@ fn validate_subscription_statuses(rows: &[SubscriptionStatus]) -> Result<(), Str
         } else if carrying_error {
             return Err(format!("subscriptions[{i}] ({}) phase must not carry a phase_error", row.name));
         }
+        // Round 7 T04 (D-C1.4): the cascade failure record validates like
+        // every other persisted payload — reason NUL-checked + capped, the
+        // rollback marking bounded (the 4-slot sub/plat/port/apply schema is
+        // locked; the cap is a bound, not an extension point).
+        if let Some(ce) = &row.last_cascade_error {
+            if ce.reason.is_empty() || ce.reason.len() > MAX_PHASE_ERROR_LEN {
+                return Err(format!(
+                    "subscriptions[{i}] ({}) last_cascade_error.reason must be 1..{MAX_PHASE_ERROR_LEN} chars",
+                    row.name
+                ));
+            }
+            if ce.reason.bytes().any(|b| b == 0) {
+                return Err(format!(
+                    "subscriptions[{i}] ({}) last_cascade_error.reason contains NUL",
+                    row.name
+                ));
+            }
+            if ce.rollback_actions.len() > MAX_ROLLBACK_ACTIONS {
+                return Err(format!(
+                    "subscriptions[{i}] ({}) rollback_actions too long (max {MAX_ROLLBACK_ACTIONS})",
+                    row.name
+                ));
+            }
+            for (j, a) in ce.rollback_actions.iter().enumerate() {
+                if a.is_empty() || a.len() > MAX_ROLLBACK_ACTION_LEN {
+                    return Err(format!(
+                        "subscriptions[{i}] ({}) rollback_actions[{j}] must be 1..{MAX_ROLLBACK_ACTION_LEN} chars",
+                        row.name
+                    ));
+                }
+                if a.bytes().any(|b| b == 0) {
+                    return Err(format!(
+                        "subscriptions[{i}] ({}) rollback_actions[{j}] contains NUL",
+                        row.name
+                    ));
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -701,12 +745,20 @@ impl<S: StrategyConfigStore> StrategyService<S> {
                 row.phase = phase;
                 row.stage = stage;
                 row.phase_error = phase_error;
+                // Round 7 T04 (D-C1.4): a green cascade clears the last
+                // failure's compensation record (the last_apply_error
+                // precedent, ADR-0058 D3). Other transitions keep it — the
+                // field is the LAST failure by name until replaced.
+                if phase == SubscriptionPhase::Converged {
+                    row.last_cascade_error = None;
+                }
             }
             None => config.subscriptions.push(SubscriptionStatus {
                 name: name.to_string(),
                 phase,
                 stage,
                 phase_error,
+                last_cascade_error: None,
             }),
         }
         if config.subscriptions.len() > MAX_SUBSCRIPTION_STATUS_ROWS {
@@ -715,6 +767,79 @@ impl<S: StrategyConfigStore> StrategyService<S> {
             ));
         }
         // Landed generation stays at the CURRENT value: status, not spec.
+        self.store.store(&config)?;
+        Ok(config)
+    }
+
+    /// Round 7 T04 (D-C1.4): record a cascade failure AND its partial-failure
+    /// compensation record in ONE status write. Same store entry + status-
+    /// subresource discipline as `record_subscription_phase` (validated,
+    /// versioned, audited; the generation counter does NOT move — a status
+    /// write is not a desired-state write). `rollback_actions` is the ordered
+    /// sub/plat/port/apply marking produced by
+    /// `subscription_pipeline::compensate_failed_cascade`; the phase row
+    /// lands exactly as `record_subscription_phase(Failed)` would, plus the
+    /// schema-locked `last_cascade_error` record.
+    pub fn record_cascade_failure(
+        &self,
+        name: &str,
+        stage: EstablishStep,
+        reason: &str,
+        rollback_actions: Vec<String>,
+    ) -> Result<StrategyConfig, String> {
+        if name.is_empty() || name.len() > MAX_PLATFORM_NAME_LEN {
+            return Err("subscription name must be 1..128 chars".to_string());
+        }
+        if name.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+            return Err("subscription name contains control characters".to_string());
+        }
+        if reason.is_empty() || reason.len() > MAX_PHASE_ERROR_LEN {
+            return Err(format!("reason must be 1..{MAX_PHASE_ERROR_LEN} chars"));
+        }
+        if reason.bytes().any(|b| b == 0) {
+            return Err("reason contains NUL".to_string());
+        }
+        if rollback_actions.len() > MAX_ROLLBACK_ACTIONS {
+            return Err(format!(
+                "rollback_actions too long (max {MAX_ROLLBACK_ACTIONS})"
+            ));
+        }
+        for (j, a) in rollback_actions.iter().enumerate() {
+            if a.is_empty() || a.len() > MAX_ROLLBACK_ACTION_LEN {
+                return Err(format!(
+                    "rollback_actions[{j}] must be 1..{MAX_ROLLBACK_ACTION_LEN} chars"
+                ));
+            }
+            if a.bytes().any(|b| b == 0) {
+                return Err(format!("rollback_actions[{j}] contains NUL"));
+            }
+        }
+        let cascade_error = CascadeError {
+            stage,
+            reason: reason.to_string(),
+            rollback_actions,
+        };
+        let mut config = self.get()?;
+        match config.subscriptions.iter_mut().find(|s| s.name == name) {
+            Some(row) => {
+                row.phase = SubscriptionPhase::Failed;
+                row.stage = Some(stage);
+                row.phase_error = Some(cascade_error.reason.clone());
+                row.last_cascade_error = Some(cascade_error);
+            }
+            None => config.subscriptions.push(SubscriptionStatus {
+                name: name.to_string(),
+                phase: SubscriptionPhase::Failed,
+                stage: Some(stage),
+                phase_error: Some(cascade_error.reason.clone()),
+                last_cascade_error: Some(cascade_error),
+            }),
+        }
+        if config.subscriptions.len() > MAX_SUBSCRIPTION_STATUS_ROWS {
+            return Err(format!(
+                "subscriptions status array too long (max {MAX_SUBSCRIPTION_STATUS_ROWS})"
+            ));
+        }
         self.store.store(&config)?;
         Ok(config)
     }
@@ -2241,7 +2366,13 @@ mod tests {
     }
 
     fn status(name: &str, phase: SubscriptionPhase) -> SubscriptionStatus {
-        SubscriptionStatus { name: name.to_string(), phase, stage: None, phase_error: None }
+        SubscriptionStatus {
+            name: name.to_string(),
+            phase,
+            stage: None,
+            phase_error: None,
+            last_cascade_error: None,
+        }
     }
 
     /// Checkpoint A (D-C1.2): the Never -> Importing -> Establishing ->
@@ -2391,22 +2522,122 @@ mod tests {
         // validate() rejects the same junk in a hand-edited document.
         let mut bad = cfg(vec![]);
         bad.subscriptions = vec![SubscriptionStatus {
-            name: "dup".into(), phase: SubscriptionPhase::Never, stage: None, phase_error: None,
+            name: "dup".into(), phase: SubscriptionPhase::Never, stage: None, phase_error: None, last_cascade_error: None,
         }, SubscriptionStatus {
-            name: "dup".into(), phase: SubscriptionPhase::Never, stage: None, phase_error: None,
+            name: "dup".into(), phase: SubscriptionPhase::Never, stage: None, phase_error: None, last_cascade_error: None,
         }];
         assert!(validate(&bad).is_err(), "duplicate rows rejected");
         bad.subscriptions = vec![SubscriptionStatus {
-            name: "s".into(), phase: SubscriptionPhase::Converged, stage: Some(EstablishStep::Apply), phase_error: None,
+            name: "s".into(), phase: SubscriptionPhase::Converged, stage: Some(EstablishStep::Apply), phase_error: None, last_cascade_error: None,
         }];
         assert!(validate(&bad).is_err(), "Converged with a stage rejected");
         bad.subscriptions = vec![SubscriptionStatus {
-            name: "s".into(), phase: SubscriptionPhase::Failed, stage: Some(EstablishStep::Import), phase_error: None,
+            name: "s".into(), phase: SubscriptionPhase::Failed, stage: Some(EstablishStep::Import), phase_error: None, last_cascade_error: None,
         }];
         assert!(validate(&bad).is_err(), "Failed without a reason rejected");
         // A legal row passes.
         bad.subscriptions = vec![SubscriptionStatus {
-            name: "s".into(), phase: SubscriptionPhase::Failed, stage: Some(EstablishStep::Import), phase_error: Some("boom".into()),
+            name: "s".into(), phase: SubscriptionPhase::Failed, stage: Some(EstablishStep::Import), phase_error: Some("boom".into()), last_cascade_error: None,
+        }];
+        assert!(validate(&bad).is_ok());
+    }
+
+    // ---- Round 7 T04 (D-C1.4): cascade failure record ----
+
+    #[test]
+    fn record_cascade_failure_persists_marking_and_converged_clears() {
+        let (svc, _path) = fs_service("cascade-err");
+        let actions = vec![
+            "sub: kept (user data)".to_string(),
+            "plat: deleted on Resin (cascade-created, apply failed)".to_string(),
+            "port: none (not run)".to_string(),
+            "apply: failed on sub-a".to_string(),
+        ];
+        let after = svc
+            .record_cascade_failure("sub-a", EstablishStep::Apply, "PATCH failed: 500", actions.clone())
+            .unwrap();
+        let row = &after.subscriptions[0];
+        assert_eq!(row.phase, SubscriptionPhase::Failed);
+        assert_eq!(row.stage, Some(EstablishStep::Apply));
+        assert_eq!(row.phase_error.as_deref(), Some("PATCH failed: 500"));
+        let ce = row.last_cascade_error.as_ref().unwrap();
+        assert_eq!(ce.stage, EstablishStep::Apply);
+        assert_eq!(ce.reason, "PATCH failed: 500");
+        assert_eq!(ce.rollback_actions, actions);
+        // The failure write is a STATUS write: it does NOT move generation
+        // (k8s status-subresource rule — same as record_subscription_phase).
+        assert_eq!(after.generation, 0);
+        // A later Converged write clears the record (last_apply_error
+        // precedent, ADR-0058 D3).
+        let green = svc
+            .record_subscription_phase("sub-a", SubscriptionPhase::Converged, None, None)
+            .unwrap();
+        let row = &green.subscriptions[0];
+        assert_eq!(row.phase, SubscriptionPhase::Converged);
+        assert!(row.last_cascade_error.is_none(), "green cascade clears the record");
+        // Non-terminal transitions keep it (the field is the LAST failure
+        // by name until replaced or cleared).
+        let _ = svc
+            .record_cascade_failure("sub-b", EstablishStep::Import, "create: 500", vec!["x".to_string()])
+            .unwrap();
+        let _ = svc
+            .record_subscription_phase("sub-b", SubscriptionPhase::Importing, None, None)
+            .unwrap();
+        let cfg = svc.get().unwrap();
+        let row = cfg.subscriptions.iter().find(|r| r.name == "sub-b").unwrap();
+        assert!(row.last_cascade_error.is_some(), "Importing keeps the last failure record");
+    }
+
+    #[test]
+    fn record_cascade_failure_bounds_rejected() {
+        let (svc, _path) = fs_service("cascade-err-bounds");
+        // Name hygiene (AGENTS 7.5).
+        assert!(svc.record_cascade_failure("", EstablishStep::Apply, "r", vec![]).is_err());
+        assert!(svc.record_cascade_failure("a\u{0}b", EstablishStep::Apply, "r", vec![]).is_err());
+        // Reason bounds.
+        assert!(svc.record_cascade_failure("s", EstablishStep::Apply, "", vec![]).is_err());
+        let long = "x".repeat(MAX_PHASE_ERROR_LEN + 1);
+        assert!(svc.record_cascade_failure("s", EstablishStep::Apply, &long, vec![]).is_err());
+        assert!(svc.record_cascade_failure("s", EstablishStep::Apply, "bad\u{0}reason", vec![]).is_err());
+        // Rollback marking bounds (schema lock = bound, not extension point).
+        let too_many: Vec<String> = (0..MAX_ROLLBACK_ACTIONS + 1).map(|i| format!("a{i}")).collect();
+        assert!(svc.record_cascade_failure("s", EstablishStep::Apply, "r", too_many).is_err());
+        let too_long = "y".repeat(MAX_ROLLBACK_ACTION_LEN + 1);
+        assert!(svc.record_cascade_failure("s", EstablishStep::Apply, "r", vec![too_long]).is_err());
+        assert!(
+            svc.record_cascade_failure("s", EstablishStep::Apply, "r", vec!["nul\u{0}action".to_string()]).is_err(),
+            "NUL in a rollback action rejected"
+        );
+        // validate() rejects the same junk in a hand-edited document.
+        let mut bad = cfg(vec![]);
+        bad.subscriptions = vec![SubscriptionStatus {
+            name: "s".into(),
+            phase: SubscriptionPhase::Failed,
+            stage: Some(EstablishStep::Apply),
+            phase_error: Some("boom".into()),
+            last_cascade_error: Some(CascadeError {
+                stage: EstablishStep::Apply,
+                reason: "boom".into(),
+                rollback_actions: vec!["nul\u{0}action".into()],
+            }),
+        }];
+        assert!(validate(&bad).is_err(), "NUL in rollback action rejected");
+        // A legal hand-edited record passes.
+        bad.subscriptions = vec![SubscriptionStatus {
+            name: "s".into(),
+            phase: SubscriptionPhase::Failed,
+            stage: Some(EstablishStep::Apply),
+            phase_error: Some("boom".into()),
+            last_cascade_error: Some(CascadeError {
+                stage: EstablishStep::Apply,
+                reason: "boom".into(),
+                rollback_actions: vec![
+                    "sub: kept (user data)".into(),
+                    "plat: none (not created this pass)".into(),
+                    "port: none (not run)".into(),
+                    "apply: not reached".into(),
+                ],
+            }),
         }];
         assert!(validate(&bad).is_ok());
     }

@@ -161,6 +161,30 @@ pub enum EstablishStep {
     Apply,
 }
 
+/// Round 7 T04 (D-C1.4): per-subscription cascade failure record — the
+/// persisted partial-failure marking. Schema LOCKED (handoff validator note):
+/// exactly `{ stage, reason, rollback_actions[] }`; `rollback_actions` is a
+/// fixed Vec<String> with ONE ordered entry per cascade step
+/// (sub/plat/port/apply), never extended into a dynamic object. Lives on the
+/// `SubscriptionStatus` status row (status subresource: written through the
+/// ONE store entry, generation does NOT move — ADR-0058 discipline); the
+/// next Converged status write clears it (the `last_apply_error`
+/// precedent, ADR-0058 D3).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CascadeError {
+    /// The establish step that failed (same tag vocabulary as
+    /// `SubscriptionStatus::stage`; snake_case wire tag).
+    pub stage: EstablishStep,
+    /// KEP-1623-style reason of the failing step (bounds enforced by
+    /// `strategy_service::validate_subscription_statuses`).
+    pub reason: String,
+    /// Ordered compensation record: [0]=sub, [1]=plat, [2]=port, [3]=apply —
+    /// one entry per cascade step, in cascade order. Empty only in a
+    /// hand-edited legacy file (serde default).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rollback_actions: Vec<String>,
+}
+
 /// One subscription's establish-phase STATUS row in the strategy whitebox
 /// (`egressapikey-strategy.json` top-level `subscriptions` array). STATUS,
 /// not spec: writes go through the ONE store entry (validate + versioned
@@ -181,6 +205,13 @@ pub struct SubscriptionStatus {
     /// chars, NUL rejected).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phase_error: Option<String>,
+    /// Round 7 T04 (D-C1.4): the LAST cascade failure's compensation record
+    /// (schema-locked `{ stage, reason, rollback_actions[] }` — see
+    /// `CascadeError`). Set by `StrategyService::record_cascade_failure`,
+    /// cleared by the next Converged status write. Absent in older files =
+    /// None (serde default, zero migration).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_cascade_error: Option<CascadeError>,
 }
 
 /// The whitebox strategy config document.

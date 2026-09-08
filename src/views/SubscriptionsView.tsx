@@ -8,7 +8,7 @@ import {
   ipcPlatformCreateWithFields, ipcPortList, ipcPortBindPlatform,
   ipcAuthoritativeSnapshot,
   type SubscriptionSnapshotEntry, type StrategyConfig,
-  type SubscriptionPhaseRow,
+  type CascadeErrorInfo, type SubscriptionPhaseRow,
 } from "../lib/ipc";
 import { translateError } from "../lib/i18n-error";
 import { loadSubOrder, saveSubOrder } from "../lib/settings";
@@ -927,11 +927,7 @@ function SubscriptionPhaseChip({
         </span>
       );
     case "Failed":
-      return (
-        <span {...common} title={row.phase_error || undefined} className={chip + " bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"}>
-          {t("subscription.phaseFailed")}
-        </span>
-      );
+      return <FailedPhaseChip common={common} chipClass={chip + " bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"} row={row} t={t} />;
     case "Establishing":
       return (
         <span {...common} className={amber}>
@@ -950,4 +946,55 @@ function SubscriptionPhaseChip({
     default:
       return <span {...common} className={amber}>{t("subscription.phaseNever")}</span>;
   }
+}
+
+/// Round 7 T04 (D-C1.4): the Failed chip + the persisted cascade-failure
+/// marking. Hover (title) keeps the one-line reason; the expandable row
+/// below the chip carries the ordered sub/plat/port/apply compensation
+/// record (toggle button, aria-expanded — same collapse pattern as
+/// SubscriptionRowHint's error banner).
+function FailedPhaseChip({
+  common, chipClass, row, t,
+}: {
+  common: { "data-testid": string; "data-phase": string };
+  chipClass: string;
+  row: SubscriptionPhaseRow;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const [open, setOpen] = useState(false);
+  const ce: CascadeErrorInfo | undefined = row.last_cascade_error;
+  const title = ce ? ce.reason : row.phase_error;
+  return (
+    <span className="inline-flex flex-col items-start">
+      <span {...common} title={title || undefined} className={chipClass}>
+        {t("subscription.phaseFailed")}
+      </span>
+      {ce && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={open ? t("subscription.cascadeHide") : t("subscription.cascadeShow")}
+            data-testid={"sub-cascade-toggle-" + row.name}
+            className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+          >
+            <ChevronDown size={10} className={"transition-transform " + (open ? "rotate-180" : "")} />
+            {t("subscription.cascadeDetail")}
+          </button>
+          {open && (
+            <span
+              data-testid={"sub-cascade-detail-" + row.name}
+              className="mt-0.5 rounded border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-1.5 py-1 text-[10px] leading-tight text-red-700 dark:text-red-300 max-w-[280px]"
+            >
+              <span className="block break-all">{ce.reason}</span>
+              {ce.rollback_actions?.map((a, i) => (
+                <span key={i} className="block font-mono break-all">{a}</span>
+              ))}
+            </span>
+          )}
+        </>
+      )}
+    </span>
+  );
 }

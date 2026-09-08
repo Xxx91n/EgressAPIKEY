@@ -339,7 +339,10 @@
     "phaseEstablishing": "Kuruluyor",
     "phaseConverged": "Kuruldu",
     "phaseFailed": "Başarısız",
-    "phaseNeedsApproval": "Onay bekliyor"
+    "phaseNeedsApproval": "Onay bekliyor",
+    "cascadeShow": "Geri alma ayrıntılarını göster",
+    "cascadeHide": "Geri alma ayrıntılarını gizle",
+    "cascadeDetail": "geri alma"
   },
   "theme": {
     "label": "Tema",

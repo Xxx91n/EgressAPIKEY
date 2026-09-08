@@ -339,7 +339,10 @@
     "phaseEstablishing": "جارٍ الإنشاء",
     "phaseConverged": "مُنشأة",
     "phaseFailed": "فشل",
-    "phaseNeedsApproval": "بحاجة إلى موافقة"
+    "phaseNeedsApproval": "بحاجة إلى موافقة",
+    "cascadeShow": "عرض تفاصيل التراجع",
+    "cascadeHide": "إخفاء تفاصيل التراجع",
+    "cascadeDetail": "تراجع"
   },
   "theme": {
     "label": "السمة",

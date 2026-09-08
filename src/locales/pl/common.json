@@ -339,7 +339,10 @@
     "phaseEstablishing": "Ustanawianie",
     "phaseConverged": "Ustanowiono",
     "phaseFailed": "Błąd",
-    "phaseNeedsApproval": "Wymaga zatwierdzenia"
+    "phaseNeedsApproval": "Wymaga zatwierdzenia",
+    "cascadeShow": "Pokaż szczegóły wycofania",
+    "cascadeHide": "Ukryj szczegóły wycofania",
+    "cascadeDetail": "wycofanie"
   },
   "theme": {
     "label": "Motyw",

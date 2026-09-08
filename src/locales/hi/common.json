@@ -339,7 +339,10 @@
     "phaseEstablishing": "स्थापित हो रहा है",
     "phaseConverged": "स्थापित",
     "phaseFailed": "विफल",
-    "phaseNeedsApproval": "अनुमोदन आवश्यक"
+    "phaseNeedsApproval": "अनुमोदन आवश्यक",
+    "cascadeShow": "रोलबैक विवरण दिखाएँ",
+    "cascadeHide": "रोलबैक विवरण छिपाएँ",
+    "cascadeDetail": "रोलबैक"
   },
   "theme": {
     "label": "थीम",

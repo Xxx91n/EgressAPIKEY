@@ -339,7 +339,10 @@
     "phaseEstablishing": "Установка",
     "phaseConverged": "Установлена",
     "phaseFailed": "Ошибка",
-    "phaseNeedsApproval": "Требует подтверждения"
+    "phaseNeedsApproval": "Требует подтверждения",
+    "cascadeShow": "Показать детали отката",
+    "cascadeHide": "Скрыть детали отката",
+    "cascadeDetail": "откат"
   },
   "theme": {
     "label": "Тема",

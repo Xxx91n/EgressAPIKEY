@@ -339,7 +339,10 @@
     "phaseEstablishing": "수립 중",
     "phaseConverged": "수립됨",
     "phaseFailed": "실패",
-    "phaseNeedsApproval": "승인 필요"
+    "phaseNeedsApproval": "승인 필요",
+    "cascadeShow": "롤백 상세 보기",
+    "cascadeHide": "롤백 상세 숨기기",
+    "cascadeDetail": "롤백"
   },
   "theme": {
     "label": "테마",

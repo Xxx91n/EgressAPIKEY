@@ -339,7 +339,10 @@
     "phaseEstablishing": "Menyiapkan",
     "phaseConverged": "Terbentuk",
     "phaseFailed": "Gagal",
-    "phaseNeedsApproval": "Perlu persetujuan"
+    "phaseNeedsApproval": "Perlu persetujuan",
+    "cascadeShow": "Tampilkan detail rollback",
+    "cascadeHide": "Sembunyikan detail rollback",
+    "cascadeDetail": "rollback"
   },
   "theme": {
     "label": "Tema",

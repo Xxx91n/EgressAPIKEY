@@ -339,7 +339,10 @@
     "phaseEstablishing": "Établissement",
     "phaseConverged": "Établie",
     "phaseFailed": "Échec",
-    "phaseNeedsApproval": "Approbation requise"
+    "phaseNeedsApproval": "Approbation requise",
+    "cascadeShow": "Afficher le détail du rollback",
+    "cascadeHide": "Masquer le détail du rollback",
+    "cascadeDetail": "rollback"
   },
   "theme": {
     "label": "Thème",

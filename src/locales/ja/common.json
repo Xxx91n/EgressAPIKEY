@@ -339,7 +339,10 @@
     "phaseEstablishing": "確立中",
     "phaseConverged": "確立済み",
     "phaseFailed": "失敗",
-    "phaseNeedsApproval": "承認待ち"
+    "phaseNeedsApproval": "承認待ち",
+    "cascadeShow": "ロールバック詳細を表示",
+    "cascadeHide": "ロールバック詳細を非表示",
+    "cascadeDetail": "ロールバック"
   },
   "theme": {
     "label": "テーマ",

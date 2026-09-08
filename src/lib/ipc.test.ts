@@ -1129,6 +1129,70 @@ describe("ticket T02: subscriptionPhases sanitizers", () => {
     ]);
   });
 
+  it("T04: passes a well-formed last_cascade_error through and drops it on rows without one", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategyVersion: 1,
+      resinReachable: true,
+      lastCheckedAt: 0,
+      platforms: [],
+      ports: [],
+      subscriptionPhases: [
+        {
+          name: "sub-fail",
+          phase: "Failed",
+          stage: "apply",
+          phase_error: "PATCH failed: 500",
+          last_cascade_error: {
+            stage: "apply",
+            reason: "PATCH failed: 500",
+            rollback_actions: [
+              "sub: kept (user data)",
+              "plat: deleted on Resin (cascade-created, apply failed)",
+              "port: none (not run)",
+              "apply: failed on sub-fail",
+            ],
+          },
+        },
+        { name: "sub-ok", phase: "Converged" },
+      ],
+    });
+    const snap = await ipcAuthoritativeSnapshot();
+    expect(snap.subscriptionPhases?.[0].last_cascade_error).toEqual({
+      stage: "apply",
+      reason: "PATCH failed: 500",
+      rollback_actions: [
+        "sub: kept (user data)",
+        "plat: deleted on Resin (cascade-created, apply failed)",
+        "port: none (not run)",
+        "apply: failed on sub-fail",
+      ],
+    });
+    expect(snap.subscriptionPhases?.[1].last_cascade_error).toBeUndefined();
+  });
+
+  it("T04: a malformed cascade record drops WHOLE (no half-valid marking)", async () => {
+    invokeMock.mockResolvedValueOnce({
+      strategyVersion: 1,
+      resinReachable: true,
+      lastCheckedAt: 0,
+      platforms: [],
+      ports: [],
+      subscriptionPhases: [
+        { name: "bad-stage", phase: "Failed", stage: "apply", phase_error: "x", last_cascade_error: { stage: "not-a-stage", reason: "r" } },
+        { name: "bad-reason", phase: "Failed", stage: "apply", phase_error: "x", last_cascade_error: { stage: "apply", reason: "  " } },
+        { name: "nul-action", phase: "Failed", stage: "apply", phase_error: "x", last_cascade_error: { stage: "apply", reason: "r", rollback_actions: ["a\u0000b", " ok "] } },
+        { name: "not-object", phase: "Failed", stage: "apply", phase_error: "x", last_cascade_error: "junk" },
+      ],
+    });
+    const snap = await ipcAuthoritativeSnapshot();
+    const rows = snap.subscriptionPhases ?? [];
+    expect(rows[0].last_cascade_error).toBeUndefined();
+    expect(rows[1].last_cascade_error).toBeUndefined();
+    // Control chars in actions are sanitized to spaces, not fatal.
+    expect(rows[2].last_cascade_error?.rollback_actions).toEqual(["a b", "ok"]);
+    expect(rows[3].last_cascade_error).toBeUndefined();
+  });
+
   it("snapshots WITHOUT a subscriptionPhases array degrade to an empty list", async () => {
     invokeMock.mockResolvedValueOnce({
       strategyVersion: 1,

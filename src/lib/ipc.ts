@@ -1449,6 +1449,16 @@ const SUBSCRIPTION_STAGES: readonly SubscriptionStage[] = [
   "apply",
 ];
 
+/** Round 7 T04 (D-C1.4): one subscription's persisted cascade-failure
+ *  compensation record (Rust `CascadeError`; schema LOCKED to
+ *  `{ stage, reason, rollback_actions[] }` — one ordered marking entry per
+ *  cascade step, never a dynamic object). */
+export interface CascadeErrorInfo {
+  stage: SubscriptionStage;
+  reason: string;
+  rollback_actions?: string[];
+}
+
 /** Round 7 T02: one whitebox phase status row (snake_case row fields, the
  *  per-variant wire convention; the parent field is camelCase). */
 export interface SubscriptionPhaseRow {
@@ -1456,6 +1466,31 @@ export interface SubscriptionPhaseRow {
   phase: SubscriptionPhase;
   stage?: SubscriptionStage;
   phase_error?: string;
+  last_cascade_error?: CascadeErrorInfo;
+}
+
+/** Round 7 T04: sanitize one cascade-failure record (untrusted). Any
+ *  malformed member drops the WHOLE record — a half-valid failure marking
+ *  would read as data that was never persisted. */
+function snapCascadeError(v: unknown): CascadeErrorInfo | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const r = v as Record<string, unknown>;
+  const stageTag = typeof r.stage === "string" ? r.stage : "";
+  if (!(SUBSCRIPTION_STAGES as readonly string[]).includes(stageTag)) return undefined;
+  const reason = typeof r.reason === "string" ? r.reason.trim().slice(0, 1024) : "";
+  if (!reason) return undefined;
+  let actions: string[] | undefined;
+  if (Array.isArray(r.rollback_actions)) {
+    const cleaned = r.rollback_actions
+      .filter((a): a is string => typeof a === "string")
+      .map((a) => a.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 256));
+    actions = cleaned.length > 0 ? cleaned : undefined;
+  }
+  return {
+    stage: stageTag as SubscriptionStage,
+    reason,
+    ...(actions !== undefined ? { rollback_actions: actions } : {}),
+  };
 }
 
 /** Round 7 T02: sanitize one phase row (untrusted). A malformed phase
@@ -1476,9 +1511,20 @@ function snapSubscriptionPhaseRow(v: unknown): SubscriptionPhaseRow | null {
     : undefined;
   const phaseError =
     r.phase_error === undefined || r.phase_error === null ? undefined : snapStr(r.phase_error) || undefined;
-  return phase === "Never" && stageTag === "" && phaseError === undefined
-    ? { name, phase }
-    : { name, phase, ...(stage !== undefined ? { stage } : {}), ...(phaseError !== undefined ? { phase_error: phaseError } : {}) };
+  const cascadeError =
+    r.last_cascade_error === undefined || r.last_cascade_error === null
+      ? undefined
+      : snapCascadeError(r.last_cascade_error);
+  if (phase === "Never" && stageTag === "" && phaseError === undefined && cascadeError === undefined) {
+    return { name, phase };
+  }
+  return {
+    name,
+    phase,
+    ...(stage !== undefined ? { stage } : {}),
+    ...(phaseError !== undefined ? { phase_error: phaseError } : {}),
+    ...(cascadeError !== undefined ? { last_cascade_error: cascadeError } : {}),
+  };
 }
 
 export interface AuthoritativeSnapshot {

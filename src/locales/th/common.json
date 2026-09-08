@@ -339,7 +339,10 @@
     "phaseEstablishing": "กำลังสร้าง",
     "phaseConverged": "สร้างแล้ว",
     "phaseFailed": "ล้มเหลว",
-    "phaseNeedsApproval": "ต้องการการอนุมัติ"
+    "phaseNeedsApproval": "ต้องการการอนุมัติ",
+    "cascadeShow": "แสดงรายละเอียดการย้อนกลับ",
+    "cascadeHide": "ซ่อนรายละเอียดการย้อนกลับ",
+    "cascadeDetail": "ย้อนกลับ"
   },
   "theme": {
     "label": "ธีม",
