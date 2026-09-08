@@ -360,6 +360,25 @@ _Avoid_: subscription status field vs `PlatformStrategy::subscriptions`
 observation — the cascade report is the truth), applying-generating
 (counter never moves on status writes)
 
+### Cascade Error Rollback
+
+The partial-failure compensation of a failed establish cascade (Round 7
+ticket 04, D-C1.4) — the ADR-0054-compliant EXPLICIT rollback, not a
+silent auto-heal. When a cascade pass fails, ONLY the resources THIS pass
+created are undone: the Resin-side platform row is deleted when this pass
+created it AND the apply failure belongs to it (the failure-owner probe in
+`apply_strategy`); the subscription (user data) is NEVER deleted; the
+strategy whitebox (L2 desired state) is NEVER touched — whitebox deletion
+is a separate ticket's path. The outcome persists as **last_cascade_error**
+(`{ stage, reason, rollback_actions[] }`, schema LOCKED) on the
+subscription's status row — `rollback_actions` is one ordered marking
+entry per cascade step (sub/plat/port/apply) — written via
+`record_cascade_failure` (status subresource, generation never moves);
+the next Converged write clears it.
+_Avoid_: auto-heal (the compensation runs once per failed pass, never
+reconciles toward a hidden target), whitebox rollback (L2 is immutable
+here), generic rollback (only cascade-created resources, only this pass)
+
 ### Generation
 
 The whitebox write-authority counter (round5 T09 / ADR-0058, k8s
