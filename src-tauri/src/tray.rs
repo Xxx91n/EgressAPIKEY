@@ -14,7 +14,7 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri_plugin_notification::NotificationExt;
 use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager,
+    AppHandle, Emitter, Manager,
 };
 
 /// Supported tray label locales (18 base locales). MUST stay in lockstep with
@@ -44,9 +44,10 @@ pub enum TrayLang {
 
 /// Per-locale tray label set.
 pub struct TrayLabels {
-    pub show: &'static str,
-    pub quit: &'static str,
-    pub tooltip: &'static str,
+    pub show: 'static str,
+    pub converge_status: 'static str,
+    pub quit: 'static str,
+    pub tooltip: 'static str,
 }
 
 /// ADR-0060 (revising ADR-0054 §E): per-locale copy for the drift-episode
@@ -63,91 +64,109 @@ pub fn labels(lc: TrayLang) -> TrayLabels {
     match lc {
         TrayLang::En => TrayLabels {
             show: "Show Window",
+            converge_status: "Converge Status",
             quit: "Quit",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Zh => TrayLabels {
             show: "显示窗口",
+            converge_status: "收敛状态",
             quit: "退出",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Ja => TrayLabels {
             show: "ウィンドウを表示",
+            converge_status: "収束ステータス",
             quit: "終了",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Es => TrayLabels {
             show: "Mostrar Ventana",
+            converge_status: "Estado de Convergencia",
             quit: "Salir",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Fr => TrayLabels {
             show: "Afficher la Fenêtre",
+            converge_status: "État de Convergence",
             quit: "Quitter",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::De => TrayLabels {
             show: "Fenster anzeigen",
+            converge_status: "Konvergenzstatus",
             quit: "Beenden",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Ko => TrayLabels {
             show: "창 표시",
+            converge_status: "수렴 상태",
             quit: "종료",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Ru => TrayLabels {
             show: "Показать окно",
+            converge_status: "Статус конвергенции",
             quit: "Выйти",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Pt => TrayLabels {
             show: "Mostrar Janela",
+            converge_status: "Estado de Convergência",
             quit: "Sair",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Ar => TrayLabels {
             show: "إظهار النافذة",
+            converge_status: "حالة التقارب",
             quit: "إنهاء",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::It => TrayLabels {
             show: "Mostra finestra",
+            converge_status: "Stato di Convergenza",
             quit: "Esci",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Nl => TrayLabels {
             show: "Venster tonen",
+            converge_status: "Convergentiestatus",
             quit: "Afsluiten",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Pl => TrayLabels {
             show: "Pokaż okno",
+            converge_status: "Status konwergencji",
             quit: "Zakończ",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Tr => TrayLabels {
             show: "Pencereyi göster",
+            converge_status: "Yakınsama Durumu",
             quit: "Çık",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Vi => TrayLabels {
             show: "Hiện cửa sổ",
+            converge_status: "Trạng thái Hội tụ",
             quit: "Thoát",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Th => TrayLabels {
             show: "แสดงหน้าต่าง",
+            converge_status: "สถานะการลู่เข้า",
             quit: "ออก",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Id => TrayLabels {
             show: "Tampilkan jendela",
+            converge_status: "Status Konvergensi",
             quit: "Keluar",
             tooltip: "EgressAPIKEY",
         },
         TrayLang::Hi => TrayLabels {
             show: "विंडो दिखाएं",
+            converge_status: "कन्वर्ज स्थिति",
             quit: "बाहर निकलें",
             tooltip: "EgressAPIKEY",
         },
@@ -403,8 +422,8 @@ pub fn should_repaint_converge_mirror(
     prev != Some(next)
 }
 
-/// Stable short tag per phase for the tooltip mirror (T08 owns the richer
-/// `{Phase} · rev N/M` format; this ticket ships the state suffix only).
+/// Stable short tag per phase for the tooltip mirror. The richer
+/// `{Phase} · rev N/M` format is composed by `converge_mirror_tooltip`.
 pub fn converge_mirror_tag(phase: resin_core::ConvergePhase) -> &'static str {
     match phase {
         resin_core::ConvergePhase::NeverApplied => "never applied",
@@ -425,11 +444,19 @@ pub fn converge_mirror_tooltip_suffix(phase: resin_core::ConvergePhase) -> Optio
     }
 }
 
-/// Compose the mirrored tooltip: base locale tooltip + optional state tag.
+/// Compose the mirrored tooltip: base locale tooltip + optional state tag
+/// and the generation pair `rev N/M` (checkpoint B: abbreviation format
+/// `{Phase} · rev {N}/{M}`). Converged stays silent (checkpoint C) —
+/// the base tooltip only; every other phase carries its tag + rev pair.
 /// Pure so the composition is unit-testable without a tray handle.
-fn converge_mirror_tooltip(base: &str, phase: resin_core::ConvergePhase) -> String {
+fn converge_mirror_tooltip(
+    base: &str,
+    phase: resin_core::ConvergePhase,
+    gen: u64,
+    applied_gen: u64,
+) -> String {
     match converge_mirror_tooltip_suffix(phase) {
-        Some(tag) => format!("{} — {}", base, tag),
+        Some(tag) => format!("{} — {} · rev {}/{}", base, tag, gen, applied_gen),
         None => base.to_string(),
     }
 }
@@ -450,7 +477,12 @@ fn solid_icon(r: u8, g: u8, b: u8) -> tauri::image::Image<'static> {
 /// Best-effort paint of the converge mirror onto the tray icon + tooltip.
 /// Returns true when a repaint was dispatched. Never panics and never blocks
 /// the snapshot on a tray failure — a missed mirror repaint is logged.
-pub fn apply_converge_mirror(app: &AppHandle, phase: resin_core::ConvergePhase) -> bool {
+pub fn apply_converge_mirror(
+    app: &AppHandle,
+    phase: resin_core::ConvergePhase,
+    gen: u64,
+    applied_gen: u64,
+) -> bool {
     let should = {
         let mut guard = CONVERGE_MIRROR_STATE
             .lock()
@@ -481,7 +513,7 @@ pub fn apply_converge_mirror(app: &AppHandle, phase: resin_core::ConvergePhase) 
         }
         // Drifted / PendingApply: amber mirror (checkpoint C: drift is amber).
         resin_core::ConvergePhase::Drifted | resin_core::ConvergePhase::PendingApply => {
-            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase);
+            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase, gen, applied_gen);
             tray.set_icon(Some(solid_icon(0xf5, 0x9e, 0x0b)))
                 .and_then(|_| tray.set_tooltip(Some(tip)))
         }
@@ -545,9 +577,10 @@ pub fn apply_labels(app: &AppHandle) -> tauri::Result<()> {
     if let Some(tray) = app.tray_by_id("main") {
         let _ = tray.set_tooltip(Some(l.tooltip));
         let show = MenuItem::with_id(app, "show", l.show, true, None::<&str>)?;
+        let converge = MenuItem::with_id(app, "converge_status", l.converge_status, true, None::<&str>)?;
         let sep = PredefinedMenuItem::separator(app)?;
         let quit = MenuItem::with_id(app, "quit", l.quit, true, None::<&str>)?;
-        let menu = Menu::with_items(app, &[&show, &sep, &quit])?;
+        let menu = Menu::with_items(app, &[&show, &converge, &sep, &quit])?;
         tray.set_menu(Some(menu))?;
         tracing::info!(target: "tray", show=l.show, quit=l.quit, "apply_labels: menu rebuilt ok");
     } else {
@@ -563,9 +596,10 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let lc = current_lang(app);
     let l = labels(lc);
     let show = MenuItem::with_id(app, "show", l.show, true, None::<&str>)?;
+    let converge = MenuItem::with_id(app, "converge_status", l.converge_status, true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", l.quit, true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &sep, &quit])?;
+    let menu = Menu::with_items(app, &[&show, &converge, &sep, &quit])?;
     let mut builder = TrayIconBuilder::with_id("main")
         .menu(&menu)
         .tooltip(l.tooltip)
@@ -583,6 +617,17 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                     let _ = w.show();
                     let _ = w.set_focus();
                 }
+            }
+            "converge_status" => {
+                // Checkpoint A (D-C2.3): show + focus the window, then emit
+                // an event the frontend listens to and navigates to
+                // EffectiveConfigView (Tauri event system, not IPC).
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.unminimize();
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+                let _ = app.emit("tray://converge-status", ());
             }
             "quit" => app.exit(0),
             _ => {}
@@ -928,7 +973,7 @@ mod tests {
     }
 
     /// Tooltip mirror: Converged is silent (checkpoint C); every other phase
-    /// carries its stable tag after the base tooltip.
+    /// carries its stable tag + rev pair after the base tooltip.
     #[test]
     fn converge_mirror_tooltip_suffix_rules() {
         use resin_core::ConvergePhase;
@@ -945,15 +990,73 @@ mod tests {
             converge_mirror_tooltip_suffix(ConvergePhase::Unknown),
             Some("state unknown")
         );
-        // Composition helper: base + tag for non-silent, bare base for silent.
+        // Composition helper: base + tag + rev for non-silent, bare base for silent.
         assert_eq!(
-            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::Converged),
+            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::Converged, 5, 5),
             "EgressAPIKEY"
         );
         assert_eq!(
-            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::Drifted),
-            "EgressAPIKEY — drifted"
+            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::Drifted, 5, 5),
+            "EgressAPIKEY — drifted · rev 5/5"
         );
+    }
+
+    /// Checkpoint B (D-C2.3): tooltip shows the abbreviation format
+    /// `{Phase} · rev {N}/{M}` for every non-silent phase.
+    #[test]
+    fn converge_mirror_tooltip_rev_format() {
+        use resin_core::ConvergePhase;
+        // PendingApply: desired rev 6, applied rev 5
+        assert_eq!(
+            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::PendingApply, 6, 5),
+            "EgressAPIKEY — pending apply · rev 6/5"
+        );
+        // ApplyFailed: same rev pair, different tag
+        assert_eq!(
+            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::ApplyFailed, 6, 5),
+            "EgressAPIKEY — apply failed · rev 6/5"
+        );
+        // NeverApplied: rev 0/0 (generation 0 = fresh boot)
+        assert_eq!(
+            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::NeverApplied, 0, 0),
+            "EgressAPIKEY — never applied · rev 0/0"
+        );
+        // Unknown: sidecar unreachable, but the rev pair still surfaces
+        assert_eq!(
+            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::Unknown, 3, 2),
+            "EgressAPIKEY — state unknown · rev 3/2"
+        );
+        // Converged: silent (base only, no tag, no rev)
+        assert_eq!(
+            converge_mirror_tooltip("EgressAPIKEY", ConvergePhase::Converged, 7, 7),
+            "EgressAPIKEY"
+        );
+    }
+
+    /// Checkpoint C (D-C2.5 + TFC lesson): ApplyFailed is long-lived — the
+    /// red icon stays across consecutive snapshots (plateau = no repaint)
+    /// and only clears when a GREEN apply flips the phase to Converged.
+    #[test]
+    fn converge_mirror_apply_failed_long_lived() {
+        use resin_core::ConvergePhase;
+        // Episode: apply fails → first paint (red icon).
+        assert!(should_repaint_converge_mirror(None, ConvergePhase::ApplyFailed));
+        // 5s later: same phase → no repaint (the red STAYS, no edge).
+        assert!(!should_repaint_converge_mirror(
+            Some(ConvergePhase::ApplyFailed),
+            ConvergePhase::ApplyFailed
+        ));
+        // 10s later: still ApplyFailed → still no repaint.
+        assert!(!should_repaint_converge_mirror(
+            Some(ConvergePhase::ApplyFailed),
+            ConvergePhase::ApplyFailed
+        ));
+        // User fixes the issue and re-applies → GREEN → phase flips to
+        // Converged → repaint (clears the red, restores the branded icon).
+        assert!(should_repaint_converge_mirror(
+            Some(ConvergePhase::ApplyFailed),
+            ConvergePhase::Converged
+        ));
     }
 
     /// Every phase has a distinct, non-empty stable tag (tooltip contract).

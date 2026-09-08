@@ -21,6 +21,7 @@ import { TopConvergeStatus } from "./components/TopConvergeStatus";
 import { SideRailConvergeDot } from "./components/SideRailConvergeDot";
 import { type ConvergePhase } from "./lib/ipc";
 import { loadLocale, loadTheme, loadView } from "./lib/settings";
+import { listen } from "@tauri-apps/api/event";
 
 
 // T22: Error Boundary — catches unexpected throws in render/useEffect (e.g. Tauri
@@ -170,6 +171,19 @@ export default function App() {
   // (30s once Converged settles >60s), immediate refresh on sidecar-status
   // events (the existing G4 retarget channel), paused while hidden.
   useEffect(() => subscribeToConverge(), [subscribeToConverge]);
+
+  // Ticket 08 (D-C2.3): tray "Converge status" menu item emits this event;
+  // the listener navigates to EffectiveConfigView (the Rust side already
+  // shows + focuses the window before emitting).
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    listen("tray://converge-status", () => {
+      setView("effectiveConfig");
+    })
+      .then((fn) => { unlisten = fn; })
+      .catch(() => { /* outside Tauri: no-op */ });
+    return () => { if (unlisten) unlisten(); };
+  }, [setView]);
 
   if (!bootstrapped) {
     return (

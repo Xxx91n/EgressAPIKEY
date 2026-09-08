@@ -452,7 +452,12 @@ pub async fn authoritative_snapshot(
     // point discipline as the drift notice above: every snapshot consumer
     // feeds one edge-driven state machine — no extra polling, no new IPC.
     // Best-effort: a failed tray repaint is logged, never fatal.
-    crate::tray::apply_converge_mirror(&app, snapshot.converge_phase);
+    crate::tray::apply_converge_mirror(
+        &app,
+        snapshot.converge_phase,
+        snapshot.strategy_generation,
+        snapshot.strategy_applied_generation,
+    );
 
     Ok(snapshot)
 }
