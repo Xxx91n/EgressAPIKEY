@@ -2493,6 +2493,7 @@ mod tests {
         assert!(!ser.contains("\"subscriptions\""), "empty status array must not serialize");
 
         let _ = std::fs::remove_file(&dir);
+            Ok(())
     }
 
     /// Shape locks: stage/phase_error invariants + bounds are enforced by

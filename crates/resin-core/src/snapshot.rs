@@ -1012,7 +1012,6 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             platforms: vec![strategy_entry("alpha", &["jp"])],
-            subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["us"], "PREFER_LOW_LATENCY")];
         let snap = merge_strategies(&cfg, &resin, &HashMap::new(), true);
@@ -1157,6 +1156,7 @@ mod tests {
         let cfg = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            subscriptions: vec![],
             generation: 0,
             applied_generation: 0,
             last_apply_at: None,
