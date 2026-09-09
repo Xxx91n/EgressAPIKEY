@@ -598,6 +598,7 @@ mod tests {
         let config = StrategyConfig {
             version: 1,
             acknowledged: vec![],
+            subscriptions: vec![],
             generation: 0,
             applied_generation: 0,
             last_apply_at: None,

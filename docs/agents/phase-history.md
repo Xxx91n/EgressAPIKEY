@@ -741,3 +741,26 @@ Close gates（2026-09-06，大脑终跑；本轮 docs+scripts-only 零前端/内
 Backlog（用户决定是否立票）：G1 token 轮换（公开前唯一阻塞）、land+push 授权、W3 两条违规追认、L-4 分支清理、CI verify run（ci.yml 零 run 缺口，land+push 后 workflow_dispatch）、首发 tag/Release、gitleaks 常驻 CI。存量：Round 5 backlog（GAP-01 提 PR / T23 / 票 37 四环下半 / B2-B5 / CI-only 命令去留）。
 
 land/push：2026-09-06 用户授权后完成——主栈（01→02→02-fix1→03→04→06）--whole-stack land + 01-fix1 + 05 + closeout-riders 依序落并推送，origin/main = 01ab4bf（Round 6 全量落并点，release 编排提交随后叠加）；首发编排（CHANGELOG 并版 [Unreleased]→[0.1.0] + tag v0.1.0 + workflow_dispatch ci.yml）与 CI verify 权威证据见 CI run 记录。
+
+### 71. Round 7 close-out — 架构心智模型深化与外部专业化收口（2026-09-09）
+
+**范围**：spec 引 `.scratch/architecture-recovery/spec.md`（D-C1.x / D-C2.x / D-C3.x / D-Gx）。14 票 + 3 返修，W1-W4 四波执行 + 大脑逐波复核 + 整轮收口。
+
+**交付（14/14 done + 3 返修 done）**：
+
+- **C1 订阅→establish pipeline（5 票）**：T01 后端 subscription_pipeline.rs（level-triggered 事件队列 + 单 reconciler，5 步级联，幂等 + 指数退避）→ T02 SubscriptionPhase 6 态状态机 + STATUS 行持久化（status-subresource 规则，generation 不动）→ T03 default-port 级联尾（冲突=警告不覆盖）→ T04 cascade-error-rollback（partial-failure 补偿，白盒永不动，last_cascade_error 持久化）→ T05 i18n 审计（零新增 key——T02/T04 已落地，9 key × 18 locale missing=0）
+- **C2 顶栏收敛信号（4 票）**：T06 TopConvergeStatus/ConvergeTooltip/SideRailConvergeDot 三表面 → T07 appStore polling 5s/30s + sidecar-status 事件 + tray 镜像 → T08 tray 菜单 Converge-status + tooltip rev N/M → T09 i18n topConverge.tooltip.header 补齐 + parser config 10→18
+- **C3 文档路由 + README（5 票）**：T10 hero/architecture SVG + 3 PNG 占位 + sync 注释 → T11 package.json/Cargo.toml description → T12 llms.txt → T13 SECURITY timeline SLA + PR Screenshots → T14 UPSTREAM.md 路由 + RELEASE_NOTES v0.1.0 + upstream-router-check 门禁
+
+**返修**：T03-返修（amend 补 DbPool/PortMapping/PortForwarder/WhiteboxConfigStore 3 import，修 commit 树编译阻断）、T08-返修（re-stack 回 arch/07 之上，修 spec §7 T08←T07 阻塞边）、T09-返修（but move 回 arch/06 之上，修 T09←T06；含一次 --theirs 误判 → but undo → --ours 重解的回归修复）。
+
+**收口 gate（2026-09-09）**：
+
+- 守卫本机 8/8 绿：ipc-manifest 78 / license-field 6/6 / i18n 510×18 / readme-lang 17/17 / upstream-router 9/9 / vitest-isolation / git diff --check / markdownlint（修复 CHANGELOG 2 error 后 0）
+- 三层一致：CONTEXT.md 4 新词条（Cascade Phase / SubscriptionPhase / Global Converge Loop / Cascade Error Rollback）全在；ADR-0056/0057/0058 与 base 逐字节一致（零新 ADR）；关键符号 5/5 在代码
+- land：13 分支按栈序 land 到 origin/main（01→06→09→07→08→02→03→04 主栈 --whole-stack；10→14 C3 栈；11/12/13 独立）+ closeout lintfix commit → **main = 8df557d**
+- CI 权威证据：tag round7-main-8df557d dispatch ci.yml（run 34359735351）+ docs-lint（run 34359809333 + push event 34359616735 已绿）
+
+**过程发现（已登记 README process-violations 段）**：T11/T12 越权 push（用户本 /goal 已追认）；T02/T07 报告 push 状态失真；T08/T09 stack 错置（返修复）；T08 vs T09 CHANGELOG 同 hunk 跨窗口恢复；T04 报告 commit 数与 T09 commit message keys 数小偏差。
+
+**预存 bug 移交（backlog 候选）**：DiagnosticsView `diagnostics.portHealth.platform/.policy` undefined 键；PlatformsView `strategy.untagged` undefined 键。

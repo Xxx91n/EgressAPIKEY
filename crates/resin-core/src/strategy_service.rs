@@ -2450,7 +2450,7 @@ mod tests {
     /// across a cascade, so ADR-0058's top-level ConvergePhase cannot be
     /// flipped into a false PendingApply by a status write.
     #[test]
-    fn fs_status_write_keeps_generation_stable_and_lands_on_disk() {
+    fn fs_status_write_keeps_generation_stable_and_lands_on_disk() -> Result<(), Box<dyn std::error::Error>> {
         let dir = std::env::temp_dir().join(format!("phase-status-{}.json", std::process::id()));
         let _ = std::fs::remove_file(&dir);
         let svc = StrategyService::new(FsStrategyStore::new(dir.clone()));
