@@ -357,6 +357,37 @@ fn main() {
                     }
                 }
             }
+            // Round 8 ticket 01 / D-002 (spec IMP-2, acceptance 4): one-time
+            // strategy-vocabulary migration. The B-class whitebox field
+            // converged from six display-only shell options onto Resin's three
+            // real allocation policies (BALANCED / PREFER_LOW_LATENCY /
+            // PREFER_IDLE_IP). Legacy tokens are rewritten in place through the
+            // SAME validated + versioned + audited store entry every other
+            // strategy write uses, WITHOUT bumping the write generation: the
+            // six->three table is many-to-one onto the policy the shell already
+            // PATCHed to Resin, so the desired state is unchanged and a
+            // converged runtime must not be pushed into a false PendingApply.
+            // Idempotent by construction, so every later boot is a no-op.
+            // Best-effort: a failure is logged and retried on the next boot —
+            // the read boundary already tolerates legacy tokens, so nothing is
+            // broken in the meantime.
+            {
+                let strategy_svc = resin_core::StrategyService::new(
+                    resin_core::FsStrategyStore::new(
+                        cfg_dir.join("egressapikey-strategy.json"),
+                    ),
+                );
+                match strategy_svc.migrate_b_class_values_once() {
+                    Ok(true) => tracing::info!(
+                        "strategy b_class migrated to the three Resin allocation policies (one-time; generation unchanged)"
+                    ),
+                    Ok(false) => {}
+                    Err(e) => tracing::warn!(
+                        error = %e,
+                        "strategy b_class migration failed; retried on next boot"
+                    ),
+                }
+            }
             app.manage(forwarder);
             // T18 Phase 1: shared pause flag for watch_port_health batch probe.
             app.manage(commands::PortHealthPaused::new(false));

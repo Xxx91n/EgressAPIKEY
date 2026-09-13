@@ -25,7 +25,7 @@ fn fixture_config() -> StrategyConfig {
     serde_json::from_value(json!({
         "version": 1,
         "platforms": [
-            {"platform_name": "alpha", "a_class": "region", "b_class": "random", "regions": ["HK"]}
+            {"platform_name": "alpha", "a_class": "region", "b_class": "BALANCED", "regions": ["HK"]}
         ]
     }))
     .unwrap()

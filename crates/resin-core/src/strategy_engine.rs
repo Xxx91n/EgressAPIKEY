@@ -52,35 +52,14 @@ impl AClassStrategy {
     }
 }
 
-/// T18-3 (ADR-0042 S3): B-class strategy parameters (shell-side whitebox only).
-///
-/// These are display-only parameters surfaced on the canvas platform card badge.
-/// Resin v1.2.0 only accepts `allocation_policy` enum; the per-strategy params
-/// are shell-side hints for the GUI (round-robin N, latency threshold ms, quality
-/// score floor, bandwidth weight). Kept optional so older configs without these
-/// fields still deserialize.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct BClassParams {
-    #[serde(default)]
-    pub round_robin_n: Option<u32>,
-    #[serde(default)]
-    pub latency_threshold_ms: Option<u32>,
-    #[serde(default)]
-    pub quality_score: Option<u32>,
-    #[serde(default)]
-    pub bandwidth_weight: Option<u32>,
-}
-
-impl Default for BClassParams {
-    fn default() -> Self {
-        Self {
-            round_robin_n: None,
-            latency_threshold_ms: None,
-            quality_score: None,
-            bandwidth_weight: None,
-        }
-    }
-}
+/// Round 8 ticket 01 / D-002 (spec IMP-2): the former `BClassParams` struct
+/// lived here — four display-only "parameters" (round_robin_n,
+/// latency_threshold_ms, quality_score, bandwidth_weight) that NO backend ever
+/// read. Resin v1.2.0 accepts exactly one B-class knob (`allocation_policy`),
+/// so the struct and the `b_class_params` whitebox field were withdrawn from
+/// both the UI and the API surface. A legacy document that still carries the
+/// key keeps loading unchanged — serde ignores unknown fields — so the
+/// removal itself needs no migration.
 
 /// Per-platform strategy config entry.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -103,9 +82,6 @@ pub struct PlatformStrategy {
     /// For quality strategy: max number of nodes to include.
     #[serde(default = "default_quality_top_n")]
     pub top_n: usize,
-    /// T18-3: B-class strategy parameters for GUI badge interpolation.
-    #[serde(default)]
-    pub b_class_params: BClassParams,
 }
 
 fn default_quality_top_n() -> usize {
@@ -427,6 +403,46 @@ pub fn compute_plan(
     plan
 }
 
+/// Round 8 ticket 01 / D-002 (spec IMP-2): one-time B-class vocabulary
+/// migration. Rewrite every `platforms[].b_class` legacy token in a RAW
+/// whitebox document to its canonical Resin allocation policy, using the
+/// legislated many-to-one table in `strategy::StrategyId::parse`.
+///
+/// Pure, and idempotent by construction: a document that already holds
+/// canonical values (or has no `platforms` array) is returned unchanged and
+/// the function reports `false`, so the caller's write is genuinely one-shot.
+/// “Représentation change, not a policy change” is what makes the write safe
+/// without a generation bump: every legacy token maps onto the very value the
+/// shell already PATCHed to Resin.
+///
+/// It operates on the raw JSON rather than a typed `StrategyConfig` on
+/// purpose: the typed deserializer accepts legacy tokens too, so by the time a
+/// `StrategyConfig` exists the legacy spelling is already gone and a
+/// write-back could no longer be told apart from a no-op.
+pub fn migrate_b_class_values(raw: &mut serde_json::Value) -> bool {
+    let Some(platforms) = raw.get_mut("platforms").and_then(|p| p.as_array_mut()) else {
+        return false;
+    };
+    let mut changed = false;
+    for entry in platforms.iter_mut() {
+        let Some(slot) = entry.get_mut("b_class") else {
+            continue;
+        };
+        let Some(token) = slot.as_str() else {
+            continue;
+        };
+        if !crate::strategy::StrategyId::is_legacy_token(token) {
+            continue;
+        }
+        let Some(canonical) = crate::strategy::StrategyId::parse(token) else {
+            continue;
+        };
+        *slot = serde_json::Value::String(canonical.as_str().to_string());
+        changed = true;
+    }
+    changed
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -483,12 +499,11 @@ mod tests {
         let ps = PlatformStrategy {
             platform_name: "p1".into(),
             a_class: AClassStrategy::Manual,
-            b_class: StrategyId::Random,
+            b_class: StrategyId::Balanced,
             regions: vec![],
             subscriptions: vec![],
             top_n: 10,
             manual_nodes: vec!["h1".into(), "h3".into()],
-                    b_class_params: BClassParams::default(),
         };
         let regions = a_class_regions(&ps, &healthy);
         assert_eq!(regions, vec!["HK".to_string(), "JP".to_string()]);
@@ -504,12 +519,11 @@ mod tests {
         let ps = PlatformStrategy {
             platform_name: "p1".into(),
             a_class: AClassStrategy::Manual,
-            b_class: StrategyId::Random,
+            b_class: StrategyId::Balanced,
             regions: vec!["HK".into()],
             subscriptions: vec![],
             top_n: 10,
             manual_nodes: vec![],
-                    b_class_params: BClassParams::default(),
         };
         let regions = a_class_regions(&ps, &healthy);
         assert_eq!(regions, Vec::<String>::new());
@@ -526,12 +540,11 @@ mod tests {
         let ps = PlatformStrategy {
             platform_name: "p1".into(),
             a_class: AClassStrategy::Region,
-            b_class: StrategyId::Random,
+            b_class: StrategyId::Balanced,
             regions: vec!["HK".into(), "JP".into()],
             subscriptions: vec![],
             top_n: 10,
                     manual_nodes: vec![],
-                    b_class_params: BClassParams::default(),
         };
         let regions = a_class_regions(&ps, &healthy);
         assert!(regions.contains(&"HK".to_string()));
@@ -551,12 +564,11 @@ mod tests {
         let ps = PlatformStrategy {
             platform_name: "p1".into(),
             a_class: AClassStrategy::Quality,
-            b_class: StrategyId::Latency,
+            b_class: StrategyId::PreferLowLatency,
             regions: vec![],
             subscriptions: vec![],
             top_n: 2,
                     manual_nodes: vec![],
-                    b_class_params: BClassParams::default(),
         };
         let regions = a_class_regions(&ps, &healthy);
         // Top 2 by latency: HK (100ms) + JP (150ms)
@@ -576,12 +588,11 @@ mod tests {
         let ps = PlatformStrategy {
             platform_name: "p1".into(),
             a_class: AClassStrategy::Subscription,
-            b_class: StrategyId::Random,
+            b_class: StrategyId::Balanced,
             regions: vec![],
             subscriptions: vec!["alpha".into()],
             top_n: 10,
                     manual_nodes: vec![],
-                    b_class_params: BClassParams::default(),
         };
         let regions = a_class_regions(&ps, &healthy);
         assert!(regions.contains(&"HK".to_string()));
@@ -607,12 +618,11 @@ mod tests {
             platforms: vec![PlatformStrategy {
                 platform_name: "p1".into(),
                 a_class: AClassStrategy::Region,
-                b_class: StrategyId::Random,
+                b_class: StrategyId::Balanced,
                 regions: vec!["HK".into()],
                 subscriptions: vec![],
                 top_n: 10,
                         manual_nodes: vec![],
-                    b_class_params: BClassParams::default(),
         }],
         };
         let plan = compute_plan(&config, &nodes);
@@ -637,47 +647,89 @@ mod tests {
 
 
     #[test]
-    fn b_class_params_serde_roundtrip() {
+    fn migrate_b_class_values_rewrites_the_six_withdrawn_tokens() {
         use serde_json::json;
-        let ps = PlatformStrategy {
-            platform_name: "p1".into(),
-            a_class: AClassStrategy::Manual,
-            b_class: crate::strategy::StrategyId::Sequential,
-            manual_nodes: vec![],
-            regions: vec![],
-            subscriptions: vec![],
-            top_n: 10,
-            b_class_params: BClassParams {
-                round_robin_n: Some(5),
-                latency_threshold_ms: Some(200),
-                quality_score: None,
-                bandwidth_weight: Some(2),
-            },
-        };
-        let v = serde_json::to_value(&ps).unwrap();
-        assert_eq!(v["b_class_params"]["round_robin_n"], json!(5));
-        assert_eq!(v["b_class_params"]["latency_threshold_ms"], json!(200));
-        assert!(v["b_class_params"]["quality_score"].is_null());
-        assert_eq!(v["b_class_params"]["bandwidth_weight"], json!(2));
-        // Round-trip back
-        let back: PlatformStrategy = serde_json::from_value(v).unwrap();
-        assert_eq!(back.b_class_params.round_robin_n, Some(5));
-        assert_eq!(back.b_class_params.bandwidth_weight, Some(2));
+        let mut raw = json!({
+            "version": 1,
+            "platforms": [
+                { "platform_name": "a", "a_class": "region", "b_class": "random" },
+                { "platform_name": "b", "a_class": "region", "b_class": "bandwidth" },
+                { "platform_name": "c", "a_class": "region", "b_class": "protocol_weight" },
+                { "platform_name": "d", "a_class": "region", "b_class": "latency" },
+                { "platform_name": "e", "a_class": "region", "b_class": "sequential" },
+                { "platform_name": "f", "a_class": "region", "b_class": "quality" }
+            ]
+        });
+        assert!(migrate_b_class_values(&mut raw));
+        let got: Vec<&str> = raw["platforms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["b_class"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                "BALANCED",
+                "BALANCED",
+                "BALANCED",
+                "PREFER_LOW_LATENCY",
+                "PREFER_IDLE_IP",
+                "PREFER_IDLE_IP"
+            ]
+        );
     }
 
+    /// The one-shot contract: the migrated document is a no-op on a second pass,
+    /// so a repeated boot never rewrites the whitebox again.
     #[test]
-    fn b_class_params_default_all_none() {
-        let p = BClassParams::default();
-        assert!(p.round_robin_n.is_none());
-        assert!(p.latency_threshold_ms.is_none());
-        assert!(p.quality_score.is_none());
-        assert!(p.bandwidth_weight.is_none());
+    fn migrate_b_class_values_is_idempotent() {
+        use serde_json::json;
+        let mut raw = json!({
+            "version": 1,
+            "platforms": [{ "platform_name": "a", "a_class": "region", "b_class": "quality" }]
+        });
+        assert!(migrate_b_class_values(&mut raw));
+        let after_first = raw.clone();
+        assert!(!migrate_b_class_values(&mut raw));
+        assert_eq!(raw, after_first);
     }
 
+    /// Canonical documents, absent fields and absent arrays are all untouched.
     #[test]
-    fn b_class_params_omitted_field_deserializes_to_none() {
+    fn migrate_b_class_values_leaves_canonical_and_partial_documents_alone() {
         use serde_json::json;
-        // Config written before T18-3 has no b_class_params field — must default.
+        let mut canonical = json!({
+            "version": 1,
+            "platforms": [{ "platform_name": "a", "a_class": "region", "b_class": "PREFER_IDLE_IP" }]
+        });
+        assert!(!migrate_b_class_values(&mut canonical));
+
+        let mut no_field = json!({
+            "version": 1,
+            "platforms": [{ "platform_name": "a", "a_class": "region" }]
+        });
+        assert!(!migrate_b_class_values(&mut no_field));
+
+        let mut no_platforms = json!({ "version": 1 });
+        assert!(!migrate_b_class_values(&mut no_platforms));
+
+        // An unknown token is NOT a legacy token: left verbatim for the typed
+        // read boundary to reject loudly (closed value set).
+        let mut unknown = json!({
+            "version": 1,
+            "platforms": [{ "platform_name": "a", "a_class": "region", "b_class": "p2c" }]
+        });
+        assert!(!migrate_b_class_values(&mut unknown));
+        assert_eq!(unknown["platforms"][0]["b_class"], json!("p2c"));
+    }
+
+    /// Withdrawal lock (spec IMP-2 / acceptance 3): a legacy document carrying
+    /// the retired `b_class_params` key still loads, and the key is GONE from
+    /// the re-serialized form — the display-only parameters cannot come back.
+    #[test]
+    fn b_class_params_is_ignored_on_read_and_absent_on_write() {
+        use serde_json::json;
         let raw = json!({
             "platform_name": "p1",
             "a_class": "manual",
@@ -685,10 +737,15 @@ mod tests {
             "manual_nodes": [],
             "regions": [],
             "subscriptions": [],
-            "top_n": 10
+            "top_n": 10,
+            "b_class_params": { "round_robin_n": 5, "bandwidth_weight": 2 }
         });
         let ps: PlatformStrategy = serde_json::from_value(raw).unwrap();
-        assert_eq!(ps.b_class_params, BClassParams::default());
+        // Legacy b_class token still resolves to the real policy.
+        assert_eq!(ps.b_class, crate::strategy::StrategyId::Balanced);
+        let back = serde_json::to_value(&ps).unwrap();
+        assert!(back.get("b_class_params").is_none(), "{back}");
+        assert_eq!(back["b_class"], json!("BALANCED"));
     }
 
 }

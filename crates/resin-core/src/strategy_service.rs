@@ -33,7 +33,7 @@ use crate::whitebox_backup::{
     atomic_write_bytes, backup_before_write, backup_list, now_unix, read_backup_parsed,
     WhiteboxBackupEntry,
 };
-use crate::snapshot::{parse_resin_platforms, ResinPlatformRuntime};
+use crate::snapshot::{parse_resin_platforms, same_allocation_policy, ResinPlatformRuntime};
 use crate::PortMapping;
 
 /// Bound defaults (validated by the tests at the bottom; the GUI is not the
@@ -260,6 +260,39 @@ pub fn compute_reconcile_plan(
         })
         .collect();
     ReconcilePlan { platforms, ports }
+}
+
+/// Round 8 ticket 01 / D-002 (spec IMP-2): the diff-then-skip PATCH body.
+///
+/// Sends ONLY the axes that actually drifted — the 3-way-merge discipline
+/// mature declarative systems use (kubectl sends only differing fields): a
+/// policy-only drift must never re-assert an in-sync region set, and a
+/// region-only drift must never re-assert an in-sync policy. Returns `None`
+/// when nothing drifts, which is the caller's single "converged, write
+/// nothing" signal. Pure; unit-tested.
+fn strategy_patch_body(
+    regions: &[String],
+    regions_in_sync: bool,
+    desired_policy: &str,
+    policy_in_sync: bool,
+) -> Option<serde_json::Value> {
+    let mut patch = serde_json::Map::new();
+    if !regions_in_sync {
+        patch.insert("region_filters".to_string(), serde_json::json!(regions));
+    }
+    // An absent desired policy (a platform the plan knows but the document no
+    // longer holds) is not a drift signal: nothing to assert.
+    if !desired_policy.is_empty() && !policy_in_sync {
+        patch.insert(
+            "allocation_policy".to_string(),
+            serde_json::json!(desired_policy),
+        );
+    }
+    if patch.is_empty() {
+        None
+    } else {
+        Some(serde_json::Value::Object(patch))
+    }
 }
 
 fn same_region_set(a: &[String], b: &[String]) -> bool {
@@ -664,12 +697,11 @@ impl<S: StrategyConfigStore> StrategyService<S> {
             None => config.platforms.push(PlatformStrategy {
                 platform_name: platform_name.to_string(),
                 a_class: crate::strategy_engine::AClassStrategy::Region,
-                b_class: crate::strategy::StrategyId::Random,
+                b_class: crate::strategy::StrategyId::Balanced,
                 manual_nodes: vec![],
                 regions,
                 subscriptions: vec![],
                 top_n: 10,
-                b_class_params: Default::default(),
             }),
         }
         self.store(config)
@@ -848,11 +880,18 @@ impl<S: StrategyConfigStore> StrategyService<S> {
 impl StrategyService<FsStrategyStore> {
     /// Full apply: read whitebox -> parse nodes -> fulfill the reconcile
     /// preview's promises per platform (create missing-on-resin platforms
-    /// through the ResinClient create seam, ADR-0056; PATCH region_filters
-    /// for every whitebox platform found on Resin whose live region_filters
-    /// actually drift from the computed plan — diff-then-skip, ADR-0057:
-    /// an in-sync platform is skipped, so apply is wire-idempotent and a
-    /// second reconcile pass emits zero PATCH requests). PATCH/create
+    /// through the ResinClient create seam, ADR-0056; PATCH the axes that
+    /// actually drift from the whitebox — diff-then-skip, ADR-0057: an
+    /// in-sync platform is skipped, so apply is wire-idempotent and a second
+    /// reconcile pass emits zero PATCH requests).
+    ///
+    /// Round 8 ticket 01 / D-002 (spec IMP-2, A-004): there are TWO drift
+    /// axes — the computed `region_filters` and the desired
+    /// `allocation_policy` (the whitebox `b_class` IS the Resin policy
+    /// now, so no second mapping table and no extra request). Both come from
+    /// the SAME whitebox document and the SAME fresh `list_platforms` read
+    /// this pass already performed; only the drifting axes are sent.
+    /// PATCH/create
     /// failures are reported per-platform, never fatal. Apply NEVER deletes
     /// whitebox desired state: a failed create keeps the entry and reports
     /// the reason (the former apply-time auto-clean path was removed by
@@ -945,12 +984,37 @@ impl StrategyService<FsStrategyStore> {
                 // fresh `list_platforms` read — never from cached state —
                 // and a failed PATCH still reports per-platform with the
                 // whitebox entry kept (ADR-0056 re-assert-on-retry).
-                let live_regions = parse_resin_platforms(&platforms_v)
+                let live = parse_resin_platforms(&platforms_v)
                     .into_iter()
-                    .find(|rp| rp.name == *platform_name)
-                    .map(|rp| rp.region_filters)
+                    .find(|rp| rp.name == *platform_name);
+                // Ticket 01: the desired policy comes from the SAME whitebox
+                // document this pass already read — `b_class` is the
+                // Resin allocation policy verbatim, so there is no second
+                // mapping table and no extra request.
+                let desired_policy = config
+                    .platforms
+                    .iter()
+                    .find(|ps| ps.platform_name == *platform_name)
+                    .map(|ps| ps.b_class.as_str().to_string())
                     .unwrap_or_default();
-                if same_region_set(regions, &live_regions) {
+                let live_regions = live
+                    .as_ref()
+                    .map(|rp| rp.region_filters.clone())
+                    .unwrap_or_default();
+                let regions_in_sync = same_region_set(regions, &live_regions);
+                let policy_in_sync = live
+                    .as_ref()
+                    .map(|rp| same_allocation_policy(&desired_policy, &rp.allocation_policy))
+                    .unwrap_or(false);
+                // The skip decision and the PATCH body are ONE decision: the
+                // body builder returns None exactly when nothing drifts, so
+                // "converged" and "zero bytes on the wire" can never disagree.
+                let Some(body) = strategy_patch_body(
+                    regions,
+                    regions_in_sync,
+                    &desired_policy,
+                    policy_in_sync,
+                ) else {
                     platforms.push(with_dangling_note(
                         AppliedPlatform {
                             platform: platform_name.clone(),
@@ -961,8 +1025,7 @@ impl StrategyService<FsStrategyStore> {
                         &dangling,
                     ));
                     continue;
-                }
-                let body = serde_json::json!({ "region_filters": regions });
+                };
                 match client.update_platform(&id, body).await {
                     Ok(_) => platforms.push(with_dangling_note(
                         AppliedPlatform {
@@ -1032,6 +1095,44 @@ impl StrategyService<FsStrategyStore> {
         Ok(ApplyReport { platforms })
     }
 
+    /// Round 8 ticket 01 / D-002 (spec IMP-2, acceptance 4): one-time B-class
+    /// vocabulary migration over the whitebox file.
+    ///
+    /// Reads the RAW document — the typed reader already tolerates legacy
+    /// tokens, so only the raw bytes can still show them — rewrites every
+    /// legacy `b_class` token to its canonical Resin allocation policy
+    /// (`strategy_engine::migrate_b_class_values`), and lands the result
+    /// through the SAME validated, versioned, audited store entry every other
+    /// strategy write uses (ADR-0036 / ADR-0059 invariants).
+    ///
+    /// The landed generation stays at the CURRENT value: the six->three table
+    /// is many-to-one onto the policy the shell ALREADY PATCHed to Resin, so
+    /// the desired state is unchanged and bumping would flip ADR-0058's
+    /// ConvergePhase into a false PendingApply on an already-converged runtime
+    /// (the status-subresource discipline `record_subscription_phase`
+    /// follows).
+    ///
+    /// Idempotent by construction: a canonical document reports `false` and
+    /// nothing is written, so every later boot is a no-op. A malformed file is
+    /// reported, never repaired silently.
+    pub fn migrate_b_class_values_once(&self) -> Result<bool, String> {
+        let path = self.store_ref().path().clone();
+        if !path.exists() {
+            return Ok(false);
+        }
+        let raw_text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let mut raw: serde_json::Value = serde_json::from_str(&raw_text)
+            .map_err(|e| format!("strategy config parse error: {e}"))?;
+        if !crate::strategy_engine::migrate_b_class_values(&mut raw) {
+            return Ok(false);
+        }
+        let config: StrategyConfig = serde_json::from_value(raw)
+            .map_err(|e| format!("strategy config parse error: {e}"))?;
+        validate(&config)?;
+        self.store_ref().store(&config)?;
+        Ok(true)
+    }
+
     /// Architecture-recovery ticket 14 / ADR-0054 §A: ONE-WAY reconcile.
     /// Serial: strategy apply FIRST, ports restore SECOND, stop at the first
     /// failure (fail-fast) so a broken strategy PATCH can never mask a port
@@ -1070,12 +1171,11 @@ mod tests {
         PlatformStrategy {
             platform_name: name.to_string(),
             a_class: crate::strategy_engine::AClassStrategy::Region,
-            b_class: crate::strategy::StrategyId::Random,
+            b_class: crate::strategy::StrategyId::Balanced,
             manual_nodes: vec![],
             regions: regions.iter().map(|s| s.to_string()).collect(),
             subscriptions: vec![],
             top_n: 10,
-            b_class_params: Default::default(),
         }
     }
 
@@ -2150,6 +2250,158 @@ mod tests {
         m_platforms_drifted.assert_async().await;
         m_platforms_synced.assert_async().await;
         m_patch.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    /// Ticket 01 (acceptance 2) pure lock: only the drifting axes are sent, and
+    /// "nothing drifts" is the SAME value that means "write nothing".
+    #[test]
+    fn strategy_patch_body_sends_only_the_drifting_axes() {
+        let regions = vec!["HK".to_string()];
+        // Region-only drift: the policy is in sync and must not be re-asserted.
+        assert_eq!(
+            strategy_patch_body(&regions, false, "BALANCED", true),
+            Some(json!({"region_filters": ["HK"]}))
+        );
+        // Policy-only drift: the region set is in sync and must not be
+        // re-asserted.
+        assert_eq!(
+            strategy_patch_body(&regions, true, "PREFER_IDLE_IP", false),
+            Some(json!({"allocation_policy": "PREFER_IDLE_IP"}))
+        );
+        // Both axes drift: both fields travel.
+        assert_eq!(
+            strategy_patch_body(&regions, false, "PREFER_IDLE_IP", false),
+            Some(json!({"region_filters": ["HK"], "allocation_policy": "PREFER_IDLE_IP"}))
+        );
+        // Nothing drifts => no body at all => zero writes.
+        assert_eq!(strategy_patch_body(&regions, true, "BALANCED", true), None);
+        // An absent desired policy is not a drift signal.
+        assert_eq!(strategy_patch_body(&regions, true, "", false), None);
+    }
+
+    /// Ticket 01 (acceptance 2): an allocation_policy-only drift is a REAL
+    /// write, and the PATCH carries the policy.
+    #[tokio::test]
+    async fn apply_allocation_policy_drift_patches_policy() {
+        let store_path = apply_fixture_store_path("policy-drift");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        let mut entry = ps("alpha", &["HK"]);
+        entry.b_class = crate::strategy::StrategyId::PreferIdleIp;
+        svc.store(cfg(vec![entry])).unwrap();
+
+        let mut server = mockito::Server::new_async().await;
+        let bearer = ("authorization", "Bearer testtok");
+        let m_nodes = server
+            .mock("GET", "/api/v1/nodes")
+            .match_query(mockito::Matcher::UrlEncoded("limit".into(), "500".into()))
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0}]}"#)
+            .expect_at_least(1)
+            .create_async()
+            .await;
+        // Regions already match the plan; the runtime still runs BALANCED.
+        let m_platforms = server
+            .mock("GET", "/api/v1/platforms")
+            .match_header(bearer.0, bearer.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"items":[{"id":"id-a","name":"alpha","region_filters":["HK"],"allocation_policy":"BALANCED"}]}"#)
+            .expect_at_least(1)
+            .create_async()
+            .await;
+        let m_patch = server
+            .mock("PATCH", "/api/v1/platforms/id-a")
+            .match_header(bearer.0, bearer.1)
+            .match_body(mockito::Matcher::PartialJson(json!({"allocation_policy": "PREFER_IDLE_IP"})))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":"id-a"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
+        let report = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("apply must succeed");
+        assert!(report.platforms[0].patched, "{:?}", report.platforms[0]);
+        assert_eq!(report.platforms[0].reason, None, "a real write reports no reason");
+
+        m_nodes.assert_async().await;
+        m_platforms.assert_async().await;
+        m_patch.assert_async().await;
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    /// Ticket 01 (acceptance 4): the one-time whitebox migration rewrites the
+    /// six withdrawn shell tokens to the three real policies, lands them on
+    /// disk, leaves the generation pair alone, and then goes permanently quiet.
+    #[test]
+    fn migrate_b_class_values_once_rewrites_legacy_tokens_then_no_ops() {
+        let store_path = apply_fixture_store_path("bclass-migrate");
+        let _ = std::fs::remove_file(&store_path);
+        let legacy = json!({
+            "version": 1,
+            "platforms": [
+                { "platform_name": "alpha", "a_class": "region", "b_class": "random", "regions": ["HK"] },
+                { "platform_name": "beta", "a_class": "region", "b_class": "quality", "regions": ["US"] },
+                { "platform_name": "gamma", "a_class": "region", "b_class": "PREFER_LOW_LATENCY", "regions": [] }
+            ],
+            "generation": 3,
+            "applied_generation": 3
+        });
+        std::fs::write(&store_path, serde_json::to_string_pretty(&legacy).unwrap()).unwrap();
+
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        assert!(svc.migrate_b_class_values_once().unwrap(), "first pass migrates");
+
+        let after = svc.get().unwrap();
+        let policy_of = |name: &str| {
+            after
+                .platforms
+                .iter()
+                .find(|ps| ps.platform_name == name)
+                .unwrap()
+                .b_class
+        };
+        assert_eq!(policy_of("alpha"), crate::strategy::StrategyId::Balanced);
+        assert_eq!(policy_of("beta"), crate::strategy::StrategyId::PreferIdleIp);
+        assert_eq!(policy_of("gamma"), crate::strategy::StrategyId::PreferLowLatency);
+
+        // The FILE holds the canonical spelling, not just memory.
+        let on_disk: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&store_path).unwrap()).unwrap();
+        assert_eq!(on_disk["platforms"][0]["b_class"], json!("BALANCED"));
+        assert_eq!(on_disk["platforms"][1]["b_class"], json!("PREFER_IDLE_IP"));
+        assert_eq!(on_disk["platforms"][2]["b_class"], json!("PREFER_LOW_LATENCY"));
+
+        // Representation change, not a desired-state change: the generation
+        // pair is untouched, so an already-converged runtime is not pushed
+        // into a false PendingApply.
+        assert_eq!(after.generation, 3, "migration must not bump generation");
+        assert_eq!(after.applied_generation, 3);
+
+        // Second boot is quiet.
+        assert!(!svc.migrate_b_class_values_once().unwrap(), "second pass is a no-op");
+        let _ = std::fs::remove_file(&store_path);
+    }
+
+    #[test]
+    fn migrate_b_class_values_once_skips_canonical_and_missing_files() {
+        let store_path = apply_fixture_store_path("bclass-noop");
+        let _ = std::fs::remove_file(&store_path);
+        let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
+        // Missing file: nothing to migrate, and NOT an error.
+        assert!(!svc.migrate_b_class_values_once().unwrap());
+        // Canonical document: nothing to migrate.
+        svc.store(cfg(vec![ps("alpha", &["HK"])])).unwrap();
+        assert!(!svc.migrate_b_class_values_once().unwrap());
         let _ = std::fs::remove_file(&store_path);
     }
 

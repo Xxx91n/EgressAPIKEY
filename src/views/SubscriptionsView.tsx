@@ -435,7 +435,7 @@ export function SubscriptionsView() {
           platforms.push({
             platform_name: name,
             a_class: "subscription",
-            b_class: "random",
+            b_class: "BALANCED",
             subscriptions: [subName],
           });
         }
