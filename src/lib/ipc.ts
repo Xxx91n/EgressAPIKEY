@@ -45,52 +45,302 @@ function isTauri(): boolean {
 }
 
 // Maps Tauri command names to the HTTP route the headless reverse-proxy exposes.
-// Entries with undefined are Tauri-only (tray/desktop features with no headless surface).
-type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
-interface HttpRoute { method: HttpMethod; path: string; }
-const CMD_TO_HTTP: Record<string, HttpRoute | undefined> = {
-  // Platforms
+//
+// Every route is DECLARATIVE so the three historical defect classes cannot
+// recur (ticket 02 audit):
+//   - wrong resource path        -> `path` is the real Resin route (R-numbers
+//      cite docs/architecture/RESIN_API_COVERAGE.md)
+//   - GET args silently dropped  -> `query` / `queryConst`
+//   - body contract drift        -> `bodyArg` (unwrap the Tauri arg envelope)
+//      and `bodyKeys` (camelCase -> Resin snake_case)
+// Commands that have NO reachable HTTP semantics in headless mode are NOT
+// absent-by-accident: they are listed in DISABLED_COMMANDS below with a typed
+// reason, and the UI renders an explicit disabled state instead of the old
+// runtime `Tauri-only` throw.
+type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+
+interface HttpRoute {
+  method: HttpMethod;
+  /** Path template; `{argName}` placeholders are filled from the Tauri args
+   *  and URL-encoded as a single path segment. */
+  path: string;
+  /** GET only: Tauri arg key -> query-param name. Mirrors the Rust command's
+   *  own parameter surface, so a dropped arg is a visible omission. */
+  query?: Record<string, string>;
+  /** GET only: constant query params the Rust command hard-codes
+   *  (e.g. list_nodes always sends limit=500, resin_client.rs). */
+  queryConst?: Record<string, string>;
+  /** Non-GET: the Tauri arg that carries the real Resin body. Unwrapped so
+   *  Resin never receives the {"body":{...}} envelope. */
+  bodyArg?: string;
+  /** Non-GET: camelCase -> Resin snake_case key renames applied to the body. */
+  bodyKeys?: Record<string, string>;
+  /** Resin wraps list reads as {items:[...],total,limit,offset}. Set only when
+   *  the caller expects a bare array (mirrors the Rust items_arr call sites);
+   *  object-returning reads keep the wrapper. */
+  unwrapItems?: boolean;
+  /** After unwrapping, project each row to this field (platform_list returns
+   *  string[] in Tauri mode, so headless must match). */
+  project?: string;
+}
+
+const CMD_TO_HTTP: Record<string, HttpRoute> = {
+  // --- Platforms (R07 list / R08 create / R11 patch / R12 delete / R20 leases) ---
   platform_add:            { method: "POST",   path: "/api/v1/platforms" },
-  platform_remove:         { method: "DELETE", path: "/api/v1/platforms" }, // needs name → id; done by a list+match in fetch mode
-  platform_list:           { method: "GET",    path: "/api/v1/platforms" },
+  // DELETE + PATCH on the collection: the BFF resolves name->UUID server-side
+  // (browser never holds Resin UUIDs; resolve+mutate stay in one process).
+  platform_remove:         { method: "DELETE", path: "/api/v1/platforms" },
+  platform_list:           { method: "GET",    path: "/api/v1/platforms", unwrapItems: true, project: "name" },
   platform_list_full:      { method: "GET",    path: "/api/v1/platforms" },
-  platform_update:        { method: "PATCH",  path: "/api/v1/platforms" }, // name → id lookup before patch
-  platform_create_with_fields: { method: "POST", path: "/api/v1/platforms" },
-  platform_leases:        { method: "GET",    path: "/api/v1/platforms" },
-  // Subscriptions + nodes
-  subscription_add:       { method: "POST",   path: "/api/v1/subscriptions" },
-  subscription_remove:    { method: "DELETE", path: "/api/v1/subscriptions" },
-  subscription_list:      { method: "GET",    path: "/api/v1/subscriptions" },
-  node_list:              { method: "GET",    path: "/api/v1/nodes" },
-  node_pool_snapshot:     { method: "GET",    path: "/api/v1/metrics/snapshots/node-pool" },
-  // Port + gateway mirrors
-  request_log_tail:        { method: "GET",    path: "/api/v1/request-logs" },
-  // system config passes through the same /api/v1/* prefix. config_export /
-  // config_import are intentionally ABSENT here (ADR-0061): they read/write
-  // the L2 whitebox files through the Tauri app_config_dir — no headless HTTP
-  // surface exists for local file I/O, so they are Tauri-only.
-  system_config_get:      { method: "GET",    path: "/api/v1/system/config" },
-  system_config_patch:    { method: "PATCH",  path: "/api/v1/system/config" },
+  platform_update:         { method: "PATCH",  path: "/api/v1/platforms", bodyKeys: {
+    allocationPolicy: "allocation_policy", regexFilters: "regex_filters",
+    regionFilters: "region_filters", stickyTtl: "sticky_ttl",
+  } },
+  // R08 full-schema create. The Tauri arg is already named `body`; unwrap it.
+  platform_create_with_fields: { method: "POST", path: "/api/v1/platforms", bodyArg: "body" },
+  // R20: the real resource is /platforms/{id}/leases. The BFF resolves the
+  // business name carried in `leases_for` to a UUID (ticket 02 wrong-route fix).
+  platform_leases:         { method: "GET",    path: "/api/v1/platforms", query: { name: "leases_for" }, unwrapItems: true },
+
+  // --- Subscriptions (R25 list / R26 create / R29 delete / R30 refresh) ---
+  subscription_add:        { method: "POST",   path: "/api/v1/subscriptions", bodyKeys: {
+    updateInterval: "update_interval", defaultPort: "default_port",
+  } },
+  subscription_remove:     { method: "DELETE", path: "/api/v1/subscriptions" },
+  subscription_list:       { method: "GET",    path: "/api/v1/subscriptions", unwrapItems: true },
+  // R30 is /subscriptions/{id}/actions/refresh: BFF resolves name->UUID.
+  subscription_refresh:    { method: "POST",   path: "/api/v1/subscriptions", query: { name: "refresh" } },
+
+  // --- Nodes (R36 list / R38+R39 probe / R56 pool snapshot) ---
+  // list_nodes hard-codes limit=500 in resin_client.rs; headless must match or
+  // the node table silently renders a partial view (v1.2 pagination contract).
+  node_list:               { method: "GET",    path: "/api/v1/nodes", queryConst: { limit: "500" } },
+  node_pool_snapshot:      { method: "GET",    path: "/api/v1/metrics/snapshots/node-pool" },
+  // kind is "egress" | "latency"; it selects the actions/{verb} segment.
+  node_probe:              { method: "POST",   path: "/api/v1/nodes/{nodeHash}/actions/probe-{kind}" },
+
+  // --- Leases + metrics (R49 / R47 / R53) ---
+  lease_map:               { method: "GET",    path: "/api/v1/metrics/realtime/leases", unwrapItems: true },
+  metrics_realtime_throughput: { method: "GET", path: "/api/v1/metrics/realtime/throughput" },
+  metrics_probe_history:   { method: "GET",    path: "/api/v1/metrics/history/probes", query: { from: "from", to: "to" } },
+
+  // --- Request logs (R44 tail / R45 detail / R46 payloads) ---
+  // R44 carries 8 filter params + cursor; `limit` is the one the SPA sends today.
+  request_log_tail:        { method: "GET",    path: "/api/v1/request-logs", query: { limit: "limit" }, unwrapItems: true },
+  request_log_detail:      { method: "GET",    path: "/api/v1/request-logs/{logId}" },
+  request_log_payloads:    { method: "GET",    path: "/api/v1/request-logs/{logId}/payloads" },
+
+  // --- Account header rules (R32-R35) ---
+  list_account_header_rules: { method: "GET",  path: "/api/v1/account-header-rules", query: { keyword: "keyword" } },
+  // R33/R35 address the rule by url_prefix in the PATH; the prefix may contain
+  // "/" (and %2F must survive), so the SPA sends it in the body and the BFF
+  // performs the path rewrite with its own segment encoder.
+  put_account_header_rules:  { method: "PUT",  path: "/api/v1/account-header-rules", bodyKeys: { urlPrefix: "url_prefix" } },
+  resolve_account_header_rule: { method: "POST", path: "/api/v1/account-header-rules:resolve" },
+  delete_account_header_rule:  { method: "DELETE", path: "/api/v1/account-header-rules", bodyKeys: { urlPrefix: "url_prefix" } },
+
+  // --- System config (R03 read / R06 patch) ---
+  system_config_get:       { method: "GET",    path: "/api/v1/system/config" },
+  system_config_patch:     { method: "PATCH",  path: "/api/v1/system/config", bodyArg: "body" },
+
+  // --- Entry ports: BFF-owned L2 desired state (ticket 02 option C). ---
+  // Desktop keeps the L2 whitebox as truth; headless initialises the SAME
+  // resin-core stores, so these routes are BFF-native (Resin has no /ports
+  // resource: its listener face is /api/v1/endpoints, driven as a side effect).
+  port_list:               { method: "GET",    path: "/api/v1/ports" },
+  port_suggest:            { method: "GET",    path: "/api/v1/ports/suggest" },
+  port_upsert:             { method: "PUT",    path: "/api/v1/ports/{port}", bodyKeys: {
+    platformName: "platform_name", authRequired: "auth_required",
+  } },
+  port_remove:             { method: "DELETE", path: "/api/v1/ports/{port}" },
+  port_toggle:             { method: "PATCH",  path: "/api/v1/ports/{port}" },
+  port_bind_platform:      { method: "PATCH",  path: "/api/v1/ports/{port}/platform", bodyKeys: { platformName: "platform_name" } },
+  port_running:            { method: "GET",    path: "/api/v1/ports/running" },
+  port_auth_info:          { method: "GET",    path: "/api/v1/ports/{port}/auth" },
+  port_health_check:       { method: "GET",    path: "/api/v1/ports/{port}/health", query: { protocol: "protocol" } },
 };
+
+/** Why a command has no headless surface. Drives the UI disabled state and
+ *  the i18n reason key (`ipc.disabled.<reason>`); never a runtime surprise. */
+export type CommandDisabledReason =
+  | "deprecated_noop"
+  | "shell_local_l1_prefs"
+  | "shell_local_l2_whitebox"
+  | "shell_local_snapshot"
+  | "shell_local_process_route"
+  | "shell_local_config_transfer"
+  | "shell_local_backup"
+  | "shell_local_sidecar"
+  | "desktop_only_tray"
+  | "desktop_only_os"
+  | "desktop_only_local_path"
+
+/** 43 commands with no reachable HTTP semantics in headless mode (ticket 02
+ *  classification; see .scratch/architecture-recovery/reports/02-headless-adapter-report.md).
+ *  Grouped by WHY, so a future change of circumstance has one place to edit. */
+const DISABLED_COMMANDS: Record<string, CommandDisabledReason> = {
+  // A-020: echo commands kept per AGENTS 7.6; removal condition not triggered.
+  account_add: "deprecated_noop",
+  account_bind_ip: "deprecated_noop",
+  // L1 GUI preferences (tauri-plugin-store).
+  lightweight_get: "shell_local_l1_prefs",
+  lightweight_set: "shell_local_l1_prefs",
+  get_diag_poll_interval: "shell_local_l1_prefs",
+  set_diag_poll_interval: "shell_local_l1_prefs",
+  set_log_level: "shell_local_l1_prefs",
+  get_log_level: "shell_local_l1_prefs",
+  ip_reputation_snapshot: "shell_local_l1_prefs",
+  // L2 whitebox files (ports + strategy) - present in headless only for the
+  // port CRUD subset exposed above; the raw file surface stays desktop-only.
+  whitebox_get: "shell_local_l2_whitebox",
+  whitebox_path: "shell_local_l2_whitebox",
+  whitebox_reload: "shell_local_l2_whitebox",
+  whitebox_save_network: "shell_local_l2_whitebox",
+  whitebox_backup_list: "shell_local_l2_whitebox",
+  whitebox_rollback: "shell_local_l2_whitebox",
+  strategy_config_get: "shell_local_l2_whitebox",
+  strategy_config_put: "shell_local_l2_whitebox",
+  strategy_platform_regions_set: "shell_local_l2_whitebox",
+  strategy_backup_list: "shell_local_l2_whitebox",
+  strategy_rollback: "shell_local_l2_whitebox",
+  // Cross-store snapshot / reconcile (L2 + egressapikey.db + L3 merge).
+  strategy_verify: "shell_local_snapshot",
+  strategy_apply: "shell_local_snapshot",
+  authoritative_snapshot: "shell_local_snapshot",
+  reconcile_now: "shell_local_snapshot",
+  // Process routes live in egressapikey-ports.json (ADR-0055).
+  process_route_add: "shell_local_process_route",
+  process_route_remove: "shell_local_process_route",
+  process_route_list: "shell_local_process_route",
+  // ADR-0061: whitebox-source transfer, no headless HTTP surface.
+  config_export: "shell_local_config_transfer",
+  config_import: "shell_local_config_transfer",
+  // Local zip + WebDAV backup (L1 credentials).
+  backup_create: "shell_local_backup",
+  backup_upload: "shell_local_backup",
+  backup_list: "shell_local_backup",
+  // Desktop shell sidecar lifecycle.
+  get_sidecar_status: "shell_local_sidecar",
+  get_sidecar_logs: "shell_local_sidecar",
+  close_all_connections: "shell_local_sidecar",
+  reset_kernel: "shell_local_sidecar",
+  // Tray / OS / streaming surfaces.
+  tray_refresh_labels: "desktop_only_tray",
+  check_firewall_status: "desktop_only_os",
+  probe_exit_ip: "desktop_only_os",
+  watch_port_health: "desktop_only_tray",
+  // Local filesystem paths / exports.
+  get_config_dir: "desktop_only_local_path",
+  get_log_dir: "desktop_only_local_path",
+  export_audit_log: "desktop_only_local_path",
+};
+
+/** Thrown when a headless-mode call targets a command with no HTTP surface.
+ *  The UI checks `ipcCommandAvailability` BEFORE calling, so reaching this is a
+ *  programming error - but it stays typed so no raw string ever surfaces. */
+export class IpcUnavailableError extends Error {
+  readonly command: string;
+  readonly reason: CommandDisabledReason | "unknown";
+  readonly i18nKey: string;
+  constructor(command: string, reason: CommandDisabledReason | "unknown") {
+    super(`[ipc] ${command} is unavailable in headless mode (${reason})`);
+    this.name = "IpcUnavailableError";
+    this.command = command;
+    this.reason = reason;
+    this.i18nKey = `ipc.disabled.${reason}`;
+  }
+}
+
+/** Headless availability probe for one command. The UI uses this to render an
+ *  explicit disabled state (ticket 02: no more runtime Tauri-only throw).
+ *  In Tauri mode every command is available. */
+export function ipcCommandAvailability(
+  cmd: string,
+): { available: true } | { available: false; reason: CommandDisabledReason | "unknown" } {
+  if (isTauri()) return { available: true };
+  if (CMD_TO_HTTP[cmd]) return { available: true };
+  return { available: false, reason: DISABLED_COMMANDS[cmd] ?? "unknown" };
+}
+
+/** True when the SPA is running in the headless browser control plane. */
+export function ipcIsHeadless(): boolean {
+  return !isTauri();
+}
+
+/** Fill `{arg}` placeholders from the Tauri args as URL-encoded segments. */
+function buildPath(route: HttpRoute, args?: Record<string, unknown>): string {
+  return route.path.replace(/\{([A-Za-z0-9_]+)\}/g, (_m, key: string) => {
+    const v = args?.[key];
+    if (v === undefined || v === null) {
+      throw new Error(`[ipc] missing path arg "${key}" for ${route.method} ${route.path}`);
+    }
+    return encodeURIComponent(String(v));
+  });
+}
+
+/** GET query string: constant params first, then the declared arg passthrough. */
+function buildQuery(route: HttpRoute, args?: Record<string, unknown>): string {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(route.queryConst ?? {})) qs.set(k, v);
+  for (const [argKey, param] of Object.entries(route.query ?? {})) {
+    const v = args?.[argKey];
+    if (v === undefined || v === null) continue;
+    qs.set(param, String(v));
+  }
+  const s = qs.toString();
+  return s ? `?${s}` : "";
+}
+
+/** Non-GET body: unwrap the Tauri arg envelope, rename camelCase keys, and
+ *  drop nulls (the "only provided fields" contract Resin and the BFF share). */
+function buildBody(route: HttpRoute, args?: Record<string, unknown>): string | undefined {
+  if (route.method === "GET" || !args) return undefined;
+  let payload: Record<string, unknown> = args;
+  if (route.bodyArg) {
+    const inner = args[route.bodyArg];
+    if (inner === undefined || inner === null) return undefined;
+    if (typeof inner !== "object" || Array.isArray(inner)) {
+      throw new Error(`[ipc] ${route.bodyArg} must be a JSON object`);
+    }
+    payload = inner as Record<string, unknown>;
+  }
+  if (route.bodyKeys) {
+    const renamed: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(payload)) {
+      if (v === null || v === undefined) continue;
+      renamed[route.bodyKeys[k] ?? k] = v;
+    }
+    payload = renamed;
+  }
+  return JSON.stringify(payload);
+}
 
 async function invokeHttp<T>(route: HttpRoute, args?: Record<string, unknown>): Promise<T> {
   const init: RequestInit = {
     method: route.method,
     headers: { "Content-Type": "application/json" },
   };
-  if (route.method !== "GET" && args) {
-    init.body = JSON.stringify(args);
-  }
-  const r = await fetch(route.path, init);
+  const body = buildBody(route, args);
+  if (body !== undefined) init.body = body;
+  const url = `${buildPath(route, args)}${buildQuery(route, args)}`;
+  const r = await fetch(url, init);
   if (!r.ok) {
-    const body = await r.text().catch(() => "");
-    throw new Error(`IPC ${route.method} ${route.path} -> ${r.status}: ${body.slice(0, 256)}`);
+    const text = await r.text().catch(() => "");
+    throw new Error(`IPC ${route.method} ${url} -> ${r.status}: ${text.slice(0, 256)}`);
   }
   if (r.status === 204) return undefined as T;
   const json = await r.json();
-  // T22: Resin wraps list endpoints as { items: [...], total, limit, offset }.
-  // Unwrap items for callers expecting a bare array (matches Rust items_arr helper).
-  if (json && typeof json === 'object' && Array.isArray(json.items)) return json.items as T;
+  // T22: Resin wraps list reads as { items: [...], total, limit, offset }.
+  // Unwrap ONLY where the caller expects a bare array - an object-returning
+  // read (metrics_probe_history carries bucket_seconds beside items) must keep
+  // the wrapper, otherwise the sibling fields are silently dropped.
+  if (route.unwrapItems && json && typeof json === "object" && Array.isArray((json as { items?: unknown }).items)) {
+    const items = (json as { items: unknown[] }).items;
+    if (route.project) {
+      return items.map((it) => (it as Record<string, unknown>)[route.project as string]) as T;
+    }
+    return items as T;
+  }
   return json as T;
 }
 
@@ -112,6 +362,10 @@ function genTraceId(): string {
   return crypto.randomUUID();
 }
 
+/** Single dispatch point. Tauri webview -> native invoke(); plain browser
+ *  (headless) -> fetch() against the declarative route table above. A command
+ *  with neither a route nor a DISABLED_COMMANDS entry raises a typed
+ *  IpcUnavailableError instead of the former opaque Tauri-only string. */
 async function invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const traceId = genTraceId();
   if (typeof console !== "undefined" && console.debug) {
@@ -120,7 +374,7 @@ async function invoke<T = unknown>(cmd: string, args?: Record<string, unknown>):
   if (!isTauri()) {
     const route = CMD_TO_HTTP[cmd];
     if (!route) {
-      throw new Error(`[ipc] command ${cmd} has no HTTP route mapping (Tauri-only in headless mode)`);
+      throw new IpcUnavailableError(cmd, DISABLED_COMMANDS[cmd] ?? "unknown");
     }
     return invokeHttp<T>(route, args);
   }
