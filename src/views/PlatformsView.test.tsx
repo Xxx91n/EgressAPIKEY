@@ -40,7 +40,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
       if (cmd === "port_suggest") return Promise.resolve(17990);
-      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "manual", b_class: "random" }] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "manual", b_class: "BALANCED" }] });
       if (cmd === "strategy_config_put") return Promise.resolve(null);
       if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
       if (cmd === "node_list") return Promise.resolve([]);
@@ -510,7 +510,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
       if (cmd === "port_list") return Promise.resolve([]);
       if (cmd === "platform_list_full") return Promise.resolve([{ name: "Default", allocation_policy: "BALANCED", regex_filters: [], region_filters: [], routable_node_count: 0, sticky_ttl: "" }]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
-      if (cmd === "strategy_config_get") return Promise.resolve(savedConfig ?? { version: 1, platforms: [{ platform_name: "Default", a_class: "quality", b_class: "random", top_n: 10 }] });
+      if (cmd === "strategy_config_get") return Promise.resolve(savedConfig ?? { version: 1, platforms: [{ platform_name: "Default", a_class: "quality", b_class: "BALANCED", top_n: 10 }] });
       if (cmd === "strategy_config_put") { savedConfig = args.config; return Promise.resolve(undefined); }
       if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
       if (cmd === "node_list") return Promise.resolve([]);

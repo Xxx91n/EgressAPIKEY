@@ -200,7 +200,7 @@ describe("EffectiveConfigView reconcile (ticket 14)", () => {
           whitebox_regions: ["hk"],
           resin_regions: ["us"],
           resin_allocation_policy: "p2c",
-          b_class: "random",
+          b_class: "BALANCED",
           a_class: "region",
           manual_nodes: [],
           subscriptions: [],
@@ -348,7 +348,7 @@ describe("EffectiveConfigView reconcile preview coverage (ticket 19)", () => {
           whitebox_regions: ["hk"],
           resin_regions: ["us"],
           resin_allocation_policy: "p2c",
-          b_class: "random",
+          b_class: "BALANCED",
           a_class: "region",
           manual_nodes: [],
           subscriptions: [],
@@ -360,7 +360,7 @@ describe("EffectiveConfigView reconcile preview coverage (ticket 19)", () => {
           platform_id: "",
           regions: ["hk"],
           a_class: "region",
-          b_class: "random",
+          b_class: "BALANCED",
           manual_nodes: [],
           subscriptions: [],
           acknowledged: false,
@@ -481,7 +481,7 @@ describe("EffectiveConfigView converge chip (round5 T09)", () => {
           strategyAppliedGeneration: 2,
           convergePhase: "PendingApply",
           platforms: [
-            { state: "divergent", platform_name: "beta", platform_id: "b", whitebox_regions: ["hk"], resin_regions: ["us"], resin_allocation_policy: "p2c", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], acknowledged: false },
+            { state: "divergent", platform_name: "beta", platform_id: "b", whitebox_regions: ["hk"], resin_regions: ["us"], resin_allocation_policy: "p2c", b_class: "BALANCED", a_class: "region", manual_nodes: [], subscriptions: [], acknowledged: false },
           ],
         }));
       }
@@ -528,7 +528,7 @@ describe("EffectiveConfigView converge chip (round5 T09)", () => {
           strategyAppliedGeneration: 3,
           convergePhase: "Drifted",
           platforms: [
-            { state: "divergent", platform_name: "beta", platform_id: "b", whitebox_regions: ["hk"], resin_regions: ["us"], resin_allocation_policy: "p2c", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: TS, acknowledged: false },
+            { state: "divergent", platform_name: "beta", platform_id: "b", whitebox_regions: ["hk"], resin_regions: ["us"], resin_allocation_policy: "p2c", b_class: "BALANCED", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: TS, acknowledged: false },
           ],
         }));
       }

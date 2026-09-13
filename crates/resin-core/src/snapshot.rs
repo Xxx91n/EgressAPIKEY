@@ -685,6 +685,14 @@ pub fn merge_subscriptions(
 /// - Manual A-class entries compare computed regions (a_class_regions output)
 ///   against Resin: the whitebox intent for manual mode is the mapped region
 ///   set, not raw node hashes.
+/// - Round 8 ticket 01 / D-002 (spec IMP-2, A-004): the observed
+///   `allocation_policy` is a judgement input, not a bystander field. A
+///   whitebox B-class value that resolves to a DIFFERENT policy than the one
+///   Resin reports is drift even when the region set matches — the user
+///   changed the egress-selection algorithm and the runtime did not follow.
+///   Comparison is case-insensitive and passes both sides through the
+///   legislated six->three convergence table first, so a not-yet-migrated
+///   whitebox is judged against the policy the shell would actually PATCH.
 pub fn merge_strategies(
     config: &StrategyConfig,
     resin: &[ResinPlatformRuntime],
@@ -711,7 +719,14 @@ pub fn merge_strategies(
         match resin_by_name.get(ps.platform_name.as_str()) {
             Some(rp) => {
                 seen_resin.insert(ps.platform_name.clone());
-                if same_region_set(&computed, &rp.region_filters) {
+                // Ticket 01: BOTH the region set AND the egress-selection
+                // policy must agree. A policy-only drift lands in the
+                // Divergent arm, which carries the whitebox intent (b_class)
+                // alongside the observed resin_allocation_policy — both
+                // values surfaced, never silently reconciled.
+                if same_region_set(&computed, &rp.region_filters)
+                    && same_allocation_policy(&b_class, &rp.allocation_policy)
+                {
                     out.push(StrategySnapshot::Consistent {
                         platform_name: ps.platform_name.clone(),
                         platform_id: rp.id.clone(),
@@ -796,6 +811,25 @@ fn same_region_set(a: &[String], b: &[String]) -> bool {
     lower(a) == lower(b)
 }
 
+/// B-class policy comparison (ticket 01). The whitebox stores the Resin wire
+/// value, so the desired side is already canonical; both sides still pass
+/// through `StrategyId::parse` so a not-yet-migrated whitebox token or a
+/// lower-case hand edit compares equal to the real policy. Comparison is
+/// case-insensitive, mirroring `same_region_set`'s treatment of region
+/// codes — one comparison rule per axis, shared by apply, the reconcile
+/// preview and this merge so they can never disagree about what counts as
+/// drift. An unrecognized value on either side falls back to a trimmed
+/// upper-case compare, which keeps an unexpected runtime spelling VISIBLE as
+/// drift rather than silently equal.
+pub fn same_allocation_policy(whitebox: &str, resin: &str) -> bool {
+    let canonical = |v: &str| -> String {
+        crate::strategy::StrategyId::parse(v)
+            .map(|id| id.as_str().to_string())
+            .unwrap_or_else(|| v.trim().to_ascii_uppercase())
+    };
+    canonical(whitebox) == canonical(resin)
+}
+
 /// Merge the port triple (whitebox entry_ports + Resin endpoints list).
 /// `resin_ports` is the set of ports Resin currently listens on, extracted
 /// from `GET /api/v1/endpoints` by the caller (all endpoint kinds — the
@@ -869,7 +903,7 @@ mod tests {
             whitebox_regions: vec!["us".into()],
             resin_regions: vec!["hk".into()],
             resin_allocation_policy: "BALANCED".into(),
-            b_class: "random".into(),
+            b_class: "BALANCED".into(),
             a_class: "region".into(),
             manual_nodes: vec![],
             subscriptions: vec![],
@@ -882,7 +916,7 @@ mod tests {
             platform_id: String::new(),
             regions: vec![],
             a_class: "region".into(),
-            b_class: "random".into(),
+            b_class: "BALANCED".into(),
             manual_nodes: vec![],
             subscriptions: vec![],
             divergent_since: None,
@@ -894,7 +928,7 @@ mod tests {
             platform_id: "id".into(),
             regions: vec!["us".into()],
             resin_allocation_policy: "BALANCED".into(),
-            b_class: "random".into(),
+            b_class: "BALANCED".into(),
             a_class: "region".into(),
             manual_nodes: vec![],
             subscriptions: vec![],
@@ -935,12 +969,11 @@ mod tests {
         PlatformStrategy {
             platform_name: name.into(),
             a_class: AClassStrategy::Region,
-            b_class: StrategyId::Random,
+            b_class: StrategyId::Balanced,
             manual_nodes: vec![],
             regions: regions.iter().map(|s| s.to_string()).collect(),
             subscriptions: vec![],
             top_n: 10,
-            b_class_params: Default::default(),
         }
     }
 
@@ -988,7 +1021,7 @@ mod tests {
                 assert_eq!(platform_id, "id-alpha");
                 assert_eq!(regions, &["hk".to_string(), "us".to_string()]);
                 assert_eq!(resin_allocation_policy, "BALANCED");
-                assert_eq!(b_class, "random");
+                assert_eq!(b_class, "BALANCED");
                 assert_eq!(a_class, "region");
                 assert!(manual_nodes.is_empty());
                 assert!(subscriptions.is_empty());
@@ -1029,6 +1062,72 @@ mod tests {
             other => panic!("expected divergent, got {other:?}"),
         }
         assert_eq!(snap[0].state_tag(), "divergent");
+    }
+
+    /// Ticket 01 ticket-delta fixture: an allocation_policy drift must NEVER
+    /// report Consistent. The region set is identical on both sides, so before
+    /// this ticket the entry passed as consistent while the runtime ran a
+    /// different egress-selection algorithm than the whitebox asked for —
+    /// the exact "changed the algorithm and nothing happened" illusion
+    /// A-004 registers.
+    #[test]
+    fn allocation_policy_drift_is_divergent_even_when_regions_match() {
+        let cfg = StrategyConfig {
+            version: 1,
+            acknowledged: vec![],
+            generation: 0,
+            applied_generation: 0,
+            last_apply_at: None,
+            last_apply_error: None,
+            updated_at: None,
+            platforms: vec![strategy_entry("alpha", &["hk"])],
+            subscriptions: vec![],
+        };
+        // Same region set, different policy: whitebox says BALANCED, Resin
+        // reports PREFER_IDLE_IP.
+        let resin = vec![runtime("alpha", &["hk"], "PREFER_IDLE_IP")];
+        let snap = merge_strategies(&cfg, &resin, &HashMap::new(), true);
+        assert_eq!(snap.len(), 1);
+        assert_eq!(
+            snap[0].state_tag(),
+            "divergent",
+            "policy drift must not read as consistent: {:?}",
+            snap[0]
+        );
+        match &snap[0] {
+            StrategySnapshot::Divergent {
+                whitebox_regions,
+                resin_regions,
+                resin_allocation_policy,
+                b_class,
+                ..
+            } => {
+                assert_eq!(whitebox_regions, &["hk".to_string()]);
+                assert_eq!(resin_regions, &["hk".to_string()]);
+                // Both sides of the policy disagreement are surfaced.
+                assert_eq!(b_class, "BALANCED");
+                assert_eq!(resin_allocation_policy, "PREFER_IDLE_IP");
+            }
+            other => panic!("expected divergent, got {other:?}"),
+        }
+    }
+
+    /// The comparison rule itself: case-insensitive, and a not-yet-migrated
+    /// whitebox token is judged against the policy it really means.
+    #[test]
+    fn same_allocation_policy_is_case_insensitive_and_legacy_aware() {
+        assert!(same_allocation_policy("BALANCED", "BALANCED"));
+        assert!(same_allocation_policy("balanced", "BALANCED"));
+        assert!(same_allocation_policy("PREFER_IDLE_IP", "prefer_idle_ip"));
+        // Legacy tokens resolve through the legislated convergence table.
+        assert!(same_allocation_policy("random", "BALANCED"));
+        assert!(same_allocation_policy("quality", "PREFER_IDLE_IP"));
+        assert!(same_allocation_policy("latency", "PREFER_LOW_LATENCY"));
+        // Real disagreements stay disagreements.
+        assert!(!same_allocation_policy("BALANCED", "PREFER_IDLE_IP"));
+        assert!(!same_allocation_policy("quality", "BALANCED"));
+        // An unknown runtime spelling is visible as drift, not silently equal.
+        assert!(!same_allocation_policy("BALANCED", "p2c"));
     }
 
     // Fixture 3: platform exists in whitebox but not in Resin.
@@ -1195,7 +1294,7 @@ mod tests {
     #[test]
     fn b_class_uses_shell_catalog_vocabulary() {
         let ps = strategy_entry("alpha", &["hk"]);
-        assert_eq!(b_class_of(&ps), "random");
+        assert_eq!(b_class_of(&ps), "BALANCED");
     }
 
     // ---- ticket 17 / ADR-0055: routes merge ----
@@ -1503,7 +1602,7 @@ mod tests {
             platform_id: String::new(),
             regions: vec!["hk".into()],
             a_class: "region".into(),
-            b_class: "random".into(),
+            b_class: "BALANCED".into(),
             manual_nodes: vec![],
             subscriptions: vec![],
             divergent_since: None,
@@ -1519,7 +1618,7 @@ mod tests {
             platform_id: String::new(),
             regions: vec!["hk".into()],
             a_class: "region".into(),
-            b_class: "random".into(),
+            b_class: "BALANCED".into(),
             manual_nodes: vec![],
             subscriptions: vec![],
             divergent_since: Some(1_756_521_600),

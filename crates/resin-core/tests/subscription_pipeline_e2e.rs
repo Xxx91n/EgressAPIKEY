@@ -20,12 +20,11 @@ fn seeded_config() -> StrategyConfig {
         platforms: vec![PlatformStrategy {
             platform_name: "e2e-sub".into(),
             a_class: AClassStrategy::Subscription,
-            b_class: StrategyId::Random,
+            b_class: StrategyId::Balanced,
             manual_nodes: vec![],
             regions: vec![],
             subscriptions: vec!["e2e-sub".into()],
             top_n: 10,
-            b_class_params: Default::default(),
         }],
         ..Default::default()
     }

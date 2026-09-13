@@ -106,12 +106,11 @@ mod tests {
             platforms: vec![crate::strategy_engine::PlatformStrategy {
                 platform_name: "Anthropic".into(),
                 a_class: crate::strategy_engine::AClassStrategy::Region,
-                b_class: crate::strategy::StrategyId::Random,
+                b_class: crate::strategy::StrategyId::Balanced,
                 manual_nodes: vec![],
                 regions: vec!["US".into()],
                 subscriptions: vec![],
                 top_n: 10,
-                b_class_params: Default::default(),
             }],
             acknowledged: vec![],
             generation: 3,

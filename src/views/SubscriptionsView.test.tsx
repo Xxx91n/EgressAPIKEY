@@ -541,7 +541,7 @@ describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => 
           return {
             version: 1,
             platforms: [
-              { platform_name: "Alpha", a_class: "subscription", b_class: "random", subscriptions: [] },
+              { platform_name: "Alpha", a_class: "subscription", b_class: "BALANCED", subscriptions: [] },
             ],
             acknowledged: [],
           };
@@ -586,7 +586,7 @@ describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => 
         };
       }
       if (cmd === "strategy_config_get") {
-        return { version: 1, platforms: [{ platform_name: "Alpha", a_class: "subscription", b_class: "random", subscriptions: [] }], acknowledged: [] };
+        return { version: 1, platforms: [{ platform_name: "Alpha", a_class: "subscription", b_class: "BALANCED", subscriptions: [] }], acknowledged: [] };
       }
       return undefined;
     });
@@ -619,7 +619,7 @@ describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => 
         };
       }
       if (cmd === "strategy_config_get") {
-        return { version: 1, platforms: [{ platform_name: "Beta", a_class: "subscription", b_class: "random", subscriptions: ["ghost"] }], acknowledged: [] };
+        return { version: 1, platforms: [{ platform_name: "Beta", a_class: "subscription", b_class: "BALANCED", subscriptions: ["ghost"] }], acknowledged: [] };
       }
       return undefined;
     });
@@ -661,7 +661,7 @@ describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => 
         return {
           version: 1,
           platforms: [
-            { platform_name: "Alpha", a_class: "subscription", b_class: "random", subscriptions: ["mysub"] },
+            { platform_name: "Alpha", a_class: "subscription", b_class: "BALANCED", subscriptions: ["mysub"] },
           ],
           acknowledged: [],
         };
@@ -744,7 +744,7 @@ describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => 
         };
       }
       if (cmd === "strategy_config_get") {
-        return { version: 1, platforms: [{ platform_name: "Alpha", a_class: "subscription", b_class: "random", subscriptions: [] }], acknowledged: [] };
+        return { version: 1, platforms: [{ platform_name: "Alpha", a_class: "subscription", b_class: "BALANCED", subscriptions: [] }], acknowledged: [] };
       }
       return undefined;
     });

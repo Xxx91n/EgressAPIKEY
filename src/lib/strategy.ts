@@ -1,21 +1,42 @@
 /**
- * T6-Bug2: Shell 6-option strategy as the sole UI source of truth.
+ * Round 8 ticket 01 / grill decision D-002 (spec IMP-2): the shell strategy
+ * vocabulary IS Resin's `allocation_policy` enum.
  *
- * The GUI exposes 6 strategy options to the user. These map to Resin's
- * 3-value allocation_policy enum for the backend PATCH. The mapping is
- * many-to-one: multiple shell strategies collapse to the same Resin enum
- * value because Resin v1.2.0 only supports 3 allocation policies.
+ * The GUI used to expose six shell options that collapsed many-to-one onto
+ * Resin's three real policies. That catalogue is withdrawn: the selector now
+ * offers exactly the three values Resin supports, and the whitebox stores the
+ * Resin wire value verbatim — so the mapping that used to live here
+ * collapsed to the identity and there is nothing left to translate.
  *
- * strategyToI18nKey maps to the committed strategy.* i18n keys (T5 Phase 5-5).
- * strategyToResinPolicy maps to the Resin backend enum.
+ * The former six names are still ACCEPTED on read (`normalizeStrategy`) so a
+ * whitebox file written before the convergence keeps rendering, but they are
+ * never produced: the one-time rewrite to the canonical spelling lives in Rust
+ * (`resin_core::strategy_engine::migrate_b_class_values`), and the Rust
+ * `StrategyId` rejects an unknown token outright.
  *
- * Sole mapping (ticket 24): this file is the ONLY strategy↔allocation_policy
- * mapping left in the repo — used for view display labels and the webview-side
- * translation before the platform PATCH. The Rust-side mapping
- * (StrategyId::to_resin_allocation_policy) was deleted; do not reintroduce a
- * second copy in Rust.
+ * Sole vocabulary owner (ticket 24): this file is the ONLY strategy <->
+ * allocation_policy mapping left in the repo — used for view display labels
+ * and the webview-side translation before the platform PATCH. The Rust side
+ * holds the same three values as the storage type; do not reintroduce a second
+ * mapping copy in Rust (ADR-0052 keeps the vocabularies separate and this file
+ * is the display layer).
  */
 export const STRATEGY_IDS = [
+  "BALANCED",
+  "PREFER_LOW_LATENCY",
+  "PREFER_IDLE_IP",
+] as const;
+
+export type StrategyId = (typeof STRATEGY_IDS)[number];
+
+/// Resin allocation_policy enum (the backend wire format) — identical to the
+/// shell vocabulary after the ticket-01 convergence.
+export type AllocationPolicy = StrategyId;
+
+export const ALLOCATION_POLICIES: AllocationPolicy[] = [...STRATEGY_IDS];
+
+/// The withdrawn six-option shell catalogue, accepted on read only.
+const LEGACY_B_CLASS_TOKENS = [
   "random",
   "sequential",
   "latency",
@@ -24,100 +45,83 @@ export const STRATEGY_IDS = [
   "protocol_weight",
 ] as const;
 
-export type StrategyId = (typeof STRATEGY_IDS)[number];
-
-/// Resin allocation_policy enum (the backend wire format).
-export type AllocationPolicy = "BALANCED" | "PREFER_LOW_LATENCY" | "PREFER_IDLE_IP";
-
-export const ALLOCATION_POLICIES: AllocationPolicy[] = [
-  "BALANCED",
-  "PREFER_LOW_LATENCY",
-  "PREFER_IDLE_IP",
-];
-
-/// Map shell StrategyId → i18n key (uses committed strategy.* keys).
-export function strategyToI18nKey(s: string): string {
-  switch (s) {
-    case "random": return "strategy.random";
-    case "sequential": return "strategy.sequential";
-    case "latency": return "strategy.latency";
-    case "quality": return "strategy.bQuality";
-    case "bandwidth": return "strategy.bandwidth";
-    case "protocol_weight": return "strategy.protocolWeight";
-    // Back-compat: Resin-native values from older code paths
-    case "BALANCED": return "strategy.balanced";
-    case "PREFER_LOW_LATENCY": return "strategy.preferLowLatency";
-    case "PREFER_IDLE_IP": return "strategy.preferIdleIp";
-    default: return s;
-  }
-}
-
-/// Map shell StrategyId → Resin allocation_policy enum for backend PATCH.
-export function strategyToResinPolicy(s: StrategyId | string): AllocationPolicy {
-  switch (s) {
-    case "random":
-    case "bandwidth":
-    case "protocol_weight":
+/**
+ * The legislated many-to-one convergence table (ticket 01): a canonical value
+ * or one of the six withdrawn shell options -> the real policy. Mirrors
+ * `resin_core::strategy::StrategyId::parse` row for row. Returns null for an
+ * unrecognized token — never silently coerced.
+ */
+export function normalizeStrategy(s: string): AllocationPolicy | null {
+  switch (s.trim().toUpperCase()) {
     case "BALANCED":
+    case "RANDOM":
+    case "BANDWIDTH":
+    case "PROTOCOL_WEIGHT":
       return "BALANCED";
-    case "latency":
     case "PREFER_LOW_LATENCY":
+    case "LATENCY":
       return "PREFER_LOW_LATENCY";
-    case "sequential":
-    case "quality":
     case "PREFER_IDLE_IP":
+    case "SEQUENTIAL":
+    case "QUALITY":
       return "PREFER_IDLE_IP";
     default:
-      return "BALANCED";
+      return null;
   }
 }
 
-/// Map Resin allocation_policy enum back to shell StrategyId for UI display.
-/// Inverse of strategyToResinPolicy (picks the first shell option for each Resin enum).
+/// Map a strategy value -> i18n key (uses committed strategy.* keys). Legacy
+/// tokens resolve to the canonical label: a withdrawn option no longer has a
+/// label of its own.
+export function strategyToI18nKey(s: string): string {
+  switch (normalizeStrategy(s)) {
+    case "BALANCED":
+      return "strategy.balanced";
+    case "PREFER_LOW_LATENCY":
+      return "strategy.preferLowLatency";
+    case "PREFER_IDLE_IP":
+      return "strategy.preferIdleIp";
+    default:
+      return s;
+  }
+}
+
+/// Map a shell strategy value -> Resin allocation_policy for the backend PATCH.
+/// Identity after the convergence; kept as the single translation point AND as
+/// the tolerant normalizer for a legacy value still in flight. An unknown value
+/// falls back to BALANCED (Resin's own default).
+export function strategyToResinPolicy(s: StrategyId | string): AllocationPolicy {
+  return normalizeStrategy(s) ?? "BALANCED";
+}
+
+/// Map a Resin allocation_policy value back to the shell vocabulary for UI
+/// display. Identity after the convergence.
 export function mapResinToShell(p: string): StrategyId {
-  switch (p) {
-    case "BALANCED": return "random";
-    case "PREFER_LOW_LATENCY": return "latency";
-    case "PREFER_IDLE_IP": return "sequential";
-    default: return "random";
-  }
+  return normalizeStrategy(p) ?? "BALANCED";
 }
 
-/// Validate that a string is a valid shell StrategyId.
+/// Validate that a string is a valid shell StrategyId (canonical values only).
 export function isValidStrategyId(s: string): s is StrategyId {
   return (STRATEGY_IDS as readonly string[]).includes(s);
 }
 
-/// T18-3 (ADR-0042 S3): B-class strategy badge label with parameter interpolation.
-/// Picks the per-strategy i18n key and selects the relevant param value.
-/// `t` is the i18next translate function. When params are absent, falls back to
-/// the short strategy name (strategy.<id>) so the badge still renders the label.
+/// True when the value is one of the six withdrawn shell options (i.e. it still
+/// needs the one-time rewrite to its canonical spelling).
+export function isLegacyStrategyToken(s: string): boolean {
+  return (LEGACY_B_CLASS_TOKENS as readonly string[]).includes(
+    s.trim().toLowerCase(),
+  );
+}
+
+/// Round 8 ticket 01 / acceptance 3: the B-class badge label. The former
+/// per-strategy parameter interpolation (round-robin N, latency threshold ms,
+/// quality score, bandwidth weight) went away with `BClassParams` — those
+/// were display-only values no backend ever read. The badge now states the ONE
+/// thing that is real: which egress-selection policy is in effect.
 export function bClassLabel(
   strategy: string,
-  params: { round_robin_n?: number; latency_threshold_ms?: number; quality_score?: number; bandwidth_weight?: number } | undefined,
   t: (key: string, opts?: Record<string, unknown>) => string,
 ): string {
-  switch (strategy) {
-    case "random":
-      return t("strategy.bParamsRandom");
-    case "sequential":
-      return t("strategy.bParamsSequential", { n: params?.round_robin_n ?? 0 });
-    case "latency":
-      return t("strategy.bParamsLatency", { threshold: params?.latency_threshold_ms ?? 0 });
-    case "quality":
-      return t("strategy.bParamsQuality", { score: params?.quality_score ?? 0 });
-    case "bandwidth":
-      return t("strategy.bParamsBandwidth", { weight: params?.bandwidth_weight ?? 0 });
-    case "protocol_weight":
-      return t("strategy.bParamsProtocolWeight");
-    // Back-compat: Resin-native values from older code paths.
-    case "BALANCED":
-      return t("strategy.bParamsRandom");
-    case "PREFER_LOW_LATENCY":
-      return t("strategy.bParamsLatency", { threshold: params?.latency_threshold_ms ?? 0 });
-    case "PREFER_IDLE_IP":
-      return t("strategy.bParamsQuality", { score: params?.quality_score ?? 0 });
-    default:
-      return strategy;
-  }
+  const normalized = normalizeStrategy(strategy);
+  return normalized ? t(strategyToI18nKey(normalized)) : strategy;
 }

@@ -21,7 +21,6 @@ import {
 } from "../lib/ipc";
 import { loadTopologyState, saveTopologyState, type TopologyState as T15TopologyState } from "../lib/settings";
 import { mapResinToShell, bClassLabel as bClassLabelFn, type StrategyId, type AllocationPolicy } from "../lib/strategy";
-import type { BClassParams } from "../lib/ipc";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
 import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock, Home, FileCog, ChevronDown } from "lucide-react";
@@ -49,10 +48,9 @@ interface PlatformFull {
   sticky_ttl: string;
   // T15-v3-3: strategyConfig read-side fields (ADR-0036 read-side, ADR-0039 SS2)
   aClass?: string;              // strategyConfig a_class: manual | region | quality | subscription
-  bClass?: string;             // strategyConfig b_class (shell StrategyId snake_case)
+  bClass?: string;             // strategyConfig b_class == the Resin allocation_policy value
   subscriptionNames?: string[]; // strategyConfig subscriptions
   topN?: number;               // strategyConfig top_n
-  bClassParams?: BClassParams;  // T18-3: strategyConfig b_class_params
   manualNodes?: string[];        // T18-4: strategyConfig manual_nodes
 }
 
@@ -1007,7 +1005,9 @@ function TopologyCanvas() {
       // T15-v3-3: strategy badge reads strategyConfig first (ADR-0039 SS2).
       // B-class: prefer strategyConfig b_class; fall back to Resin allocation_policy mapping.
       const shellStrategy = p.bClass ?? mapResinToShell(p.allocation_policy ?? "BALANCED");
-      const bClassLabel = bClassLabelFn(shellStrategy, p.bClassParams, t);
+      // Ticket 01: no parameter interpolation left — the withdrawn
+      // display-only BClassParams are gone, so the badge states the policy.
+      const bClassLabel = bClassLabelFn(shellStrategy, t);
       // A-class: switch on strategyConfig a_class (not just region_filters length).
       const aClassLabel = (() => {
         switch (p.aClass ?? "manual") {
