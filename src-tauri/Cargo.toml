@@ -40,6 +40,10 @@ http-body-util = { workspace = true }
 bytes = { workspace = true }
 clap = { workspace = true }
 dirs = { workspace = true }
+# Ticket 03 (A-007): OS CSPRNG for the headless --auth-token. getrandom 0.2.17 is
+# already present in Cargo.lock as a transitive dependency, so this adds no new
+# crate to the dependency tree.
+getrandom = "0.2"
 # Ticket 09 (tauri-specta pilot): trio pinned with `=` per the upstream
 # rc.25 pairing (tauri-specta 2.0.0-rc.25 + specta 2.0.0-rc.25 +
 # specta-typescript 0.0.12) - beta versions break without exact pins.

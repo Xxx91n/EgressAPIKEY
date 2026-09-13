@@ -14,10 +14,11 @@ egressapikey-server
 # → open http://127.0.0.1:14200/ in any browser
 ```
 
-No account, no API token — the headless binary injects the Resin admin
-bearer server-side, so the browser request reaches the Resin admin surface
-without ever seeing credentials. This mirrors the security model of
-code-server / mihomo / vaultwarden local daemons.
+The browser never holds the Resin admin bearer — the headless binary injects
+it server-side. The control surface itself is gated by a shared `--auth-token`
+plus a `Host` / `Origin` allowlist. On the default loopback bind the token is
+generated at startup and printed once; the first request carries it via
+`?auth_token=` and plants a session cookie. See Security model below.
 
 ## CLI flags
 
@@ -32,6 +33,8 @@ All flags forward directly to the Rust `egressapikey-headless` binary.
 | `--log-root` | OS state/logs dir | Resin + headless log dir |
 | `--binary-dir` | exe dir | Directory containing resin-<triple>[.exe] |
 | `--no-browser` | off | Do not open a browser on boot |
+| `--auth-token` | generated (loopback) | Shared secret required on `/api/v1/*` + `/metrics/*`; mandatory for a non-loopback `--bind` |
+| `--allowed-host` | loopback names | Extra `Host` / `Origin` name to accept (repeatable); needed behind a reverse proxy |
 | `--dry-run` | off | Resolve paths + print resolved config without spawning |
 
 ## Environment overrides
@@ -61,10 +64,15 @@ process and exits cleanly. No orphan processes are left behind.
   (loopback only).
 - The browser request never sees the Resin admin token — only the rendered
   UI and JSON responses.
-- The bind address defaults to `127.0.0.1` (loopback). To expose the server
-  to other machines on your LAN, pass `--bind=0.0.0.0` and put a TLS
-  reverse proxy (caddy / nginx) in front. Never expose the port without
-  TLS + an auth layer; the admin surface has no additional auth.
+- The control plane requires a shared `--auth-token` on every `/api/v1/*` and
+  `/metrics/*` request, and rejects any request whose `Host` / `Origin` is not an
+  accepted name (DNS-rebinding mitigation). A non-loopback `--bind` without
+  `--auth-token` refuses to start.
+- The bind address defaults to `127.0.0.1` (loopback), where the token is
+  generated with the OS CSPRNG and printed once. To expose the server to other
+  machines, pass `--auth-token=<secret> --bind=0.0.0.0`, declare your public
+  name with `--allowed-host`, and put a TLS reverse proxy (caddy / nginx) in
+  front. The proxy's auth gate is defence in depth, not the boundary.
 
 ## License
 

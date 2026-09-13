@@ -23,6 +23,12 @@
 //! 4. Two-phase shutdown: on Ctrl+C/SIGTERM, kills the resin child and
 //!    exits. Logs the full sequence via `tracing` to the OS log dir.
 //!
+//! 5. Enforces the ticket-03 (A-007) control-surface security gate: a shared
+//!    `--auth-token` on `/api/v1/*` + `/metrics/*`, and a `Host`/`Origin`
+//!    allowlist on every request (DNS-rebinding mitigation). The primitives live
+//!    in `headless_security`; the operator-facing threat model is
+//!    `docs/how-to/HEADLESS_DEPLOYMENT.md`.
+//!
 //! This binary does NOT:
 //! - Load Tauri plugins or the webview
 //! - Manage the OS system HTTP proxy (Ghost safety net feature owned by the
@@ -35,12 +41,15 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use axum::{
     body::Body,
-    http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode},
+    extract::State,
+    http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode},
+    middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::any,
     Router,
 };
 use clap::Parser;
+use egressapikey_app::headless_security::{self, HeadlessGuard};
 use egressapikey_app::sidecar::boot_resin_standalone;
 use tower_http::services::{ServeDir, ServeFile};
 
@@ -70,6 +79,16 @@ struct Cli {
     /// Skip the automatic browser-open. Useful for daemons.
     #[arg(long)]
     no_browser: bool,
+    /// Shared secret required on every control-plane request (`/api/v1/*`,
+    /// `/metrics/*`). When omitted, a token is generated with the OS CSPRNG if
+    /// `--bind` is loopback; startup is REFUSED if `--bind` is not loopback.
+    #[arg(long)]
+    auth_token: Option<String>,
+    /// Extra hostname accepted in the `Host` / `Origin` header (repeatable).
+    /// Required when the server is reached through a name other than the bind
+    /// address, e.g. a TLS reverse proxy in front of `--bind=0.0.0.0`.
+    #[arg(long = "allowed-host", value_name = "HOST")]
+    allowed_host: Vec<String>,
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -111,6 +130,36 @@ async fn main() -> Result<()> {
         cli.bind, cli.port, cli.dist, state_root
     );
 
+    // Ticket 03 (A-007) startup gate: refuse to expose the admin control plane
+    // off-host without a token; otherwise fall back to a CSPRNG token. Runs
+    // BEFORE the resin sidecar is spawned so a refusal leaves no orphan child.
+    let resolved = headless_security::resolve_token(cli.auth_token.as_deref(), &cli.bind)
+        .map_err(|e| {
+            tracing::error!("{e}");
+            anyhow::anyhow!(e)
+        })?;
+    let guard = Arc::new(HeadlessGuard::new(
+        headless_security::allowed_hosts(&cli.bind, &cli.allowed_host),
+        resolved.token.clone(),
+    ));
+    if resolved.source == headless_security::TokenSource::Generated {
+        tracing::info!("headless: generated a CSPRNG --auth-token for this session");
+        eprintln!("headless: auth token (printed once): {}", resolved.token);
+        eprintln!(
+            "headless: open http://{}:{}/?{}={}",
+            cli.bind,
+            cli.port,
+            headless_security::TOKEN_QUERY,
+            resolved.token
+        );
+    } else {
+        tracing::info!("headless: enforcing the operator-supplied --auth-token");
+    }
+    tracing::info!(
+        "headless: Host/Origin allowlist = {:?}",
+        guard.allowed_hosts()
+    );
+
     let binary_dir = cli.binary_dir.unwrap_or_else(|| {
         std::env::current_exe()
             .ok()
@@ -128,7 +177,12 @@ async fn main() -> Result<()> {
         sidecar.api_port
     );
 
-    let app = build_router(&cli.dist, api_base.clone(), admin_token.clone());
+    let app = build_router(
+        &cli.dist,
+        api_base.clone(),
+        admin_token.clone(),
+        guard.clone(),
+    );
 
     let addr: SocketAddr = format!("{}:{}", cli.bind, cli.port)
         .parse()
@@ -144,8 +198,20 @@ async fn main() -> Result<()> {
     });
 
     if !cli.no_browser {
-        let launch_url = format!("http://{}:{}/", cli.bind, cli.port);
-        tracing::info!("headless: opening browser at {launch_url}");
+        // The control plane now requires the token, so the launch URL carries it
+        // once; the guard plants the session cookie on that first request.
+        let launch_url = format!(
+            "http://{}:{}/?{}={}",
+            cli.bind,
+            cli.port,
+            headless_security::TOKEN_QUERY,
+            resolved.token
+        );
+        tracing::info!(
+            "headless: opening browser at http://{}:{}/ (token elided from logs)",
+            cli.bind,
+            cli.port
+        );
         let _ = open::that(&launch_url);
     }
 
@@ -183,7 +249,12 @@ async fn main() -> Result<()> {
 /// Build the axum router. Static assets via ServeDir at `/`; `/api/v1/*`
 /// and `/metrics/*` proxied to the resin control plane with the admin
 /// bearer token injected (the browser request must NOT carry the token).
-fn build_router(dist: &PathBuf, api_base: String, admin_token: String) -> Router {
+fn build_router(
+    dist: &PathBuf,
+    api_base: String,
+    admin_token: String,
+    guard: Arc<HeadlessGuard>,
+) -> Router {
     let serve_dir = ServeDir::new(dist.clone())
         .append_index_html_on_directories(true)
         .not_found_service(ServeFile::new(dist.join("index.html")));
@@ -206,6 +277,87 @@ fn build_router(dist: &PathBuf, api_base: String, admin_token: String) -> Router
         .route("/api/v1/*path", any(proxy_handler.clone()))
         .route("/metrics/*path", any(proxy_handler))
         .fallback_service(serve_dir)
+        // Ticket 03 (A-007): the Host/Origin + token guard wraps every route and
+        // the static fallback. Applied last so it also covers the fallback.
+        .layer(middleware::from_fn_with_state(guard, security_guard))
+}
+
+/// Ticket 03 (A-007) request guard. Two ordered checks:
+///
+/// 1. Host / Origin allowlist - rejects DNS-rebinding style requests whose
+///    `Host` names a domain that merely resolves to this machine. Applies to
+///    every request, static assets included.
+/// 2. Shared-secret token - required on the control-plane prefixes
+///    `/api/v1/*` and `/metrics/*`. A valid token arriving via `?auth_token=`
+///    also plants the session cookie, so the SPA's later same-origin fetches
+///    authenticate without ever holding the token in JS.
+async fn security_guard(
+    State(guard): State<Arc<HeadlessGuard>>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
+    let host = req
+        .headers()
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
+    let origin = req
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
+    if let Err(reason) =
+        headless_security::host_allowed(host.as_deref(), origin.as_deref(), guard.allowed_hosts())
+    {
+        tracing::warn!(target: "headless.security", "rejected: {reason}");
+        return (StatusCode::FORBIDDEN, format!("headless: {reason}")).into_response();
+    }
+
+    let path = req.uri().path().to_owned();
+    let gated = path.starts_with("/api/v1/") || path == "/api/v1" || path.starts_with("/metrics");
+    let mut plant_cookie = false;
+    if gated {
+        let authorization = req
+            .headers()
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned);
+        let cookie = req
+            .headers()
+            .get(header::COOKIE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned);
+        let query = req.uri().query().map(str::to_owned);
+        match guard.extract_token(authorization.as_deref(), cookie.as_deref(), query.as_deref()) {
+            Some((candidate, from_query)) if guard.token_matches(candidate) => {
+                plant_cookie = from_query;
+            }
+            _ => {
+                tracing::warn!(
+                    target: "headless.security",
+                    "rejected: missing or invalid auth token on {path}"
+                );
+                let mut resp = (
+                    StatusCode::UNAUTHORIZED,
+                    "headless: missing or invalid auth token",
+                )
+                    .into_response();
+                resp.headers_mut().insert(
+                    header::WWW_AUTHENTICATE,
+                    HeaderValue::from_static("Bearer"),
+                );
+                return resp;
+            }
+        }
+    }
+
+    let mut resp = next.run(req).await;
+    if plant_cookie {
+        if let Ok(value) = HeaderValue::from_str(&guard.session_cookie()) {
+            resp.headers_mut().insert(header::SET_COOKIE, value);
+        }
+    }
+    resp
 }
 
 /// Pure-proxy to resin with a thin BFF translation layer for the three

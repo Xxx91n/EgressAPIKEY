@@ -155,6 +155,15 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 ### 7.6. Sidecar SSRF guard + IPC surface discipline (Re8 audit)
 
 - mihomo status (ADR-0050): the `crates/resin-core/src/mihomo.rs` module (MihomoController + its loopback SSRF guard, MihomoConfig, subscription compile helpers) was DELETED with the rest of the dead kernel face (zero external references; it was never instantiated). If mihomo REST control is ever reintroduced, the controller MUST re-assert the Re8 rule before any IPC wiring: `api_base` validated as loopback-only (`http://127.0.0.1` / `http://localhost` / `http://[::1]`, plus https variants) at construction, with reject + accept-variant unit tests, and no frontend-controlled `String` may ever construct it (config stays server-side trust).
+- Headless control surface (architecture-recovery round 8, ticket 03 / A-007): the
+  `egressapikey-headless` router MUST keep every route - including the static
+  fallback - behind the `security_guard` layer in `src-tauri/src/headless_main.rs`,
+  which enforces a shared `--auth-token` on `/api/v1/*` + `/metrics/*` and a
+  `Host` / `Origin` allowlist on every request. The token is CSPRNG-generated
+  (`getrandom`); time + PID entropy is forbidden. Never register a route above the
+  `.layer(...)` call, and never add a route that bypasses the guard. Primitives +
+  unit tests: `src-tauri/src/headless_security.rs`. Operator threat model:
+  `docs/how-to/HEADLESS_DEPLOYMENT.md`.
 - Frontend `invoke()` surface (authoritative manifest, architecture-recovery ticket 03): the full command set lives in the `ipc-manifest` fenced block below. It is REGENERATED from the `#[tauri::command]` definitions under `src-tauri/src` by `node scripts/ipc-manifest-check.cjs --write`, and machine-checked on every build (`pnpm ipc:check`, `scripts/verify-build.sh`, and the CI verify job via verify-build.sh). The check fails the build when a command is added/removed/renamed, when the `generate_handler!` registry in `src-tauri/src/main.rs` drifts from the definition set, when this manifest drifts from either, or when a definition-file attribution goes stale (ticket 08 domain split will be caught automatically). Do not hand-edit entries: run the regenerator. The pre-ticket-03 list of 9 commands was a stale leftover from the removed SharedGateway path (ADR-0024); those four phantom names no longer appear anywhere in this file. Each TS wrapper in `src/lib/ipc.ts` validates input at the TS boundary (assertShortName/assertAuthority/assertIp, length caps, lane range `0..MAX_LANES=50`, latency cap, URL `http(s)://` prefix) BEFORE invoking, and treats the Rust response (`reason`, `lane`, `account`) as untrusted — never piped into another URL or command. The Rust side re-validates the same bounds in `commands/` domain modules (settings.rs for log level / lightweight, ports.rs for port and whitebox inputs). When wiring any new IPC command, the TS wrapper MUST follow this same validate-then-invoke contract.
 
 **Echo command list (kept for IPC contract compatibility; the shell does not implement their semantics — ADR-0050 deleted the kernel face)**:
