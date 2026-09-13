@@ -20,7 +20,7 @@ import {
   ipcResetKernel,
   ipcMetricsRealtimeThroughput,
   ipcMetricsProbeHistory,
-  // T21 (Round 5): request-log detail drawer.
+  // request-log detail drawer.
   ipcRequestLogDetail,
   ipcRequestLogPayloads,
   decodePayloadPart,
@@ -56,7 +56,7 @@ function DiagField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-// T19 (ADR-0064): zero-dependency inline SVG line chart. Recharts was
+// (ADR-0064): zero-dependency inline SVG line chart. Recharts was
 // considered and rejected for the minimal set (ponytail: no new deps for a
 // two-card diagnostic; revisit when the full 12-endpoint Metrics tab lands).
 // Renders one polyline per series over a shared time axis; empty/NaN input
@@ -133,7 +133,7 @@ export function DiagnosticsView() {
   const [probeProto, setProbeProto] = useState("http");
   const [probeResult, setProbeResult] = useState<ExitIpProbe | null>(null);
   const [probeBusy, setProbeBusy] = useState(false);
-  // T8-2: Strategy verification state
+  // Strategy verification state
   const [platformNames, setPlatformNames] = useState<string[]>([]);
   const [selectedPlatform, setSelectedPlatform] = useState("");
   const [sampleCount, setSampleCount] = useState(10);
@@ -143,11 +143,11 @@ export function DiagnosticsView() {
   const [healthProto, setHealthProto] = useState("mixed");
   const [healthResult, setHealthResult] = useState<PortHealthCheck | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
-  // T19 (ADR-0064): Resin metrics minimal-set state (pull model).
+  // (ADR-0064): Resin metrics minimal-set state (pull model).
   const [metricsThroughput, setMetricsThroughput] = useState<MetricsThroughput | null>(null);
   const [metricsProbes, setMetricsProbes] = useState<MetricsProbeHistory | null>(null);
   const [probeRange, setProbeRange] = useState<"1h" | "24h" | "7d">("24h");
-  // T21 (Round 5): request-log detail drawer state (pull model — opened by
+// request-log detail drawer state (pull model — opened by
   // clicking a request_log_tail row; the two detail commands are called only
   // then, riding the same untrusted-coercion wrappers as the tail).
   const [detailLogId, setDetailLogId] = useState<string | null>(null);
@@ -155,7 +155,7 @@ export function DiagnosticsView() {
   const [logPayloads, setLogPayloads] = useState<RequestLogPayloads | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
   const [detailError, setDetailError] = useState(false);
-  // Load poll interval from settings (T05: typed L1 command pair, no bare store invoke)
+  // Load poll interval from settings (typed L1 command pair, no bare store invoke)
   useEffect(() => {
     (async () => {
       try {
@@ -172,7 +172,7 @@ export function DiagnosticsView() {
     try { await setDiagPollInterval(clamped); } catch { /* vitest no-op */ }
   };
 
-  // T19 (ADR-0064): probe-history fetch with a from/to window computed here.
+  // (ADR-0064): probe-history fetch with a from/to window computed here.
   // toISOString() is RFC3339 with millis — accepted by the upstream
   // RFC3339Nano parser; the window is boundary-validated on both the TS and
   // the Rust command side (§7.5 dual cover).
@@ -197,7 +197,7 @@ export function DiagnosticsView() {
     void fetchProbeHistory(range);
   };
 
-  // T21: open the detail drawer for one request-log row. Rows without an id
+  // open the detail drawer for one request-log row. Rows without an id
   // (wire-shape regression or older sidecar) stay inert.
   const openLogDetail = async (log: RequestLogEntry) => {
     if (!log.id) return;
@@ -229,7 +229,7 @@ export function DiagnosticsView() {
         ipcCheckFirewallStatus().catch(() => null),
         ipcRequestLogTail(50).catch(() => []),
         invoke<string[]>("get_sidecar_logs").catch(() => []),
-        // T19 (ADR-0064): realtime throughput rides the same poll cycle.
+        // (ADR-0064): realtime throughput rides the same poll cycle.
         ipcMetricsRealtimeThroughput().catch(() => null),
       ]);
       if (status) setSidecarStatus(status);
@@ -243,7 +243,7 @@ export function DiagnosticsView() {
     }
   };
 
-  // T15-1: usePoll replaces hand-rolled setInterval + visibilitychange.
+  // usePoll replaces hand-rolled setInterval + visibilitychange.
   usePoll(refreshDiagnostics, { intervalMs: pollInterval, fireImmediately: true });
 
   // Exit IP probe
@@ -284,7 +284,7 @@ export function DiagnosticsView() {
     } catch { /* not in tauri */ }
   };
 
-  // T8-2: Load platform names for strategy verify dropdown
+  // Load platform names for strategy verify dropdown
   useEffect(() => {
     (async () => {
       try {
@@ -296,7 +296,7 @@ export function DiagnosticsView() {
     })();
   }, []);
 
-  // T8-2: Run strategy verification
+  // Run strategy verification
   const runStrategyVerify = async () => {
     if (!selectedPlatform) return;
     setVerifyBusy(true);
@@ -311,7 +311,7 @@ export function DiagnosticsView() {
     }
   };
 
-  // T8-6: Close all connections (kill sidecar — drops all active TCP)
+  // Close all connections (kill sidecar — drops all active TCP)
   const handleCloseAll = async () => {
     if (!window.confirm(t("connectionControl.confirmClose"))) return;
     try {
@@ -319,7 +319,7 @@ export function DiagnosticsView() {
     } catch { /* not in tauri */ }
   };
 
-  // T8-6: Reset kernel (kill + restart sidecar)
+  // Reset kernel (kill + restart sidecar)
   const handleResetKernel = async () => {
     if (!window.confirm(t("connectionControl.confirmReset"))) return;
     try {

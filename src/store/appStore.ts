@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { saveView } from "../lib/settings";
-// Round 7 T02 (D-C1.2): type-only import — erased at build, no runtime cycle.
+// type-only import — erased at build, no runtime cycle.
 import type { SubscriptionPhaseRow } from "../lib/ipc";
 import { listen } from "@tauri-apps/api/event";
 import { ipcAuthoritativeSnapshot, type AuthoritativeSnapshot } from "../lib/ipc";
@@ -73,15 +73,15 @@ export interface AppState {
   nodes: NodeInfo[];
   processRoutes: ProcessRoute[];
   subscriptions: Subscription[];
-  /** Round 7 T02 (D-C1.2): per-subscription establish-phase STATUS rows,
+  /** per-subscription establish-phase STATUS rows,
    *  mirrored from the authoritative snapshot stream (App-level pull +
    *  SubscriptionsView refresh feed the same field; data identical). */
   subscriptionPhases: SubscriptionPhaseRow[];
   locale: Locale;
   theme: Theme;
-  /// Ticket 07 (D-C2.2): the globally-subscribed authoritative snapshot.
+  /// the globally-subscribed authoritative snapshot.
   /// Display truth only (ADR-0051); null until the first fetch lands and on
-  /// fetch failure (the ticket-06 "no pill" contract, not a fake Unknown).
+  /// fetch failure (the "no pill" contract, not a fake Unknown).
   convergeSnapshot: AuthoritativeSnapshot | null;
   /// Whether the global converge subscription is wired (subscribeToConverge).
   convergeSubscribed: boolean;
@@ -163,7 +163,7 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({
       processRoutes: [...s.processRoutes, { id: uid(), process, targetPort }],
     })),
-  // Ticket 17 / ADR-0055: view cache only — persistence goes through the
+// ADR-0055: view cache only — persistence goes through the
   // process_route_* IPC commands (single write entry, L2 whitebox).
   removeProcessRoute: (id) => {
     set({ processRoutes: useAppStore.getState().processRoutes.filter((r) => r.id !== id) });
@@ -180,11 +180,11 @@ export const useAppStore = create<AppState>((set) => ({
   subscribeToConverge: () => convergeSubscribe(),
 }));
 
-/// T14-4: re-export useShallow for ergonomic multi-field selection
+/// re-export useShallow for ergonomic multi-field selection
 /// Usage: const { field1, field2 } = useAppStore(useShallow((s) => ({ field1: s.field1, field2: s.field2 })))
 export { useShallow };
 
-// ─── Ticket 07 (spec D-C2.2): the global converge loop ──────────────────────
+// ─── the global converge loop ──────────────────────
 // One subscription owns the authoritative-snapshot cadence for the whole app:
 //   - checkpoint A: 5s foreground polling (default); once the phase is
 //     Converged AND lastApplyAt is more than CONVERGE_SETTLE_SECONDS (60s)
@@ -274,7 +274,7 @@ async function convergeRefresh(): Promise<void> {
     const snap = await ipcAuthoritativeSnapshot();
     useAppStore.setState({ convergeSnapshot: snap });
   } catch {
-    // Ticket 06 contract: a fetch failure degrades to no pill (null), never
+    // contract: a fetch failure degrades to no pill (null), never
     // to a misleading Unknown pill. The loop keeps running; the next poll
     // (or sidecar-status boost) may catch the sidecar coming back.
     useAppStore.setState({ convergeSnapshot: null });

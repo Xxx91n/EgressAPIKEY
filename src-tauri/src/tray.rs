@@ -310,7 +310,7 @@ static DRIFT_NOTIFY_STATE: once_cell::sync::Lazy<std::sync::Mutex<DriftNotifySta
 ///   false→true rising edge of a drift episode (ArgoCD notifications
 ///   when+oncePer / AWS Config compliance-transition isomorph).
 ///
-/// Semantics (issue 12, revising issue 16): notify once per drift EPISODE —
+/// Semantics (revising): notify once per drift EPISODE —
 /// the first snapshot with unacknowledged drift fires; sustained drift is
 /// silent; the falling edge (drift cleared, including via acknowledged
 /// exemptions) only updates the baseline and never emits; drift reappearing
@@ -335,7 +335,7 @@ pub fn count_unacknowledged_drift_entries(
         .iter()
         .filter(|pp| pp.state_tag() != "consistent" && !pp.acknowledged())
         .count();
-    // Ticket 17 / ADR-0055 D6: route drift joins the same counter; the
+// ADR-0055 D6: route drift joins the same counter; the
     // acknowledged exemption stays read-side (state tag untouched).
     let routes = snap
         .routes
@@ -390,13 +390,13 @@ pub fn fire_drift_notification(app: &AppHandle, snap: &resin_core::Authoritative
     }
 }
 
-/// Architecture-recovery ticket 07 (spec D-C2.3): the tray mirrors the
+/// the tray mirrors the
 /// top-level ConvergePhase derived by every `authoritative_snapshot` call
 /// (ADR-0058 surface, read-only — the tray never writes config):
 ///   - Converged   → silent (default window icon, base tooltip);
 ///   - PendingApply / Drifted → amber (checkpoint C: drift is amber);
 ///   - ApplyFailed → solid red icon, held visible until the next GREEN apply
-///     clears the state (T08 checkpoint C: long-lived visibility);
+/// clears the state (checkpoint C: long-lived visibility);
 ///   - Unknown (sidecar unreachable) → grey icon, mirroring the GUI dot.
 /// Pure state, no I/O: the AppHandle-dependent paint is `apply_converge_mirror`.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -518,7 +518,7 @@ pub fn apply_converge_mirror(
                 .and_then(|_| tray.set_tooltip(Some(tip)))
         }
         // ApplyFailed: solid red, held until the next GREEN apply flips the
-        // phase (T08 checkpoint C: long-lived visibility, not an edge toast).
+        // phase (checkpoint C: long-lived visibility, not an edge toast).
         resin_core::ConvergePhase::ApplyFailed => {
             let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase);
             tray.set_icon(Some(solid_icon(0xd8, 0x2c, 0x2c)))
@@ -619,7 +619,7 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                 }
             }
             "converge_status" => {
-                // Checkpoint A (D-C2.3): show + focus the window, then emit
+                // Checkpoint A: show + focus the window, then emit
                 // an event the frontend listens to and navigates to
                 // EffectiveConfigView (Tauri event system, not IPC).
                 if let Some(w) = app.get_webview_window("main") {
@@ -930,7 +930,7 @@ mod tests {
         assert_eq!(lang_for_str("zh-CN"), TrayLang::En); // region suffix not matched
     }
 
-    // ─── Ticket 07 (D-C2.3): tray converge-mirror state machine ───────────
+    // ─── tray converge-mirror state machine ───────────
 
     /// Rising-edge predicate: repaint only on phase CHANGE; the boot baseline
     /// (None) always paints once; a plateau (same phase again) stays silent.
@@ -1001,7 +1001,7 @@ mod tests {
         );
     }
 
-    /// Checkpoint B (D-C2.3): tooltip shows the abbreviation format
+    /// Checkpoint B: tooltip shows the abbreviation format
     /// `{Phase} · rev {N}/{M}` for every non-silent phase.
     #[test]
     fn converge_mirror_tooltip_rev_format() {
@@ -1033,7 +1033,7 @@ mod tests {
         );
     }
 
-    /// Checkpoint C (D-C2.5 + TFC lesson): ApplyFailed is long-lived — the
+/// Checkpoint C (TFC lesson): ApplyFailed is long-lived — the
     /// red icon stays across consecutive snapshots (plateau = no repaint)
     /// and only clears when a GREEN apply flips the phase to Converged.
     #[test]

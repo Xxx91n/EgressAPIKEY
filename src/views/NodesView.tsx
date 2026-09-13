@@ -8,8 +8,8 @@ import { usePoll } from "../hooks/usePoll";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAppStore, type NodeInfo } from "../store/appStore";
 
-/// NodesView — T4-3 collapsible tree by subscription (clash-verge-dev pattern).
-/// T19-P1: groups default-collapsed (seed-all after first refresh), hide-unhealthy toggle,
+/// NodesView — collapsible tree by subscription (clash-verge-dev pattern).
+/// groups default-collapsed (seed-all after first refresh), hide-unhealthy toggle,
 ///        3-state latency sort, clash-verge-style delay>N / delay=timeout search syntax.
 /// Level 1: subscription (foldable) — name + node count + health rate
 /// Level 2: nodes — display_tag / region / latency(ms) / health
@@ -77,7 +77,7 @@ function isHealthy(n: NodeItem): boolean {
   return (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
 }
 
-/// T19-P1 — clash-verge-style delay> search syntax. Returns:
+/// clash-verge-style delay> search syntax. Returns:
 ///   { text: substring to match against tag/region/sub, delayFilter?: predicate on latency }
 export function parseDelayQuery(q: string): { text: string; delayFilter?: (ms: number | null) => boolean } {
   const trimmed = q.trim();
@@ -102,13 +102,13 @@ export function parseDelayQuery(q: string): { text: string; delayFilter?: (ms: n
 
 type SortMode = "default" | "asc" | "desc";
 
-/// T19-P1 — latency rank for sort. null/timeout = Infinity (sort last in asc, first in desc).
+/// latency rank for sort. null/timeout = Infinity (sort last in asc, first in desc).
 function latencyRank(ms: number | null | undefined): number {
   if (ms == null || ms > 9999) return Number.POSITIVE_INFINITY;
   return ms;
 }
 
-/// T21-P2 — pure helper: merge a probe result into the probeResults Map (clash-rev DelayManager.setListener per-proxy model).
+/// pure helper: merge a probe result into the probeResults Map (clash-rev DelayManager.setListener per-proxy model).
 /// Exported for vitest.
 export function applyProbeResult(
   prev: Map<string, { latency?: number; egress_ip?: string; region?: string }>,
@@ -128,7 +128,7 @@ export function applyProbeResult(
   return m;
 }
 
-/// T21-P2 — pure helper: bump batchProgress.done by 1; exported for vitest.
+/// pure helper: bump batchProgress.done by 1; exported for vitest.
 export function nextBatchProgress(
   prev: Map<string, { done: number; total: number }>,
   sub: string,
@@ -151,23 +151,23 @@ export function NodesView() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  /// T19-P1 — hide-unhealthy toggle (default false, user opt-in)
+  /// hide-unhealthy toggle (default false, user opt-in)
   const [hideUnhealthy, setHideUnhealthy] = useState(false);
-  /// T19-P1 — 3-state latency sort cyclistate
+  /// 3-state latency sort cyclistate
   const [sortMode, setSortMode] = useState<SortMode>("default");
-  /// T19-P1 — seed-once flag so we default-collapse only after the first refresh, not on every poll
+  /// seed-once flag so we default-collapse only after the first refresh, not on every poll
   const seededRef = useRef(false);
-  /// T19-P2 — per-subscription refresh inflight set (button spinner state)
+  /// per-subscription refresh inflight set (button spinner state)
   const [refreshingSub, setRefreshingSub] = useState<Set<string>>(new Set());
-  /// T19-P3 — per-node probe inflight set (key = hash|kind so both kinds can run concurrently)
+  /// per-node probe inflight set (key = hash|kind so both kinds can run concurrently)
   const [probeInflight, setProbeInflight] = useState<Set<string>>(new Set());
-  /// T19-P3 — optimistic per-node probe result overlay: hash -> {latency?, egress_ip?, region?, ts}
+  /// optimistic per-node probe result overlay: hash -> {latency?, egress_ip?, region?, ts}
   const [probeResults, setProbeResults] = useState<Map<string, { latency?: number; egress_ip?: string; region?: string }>>(new Map());
-  /// T19-P4 — per-sub batch probe inflight (sub name -> boolean)
+  /// per-sub batch probe inflight (sub name -> boolean)
   const [batchInflight, setBatchInflight] = useState<Set<string>>(new Set());
-  /// T21-P2 — batch progress per sub: Map<sub, {done,total}> for spinner tooltip live interpolation
+  /// batch progress per sub: Map<sub, {done,total}> for spinner tooltip live interpolation
   const [batchProgress, setBatchProgress] = useState<Map<string, { done: number; total: number }>>(new Map());
-  /// T21-P3 — local inline toast for refresh sub feedback (no toast lib)
+  /// local inline toast for refresh sub feedback (no toast lib)
   const [localToast, setLocalToast] = useState<{ key: string; opts?: Record<string, unknown> } | null>(null);
   const refresh = useCallback(async () => {
     setError(null);
@@ -217,7 +217,7 @@ export function NodesView() {
     setProbeInflight(prev => new Set(prev).add(key));
     try {
       const res = await ipcNodeProbe(hash, kind);
-      // T21-P2: pure helper — clash-rev per-proxy listener model (real-time row lightup)
+      // pure helper — clash-rev per-proxy listener model (real-time row lightup)
       setProbeResults(prev => applyProbeResult(prev, hash, kind, res));
     } catch (e) {
       setError(translateError(e, t));
@@ -226,7 +226,7 @@ export function NodesView() {
     }
   }, [t]);
 
-  /// T19-P4 — batch latency probe: chunk by concurrency, Promise.allSettled, shell-side timeout guard
+  /// batch latency probe: chunk by concurrency, Promise.allSettled, shell-side timeout guard
   const handleBatchProbe = useCallback(async (subName: string, items: ReadonlyArray<{ node_hash?: string }>) => {
     if (subName === "__untagged__" || items.length === 0) return;
     setBatchInflight(prev => new Set(prev).add(subName));
@@ -245,12 +245,12 @@ export function NodesView() {
             );
             try {
               const res = await Promise.race([probe, timeout]);
-              // T21-P2: per-probe immediate lightup — row turns from - to ms the moment its own probe resolves
+              // per-probe immediate lightup — row turns from - to ms the moment its own probe resolves
               setProbeResults(prev => applyProbeResult(prev, hash, "latency", res));
             } catch {
               // individual probe timeout/error — continue batch
             }
-            // T21-P2: spin-free batch progress — tooltip reads {{done}}/{{total}} live
+            // spin-free batch progress — tooltip reads {{done}}/{{total}} live
             setBatchProgress(prev => nextBatchProgress(prev, subName));
           })
         );
@@ -265,7 +265,7 @@ export function NodesView() {
     }
   }, [refresh]);
 
-  // T21-P3: auto-clear localToast after 2s (refreshSent) or 3s (refreshDone/NoChange)
+  // auto-clear localToast after 2s (refreshSent) or 3s (refreshDone/NoChange)
   useEffect(() => {
     if (!localToast) return;
     const ttl = localToast.key === "refreshSent" ? 2000 : 3000;
@@ -273,13 +273,13 @@ export function NodesView() {
     return () => clearTimeout(tid);
   }, [localToast]);
 
-  // T14-3: usePoll replaces manual setInterval
+  // usePoll replaces manual setInterval
   usePoll(refresh, { intervalMs: 10000, fireImmediately: true, pauseWhenHidden: true });
 
   const healthyCount = nodes.filter(isHealthy).length;
   const grouped = useMemo(() => groupBySub(nodes), [nodes]);
 
-  // T19-P1: seed collapsed Set with every sub name after the first refresh (default-collapse)
+  // seed collapsed Set with every sub name after the first refresh (default-collapse)
   useEffect(() => {
     if (seededRef.current) return;
     if (grouped.size === 0) return;
@@ -500,8 +500,8 @@ export function NodesView() {
 }
 
 
-/// T14-7: Virtualized node list — only renders visible rows (20-50) instead of all 295+
-/// T14-7: Threshold below which we skip virtualization (jsdom/no-scroll context + small lists)
+/// Virtualized node list — only renders visible rows (20-50) instead of all 295+
+/// Threshold below which we skip virtualization (jsdom/no-scroll context + small lists)
 const VIRTUAL_THRESHOLD = 50;
 
 function VirtualNodeList({
@@ -520,7 +520,7 @@ function VirtualNodeList({
   probeInflight?: Set<string>;
   probeResults?: Map<string, { latency?: number; egress_ip?: string; region?: string }>;
 }) {
-  // T14-7: for small lists (< 50 items), render normally without virtualizer overhead
+  // for small lists (< 50 items), render normally without virtualizer overhead
   // (also ensures compatibility with jsdom test environment where scroll measurements are 0)
   if (items.length < VIRTUAL_THRESHOLD) {
     return (
@@ -575,7 +575,7 @@ function VirtualNodeList({
       </div>
     );
   }
-  // T14-7: for large lists (>= 50 items), use virtualization
+  // for large lists (>= 50 items), use virtualization
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: items.length,

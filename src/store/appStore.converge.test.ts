@@ -1,5 +1,5 @@
 /**
- * Architecture-recovery ticket 07 (spec D-C2.2) — global converge loop tests.
+ * global converge loop tests.
  *
  * Covers the checkpoints at the store level:
  *   A. polling cadence: default 5s; Converged + settled (>60s) backoff to 30s;

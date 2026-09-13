@@ -1,5 +1,5 @@
 /**
- * T14-3: usePoll test suite
+ * usePoll test suite
  * Verifies: starts polling, pauses when hidden, resumes when visible,
  * cleans up on unmount, passes AbortSignal to fn.
  */

@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ConvergeTooltip } from "./ConvergeTooltip";
 import enCommon from "../locales/en/common.json";
 
-// Architecture-recovery ticket 06 (D-C2.1): the four-field hover summary.
+// the four-field hover summary.
 // Uses React-state-driven open/close (NOT CSS :hover) so tests can drive it
 // deterministically via fireEvent.mouseEnter / mouseLeave / focus / blur.
 describe("ConvergeTooltip (ticket 06)", () => {
@@ -119,7 +119,7 @@ describe("ConvergeTooltip (ticket 06)", () => {
     expect(popover).toHaveTextContent(enCommon.topConverge.tooltip.clickHint);
   });
 
-  // Ticket 06 invariant: child click handlers still fire through the wrapper.
+  // invariant: child click handlers still fire through the wrapper.
   it("children's onClick fires (the wrapper does not swallow clicks)", () => {
     const onClick = vi.fn();
     render(

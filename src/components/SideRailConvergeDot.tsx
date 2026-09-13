@@ -2,11 +2,11 @@ import { useTranslation } from "react-i18next";
 import type { ConvergePhase } from "../lib/ipc";
 
 /**
- * Architecture-recovery ticket 06 (D-C2.1): a single 4px status dot inside
+ * a single 4px status dot inside
  * the SideRail so the user can spot convergence drift/failure from any view
  * without leaving the nav layer.
  *
- * Checkpoint C (D-C2.1) — Converged state uses literal `display: none`
+ * Checkpoint C — Converged state uses literal `display: none`
  * (NOT opacity), because a converged-but-present dot is noise the user does
  * not want to see. The element remains in the DOM so tests can assert the
  * hide and so the same mounted instance survives phase transitions.

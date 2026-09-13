@@ -1,5 +1,5 @@
 /**
- * T14-5: useIpc — unified SWR-backed IPC data hook for Tauri.
+ * useIpc — unified SWR-backed IPC data hook for Tauri.
  *
  * Wraps SWR around Tauri IPC invoke() calls for automatic:
  * - request dedup (dedupingInterval: 10s default)
@@ -22,7 +22,7 @@ export function useIpc<T>(
   opts?: SWRConfiguration<T>
 ) {
   return useSWR<T>(key, fetcher, {
-    // T14-5 defaults: 10s dedup, no refetch on hidden, error retry 2x
+    // defaults: 10s dedup, no refetch on hidden, error retry 2x
     dedupingInterval: 10000,
     revalidateOnFocus: true,
     revalidateOnReconnect: true,

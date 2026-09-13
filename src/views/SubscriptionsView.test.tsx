@@ -267,7 +267,7 @@ describe("SubscriptionsView item 2 row hint (ADR-0006 item 2)", () => {
       const row = Array.from(document.querySelectorAll("ul li"))
         .find((li) => /probe-bad/.test(li.textContent || ""));
       expect(row && /unexpected status 403 from https:\/\/example\.invalid\/x/.test(row.textContent || "")).toBe(true);
-      // T03 (round5): the rose hint span is replaced by the full red banner
+      // the rose hint span is replaced by the full red banner
       // (sub-error-banner testid; red-300 border + red-50 bg are the spec'd
       // Tailwind tokens asserted by classList, dodging the dark: prefix).
       const banner = row?.querySelector('[data-testid="sub-error-banner"]');
@@ -302,7 +302,7 @@ describe("SubscriptionsView item 2 row hint (ADR-0006 item 2)", () => {
         .find((sp) => Array.from(sp.classList).some((c) => c.startsWith("text-emerald")));
       expect(emEl && /\b8\b/.test(emEl.textContent || "")).toBe(true);
     });
-    // T03 (round5): no red banner when last_error is empty; the healthy
+    // no red banner when last_error is empty; the healthy
     // branch shows the green last-success check (aria-labelled svg).
     expect(screen.queryByTestId("sub-error-banner")).toBeNull();
     const healthyRow = Array.from(document.querySelectorAll("ul li"))
@@ -312,7 +312,7 @@ describe("SubscriptionsView item 2 row hint (ADR-0006 item 2)", () => {
   });
 });
 
-// --- T03 (round5): last_error promotion - banner / collapse / chip / 30s poll ---
+// --- last_error promotion - banner / collapse / chip / 30s poll ---
 describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s poll)", () => {
   beforeEach(() => {
     useAppStore.setState({ subscriptions: [] });
@@ -504,7 +504,7 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
     });
   });
 
-// --- Round 5 T01 (issue 01) / Round 7 ticket 01 (D-C1.8): F1 inline bind
+// --- F1 inline bind
 // step + F4 reverse-lookup badge. The import path passes pipeline=establish
 // (the backend cascade owns resolve/platform/apply now); the inline bind
 // step still runs strategy_config_put -> strategy_apply for user-selected
@@ -794,7 +794,7 @@ describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => 
   }, 20000);
 });
 
-// --- Round 7 T02 (D-C1.2): establish-phase chip — 6-state render ---
+// --- establish-phase chip — 6-state render ---
 describe("SubscriptionsView T02: subscription phase chips (6-state palette)", () => {
   beforeEach(() => {
     useAppStore.setState({ subscriptions: [], subscriptionPhases: [] });

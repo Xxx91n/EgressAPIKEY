@@ -4,7 +4,7 @@ import i18next from "i18next";
 
 // Mock the IPC module so we control the platform/node data the canvas sees.
 const invokeMock = vi.fn<(cmd: string, args?: Record<string, unknown>) => Promise<unknown>>();
-// T18: file-scoped core mock must ALSO export Channel for watch_port_health streaming tests.
+// file-scoped core mock must ALSO export Channel for watch_port_health streaming tests.
 // Channel class defined INSIDE the factory to remain valid after vitest vi.mock hoisting.
 vi.mock("@tauri-apps/api/core", () => {
   class ChannelStub<T = unknown> {
@@ -22,7 +22,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) })
 
 import { TopologyView, addRegionFilter, removeRegionFilter, patchAndSyncOnce, buildEdges, layoutNodesViaDagre, fixedHandleStyle, useTopologyStore, dedupNodesByHash, buildCColumnGroups, isNodeSelectedByAnyPlatform } from "./TopologyView";
 
-// Ticket 07 (Authoritative Snapshot): the canvas now consumes the ONE
+// (Authoritative Snapshot): the canvas now consumes the ONE
 // pre-merged snapshot instead of merging platform_list_full +
 // strategy_config_get in the view. These helpers convert the legacy per-test
 // Resin/whitebox fixtures into the snapshot payload so the migrated tests
@@ -104,7 +104,7 @@ function snapshotFromMocks(cmdMock: (cmd: string) => unknown) {
 describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dual badges)", () => {
   beforeEach(() => {
     invokeMock.mockReset();
-    // Ticket 07 migration shim: per-test mocks still declare the legacy
+    // migration shim: per-test mocks still declare the legacy
     // platform_list_full / strategy_config_get / port_list fixtures. Wrap
     // every mockImplementation so an authoritative_snapshot call derives its
     // payload from those legacy fixtures — the same merge resin-core performs
@@ -372,7 +372,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  // --- C1-3 + T9-2: buildEdges with strategy labels ---
+  // --- C1-3: buildEdges with strategy labels ---
   describe("C1-3 + T9-2: buildEdges B->C edge with strategy labels", () => {
     // Old shape (region groups) for backward compat
     const regionGroups = [{ region: "hk" }, { region: "us" }];
@@ -400,7 +400,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       expect(edges.find((e) => e.id === "e-OpenAI-us")).toBeFalsy();
     });
 
-    // T9-2: New shape (subscription groups) with strategy labels
+    // New shape (subscription groups) with strategy labels
     it("T9-2: buildEdges with subscription groups produces strategy-labeled edges", () => {
       const platforms = [{ name: "OpenAI", region_filters: ["hk"], allocation_policy: "BALANCED", aClass: "region" }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk", "jp"] }];
@@ -408,7 +408,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
       expect(bcEdges).toHaveLength(1);
       expect(bcEdges[0].label).toBe("region:hk");
-      // Auto-strategy edges are non-deletable (T9-2)
+      // Auto-strategy edges are non-deletable
       expect(bcEdges[0].deletable).toBe(false);
     });
 
@@ -491,7 +491,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  // --- T13 closed-loop tests ---
+  // --- closed-loop tests ---
   describe("T22-1: isNodeSelectedByAnyPlatform a_class-semantic filtering", () => {
     it("subscription: node in selected subscription -> true", () => {
       const node = { node_hash: "h1", region: "hk", tags: [{ subscriptionName: "sub1" }] } as any;
@@ -654,7 +654,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
 
-  // --- T14 closed-loop tests ---
+  // --- closed-loop tests ---
   describe("T14-1: A badge renders before B badge in PlatformNode", () => {
     it("A badge comes before B badge in DOM order", async () => {
       invokeMock.mockImplementation((cmd: string) => {
@@ -773,7 +773,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
 
-  // --- T15 closed-loop tests ---
+  // --- closed-loop tests ---
   describe("T15-1: C column hides subscription groups with no selected nodes", () => {
     it("does not render subscription card when no platform selects its region", async () => {
       invokeMock.mockImplementation((cmd: string) => {
@@ -869,7 +869,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         { id: "e2", source: "b", target: "c" },
       ];
       const result = layoutNodesViaDagre(nodes, edges);
-      // T15-v3-2: offset removed per ADR-0039 SS4; dagre positions start from margin (20,20).
+      // offset removed per ADR-0039 SS4; dagre positions start from margin (20,20).
       // Assert positions are non-negative and finite (no NaN/infinite drift).
       for (const n of result) {
         expect(Number.isFinite(n.position.x)).toBe(true);
@@ -903,7 +903,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         expect(container.textContent || "").toContain("TestPlat");
       });
 
-      // Ticket 07: the view consumes the ONE pre-merged snapshot. It must
+      // the view consumes the ONE pre-merged snapshot. It must
       // NOT fetch the legacy cross-store sources anymore (ARCHITECTURE.md
       // §Config Authority: views never re-merge stores).
       expect(invokedCmds).toContain("authoritative_snapshot");
@@ -939,7 +939,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         expect(container.textContent || "").toContain("WBPlat");
       });
       // Canvas should reflect whitebox intent (jp) not Resin runtime (us).
-      // Ticket 07: the divergence itself is carried IN the snapshot (both
+      // the divergence itself is carried IN the snapshot (both
       // values, state=divergent); the view renders the intent without
       // re-merging stores.
       await waitFor(() => {
@@ -962,12 +962,12 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  // === T17 tests (ADR-0041: Canvas v4 node pool + toolbar merge + MiniMap ariaLabel + dedup) ===
+  // === tests (ADR-0041: Canvas v4 node pool + toolbar merge + MiniMap ariaLabel + dedup) ===
   describe("T17-1 (ADR-0041 S1): viewMode guard on subGroup loop", () => {
     beforeEach(() => { invokeMock.mockReset(); });
 
     it("T17-1a: region viewMode does not render subscription group nodes (ADR-0041 S1)", async () => {
-      // T17-audit: assertion strategy switched from ReactFlow-rendered DOM textContent to
+// assertion strategy switched from ReactFlow-rendered DOM textContent to
       // a direct call of the extracted `buildCColumnGroups` pure helper. Reason (atomcode
       // research + local evidence): under jsdom, ReactFlow only reliably stampedes entry-port
       // + platform nodes; subscriptionGroup/regionGroup custom-node DOM does not render, so
@@ -1030,7 +1030,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         // S1 contract, viewMode = region (flipped by the CanvasControls region button /
         // pre-populated topologyState above): subscriptionGroup node is NOT pushed (the early
         // return at L723 of the helper fires), and the region group for "hk" IS pushed
-        // because selectedRegions contains "hk" (T16-1 selectedRegions gate).
+        // because selectedRegions contains "hk" (selectedRegions gate).
         const regionPlatforms = [{ id: "p1", name: "PlatA", regex_filters: null, region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 1, sticky_ttl: "", aClass: "region" }] as any;
         const regionNodes = buildCColumnGroups("region", subGroups, regionPlatforms, t);
         const subGroupEntriesInRegion = regionNodes.filter((n) => (n.id ?? "").startsWith("subgroup-"));
@@ -1039,7 +1039,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         expect(regionGroupEntries.length).toBe(1);
         expect(regionGroupEntries[0].id).toBe("regiongroup-hk");
       } finally {
-        // Restore the default LazyStore mock factory (setup.ts) so T17-1b and later tests
+        // Restore the default LazyStore mock factory (setup.ts) so and later tests
         // stay clean. Default returns null for every get.
         vi.mocked(LazyStore).mockImplementation((() => ({
           get: vi.fn(async () => null),

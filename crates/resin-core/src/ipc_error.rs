@@ -32,14 +32,14 @@ pub enum IpcError {
         i18n_key: String,
     },
     /// Command input failed §7.5 validation (range/length cap) at the Rust
-    /// boundary. Round 5 T05: introduced by the diag-poll-interval command
+    /// boundary. introduced by the diag-poll-interval command
     /// pair; msg carries the rejected bound for log display. Reuses the
-    /// existing "error.badRequest" locale key (no new i18n key, T05 不做清单).
+    /// existing "error.badRequest" locale key (no new i18n key, 不做清单).
     InvalidInput {
         msg: String,
         i18n_key: String,
     },
-    /// Name-based lookup miss (Round 5 T17, crack #6): the typed face of the
+/// Name-based lookup miss: the typed face of the
     /// former stringly `format!("platform not found: {name}")` rejections the
     /// name→UUID call sites produced through `IpcError::from(String)`.
     /// Reuses the existing "error.notFound" locale key (already present in
@@ -86,7 +86,7 @@ impl IpcError {
         }
     }
 
-    /// §7.5 input-validation rejection (Round 5 T05). Reuses the existing
+    /// §7.5 input-validation rejection. Reuses the existing
     /// "error.badRequest" locale key so no new i18n key is added.
     pub fn invalid_input(msg: &str) -> Self {
         Self::InvalidInput {
@@ -95,7 +95,7 @@ impl IpcError {
         }
     }
 
-    /// Name-based lookup miss (Round 5 T17). `msg` carries the same human
+    /// Name-based lookup miss. `msg` carries the same human
     /// sentence the former stringly rejections used ("platform not found:
     /// {name}"); the i18n key reuses the existing "error.notFound" entry.
     pub fn not_found(msg: &str) -> Self {
@@ -156,7 +156,7 @@ impl From<serde_json::Error> for IpcError {
 }
 
 
-/// Single Resin error -> IpcError mapping (architecture-recovery ticket 06:
+/// Single Resin error -> IpcError mapping
 /// the shell-side duplicate in src-tauri/src/commands/mod.rs was deleted; its
 /// call sites now call this function directly via resin_core::map_resin_error).
 ///
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn ipc_error_invalid_input_serde_round_trip() {
-        // Round 5 T05: §7.5 range-rejection variant. Reuses error.badRequest
+        // §7.5 range-rejection variant. Reuses error.badRequest
         // so the frontend needs no new locale key.
         let e = IpcError::invalid_input("interval_ms must be 100..=86400000");
         let json = serde_json::to_string(&e).unwrap();
@@ -314,7 +314,7 @@ mod tests {
 
     #[test]
     fn ipc_error_not_found_serde_round_trip() {
-        // Round 5 T17: name→UUID lookup miss. Reuses the existing
+        // name→UUID lookup miss. Reuses the existing
         // error.notFound locale key (present in all 18 catalogs).
         let e = IpcError::not_found("platform not found: alpha");
         assert!(matches!(e, IpcError::NotFound { ref msg, ref i18n_key }
@@ -326,7 +326,7 @@ mod tests {
         assert!(json.contains("\"i18n_key\":\"error.notFound\""));
     }
 
-    // ---- map_resin_error(raw) — ticket 06 single implementation ----
+    // ---- map_resin_error(raw) — single implementation ----
 
     #[test]
     fn map_resin_error_cannot_delete_default() {
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn map_resin_error_bind_takes_precedence_over_conflict() {
-        // T6-Bug4 regression: the bind guard must win before generic CONFLICT.
+        // regression: the bind guard must win before generic CONFLICT.
         let raw = "409 Conflict: listen on port 17999: bind: Only one usage of each socket address";
         let e = map_resin_error(raw);
         assert!(matches!(e, IpcError::BindConflict { port: 17999, .. }), "got {e:?}");

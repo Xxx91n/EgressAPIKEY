@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { ConvergePhase } from "../lib/ipc";
 
 /**
- * Architecture-recovery ticket 06 (D-C2.1): a controlled popover that
+* a controlled popover that
  * surfaces the 4-field convergence summary on hover or keyboard focus.
  *
  * Renders children inline, then an absolutely-positioned popover below.

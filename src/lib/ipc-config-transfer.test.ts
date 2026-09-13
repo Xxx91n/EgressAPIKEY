@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-/// Round 5 T07 / ADR-0061: regression guard for the config_export/import
+/// ADR-0061: regression guard for the config_export/import
 /// wrappers. The backend now reads/writes the L2 whitebox files (never Resin),
 /// and the CMD_TO_HTTP mapping to the non-existent /api/v1/config/* routes was
 /// deleted — config_export/config_import are Tauri-only. These tests lock the

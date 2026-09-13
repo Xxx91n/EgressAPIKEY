@@ -3,7 +3,7 @@ import type { ConvergePhase } from "../lib/ipc";
 import { ConvergeTooltip } from "./ConvergeTooltip";
 
 /**
- * Architecture-recovery ticket 06 (D-C2.1 / D-C2.4 / ArgoCD #22059 警戒):
+ * (ArgoCD #22059 警戒):
  * a compact pill in the App header that surfaces the top-level convergence
  * phase. Data flows from a single authoritative snapshot owned by App.tsx;
  * this component is pure presentational and never reaches for IPC itself.

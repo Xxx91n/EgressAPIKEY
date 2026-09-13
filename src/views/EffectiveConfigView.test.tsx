@@ -186,7 +186,7 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
   });
 });
 
-// Ticket 14 / ADR-0054 §A: reconcile preview dialog — confirm / cancel /
+// ADR-0054 §A: reconcile preview dialog — confirm / cancel /
 // failure paths, re-entry guard, auto re-verify. Preview data comes from
 // the snapshot in memory (no extra request besides the re-verify pull).
 describe("EffectiveConfigView reconcile (ticket 14)", () => {
@@ -225,7 +225,7 @@ describe("EffectiveConfigView reconcile (ticket 14)", () => {
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "authoritative_snapshot") return Promise.resolve(driftedSnap());
-      // ticket-15 backup list mocks default to empty
+      // backup list mocks default to empty
       return Promise.resolve([]);
     });
   });
@@ -327,7 +327,7 @@ describe("EffectiveConfigView reconcile (ticket 14)", () => {
   });
 });
 
-// Ticket 19: preview coverage completion — the ports-domain will-change rows
+// preview coverage completion — the ports-domain will-change rows
 // locked beside the strategy domain (snapshot-derived, zero extra requests)
 // and the explicit desired-only wording for missing-on-resin platforms
 // (instead of being folded into the divergent patch). The REAL en catalog is
@@ -420,7 +420,7 @@ describe("EffectiveConfigView reconcile preview coverage (ticket 19)", () => {
   });
 });
 
-// Round 5 T09 / ADR-0058: the top-level convergence chip. The REAL en
+// ADR-0058: the top-level convergence chip. The REAL en
 // catalog is wired in so the assertions lock the shipped wording values.
 describe("EffectiveConfigView converge chip (round5 T09)", () => {
   beforeAll(() => {

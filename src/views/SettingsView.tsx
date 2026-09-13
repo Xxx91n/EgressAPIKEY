@@ -88,12 +88,12 @@ export function SettingsView() {
   const setTheme = useAppStore((s) => s.setTheme);
   const setView = useAppStore((s) => s.setView);
   const [saved, setSaved] = useState(false);
-  // T14-8: lightweight mode config (RISK-4 debounce + RISK-5 loadedRef skip mount save)
+  // lightweight mode config (RISK-4 debounce + RISK-5 loadedRef skip mount save)
   const [lightweightEnabled, setLightweightEnabled] = useState(true);
   const [lightweightDelay, setLightweightDelay] = useState(10);
   const [logLevel, setLogLevel] = useState<string>("info");
   const lightweightLoadedRef = useRef(false);
-  // T15-2: fetch current log level on mount
+  // fetch current log level on mount
   useEffect(() => {
     ipcGetLogLevel().then(l => setLogLevel(l)).catch(() => { /* not in tauri */ });
   }, []);
@@ -125,11 +125,11 @@ export function SettingsView() {
   // auto-assigned by the shell (ADR-0012) and displayed read-only — there is
   // no editable network-bind preference in settings.json.
   const [sidecarStatus, setSidecarStatus] = useState<SidecarStatus | null>(null);
-  // T6-3: Network-layer whitebox config (DNS + idle + probe + bypass).
+  // Network-layer whitebox config (DNS + idle + probe + bypass).
   const [netCfg, setNetCfg] = useState<NetworkConfig>({});
   const [netBusy, setNetBusy] = useState(false);
   const [netMsg, setNetMsg] = useState("");
-  // T6-7: Network diagnostics panel state.
+  // Network diagnostics panel state.
   const [reputationConfig, setReputationConfig] = useState<IpReputationConfig>({ provider: "", ipQualityScoreApiKey: "", abuseIpDbApiKey: "" });
   // C2-8: dirty-state tracking — baseline snapshot vs current form values.
   // idiomatic enterprise pattern (minimal baseline+JSON.stringify diff, no RHF dep).
@@ -152,22 +152,22 @@ export function SettingsView() {
   const [configBusy, setConfigBusy] = useState(false);
   // surface it. Swallow errors (vitest, sidecar not running, IPC not registered).
   const [configMsg, setConfigMsg] = useState("");
-  // Round 5 T11 / ADR-0059: Export audit log button state.
+  // ADR-0059: Export audit log button state.
   const [auditBusy, setAuditBusy] = useState(false);
   const [auditMsg, setAuditMsg] = useState("");
-  // T15-v3-4: strategy config reload surface (ADR-0039 SS5)
+  // strategy config reload surface (ADR-0039 SS5)
   const [strategyConfigPath, setStrategyConfigPath] = useState("");
   const [strategyBusy, setStrategyBusy] = useState(false);
   const [strategyMsg, setStrategyMsg] = useState("");
 
-  // T19-P4: node probe config (shell-local)
+  // node probe config (shell-local)
   const [probeCfg, setProbeCfg] = useState<NodeProbeConfig>({ concurrency: 10, timeout_ms: 10000, batch_on_load: false });
   const [probeBusy, setProbeBusy] = useState(false);
-  // T19-P4: Resin hot-update probe params (system_config)
+  // Resin hot-update probe params (system_config)
   const [resinMaxFailures, setResinMaxFailures] = useState<number>(3);
   const [resinLatencyInterval, setResinLatencyInterval] = useState<string>("1h");
   const [resinLatencyUrl, setResinLatencyUrl] = useState<string>("");
-  // T19-audit: 4 Resin hot-update knobs missing from P4 (ADR-0044 plan-line-14)
+  // 4 Resin hot-update knobs missing from P4 (ADR-0044 plan-line-14)
   const [resinMaxEgressInterval, setResinMaxEgressInterval] = useState<string>("24h");
   const [resinLatencyAuthorities, setResinLatencyAuthorities] = useState<string>("");
   const [resinP2cLatencyWindow, setResinP2cLatencyWindow] = useState<string>("30s");
@@ -175,11 +175,11 @@ export function SettingsView() {
   const [resinProbeBusy, setResinProbeBusy] = useState(false);
   useEffect(() => {
     void ipcWhiteboxPath().then(setWhiteboxPath).catch(() => setWhiteboxPath(""));
-    // T15-v3-4: load strategy config path (config_dir + egressapikey-strategy.json)
+    // load strategy config path (config_dir + egressapikey-strategy.json)
     void ipcGetConfigDir().then((dir) => setStrategyConfigPath(dir + "/egressapikey-strategy.json")).catch(() => setStrategyConfigPath(""));
   }, []);
 
-  // T19-P4: load node probe + resin probe config on mount
+  // load node probe + resin probe config on mount
   useEffect(() => {
     void (async () => {
       const cfg = await loadNodeProbe();
@@ -211,7 +211,7 @@ export function SettingsView() {
     }
   }
 
-  // T15-v3-4: reload strategy config from disk (whitebox edit loop, ADR-0039 SS5)
+  // reload strategy config from disk (whitebox edit loop, ADR-0039 SS5)
   async function reloadStrategyConfig() {
     setStrategyBusy(true);
     try {
@@ -235,7 +235,7 @@ export function SettingsView() {
     if (status) setSidecarStatus(status);
     setReputationConfig(reputation);
     setBaseline({ reputationConfig: reputation });
-    // T6-3: also load network-layer config from whitebox
+    // also load network-layer config from whitebox
     void ipcWhiteboxGet().then((wb) => setNetCfg(wb.network ?? {})).catch((e) => console.warn("[SettingsView] ipcWhiteboxGet failed", e));
     })();
     return () => { cancelled = true; };
@@ -413,7 +413,7 @@ export function SettingsView() {
  const isDirty = useMemo(() => JSON.stringify({ reputationConfig }) !== JSON.stringify(baseline), [reputationConfig, baseline]);
  const showSaveBar = isDirty || busy || saved;
 
- // T6-3: Save network-layer config to whitebox JSON.
+ // Save network-layer config to whitebox JSON.
   const saveNetwork = async () => {
     setNetBusy(true);
     setNetMsg("");
@@ -448,14 +448,14 @@ export function SettingsView() {
     } finally { setBusy(false); }
   };
 
-  // T19-P4: save node probe config to settings.json
+  // save node probe config to settings.json
   const saveProbeCfg = async () => {
     setProbeBusy(true);
     try {
       await saveNodeProbe(probeCfg);
     } finally { setProbeBusy(false); }
   };
-  // T19-P4: save Resin hot-update probe params via PATCH /system/config
+  // save Resin hot-update probe params via PATCH /system/config
   const saveResinProbe = async () => {
     setResinProbeBusy(true);
     try {

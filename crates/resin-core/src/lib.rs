@@ -8,6 +8,7 @@
 //! error contract.
 //!
 //! Modules:
+//! - backup: backup package model (member whitelist, sha256 manifest, AEAD envelope)
 //! - db: SQLite port->platform mapping store (reuses DbPool infra)
 //! - ipc_error: typed IPC error contract (ADR-0045)
 //! - ip_reputation: pluggable egress-IP reputation providers
@@ -18,7 +19,7 @@
 //! - strategy: B-class StrategyId type (shell strategy vocabulary)
 //! - strategy_engine: A/B-class strategy evaluation (shell-side)
 //! - strategy_service: StrategyConfig pipeline owner (read/validate/store/apply/snapshot, ADR-0052)
-//! - subscription_pipeline: subscription -> platform -> apply establish cascade (Round 7 ticket 01, D-C1.1)
+//! - subscription_pipeline: subscription -> platform -> apply establish cascade
 //! - stream_sensor: AI stream (SSE/WS) classification
 //! - whitebox_config: egressapikey-ports.json whitebox store (ADR-0036)
 //!

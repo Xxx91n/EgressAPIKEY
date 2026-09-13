@@ -49,7 +49,7 @@ pub struct ResinClient {
 
 const API_PREFIX: &str = "/api/v1";
 
-/// T15-4: Shared reqwest::Client reused across all ResinClient instances.
+/// Shared reqwest::Client reused across all ResinClient instances.
 /// The IPC layer constructs a fresh ResinClient per call (one per Tauri
 /// command), but reqwest::Client owns a connection pool + TLS context.
 /// Reusing a single Client avoids building a new pool per IPC call.
@@ -78,7 +78,7 @@ impl ResinClient {
                 "resin_client: base host '{host}' is not loopback; rejected (SSRF guard)"
             ));
         }
-        // T15-4: reuse the shared reqwest::Client (connection pool + TLS).
+        // reuse the shared reqwest::Client (connection pool + TLS).
         let http = shared_client().clone();
         Ok(Self {
             base: url,
@@ -103,7 +103,7 @@ impl ResinClient {
     /// Send an authenticated admin request and return the parsed JSON body.
     /// For non-success (2xx) responses we surface the upstream status + a
     /// short body excerpt rather than swallowing the error.
-    /// T2-8 (ADR-0018): Read-only auto-retry wrapper. Calls send() and
+/// (ADR-0018): Read-only auto-retry wrapper. Calls send() and
     /// retries up to READ_MAX_RETRIES times with READ_RETRY_DELAY_MS between
     /// attempts. Only for GET methods (read-only); write methods use send()
     /// directly. Retries on network error or 5xx (server transient failure);
@@ -120,7 +120,7 @@ impl ResinClient {
                 Ok(v) => return Ok(v),
                 Err(e) => {
                     // Retry on network errors or 5xx; don't retry 4xx or parse
-                    // errors (T04/round5: classifier shared with send_with_retry)
+                    // errors (classifier shared with send_with_retry)
                     if attempt < max_retries && Self::is_transient_5xx(&e) {
                         tracing::warn!(
                             "resin_client: read retry {}/{} for {path} after: {}",
@@ -137,7 +137,7 @@ impl ResinClient {
         Err(last_err.unwrap_or_else(|| anyhow!("resin_client: exhausted read retries for {path}")))
     }
 
-    /// T04/round5: transient-failure classifier shared by send_read and the
+/// transient-failure classifier shared by send_read and the
     /// write-retry wrapper below. Matches network errors and the 500/502/503/504
     /// band rendered by send()'s error string; 4xx and parse errors never
     /// retry (a rejected body is not transient).
@@ -150,7 +150,7 @@ impl ResinClient {
             || s.contains("-> 504")
     }
 
-    /// T04/round5: generic 5xx retry wrapper over send() for write verbs
+/// generic 5xx retry wrapper over send() for write verbs
     /// (POST/PATCH/PUT/DELETE). Same rule as send_read: 2 retries, 500ms
     /// then 1000ms, no retry on 4xx, parse errors, or success. A retried
     /// POST that actually landed (response lost) can re-apply on Resin; the
@@ -379,7 +379,7 @@ impl ResinClient {
    /// (Resin v1.2.0 HandleProbeEgress). Requests cloudflare.com/cdn-cgi/trace
    /// through the node, returns {egress_ip, region, latency_ewma_ms}. Resin
    /// updates the node's egress_ip + TD-EWMA + routing as a side effect.
-   /// Used by T19-P3 node-pool per-card probe button.
+   /// Used by node-pool per-card probe button.
    pub async fn probe_node_egress(&self, node_hash: &str) -> Result<Value> {
        let path = format!("/nodes/{}/actions/probe-egress", urlencoding(node_hash));
        self.send_with_retry(reqwest::Method::POST, &path, None).await
@@ -390,7 +390,7 @@ impl ResinClient {
    /// (Resin v1.2.0 HandleProbeLatency). Requests latency_test_url (default
    /// https://www.gstatic.com/generate_204) through the node, returns
    /// {latency_ewma_ms}. Resin updates the node's TD-EWMA for that domain.
-   /// Used by T19-P3 node-pool per-card probe button.
+   /// Used by node-pool per-card probe button.
    pub async fn probe_node_latency(&self, node_hash: &str) -> Result<Value> {
        let path = format!("/nodes/{}/actions/probe-latency", urlencoding(node_hash));
        self.send_with_retry(reqwest::Method::POST, &path, None).await
@@ -460,23 +460,23 @@ impl ResinClient {
     /// GET /api/v1/system/config — read the system-level configuration
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R03
     /// (max_consecutive_failures, cache_flush_interval, probe_timeout, etc.).
-    /// T8-1: used by the circuit breaker Settings panel to display current values.
+    /// used by the circuit breaker Settings panel to display current values.
     pub async fn system_config_get(&self) -> Result<Value> {
         self.send(reqwest::Method::GET, "/system/config", None).await
     }
 
     /// PATCH /api/v1/system/config — update system-level configuration.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R06
-    /// T8-1: used to set max_consecutive_failures (circuit breaker threshold).
+    /// used to set max_consecutive_failures (circuit breaker threshold).
     pub async fn system_config_patch(&self, body: Value) -> Result<Value> {
         self.send_with_retry(reqwest::Method::PATCH, "/system/config", Some(body)).await
     }
 
-    // ── Request logs (ticket 11: REST seam, replaces direct request_logs*.db read) ──
+    // ── Request logs (REST seam, replaces direct request_logs*.db read) ──
 
     /// GET /api/v1/request-logs?limit=N — tail of the Resin request log
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R44
-    /// (architecture-recovery ticket 11; ADR-0005 Q6 said probe the endpoint
+    /// ( ADR-0005 Q6 said probe the endpoint
     /// before coding: the endpoint was verified in the bundled sidecar
     /// (docs/RESIN_UPSTREAM_MANIFEST.yaml v1.2.0): the embedded WebUI calls
     /// GET /api/v1/request-logs with from/to/platform_name/account/target_host/
@@ -536,7 +536,7 @@ impl ResinClient {
         self.send_read(&path).await
     }
 
-    // ── Account header rules (round5 T16; D-35 coexistence with process_route per ADR-0063) ──
+    // ── Account header rules (coexistence with process_route per ADR-0063) ──
 
     /// GET /api/v1/account-header-rules?limit=1000&offset=0 — list all rules.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R32
@@ -619,7 +619,7 @@ impl ResinClient {
     }
 
     /// GET /api/v1/metrics/realtime/throughput — realtime ingress/egress
-    /// throughput ring samples. T19 minimal set (ADR-0064): the shell sends
+    /// throughput ring samples. minimal set (ADR-0064): the shell sends
     /// no from/to params, so Resin's parseMetricsTimeRange applies its own
     /// defaults (to=now, from=to-1h). Response shape (handler_metrics.go:147):
     /// {"step_seconds": N, "items": [{"ts","ingress_bps","egress_bps"}]}.
@@ -629,7 +629,7 @@ impl ResinClient {
     }
 
     /// GET /api/v1/metrics/history/probes?from=<RFC3339>&to=<RFC3339> —
-    /// probe-count history buckets from Resin's metrics.db. T19 minimal set
+    /// probe-count history buckets from Resin's metrics.db. minimal set
     /// (ADR-0064). `from`/`to` are RFC3339Nano strings (handler_metrics.go:15):
     /// Resin rejects anything else with 400 INVALID_ARGUMENT, so the IPC layer
     /// boundary-validates and converts before calling this. None passes no
@@ -652,7 +652,7 @@ impl ResinClient {
         self.send_read(&path).await
     }
 
-    /// Resolve a platform name to its Resin UUID (Round 5 T17, crack #6).
+    /// Resolve a platform name to its Resin UUID.
     ///
     /// Resin's endpoint design is hybrid: list endpoints are name-keyed
     /// (`GET /platforms` rows carry `name`+`id`) while single-resource
@@ -678,7 +678,7 @@ impl ResinClient {
             .ok_or_else(|| IpcError::not_found(&format!("platform not found: {name}")))
     }
 
-    /// Resolve a subscription name to its Resin UUID (Round 5 T17, crack #6).
+    /// Resolve a subscription name to its Resin UUID.
     /// Same hybrid-shape motivation and error contract as
     /// `resolve_platform_id_by_name`, over `GET /subscriptions`.
     ///
@@ -694,7 +694,7 @@ impl ResinClient {
     }
 }
 
-/// §7.5 boundary validation for name→UUID resolution (Round 5 T17 F3): the
+/// §7.5 boundary validation for name→UUID resolution (F3): the
 /// name is a DNS-host-scale identifier, so cap it at 253 chars and reject
 /// NUL/control characters. Returns `IpcError::InvalidInput` — never panics,
 /// mirroring the per-endpoint guards above (create_platform_from_name etc.).
@@ -712,7 +712,7 @@ fn validate_resolve_name(name: &str, field: &str) -> Result<(), IpcError> {
     Ok(())
 }
 
-/// Pure name→id lookup over a Resin list response (Round 5 T17). Accepts the
+/// Pure name→id lookup over a Resin list response. Accepts the
 /// items-wrapper shape `{"items":[...]}` OR a bare array (Resin v1.2.0 uses
 /// both — same contract as the shell-side `items_arr` and the core-side
 /// `items` helpers, so every historical caller shape keeps resolving). A row
@@ -779,7 +779,7 @@ fn urlencoding(s: &str) -> String {
 }
 
 /// encodeURIComponent-compatible path-segment encoder for account-header-rule
-/// url_prefix values (round5 T16). The upstream contract test exercises
+/// url_prefix values. The upstream contract test exercises
 /// `api.example.com%2Fv1` — the `/` MUST stay percent-encoded so the Go 1.22
 /// ServeMux `{prefix...}` wildcard receives one segment and unescapes it back
 /// to `api.example.com/v1`. Mirrors JS encodeURIComponent byte-for-byte
@@ -824,7 +824,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_request_logs_happy_path_sends_limit() {
-        // Ticket 11: request_log_tail now tails GET /api/v1/request-logs?limit=N
+        // request_log_tail now tails GET /api/v1/request-logs?limit=N
         // instead of scanning Resin's private request_logs*.db files.
         let mut server = mockito::Server::new_async().await;
         let body = r#"{"items":[{"id":"ab","ts_ns":1727654400,"platform_name":"OpenAI","account":"k1","target_host":"api.openai.com","egress_ip":"1.2.3.4","proxy_type":"forward","net_ok":true,"http_method":"GET","http_status":200,"duration_ns":123456789,"resin_error":""}],"cursor":"","total":1}"#;
@@ -1032,7 +1032,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_create_subscription_asserts_body_has_source_type_remote() {
-        // T20-P3: the shell always posts source_type=remote for subscription_add;
+        // the shell always posts source_type=remote for subscription_add;
         // Resin Scheduler re-pulls the URL on every refresh tick. Assert the body.
         let mut server = mockito::Server::new_async().await;
         let m = server
@@ -1077,7 +1077,7 @@ mod tests {
         m.assert_async().await;
     }
 
-    // T04/round5: write-path 5xx retry (send_with_retry). POST /subscriptions
+    // write-path 5xx retry (send_with_retry). POST /subscriptions
     // is the subscription_add transport; first attempt 503, second 201.
     #[tokio::test]
     async fn mockito_write_retry_503_then_201() {
@@ -1178,7 +1178,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_subscription_update_interval_three_states_wire_contract() {
-        // T04 F3: Resin parses update_interval as a Go time.Duration and
+// F3: Resin parses update_interval as a Go time.Duration and
         // enforces >= 30s (resin/internal/service/control_plane_subscription.go
         // minSubscriptionUpdateInterval, create AND PATCH paths). Wire contract
         // at the shell boundary: 30s and 1m pass through and are accepted; 5s
@@ -1557,7 +1557,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_refresh_subscription_native_posts_actions_refresh() {
-        // T20-P1: POST /api/v1/subscriptions/{id}/actions/refresh (no body) -> 200 {}.
+        // POST /api/v1/subscriptions/{id}/actions/refresh (no body) -> 200 {}.
         let mut server = mockito::Server::new_async().await;
         let m = server
             .mock("POST", "/api/v1/subscriptions/sub-uuid-1/actions/refresh")
@@ -1580,7 +1580,7 @@ mod tests {
 
    #[tokio::test]
    async fn mockito_probe_node_egress_returns_egress_ip_region_latency() {
-       // T19-P3: POST /nodes/{hash}/actions/probe-egress -> {egress_ip, region, latency_ewma_ms}.
+       // POST /nodes/{hash}/actions/probe-egress -> {egress_ip, region, latency_ewma_ms}.
        let mut server = mockito::Server::new_async().await;
        let m = server
            .mock("POST", "/api/v1/nodes/abc123/actions/probe-egress")
@@ -1605,7 +1605,7 @@ mod tests {
 
    #[tokio::test]
    async fn mockito_probe_node_latency_returns_latency_ewma_ms() {
-       // T19-P3: POST /nodes/{hash}/actions/probe-latency -> {latency_ewma_ms}.
+       // POST /nodes/{hash}/actions/probe-latency -> {latency_ewma_ms}.
        let mut server = mockito::Server::new_async().await;
        let m = server
            .mock("POST", "/api/v1/nodes/abc123/actions/probe-latency")
@@ -1626,7 +1626,7 @@ mod tests {
        m.assert_async().await;
    }
 
-    // ── Account header rules mockito tests (round5 T16, R32-R35) ─────
+    // ── Account header rules mockito tests (R32-R35) ─────
 
     #[tokio::test]
     async fn mockito_list_account_header_rules_happy_path() {
@@ -1818,7 +1818,7 @@ mod tests {
         assert!(std::ptr::eq(a, b), "shared_client() returned different Client instances");
     }
 
-    // ── Round 5 T17 (crack #6): name→UUID resolution helpers ──────────
+    // ── name→UUID resolution helpers ──────────
 
     #[tokio::test]
     async fn mockito_resolve_platform_id_by_name_hit() {
@@ -1879,7 +1879,7 @@ mod tests {
         // F4 case 3 (parse failure): a 200 whose application/json body does
         // not decode -> send() errors and map_resin_error surfaces the
         // Internal catch-all (the enum has no Backend variant; the issue
-        // draft's "Backend" maps here — see T17 report deviation note).
+        // draft's "Backend" maps here — see report deviation note).
         let mut server = mockito::Server::new_async().await;
         let m = server
             .mock("GET", "/api/v1/platforms")
@@ -2038,7 +2038,7 @@ mod tests {
         assert_eq!(resolve_id_in(&serde_json::json!({"foo": 1}), "x"), None);
         assert_eq!(resolve_id_in(&Value::Null, "x"), None);
     }
-    // ── T19 metrics minimal-set mockito tests (ADR-0064) ─────────────
+    // ── metrics minimal-set mockito tests (ADR-0064) ─────────────
 
     #[tokio::test]
     async fn mockito_realtime_throughput_happy_path_no_params() {

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 
-/// T20-Q2/Q4: Guard against raw error objects reaching user-facing display
+/// Guard against raw error objects reaching user-facing display
 /// functions. Scans all .ts/.tsx source files for catch blocks that pass
 /// the caught variable directly to a display function WITHOUT going through
 /// translateError(). This prevents "[object Object]" regression.

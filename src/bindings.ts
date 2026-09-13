@@ -6,7 +6,7 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 export const commands = {
 	setLogLevel: (level: LogLevel) => typedError<string, IpcError>(__TAURI_INVOKE("set_log_level", { level })),
 	/**
-	 *  T18-S2 (ADR-0042): Toggle enabled flag on an entry-port without
+* (ADR-0042): Toggle enabled flag on an entry-port without
 	 *  re-POST/Create or DELETE. Patches the Resin endpoint `{enabled: bool}`
 	 *  (Resin v1.2.0 supports `enabled` on PATCH — `inactive` keeps the record)
 	 *  then persists the same flag into the shell whitebox `entry_ports[].enabled`
@@ -37,7 +37,7 @@ export type IpcError =
 	i18n_key: string,
 } } |
 /**
- *  Name-based lookup miss (Round 5 T17, crack #6): the typed face of the
+* Name-based lookup miss: the typed face of the
  *  former stringly `format!("platform not found: {name}")` rejections the
  *  name→UUID call sites produced through `IpcError::from(String)`.
  *  Reuses the existing "error.notFound" locale key (already present in
@@ -54,7 +54,7 @@ export type IpcError =
 } };
 
 /**
- *  Ticket 09 (tauri-specta pilot): log level as a closed enum. The wire
+* (tauri-specta pilot): log level as a closed enum. The wire
  *  format is unchanged (lowercase string, serde rename_all); out-of-set
  *  values are now rejected by serde at deserialization instead of the
  *  former in-command String match. Exported into src/bindings.ts so the

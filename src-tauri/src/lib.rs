@@ -22,8 +22,10 @@ use std::sync::Arc;
 /// commands. Locked per-call, never held across an await.
 pub type SharedRegistry = Arc<resin_core::platform::PlatformRegistry>;
 
-/// Construct a fresh empty PlatformRegistry for the desktop session. The
-/// frontend populates it via the `platform_add` / `account_add` IPC commands.
+/// Construct a fresh empty PlatformRegistry for the desktop session. Platform
+/// and account state is owned by the Resin sidecar: the IPC commands go
+/// straight through `ResinClient`, and `account_add` is a validation-only echo
+/// (ADR-0050), so this registry is never populated from the frontend.
 pub fn build_shared_registry() -> SharedRegistry {
     Arc::new(resin_core::platform::PlatformRegistry::new())
 }

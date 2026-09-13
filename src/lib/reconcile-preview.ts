@@ -1,4 +1,4 @@
-// Architecture-recovery ticket 14 / ADR-0054 §A: the reconcile preview
+// ADR-0054 §A: the reconcile preview
 // derivation. The plan is computed FROM the snapshot's own entries (spec:
 // "源自快照内已有计划数据,禁止发新请求"): the snapshot already merged the
 // whitebox intent against the live Resin rows through compute_plan, so a

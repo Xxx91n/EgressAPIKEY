@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ClipboardCheck, Navigation, Network, Settings as SettingsIcon, Route, FolderTree, RadioTower, Server, Stethoscope } from "lucide-react";
 import { useAppStore, type Locale, type Theme } from "./store/appStore";
 const TopologyView = lazy(() => import("./views/TopologyView").then(m => ({ default: m.TopologyView })));
-// Ticket 13: one-level effective-config view, code-split like the topology canvas.
+// one-level effective-config view, code-split like the topology canvas.
 const EffectiveConfigView = lazy(() => import("./views/EffectiveConfigView").then(m => ({ default: m.EffectiveConfigView })));
 import { SettingsView } from "./views/SettingsView";
 import { ProcessRouteView } from "./views/ProcessRouteView";
@@ -14,7 +14,7 @@ import { NodesView } from "./views/NodesView";
 import { DiagnosticsView } from "./views/DiagnosticsView";
 import { useTheme } from "./lib/useTheme";
 import { LogPanel } from "./components/LogPanel";
-// Architecture-recovery ticket 06 (D-C2.1): the TopConvergeStatus pill in the
+// the TopConvergeStatus pill in the
 // header and the SideRailConvergeDot in the nav share one snapshot owned by
 // App.tsx — see snapshot fetch useEffect below.
 import { TopConvergeStatus } from "./components/TopConvergeStatus";
@@ -24,7 +24,7 @@ import { loadLocale, loadTheme, loadView } from "./lib/settings";
 import { listen } from "@tauri-apps/api/event";
 
 
-// T22: Error Boundary — catches unexpected throws in render/useEffect (e.g. Tauri
+// Error Boundary — catches unexpected throws in render/useEffect (e.g. Tauri
 // APIs called in a plain browser during headless mode). Without this, any uncaught
 // error unmounts the entire React tree → white screen.
 class ErrorBoundary extends React.Component<
@@ -66,7 +66,7 @@ const NAV_ITEMS = [
   { key: "processRoute", icon: Route },
   { key: "subscriptions", icon: RadioTower },
   { key: "nodes", icon: Server },
-  // Ticket 13 (spec Decision 1): effective config sits BEFORE diagnostics.
+  // (spec Decision 1): effective config sits BEFORE diagnostics.
   { key: "effectiveConfig", icon: ClipboardCheck },
   { key: "diagnostics", icon: Stethoscope },
   { key: "settings", icon: SettingsIcon },
@@ -125,9 +125,9 @@ export default function App() {
   // the persisted view and setView() swaps it — the user sees a topology flash.
   // Hold a minimal loader until the persisted view has been read.
   const [bootstrapped, setBootstrapped] = useState(false);
-  // Architecture-recovery ticket 06 (D-C2.1, checkpoint A): one snapshot,
+  // (checkpoint A): one snapshot,
   // passed down to TopConvergeStatus (header pill) and SideRailConvergeDot
-  // (rail dot). The children never reach for IPC. Ticket 07 (D-C2.2): the
+// (rail dot). The children never reach for IPC. the
   // snapshot is owned by the appStore global converge subscription — the
   // poll cadence, sidecar-status boost, and visibility pause live there.
   const snap = useAppStore((s) => s.convergeSnapshot);
@@ -151,7 +151,7 @@ export default function App() {
       if (savedView && !cancelled) {
         setView(savedView as any);
       }
-      // Ticket 17 / ADR-0055: process routes are rehydrated by
+// ADR-0055: process routes are rehydrated by
       // ProcessRouteView from the L2 whitebox via process_route_list IPC —
       // the L1 bootstrap read is gone.
       if (!cancelled) setBootstrapped(true);
@@ -159,7 +159,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [setLocale, setTheme, setView, i18n]);
 
-  // Ticket 06/07: refresh immediately on navigation (the existing
+  // 07: refresh immediately on navigation (the existing
   // EffectiveConfigView also does its own fetch — every path converges on
   // the same IPC and the same authoritative snapshot); the global poll
   // cadence in the appStore subscription keeps it fresh afterwards.
@@ -167,12 +167,12 @@ export default function App() {
     void refreshConvergeSnapshot();
   }, [view, refreshConvergeSnapshot]);
 
-  // Ticket 07 (D-C2.2): global converge subscription — 5s foreground polling
+  // global converge subscription — 5s foreground polling
   // (30s once Converged settles >60s), immediate refresh on sidecar-status
   // events (the existing G4 retarget channel), paused while hidden.
   useEffect(() => subscribeToConverge(), [subscribeToConverge]);
 
-  // Ticket 08 (D-C2.3): tray "Converge status" menu item emits this event;
+  // tray "Converge status" menu item emits this event;
   // the listener navigates to EffectiveConfigView (the Rust side already
   // shows + focuses the window before emitting).
   useEffect(() => {

@@ -6,7 +6,7 @@ import { ipcProcessRouteAdd, ipcProcessRouteRemove, ipcProcessRouteList } from "
 import { translateError } from "../lib/i18n-error";
 
 /// ProcessRouteView: per-process -> entry-port routing table.
-/// Ticket 17 / ADR-0055: the family lives in the L2 whitebox
+/// ADR-0055: the family lives in the L2 whitebox
 /// (egressapikey-ports.json process_routes); the ONLY writer is the Rust
 /// process_route_add/remove command family (WhiteboxConfigStore::apply,
 /// versioned + reconciled). This view is read-through-IPC + submit-through-IPC;

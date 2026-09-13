@@ -1,7 +1,7 @@
 //! platform domain IPC commands (EgressAPIKEY).
 //!
-//! Extracted from the former commands/mod.rs monolith by architecture-recovery
-//! ticket 08: pure mechanical move - no behavior, naming, or IPC-surface change.
+//! Extracted from the former commands/mod.rs monolith by
+//! pure mechanical move - no behavior, naming, or IPC-surface change.
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_store::StoreExt;
@@ -28,7 +28,7 @@ pub async fn platform_remove(
 ) -> Result<bool, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
-    // Round 5 T17: name→UUID two-step hop now lives in ResinClient
+    // name→UUID two-step hop now lives in ResinClient
     // (resolve_platform_id_by_name); miss = typed IpcError::NotFound.
     let id = client.resolve_platform_id_by_name(&name).await?;
     client
@@ -103,12 +103,12 @@ pub fn platform_names(v: &serde_json::Value) -> Vec<String> {
         .collect()
 }
 
-// Round 5 T17 (crack #6): the former platform_id_for_name /
+// the former platform_id_for_name /
 // subscription_id_for_name duplicates are deleted — the name→UUID two-step
 // hop now lives once in resin-core (resin_client::resolve_id_in for the
 // fn-pointer seams, ResinClient::resolve_*_by_name for the command bodies).
 
-/// Ticket 17 / ADR-0055 D2: the ONLY write entry for process routes. The
+/// ADR-0055 D2: the ONLY write entry for process routes. The
 /// rule family lives in the L2 whitebox (egressapikey-ports.json
 /// process_routes field); writes commit through WhiteboxConfigStore::apply
 /// (validate -> DB/listeners -> versioned file swap, ADR-0042 entry, the
@@ -144,7 +144,7 @@ pub async fn process_route_add(
     Ok(())
 }
 
-/// Ticket 17 / ADR-0055 D2: remove by process name (case-insensitive).
+/// ADR-0055 D2: remove by process name (case-insensitive).
 /// Returns false when no rule matched (nothing was written).
 #[tauri::command]
 pub async fn process_route_remove(
@@ -165,7 +165,7 @@ pub async fn process_route_remove(
     Ok(true)
 }
 
-/// Ticket 17 / ADR-0055 D2: read the whitebox route family.
+/// ADR-0055 D2: read the whitebox route family.
 #[tauri::command]
 pub async fn process_route_list(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
@@ -173,7 +173,7 @@ pub async fn process_route_list(
     Ok(whitebox.snapshot().process_routes)
 }
 
-// ── Account header rules (round5 T16 / ADR-0063) ──────────────────
+// ── Account header rules (ADR-0063) ──────────────────
 // Thin IPC facades over the ResinClient account-header-rules family
 // (R32-R35). These are L3 pass-through reads/writes on the Resin
 // control plane — NO L2 whitebox file, no snapshot field, no reconcile
@@ -326,8 +326,8 @@ pub async fn subscription_add(
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err(IpcError::from("subscription url must start with http:// or https://".to_string()));
     }
-    // T8-5: validate update_interval Go duration format (default 30s).
-    // T04/round5: 30s is Resin's enforced floor (>= 30s,
+    // validate update_interval Go duration format (default 30s).
+    // 30s is Resin's enforced floor (>= 30s,
     // resin/internal/service/control_plane_subscription.go:130, create AND
     // PATCH); a 5s default was investigated and rejected — a below-floor
     // value 400s on POST. Gap documented in docs/research/OPENAPI-GAP.md.
@@ -335,7 +335,7 @@ pub async fn subscription_add(
     if update_interval.len() > 10 || update_interval.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
         return Err(IpcError::from("update_interval: invalid (max 10 chars, no control)".to_string()));
     }
-    // Ticket 03 (D-C1.3): the user's explicit binding target for the
+// the user's explicit binding target for the
     // cascade's optional default-port tail. Provided -> the suggest probe is
     // skipped. §7.5 numeric boundary: reject privileged ports here so a
     // hostile caller cannot burn the pipeline's retry budget on a
@@ -350,7 +350,7 @@ pub async fn subscription_add(
     }
     let client = resin_client(&sidecar)?;
 
-    // T20-P3: POST source_type=remote directly (ADR-0045). Resin's Scheduler
+    // POST source_type=remote directly (ADR-0045). Resin's Scheduler
     // re-pulls the remote URL via its own clash.meta UA fetcher
     // (cmd/resin/main.go const downloadUserAgent); the shell no longer
     // re-fetches or converts the Clash YAML itself (P13 B4 chain deleted).
@@ -366,7 +366,7 @@ pub async fn subscription_add(
     match client.create_subscription(body).await {
         Ok(v) => {
             tracing::info!(?v, "subscription_add: Resin accepted subscription");
-            // Round 7 ticket 01 (D-C1.1): pipeline=establish opts INTO the
+// pipeline=establish opts INTO the
             // five-step cascade (resolve -> whitebox platform -> apply).
             // The enqueue + drain is the user-triggered reconcile — no
             // background loop (ADR-0054 discipline). Without the parameter
@@ -388,7 +388,7 @@ pub async fn subscription_add(
                         .0
                         .drain(&client, &svc, resin_core::whitebox_backup::now_unix())
                         .await;
-                    // Ticket 03 (D-C1.3): the cascade's OPTIONAL default-port
+                    // the cascade's OPTIONAL default-port
                     // tail — only after a GREEN establish pass, and only when
                     // the user did not provide a binding target. Conflicts
                     // (already-bound platform, taken port, foreign Resin
@@ -420,7 +420,7 @@ pub async fn subscription_add(
     }
 }
 
-/// Round 7 ticket 01: process-local pipeline queue managed as Tauri state
+/// process-local pipeline queue managed as Tauri state
 /// (same pattern as DRIFT_NOTIFY_STATE / LightweightController — one owner,
 /// no background task; drain runs on the command task that enqueued).
 #[derive(Default)]
@@ -433,7 +433,7 @@ pub async fn subscription_remove(
 ) -> Result<bool, IpcError> {
     validate_short_name(&name, "subscription")?;
     let client = resin_client(&sidecar)?;
-    // Round 5 T17: name→UUID two-step hop centralized in ResinClient; the
+// name→UUID two-step hop centralized in ResinClient; the
     // list GET count is unchanged and a miss resolves to typed NotFound.
     let id = client.resolve_subscription_id_by_name(&name).await?;
     client
@@ -443,7 +443,7 @@ pub async fn subscription_remove(
     Ok(true)
 }
 
-/// T20-P2: trigger Resin-native subscription refresh by POST /actions/refresh.
+/// trigger Resin-native subscription refresh by POST /actions/refresh.
 /// source_type must be "remote" (ADR-0045); a local-source subscription re-parses
 /// in-memory content on /actions/refresh (no HTTP, no new upstream nodes).
 /// The paired subscription_add migrated to source_type=remote so refresh
@@ -494,7 +494,7 @@ pub async fn subscription_refresh(
         .list_subscriptions()
         .await
         .map_err(|e| map_resin_error(&e.to_string()))?;
-    // Round 5 T17: the name→id hop goes through the shared pure resolver.
+    // the name→id hop goes through the shared pure resolver.
     // The initial row stats are extracted from the SAME list response, so
     // the request shape (one GET before the refresh POST) is unchanged.
     let id = resolve_id_in(&initial_list, &name)
@@ -623,7 +623,7 @@ pub async fn platform_update(
 ) -> Result<serde_json::Value, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
-    // Round 5 T17: name→UUID resolution centralized in ResinClient (F2);
+    // name→UUID resolution centralized in ResinClient (F2);
     // same single list_platforms GET as before, miss = typed NotFound.
     let id = client.resolve_platform_id_by_name(&name).await?;
 
@@ -695,7 +695,7 @@ pub async fn platform_update(
             serde_json::Value::String(ttl.clone()),
         );
     }
-    // T8-1: passive_circuit_breaker_disabled — platform-level boolean.
+    // passive_circuit_breaker_disabled — platform-level boolean.
     // When false (default) the circuit breaker is ENABLED: nodes with
     // consecutive failures (threshold set by system max_consecutive_failures)
     // are auto-isolated. When true, the circuit breaker is disabled for this
@@ -723,7 +723,7 @@ pub async fn node_list(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::
     client.list_nodes().await.map_err(|e| map_resin_error(&e.to_string()))
 }
 
-/// T19-P3: pure input validation for node_probe. Exposed as a module-level
+/// pure input validation for node_probe. Exposed as a module-level
 /// free fn so the command body and the unit tests share one implementation
 /// without a Tauri runtime. Returns an owned String for ergonomic mapping
 /// to IpcError::from in the command body.
@@ -740,7 +740,7 @@ pub fn validate_node_probe_inputs(node_hash: &str, kind: &str) -> Result<(), Str
     Ok(())
 }
 
-/// T19-P3: on-demand node probe. Forwards to Resin's native
+/// on-demand node probe. Forwards to Resin's native
 /// POST /api/v1/nodes/{hash}/actions/probe-egress or .../probe-latency
 /// (v1.2.0 HandleProbeEgress/HandleProbeLatency). The shell validates the
 /// node_hash (length <= 128, no control chars) and kind (in {"egress",
@@ -849,7 +849,7 @@ pub async fn platform_leases(
 ) -> Result<serde_json::Value, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
-    // Round 5 T17: name→UUID two-step hop centralized in ResinClient; miss
+    // name→UUID two-step hop centralized in ResinClient; miss
     // = typed IpcError::NotFound instead of a stringly error round-trip.
     let id = client.resolve_platform_id_by_name(&name).await?;
     client.platform_leases(&id).await.map_err(|e| map_resin_error(&e.to_string()))

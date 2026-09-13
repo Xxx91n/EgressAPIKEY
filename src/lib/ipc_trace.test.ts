@@ -46,7 +46,7 @@ describe("invokeWithTrace trace_id injection", () => {
   });
 });
 
-/// T10: Audit — verify no silent .catch(() => {}) remains in source files.
+/// Audit — verify no silent .catch(() => {}) remains in source files.
 /// This is a source-level guard: it scans the actual .ts/.tsx files for
 /// the empty-catch pattern and fails if any are found.
 describe("T10 silent catch audit", () => {

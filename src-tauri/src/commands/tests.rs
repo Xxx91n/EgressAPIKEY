@@ -1,5 +1,5 @@
 //! Unit tests for the commands domain split (moved verbatim from the former
-//! commands/mod.rs inline tests module by architecture-recovery ticket 08).
+//! commands/mod.rs inline tests module by ).
 
 use super::*;
 
@@ -41,7 +41,7 @@ use serde_json::json;
 
     #[test]
     fn resolve_id_in_matches() {
-        // Round 5 T17: the shell platform_id_for_name/subscription_id_for_name
+        // the shell platform_id_for_name/subscription_id_for_name
         // duplicates were deleted; these locks now pin the shared
         // resin-core::resolve_id_in the command bodies resolve through.
         let v = json!([{ "name": "Foo", "id": "uuid-1" }]);
@@ -49,7 +49,7 @@ use serde_json::json;
         assert_eq!(resin_core::resolve_id_in(&v, "Bar"), None);
     }
 
-    /// Ticket 17 / ADR-0055: the conflict rule moved to document level in
+/// ADR-0055: the conflict rule moved to document level in
     /// resin-core (same port, different process => typed error). Shell-side
     /// regression lock on the re-exported helper.
     #[test]
@@ -141,7 +141,7 @@ use serde_json::json;
 
     #[test]
     fn resolve_id_in_reads_resin_items_wrapper() {
-        // Round 5 T17: wrapper-shape lock migrated from the deleted
+        // wrapper-shape lock migrated from the deleted
         // platform_id_for_name to the shared resin-core resolver.
         let v = json!({
             "items": [ { "id": "uuid-9", "name": "Anthropic" } ],
@@ -207,7 +207,7 @@ use serde_json::json;
 
     #[test]
     fn resolve_id_in_reads_subscription_items_wrapper() {
-        // Round 5 T17: subscription shape lock migrated from the deleted
+        // subscription shape lock migrated from the deleted
         // subscription_id_for_name to the shared resin-core resolver.
         let v = json!({
             "items": [ { "id": "sub-uuid-1", "name": "main" } ],
@@ -245,7 +245,7 @@ use serde_json::json;
         assert!(validate_port_segments(65535).is_ok());
     }
 
-    /// T6-Bug1: HTTP port_health_check should send GET / not CONNECT.
+    /// HTTP port_health_check should send GET / not CONNECT.
     /// This is a compile-time + behavior test: the greeting bytes must starts
     /// with "GET / HTTP/1.1" for HTTP protocol. We verify by checking the
     /// behavior indirectly — the actual TCP probe is async and needs a live
@@ -261,7 +261,7 @@ use serde_json::json;
         assert!(!greeting.contains("CONNECT"), "HTTP greeting must NOT contain CONNECT");
     }
 
-    /// T6-Bug5: port_auth_info username must be in {Platform}.{Account} format.
+    /// port_auth_info username must be in {Platform}.{Account} format.
     /// Resin SOCKS5 requires this format; without the platform prefix,
     /// CONNECT returns General failure (error 1) even though auth succeeds.
     #[test]
@@ -280,7 +280,7 @@ use serde_json::json;
         assert_eq!(empty_account_username, "Default.port-1792");
     }
 
-    // T6-4: parse exit IP from Cloudflare trace body (pure helper logic).
+    // parse exit IP from Cloudflare trace body (pure helper logic).
     #[test]
     fn t6_4_parse_exit_ip_from_cloudflare_trace() {
         let body = "fl=123f\nnode=sin1\nip=203.0.113.42\nuag=Mozilla/5.0\n";
@@ -345,7 +345,7 @@ use serde_json::json;
         assert!(std::net::TcpListener::bind(("127.0.0.1", port)).is_ok());
     }
 
-    /// T10: verify auto_strategy_apply PATCH failure result shape (pure logic).
+    /// verify auto_strategy_apply PATCH failure result shape (pure logic).
     #[test]
     fn t10_patch_failure_result_has_reason() {
         let platform_name = "TestPlatform";
@@ -362,7 +362,7 @@ use serde_json::json;
         assert!(result["reason"].as_str().unwrap().contains("connection refused"));
     }
 
-    /// T10: verify config_import PATCH failure pushes to errors vec (pure logic).
+    /// verify config_import PATCH failure pushes to errors vec (pure logic).
     #[test]
     fn t10_config_import_patch_failure_pushes_error() {
         let name = "MyPlatform";
@@ -427,7 +427,7 @@ use serde_json::json;
         assert!(super::validate_node_probe_inputs(&exact, "latency").is_ok());
     }
 
-    /// Ticket 11: ts_ns -> "YYYY-MM-DD HH:MM:SS" formatting stays stable across
+    /// ts_ns -> "YYYY-MM-DD HH:MM:SS" formatting stays stable across
     /// the direct-db -> REST seam swap.
     #[test]
     fn format_log_ts_formats_epoch_nanos() {
@@ -438,7 +438,7 @@ use serde_json::json;
         assert_eq!(format_log_ts(-1_000_000_000), "1969-12-31 23:59:59");
     }
 
-    /// Ticket 11: one item of the Resin /api/v1/request-logs response maps to
+/// one item of the Resin /api/v1/request-logs response maps to
     /// the IPC RequestLogEntry with duration_ms derived from duration_ns.
     #[test]
     fn request_log_entry_from_value_maps_known_fields() {
@@ -468,7 +468,7 @@ use serde_json::json;
         assert_eq!(e.resin_error, "");
     }
 
-    /// Ticket 11: a malformed row must not panic nor blank the tail — total
+    /// a malformed row must not panic nor blank the tail — total
     /// over defaults (parity with the old query_map row-skipping semantics).
     #[test]
     fn request_log_entry_from_value_defaults_on_malformed_row() {
@@ -480,7 +480,7 @@ use serde_json::json;
         assert_eq!(e.duration_ms, 0.0);
 }
 
-    /// Ticket 12 / ADR-0054 §C+§D wire-shape regression lock: lastCheckedAt
+    /// ADR-0054 §C+§D wire-shape regression lock: lastCheckedAt
     /// (top-level camelCase), per-entry divergent_since (snake_case, omitted
     /// when None), acknowledged flag stamps read-side only.
     #[test]
@@ -557,7 +557,7 @@ use serde_json::json;
         let _ = &mut snap; // keep mut binding honest for future per-case edits
     }
 
-    // T02 (round5-config-authority) — subscription_refresh diff helpers. The
+// (-config-authority) — subscription_refresh diff helpers. The
     // command polls list_subscriptions after POST /actions/refresh (Resin
     // returns only {"status":"ok"}) and decides `changed` from these pure fns.
 

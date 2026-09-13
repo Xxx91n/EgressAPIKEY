@@ -25,7 +25,7 @@ vi.mock("@tauri-apps/plugin-store", () => ({
   })),
 }));
 
-// T05: the diag-poll-interval wrapper pair goes through @tauri-apps/api/core
+// the diag-poll-interval wrapper pair goes through @tauri-apps/api/core
 // invoke, not LazyStore — mock it so §7.5 boundary behavior is testable.
 const invokeMock = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({

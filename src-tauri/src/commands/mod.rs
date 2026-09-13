@@ -5,7 +5,7 @@
 //! to Resin via ResinClient. Every command validates its inputs at the IPC
 //! boundary (AGENTS 7.5) before touching resin-core or the sidecar client.
 //!
-//! Domain layout (architecture-recovery ticket 08): implementations live in
+//! Domain layout: implementations live in
 //! per-domain submodules - platform / strategy / ports / backup / settings /
 //! diagnostics - with shared IPC-boundary helpers in `common`. This facade
 //! re-exports the full command set so the `generate_handler!` registry in
@@ -40,7 +40,7 @@ mod tests;
 // ---------------------------------------------------------------------------
 // Subscriptions - FORWARDED to Resin via ResinClient (DESIGN.md /subscriptions).
 
-// ---- Process routing (issue 3+10) ----
+// ---- Process routing (10) ----
 // Per-process -> lane routing rules stored server-side in tauri-plugin-store.
 // The Rust side rejects lane collisions (the same target lane already bound
 // to a different process in a live rule) BEFORE we record the rule. This is the
@@ -62,11 +62,11 @@ mod tests;
 // Extracted for unit testing without an AppHandle.
 
 // ---------------------------------------------------------------------------
-// Strategy Engine (T4-4 / ADR-0022) — whitebox per-platform strategy config.
+// Strategy Engine (ADR-0022) — whitebox per-platform strategy config.
 // The shell polls Resin /nodes, applies A-class filters, PATCHes region_filters.
 // B-class maps to Resin allocation_policy via the existing platform_update IPC.
 
-// --- T18 Phase 1: Port health batch probe (ADR-0042 S1) ---------------------
+// --- Phase 1: Port health batch probe (ADR-0042 S1) ---------------------
 //
 // A single watch_port_health command drives the background Tokio task that
 // probes every enabled entry-port concurrently (cap 10) and streams

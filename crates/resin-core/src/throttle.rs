@@ -1,4 +1,4 @@
-//! Ticket 20 (architecture-recovery Round 3) - single-owner throttle model.
+//! single-owner throttle model.
 //!
 //! The shell-side "how long until the next fire?" arithmetic previously
 //! lived inline in two modules: `port_health.rs` (adaptive poll interval +
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn adaptive_matches_legacy_formula() {
-        // Recomputed inline from the pre-ticket-20 formula for a spread of N.
+        // Recomputed inline from the pre- formula for a spread of N.
         for n in [0usize, 1, 2, 5, 10, 50, 100, 1000, 100_000] {
             let legacy_secs = if n == 0 {
                 0

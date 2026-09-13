@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-/// Issue 1: closed-loop coverage for the IPC boundary. We mock
+/// closed-loop coverage for the IPC boundary. We mock
 /// @tauri-apps/api/core's invoke and verify:
 ///   - IPC wrappers validate inputs (port range, name length, URL shape)
 ///   - Forwards the args to the right command name
@@ -329,7 +329,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     expect(await ipcPortList()).toEqual([]);
   });
 
-  // T18-S2 (ADR-0042): port_toggle IPC forwards to Rust command with port + enabled; not privileged port.
+  // (ADR-0042): port_toggle IPC forwards to Rust command with port + enabled; not privileged port.
   it("ipcPortToggle forwards port + enabled to port_toggle and rejects privileged port", async () => {
     invokeMock.mockResolvedValueOnce({ port: 17991, protocol: "socks5", platform_name: "Default", account: "port-17991", label: "k", enabled: false, auth_required: false });
     await ipcPortToggle(17991, false);
@@ -486,7 +486,7 @@ describe("strategy IPC (T4-4)", () => {
 });
 });
 
-// T6-4: probe_exit_ip IPC wrapper closed-loop.
+// probe_exit_ip IPC wrapper closed-loop.
 describe("T6-4 ipcProbeExitIp", () => {
   it("forwards port + protocol to probe_exit_ip invoke", async () => {
     invokeMock.mockReset();
@@ -510,7 +510,7 @@ describe("T6-4 ipcProbeExitIp", () => {
   });
 });
 
-// T6-5: Firewall + request log tail IPC wrappers.
+// Firewall + request log tail IPC wrappers.
 describe("T6-5 firewall + request log tail", () => {
   it("ipcCheckFirewallStatus forwards to check_firewall_status", async () => {
     invokeMock.mockReset();
@@ -699,7 +699,7 @@ describe("T21 (Round 5) request-log detail + payload wrappers", () => {
 });
 
 
-// --- T17 dual-mode tests (isTauri=false → fetch fallback) ---
+// --- dual-mode tests (isTauri=false → fetch fallback) ---
 describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
   let originalTauriInternals: unknown;
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -749,7 +749,7 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
   it("platform_list forwards GET /api/v1/platforms via fetch when isTauri=false", async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ items: [{ name: "a" }, { name: "b" }] }), { status: 200, headers: { "Content-Type": "application/json" } }));
     const r = await ipcPlatformList() as unknown;
-    // T22: invokeHttp now unwraps Resin's {items:[...]} wrapper, returning the
+    // invokeHttp now unwraps Resin's {items:[...]} wrapper, returning
     // bare array — matching what the Tauri command returns (Rust extracts names).
     expect(r).toEqual([{ name: "a" }, { name: "b" }]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -774,7 +774,7 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
     fetchMock.mockResolvedValueOnce(new Response("upstream conflict", { status: 409, headers: { "Content-Type": "text/plain" } }));
     await expect(ipcPlatformAdd("openai")).rejects.toThrow(/409.*upstream conflict/);
   });
-  // --- T17-audit-fix: name-based contract verified (BFF translation is server-side) ---
+  // --- name-based contract verified (BFF translation is server-side) ---
   // The SPA continues to send the business name in the JSON body to the
   // collection URL; the headless BFF (proxy_to_resin) resolves name -> id in
   // Rust before forwarding. These tests pin the SPA side of the contract so
@@ -823,7 +823,7 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
 
 });
 
-// ---- Ticket 09 (tauri-specta pilot): type-contract swap regression ----
+// ---- (tauri-specta pilot): type-contract swap regression ----
 describe("specta-pilot wrappers (ticket 09)", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 
@@ -839,7 +839,7 @@ describe("specta-pilot wrappers (ticket 09)", () => {
   });
 });
 
-// --- Ticket 12: snapshot metadata + acknowledged exemption sanitizers ---
+// --- snapshot metadata + acknowledged exemption sanitizers ---
 describe("ticket 12: authoritative snapshot metadata + acknowledged", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 
@@ -975,7 +975,7 @@ describe("ticket 12: authoritative snapshot metadata + acknowledged", () => {
   });
 });
 
-// --- Ticket 14: reconcile plan/report sanitizers (untrusted backend data) ---
+// --- reconcile plan/report sanitizers (untrusted backend data) ---
 describe("ticket 14: reconcile plan + report wrappers", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 
@@ -1025,7 +1025,7 @@ describe("ticket 14: reconcile plan + report wrappers", () => {
 });
 
 
-// --- Ticket 17 / ADR-0055: routes in the authoritative snapshot ---
+// --- ADR-0055: routes in the authoritative snapshot ---
 describe("ticket 17: route snapshot sanitizers", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 
@@ -1083,7 +1083,7 @@ describe("ticket 17: route snapshot sanitizers", () => {
   });
 });
 
-// --- Round 7 T02 (D-C1.2): subscription_phases sanitizers ---
+// --- subscription_phases sanitizers ---
 describe("ticket T02: subscriptionPhases sanitizers", () => {
   it("passes well-formed phase rows through (camelCase parent field)", async () => {
     invokeMock.mockResolvedValueOnce({

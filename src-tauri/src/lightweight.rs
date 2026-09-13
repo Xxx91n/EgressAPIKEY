@@ -1,4 +1,4 @@
-//! T14-2: Lightweight mode — destroy the WebView2 after N minutes idle to
+//! Lightweight mode — destroy the WebView2 after N minutes idle to
 //! free ~171 MB of webview memory. Modeled after clash-verge-rev
 //! `.cargo/registry/.../tauri/src/core.rs` lightweight state machine +
 //! cockpit-tools EmptyWorkingSet pattern.
@@ -11,7 +11,7 @@
 //!
 //! Ponytail: std AtomicU8 for state, std thread for delay timer. No new crate.
 //!
-//! Ticket 20 (architecture-recovery): the one-shot delay arithmetic lives in
+//! the one-shot delay arithmetic lives in
 //! the single-owner resin_core::throttle model (DELAY_PARAMS below carries
 //! this site's values: 1-minute floor, no cap).
 
@@ -42,7 +42,7 @@ impl LightweightState {
     }
 }
 
-/// Ticket 20: this site's throttle parameter VALUES (unchanged semantics:
+/// this site's throttle parameter VALUES (unchanged semantics:
 /// one-shot close delay, 1-minute floor matching lightweight_set's 1..=1440
 /// IPC validation, no upper cap - input is already bounded by the IPC
 /// layer). The arithmetic lives only in resin_core::throttle.
@@ -55,7 +55,7 @@ pub struct LightweightController {
     /// The pending delay timer thread. None when no timer is active.
     /// We hold a JoinHandle so we can interrupt the sleep on focus.
     timer: Mutex<Option<std::thread::JoinHandle<()>>>,
-    /// Configured delay in minutes (default 10). T14-8: AtomicU32 for runtime IPC updates.
+    /// Configured delay in minutes (default 10). AtomicU32 for runtime IPC updates.
     delay_minutes: AtomicU32,
 }
 
@@ -164,7 +164,7 @@ impl LightweightController {
         self.delay_minutes.load(Ordering::Relaxed)
     }
 
-    /// T14-8: update delay at runtime (from IPC config change).
+    /// update delay at runtime (from IPC config change).
     pub fn set_delay_minutes(&self, minutes: u32) {
         self.delay_minutes.store(minutes, Ordering::Relaxed);
     }
@@ -278,11 +278,11 @@ mod tests {
         assert_eq!(ctrl.delay_minutes(), 1, "0 minutes should clamp to 1");
     }
 
-    // --- Ticket 20: delay rhythm goes through the shared throttle model ---
+    // --- delay rhythm goes through the shared throttle model ---
 
     #[test]
     fn delay_rhythm_identical_to_legacy_inline_formula() {
-        // Byte-for-byte equivalence with the pre-ticket-20 inline arithmetic
+        // Byte-for-byte equivalence with the pre- inline arithmetic
         // Duration::from_secs(m*60) for every reachable input: the IPC layer
         // (lightweight_set) validates 1..=1440, and the controller constructor
         // clamps to >= 1, so minutes is never 0 at this call site.

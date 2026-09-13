@@ -1,5 +1,5 @@
 /**
- * T14-3: Unified polling hook with visibility-based pause/resume.
+ * Unified polling hook with visibility-based pause/resume.
  *
  * Replaces per-View setInterval + visibilitychange boilerplate.
  * Based on the Yerd usePoll pattern: AbortController for cancel,

@@ -419,7 +419,7 @@ pub async fn backup_list(
     Ok(names)
 }
 
-/// Round 5 T07 / ADR-0061: export the L2 whitebox configuration as JSON.
+/// ADR-0061: export the L2 whitebox configuration as JSON.
 /// Reads `egressapikey-strategy.json` (via StrategyService, ADR-0036) and
 /// `egressapikey-ports.json` (via the WhiteboxConfigStore snapshot) and wraps
 /// them verbatim in a versioned container. It does NOT read Resin — Resin is
@@ -438,7 +438,7 @@ pub async fn config_export(
     Ok(resin_core::build_export_doc(&strategy, &ports, &exported_at))
 }
 
-/// Round 5 T07 / ADR-0061: import a config document (from config_export).
+/// ADR-0061: import a config document (from config_export).
 /// Parses + validates the two whitebox documents up front (schema + version
 /// gate — any violation returns a clear IpcError and writes NOTHING), then
 /// persists them through the single sanctioned write entries:

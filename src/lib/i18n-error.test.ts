@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { translateError } from "./i18n-error";
 
-/// T3-Q3: translateError static unit tests — no React render needed.
+/// translateError static unit tests — no React render needed.
 /// Covers the regex-based fallback used by both PlatformsView and
 /// SubscriptionsView catch blocks.
 
@@ -56,7 +56,7 @@ describe("translateError", () => {
     expect(out).toBe("Network is unreachable");
   });
 
-  // T8-Bug2: IpcError objects from Tauri must NOT render as "[object Object]".
+  // IpcError objects from Tauri must NOT render as "[object Object]".
   // Tauri serializes IpcError as {kind, data:{i18n_key,...}}. The old
   // String(e) path turned this into "[object Object]". translateError now
   // inlines the object narrowing and extracts i18n_key.

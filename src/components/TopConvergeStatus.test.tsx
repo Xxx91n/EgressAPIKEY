@@ -3,8 +3,8 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { TopConvergeStatus } from "./TopConvergeStatus";
 import enCommon from "../locales/en/common.json";
 
-// Architecture-recovery ticket 06 (D-C2.1, D-C2.4 / ArgoCD #22059 警戒).
-// This component is pure presentational; no IPC mocks needed. The handoff
+// (ArgoCD #22059 警戒).
+// This component is pure presentational; no IPC mocks needed. The
 // pins the 6-state colour palette + compact label mapping; the test must
 // lock the wiring for every phase.
 describe("TopConvergeStatus (ticket 06)", () => {

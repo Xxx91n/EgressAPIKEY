@@ -35,7 +35,7 @@ async function clickSubHeaderCollapse(name: string): Promise<void> {
 /// vitest-isolation-guard: sub-header click helpers — END
 
 describe("NodesView T4-3", () => {
-  // T02 closure fix: handleRefreshSub reads the POST-refresh node count from the app
+  // closure fix: handleRefreshSub reads the POST-refresh node count from the app
   // store (useAppStore.getState().nodes) after refresh() re-syncs it — the stale
   // pre-refresh closure snapshot would still report 1.
   it("T02: refresh toast reports post-refresh node count read from the store", async () => {
@@ -72,7 +72,7 @@ describe("NodesView T4-3", () => {
     expect(useAppStore.getState().nodes.length).toBe(2);
   });
 
-  // T02 F3 fallback: changed=false must show the no-change toast, never a fabricated count
+  // F3 fallback: changed=false must show the no-change toast, never a fabricated count
   it("T02b: changed=false shows the no-change fallback toast", async () => {
     useAppStore.setState({ nodes: [] });
     invokeMock.mockImplementation(async (cmd: string) => {
@@ -130,7 +130,7 @@ describe("NodesView T4-3", () => {
     expect(nodeCountEls.length).toBe(2);
   });
 
-  // T19-P1: groups default-collapsed — flip T4-3b: nodes hidden after first refresh, expandable on click
+  // groups default-collapsed — flip: nodes hidden after first refresh, expandable on click
   it("T4-3b (T19): groups are collapsed by default after first refresh; expand reveals nodes", async () => {
     mockTwoSubs();
     render(<NodesView />);
@@ -243,7 +243,7 @@ describe("NodesView T4-3", () => {
   });
 
 
-  // T14-7: mock for large subscription lists
+  // mock for large subscription lists
   function mockLargeSub(count: number) {
     const items = Array.from({ length: count }, (_, i) => ({
       node_hash: "node-" + i,
@@ -262,7 +262,7 @@ describe("NodesView T4-3", () => {
     });
   }
 
-  // T14-7: VirtualNodeList component — threshold-based virtualization
+  // VirtualNodeList component — threshold-based virtualization
   // In jsdom, virtualized mode can't measure scroll, so we test the <threshold path
 
   it("T14-7a: renders subscription header for a node list under threshold", async () => {
@@ -272,12 +272,12 @@ describe("NodesView T4-3", () => {
     
   });
 
-  // T19-P1: flip T14-7b — subscription collapsed by default, expand reveals all 10 nodes
+  // flip — subscription collapsed by default, expand reveals all 10 nodes
   it("T14-7b (T19): subscription collapsed by default; expand shows all nodes", async () => {
     mockLargeSub(10);
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
-    // Collapsed by default (T19-P1) — none of the 10 nodes render
+    // Collapsed by default — none of the 10 nodes render
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
     // Click to expand — all 10 appear
     await clickSubHeaderExpand("sub-alpha");
@@ -291,7 +291,7 @@ describe("NodesView T4-3", () => {
     mockLargeSub(5);
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
-    // Collapsed by default (T19-P1); expand to see 5 nodes
+    // Collapsed by default; expand to see 5 nodes
     await clickSubHeaderExpand("sub-alpha");
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(5));
     // Collapse and verify all hide
@@ -300,7 +300,7 @@ describe("NodesView T4-3", () => {
   });
 });
 
-/// T19-P1 — pure-function closed loops for parseDelayQuery + sortMode + hideUnhealthy
+/// pure-function closed loops for parseDelayQuery + sortMode + hideUnhealthy
 describe("NodesView T19-P1 parseDelayQuery + sort + hide-unhealthy", () => {
   it("P1-1a: delay>100 admits 200, rejects 50 and null", () => {
     const { delayFilter } = parseDelayQuery("delay>100");
@@ -415,7 +415,7 @@ describe("NodesView T19-P4 batch probe timeout + batch_on_load=false gate", () =
     invokeMock.mockReset();
   });
 
-  // T19-P4 "timeout fires" spec (audit deviation fix).
+  // "timeout fires" spec (audit deviation fix).
   // Verifies the Promise.race(() => probe, timeout(cfg.timeout_ms)) path:
   // when a probe never resolves, the setTimeout timeout fires, the inner
   // try/catch swallows it, and the batch loop continues -> refresh() is
@@ -456,7 +456,7 @@ describe("NodesView T19-P4 batch probe timeout + batch_on_load=false gate", () =
     }
   });
 
-  // T19-P4 "batch_on_load=false skips auto-batch" spec (audit deviation fix).
+  // "batch_on_load=false skips auto-batch" spec (audit deviation fix).
   // ADR-0044 S4 default behavior: manual single-probe. batch_on_load=false
   // prevents an automatic batch probe on page mount. NodesView has NO
   // useEffect reading batch_on_load to auto-trigger, so on mount + the 10s
@@ -482,7 +482,7 @@ describe("NodesView T19-P4 batch probe timeout + batch_on_load=false gate", () =
   });
 });
 describe("NodesView T21 pure helpers + layout + tooltip sync", () => {
-  // T21-P2: applyProbeResult — pure helper move (clash-rev DelayManager.setListener model)
+  // applyProbeResult — pure helper move (clash-rev DelayManager.setListener model)
   it("T21-1a: applyProbeResult — latency merge into empty Map", () => {
     const m = applyProbeResult(new Map(), "hash-a", "latency", { latency_ewma_ms: 42 });
     const e = m.get("hash-a");
@@ -506,7 +506,7 @@ describe("NodesView T21 pure helpers + layout + tooltip sync", () => {
     expect(m.get("other-sub")).toEqual({ done: 5, total: 10 }); // untouched sibling
   });
 
-  // T21-P1: top-right "Re-sync backend node snapshot" tooltip + outer <div role=button> inline layout
+  // top-right "Re-sync backend node snapshot" tooltip + outer <div role=button> inline layout
   it("T21-2a: top-right refresh button title is nodes.syncCache", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return { items: [] };

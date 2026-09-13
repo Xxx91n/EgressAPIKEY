@@ -18,7 +18,7 @@ class ResizeObserverPolyfill {
 
 const invokeMock = vi.fn<(cmd: string, args?: Record<string, unknown>) => Promise<unknown>>();
 
-// T18: stub Tauri Channel<T> — Channel class defined INSIDE the vi.mock factory
+// stub Tauri Channel<T> — Channel class defined INSIDE the vi.mock factory
 // so it survives vitest vi.mock hoisting.
 vi.mock("@tauri-apps/api/core", () => {
   class ChannelStub<T = unknown> {
@@ -50,8 +50,8 @@ vi.mock("@tauri-apps/plugin-store", () => ({
 }));
 
 beforeAll(async () => {
-  // T17 dual-mode: stub Tauri internals so isTauri() returns true in jsdom
-  // T17 dual-mode: stub Tauri internals so isTauri() returns true in jsdom.
+// dual-mode: stub Tauri internals so isTauri() returns true in jsdom
+// dual-mode: stub Tauri internals so isTauri() returns true in jsdom.
   // vitest jsdom gives each test file its own Window; globalThis and window
   // are the same object, but we set both defensively in case a future
   // environment isolates them. Also set window.isTauri so the second probe
@@ -65,7 +65,7 @@ beforeAll(async () => {
     resources: {
       en: { translation: {
         "platform.title": "Platforms",
-        // topConverge (ticket 06/07): inline copy for the converge surfaces under test
+        // topConverge (07): inline copy for the converge surfaces under test
         "topConverge.compact.Converged": "✓ rev {{rev}}",
         "topConverge.compact.PendingApply": "⋯ rev {{rev}}",
         "topConverge.compact.ApplyFailed": "✕ rev {{rev}}",
@@ -157,7 +157,7 @@ beforeAll(async () => {
         "subscription.showError": "Show error",
         "subscription.hideError": "Hide error",
         "subscription.lastSuccess": "last check succeeded",
-        // Round 5 T01 (F1/F4): bind step + reverse-lookup badge vocabulary.
+        // (F1/F4): bind step + reverse-lookup badge vocabulary.
         "subscription.bindStepTitle": "Bind \"{{name}}\" to platforms (optional, {{count}} nodes imported)",
         "subscription.bindHint": "Only platforms with a_class=Subscription consume this subscription.",
         "subscription.bindCreate": "Auto-create platform \"{{name}}\"",

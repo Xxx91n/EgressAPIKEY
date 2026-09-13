@@ -19,21 +19,21 @@ import {
 } from "../lib/reconcile-preview";
 import { translateError } from "../lib/i18n-error";
 
-// Architecture-recovery ticket 13: one-level "effective config" view
-// (CONTEXT.md: Authoritative Snapshot; spec Round 2 Implementation Decision 1/7).
+// one-level "effective config" view
+// (CONTEXT.md: Authoritative Snapshot; spec Implementation Decision 1/7).
 // Consumer of the authoritative_snapshot IPC (ADR-0051): renders the
 // pre-merged desired|live comparison per platform/port with the three-state
 // badge (consistent / divergent / missingOnResin), a grey "known"
 // degradation for acknowledged entities (ADR-0054 D: exemptions never enter
 // the three-state merge), divergentSince per entry and lastCheckedAt on top.
-// Ticket 14 (ADR-0054 §A): the "sync to desired state" action — click opens
+// (ADR-0054 §A): the "sync to desired state" action — click opens
 // the PREVIEW dialog computed from the snapshot already in memory (zero
 // extra requests); confirm runs the serial reconcile_now (strategy apply ->
 // ports restore, fail-fast, IpcError per ADR-0045) and auto re-verifies by
 // re-pulling the snapshot; cancel closes with zero side effects; the button
 // is disabled while a reconcile is in flight (no re-entry). ONE-WAY: the
 // whitebox always wins; there is no "accept current state" button.
-// Ticket 15 (ADR-0054 §B) adds the versioned-whitebox history + rollback.
+// (ADR-0054 §B) adds the versioned-whitebox history + rollback.
 
 const badgeBase =
   "ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium";
@@ -101,7 +101,7 @@ function desiredRegions(p: StrategySnapshot): string {
   return (p.state === "divergent" ? p.whitebox_regions : p.regions).join(", ");
 }
 
-// Round 5 T09 / ADR-0058: top-level convergence chip. Data comes from the
+// ADR-0058: top-level convergence chip. Data comes from the
 // SAME 5s/open snapshot pull as the rest of the view (zero new requests).
 // Converged => green "effective at HH:MM (rev N)"; ApplyFailed => red with
 // the recorded reason; PendingApply => amber, clickable, opens the reconcile
@@ -174,11 +174,11 @@ export function EffectiveConfigView() {
   const [snap, setSnap] = useState<AuthoritativeSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // Ticket 15 (ADR-0054 section B): versioned-whitebox history + rollback.
+  // (ADR-0054 section B): versioned-whitebox history + rollback.
   const [history, setHistory] = useState<{ strategy: WhiteboxBackupEntry[]; ports: WhiteboxBackupEntry[] }>({ strategy: [], ports: [] });
   const [confirmTarget, setConfirmTarget] = useState<{ store: "strategy" | "ports"; backup: WhiteboxBackupEntry } | null>(null);
   const [rollbackBusy, setRollbackBusy] = useState(false);
-  // Ticket 14 (ADR-0054 §A): reconcile preview dialog + in-flight guard.
+  // (ADR-0054 §A): reconcile preview dialog + in-flight guard.
   const [previewOpen, setPreviewOpen] = useState(false);
   const [reconciling, setReconciling] = useState(false);
 
@@ -206,9 +206,9 @@ export function EffectiveConfigView() {
     void refresh();
   }, [refresh]);
 
-  // Ticket 15: the confirm dialog shows the TARGET timestamp, then the
+// the confirm dialog shows the TARGET timestamp, then the
   // rollback re-enters the backend validate-before-swap -> apply chain and
-  // the view re-pulls snapshot + history (ticket 15 acceptance: post-rollback
+  // the view re-pulls snapshot + history ( post-rollback
   // snapshot re-check).
   const performRollback = async (store: "strategy" | "ports", backup: WhiteboxBackupEntry) => {
     setRollbackBusy(true);
@@ -225,7 +225,7 @@ export function EffectiveConfigView() {
     }
   };
 
-  // Ticket 14 §A: preview is derived from the snapshot ALREADY in memory
+  // §A: preview is derived from the snapshot ALREADY in memory
   // (spec: data comes from the snapshot, no new requests). Cancel closes
   // the dialog with zero side effects; confirm runs the serial reconcile
   // then re-pulls the snapshot so the user sees the fresh three-state.
@@ -241,7 +241,7 @@ export function EffectiveConfigView() {
     } catch (e) {
       reconcileError = translateError(e, t);
     } finally {
-      // Auto re-verify on BOTH outcomes (issue 14: 执行后自动复验) — the
+// Auto re-verify on BOTH outcomes (执行后自动复验) — the
       // user must see the freshest three-state whether the pass converged
       // or failed. refresh() clears the error slot, so the reconcile error
       // is re-applied after the re-pull completes.

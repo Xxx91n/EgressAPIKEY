@@ -1,7 +1,7 @@
 //! settings domain IPC commands (EgressAPIKEY).
 //!
-//! Extracted from the former commands/mod.rs monolith by architecture-recovery
-//! ticket 08: pure mechanical move - no behavior, naming, or IPC-surface change.
+//! Extracted from the former commands/mod.rs monolith by
+//! pure mechanical move - no behavior, naming, or IPC-surface change.
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_store::StoreExt;
 use crate::sidecar::SidecarHandle;
@@ -9,7 +9,7 @@ use resin_core::IpcError;
 use serde::{Deserialize, Serialize};
 use super::common::{map_resin_error, resin_client};
 
-/// T15-2: Runtime log level gate. 0=error, 1=warn, 2=info, 3=debug.
+/// Runtime log level gate. 0=error, 1=warn, 2=info, 3=debug.
 /// Default is 2 (info). Use the set_log_level IPC command to change at runtime.
 /// Wired into spawn_health_poll per-cycle tracing::debug! on /healthz success,
 /// so a user who sets level<debug in Settings suppresses the per-cycle noise.
@@ -20,7 +20,7 @@ pub fn log_level_enabled(level: u8) -> bool {
     LOG_LEVEL_GATE.load(std::sync::atomic::Ordering::Relaxed) >= level
 }
 
-/// Ticket 09 (tauri-specta pilot): log level as a closed enum. The wire
+/// (tauri-specta pilot): log level as a closed enum. The wire
 /// format is unchanged (lowercase string, serde rename_all); out-of-set
 /// values are now rejected by serde at deserialization instead of the
 /// former in-command String match. Exported into src/bindings.ts so the
@@ -55,7 +55,7 @@ impl LogLevel {
     }
 }
 
-/// T8-1: GET /api/v1/system/config — read system-level config.
+/// GET /api/v1/system/config — read system-level config.
 /// Returns the full config JSON (max_consecutive_failures, cache_flush_interval,
 /// probe_timeout, node_dns_upstreams, etc.) for display in the Settings panel.
 #[tauri::command]
@@ -69,8 +69,8 @@ pub async fn system_config_get(
         .map_err(|e| map_resin_error(&e.to_string()))
 }
 
-/// T8-1: PATCH /api/v1/system/config — update system-level config.
-/// T8-1 use case: set max_consecutive_failures (circuit breaker threshold).
+/// PATCH /api/v1/system/config — update system-level config.
+/// use case: set max_consecutive_failures (circuit breaker threshold).
 /// The body is a JSON object with only the fields to update.
 #[tauri::command]
 pub async fn system_config_patch(
@@ -95,7 +95,7 @@ pub async fn system_config_patch(
         .map_err(|e| map_resin_error(&e.to_string()))
 }
 
-/// T8-6: Close all connections — kill + restart Resin sidecar (equivalent to
+/// Close all connections — kill + restart Resin sidecar (equivalent to
 /// closing all in-flight connections since Resin v1.2.0 has no close-all API).
 /// Reuses existing sidecar lifecycle infrastructure. SSE/WebSocket connections
 /// will be dropped (expected — this is the user's explicit intent).
@@ -108,7 +108,7 @@ pub async fn close_all_connections(
     sidecar_restart(&app, &sidecar).await
 }
 
-/// T8-6: Reset kernel — kill + restart Resin sidecar (same implementation as
+/// Reset kernel — kill + restart Resin sidecar (same implementation as
 /// close_all_connections but different semantic label + log message). The user
 /// picks this when they want a full kernel reset, not just connection cleanup.
 #[tauri::command]
@@ -120,7 +120,7 @@ pub async fn reset_kernel(
     sidecar_restart(&app, &sidecar).await
 }
 
-/// T8-6: shared kill+restart helper. Kills the Resin child process and
+/// shared kill+restart helper. Kills the Resin child process and
 /// re-runs boot_resin() to get a fresh sidecar. The old CommandChild is
 /// consumed; a new one replaces it.
 pub async fn sidecar_restart(
@@ -172,10 +172,10 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, IpcError> {
     }
 }
 
-/// Round 5 T11 / ADR-0059: export the append-only audit log (audit.jsonl) to
+/// ADR-0059: export the append-only audit log (audit.jsonl) to
 /// a user-chosen path (Settings > Storage "Export audit log"). A plain copy
 /// of the live log; the "offline evidence package" zip (audit + backup/ +
-/// whitebox) is an optional stretch documented in the T11 report, not part of
+/// whitebox) is an optional stretch documented in the report, not part of
 /// this minimal command. Best-effort: a missing log returns a clear error so
 /// the UI can surface it; a failed copy never touches app state.
 #[tauri::command]
@@ -209,7 +209,7 @@ pub async fn export_audit_log(
     }))
 }
 
-/// T14-8: get lightweight mode config (enabled + delay_minutes).
+/// get lightweight mode config (enabled + delay_minutes).
 /// Reads from tauri-plugin-store settings.json — returns {enabled, delay_minutes}.
 #[tauri::command]
 pub async fn lightweight_get(app: AppHandle) -> Result<serde_json::Value, IpcError> {
@@ -219,7 +219,7 @@ pub async fn lightweight_get(app: AppHandle) -> Result<serde_json::Value, IpcErr
     Ok(serde_json::json!({ "enabled": enabled, "delay_minutes": delay }))
 }
 
-/// T14-8: set lightweight mode config (enabled + delay_minutes).
+/// set lightweight mode config (enabled + delay_minutes).
 /// Persists to settings.json + updates the live LightweightController.
 #[tauri::command]
 pub async fn lightweight_set(
@@ -241,7 +241,7 @@ pub async fn lightweight_set(
     Ok(())
 }
 
-/// T05 (Round 5): diagnostics poll interval (ms) — typed L1 command pair that
+/// diagnostics poll interval (ms) — typed L1 command pair that
 /// replaces the former DiagnosticsView bare `invoke("get/set_store_value")`
 /// bypass (the store_value commands were never registered, so the old path
 /// failed at runtime and silently fell back to the 5000 default). §7.5 IPC
@@ -262,7 +262,7 @@ fn validate_diag_poll_interval(interval_ms: u64) -> Result<(), IpcError> {
     Ok(())
 }
 
-/// T05: read the diagnostics poll interval (ms) from settings.json; 5000 when
+/// read the diagnostics poll interval (ms) from settings.json; 5000 when
 /// unset or when the stored value is not a number.
 #[tauri::command]
 pub async fn get_diag_poll_interval(app: AppHandle) -> Result<u64, IpcError> {
@@ -273,7 +273,7 @@ pub async fn get_diag_poll_interval(app: AppHandle) -> Result<u64, IpcError> {
         .unwrap_or(5000))
 }
 
-/// T05: persist the diagnostics poll interval (ms) to settings.json.
+/// persist the diagnostics poll interval (ms) to settings.json.
 /// §7.5: interval_ms accepted only within 100..=24h.
 #[tauri::command]
 pub async fn set_diag_poll_interval(app: AppHandle, interval_ms: u64) -> Result<(), IpcError> {

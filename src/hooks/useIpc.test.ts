@@ -1,5 +1,5 @@
 /**
- * T14-5: useIpc closed-loop tests — verifies SWR-backed IPC hook
+ * useIpc closed-loop tests — verifies SWR-backed IPC hook
  * uses real timers (matching usePoll test pattern).
  */
 

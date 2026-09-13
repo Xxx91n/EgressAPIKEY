@@ -29,7 +29,7 @@ describe("DiagnosticsView closed-loop tests", () => {
           target_host: "api.openai.com:443", egress_ip: "1.2.3.4",
           http_method: "POST", http_status: 200, duration_ms: 150, resin_error: "" },
       ]);
-      // T21 (Round 5): detail drawer wire faces
+      // detail drawer wire faces
       if (cmd === "request_log_detail") return Promise.resolve({
         id: "0b7fd2a8-1f3e-4c5d-9a6b-7c8d9e0f1a2b", ts: "2026-01-01T00:00:00Z",
         proxy_type: 1, client_ip: "127.0.0.1", platform_id: "p-1", platform_name: "Default",
@@ -48,10 +48,10 @@ describe("DiagnosticsView closed-loop tests", () => {
         truncated: { req_headers: false, req_body: false, resp_headers: false, resp_body: false },
       });
       if (cmd === "get_sidecar_logs") return Promise.resolve(["line1", "line2"]);
-      // T05: typed L1 command pair replaced the bare get/set_store_value bypass
+      // typed L1 command pair replaced the bare get/set_store_value bypass
       if (cmd === "get_diag_poll_interval") return Promise.resolve(5000);
       if (cmd === "set_diag_poll_interval") return Promise.resolve(undefined);
-      // T19 (ADR-0064): metrics minimal set
+      // (ADR-0064): metrics minimal set
       if (cmd === "metrics_realtime_throughput") return Promise.resolve({
         step_seconds: 10,
         items: [{ ts: "2026-09-04T00:00:00Z", ingress_bps: 1000, egress_bps: 2000 }],
@@ -258,10 +258,10 @@ describe("T15-1: DiagnosticsView uses usePoll (not setInterval)", () => {
       if (cmd === "check_firewall_status") return Promise.resolve({ platform: "windows", firewall_on: true, inbound_blocked: true, detail: "Windows Firewall is ON." });
       if (cmd === "request_log_tail") return Promise.resolve([]);
       if (cmd === "get_sidecar_logs") return Promise.resolve([]);
-      // T05: typed L1 command pair replaced the bare get/set_store_value bypass
+      // typed L1 command pair replaced the bare get/set_store_value bypass
       if (cmd === "get_diag_poll_interval") return Promise.resolve(5000);
       if (cmd === "set_diag_poll_interval") return Promise.resolve(undefined);
-      // T19 (ADR-0064): metrics minimal set (also needed in usePoll block)
+      // (ADR-0064): metrics minimal set (also needed in usePoll block)
       if (cmd === "metrics_realtime_throughput") return Promise.resolve({ step_seconds: 10, items: [] });
       if (cmd === "metrics_probe_history") return Promise.resolve({ bucket_seconds: 60, items: [] });
       return Promise.resolve(null);

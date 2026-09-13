@@ -1,5 +1,5 @@
 //! Whitebox versioning \u2014 backup / rotation / rollback for the two L2
-//! whitebox stores (architecture-recovery ticket 15; ADR-0054 \u00A7B).
+//! whitebox stores (ADR-0054 \u00A7B).
 //!
 //! Before EVERY atomic whitebox write (both the strategy store and the ports
 //! store funnel through here) the current file is copied to a sibling

@@ -1,4 +1,4 @@
-//! Config export/import document (Round 5 T07 / ADR-0061).
+//! Config export/import document (ADR-0061).
 //!
 //! `config_export` reads the two L2 whitebox documents verbatim (ADR-0036:
 //! the whitebox files are the truth — it never reads Resin) and wraps them
@@ -53,10 +53,10 @@ pub fn build_export_doc(
 /// `IpcError` without mutating state.
 ///
 /// Schema-version compat: the inner whitebox documents are deserialized
-/// through serde — unknown fields are ignored, so T09's v2 additions (e.g.
+/// through serde — unknown fields are ignored, so 's v2 additions (e.g.
 /// `generation`) cannot break parsing — and then re-validated through their
 /// own validate entry, which is where the version gate lives. Today
-/// `strategy_service::validate` accepts version 1 only; when T09 bumps the
+/// `strategy_service::validate` accepts version 1 only; when bumps the
 /// strategy schema to v2 and relaxes that gate, this import path keeps
 /// working unchanged because it only forwards the typed document. A document
 /// whose version is not supported fails cleanly (never a silent mis-parse).
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn parse_rejects_invalid_strategy_schema_without_write() {
-        // strategy version 2 = T09's future schema. serde parses it (the
+        // strategy version 2 = 's future schema. serde parses it (the
         // unknown `generation` field is ignored), and validation rejects it
         // cleanly with a named version — this layer never writes.
         let mut s = sample_strategy();
@@ -219,7 +219,7 @@ mod tests {
         // A v2-preview strategy doc with a `generation` field deserializes
         // without crashing (serde ignores unknown fields); the version gate is
         // the ONLY thing that rejects it. This locks the forward-compat
-        // contract: when T09 relaxes validate() to accept v2, this import path
+// contract: when relaxes validate() to accept v2, this import path
         // keeps working unchanged.
         let doc = json!({
             "version": 1,

@@ -1,4 +1,4 @@
-//! Ticket 09 (architecture-recovery): tauri-specta pilot export module.
+//! tauri-specta pilot export module.
 //!
 //! TYPE generation is decoupled from runtime registration on purpose:
 //! tauri-specta rc.25 cannot partially replace tauri::generate_handler!

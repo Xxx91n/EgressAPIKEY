@@ -44,7 +44,7 @@ interface PlatformInfoFull {
 
 interface NodeEntry { display_tag: string; region: string; node_hash: string; tags?: { subscription_name?: string; subscriptionName?: string; tag: string }[]; }
 
-/// T12-3: subscription-folded node grouping (reused from NodesView pattern)
+/// subscription-folded node grouping (reused from NodesView pattern)
 function platformSubName(n: NodeEntry): string {
   return n.tags?.[0]?.subscription_name ?? n.tags?.[0]?.subscriptionName ?? n.tags?.[0]?.tag ?? "";
 }
@@ -103,9 +103,9 @@ export function PlatformsView() {
     } catch { /* outside Tauri */ }
   }, []);
 
-  /// T11-4b: per-platform sync. Each chip change immediately PUTs config + PATCHes
+  /// per-platform sync. Each chip change immediately PUTs config + PATCHes
   /// the specific platform's region_filters. No global Apply button.
-  /// T11-4b: per-platform sync. Each chip change immediately PUTs config + PATCHes
+  /// per-platform sync. Each chip change immediately PUTs config + PATCHes
   /// the specific platform's region_filters. No global Apply button.
   /// Auto-clean: filter out stale platforms not in live Resin platform list.
   const syncPlatformStrategy = async (_platformName?: string, configToSync?: StrategyConfig) => {
@@ -127,7 +127,7 @@ export function PlatformsView() {
   };
 
 
-  /// T11-4b: after updating a strategy field, sync to backend immediately.
+  /// after updating a strategy field, sync to backend immediately.
   /// Uses functional update so sync sees the latest state (not stale closure).
   const updateAndSync = (platformName: string, field: keyof PlatformStrategy, value: string | string[]) => {
     let latestConfig: StrategyConfig | null = null;
@@ -234,7 +234,7 @@ export function PlatformsView() {
     } catch { /* clipboard may be unavailable outside https or in vitest */ }
   };
 
-  /// T11-5: bootstrap gate. Load all persisted settings before first render
+  /// bootstrap gate. Load all persisted settings before first render
   /// so the port form never flashes hardcoded defaults.
   useEffect(() => {
     let cancelled = false;
@@ -383,7 +383,7 @@ export function PlatformsView() {
     void saveSplitRatio(splitRatio);
   };
 
-  /// T11-1: toggle platform card expand/collapse
+  /// toggle platform card expand/collapse
   const togglePlatformCard = (name: string) => {
     setExpandedPlatformCards((prev) => {
       const next = new Set(prev);
@@ -392,8 +392,8 @@ export function PlatformsView() {
     });
   };
 
-  /// T11-6: toggle port card selection (click same card to deselect)
-/// T11-8: toggle port card expand/collapse
+  /// toggle port card selection (click same card to deselect)
+/// toggle port card expand/collapse
   const togglePortCard = (port: number) => {
     setExpandedPortCards((prev) => {
       const next = new Set(prev);

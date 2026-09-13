@@ -1,15 +1,15 @@
-//! Append-only audit logging (round5 T11 / ADR-0059).
+//! Append-only audit logging (ADR-0059).
 //!
 //! Every sanctioned L2 whitebox write (strategy store + ports write_atomic)
 //! records one JSONL row in `audit.jsonl` under `app_config_dir()` — the
 //! same directory as the two whitebox files — with a SHA-256 content hash of
 //! the pre-write and post-write document plus an inline `prev_hash` chain.
 //! The chain is carried per-row, so it survives `audit.jsonl.1..10` rotation
-//! without ever depending on which physical file a row landed in (D-29/D-30).
+//! without ever depending on which physical file a row landed in.
 //!
 //! Always-best-effort: a write failure is logged through `tracing` and never
 //! propagated — audit logging NEVER prevents app startup or a whitebox write
-//! (the argus principle in issue 11). The module is a process-global
+//! (the argus principle in). The module is a process-global
 //! singleton initialized once by the shell with the audit file path; tests
 //! exercise an `AuditLog` instance directly and never touch the global.
 
@@ -19,16 +19,16 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
-/// Schema tag in every row (D-31).
+/// Schema tag in every row.
 pub const AUDIT_SCHEMA: &str = "audit/v1";
 /// Audit file name (sibling of the two whitebox files).
 pub const AUDIT_LOG_FILE: &str = "audit.jsonl";
-/// Rotation threshold in bytes (K8s log backend default: 100 MB, D-32).
+/// Rotation threshold in bytes (K8s log backend default: 100 MB).
 pub const AUDIT_LOG_MAXSIZE: u64 = 100 * 1024 * 1024;
-/// Number of rotated archives kept (`audit.jsonl.1..10`, D-32).
+/// Number of rotated archives kept (`audit.jsonl.1..10`).
 pub const AUDIT_LOG_MAXBACKUP: usize = 10;
 
-/// One append-only audit row. The always-present fields are, per D-31:
+/// One append-only audit row. The always-present fields are, per:
 /// schema / ts / audit_id / target / op / actor / before_hash+after_hash /
 /// outcome. Every field below is written on every row (the hash pair counts
 /// as one of the eight groups); `None` fields are omitted from the JSON.
@@ -62,7 +62,7 @@ pub struct AuditEvent {
     /// The backup file a rollback restored from (rollback rows).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_backup: Option<String>,
-    /// SHA-256 hex of the previous row (inline hash chain, D-29).
+    /// SHA-256 hex of the previous row (inline hash chain).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prev_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

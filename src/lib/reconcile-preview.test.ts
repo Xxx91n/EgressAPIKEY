@@ -1,4 +1,4 @@
-// Ticket 14: the preview derivation is pure and snapshot-sourced — no IPC
+// the preview derivation is pure and snapshot-sourced — no IPC
 // call anywhere in this file proves "no new requests" by construction.
 import { describe, it, expect } from "vitest";
 import {

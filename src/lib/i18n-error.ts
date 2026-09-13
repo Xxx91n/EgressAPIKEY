@@ -1,23 +1,23 @@
 /**
- * T3-Q3: Unified error display helper. The Rust map_resin_error function
+ * Unified error display helper. The Rust map_resin_error function
  * returns i18n keys (e.g. "error.cannotDeleteDefaultPlatform") for known
  * Resin errors. For unknown errors it returns the raw string. This helper
  * tries t() on the key; if the key has no translation, falls back to the
  * raw string so the user always sees something meaningful.
  *
- * T3-Q2: keys of the form "error.<name>.<digits>" (e.g.
+ * keys of the form "error.<name>.<digits>" (e.g.
  * "error.upstream.525", "error.upstream.403") carry an HTTP status code
  * suffix. We parse it into a `{ code }` interpolation variable so the
  * generic "error.<name>" translation can reference `{{code}}` and surface
  * "Upstream HTTP 525" without needing per-code translations. Per-code keys
  * still win when defined. (Historically the first user of this mechanism was
- * the P13 B4 fetch_clash_subscription chain; that chain was deleted in T20-v2
+* the P13 B4 fetch_clash_subscription chain; that chain was deleted in
  * along with its error.subscriptionFetch i18n key, but the mechanism stays.)
  */
 import type { TFunction } from "i18next";
 
 export function translateError(e: unknown, t: TFunction): string {
-  // T8-Bug2: if Tauri rejected with an IpcError object (externally-tagged
+  // if Tauri rejected with an IpcError object (externally-tagged
   // serde: {kind, data}), extract the i18n_key before String(e) turns it
   // into "[object Object]". extractIpcErr is in ipc.ts but we can't import
   // it here (cycle: ipc.ts imports translateError via PlatformsView). We

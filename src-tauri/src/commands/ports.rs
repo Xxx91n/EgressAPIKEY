@@ -423,7 +423,7 @@ pub async fn port_running(
     Ok(forwarder.running_ports())
 }
 
-/// T6-3: Save network-layer config (DNS + idle conns + probe + bypass) to the
+/// Save network-layer config (DNS + idle conns + probe + bypass) to the
 /// whitebox JSON file, atomically updating in-memory state + env injection.
 #[tauri::command]
 pub async fn whitebox_save_network(
@@ -500,7 +500,7 @@ pub async fn port_auth_info(
     // arbitrary port number for a dial probe (Path-traversal safety:reuse the
     // same guard the whitebox config transaction already enforces).
     validate_port_segments(port)?;
-    // T6-Bug5: Resin SOCKS5 requires `<Platform>.<Account>` format as the
+// Resin SOCKS5 requires `<Platform>.<Account>` format as the
     // username. Without the platform prefix, SOCKS5 auth succeeds (password
     // = proxy_token validates) but CONNECT returns "General failure" because
     // Resin cannot determine which platform the traffic belongs to.
@@ -509,7 +509,7 @@ pub async fn port_auth_info(
     } else {
         format!("{}.{}", mapping.platform_name, mapping.account)
     };
-    // T7-fix: proxy_token is now empty (enables no-auth). When auth_required=true,
+    // proxy_token is now empty (enables no-auth). When auth_required=true,
     // the password is empty — Resin socks5.go:307 short-circuits the check when
     // s.token=="" and forward.go:103-115 accepts any credential. The username
     // (Platform.Account) is still used for routing.
@@ -591,7 +591,7 @@ pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<Po
     // SOCKS5 greeting: version 5, 2 method candidates: NoAuth(0x00) + UserPass(0x02).
     // With empty proxy_token, Resin accepts either; with non-empty, only UserPass.
     let greeting: Vec<u8> = if proto == "http" {
-        // T6-Bug1: HTTP GET probe. Resin's HTTP proxy does NOT support CONNECT
+        // HTTP GET probe. Resin's HTTP proxy does NOT support CONNECT
         // tunneling — CONNECT returns 404/error. A plain GET / gets any HTTP
         // response (200/404/400) which proves the port is alive.
         format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n").into_bytes()
@@ -674,7 +674,7 @@ impl PortHealthPaused {
     }
 }
 
-/// T18 Phase 1: stream port-health snapshots down a Tauri Channel. One Tokio
+/// Phase 1: stream port-health snapshots down a Tauri Channel. One Tokio
 /// task per invocation; it ends when the channel is closed (frontend unmount).
 #[tauri::command]
 pub async fn watch_port_health(
@@ -702,7 +702,7 @@ pub async fn watch_port_health(
 
 
 // ---------------------------------------------------------------------------
-// Ticket 15 / ADR-0054 section B: whitebox versioning - list + rollback IPC.
+// ADR-0054 section B: whitebox versioning - list + rollback IPC.
 // ---------------------------------------------------------------------------
 
 /// ADR-0054 section B: list the versioned backups of the ports whitebox file
@@ -729,7 +729,7 @@ pub async fn whitebox_rollback(
     if backup_name.is_empty() || backup_name.len() > 200 {
         return Err(IpcError::from("backup_name invalid".to_string()));
     }
-    // Round 5 T11 / ADR-0059: scope a rollback audit context so the single
+    // ADR-0059: scope a rollback audit context so the single
     // row emitted by write_atomic carries op:"rollback" + source_backup.
     let audit_ctx = resin_core::audit::AuditCtx {
         op: Some("rollback".into()),

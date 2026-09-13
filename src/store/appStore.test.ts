@@ -57,7 +57,7 @@ describe("appStore", () => {
     expect(useAppStore.getState().view).toBe("settings");
   });
 
-  // T14-4: shallow selector export + getState pattern (hooks cannot call outside React render)
+  // shallow selector export + getState pattern (hooks cannot call outside React render)
   it("useShallow is re-exported from appStore", async () => {
     const mod = await import("./appStore");
     expect(typeof mod.useShallow).toBe("function");

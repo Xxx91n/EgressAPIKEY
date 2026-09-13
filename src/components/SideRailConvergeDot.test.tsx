@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { SideRailConvergeDot } from "./SideRailConvergeDot";
 import enCommon from "../locales/en/common.json";
 
-// Architecture-recovery ticket 06 (D-C2.1, checkpoint C): a 4px status dot
+// (checkpoint C): a 4px status dot
 // in the SideRail. ArgoCD #22059 — Sync axis only; per-entry Health lives
 // inside EffectiveConfigView and is NOT merged here.
 //

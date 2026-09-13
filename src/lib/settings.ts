@@ -13,7 +13,7 @@
  * P19: "localSubOrder" (string[]) - user's drag-reorder override for subscriptions. The Rust tray reads "lang" directly via
  * tauri-plugin-store (see src-tauri/src/tray.rs::current_lang) so the tray is
  * localised even before the webview mounts. The legacy network preference
- * keys were never effective after T3-A (ADR-0012: the Resin sidecar owns the
+* keys were never effective after (ADR-0012: the Resin sidecar owns the
  * listen port); purgeLegacyDeadKeys() removes any residue once at startup.
  */
 
@@ -69,7 +69,7 @@ export async function saveTheme(theme: string): Promise<void> {
 }
 
 // --- Migration (arch/02): one-time removal of legacy dead keys ---
-// These keys were read by a pre-T3-A main.rs block that dropped its
+// These keys were read by a pre- main.rs block that dropped its
 // CoreConfig on the floor (ADR-0012: the Resin sidecar owns the listen
 // port). This const is the ONLY remaining live-code mention of the dead
 // keys — delete this block and its test once the migration window closes.
@@ -107,7 +107,7 @@ export async function saveView(view: string): Promise<void> {
   } catch (e) { console.warn("[settings] save failed:", e); }
 }
 
-// Process routes (ticket 17 / ADR-0055): the L1 persistence pair was
+// Process routes (ADR-0055): the L1 persistence pair was
 // DELETED — the family lives in the L2 whitebox (egressapikey-ports.json
 // process_routes field) with the Rust process_route_* command family as the
 // single write entry. The frontend reads/writes through src/lib/ipc.ts only.
@@ -151,7 +151,7 @@ export type TopologyViewport = Pick<TopologyState, "x" | "y" | "zoom">;
 export async function loadTopologyState(): Promise<TopologyState | null> {
   try {
     let v = await store().get<TopologyState>("topologyState");
-    // T15-review migration: if topologyState absent, fall back to legacy topologyViewport key
+    // migration: if topologyState absent, fall back to legacy topologyViewport key
     if (!v) {
       const legacy = await store().get<TopologyState>("topologyViewport");
       if (legacy && typeof legacy.x === "number" && typeof legacy.y === "number" && typeof legacy.zoom === "number") {
@@ -291,7 +291,7 @@ export async function saveIpReputationConfig(cfg: IpReputationConfig): Promise<v
   } catch (e) { console.warn("[settings] reputation save failed:", e); }
 }
 
-// --- T10-3: Port auth default toggle persistence (ADR-0031) ---
+// --- Port auth default toggle persistence (ADR-0031) ---
 export async function loadPortAuthDefault(): Promise<boolean | null> {
   try {
     const v = await store().get<boolean>("portAuthDefault");
@@ -306,7 +306,7 @@ export async function savePortAuthDefault(value: boolean): Promise<void> {
   } catch (e) { console.warn("[settings] savePortAuthDefault failed:", e); }
 }
 
-// --- T19-P4: Node batch probe config (ADR-0044 S4) ---
+// --- Node batch probe config (ADR-0044 S4) ---
 // Persisted in settings.json#nodeProbe; shell-local, controls batch probe UX.
 export interface NodeProbeConfig {
   concurrency: number;   // 1-50, but capped to min(concurrency, items, 10) at runtime
@@ -344,7 +344,7 @@ export function batchChunkSize(configured: number, itemCount: number): number {
   return Math.max(1, Math.min(configured, itemCount, 10));
 }
 
-// --- T05 (Round 5): diagnostics poll interval — typed L1 wrapper pair ---
+// --- diagnostics poll interval — typed L1 wrapper pair ---
 // Replaces the former DiagnosticsView bare `invoke("get/set_store_value")`
 // bypass (those commands were never registered in generate_handler!, so the
 // old path failed at runtime and silently fell back to the 5000 default).
@@ -353,7 +353,7 @@ export function batchChunkSize(configured: number, itemCount: number): number {
 const DIAG_POLL_INTERVAL_MIN_MS = 100;
 const DIAG_POLL_INTERVAL_MAX_MS = 24 * 60 * 60 * 1000;
 
-/// T05: read the diagnostics poll interval (ms). Returns the 5000 default
+/// read the diagnostics poll interval (ms). Returns the 5000 default
 /// when unset or unavailable (outside Tauri / vitest).
 export async function getDiagPollInterval(): Promise<number> {
   try {
@@ -364,7 +364,7 @@ export async function getDiagPollInterval(): Promise<number> {
   }
 }
 
-/// T05: persist the diagnostics poll interval (ms).
+/// persist the diagnostics poll interval (ms).
 /// §7.5: rejects out-of-range values at the TS boundary before invoking.
 export async function setDiagPollInterval(ms: number): Promise<void> {
   if (

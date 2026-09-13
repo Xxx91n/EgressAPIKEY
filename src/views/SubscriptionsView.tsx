@@ -14,7 +14,7 @@ import { translateError } from "../lib/i18n-error";
 import { loadSubOrder, saveSubOrder } from "../lib/settings";
 import { usePoll } from "../hooks/usePoll";
 
-/// Round 5 T01 (issue 01 F1/D-22): state of the INLINE (never a modal) bind
+/// (F1): state of the INLINE (never a modal) bind
 /// step. After a successful import the form area switches to a second step
 /// where the user optionally binds the new subscription to platforms (and,
 /// when entry ports exist, to ports). null = no active bind step.
@@ -49,7 +49,7 @@ export function SubscriptionsView() {
   const { t } = useTranslation();
   const localAdd = useAppStore((s) => s.addSubscription);
   const localSubs = useAppStore((s) => s.subscriptions);
-  // Round 7 T02 (D-C1.2): the establish-phase stream lives in the appStore;
+  // the establish-phase stream lives in the appStore;
   // this view subscribes to it and feeds it from its own snapshot pull.
   const setSubscriptionPhases = useAppStore((s) => s.setSubscriptionPhases);
   const subscriptionPhases = useAppStore((s) => s.subscriptionPhases);
@@ -67,7 +67,7 @@ export function SubscriptionsView() {
   // reorder. Reset (item 4) clears this to [] and re-renders from server only.
   const [localOrder, setLocalOrder] = useState<string[]>([]);
 
-  // Round 5 T01 (F1/D-22): the optional inline bind step. bindCreate
+  // (F1): the optional inline bind step. bindCreate
   // pre-selects "auto-create the same-name platform" ONLY when no
   // a_class=subscription platform already consumes the sub (issue: "若
   // a_class=subscription 已有则不重复").
@@ -82,7 +82,7 @@ export function SubscriptionsView() {
   const [bindCreate, setBindCreate] = useState(false);
   const [bindPorts, setBindPorts] = useState<number[]>([]);
   const [bindPortOptions, setBindPortOptions] = useState<number[]>([]);
-  // Round 5 T01 (F4): subscription -> reverse-lookup row from the
+// (F4): subscription -> reverse-lookup row from the
   // authoritative snapshot (consumed_by + resolvable), keyed by name.
   const [subRows, setSubRows] = useState<Map<string, { consumed_by: string[]; resolvable: boolean }>>(new Map());
 
@@ -131,14 +131,14 @@ export function SubscriptionsView() {
   }, [applyOrder, localOrder]);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  // T03 (round5): one-line error summary for toasts - Resin last_error can be
+// one-line error summary for toasts - Resin last_error can be
   // a multi-line downloader dump; a toast only fits the first meaningful line.
   const summarizeError = useCallback((raw: string): string => {
     const first = (raw || "").split("\n").flatMap((l) => l.split("\r")).map((l) => l.trim()).filter(Boolean)[0] || "";
     return first.length > 120 ? first.slice(0, 117) + "..." : first;
   }, []);
 
-  // T03 (round5): edge-triggered 30s poll. Resin's 30s update_interval tick
+  // edge-triggered 30s poll. Resin's 30s update_interval tick
   // writes subscription.last_error without any push channel to the shell, so
   // the view polls subscription_list every 30s (independent from the 5s
   // snapshot poll) and compares (last_error, last_checked) per subscription
@@ -179,7 +179,7 @@ export function SubscriptionsView() {
   // P13 B4: Resin parses local subscription content on its 30s update_interval
   // tick. Poll up to 5 times at 3s so the user sees the real node_count within
   // ~15s instead of staying at 0.
-  // T03 (round5): exit early not only on nodes but also on a surfaced
+  // exit early not only on nodes but also on a surfaced
   // last_error - "imported but Resin cannot pull it" must be reported by the
   // import toast instead of silently settling for 0 nodes.
   const refreshWithRetry = useCallback(async (): Promise<SubscriptionSnapshotEntry[]> => {
@@ -230,7 +230,7 @@ export function SubscriptionsView() {
     } catch { /* dev: allow */ }
     localAdd(u, 0);
     try {
-      // Round 7 ticket 01 (D-C1.8): the backend owns the establish cascade
+      // the backend owns the establish cascade
       // now (resolve -> whitebox platform -> diff-then-skip apply). The
       // former manual ipcStrategyApply fallback here is DELETED — the
       // optional inline bind step below remains for extra platforms/ports.
@@ -242,7 +242,7 @@ export function SubscriptionsView() {
       void saveSubOrder(newOrder).catch((e) => console.warn("[SubscriptionsView] saveSubOrder failed", e));
       await new Promise((r) => setTimeout(r, 50));
       const finalList = await refreshWithRetry();
-      // Round 5 T01 (F1/D-22): open the INLINE bind step right here in the
+// (F1): open the INLINE bind step right here in the
       // form card (non-modal). A fresh import is by definition unbound; the
       // step offers chips + optional auto-create + optional ports.
       setBind({ subName: n, nodeCount: finalList.find((x) => x.name === n)?.node_count ?? 0 });
@@ -343,7 +343,7 @@ export function SubscriptionsView() {
     } catch { /* keep */ }
   };
 
-  // ---- Round 5 T01: F4 reverse-lookup data + F1 bind-step loaders ----
+  // ---- F4 reverse-lookup data + F1 bind-step loaders ----
 
   // F4: consume the authoritative_snapshot reverse-lookup section so every
   // row can badge "bound to N platforms / unbound". Read-only, best-effort:
@@ -356,7 +356,7 @@ export function SubscriptionsView() {
         m.set(row.name, { consumed_by: row.consumed_by ?? [], resolvable: row.resolvable !== false });
       }
       setSubRows(m);
-      // Round 7 T02 (D-C1.2): mirror the establish-phase stream into the
+// mirror the establish-phase stream into the
       // appStore (the snapshot is already in hand — zero new requests).
       setSubscriptionPhases(snap.subscriptionPhases ?? []);
     } catch { /* outside Tauri / snapshot unavailable */ }
@@ -500,7 +500,7 @@ export function SubscriptionsView() {
   // zero deps and no image/dataTransfer ceremony.
   // We stash the source index + drag ref in refs (survive re-renders), a
   // hasDragged flag distinguishes a real drag from a click, and a window
-  // Round 7 T02 (D-C1.2): name -> establish-phase STATUS row lookup for
+// name -> establish-phase STATUS row lookup for
   // the per-row chip. Absent row = Never (the state machine's identity).
   const phaseRowMap = new Map<string, SubscriptionPhaseRow>();
   for (const row of subscriptionPhases) phaseRowMap.set(row.name, row);
@@ -530,7 +530,7 @@ export function SubscriptionsView() {
     dragMoved.current = false;
     // Capture pointer events so onPointerEnter continues to fire while moving
     // fast even if the pointer leaves the row briefly.
-    // T6-Bug3: removed setPointerCapture — it locked pointer events on the source row
+    // removed setPointerCapture — it locked pointer events on the source row
     // and prevented onPointerEnter from firing on other rows during drag.
   };
 
@@ -575,7 +575,7 @@ export function SubscriptionsView() {
         </div>
         <div className="p-4 space-y-3">
           {bind ? (
-            // ---- Round 5 T01 (F1 / D-22): the INLINE optional second step.
+            // ---- (F1): the INLINE optional second step.
             // Non-modal by decision: the import form above stays reachable
             // through "Cancel", no dialog blocks the flow.
             <div data-testid="bind-step" className="rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 p-3 space-y-2">
@@ -845,7 +845,7 @@ export function SubscriptionsView() {
 }
 /// Item 2 / Option B: surface Resin last_error / last_checked / healthy
 /// so "imported ok but 0 nodes" is no longer a mute zero.
-/// T03 (round5): the former 11px red text line is promoted to a full red
+/// the former 11px red text line is promoted to a full red
 /// banner (bg-red-50 / dark:bg-red-950/30 + red-300 border) so a fetch
 /// failure is impossible to miss, with a collapse toggle for the raw
 /// message, a green check when the sub has recovered since its last
@@ -905,7 +905,7 @@ function SubscriptionRowHint({ s, t }: { s: SubscriptionSnapshotEntry; t: Return
   );
 }
 
-/// Round 7 T02 (D-C1.2): per-subscription establish-phase chip. Colour +
+/// per-subscription establish-phase chip. Colour +
 /// copy follow the ConvergeChip tint system (EffectiveConfigView): green =
 /// converged, red = failed (+ reason tooltip), amber = in-flight, zinc =
 /// needs approval. The sub-step renders as a lowercase technical token
@@ -948,7 +948,7 @@ function SubscriptionPhaseChip({
   }
 }
 
-/// Round 7 T04 (D-C1.4): the Failed chip + the persisted cascade-failure
+/// the Failed chip + the persisted cascade-failure
 /// marking. Hover (title) keeps the one-line reason; the expandable row
 /// below the chip carries the ordered sub/plat/port/apply compensation
 /// record (toggle button, aria-expanded — same collapse pattern as
