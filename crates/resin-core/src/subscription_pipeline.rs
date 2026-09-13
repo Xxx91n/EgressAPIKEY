@@ -344,12 +344,11 @@ pub async fn ensure_platform<S: StrategyConfigStore>(
                 next.platforms.push(PlatformStrategy {
                     platform_name: name.to_string(),
                     a_class: AClassStrategy::Subscription,
-                    b_class: StrategyId::Random,
+                    b_class: StrategyId::Balanced,
                     manual_nodes: vec![],
                     regions: vec![],
                     subscriptions: vec![name.to_string()],
                     top_n: 10,
-                    b_class_params: Default::default(),
                 });
             }
             // The Service store entry: validate + generation bump + versioned
@@ -1066,12 +1065,11 @@ mod tests {
             platforms: vec![PlatformStrategy {
                 platform_name: "newsub".into(),
                 a_class: AClassStrategy::Subscription,
-                b_class: StrategyId::Random,
+                b_class: StrategyId::Balanced,
                 manual_nodes: vec![],
                 regions: vec![],
                 subscriptions: vec!["newsub".into()],
                 top_n: 10,
-                b_class_params: Default::default(),
             }],
             ..Default::default()
         }).unwrap();
@@ -1426,12 +1424,11 @@ mod tests {
             platforms: vec![PlatformStrategy {
                 platform_name: "user-plat".into(),
                 a_class: AClassStrategy::Region,
-                b_class: StrategyId::Random,
+                b_class: StrategyId::Balanced,
                 manual_nodes: vec![],
                 regions: vec!["HK".into()],
                 subscriptions: vec![],
                 top_n: 10,
-                b_class_params: Default::default(),
             }],
             ..Default::default()
         })
@@ -1575,12 +1572,11 @@ mod tests {
             platforms: vec![PlatformStrategy {
                 platform_name: "user-plat".into(),
                 a_class: AClassStrategy::Region,
-                b_class: StrategyId::Random,
+                b_class: StrategyId::Balanced,
                 manual_nodes: vec![],
                 regions: vec!["US".into()],
                 subscriptions: vec![],
                 top_n: 10,
-                b_class_params: Default::default(),
             }],
             ..Default::default()
         })
@@ -1776,12 +1772,11 @@ mod tests {
             platforms: vec![PlatformStrategy {
                 platform_name: "conv".into(),
                 a_class: AClassStrategy::Subscription,
-                b_class: StrategyId::Random,
+                b_class: StrategyId::Balanced,
                 manual_nodes: vec![],
                 regions: vec![],
                 subscriptions: vec!["conv".into()],
                 top_n: 10,
-                b_class_params: Default::default(),
             }],
             ..Default::default()
         }).unwrap();

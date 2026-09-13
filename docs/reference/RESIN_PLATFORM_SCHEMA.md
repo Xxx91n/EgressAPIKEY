@@ -35,7 +35,7 @@
 
 ## 白盒独有字段（不直达 Resin）
 
-`PlatformStrategy`（`crates/resin-core/src/strategy_engine.rs:87-109`）中不对应任何 Resin 列的输入字段——它们是 A 类策略的意图参数，唯一出口是被 `compute_plan` 派生成 `region_filters`：
+`PlatformStrategy`（`crates/resin-core/src/strategy_engine.rs:66-85`）中不对应任何 Resin 列的输入字段——它们是 A 类策略的意图参数，唯一出口是被 `compute_plan` 派生成 `region_filters`：
 
 | 白盒字段 | 含义 | IPC 写入 | 前端 form |
 | --- | --- | --- | --- |
@@ -43,7 +43,6 @@
 | `manual_nodes` | manual 模式手工选中的节点 hash | `strategy_config_put` | PlatformsView 节点多选 |
 | `subscriptions` | subscription 模式允许的订阅名 | `strategy_config_put` | PlatformsView 订阅 chips |
 | `top_n` | quality 模式 Top-N 上限（缺省 10） | `strategy_config_put` | PlatformsView top-N 输入（`strategy-topn-*`，1..1000） |
-| `b_class_params` | B 类 GUI 徽章参数（round_robin_n / latency_threshold_ms / quality_score / bandwidth_weight，ADR-0042 S3） | `strategy_config_put` | 徽章只读展示 |
 
 ## 字段映射示例（两条完整链路）
 

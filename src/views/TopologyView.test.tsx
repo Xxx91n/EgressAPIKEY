@@ -206,7 +206,7 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
     });
     const { container } = render(<TopologyView />);
     await waitFor(() => {
-      // The B: badge should be present (mapped from PREFER_LOW_LATENCY -> latency -> strategy.latency i18n key)
+      // The B: badge should be present (PREFER_LOW_LATENCY → strategy.preferLowLatency i18n key)
       const text = container.textContent || "";
       expect(text).toMatch(/B:/);
     });
@@ -887,7 +887,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         invokedCmds.push(cmd);
         if (cmd === "authoritative_snapshot") return Promise.resolve(snapshotFromFixtures({
           resinPlatforms: [{ id: "p1", name: "TestPlat", region_filters: ["hk"], allocation_policy: "BALANCED" }],
-          strategyPlatforms: [{ platform_name: "TestPlat", a_class: "region", b_class: "random", regions: ["hk"] }],
+          strategyPlatforms: [{ platform_name: "TestPlat", a_class: "region", b_class: "BALANCED", regions: ["hk"] }],
           ports: [],
         }));
         if (cmd === "node_list") return Promise.resolve({
@@ -931,7 +931,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         if (cmd === "lease_map") return Promise.resolve([]);
         if (cmd === "port_list") return Promise.resolve([]);
         // Whitebox JSON says regions=["jp"] even though Resin platform still shows ["us"]
-        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "WBPlat", a_class: "region", b_class: "random", regions: ["jp"] }] });
+        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "WBPlat", a_class: "region", b_class: "BALANCED", regions: ["jp"] }] });
         return Promise.resolve(undefined);
       });
       const { container } = render(<TopologyView />);
@@ -1063,7 +1063,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         });
         if (cmd === "lease_map") return Promise.resolve([]);
         if (cmd === "port_list") return Promise.resolve([]);
-        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "OpenAI", a_class: "region", b_class: "random", regions: ["hk"] }] });
+        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "OpenAI", a_class: "region", b_class: "BALANCED", regions: ["hk"] }] });
         return Promise.resolve(undefined);
       });
       const { container } = render(<TopologyView />);
@@ -1090,7 +1090,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         });
         if (cmd === "lease_map") return Promise.resolve([]);
         if (cmd === "port_list") return Promise.resolve([]);
-        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "P", a_class: "region", b_class: "random", regions: ["hk"] }] });
+        if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "P", a_class: "region", b_class: "BALANCED", regions: ["hk"] }] });
         return Promise.resolve(undefined);
       });
       const { container } = render(<TopologyView />);
@@ -1249,7 +1249,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         if (cmd === "port_list") return Promise.resolve([]);
         if (cmd === "strategy_config_get") return Promise.resolve({
           version: 1,
-          platforms: [{ platform_name: "platManual", a_class: "manual", b_class: "random", manual_nodes: ["h1", "h2"] }],
+          platforms: [{ platform_name: "platManual", a_class: "manual", b_class: "BALANCED", manual_nodes: ["h1", "h2"] }],
         });
         if (cmd === "watch_port_health") return Promise.resolve(undefined);
         return Promise.resolve(undefined);

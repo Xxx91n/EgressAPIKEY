@@ -40,7 +40,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
       if (cmd === "port_suggest") return Promise.resolve(17990);
-      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "manual", b_class: "random" }] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "manual", b_class: "BALANCED" }] });
       if (cmd === "strategy_config_put") return Promise.resolve(null);
       if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
       if (cmd === "node_list") return Promise.resolve([]);
@@ -277,29 +277,34 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(applyCalled).toBe(true), { timeout: 5000 });
   });
 
-  // B-class chips visible after expand
-  it("B-class chip pane shows 6 strategy options as toggle chips", async () => {
+  // B-class chips visible after expand.
+  // Round 8 ticket 01 / D-002: the selector offers EXACTLY Resin's three real
+  // allocation policies — the six display-only shell options are withdrawn.
+  it("B-class chip pane shows the 3 real allocation policies as toggle chips", async () => {
     render(<PlatformsView />);
     await expandPlatform("Default");
     await waitFor(() => expect(screen.getByTestId("strategy-bclass-chips-Default")).toBeInTheDocument(), { timeout: 5000 });
-    const ids = ["random", "sequential", "latency", "quality", "bandwidth", "protocol_weight"];
-    for (const s of ids) {
+    for (const s of ["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"]) {
       expect(screen.getByTestId("strategy-bclass-" + s + "-Default")).toBeInTheDocument();
+    }
+    // The withdrawn shell catalogue must not come back.
+    for (const gone of ["random", "sequential", "latency", "quality", "bandwidth", "protocol_weight"]) {
+      expect(screen.queryByTestId("strategy-bclass-" + gone + "-Default")).toBeNull();
     }
   });
 
-  // B-class default chip (random) has active style
-  it("B-class default chip (random) has active style with ring", async () => {
+  // B-class default chip (BALANCED) has active style
+  it("B-class default chip (BALANCED) has active style with ring", async () => {
     render(<PlatformsView />);
     await expandPlatform("Default");
-    await waitFor(() => expect(screen.getByTestId("strategy-bclass-random-Default")).toBeInTheDocument(), { timeout: 5000 });
-    const randomChip = screen.getByTestId("strategy-bclass-random-Default");
-    expect(randomChip.className).toContain("bg-primary");
-    expect(randomChip.className).toContain("ring-2");
+    await waitFor(() => expect(screen.getByTestId("strategy-bclass-BALANCED-Default")).toBeInTheDocument(), { timeout: 5000 });
+    const balancedChip = screen.getByTestId("strategy-bclass-BALANCED-Default");
+    expect(balancedChip.className).toContain("bg-primary");
+    expect(balancedChip.className).toContain("ring-2");
   });
 
-  // B-class latency click fires platform_update
-  it("clicking B-class latency chip fires platform_update", async () => {
+  // B-class policy click fires platform_update
+  it("clicking the PREFER_LOW_LATENCY chip fires platform_update", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
@@ -315,8 +320,8 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     });
     render(<PlatformsView />);
     await expandPlatform("Default");
-    await waitFor(() => expect(screen.getByTestId("strategy-bclass-latency-Default")).toBeInTheDocument(), { timeout: 5000 });
-    fireEvent.click(screen.getByTestId("strategy-bclass-latency-Default"));
+    await waitFor(() => expect(screen.getByTestId("strategy-bclass-PREFER_LOW_LATENCY-Default")).toBeInTheDocument(), { timeout: 5000 });
+    fireEvent.click(screen.getByTestId("strategy-bclass-PREFER_LOW_LATENCY-Default"));
     await waitFor(() => expect(invokeMock.mock.calls.some((c) => c[0] === "platform_update")).toBe(true), { timeout: 5000 });
   });
 
@@ -510,7 +515,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
       if (cmd === "port_list") return Promise.resolve([]);
       if (cmd === "platform_list_full") return Promise.resolve([{ name: "Default", allocation_policy: "BALANCED", regex_filters: [], region_filters: [], routable_node_count: 0, sticky_ttl: "" }]);
       if (cmd === "platform_leases") return Promise.resolve({ items: [] });
-      if (cmd === "strategy_config_get") return Promise.resolve(savedConfig ?? { version: 1, platforms: [{ platform_name: "Default", a_class: "quality", b_class: "random", top_n: 10 }] });
+      if (cmd === "strategy_config_get") return Promise.resolve(savedConfig ?? { version: 1, platforms: [{ platform_name: "Default", a_class: "quality", b_class: "BALANCED", top_n: 10 }] });
       if (cmd === "strategy_config_put") { savedConfig = args.config; return Promise.resolve(undefined); }
       if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
       if (cmd === "node_list") return Promise.resolve([]);

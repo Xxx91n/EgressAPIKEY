@@ -1208,24 +1208,24 @@ export async function ipcGetSidecarStatus(): Promise<SidecarStatus> {
 // Strategy Engine (T4-4 / ADR-0022) — whitebox per-platform strategy config.
 // ---------------------------------------------------------------------------
 
-/// T18-3 (ADR-0042 S3): B-class strategy parameters (shell-side whitebox only).
-/// Mirrors Rust `crates/resin-core/src/strategy_engine.rs::BClassParams`.
-export interface BClassParams {
-  round_robin_n?: number;
-  latency_threshold_ms?: number;
-  quality_score?: number;
-  bandwidth_weight?: number;
-}
+/// Round 8 ticket 01 / D-002 (spec IMP-2): the former `BClassParams` interface
+/// mirrored the Rust struct of the same name — four display-only B-class
+/// "parameters" that no backend ever read. Both are withdrawn: Resin accepts
+/// exactly one B-class knob (`allocation_policy`). A legacy document that still
+/// carries `b_class_params` keeps loading; the key is simply ignored.
 
 export interface PlatformStrategy {
   platform_name: string;
   a_class: "manual" | "region" | "quality" | "subscription";
-  b_class: string; // StrategyId serialised as snake_case
+  /// Desired Resin `allocation_policy`, stored verbatim
+  /// (BALANCED | PREFER_LOW_LATENCY | PREFER_IDLE_IP). Legacy six-option shell
+  /// tokens still deserialize on the Rust side and are rewritten to this
+  /// spelling by the one-time migration.
+  b_class: string;
   manual_nodes?: string[];
   regions?: string[];
   subscriptions?: string[];
   top_n?: number;
-  b_class_params?: BClassParams;
 }
 
 export async function ipcGetConfigDir(): Promise<string> {

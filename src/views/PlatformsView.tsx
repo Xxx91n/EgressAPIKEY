@@ -81,7 +81,7 @@ export function PlatformsView() {
   const [busy, setBusy] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createName, setCreateName] = useState("");
-  const [createPolicy, setCreatePolicy] = useState<StrategyId>("random");
+  const [createPolicy, setCreatePolicy] = useState<StrategyId>("BALANCED");
   const [createFormError, setCreateFormError] = useState<string | null>(null);
   const [authInfo, setAuthInfo] = useState<Record<number, PortAuthInfo>>({});
   const [health, setHealth] = useState<Record<number, PortHealthCheck>>({});
@@ -135,7 +135,7 @@ export function PlatformsView() {
       let platforms = [...prev.platforms];
       let idx = platforms.findIndex((p) => p.platform_name === platformName);
       if (idx === -1) {
-        platforms.push({ platform_name: platformName, a_class: "manual", b_class: "random" });
+        platforms.push({ platform_name: platformName, a_class: "manual", b_class: "BALANCED" });
         idx = platforms.length - 1;
       }
       platforms[idx] = { ...platforms[idx], [field]: value };
@@ -607,6 +607,16 @@ export function PlatformsView() {
                             </button>
                           ))}
                         </div>
+                        {/* Round 8 ticket 01 / acceptance 5 (D-002): honest
+                            semantics. Top-N and manual node selection both land
+                            on Resin as the SELECTED NODES' REGION SET — a
+                            region filter, never per-node pinning (Resin v1.2.0
+                            has no per-node override). */}
+                        {(aClass === "quality" || aClass === "manual") && (
+                          <div className="mt-1 text-[10px] text-muted-foreground" data-testid={"strategy-aclass-semantics-" + p.name}>
+                            {t("strategy.aClassRegionFilterSemantics")}
+                          </div>
+                        )}
                         {/* T11-3: Manual mode with search + hybrid selected-first */}
                         {aClass === "manual" && (
                           <div className="mt-1.5 space-y-1" data-testid={"strategy-manual-chips-" + p.name}>

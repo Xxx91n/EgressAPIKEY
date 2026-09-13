@@ -849,8 +849,8 @@ describe("ticket 12: authoritative snapshot metadata + acknowledged", () => {
       resinReachable: true,
       lastCheckedAt: 1_756_521_600,
       platforms: [
-        { state: "divergent", platform_name: "alpha", platform_id: "id", whitebox_regions: ["jp"], resin_regions: ["us"], resin_allocation_policy: "BALANCED", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: 1_756_521_590, acknowledged: true },
-        { state: "consistent", platform_name: "beta", platform_id: "id2", regions: ["hk"], resin_allocation_policy: "BALANCED", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], acknowledged: false },
+        { state: "divergent", platform_name: "alpha", platform_id: "id", whitebox_regions: ["jp"], resin_regions: ["us"], resin_allocation_policy: "BALANCED", b_class: "BALANCED", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: 1_756_521_590, acknowledged: true },
+        { state: "consistent", platform_name: "beta", platform_id: "id2", regions: ["hk"], resin_allocation_policy: "BALANCED", b_class: "BALANCED", a_class: "region", manual_nodes: [], subscriptions: [], acknowledged: false },
       ],
       ports: [
         { state: "missingOnResin", port: 17990, platform_name: "alpha", protocol: "socks5", account: "a", label: "", auth_required: false, divergent_since: 1_756_521_591, acknowledged: false },
@@ -870,8 +870,8 @@ describe("ticket 12: authoritative snapshot metadata + acknowledged", () => {
       resinReachable: false,
       lastCheckedAt: "not-a-number",
       platforms: [
-        { state: "divergent", platform_name: "alpha", platform_id: "id", whitebox_regions: [], resin_regions: [], resin_allocation_policy: "BALANCED", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: -5, acknowledged: "yes" },
-        { state: "divergent", platform_name: "huge", platform_id: "id", whitebox_regions: [], resin_regions: [], resin_allocation_policy: "BALANCED", b_class: "random", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: 9_999_999_999, acknowledged: 1 },
+        { state: "divergent", platform_name: "alpha", platform_id: "id", whitebox_regions: [], resin_regions: [], resin_allocation_policy: "BALANCED", b_class: "BALANCED", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: -5, acknowledged: "yes" },
+        { state: "divergent", platform_name: "huge", platform_id: "id", whitebox_regions: [], resin_regions: [], resin_allocation_policy: "BALANCED", b_class: "BALANCED", a_class: "region", manual_nodes: [], subscriptions: [], divergent_since: 9_999_999_999, acknowledged: 1 },
       ],
       ports: [],
     });
