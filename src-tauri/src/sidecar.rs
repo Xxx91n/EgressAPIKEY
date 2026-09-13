@@ -394,6 +394,8 @@ fn spawn_resin_inner(
         cmd.creation_flags(0x08000000);
     }
 
+    // Startup latency = spawn initiation -> first /healthz success.
+    let spawn_started = Instant::now();
     let mut child = cmd.spawn().context("sidecar: failed to spawn resin binary")?;
 
     // Assign child to Windows Job Object so the OS kills resin.exe
@@ -445,7 +447,7 @@ fn spawn_resin_inner(
             Ok(r) if r.status().is_success() => {
                 tracing::info!(
                     "sidecar: resin control plane up on {base} after {}ms",
-                    Instant::now().elapsed().as_millis()
+                    spawn_started.elapsed().as_millis()
                 );
                 return Ok(SidecarHandle {
                     child: Mutex::new(Some(child)),
