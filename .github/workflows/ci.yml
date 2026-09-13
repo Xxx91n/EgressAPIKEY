@@ -1,10 +1,20 @@
 name: ci
 
-# Manual dispatch only (ADR-0010): the user triggers the 5-job release matrix
-# from the Actions tab with a tag input. Pushes and PRs do NOT auto-run — the
-# local scripts/build-all.sh covers the per-commit release-exe requirement
-# (AGENTS.md section 5), and CI minutes are spent only on intentional releases.
+# Dual trigger (ADR-0010 + its 2026-09-14 revision note; round-8 ticket 06 / A-016).
+#   push / pull_request -> ONLY the `verify` job runs: cargo test + frontend build
+#     (tsc + vite) + vitest + every guard script (scripts/verify-build.sh) + the
+#     line-ending guard. This is the push->verify gate: no green verify, no merge.
+#   workflow_dispatch  -> `verify` + the 5-job release matrix, unchanged and still
+#     manual: the user opens the Actions tab and types a tag.
+# Release packaging NEVER runs on push: every release/e2e job carries
+# `if: github.event_name == 'workflow_dispatch'`.
+# Minute burn is bounded by the concurrency group below: superseded push/PR runs on
+# the same ref are cancelled, while a manual release run is never cancelled.
 on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
   workflow_dispatch:
     inputs:
       tag:
@@ -12,23 +22,39 @@ on:
         required: true
         type: string
 
+# Cancel superseded push/PR runs on the same ref. A manual release run is never
+# cancelled, so an intentional release always finishes even if a push lands mid-run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
 jobs:
-  # 1. Lint + typecheck + build + unit tests + i18n coverage gate.
+  # 1. push->verify gate (round-8 ticket 06 / A-016): the ONLY job that runs on push
+  #    and pull_request. cargo test + frontend build (tsc + vite) + vitest + every
+  #    guard script + the line-ending guard. Guard scripts are enumerated in
+  #    scripts/verify-build.sh (i18n x18 / ipc-manifest / vitest-isolation /
+  #    license-field / readme-lang / upstream-router).
   verify:
-    name: verify (build + test + i18n)
+    name: 'verify (push->verify gate: build + test + i18n + guards)'
     runs-on: ubuntu-latest
     env:
       CARGO_BUILD_TARGET: x86_64-unknown-linux-gnu
     steps:
-      - uses: actions/checkout@v4
+      - name: checkout release tag (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
         with:
           ref: refs/tags/${{ inputs.tag }}
+      - name: checkout pushed/PR ref
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
           version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux system deps (Tauri v2)
         run: |
@@ -47,6 +73,8 @@ jobs:
     name: e2e (playwright)
     runs-on: ubuntu-latest
     needs: verify
+    # Release-track job: never on push - the automatic gate is `verify` only.
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,6 +85,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
@@ -72,6 +101,8 @@ jobs:
   backend:
     name: backend headless (${{ matrix.name }})
     needs: verify
+    # Release-track job: manual dispatch only (ADR-0010 Track 2).
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -106,6 +137,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: pnpm
       - name: Build backend binary
         run: cargo build --release --target ${{ matrix.target }} -p egressapikey-app --bin egressapikey-headless --features headless
       - name: Package backend
@@ -149,6 +181,8 @@ jobs:
   gui:
     name: gui installer (${{ matrix.name }})
     needs: verify
+    # Release-track job: manual dispatch only (ADR-0010 Track 2).
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -186,6 +220,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -238,6 +273,8 @@ jobs:
   gui-portable:
     name: gui portable (${{ matrix.name }})
     needs: verify
+    # Release-track job: manual dispatch only (ADR-0010 Track 2).
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -274,6 +311,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}

@@ -69,6 +69,10 @@ What Track 1 cannot do on a Windows host (deferred to Track 2):
 
 ### Track 2 — GitHub Actions release pipeline, manual dispatch only
 
+_Revised 2026-09-14 (ticket 06 / A-016, see the Revision section at the end): the_
+_release JOBS stay manual dispatch; the file-level `on:` block was re-opened to_
+_`push` / `pull_request` for the `verify` gate only._
+
 Add to .github/workflows/ci.yml (a new release workflow file is
 cleaner, but for now we gate the existing file):
 ```yaml
@@ -111,9 +115,20 @@ trigger the workflow with the same tag string in the input.
 
 ## Acceptance criteria
 
-- [ ] `ci.yml` `on:` block contains only `workflow_dispatch` (no
-      push, no pull_request) — verified by `grep` show zero `push:`
-      or `pull_request:` keys at the top level.
+- [x] ~~`ci.yml` `on:` block contains only `workflow_dispatch`~~ — **SUPERSEDED**
+      by the 2026-09-14 revision below. The live invariant is: `on:` contains
+      `push` + `pull_request` + `workflow_dispatch`, and every job except
+      `verify` carries `if: github.event_name == 'workflow_dispatch'`, so no push
+      or PR can reach the release matrix.
+
+- [ ] The push->verify gate is green: a push to any branch produces a CI run
+      whose only job is `verify`, and a `workflow_dispatch` run still produces
+      `verify` + `e2e` + the three release-matrix jobs. Evidence = CI run link.
+
+- [ ] `scripts/verify-build.sh` still runs every guard script (cargo build/test,
+      `tsc -b`, `vite build`, `vitest run`, i18n x18, ipc-manifest,
+      vitest-isolation, license-field, readme-lang, upstream-router) plus the
+      `git diff --check` line-ending guard in the `verify` job.
 - [ ] Track 1 is unchanged; `scripts/build-all.sh` on this Windows host
       produces `release/windows-gui/ai-api-route.exe` + resin.exe with
       a smoke launch (verified commit-by-commit per AGENTS.md section 5).
@@ -130,3 +145,58 @@ trigger the workflow with the same tag string in the input.
 - A future grill phase that wants PR-blocking CI (e.g. before merging to
   main) re-introduces a pull_request trigger on main ONLY (not codex/*).
   The ADR leaves that decision to the phase that needs it.
+
+## Revision — 2026-09-14 (Round 8, ticket 06 / A-016): push->verify gate
+
+Status stays **ACCEPTED**. This section amends the *trigger* half of the
+decision only: Track 1 (local instant availability) and Track 2 (release
+matrix = manual dispatch) are unchanged.
+
+**What changed.** A-016 recorded the fact that GitHub Actions ran on
+`workflow_dispatch` alone, so no CI job ever verified an ordinary push. Per
+D-005 packing item 1 (`ci.yml` 加 push→verify job，发布保持手动 dispatch),
+`.github/workflows/ci.yml` now carries three triggers:
+
+| trigger | jobs that run |
+| --- | --- |
+| `push` (branches `**`) | `verify` only |
+| `pull_request` (branches `**`) | `verify` only |
+| `workflow_dispatch` (input `tag`) | `verify` + `e2e` + backend / gui / gui-portable release matrix |
+
+Every non-`verify` job gained `if: github.event_name == 'workflow_dispatch'`,
+so packaging cannot be triggered by a push even though the file is now
+push-enabled. The `verify` job content is unchanged — `scripts/verify-build.sh`
+already runs cargo build + cargo test, `tsc -b`, `vite build`, `vitest run` and
+all six guard scripts (i18n x18, ipc-manifest, vitest-isolation, license-field,
+readme-lang, upstream-router) — plus the existing `git diff --check` line-ending
+guard. Its `actions/checkout` step was split into two conditional steps so a
+dispatch run still pins `refs/tags/${{ inputs.tag }}` while a push/PR run uses
+the default ref.
+
+**Rule of thumb: verify automatic / release manual.**
+
+**Minute budget — cache & duration (evaluated in ticket 06).**
+
+- Adopted: a `concurrency` group keyed on `workflow` + `ref`, with
+  `cancel-in-progress` disabled for `workflow_dispatch`. Rapid pushes cancel
+  superseded verify runs; an intentional release is never cancelled.
+- Adopted: `actions/setup-node` gains `cache: pnpm` in all five jobs, so the
+  pnpm store is shared across verify and the release matrix instead of being
+  re-resolved per job.
+- Rejected: merging `verify` into the release jobs. `verify` must run on push,
+  where the release jobs are skipped, and a release must be re-verified at the
+  exact tag commit rather than trusting an earlier branch run.
+- Rejected: unifying `Swatinem/rust-cache` keys across `verify` and the release
+  jobs. They build different artifact sets (`resin-core` vs `--features
+  headless` vs `--features custom-protocol`) across four targets; a shared key
+  would thrash, and the trade-off cannot be measured here (CI-only rule,
+  WORKFLOW section 2). Revisit only with real CI timing data.
+- Rejected: caching the `scripts/fetch_resin.sh` download. The sidecar is a
+  vendored upstream artifact; a stale cache key would silently pin an old Resin
+  build.
+
+**Open item.** The green push-triggered CI run that ticket 06 asks for requires
+a push to `origin`, deferred to the user (WORKFLOW section 4.2: no push without
+an explicit instruction). Until then the gate is verified by workflow parsing
+and YAML validation, not by a run.
+---
