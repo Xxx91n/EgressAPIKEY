@@ -331,7 +331,6 @@ mod tests {
         assert!(latency.is_some(), "reachability carries a latency sample");
         let _ = server.await;
     }
-}
 
     #[tokio::test]
     async fn run_tick_marks_unreachable_port_and_backoff_grows() {

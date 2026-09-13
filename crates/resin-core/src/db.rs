@@ -252,7 +252,6 @@ mod tests {
         // Idempotent: a second pass at the already-current version is a no-op.
         DbPool::migrate(&pool.0.lock()).unwrap();
     }
-}
 
     #[test]
     fn upsert_port_inserts_then_updates() {
