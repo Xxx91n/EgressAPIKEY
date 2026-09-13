@@ -201,6 +201,7 @@
     "conflict": "Port {{port}} zaten '{{process}}' e bağlı",
     "backendSaved": "Yönlendirme kuralı kaydedildi",
     "proxyNote": "Yönlendirme kuralları yalnızca istemci trafiği Resin proxy üzerinden geçtiğinde uygulanır. Sidecar istek başına kimlik doğrulamasını zorlar; bu yerel bir kural kayıt defteridir.",
+    "declarativeNote": "Bu kural, işlem trafiğini otomatik olarak devralmaz; hedef işlemin proxy ayarlarını seçilen porta yönlendirin.",
     "targetPort": "Hedef port"
   },
   "settings": {

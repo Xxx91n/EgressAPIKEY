@@ -201,6 +201,7 @@
     "conflict": "Porta {{port}} già associata a '{{process}}'",
     "backendSaved": "Regola di instradamento salvata",
     "proxyNote": "Le regole di routing si applicano solo quando il traffico del client attraversa il proxy Resin. Il sidecar applica l'autenticazione per richiesta; questo è un registro locale di regole.",
+    "declarativeNote": "Questa regola non intercetta automaticamente il traffico del processo; punta le impostazioni proxy del processo di destinazione sulla porta selezionata.",
     "targetPort": "Porta di destinazione"
   },
   "settings": {

@@ -201,6 +201,7 @@
     "conflict": "Cổng {{port}} đã gắn với '{{process}}'",
     "backendSaved": "Đã lưu quy tắc định tuyến",
     "proxyNote": "Quy tắc định tuyến chỉ áp dụng khi lưu lượng khách đi qua proxy Resin. Sidecar thực thi xác thực mỗi yêu cầu; đây là sổ đăng ký quy tắc cục bộ.",
+    "declarativeNote": "Quy tắc này không tự động tiếp quản lưu lượng của tiến trình; hãy trỏ cài đặt proxy của tiến trình đích đến cổng đã chọn.",
     "targetPort": "Cổng đích"
   },
   "settings": {

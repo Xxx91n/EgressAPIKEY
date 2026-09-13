@@ -201,6 +201,7 @@
     "conflict": "Port {{port}} bereits an '{{process}}' gebunden",
     "backendSaved": "Routing-Regel gespeichert",
     "proxyNote": "Routingregeln gelten nur, wenn Client-Datenverkehr über den Resin-Proxy läuft. Der Sidecar erzwingt Auth pro Anfrage; dies ist eine lokale Regel-Registry.",
+    "declarativeNote": "Diese Regel übernimmt den Prozessverkehr nicht automatisch; richten Sie die Proxy-Einstellungen des Zielprozesses auf den ausgewählten Port.",
     "targetPort": "Ziel-Port"
   },
   "settings": {

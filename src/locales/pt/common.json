@@ -201,6 +201,7 @@
     "conflict": "Porta {{port}} já vinculada a '{{process}}'",
     "backendSaved": "Regra de roteamento salva",
     "proxyNote": "As regras de roteamento só se aplicam quando o tráfego do cliente passa pelo proxy Resin. O sidecar impõe autenticação por requisição; isto é um registro local de regras.",
+    "declarativeNote": "Esta regra não assume automaticamente o tráfego do processo; aponte as configurações de proxy do processo de destino para a porta selecionada.",
     "targetPort": "Porta de destino"
   },
   "settings": {

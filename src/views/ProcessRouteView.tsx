@@ -14,7 +14,9 @@ import { HeadlessCapabilityNotice, commandBlocked } from "../components/Headless
 /// the former webview settings.json persist path is deleted. One port can
 /// carry at most one process — the typed conflict error is surfaced as a
 /// toast. Resin owns per-request auth separately; here we only own the
-/// routing-rule registry.
+/// routing-rule registry. The registry is a declarative memo: it never
+/// takes over a process's traffic — the process's own proxy settings must
+/// point at the port (the banner states this verbatim, ADR-0055 D3).
 export function ProcessRouteView() {
   const { t } = useTranslation();
   const localRoutes = useAppStore((s) => s.processRoutes);
@@ -120,7 +122,11 @@ export function ProcessRouteView() {
 
       <div className="rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-950/30 px-4 py-2 text-xs text-blue-600 dark:text-blue-400 flex items-start gap-2">
         <AlertCircle size={14} className="mt-0.5 shrink-0" strokeWidth={1.75} />
-        <span className="leading-relaxed">{t("processRoute.proxyNote")}</span>
+        <span className="leading-relaxed">
+          {t("processRoute.declarativeNote")}
+          <br />
+          {t("processRoute.proxyNote")}
+        </span>
       </div>
 
       {localRoutes.length === 0 ? (

@@ -201,6 +201,7 @@
     "conflict": "Port {{port}} already bound to '{{process}}'",
     "backendSaved": "Routing rule saved",
     "proxyNote": "Routing rules apply only when client traffic flows through the Resin proxy. The sidecar enforces per-request auth; rules here are a local registry.",
+    "declarativeNote": "This rule does not automatically take over the process's traffic; point the target process's proxy settings at the selected port.",
     "targetPort": "Target port"
   },
   "settings": {

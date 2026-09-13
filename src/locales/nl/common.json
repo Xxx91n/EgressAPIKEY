@@ -201,6 +201,7 @@
     "conflict": "Poort {{port}} al gebonden aan '{{process}}'",
     "backendSaved": "Routeringsregel opgeslagen",
     "proxyNote": "Routeringsregels zijn alleen van toepassing wanneer clientverkeer via de Resin-proxy loopt. De sidecar dwingt authenticatie per verzoek af; dit is een lokaal regelregister.",
+    "declarativeNote": "Deze regel neemt het procesverkeer niet automatisch over; wijs de proxy-instellingen van het doelproces naar de geselecteerde poort.",
     "targetPort": "Doelpoort"
   },
   "settings": {

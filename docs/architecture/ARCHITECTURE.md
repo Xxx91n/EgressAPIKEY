@@ -155,7 +155,10 @@ enabled-but-listenerless, and consistent when the port is disabled or absent
 (inert by intent); route drift joins the unacknowledged-drift counter and the
 acknowledged vocabulary; the one-way reconcile converges routes through the
 existing ports-restore half (Resin has no per-process API — verified against
-upstream). The snapshot is the ONLY sanctioned cross-store merge point. The Resin-side account-header-rules family (R32-R35, wired by
+upstream). The family is a declarative memo — adding a rule never takes over
+the process's traffic; the target process's own proxy settings must point at
+the entry port (the ProcessRoute view banner and the troubleshooting table
+state this verbatim). The snapshot is the ONLY sanctioned cross-store merge point. The Resin-side account-header-rules family (R32-R35, wired by
 round5 ticket 16 / ADR-0063) is the proxy-data-plane counterpart — URL-prefix
 → header-name rules for account extraction on the reverse proxy — and is
 deliberately NOT an L2 config family: four thin IPC pass-throughs over the

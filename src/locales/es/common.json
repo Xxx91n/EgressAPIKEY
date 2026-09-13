@@ -201,6 +201,7 @@
     "conflict": "Puerto {{port}} ya vinculado a '{{process}}'",
     "backendSaved": "Regla de enrutamiento guardada",
     "proxyNote": "Las reglas de enrutamiento solo se aplican cuando el tráfico del cliente pasa por el proxy Resin. El sidecar aplica autenticación por solicitud; esto es un registro local de reglas.",
+    "declarativeNote": "Esta regla no toma el control del tráfico del proceso automáticamente; apunte la configuración de proxy del proceso de destino al puerto seleccionado.",
     "targetPort": "Puerto de destino"
   },
   "settings": {

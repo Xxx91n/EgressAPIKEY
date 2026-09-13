@@ -201,6 +201,7 @@
     "conflict": "端口 {{port}} 已绑定到 '{{process}}'",
     "backendSaved": "路由规则已保存",
     "proxyNote": "路由规则仅当客户端流量经由 Resin 代理转发时生效。Resin 边车按请求鉴权；此处为本地规则注册表。",
+    "declarativeNote": "此规则不自动接管进程流量；需让目标进程的代理设置指向所选端口。",
     "targetPort": "目标端口"
   },
   "settings": {

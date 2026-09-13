@@ -90,9 +90,31 @@ apply/reconcile。
 **想让新漂移再弹一次**:把当前漂移处理到归零(点「同步到期望态」或修正
 白盒),或对已知漂移条目做豁免;之后的新漂移会重新触发通知。
 
+## 场景 5:配了进程路由,目标进程的流量没走代理
+
+**症状**:在「进程路由」页添加了 `xxx.exe → :17990`,但该进程的流量并未经由
+所选出口;Effective Config 里路由条目照常显示 一致 consistent。
+
+**原因(设计行为,ADR-0055 D3)**:进程路由是**带漂移告警的声明式备忘**,不是
+流量拦截器——规则只记录「进程名 → 入口端口」的意图并核对目标端口的存活度,
+壳层不会自动接管该进程的连接。Resin 没有进程组 API,一条路由的存活度 = 它
+指向的入口端口的存活度(端口有监听器即 consistent)。
+
+**修复**:让目标进程自己的代理设置指向所选端口——入口地址
+`127.0.0.1:<端口>`(HTTP_PROXY/HTTPS_PROXY 环境变量、应用内代理设置或系统
+代理)。指向之后该进程的流量才会经 Resin 出口;路由条目的三态仍按端口存活度
+报告,不反映该进程是否真的在用代理。
+
+**升级路径(留档)**:若 Resin 上游未来支持进程组,快照缝已按「L3 侧归一化
+名称集合」塑形(`ProcessRouteSnapshot` / `merge_routes`,snapshot.rs 的
+process-group echo 注释),届时把数据源从端口监听器回显换成进程组注册表即可
+完成无痛升级的半执行;真正的进程级流量拦截属独立 round,与 Resin fork 决策点
+同级(D-005)。
+
 ## 相关文档
 
 - 生效配置视图契约:ADR-0051(authoritative snapshot)
 - 调和闭环(单向 reconcile / 版本化 / 通知一次):ADR-0054
 - 配置权威三层模型:`docs/architecture/ARCHITECTURE.md` § Config Authority
 - 白盒回滚:生效配置视图内的历史区(每次写入自动备份,保留最近 10 份)
+- 进程路由 vs 账号头规则:`docs/architecture/PROCESS_ROUTE_VS_HEADER_RULES.md`

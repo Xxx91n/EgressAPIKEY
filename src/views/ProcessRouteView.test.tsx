@@ -61,4 +61,13 @@ describe("ProcessRouteView (closed-loop, IPC-mocked)", () => {
     fireEvent.click(screen.getByRole("button", { name: /add|\u6dfb\u52a0/i }));
     await waitFor(() => expect(screen.getByText(/conflict|Lane .* bound/i)).toBeInTheDocument(), { timeout: 2000 });
   });
+
+  it("renders the declarative-memo honesty note (rules never take over traffic)", async () => {
+    render(<ProcessRouteView />);
+    await waitFor(() =>
+      expect(
+        screen.getByText(/does not automatically take over|不自动接管|declarativeNote/i)
+      ).toBeInTheDocument()
+    );
+  });
 });

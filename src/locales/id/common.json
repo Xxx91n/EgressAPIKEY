@@ -201,6 +201,7 @@
     "conflict": "Port {{port}} sudah terikat ke '{{process}}'",
     "backendSaved": "Aturan routing disimpan",
     "proxyNote": "Aturan routing hanya berlaku saat lalu lintas klien mengalir melalui proxy Resin. Sidecar menegaskan autentikasi per permintaan; ini adalah registri aturan lokal.",
+    "declarativeNote": "Aturan ini tidak secara otomatis mengambil alih lalu lintas proses; arahkan pengaturan proxy proses target ke port yang dipilih.",
     "targetPort": "Port target"
   },
   "settings": {

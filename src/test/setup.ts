@@ -219,6 +219,7 @@ beforeAll(async () => {
         "processRoute.empty": "No per-process routing rules.",
         "processRoute.conflict": "Lane {{lane}} already bound to process \"{{process}}\"",
         "processRoute.backendSaved": "Routing rule saved",
+        "processRoute.declarativeNote": "This rule does not automatically take over the process's traffic; point the target process's proxy settings at the selected port.",
         "topology.live": "Lanes refresh live from the gateway",
         "topology.sidecarUnhealthy": "Sidecar unsafe: Resin proxy offline.",
         "topology.entry": "Entry: {{platform}}",
