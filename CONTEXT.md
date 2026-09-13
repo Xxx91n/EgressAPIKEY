@@ -149,6 +149,17 @@ avoids burning API quotas.
 _Avoid_: IP checker, fraud detector, blacklist, Resin GeoIP as the
 reputation source
 
+### Mixed Protocol
+
+The default entry-port protocol value (round8 D-007): one port accepts
+both HTTP-proxy and SOCKS5 clients, disambiguated by the connection's
+first byte (0x05 = SOCKS5, otherwise HTTP). Explicit http and socks5
+values remain for single-protocol ports; choosing socks5 no longer
+implicitly opens HTTP forwarding on the engine. The shell forwarder
+injects the port's (platform, account) credential in the dialect the
+port declares (Proxy-Authorization for HTTP, RFC 1929 username/password
+for SOCKS5). _Avoid_: auto-detect port, dual listener
+
 ### Protocol Weight
 
 A documented (not runtime-injected) suitability ranking of outbound
@@ -188,6 +199,18 @@ The packaging and restore mechanics of this ledger are legislated by
 ADR-0070.
 _Avoid_: backup layer, backup tier, backup kind
 
+### Data-Plane Mode
+
+Which process listens on an Entry Port and how the client authenticates
+(round8 D-001). Mode A (shell forwarder): the Rust shell listens, the
+client connects without credentials, and the forwarder injects the port's
+(platform, account) as the proxy credential toward Resin. Mode B (engine
+direct): Resin listens natively and the client supplies the
+Platform.Account credential once. Desktop defaults to A; VPS/headless
+defaults to B. A Resin fork with native per-port identity is the declared
+fallback if A+B proves unmaintainable or misses the round-8 performance
+targets. _Avoid_: zero-adapt (only mode A is credential-free), dual proxy
+
 ### Entry Port Mapping
 
 The SQLite table (reuses DbPool infra) that stores each Entry Port number
@@ -216,6 +239,15 @@ kept) that captures every Rust-side tracing::info/warn/error. The user
 can open the log directory from Settings > Storage. Used for debugging
 topology drag edits, subscription imports, and sidecar lifecycle events.
 _Avoid_: audit trail, access log, debug log
+
+### Headless Control Plane
+
+The browser SPA plus the Rust headless BFF that reproduce the desktop
+control surface without Tauri (round8 D-003). The BFF holds the Resin
+admin token server-side and never exposes it to the browser; it must
+refuse to start when bound beyond loopback without an explicit auth
+token, and rejects unexpected Host/Origin values.
+_Avoid_: admin web panel, public dashboard
 
 ### RunningMode
 
@@ -447,17 +479,20 @@ geo region), quality (filter by IP quality score threshold), subscription
 mandatory liveness gate (Resin ProbeManager + circuit breaker) excludes
 unhealthy nodes before any strategy applies. Implemented in the shell-side
 strategy_engine.rs, not in Resin.
+Per round8 D-002, top-N and manual node selection land on Resin as the
+selected nodes' region set: the documented semantics are region-filter,
+not per-node pinning.
 _Avoid_: ingress filter, node selector, admission policy
 
 ### B-Class Strategy
 
-A strategy that controls how an Entry Port selects an exit IP from a
-Platform's node pool. Single-IP platforms are fixed (no strategy). Multi-IP
-platforms pick one (mutually exclusive): random (OsRng true random),
-round_robin (N requests per IP before rotating), low_latency (real-time
-sort by EWMA). Implemented in the shell-side strategy_engine.rs; maps onto
-Resin allocation_policy where possible, biases lease selection otherwise.
-_Avoid_: egress selector, exit picker, rotation mode
+The legislated truth set for how a platform allocates an exit IP
+(round8 D-002): exactly one of the three Resin-native allocation
+policies — BALANCED, PREFER_LOW_LATENCY, PREFER_IDLE_IP. The former six
+shell-side options are display-only and withdrawn from the UI; the
+desired allocation_policy participates in strategy apply's diff-then-skip
+and the snapshot's Consistent judgement.
+_Avoid_: fake strategy, display-only parameter, six-strategy catalog
 
 ### Strategy Engine
 
@@ -607,6 +642,16 @@ to — the shell does not claim per-process enforcement (Resin owns
 per-request auth; the rule registry is shell-side metadata). The former
 settings.json key was a mis-layering and is purged at boot.
 _Avoid_: lane route (lanes are gone), app firewall rule
+
+### L2-First Write Order
+
+The legislated order for configuration mutations (round8 D-006): persist
+the intent to the L2 whitebox first, then mutate the L3 engine runtime.
+A second-step failure leaves the system intent-declared and
+action-pending — drift visible, converge retry recovers — never a silent
+L3-only change or a lost intent. Saga-style compensation of L3 stays
+reserved for the already-legislated narrow cascade case.
+_Avoid_: rollback-first, transactional write
 
 ### Authoritative Write Entry
 
