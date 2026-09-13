@@ -70,6 +70,29 @@ needing to edit L3 state to change behavior is a bug. No new config storage
 may be introduced without re-legislating this subsection. Logs
 (`app_log_dir()`, Resin request logs) are observability data, not a layer.
 
+Headless storage root (round-8 ticket 02 / A-006; re-legislates the paragraph
+above for the second binary). The `egressapikey-headless` binary links the SAME
+`crates/resin-core` stores and serves the same control surface without a
+webview, so it opens the identical L2 files (`egressapikey-ports.json`,
+`egressapikey.db`) through the same `WhiteboxConfigStore` write entry - only
+the storage ROOT differs, because `app_config_dir()` is a Tauri-only resolver:
+headless uses its own OS-standard state root
+(`dirs::data_dir()/egressapikey`, resolved in `headless_main.rs`). This is a
+second storage ROOT, not a second config layer: no new key, file name or
+write entry is introduced, and `WhiteboxConfigStore` remains the single write
+entry for L2.
+
+The limitation is explicit and load-bearing: **a host runs EITHER the desktop
+shell OR the headless server, never both.** Two instances would each hold
+their own L2 and neither would observe the other's edits - the Docker-Desktop
+dual-daemon anti-pattern the round-8 ticket 02 research cites as a cautionary
+tale. The headless deployment guide ships a systemd unit precisely so the
+server owns the host. Commands whose truth source is desktop-only (tray, OS
+proxy, `tauri-plugin-store`, streaming channels, local path/export surfaces)
+keep NO headless equivalent; the SPA renders an explicit disabled state for
+them (`DISABLED_COMMANDS` + `ipcCommandAvailability()` in `src/lib/ipc.ts`)
+instead of failing at call time.
+
 Known exception, read-only: `backup_create`
 (`src-tauri/src/commands/backup.rs`) reads `state.db` / `cache.db` directly
 from the Resin state dir, but only to package them into the user-facing zip

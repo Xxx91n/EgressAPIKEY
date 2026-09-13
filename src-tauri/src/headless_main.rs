@@ -1192,4 +1192,67 @@ mod bff_translate_tests {
         let err = rewrite_patch_body_snake_case(&body).unwrap_err();
         assert!(err.contains("must be a JSON object"));
     }
+
+    // --- Ticket 02: the new BFF translation helpers (pure, no reqwest). ---
+
+    #[test]
+    fn split_query_separates_path_and_query() {
+        assert_eq!(split_query("/api/v1/platforms"), ("/api/v1/platforms", ""));
+        assert_eq!(
+            split_query("/api/v1/platforms?leases_for=openai"),
+            ("/api/v1/platforms", "leases_for=openai")
+        );
+    }
+
+    #[test]
+    fn query_param_reads_and_percent_decodes() {
+        assert_eq!(
+            query_param("leases_for=openai", "leases_for").as_deref(),
+            Some("openai")
+        );
+        assert_eq!(
+            query_param("a=1&refresh=my%20sub", "refresh").as_deref(),
+            Some("my sub")
+        );
+        assert_eq!(query_param("a=1", "missing"), None);
+        // A bare key (no "=") reads as the empty string, not a panic.
+        assert_eq!(query_param("flag", "flag").as_deref(), Some(""));
+    }
+
+    #[test]
+    fn percent_decode_handles_multibyte_and_leaves_plus_literal() {
+        assert_eq!(percent_decode("%E4%B8%AD"), "中");
+        // Deliberate: "+" is NOT treated as space (identifiers only here).
+        assert_eq!(percent_decode("a+b"), "a+b");
+        // A trailing/invalid % sequence falls through untouched.
+        assert_eq!(percent_decode("100%"), "100%");
+    }
+
+    #[test]
+    fn read_name_reuses_the_shared_short_name_validator() {
+        assert_eq!(
+            read_name(&serde_json::json!({ "name": "openai" })).unwrap(),
+            "openai"
+        );
+        assert!(read_name(&serde_json::json!({})).is_err(), "missing name");
+        assert!(read_name(&serde_json::json!({ "name": "" })).is_err(), "empty");
+        assert!(
+            read_name(&serde_json::json!({ "name": "a".repeat(129) })).is_err(),
+            "over the shared NAME_MAX bound"
+        );
+    }
+
+    #[test]
+    fn allocation_policy_allow_list_is_the_shared_command_constant() {
+        // Locks the A-006 "one validation, two transports" contract: the BFF
+        // rewriter must accept exactly what the Tauri command accepts.
+        assert!(
+            egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.contains(&"BALANCED")
+        );
+        assert!(!egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.contains(&"random"));
+        let body = serde_json::json!({ "name": "x", "allocationPolicy": "BALANCED" });
+        assert!(rewrite_patch_body_snake_case(&body).is_ok());
+        let bad = serde_json::json!({ "name": "x", "allocationPolicy": "random" });
+        assert!(rewrite_patch_body_snake_case(&bad).is_err());
+    }
 }
