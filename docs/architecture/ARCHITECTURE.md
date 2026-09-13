@@ -270,7 +270,7 @@ ConvergePhase in {Converged, Drifted(acknowledged)}.
 ## Tech stack
 
 Desktop shell: Tauri 2 (Rust)
-Frontend: React 19, Vite 6, ReactFlow 12, Zustand 5, Tailwind 4, react-i18next
+Frontend: React 19, Vite 6, ReactFlow 12, Zustand 5, Tailwind 3, react-i18next
 Sidecar: Resin Go binary (github.com/Resinat/Resin v1.2.0)
 Tests: cargo test, vitest, playwright (counts: run scripts/verify-build.sh)
 Packaging: tauri build --features custom-protocol -> release/
