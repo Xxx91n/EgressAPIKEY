@@ -27,6 +27,7 @@
 //! ADR-0050; that ADR records the reference evidence.
 
 pub mod audit;
+pub mod backup;
 pub mod config_transfer;
 pub mod db;
 pub mod entry_protocol;

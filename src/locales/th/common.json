@@ -23,7 +23,15 @@
     "restore": "กู้คืน",
     "success": "สำรองสำเร็จ",
     "failed": "สำรองล้มเหลว",
-    "noConfig": "WebDAV ยังไม่ได้ตั้ง"
+    "noConfig": "WebDAV ยังไม่ได้ตั้ง",
+    "passphrase": "รหัสผ่านสำรองข้อมูล",
+    "passphraseHint": "ไม่บังคับ: เข้ารหัสไฟล์เก็บถาวร",
+    "listed": "พบข้อมูลสำรอง {{n}} รายการบน WebDAV",
+    "noBackups": "ไม่มีข้อมูลสำรองบน WebDAV",
+    "restoreConfirm": "กู้คืน {{name}} หรือไม่ การกำหนดค่า whitebox ที่ใช้งานอยู่จะถูกเขียนทับ",
+    "restoreSuccess": "กู้คืนเสร็จสิ้น: {{platforms}} แพลตฟอร์ม, {{ports}} พอร์ต",
+    "restoreFailed": "กู้คืนล้มเหลว",
+    "evidenceNote": "แตกไฟล์สมาชิกรันไทม์/การตรวจสอบ {{files}} รายการเป็นหลักฐานเท่านั้น"
   },
   "common": {
     "cancel": "ยกเลิก",

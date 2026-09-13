@@ -23,7 +23,15 @@
     "restore": "Restaurer",
     "success": "Sauvegarde terminée",
     "failed": "Sauvegarde échouée",
-    "noConfig": "WebDAV non configuré"
+    "noConfig": "WebDAV non configuré",
+    "passphrase": "Phrase secrète de sauvegarde",
+    "passphraseHint": "Facultatif : chiffre l'archive",
+    "listed": "{{n}} sauvegardes trouvées sur WebDAV",
+    "noBackups": "Aucune sauvegarde sur WebDAV",
+    "restoreConfirm": "Restaurer {{name}} ? La configuration whitebox active sera écrasée.",
+    "restoreSuccess": "Restauration terminée : {{platforms}} plateformes, {{ports}} ports",
+    "restoreFailed": "Échec de la restauration",
+    "evidenceNote": "{{files}} éléments runtime/audit extraits uniquement comme preuves"
   },
   "common": {
     "cancel": "Annuler",

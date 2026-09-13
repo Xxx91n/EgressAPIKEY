@@ -23,7 +23,15 @@
     "restore": "復元",
     "success": "バックアップ完了",
     "failed": "バックアップ失敗",
-    "noConfig": "WebDAV未設定"
+    "noConfig": "WebDAV未設定",
+    "passphrase": "バックアップのパスフレーズ",
+    "passphraseHint": "任意：アーカイブを暗号化します",
+    "listed": "WebDAV 上に {{n}} 件のバックアップがあります",
+    "noBackups": "WebDAV 上にバックアップがありません",
+    "restoreConfirm": "{{name}} を復元しますか？現在のホワイトボックス構成は上書きされます。",
+    "restoreSuccess": "復元が完了しました：{{platforms}} プラットフォーム、{{ports}} ポート",
+    "restoreFailed": "復元に失敗しました",
+    "evidenceNote": "{{files}} 件のランタイム/監査メンバーを証跡としてのみ展開しました"
   },
   "common": {
     "cancel": "キャンセル",

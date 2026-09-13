@@ -178,10 +178,11 @@ Removal condition: drop these from the manifest + registry only when Resin's acc
 # Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):
 # entries must equal the #[tauri::command] set under src-tauri/src AND the
 # generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.
-# Do not hand-edit entries. Regenerated: 2026-09-05 (78 commands)
+# Do not hand-edit entries. Regenerated: 2026-09-14 (79 commands)
 backup_create = src-tauri/src/commands/backup.rs
 backup_upload = src-tauri/src/commands/backup.rs
 backup_list = src-tauri/src/commands/backup.rs
+backup_restore = src-tauri/src/commands/backup.rs
 config_export = src-tauri/src/commands/backup.rs
 config_import = src-tauri/src/commands/backup.rs
 get_sidecar_logs = src-tauri/src/commands/diagnostics.rs

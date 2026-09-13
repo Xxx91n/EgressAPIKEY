@@ -153,6 +153,7 @@ fn main() {
             commands::backup_create,
             commands::backup_upload,
             commands::backup_list,
+            commands::backup_restore,
             commands::config_export,
             commands::config_import,
             commands::lease_map,

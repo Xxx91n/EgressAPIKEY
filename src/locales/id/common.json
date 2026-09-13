@@ -23,7 +23,15 @@
     "restore": "Pulihkan",
     "success": "Cadangan selesai",
     "failed": "Cadangan gagal",
-    "noConfig": "WebDAV belum diatur"
+    "noConfig": "WebDAV belum diatur",
+    "passphrase": "Frasa sandi cadangan",
+    "passphraseHint": "Opsional: mengenkripsi arsip",
+    "listed": "{{n}} cadangan ditemukan di WebDAV",
+    "noBackups": "Tidak ada cadangan di WebDAV",
+    "restoreConfirm": "Pulihkan {{name}}? Konfigurasi whitebox aktif akan ditimpa.",
+    "restoreSuccess": "Pemulihan selesai: {{platforms}} platform, {{ports}} port",
+    "restoreFailed": "Pemulihan gagal",
+    "evidenceNote": "{{files}} anggota runtime/audit diekstrak hanya sebagai bukti"
   },
   "common": {
     "cancel": "Batal",

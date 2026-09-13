@@ -23,7 +23,15 @@
     "restore": "Restore",
     "success": "Backup completed",
     "failed": "Backup failed",
-    "noConfig": "WebDAV not configured"
+    "noConfig": "WebDAV not configured",
+    "passphrase": "Backup passphrase",
+    "passphraseHint": "Optional: encrypts the archive",
+    "listed": "{{n}} backups found on WebDAV",
+    "noBackups": "No backups on WebDAV",
+    "restoreConfirm": "Restore {{name}}? The live whitebox configuration will be overwritten.",
+    "restoreSuccess": "Restore complete: {{platforms}} platforms, {{ports}} ports",
+    "restoreFailed": "Restore failed",
+    "evidenceNote": "{{files}} runtime/audit members extracted as evidence only"
   },
   "common": {
     "cancel": "Cancel",

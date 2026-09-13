@@ -155,23 +155,31 @@ _Avoid_: protocol score, transport rating
 
 ### Backup
 
-A zip archive of settings.json + Resin state directory, created before
-any topology drag-edit (防呆) and manually via Settings. Stored in
-app_data/backups with a crypto-random suffix. Uploadable to WebDAV
-(Koofr-compatible). Path-traversal guarded (P14 fix: canonicalize +
-starts_with confinement).
+A zip archive whose contents are fixed by the Backup Scope ledger below,
+created before any topology drag-edit (防呆) and manually via Settings. It
+carries a `manifest.json` (per-member SHA-256) and is optionally sealed
+with a passphrase envelope — ChaCha20-Poly1305, with the random file key
+wrapped by a PBKDF2-HMAC-SHA256 KEK (ADR-0070). Stored in app_data/backups
+with a crypto-random suffix. Uploadable to WebDAV (Koofr-compatible) and
+restorable from Settings: the config half re-enters the two authoritative
+L2 write entries, while L3 and the audit chain are unpacked read-only as
+evidence and never written back. Path-traversal guarded (P14 fix:
+canonicalize + starts_with confinement).
 _Avoid_: snapshot, checkpoint, save
 
 ### Backup Scope
 
 The three-class ledger of what a backup may contain and what each class
 means for config authority: (a) config-layer backups — the two whitebox
-files plus their sibling `backup/` history (10 kept; the write-audit JSONL
-joins this class once it exists) under `app_config_dir()`, restorable
+files plus their sibling `backup/` history (10 kept) and the write-audit
+JSONL with its rotated archives, under `app_config_dir()`, restorable
 through the same validate-before-swap write entry; (b) L3-derived backups —
 `state.db` / `cache.db` packaged read-only into the user-facing zip export
-by `backup_create`, never written back (ADR-0050-bis); (c)
+by `backup_create` as `VACUUM INTO` snapshots, never written back
+(ADR-0050-bis; snapshot method superseded by ADR-0070); (c)
 `request_logs*.db` — never enter backups, in any class (leak prevention).
+The packaging and restore mechanics of this ledger are legislated by
+ADR-0070.
 _Avoid_: backup layer, backup tier, backup kind
 
 ### Entry Port Mapping

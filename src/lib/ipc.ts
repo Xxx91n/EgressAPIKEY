@@ -424,9 +424,11 @@ export async function ipcIpReputationSnapshot(): Promise<ReputationSnapshot> {
 }
 
 
-/// Backup: create zip of settings + resin state, return temp path.
-export async function ipcBackupCreate(): Promise<string> {
-  return invoke<string>("backup_create");
+/// Backup: create the configuration archive and return its path.
+/// `passphrase` (non-empty) wraps the archive in the AEAD envelope, so a
+/// restore needs the same passphrase to open it.
+export async function ipcBackupCreate(passphrase?: string): Promise<string> {
+  return invoke<string>("backup_create", { passphrase: passphrase && passphrase.length > 0 ? passphrase : null });
 }
 
 /// Backup: upload zip to WebDAV server.
@@ -442,6 +444,42 @@ export async function ipcBackupList(url: string, username: string, password: str
   if (!url || url.length > 2048) throw new Error("webdav url invalid");
   if (!/^https?:\/\//.test(url)) throw new Error("webdav url must start with http:// or https://");
   return invoke<string[]>("backup_list", { url, username, password });
+}
+
+/** Restore summary returned by the backend. The backend verifies the manifest
+ *  and every member hash BEFORE it writes, so a failure here means nothing was
+ *  applied. `evidence` lists the L3 / audit members that were extracted as
+ *  read-only evidence instead of being written back. */
+export interface BackupRestoreSummary {
+  configRestored: boolean;
+  settingsRestored: boolean;
+  platforms: number;
+  ports: number;
+  portsRestored: number;
+  evidence: string[];
+  evidenceDir: string;
+  errors: string[];
+}
+
+/** Backup: download a listed archive from WebDAV and restore it through the
+ *  authoritative write entries (the same path config_import uses). */
+export async function ipcBackupRestore(
+  url: string,
+  username: string,
+  password: string,
+  zipName: string,
+  passphrase?: string,
+): Promise<BackupRestoreSummary> {
+  if (!url || url.length > 2048) throw new Error("webdav url invalid");
+  if (!/^https?:\/\//.test(url)) throw new Error("webdav url must start with http:// or https://");
+  if (!zipName || zipName.includes("/") || !zipName.endsWith(".zip")) throw new Error("backup name invalid");
+  return invoke<BackupRestoreSummary>("backup_restore", {
+    url,
+    username,
+    password,
+    zipName,
+    passphrase: passphrase && passphrase.length > 0 ? passphrase : null,
+  });
 }
 
 // ---- Process routing (ticket 17 / ADR-0055: L2 whitebox family) ----

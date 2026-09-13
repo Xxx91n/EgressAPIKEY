@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {ArrowRight, Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap, RefreshCw} from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { save } from "@tauri-apps/plugin-dialog";
-import { ipcBackupCreate, ipcBackupUpload, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, ipcGetConfigDir, ipcExportAuditLog,
+import { ipcBackupCreate, ipcBackupUpload, ipcBackupList, ipcBackupRestore, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, ipcGetConfigDir, ipcExportAuditLog,
   ipcSystemConfigGet,
   ipcSystemConfigPatch, type StrategyApplyResult} from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
@@ -142,6 +142,13 @@ export function SettingsView() {
   const [backupPass, setBackupPass] = useState("");
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMsg, setBackupMsg] = useState("");
+  // Restore side. The passphrase is never persisted - it is typed
+  // per operation, exactly like the WebDAV password is not sent to the webview.
+  const [backupPassphrase, setBackupPassphrase] = useState("");
+  const [backupNames, setBackupNames] = useState<string[]>([]);
+  const [backupPick, setBackupPick] = useState("");
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreMsg, setRestoreMsg] = useState("");
   const [configBusy, setConfigBusy] = useState(false);
   // surface it. Swallow errors (vitest, sidecar not running, IPC not registered).
   const [configMsg, setConfigMsg] = useState("");
@@ -277,7 +284,7 @@ export function SettingsView() {
     setBackupBusy(true);
     setBackupMsg("");
     try {
-      const zipPath = await ipcBackupCreate();
+      const zipPath = await ipcBackupCreate(backupPassphrase);
       await ipcBackupUpload(backupUrl.trim(), backupUser.trim(), backupPass, zipPath);
       setBackupMsg(t("backup.success"));
     } catch (e) {
@@ -285,6 +292,50 @@ export function SettingsView() {
     } finally {
       setBackupBusy(false);
       setTimeout(() => setBackupMsg(""), 3000);
+    }
+  };
+
+  const doListBackups = async () => {
+    if (!backupUrl.trim()) { setBackupMsg(t("backup.noConfig")); return; }
+    setBackupBusy(true);
+    setBackupMsg("");
+    try {
+      const names = await ipcBackupList(backupUrl.trim(), backupUser.trim(), backupPass);
+      setBackupNames(names);
+      setBackupPick(names[0] ?? "");
+      setBackupMsg(names.length ? t("backup.listed", { n: names.length }) : t("backup.noBackups"));
+    } catch (e) {
+      setBackupMsg(t("backup.failed") + ": " + translateError(e, t));
+    } finally {
+      setBackupBusy(false);
+      setTimeout(() => setBackupMsg(""), 3000);
+    }
+  };
+
+  // Restore overwrites the live whitebox, so it is gated behind an explicit
+  // confirm. The backend is the real guard: it writes nothing at all unless the
+  // manifest and every member hash verify first.
+  const doRestore = async () => {
+    if (!backupUrl.trim()) { setRestoreMsg(t("backup.noConfig")); return; }
+    if (!backupPick) { setRestoreMsg(t("backup.noBackups")); return; }
+    if (!window.confirm(t("backup.restoreConfirm", { name: backupPick }))) return;
+    setRestoreBusy(true);
+    setRestoreMsg("");
+    try {
+      const result = await ipcBackupRestore(
+        backupUrl.trim(), backupUser.trim(), backupPass, backupPick, backupPassphrase,
+      );
+      const evidence = result.evidence.length
+        ? " " + t("backup.evidenceNote", { files: result.evidence.length })
+        : "";
+      setRestoreMsg(
+        t("backup.restoreSuccess", { platforms: result.platforms, ports: result.ports }) + evidence,
+      );
+    } catch (e) {
+      setRestoreMsg(t("backup.restoreFailed") + ": " + translateError(e, t));
+    } finally {
+      setRestoreBusy(false);
+      setTimeout(() => setRestoreMsg(""), 8000);
     }
   };
 
@@ -684,6 +735,40 @@ export function SettingsView() {
           </button>
           {backupMsg ? <Check size={14} className="text-green-500" /> : null}
           {backupMsg ? <span className="text-xs text-zinc-500">{backupMsg}</span> : null}
+        </div>
+        <Field label={t("backup.passphrase")}>
+          <input
+            type="password"
+            value={backupPassphrase}
+            onChange={(e) => setBackupPassphrase(e.target.value)}
+            placeholder={t("backup.passphraseHint")}
+            className={inputCls}
+          />
+        </Field>
+        <div className="flex items-center gap-2 pt-1">
+          <button onClick={() => void doListBackups()} disabled={backupBusy} className={btnCls}>
+            <RefreshCw size={14} strokeWidth={1.75} />
+            {t("backup.list")}
+          </button>
+          <select
+            value={backupPick}
+            onChange={(e) => setBackupPick(e.target.value)}
+            className={selectCls}
+          >
+            {backupNames.length === 0 ? <option value="">{t("backup.noBackups")}</option> : null}
+            {backupNames.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => void doRestore()}
+            disabled={restoreBusy || !backupPick}
+            className={btnCls}
+          >
+            {restoreBusy ? <Loader2 size={14} strokeWidth={1.75} className="animate-spin" /> : <Upload size={14} strokeWidth={1.75} />}
+            {t("backup.restore")}
+          </button>
+          {restoreMsg ? <span className="text-xs text-zinc-500">{restoreMsg}</span> : null}
         </div>
       </SectionCard>
       <SectionCard icon={<Download size={16} strokeWidth={1.75} />} title={t("config.title")}>

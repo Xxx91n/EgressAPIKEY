@@ -23,7 +23,15 @@
     "restore": "Geri yükle",
     "success": "Yedek tamamlandı",
     "failed": "Yedek başarısız",
-    "noConfig": "WebDAV yapılandırılmadı"
+    "noConfig": "WebDAV yapılandırılmadı",
+    "passphrase": "Yedekleme parolası",
+    "passphraseHint": "İsteğe bağlı: arşivi şifreler",
+    "listed": "WebDAV üzerinde {{n}} yedek bulundu",
+    "noBackups": "WebDAV üzerinde yedek yok",
+    "restoreConfirm": "{{name}} geri yüklensin mi? Etkin whitebox yapılandırmasının üzerine yazılacak.",
+    "restoreSuccess": "Geri yükleme tamamlandı: {{platforms}} platform, {{ports}} port",
+    "restoreFailed": "Geri yükleme başarısız",
+    "evidenceNote": "{{files}} çalışma zamanı/denetim öğesi yalnızca kanıt olarak çıkarıldı"
   },
   "common": {
     "cancel": "İptal",

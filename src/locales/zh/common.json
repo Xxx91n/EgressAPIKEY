@@ -23,7 +23,15 @@
     "restore": "恢复",
     "success": "备份完成",
     "failed": "备份失败",
-    "noConfig": "WebDAV 未配置"
+    "noConfig": "WebDAV 未配置",
+    "passphrase": "备份口令",
+    "passphraseHint": "可选：用于加密备份包",
+    "listed": "WebDAV 上找到 {{n}} 个备份",
+    "noBackups": "WebDAV 上没有备份",
+    "restoreConfirm": "恢复 {{name}}？当前白盒配置将被覆盖。",
+    "restoreSuccess": "恢复完成：{{platforms}} 个平台，{{ports}} 个端口",
+    "restoreFailed": "恢复失败",
+    "evidenceNote": "{{files}} 个运行时/审计成员仅解出为证据"
   },
   "common": {
     "cancel": "取消",

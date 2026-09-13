@@ -23,7 +23,15 @@
     "restore": "Przywróć",
     "success": "Kopia utworzona",
     "failed": "Kopia nieudana",
-    "noConfig": "WebDAV nie skonfigurowany"
+    "noConfig": "WebDAV nie skonfigurowany",
+    "passphrase": "Fraza hasła kopii zapasowej",
+    "passphraseHint": "Opcjonalne: szyfruje archiwum",
+    "listed": "Znaleziono {{n}} kopii zapasowych na WebDAV",
+    "noBackups": "Brak kopii zapasowych na WebDAV",
+    "restoreConfirm": "Przywrócić {{name}}? Aktywna konfiguracja whitebox zostanie nadpisana.",
+    "restoreSuccess": "Przywracanie zakończone: {{platforms}} platform, {{ports}} portów",
+    "restoreFailed": "Przywracanie nie powiodło się",
+    "evidenceNote": "{{files}} elementów runtime/audytu wyodrębniono wyłącznie jako dowód"
   },
   "common": {
     "cancel": "Anuluj",

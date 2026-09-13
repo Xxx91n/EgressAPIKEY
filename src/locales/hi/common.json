@@ -23,7 +23,15 @@
     "restore": "पुनर्स्थापन",
     "success": "बैकअप पूर्ण",
     "failed": "बैकअप विफल",
-    "noConfig": "WebDAV अनकॉन्फ़िगर्ड"
+    "noConfig": "WebDAV अनकॉन्फ़िगर्ड",
+    "passphrase": "बैकअप पासफ़्रेज़",
+    "passphraseHint": "वैकल्पिक: संग्रह को एन्क्रिप्ट करता है",
+    "listed": "WebDAV पर {{n}} बैकअप मिले",
+    "noBackups": "WebDAV पर कोई बैकअप नहीं",
+    "restoreConfirm": "{{name}} पुनर्स्थापित करें? सक्रिय whitebox कॉन्फ़िगरेशन अधिलेखित हो जाएगा।",
+    "restoreSuccess": "पुनर्स्थापना पूर्ण: {{platforms}} प्लेटफ़ॉर्म, {{ports}} पोर्ट",
+    "restoreFailed": "पुनर्स्थापना विफल",
+    "evidenceNote": "{{files}} रनटाइम/ऑडिट सदस्य केवल साक्ष्य के रूप में निकाले गए"
   },
   "common": {
     "cancel": "रद्द करें",

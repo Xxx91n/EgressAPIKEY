@@ -23,7 +23,15 @@
     "restore": "복원",
     "success": "백업 완료",
     "failed": "백업 실패",
-    "noConfig": "WebDAV 미설정"
+    "noConfig": "WebDAV 미설정",
+    "passphrase": "백업 암호",
+    "passphraseHint": "선택 사항: 아카이브를 암호화합니다",
+    "listed": "WebDAV에서 백업 {{n}}개를 찾았습니다",
+    "noBackups": "WebDAV에 백업이 없습니다",
+    "restoreConfirm": "{{name}}을(를) 복원하시겠습니까? 현재 화이트박스 구성이 덮어써집니다.",
+    "restoreSuccess": "복원 완료: 플랫폼 {{platforms}}개, 포트 {{ports}}개",
+    "restoreFailed": "복원 실패",
+    "evidenceNote": "런타임/감사 구성원 {{files}}개를 증거로만 추출했습니다"
   },
   "common": {
     "cancel": "취소",

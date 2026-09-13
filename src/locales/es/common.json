@@ -23,7 +23,15 @@
     "restore": "Restaurar",
     "success": "Copia completada",
     "failed": "Copia fallida",
-    "noConfig": "WebDAV no configurado"
+    "noConfig": "WebDAV no configurado",
+    "passphrase": "Contraseña de copia",
+    "passphraseHint": "Opcional: cifra el archivo",
+    "listed": "{{n}} copias encontradas en WebDAV",
+    "noBackups": "No hay copias en WebDAV",
+    "restoreConfirm": "¿Restaurar {{name}}? Se sobrescribirá la configuración whitebox activa.",
+    "restoreSuccess": "Restauración completada: {{platforms}} plataformas, {{ports}} puertos",
+    "restoreFailed": "Error al restaurar",
+    "evidenceNote": "{{files}} elementos de runtime/auditoría extraídos solo como evidencia"
   },
   "common": {
     "cancel": "Cancelar",

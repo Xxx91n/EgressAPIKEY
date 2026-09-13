@@ -23,7 +23,15 @@
     "restore": "Herstellen",
     "success": "Back-up voltooid",
     "failed": "Back-up mislukt",
-    "noConfig": "WebDAV niet geconfigureerd"
+    "noConfig": "WebDAV niet geconfigureerd",
+    "passphrase": "Back-up wachtwoordzin",
+    "passphraseHint": "Optioneel: versleutelt het archief",
+    "listed": "{{n}} back-ups gevonden op WebDAV",
+    "noBackups": "Geen back-ups op WebDAV",
+    "restoreConfirm": "{{name}} herstellen? De actieve whitebox-configuratie wordt overschreven.",
+    "restoreSuccess": "Herstel voltooid: {{platforms}} platforms, {{ports}} poorten",
+    "restoreFailed": "Herstel mislukt",
+    "evidenceNote": "{{files}} runtime-/auditonderdelen alleen als bewijs uitgepakt"
   },
   "common": {
     "cancel": "Annuleren",

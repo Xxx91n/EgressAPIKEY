@@ -188,6 +188,45 @@ impl DbPool {
     }
 }
 
+/// Produce a consistent, self-checked copy of a live SQLite database.
+///
+/// `VACUUM INTO` is the sqlite.org-sanctioned way to snapshot a running
+/// database: it opens the source read-only, writes a brand-new database and
+/// leaves the source untouched. A plain file copy of a live database is the
+/// failure mode the SQLite documentation names explicitly - it can capture a
+/// torn page or a half-applied WAL.
+///
+/// The copy is then reopened and `PRAGMA quick_check`-ed, so a snapshot that
+/// somehow landed malformed is reported as a failure instead of being handed
+/// back as if it were trustworthy.
+///
+/// This never writes to `src`; the destination is a fresh file. Callers keep
+/// the ADR-0050-bis constraint on Resin private state.
+pub fn snapshot_db_readonly(src: &Path, dst: &Path) -> Result<(), String> {
+    if !src.is_file() {
+        return Err(format!("snapshot: source is not a file: {}", src.display()));
+    }
+    if dst.exists() {
+        std::fs::remove_file(dst)
+            .map_err(|e| format!("snapshot: clear {}: {e}", dst.display()))?;
+    }
+    let dst_str = dst.to_string_lossy().to_string();
+    let conn = Connection::open_with_flags(src, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|e| format!("snapshot: open {} read-only: {e}", src.display()))?;
+    conn.execute("VACUUM INTO ?1", [dst_str.as_str()])
+        .map_err(|e| format!("snapshot: VACUUM INTO {}: {e}", dst.display()))?;
+    drop(conn);
+    let check = Connection::open_with_flags(dst, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|e| format!("snapshot: reopen {}: {e}", dst.display()))?;
+    let verdict: String = check
+        .query_row("PRAGMA quick_check", [], |r| r.get(0))
+        .map_err(|e| format!("snapshot: quick_check {}: {e}", dst.display()))?;
+    if verdict != "ok" {
+        return Err(format!("snapshot: quick_check reported '{verdict}'"));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -356,5 +395,55 @@ mod tests {
         assert_eq!(all[0].port, 17991);
         assert_eq!(all[0].protocol, "http");
         assert!(pool.get_port(17990).unwrap().is_none());
+    }
+
+    /// ADR-0070: the backup snapshot must be a consistent,
+    /// self-checked copy of a LIVE database (the pool keeps a WAL writer open),
+    /// and must refuse a source that is not a file rather than handing back an
+    /// empty snapshot the caller would treat as real.
+    #[test]
+    fn snapshot_db_readonly_copies_a_live_database_and_refuses_a_missing_source() {
+        let dir = std::env::temp_dir().join(format!("resin-db-snapshot-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = dir.join("src.db");
+        let dst = dir.join("dst.db");
+        let _ = std::fs::remove_file(&src);
+        let _ = std::fs::remove_file(&dst);
+
+        // Live writer: the pool holds the source open in WAL mode, which is
+        // exactly the state a bare file copy would copy inconsistently.
+        let pool = DbPool::open(&src).unwrap();
+        pool.upsert_port(&PortMapping {
+            port: 17990,
+            protocol: "mixed".into(),
+            platform_name: "OpenAI".into(),
+            account: "port-17990".into(),
+            label: "key-A".into(),
+            enabled: true,
+            auth_required: true,
+        })
+        .unwrap();
+
+        snapshot_db_readonly(&src, &dst).unwrap();
+
+        // The snapshot is a standalone database carrying the same row.
+        let copy = DbPool::open(&dst).unwrap();
+        let rows = copy.list_ports().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].port, 17990);
+        assert_eq!(rows[0].protocol, "mixed");
+        assert_eq!(rows[0].platform_name, "OpenAI");
+
+        let missing = dir.join("does-not-exist.db");
+        assert!(
+            snapshot_db_readonly(&missing, &dst).is_err(),
+            "a non-file source must be refused"
+        );
+
+        drop(copy);
+        drop(pool);
+        let _ = std::fs::remove_file(&src);
+        let _ = std::fs::remove_file(&dst);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -23,7 +23,15 @@
     "restore": "Khôi phục",
     "success": "Sao lưu hoàn tất",
     "failed": "Sao lưu thất bại",
-    "noConfig": "WebDAV chưa cấu hình"
+    "noConfig": "WebDAV chưa cấu hình",
+    "passphrase": "Cụm mật khẩu sao lưu",
+    "passphraseHint": "Tùy chọn: mã hóa tệp lưu trữ",
+    "listed": "Tìm thấy {{n}} bản sao lưu trên WebDAV",
+    "noBackups": "Không có bản sao lưu trên WebDAV",
+    "restoreConfirm": "Khôi phục {{name}}? Cấu hình whitebox đang hoạt động sẽ bị ghi đè.",
+    "restoreSuccess": "Khôi phục hoàn tất: {{platforms}} nền tảng, {{ports}} cổng",
+    "restoreFailed": "Khôi phục thất bại",
+    "evidenceNote": "Đã giải nén {{files}} mục runtime/kiểm toán chỉ làm bằng chứng"
   },
   "common": {
     "cancel": "Hủy",

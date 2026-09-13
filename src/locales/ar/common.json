@@ -23,7 +23,15 @@
     "restore": "استعادة",
     "success": "تم النسخ",
     "failed": "فشل النسخ",
-    "noConfig": "WebDAV غير مُعد"
+    "noConfig": "WebDAV غير مُعد",
+    "passphrase": "عبارة مرور النسخ الاحتياطي",
+    "passphraseHint": "اختياري: يشفّر الأرشيف",
+    "listed": "تم العثور على {{n}} نسخة احتياطية على WebDAV",
+    "noBackups": "لا توجد نسخ احتياطية على WebDAV",
+    "restoreConfirm": "استعادة {{name}}؟ سيتم استبدال تكوين الصندوق الأبيض النشط.",
+    "restoreSuccess": "اكتملت الاستعادة: {{platforms}} منصات، {{ports}} منافذ",
+    "restoreFailed": "فشلت الاستعادة",
+    "evidenceNote": "تم استخراج {{files}} من عناصر وقت التشغيل/التدقيق كأدلة فقط"
   },
   "common": {
     "cancel": "إلغاء",

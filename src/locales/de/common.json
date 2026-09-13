@@ -23,7 +23,15 @@
     "restore": "Wiederherstellen",
     "success": "Backup fertig",
     "failed": "Backup fehlgeschlagen",
-    "noConfig": "WebDAV nicht konfiguriert"
+    "noConfig": "WebDAV nicht konfiguriert",
+    "passphrase": "Backup-Passphrase",
+    "passphraseHint": "Optional: verschlüsselt das Archiv",
+    "listed": "{{n}} Backups auf WebDAV gefunden",
+    "noBackups": "Keine Backups auf WebDAV",
+    "restoreConfirm": "{{name}} wiederherstellen? Die aktive Whitebox-Konfiguration wird überschrieben.",
+    "restoreSuccess": "Wiederherstellung abgeschlossen: {{platforms}} Plattformen, {{ports}} Ports",
+    "restoreFailed": "Wiederherstellung fehlgeschlagen",
+    "evidenceNote": "{{files}} Runtime-/Audit-Einträge nur als Nachweis extrahiert"
   },
   "common": {
     "cancel": "Abbrechen",

@@ -26,6 +26,11 @@ rusqlite = { workspace = true }
 once_cell = { workspace = true }
 futures-util = { workspace = true }
 url = { workspace = true }
+# ADR-0070: backup-package AEAD (ChaCha20-Poly1305) + PBKDF2-HMAC-SHA256 key
+# wrap. ring 0.17.14 is ALREADY in Cargo.lock (transitive via
+# reqwest/rustls), so promoting it to a direct dependency adds no new crate to
+# the tree - the same precedent as sha2/uuid below.
+ring = "0.17"
 # Round 5 T11 / ADR-0059: audit log SHA-256 + uuid. Both are already in the
 # workspace lockfile (transitive via reqwest/rustls), so this adds no new
 # fetch; they become direct deps so audit.rs can hash rows and mint ids.
