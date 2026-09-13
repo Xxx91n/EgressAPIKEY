@@ -40,12 +40,12 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use axum::{
-    body::Body,
-    extract::State,
+    body::{Body, Bytes},
+    extract::{Path, Query, State},
     http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::any,
+    routing::{any, delete, get, patch, put},
     Router,
 };
 use clap::Parser;
@@ -177,11 +177,53 @@ async fn main() -> Result<()> {
         sidecar.api_port
     );
 
+    // Ticket 02 (option C, user-ruled 2026-09-14): initialise the SAME L2 stores
+    // the desktop shell owns (WhiteboxConfigStore + DbPool) at this process state
+    // root, so the port family has reachable HTTP semantics instead of being
+    // desktop-only. Stores, write entry and validation are shared with the shell
+    // through resin-core / commands::ports - only the storage ROOT differs, and a
+    // given host runs either the shell or the headless server, never both.
+    std::fs::create_dir_all(&state_root)
+        .with_context(|| format!("headless: cannot create state_root {:?}", state_root))?;
+    let port_db = resin_core::DbPool::open(&state_root.join("egressapikey.db"))
+        .map_err(|e| anyhow::anyhow!("headless: open egressapikey.db: {e}"))?;
+    let initial_ports = port_db
+        .list_ports()
+        .map_err(|e| anyhow::anyhow!("headless: seed whitebox from db: {e}"))?;
+    let port_whitebox = resin_core::WhiteboxConfigStore::open(
+        state_root.join(resin_core::WHITEBOX_CONFIG_FILE),
+        resin_core::WhiteboxConfig::from_ports(initial_ports),
+    )
+    .await
+    .map_err(|e| anyhow::anyhow!("headless: open whitebox store: {e}"))?;
+    // Mode B (round8 D-001): Resin listens natively, so this forwarder binds no
+    // listener; it carries the sidecar proxy token and the running-port view the
+    // shared write path expects.
+    let port_forwarder = resin_core::PortForwarder::new(
+        port_db.clone(),
+        "127.0.0.1",
+        sidecar.api_port,
+        sidecar.proxy_token.clone(),
+    );
+    let port_ctx = Arc::new(PortCtx {
+        db: port_db,
+        whitebox: port_whitebox,
+        forwarder: port_forwarder,
+        api_base: api_base.clone(),
+        admin_token: admin_token.clone(),
+    });
+    tracing::info!(
+        "headless: L2 whitebox + egressapikey.db opened at {:?} ({} port row(s))",
+        state_root,
+        port_ctx.db.list_ports().map(|r| r.len()).unwrap_or(0)
+    );
+
     let app = build_router(
         &cli.dist,
         api_base.clone(),
         admin_token.clone(),
         guard.clone(),
+        port_ctx.clone(),
     );
 
     let addr: SocketAddr = format!("{}:{}", cli.bind, cli.port)
@@ -254,6 +296,7 @@ fn build_router(
     api_base: String,
     admin_token: String,
     guard: Arc<HeadlessGuard>,
+    port_ctx: Arc<PortCtx>,
 ) -> Router {
     let serve_dir = ServeDir::new(dist.clone())
         .append_index_html_on_directories(true)
@@ -273,9 +316,92 @@ fn build_router(
         }
     };
 
+    // Ticket 02 (option C): headless owns the same L2 stores the desktop shell
+    // owns, so port management is not desktop-only (A-006). These are
+    // BFF-native routes: Resin has no /ports resource (its listener face is
+    // /api/v1/endpoints, driven here as a side effect exactly as
+    // commands/ports.rs does).
+    let r_list = {
+        let c = port_ctx.clone();
+        move || {
+            let c = c.clone();
+            async move { ports_list_h(c).await }
+        }
+    };
+    let r_suggest = {
+        let c = port_ctx.clone();
+        move || {
+            let c = c.clone();
+            async move { ports_suggest_h(c).await }
+        }
+    };
+    let r_running = {
+        let c = port_ctx.clone();
+        move || {
+            let c = c.clone();
+            async move { ports_running_h(c).await }
+        }
+    };
+    let r_upsert = {
+        let c = port_ctx.clone();
+        move |Path(port): Path<u16>, body: Bytes| {
+            let c = c.clone();
+            async move { ports_upsert_h(c, port, body).await }
+        }
+    };
+    let r_remove = {
+        let c = port_ctx.clone();
+        move |Path(port): Path<u16>| {
+            let c = c.clone();
+            async move { ports_remove_h(c, port).await }
+        }
+    };
+    let r_toggle = {
+        let c = port_ctx.clone();
+        move |Path(port): Path<u16>, body: Bytes| {
+            let c = c.clone();
+            async move { ports_toggle_h(c, port, body).await }
+        }
+    };
+    let r_bind = {
+        let c = port_ctx.clone();
+        move |Path(port): Path<u16>, body: Bytes| {
+            let c = c.clone();
+            async move { ports_bind_platform_h(c, port, body).await }
+        }
+    };
+    let r_auth = {
+        let c = port_ctx.clone();
+        move |Path(port): Path<u16>| {
+            let c = c.clone();
+            async move { ports_auth_info_h(c, port).await }
+        }
+    };
+    let r_health = {
+        let c = port_ctx.clone();
+        move |Path(port): Path<u16>, Query(q): Query<std::collections::HashMap<String, String>>| {
+            let c = c.clone();
+            let protocol = q.get("protocol").cloned();
+            async move { ports_health_h(c, port, protocol).await }
+        }
+    };
+
     Router::new()
+        .route("/api/v1/ports", get(r_list))
+        .route("/api/v1/ports/suggest", get(r_suggest))
+        .route("/api/v1/ports/running", get(r_running))
+        // axum panics on two .route() calls for one path, so the three verbs on
+        // /api/v1/ports/{port} are combined into one MethodRouter.
+        .route(
+            "/api/v1/ports/{port}",
+            put(r_upsert).delete(r_remove).patch(r_toggle),
+        )
+        .route("/api/v1/ports/{port}/platform", patch(r_bind))
+        .route("/api/v1/ports/{port}/auth", get(r_auth))
+        .route("/api/v1/ports/{port}/health", get(r_health))
         .route("/api/v1/*path", any(proxy_handler.clone()))
         .route("/metrics/*path", any(proxy_handler))
+
         .fallback_service(serve_dir)
         // Ticket 03 (A-007): the Host/Origin + token guard wraps every route and
         // the static fallback. Applied last so it also covers the fallback.
@@ -555,9 +681,13 @@ fn rewrite_patch_body_snake_case(body: &serde_json::Value) -> Result<serde_json:
         };
         if mapped == "allocation_policy" {
             if let Some(s) = v.as_str() {
-                if !matches!(s, "BALANCED" | "PREFER_LOW_LATENCY" | "PREFER_IDLE_IP") {
+                // Ticket 02 (A-006): reuse the SAME allow-list the Tauri command
+                // validates against (commands/platform.rs ALLOWED_ALLOCATION_POLICIES)
+                // so the enum has ONE definition for both transports.
+                if !egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.contains(&s) {
                     return Err(format!(
-                        "allocation_policy must be BALANCED/PREFER_LOW_LATENCY/PREFER_IDLE_IP, got {s}"
+                        "allocation_policy must be {}, got {s}",
+                        egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.join("/")
                     ));
                 }
             }
@@ -604,14 +734,109 @@ fn rewrite_patch_body_snake_case(body: &serde_json::Value) -> Result<serde_json:
     Ok(serde_json::Value::Object(snake))
 }
 
-/// BFF translation: inspect (method, path, body). When the request targets a
-/// name-to-id translation route, resolve via a list GET to Resin (admin bearer
-/// injected by the caller's headers param) and return the rewritten path +
-/// the post-translation body bytes for the upstream call. Non-translation
-/// routes pass through unchanged (path, body_bytes as-is).
+/// Split a raw path?query into its halves (query without the leading ?).
+fn split_query(raw: &str) -> (&str, &str) {
+    match raw.split_once('?') {
+        Some((p, q)) => (p, q),
+        None => (raw, ""),
+    }
+}
+
+/// Percent-decode one query component. Minimal by design, no new crate:
+/// every value the SPA puts in a translated query is an identifier, so the
+/// plus-as-space rule is deliberately not applied.
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0usize;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            let hi = (b[i + 1] as char).to_digit(16);
+            let lo = (b[i + 2] as char).to_digit(16);
+            if let (Some(h), Some(l)) = (hi, lo) {
+                out.push((h * 16 + l) as u8);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Read one query parameter from a raw query string.
+fn query_param(query: &str, key: &str) -> Option<String> {
+    for pair in query.split('&') {
+        let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+        if percent_decode(k) == key {
+            return Some(percent_decode(v));
+        }
+    }
+    None
+}
+
+/// Parse a request body as JSON (every translation route needs an object).
+fn parse_body(body_bytes: &bytes::Bytes) -> Result<serde_json::Value, String> {
+    serde_json::from_slice(body_bytes).map_err(|e| format!("invalid JSON body: {e}"))
+}
+
+/// Read + validate the business name shared by every name-keyed route.
+/// Ticket 02 (A-006): reuses the SAME validator the Tauri commands use, so
+/// the bound is defined once and effective on both transports.
+fn read_name(body_val: &serde_json::Value) -> Result<String, String> {
+    let name = body_val
+        .get("name")
+        .and_then(|n| n.as_str())
+        .ok_or_else(|| r#"body missing "name" field"#.to_string())?
+        .to_string();
+    egressapikey_app::commands::validate_short_name(&name, "name")?;
+    Ok(name)
+}
+
+/// List a collection and resolve a business name to a Resin UUID. Resolve +
+/// mutate stay in ONE process, so there is no client-side TOCTOU and the
+/// browser never has to hold a UUID (T17 audit rationale, unchanged).
+async fn resolve_id(
+    client: &reqwest::Client,
+    upstream_base: &str,
+    admin_token: &str,
+    collection: &str,
+    name: &str,
+) -> Result<String, String> {
+    let list_url = format!("{}/api/v1/{}", upstream_base, collection);
+    let resp = client
+        .get(&list_url)
+        .header("authorization", format!("Bearer {}", admin_token))
+        .send()
+        .await
+        .map_err(|e| format!("resin list error: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("resin list returned {}", resp.status()));
+    }
+    let val: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("resin list parse: {e}"))?;
+    id_for_name(&val, name).ok_or_else(|| format!("entity not found by name: {}", name))
+}
+
+/// BFF translation. Four rewrite families, all serving the name-based SPA
+/// contract (the browser never holds a Resin UUID):
 ///
-/// Keep this sync-friendly and short — Ponytail: no new abstraction, just a
-/// match on the three known routes.
+/// 1. Collection + body name -> /{id} path param (DELETE/PATCH platforms,
+///    DELETE subscriptions) - the original T17 audit fix.
+/// 2. GET /platforms?leases_for=<name> -> /platforms/{id}/leases. Ticket 02:
+///    platform_leases was mapped at the bare collection, so headless handed
+///    the SPA the platform LIST where it expected the lease set.
+/// 3. POST /subscriptions?refresh=<name> -> /subscriptions/{id}/actions/refresh.
+///    Ticket 02: R30 had no mapping at all, so refresh was desktop-only.
+/// 4. PUT/DELETE /account-header-rules with body url_prefix ->
+///    /account-header-rules/{prefix}. R33/R35 address the rule by prefix in the
+///    PATH and a prefix may contain "/" (its %2F must survive), so the SPA never
+///    builds that segment itself.
+///
+/// Anything else passes through unchanged (path + body bytes as-is).
 async fn translate_request(
     method: &Method,
     raw_path: &str,
@@ -620,60 +845,373 @@ async fn translate_request(
     upstream_base: &str,
     admin_token: &str,
 ) -> Result<(String, reqwest::Body), String> {
-    let path = raw_path.split('?').next().unwrap_or(raw_path);
+    let (path, query) = split_query(raw_path);
     let is_platforms = path == "/api/v1/platforms";
     let is_subscriptions = path == "/api/v1/subscriptions";
-    let needs_translate = (method == Method::DELETE || method == Method::PATCH) && is_platforms
-        || (method == Method::DELETE && is_subscriptions);
-    if !needs_translate {
-        return Ok((raw_path.to_string(), reqwest::Body::from(body_bytes.clone())));
-    }
-    // Parse body for the business `name`.
-    let body_val: serde_json::Value = serde_json::from_slice(body_bytes)
-        .map_err(|e| format!("invalid JSON body: {e}"))?;
-    let name = body_val
-        .get("name")
-        .and_then(|n| n.as_str())
-        .ok_or_else(|| "body missing \"name\" field".to_string())?
-        .to_string();
-    if name.is_empty() || name.len() > 128 || name.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-        return Err("name field invalid (1..128 chars, no control)".to_string());
-    }
-    // List + match exactly as the Tauri Rust IPC commands do.
-    let list_path = if is_platforms { "/api/v1/platforms" } else { "/api/v1/subscriptions" };
-    let list_url = format!("{}{}", upstream_base, list_path);
-    let list_resp = client
-        .get(&list_url)
-        .header("authorization", format!("Bearer {}", admin_token))
-        .send()
-        .await
-        .map_err(|e| format!("resin list error: {e}"))?;
-    if !list_resp.status().is_success() {
-        return Err(format!("resin list returned {}", list_resp.status()));
-    }
-    let list_val: serde_json::Value = list_resp
-        .json()
-        .await
-        .map_err(|e| format!("resin list parse: {e}"))?;
-    let id = id_for_name(&list_val, &name)
-        .ok_or_else(|| format!("entity not found by name: {}", name))?;
-    let enc = url_encode_segment(&id);
+    let is_rules = path == "/api/v1/account-header-rules";
 
-    if method == Method::DELETE {
-        // Resin expects no body on DELETE /{id}.
+    // --- 1. Collection + body name -> /{id} ---
+    if ((method == Method::DELETE || method == Method::PATCH) && is_platforms)
+        || (method == Method::DELETE && is_subscriptions)
+    {
+        let body_val = parse_body(body_bytes)?;
+        let name = read_name(&body_val)?;
+        let collection = if is_platforms { "platforms" } else { "subscriptions" };
+        let id = resolve_id(client, upstream_base, admin_token, collection, &name).await?;
+        let enc = url_encode_segment(&id);
+        if method == Method::DELETE {
+            // Resin expects no body on DELETE /{id}.
+            return Ok((
+                format!("/api/v1/{}/{}", collection, enc),
+                reqwest::Body::from(Vec::<u8>::new()),
+            ));
+        }
+        // Reuse the pure snake_case rewriter so unit tests can lock the
+        // contract without spinning up reqwest.
+        let new_body_val = rewrite_patch_body_snake_case(&body_val)?;
+        let new_body = serde_json::to_vec(&new_body_val)
+            .map_err(|e| format!("re-serialize body: {e}"))?;
+        return Ok((format!("/api/v1/platforms/{}", enc), reqwest::Body::from(new_body)));
+    }
+
+    // --- 2. GET /platforms?leases_for=<name> -> /platforms/{id}/leases ---
+    if method == Method::GET && is_platforms {
+        if let Some(name) = query_param(query, "leases_for") {
+            egressapikey_app::commands::validate_short_name(&name, "platform")?;
+            let id = resolve_id(client, upstream_base, admin_token, "platforms", &name).await?;
+            return Ok((
+                format!("/api/v1/platforms/{}/leases", url_encode_segment(&id)),
+                reqwest::Body::from(Vec::<u8>::new()),
+            ));
+        }
+    }
+
+    // --- 3. POST /subscriptions?refresh=<name> -> R30 actions/refresh ---
+    if method == Method::POST && is_subscriptions {
+        if let Some(name) = query_param(query, "refresh") {
+            egressapikey_app::commands::validate_short_name(&name, "subscription")?;
+            let id = resolve_id(client, upstream_base, admin_token, "subscriptions", &name).await?;
+            return Ok((
+                format!("/api/v1/subscriptions/{}/actions/refresh", url_encode_segment(&id)),
+                reqwest::Body::from(Vec::<u8>::new()),
+            ));
+        }
+    }
+
+    // --- 4. PUT/DELETE /account-header-rules + body url_prefix -> /{prefix} ---
+    if is_rules && (method == Method::PUT || method == Method::DELETE) {
+        let body_val = parse_body(body_bytes)?;
+        let prefix = body_val
+            .get("url_prefix")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| r#"body missing "url_prefix" field"#.to_string())?;
+        if prefix.is_empty()
+            || prefix.len() > 512
+            || prefix.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f)
+        {
+            return Err("url_prefix invalid (1..512 chars, no control)".to_string());
+        }
+        let enc = url_encode_segment(prefix);
+        if method == Method::DELETE {
+            return Ok((
+                format!("/api/v1/account-header-rules/{}", enc),
+                reqwest::Body::from(Vec::<u8>::new()),
+            ));
+        }
+        // Resin PUT body is {"headers": [...]}; url_prefix lives in the path.
+        let out = serde_json::json!({
+            "headers": body_val.get("headers").cloned().unwrap_or(serde_json::Value::Null)
+        });
+        let new_body = serde_json::to_vec(&out).map_err(|e| format!("re-serialize body: {e}"))?;
         return Ok((
-            format!("/api/v1/{}/{}", if is_platforms { "platforms" } else { "subscriptions" }, enc),
-            reqwest::Body::from(Vec::<u8>::new()),
+            format!("/api/v1/account-header-rules/{}", enc),
+            reqwest::Body::from(new_body),
         ));
     }
-    // Reuse the pure snake_case rewriter so unit tests can lock the contract
-    // without spinning up reqwest.
-    let new_body_val = rewrite_patch_body_snake_case(&body_val)?;
-    let new_body = serde_json::to_vec(&new_body_val)
-        .map_err(|e| format!("re-serialize body: {e}"))?;
-    Ok((format!("/api/v1/platforms/{}", enc), reqwest::Body::from(new_body)))
+
+    Ok((raw_path.to_string(), reqwest::Body::from(body_bytes.clone())))
 }
 
+/// Headless L2 context (ticket 02 option C). The desktop shell holds the same
+/// stores as Tauri managed state; headless builds them once at startup so the
+/// port family is not a desktop-only capability (A-006).
+struct PortCtx {
+    db: resin_core::DbPool,
+    whitebox: resin_core::WhiteboxConfigStore,
+    forwarder: resin_core::PortForwarder,
+    api_base: String,
+    admin_token: String,
+}
+
+impl PortCtx {
+    /// Same constructor the Tauri commands use (commands::common::resin_client),
+    /// so the loopback SSRF guard and the shared reqwest pool apply here too.
+    fn client(&self) -> Result<resin_core::ResinClient, String> {
+        resin_core::ResinClient::new(&self.api_base, self.admin_token.clone())
+            .map_err(|e| format!("sidecar client: {e:?}"))
+    }
+}
+
+/// Error shape mirrors the BFF translation failure so the SPA error mapping
+/// stays uniform across proxied and BFF-native routes.
+fn port_err(status: StatusCode, msg: &str) -> Response {
+    (
+        status,
+        axum::Json(serde_json::json!({
+            "error": { "code": "HEADLESS_PORT", "message": msg }
+        })),
+    )
+        .into_response()
+}
+
+fn read_json_body(body: &Bytes) -> Result<serde_json::Value, String> {
+    serde_json::from_slice(body).map_err(|e| format!("invalid JSON body: {e}"))
+}
+
+async fn ports_list_h(ctx: Arc<PortCtx>) -> Response {
+    match ctx.db.list_ports() {
+        Ok(rows) => axum::Json(rows).into_response(),
+        Err(e) => port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    }
+}
+
+async fn ports_suggest_h(ctx: Arc<PortCtx>) -> Response {
+    // ADR-0031 lives in resin-core so the GUI and the establish cascade suggest
+    // the same port; headless calls that one implementation.
+    match resin_core::subscription_pipeline::suggest_free_entry_port(&ctx.db) {
+        Ok(port) => axum::Json(serde_json::json!({ "port": port })).into_response(),
+        Err(e) => port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    }
+}
+
+async fn ports_running_h(ctx: Arc<PortCtx>) -> Response {
+    axum::Json(ctx.forwarder.running_ports()).into_response()
+}
+/// Read one port_mapping row, or a NOT_FOUND response.
+fn port_row(ctx: &PortCtx, port: u16) -> Result<resin_core::PortMapping, Response> {
+    match ctx.db.list_ports() {
+        Ok(rows) => rows
+            .into_iter()
+            .find(|m| m.port == port)
+            .ok_or_else(|| port_err(StatusCode::NOT_FOUND, &format!("port {port} is not configured"))),
+        Err(e) => Err(port_err(StatusCode::INTERNAL_SERVER_ERROR, &e)),
+    }
+}
+
+async fn ports_upsert_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Response {
+    let v = match read_json_body(&body) {
+        Ok(v) => v,
+        Err(e) => return port_err(StatusCode::BAD_REQUEST, &e),
+    };
+    let protocol = v.get("protocol").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let platform_name = v.get("platform_name").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let account = v.get("account").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let label = v.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let enabled = v.get("enabled").and_then(|x| x.as_bool()).unwrap_or(true);
+    let auth_required = v.get("auth_required").and_then(|x| x.as_bool()).unwrap_or(true);
+    // ONE validation, shared with the Tauri command (A-006).
+    if let Err(e) = egressapikey_app::commands::validate_port_mapping(
+        port, &protocol, &platform_name, &account, &label,
+    ) {
+        return port_err(StatusCode::BAD_REQUEST, &e);
+    }
+    let proto = protocol.trim().to_ascii_lowercase();
+    let acct = if account.trim().is_empty() { format!("port-{port}") } else { account };
+    let m = resin_core::PortMapping {
+        port,
+        protocol: proto.clone(),
+        platform_name,
+        account: acct,
+        label,
+        enabled,
+        auth_required,
+    };
+    // Step 1: Resin endpoint CRUD owns the listener lifecycle. Same order and
+    // same body shape as commands/ports.rs::port_upsert.
+    if enabled {
+        let client = match ctx.client() {
+            Ok(c) => c,
+            Err(e) => return port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+        };
+        let existing = match client.list_endpoints().await {
+            Ok(v) => v,
+            Err(e) => return port_err(StatusCode::BAD_GATEWAY, &format!("list_endpoints: {e:?}")),
+        };
+        let ep_body = serde_json::json!({
+            "port": port,
+            "allow_management": false,
+            "allow_proxy": true,
+            "allow_http_forward": proto == "http" || proto == "socks5",
+            "allow_http_reverse": false,
+            "allow_socks5": proto == "socks5",
+            "require_proxy_auth_info": auth_required,
+        });
+        let res = match egressapikey_app::commands::find_endpoint_id_by_port(&existing, port) {
+            Some(ep_id) => client.update_endpoint(&ep_id, ep_body).await.map(|_| ()),
+            None => client.create_endpoint(ep_body).await.map(|_| ()),
+        };
+        if let Err(e) = res {
+            return port_err(StatusCode::BAD_GATEWAY, &format!("endpoint upsert: {e:?}"));
+        }
+    }
+    // Step 2: shell DB + whitebox metadata (port -> platform binding).
+    let mut next = ctx.whitebox.snapshot();
+    if let Some(row) = next.entry_ports.iter_mut().find(|r| r.port == m.port) {
+        *row = m.clone();
+    } else {
+        next.entry_ports.push(m.clone());
+        next.entry_ports.sort_by_key(|r| r.port);
+    }
+    match ctx.whitebox.apply(&ctx.db, &ctx.forwarder, next).await {
+        Ok(_) => axum::Json(m).into_response(),
+        Err(e) => port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    }
+}
+
+async fn ports_remove_h(ctx: Arc<PortCtx>, port: u16) -> Response {
+    if let Err(e) = egressapikey_app::commands::validate_port_segments(port) {
+        return port_err(StatusCode::BAD_REQUEST, &e);
+    }
+    let client = match ctx.client() {
+        Ok(c) => c,
+        Err(e) => return port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    };
+    match client.list_endpoints().await {
+        Ok(existing) => {
+            if let Some(ep_id) = egressapikey_app::commands::find_endpoint_id_by_port(&existing, port) {
+                if let Err(e) = client.delete_endpoint(&ep_id).await {
+                    return port_err(StatusCode::BAD_GATEWAY, &format!("delete_endpoint: {e:?}"));
+                }
+            }
+        }
+        Err(e) => return port_err(StatusCode::BAD_GATEWAY, &format!("list_endpoints: {e:?}")),
+    }
+    let mut next = ctx.whitebox.snapshot();
+    next.entry_ports.retain(|r| r.port != port);
+    match ctx.whitebox.apply(&ctx.db, &ctx.forwarder, next).await {
+        Ok(_) => axum::Json(true).into_response(),
+        Err(e) => port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    }
+}
+
+async fn ports_toggle_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Response {
+    if let Err(e) = egressapikey_app::commands::validate_port_segments(port) {
+        return port_err(StatusCode::BAD_REQUEST, &e);
+    }
+    let v = match read_json_body(&body) {
+        Ok(v) => v,
+        Err(e) => return port_err(StatusCode::BAD_REQUEST, &e),
+    };
+    let enabled = match v.get("enabled").and_then(|x| x.as_bool()) {
+        Some(b) => b,
+        None => return port_err(StatusCode::BAD_REQUEST, "body missing boolean enabled"),
+    };
+    let client = match ctx.client() {
+        Ok(c) => c,
+        Err(e) => return port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    };
+    let existing = match client.list_endpoints().await {
+        Ok(v) => v,
+        Err(e) => return port_err(StatusCode::BAD_GATEWAY, &format!("list_endpoints: {e:?}")),
+    };
+    if let Some(ep_id) = egressapikey_app::commands::find_endpoint_id_by_port(&existing, port) {
+        if let Err(e) = client
+            .update_endpoint(&ep_id, serde_json::json!({ "enabled": enabled }))
+            .await
+        {
+            return port_err(StatusCode::BAD_GATEWAY, &format!("update_endpoint (toggle): {e:?}"));
+        }
+    }
+    let mut next = ctx.whitebox.snapshot();
+    let out = match next.entry_ports.iter_mut().find(|r| r.port == port) {
+        Some(row) => {
+            row.enabled = enabled;
+            row.clone()
+        }
+        None => {
+            return port_err(
+                StatusCode::NOT_FOUND,
+                &format!("port_toggle: port {port} not in whitebox"),
+            )
+        }
+    };
+    match ctx.whitebox.apply(&ctx.db, &ctx.forwarder, next).await {
+        Ok(_) => axum::Json(out).into_response(),
+        Err(e) => port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    }
+}
+
+/// T8-1 (ADR-0029): bind a port to a platform WITHOUT touching auth_required.
+/// Mirrors commands/ports.rs::port_bind_platform - whitebox only, no Resin call.
+async fn ports_bind_platform_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Response {
+    if let Err(e) = egressapikey_app::commands::validate_port_segments(port) {
+        return port_err(StatusCode::BAD_REQUEST, &e);
+    }
+    let v = match read_json_body(&body) {
+        Ok(v) => v,
+        Err(e) => return port_err(StatusCode::BAD_REQUEST, &e),
+    };
+    let platform_name = v
+        .get("platform_name")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
+    if let Err(e) = egressapikey_app::commands::validate_short_name(&platform_name, "platform_name") {
+        return port_err(StatusCode::BAD_REQUEST, &e);
+    }
+    let mut next = ctx.whitebox.snapshot();
+    let out = match next.entry_ports.iter_mut().find(|r| r.port == port) {
+        Some(row) => {
+            row.platform_name = platform_name;
+            row.clone()
+        }
+        None => return port_err(StatusCode::NOT_FOUND, &format!("port {port} not in whitebox")),
+    };
+    match ctx.whitebox.apply(&ctx.db, &ctx.forwarder, next).await {
+        Ok(_) => axum::Json(out).into_response(),
+        Err(e) => port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    }
+}
+
+/// Mode B (round8 D-001): headless has no shell-side credential injection -
+/// Resin listens natively and the CLIENT supplies the Platform.Account
+/// credential once. The field shape stays identical to the desktop answer
+/// (PortAuthInfo) so the view needs no branch; `data_plane_mode` tells the
+/// truth about WHERE the credential comes from.
+async fn ports_auth_info_h(ctx: Arc<PortCtx>, port: u16) -> Response {
+    if let Err(e) = egressapikey_app::commands::validate_port_segments(port) {
+        return port_err(StatusCode::BAD_REQUEST, &e);
+    }
+    let m = match port_row(&ctx, port) {
+        Ok(m) => m,
+        Err(resp) => return resp,
+    };
+    let username = if m.account.trim().is_empty() {
+        format!("{}.port-{}", m.platform_name, port)
+    } else {
+        format!("{}.{}", m.platform_name, m.account)
+    };
+    axum::Json(serde_json::json!({
+        "username": username,
+        "password": ctx.forwarder.proxy_token(),
+        "auth_required": m.auth_required,
+        "platform_name": m.platform_name,
+        "port": port,
+        "data_plane_mode": "B",
+    }))
+    .into_response()
+}
+
+async fn ports_health_h(_ctx: Arc<PortCtx>, port: u16, protocol: Option<String>) -> Response {
+    // commands::port_health_check takes NO Tauri State, so headless calls the
+    // SAME function the desktop IPC uses - one implementation, two transports
+    // (A-006 "one validation effective in both places"). It probes
+    // 127.0.0.1:{port}, the same host this process runs on.
+    match egressapikey_app::commands::port_health_check(port, protocol).await {
+        Ok(v) => axum::Json(v).into_response(),
+        Err(e) => port_err(StatusCode::BAD_REQUEST, &format!("{e:?}")),
+    }
+}
 #[cfg(test)]
 mod bff_translate_tests {
     use super::*;
