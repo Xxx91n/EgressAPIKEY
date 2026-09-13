@@ -599,9 +599,10 @@ export async function ipcPortUpsert(m: {
   auth_required?: boolean;
 }): Promise<PortMapping> {
   assertPort(m.port);
-  const protocol = (m.protocol || "socks5").toLowerCase();
-  if (protocol !== "socks5" && protocol !== "http") {
-    throw new Error("protocol must be socks5 or http");
+  // Round 8 ticket 13 / D-007: the closed three-value set, `mixed` the default.
+  const protocol = (m.protocol || "mixed").toLowerCase();
+  if (protocol !== "socks5" && protocol !== "http" && protocol !== "mixed") {
+    throw new Error("protocol must be socks5, http or mixed");
   }
   // platform_name empty = unbound port (T8-7 ADR-0029). Allow empty.
   if (m.platform_name) assertShortName(m.platform_name, "platform_name");
@@ -680,13 +681,14 @@ export interface PortHealthCheck {
   reason: "ok" | "refused" | "timeout" | "noop_no_reply" | "protocol_mismatch";
 }
 
-/// ADR-0026 Q9: protocol-aware health probe. For socks5 ports the Rust side
-/// sends a SOCKS5 greeting; for http ports it sends an HTTP CONNECT probe.
-/// Defaults to "socks5" when omitted (back-compat).
+/// ADR-0026 Q9: protocol-aware health probe. For socks5 and mixed ports the
+/// Rust side sends a SOCKS5 greeting (a mixed listener answers it - verified
+/// live, round 8 ticket 13 / ADR-0068 D4 gate); for http ports it sends an
+/// HTTP CONNECT probe. Defaults to "mixed", the default port protocol.
 export async function ipcPortHealthCheck(port: number, protocol?: string): Promise<PortHealthCheck> {
   if (port < USER_PORT_MIN || port > USER_PORT_MAX) throw new Error(`port ${port} out of range (${USER_PORT_MIN}..${USER_PORT_MAX})`);
-  const proto = (protocol ?? "socks5").toLowerCase();
-  if (proto !== "socks5" && proto !== "http") throw new Error("protocol must be socks5 or http");
+  const proto = (protocol ?? "mixed").toLowerCase();
+  if (proto !== "socks5" && proto !== "http" && proto !== "mixed") throw new Error("protocol must be socks5, http or mixed");
   return invoke<PortHealthCheck>("port_health_check", { port, protocol: proto });
 }
 
@@ -752,7 +754,7 @@ export interface ExitIpProbe {
 export function ipcProbeExitIp(port: number, protocol: string): Promise<ExitIpProbe> {
   if (port < USER_PORT_MIN || port > USER_PORT_MAX) throw new Error(`port ${port} out of range (${USER_PORT_MIN}..${USER_PORT_MAX})`);
   const proto = protocol.toLowerCase();
-  if (proto !== "socks5" && proto !== "http") throw new Error("protocol must be socks5 or http");
+  if (proto !== "socks5" && proto !== "http" && proto !== "mixed") throw new Error("protocol must be socks5, http or mixed");
   return invoke<ExitIpProbe>("probe_exit_ip", { port, protocol: proto });
 }
 

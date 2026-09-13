@@ -110,6 +110,9 @@ pub fn adaptive_interval(port_count: usize) -> Duration {
 
 /// Probe a single port. TCP connect + SOCKS5 greeting or HTTP GET; returns
 /// (reachable, latency_ms). Mirrors src-tauri::commands::port_health_check.
+///
+/// `mixed` (round 8 ticket 13 / D-007) is probed with the SOCKS5 greeting:
+/// a dual-flag listener answers it, which is what the live D4 gate observed.
 async fn probe_one(port: u16, protocol: &str) -> (bool, Option<u32>) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let started = Instant::now();
@@ -135,7 +138,11 @@ async fn probe_one(port: u16, protocol: &str) -> (bool, Option<u32>) {
     let elapsed = started.elapsed().as_millis() as u32;
     match read {
         Ok(Ok(n)) if protocol == "http" && n >= 12 && buf.starts_with(b"HTTP/") => (true, Some(elapsed)),
-        Ok(Ok(n)) if protocol == "socks5" && n >= 2 && buf[0] == 0x05 && (buf[1] == 0x00 || buf[1] == 0x02) => (true, Some(elapsed)),
+        // `mixed` ports are probed with the SOCKS5 greeting (the branch
+        // above), so a SOCKS5 method-selection reply is the expected answer for
+        // BOTH `socks5` and `mixed`. Verified live against Resin: a dual-flag
+        // port answers 05 00 (round 8 ticket 13 / ADR-0068 D4 gate).
+        Ok(Ok(n)) if protocol != "http" && n >= 2 && buf[0] == 0x05 && (buf[1] == 0x00 || buf[1] == 0x02) => (true, Some(elapsed)),
         Ok(Ok(n)) if n >= 4 => (true, Some(elapsed)), // protocol_mismatch but alive
         _ => (false, None),
     }
@@ -301,6 +308,30 @@ mod tests {
         assert_eq!(HealthState::classify(false, 5), HealthState::Dead);
         assert_eq!(HealthState::classify(false, 99), HealthState::Dead);
     }
+
+    /// Round 8 ticket 13 / D-007: a `mixed` port must classify as reachable
+    /// when it answers the SOCKS5 greeting. A dual-flag Resin listener replies
+    /// `05 00` - exactly what the ADR-0068 D4 gate observed live - and the
+    /// pre-change match arm only recognised `socks5`, so `mixed` would have
+    /// fallen through and been reported dead.
+    #[tokio::test]
+    async fn mixed_protocol_probe_accepts_a_socks5_method_reply() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = tokio::spawn(async move {
+            let (mut sock, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 4];
+            let _ = sock.read(&mut buf).await;
+            let _ = sock.write_all(&[0x05, 0x00]).await;
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        });
+        let (reachable, latency) = probe_one(port, "mixed").await;
+        assert!(reachable, "a mixed port answering 05 00 is reachable");
+        assert!(latency.is_some(), "reachability carries a latency sample");
+        let _ = server.await;
+    }
+}
 
     #[tokio::test]
     async fn run_tick_marks_unreachable_port_and_backoff_grows() {

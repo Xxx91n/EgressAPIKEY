@@ -23,9 +23,20 @@ use crate::whitebox_backup::{
     atomic_write_bytes, backup_before_write, backup_list, now_unix, read_backup_parsed,
     WhiteboxBackupEntry,
 };
+use crate::entry_protocol::{
+    canonical_protocol, is_valid_protocol, DEFAULT_ENTRY_PORT_PROTOCOL, ENTRY_PORT_PROTOCOL_ERROR,
+};
 use crate::{DbPool, PortForwarder, PortMapping, MAX_ENTRY_PORTS, MIN_USER_PORT};
 
 pub const WHITEBOX_CONFIG_FILE: &str = "egressapikey-ports.json";
+
+/// Current whitebox document version.
+///
+/// v1 -> v2 is round 8 ticket 13 / D-007 (ADR-0068 D3): the entry-port protocol
+/// enum gained `mixed` and `socks5` was tightened to SOCKS5-only. v1 documents
+/// still load - the two-value vocabulary is flag-preserving onto `mixed` - and
+/// are upgraded in place by `migrate_entry_port_protocols`.
+pub const WHITEBOX_CONFIG_VERSION: u8 = 2;
 
 #[derive(Debug, Clone, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct WhiteboxConfig {
@@ -66,7 +77,7 @@ pub struct WhiteboxConfig {
 impl WhiteboxConfig {
     pub fn from_ports(entry_ports: Vec<PortMapping>) -> Self {
         Self {
-            version: 1,
+            version: WHITEBOX_CONFIG_VERSION,
             entry_ports,
             network: NetworkConfig::default(),
             acknowledged: Vec::new(),
@@ -121,8 +132,10 @@ pub struct NetworkConfig {
 
 /// Validate before the config is made active or persisted.
 pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
-    if config.version != 1 {
-        return Err("whitebox config version must be 1".into());
+    if config.version != 1 && config.version != WHITEBOX_CONFIG_VERSION {
+        return Err(format!(
+            "whitebox config version must be 1 or {WHITEBOX_CONFIG_VERSION}"
+        ));
     }
     if config.entry_ports.len() > MAX_ENTRY_PORTS {
         return Err(format!("too many entry ports (max {MAX_ENTRY_PORTS})"));
@@ -138,8 +151,8 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
         if !seen.insert(port.port) {
             return Err(format!("duplicate port {}", port.port));
         }
-        if !matches!(port.protocol.as_str(), "socks5" | "http") {
-            return Err("protocol must be socks5 or http".into());
+        if !is_valid_protocol(&port.protocol) {
+            return Err(ENTRY_PORT_PROTOCOL_ERROR.into());
         }
         validate_identity(&port.platform_name, "platform_name")?;
         if !port.account.is_empty() {
@@ -181,6 +194,87 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
 /// Ticket 17 / ADR-0055 D2: one target port may carry at most one process.
 /// Returns Err naming the bound process (the legacy typed-conflict
 /// contract, now part of document validation). Pure; unit-tested.
+/// Round 8 ticket 13 / D-007 (spec IMP-1, ADR-0068 D3): the flag-preserving
+/// rewrite of ONE legacy protocol token.
+///
+/// Under the v1 vocabulary a `socks5` row produced BOTH engine flags
+/// (`allow_socks5` + `allow_http_forward`), i.e. it behaved exactly like
+/// today's `mixed`. Rewriting it to `mixed` therefore keeps the effective
+/// listener behaviour identical while the token catches up with the tightened
+/// mapping. `http` and the three-value tokens are returned unchanged; anything
+/// outside the closed set falls back to the declared default so a hand-edited
+/// row cannot yield a half-dead port.
+pub fn migrate_legacy_protocol_token(protocol: &str) -> &'static str {
+    match canonical_protocol(protocol) {
+        Some("socks5") => DEFAULT_ENTRY_PORT_PROTOCOL,
+        Some(other) => other,
+        None => DEFAULT_ENTRY_PORT_PROTOCOL,
+    }
+}
+
+/// The v1 -> v2 protocol migration applied to a bare mapping list - the form the
+/// SQLite seed and the document share. Returns true when a row changed.
+pub fn migrate_legacy_port_rows(ports: &mut [PortMapping]) -> bool {
+    let mut changed = false;
+    for row in ports.iter_mut() {
+        let migrated = migrate_legacy_protocol_token(&row.protocol);
+        if migrated != row.protocol {
+            row.protocol = migrated.to_string();
+            changed = true;
+        }
+    }
+    changed
+}
+
+/// Round 8 ticket 13 / D-007: one-time entry-port protocol migration over a
+/// whole whitebox document.
+///
+/// The `version` stamp is what makes this ONE-TIME, and is why it is not a bare
+/// token rewrite: once a document is v2, a `socks5` row is a DELIBERATE
+/// SOCKS5-only port and must never be rewritten again. A v1 document - any
+/// document written before the three-value enum - has no such intent, so every
+/// `socks5` row is flag-preservingly promoted to `mixed`.
+///
+/// Always reports true for a v1 document (the version stamp alone is a document
+/// change) and false for a v2 one, so a second pass is a no-op. Pure.
+pub fn migrate_entry_port_protocols(doc: &mut WhiteboxConfig) -> bool {
+    if doc.version >= WHITEBOX_CONFIG_VERSION {
+        return false;
+    }
+    migrate_legacy_port_rows(&mut doc.entry_ports);
+    doc.version = WHITEBOX_CONFIG_VERSION;
+    true
+}
+
+/// Round 8 ticket 13 / D-007: the FILE form of the migration, run once at boot
+/// before the document is parsed (see `WhiteboxConfigStore::open`).
+///
+/// Reads the raw bytes, applies `migrate_entry_port_protocols`, re-validates and
+/// lands the document with an atomic write. Returns true when the file was
+/// rewritten, false when it was already current (or absent), and an error only
+/// when the file exists but cannot be read or parsed - in which case the
+/// caller's normal parse path reports the malformed document, so a corrupt file
+/// is never silently "repaired".
+///
+/// No generation bump: the v1 -> v2 table is flag-preserving, so the desired
+/// state is unchanged and a bump would manufacture a false PendingApply / drift
+/// episode on an already-converged runtime (the discipline ticket 01's
+/// `migrate_b_class_values_once` follows).
+pub fn migrate_entry_port_protocols_file_once(path: &Path) -> Result<bool, String> {
+    if !path.exists() {
+        return Ok(false);
+    }
+    let raw_text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let mut doc: WhiteboxConfig = serde_json::from_str(&raw_text)
+        .map_err(|e| format!("whitebox config parse error: {e}"))?;
+    if !migrate_entry_port_protocols(&mut doc) {
+        return Ok(false);
+    }
+    validate(&doc)?;
+    write_atomic(path, &doc)?;
+    Ok(true)
+}
+
 pub fn process_route_conflict_check(rules: &[ProcessRouteRule]) -> Result<(), String> {
     for (i, r) in rules.iter().enumerate() {
         for other in rules.iter().skip(i + 1) {
@@ -340,6 +434,25 @@ pub struct WhiteboxConfigStore {
 impl WhiteboxConfigStore {
     pub async fn open(path: PathBuf, initial: WhiteboxConfig) -> Result<Self, String> {
         validate(&initial)?;
+        // Round 8 ticket 13 / D-007: one-time entry-port protocol migration.
+        // Runs BEFORE the file is parsed so the loaded document already carries
+        // the tightened three-value vocabulary. Best-effort: a malformed file is
+        // left for the parse path below to report, so the caller's
+        // quarantine-and-reseed behaviour is unchanged.
+        if path.exists() {
+            match migrate_entry_port_protocols_file_once(&path) {
+                Ok(true) => tracing::info!(
+                    target: "whitebox",
+                    "entry-port protocol migrated to the three-value enum (legacy socks5 -> mixed; one-time)"
+                ),
+                Ok(false) => {}
+                Err(e) => tracing::warn!(
+                    target: "whitebox",
+                    error = %e,
+                    "entry-port protocol migration skipped; the parse path reports a malformed whitebox"
+                ),
+            }
+        }
         if !path.exists() {
             write_atomic(&path, &initial)?;
         }
@@ -440,6 +553,12 @@ impl WhiteboxConfigStore {
         forwarder: &PortForwarder,
         mut next: WhiteboxConfig,
     ) -> Result<usize, String> {
+        // Round 8 ticket 13 / D-007: a document that still declares the v1
+        // vocabulary (an imported or restored legacy export) gets the
+        // flag-preserving `socks5` -> `mixed` rewrite on the way in, so the
+        // tightened mapping can never reinterpret it. A v2 document is left
+        // alone: there `socks5` is a deliberate SOCKS5-only port.
+        migrate_entry_port_protocols(&mut next);
         validate(&next)?;
         let _guard = self.writer.lock().await;
         // Round 5 T09 / ADR-0058 (D-27): single-generation counter bump —
@@ -449,6 +568,7 @@ impl WhiteboxConfigStore {
         // swap below may still fail after this (rollback restores the
         // previous config), but a rejected-because-invalid file never bumps:
         // validate() ran first.
+        next.version = WHITEBOX_CONFIG_VERSION;
         next.generation = self.snapshot().generation.wrapping_add(1);
         next.updated_at = Some(now_unix());
         let previous = self.snapshot();

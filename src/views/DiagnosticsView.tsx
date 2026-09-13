@@ -140,7 +140,7 @@ export function DiagnosticsView() {
   const [verifyResult, setVerifyResult] = useState<Record<string, unknown> | null>(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
   const [healthPort, setHealthPort] = useState("1790");
-  const [healthProto, setHealthProto] = useState("socks5");
+  const [healthProto, setHealthProto] = useState("mixed");
   const [healthResult, setHealthResult] = useState<PortHealthCheck | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
   // T19 (ADR-0064): Resin metrics minimal-set state (pull model).
@@ -523,6 +523,7 @@ export function DiagnosticsView() {
             onChange={(e) => setProbeProto(e.target.value)}
             className="text-xs rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1"
           >
+            <option value="mixed">MIXED</option>
             <option value="http">HTTP</option>
             <option value="socks5">SOCKS5</option>
           </select>
@@ -558,6 +559,7 @@ export function DiagnosticsView() {
             onChange={(e) => setHealthProto(e.target.value)}
             className="text-xs rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2 py-1"
           >
+            <option value="mixed">MIXED</option>
             <option value="socks5">SOCKS5</option>
             <option value="http">HTTP</option>
           </select>

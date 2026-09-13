@@ -65,7 +65,7 @@ export function PlatformsView() {
   const [bootstrapped, setBootstrapped] = useState(false);
   const [ports, setPorts] = useState<PortMapping[]>([]);
   const [newPort, setNewPort] = useState("");
-  const [newProto, setNewProto] = useState<"socks5" | "http">("socks5");
+  const [newProto, setNewProto] = useState<"socks5" | "http" | "mixed">("mixed");
   const [newLabel, setNewLabel] = useState("");
   const [newAuthRequired, setNewAuthRequired] = useState(true);
   const [platforms, setPlatforms] = useState<PlatformInfoFull[]>([]);
@@ -448,7 +448,8 @@ export function PlatformsView() {
           <div className="border-b p-2">
             <div className="flex items-center gap-1.5">
               <input className="w-20 rounded border bg-background px-2 py-1.5 text-sm" value={newPort} onChange={(e) => setNewPort(e.target.value)} placeholder={t("platform.port")} data-testid="port-input" />
-              <select className="w-24 rounded border bg-background px-2 py-1.5 text-sm" value={newProto} onChange={(e) => setNewProto(e.target.value as "socks5" | "http")} data-testid="port-protocol">
+              <select className="w-24 rounded border bg-background px-2 py-1.5 text-sm" value={newProto} onChange={(e) => setNewProto(e.target.value as "socks5" | "http" | "mixed")} data-testid="port-protocol">
+                <option value="mixed">MIXED</option>
                 <option value="socks5">SOCKS5</option>
                 <option value="http">HTTP</option>
               </select>
@@ -513,10 +514,12 @@ export function PlatformsView() {
                           </button>
                         )}
                       </div>
-                      {a && p.protocol === "socks5" && a.auth_required && (
+                      {/* Round 8 ticket 13 / D-007: a `mixed` port answers BOTH
+                          dialects, so it advertises both credential forms. */}
+                      {a && (p.protocol === "socks5" || p.protocol === "mixed") && a.auth_required && (
                         <div className="break-all text-[10px] text-muted-foreground/80">{t("platform.socks5Auth")}: {a.username} · {t("platform.passwordMasked")}</div>
                       )}
-                      {a && p.protocol === "http" && a.auth_required && (
+                      {a && (p.protocol === "http" || p.protocol === "mixed") && a.auth_required && (
                         <div className="break-all text-[10px] text-muted-foreground/80">{t("platform.httpAuth")}: {a.username} · {t("platform.passwordMasked")}</div>
                       )}
                       {a && !a.auth_required && (

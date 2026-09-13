@@ -93,9 +93,11 @@ pub async fn restore_ports_from_whitebox(
             skipped += 1;
             continue;
         }
-        let proto = m.protocol.trim().to_ascii_lowercase();
-        let allow_socks5 = proto == "socks5";
-        let allow_http_forward = proto == "http" || proto == "socks5";
+        // Round 8 ticket 13 / D-007: ONE shared derivation, not a fourth
+        // hand-rolled copy. mixed opens both capabilities, http only HTTP
+        // forwarding, socks5 only SOCKS5.
+        let (allow_socks5, allow_http_forward) =
+            resin_core::entry_protocol::engine_flags(&m.protocol);
         let body = serde_json::json!({
             "port": m.port,
             "allow_management": false,

@@ -385,7 +385,7 @@ export function snapshotToPlatformFulls(snap: AuthoritativeSnapshot): PlatformFu
 export function snapshotToPortMappings(snap: AuthoritativeSnapshot): PortMapping[] {
   return snap.ports.map((ps) => ({
     port: ps.port,
-    protocol: ps.protocol || "socks5",
+    protocol: ps.protocol || "mixed",
     platform_name: ps.platform_name,
     account: ps.account || "port-" + ps.port,
     label: ps.label,

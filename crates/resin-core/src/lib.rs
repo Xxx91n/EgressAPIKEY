@@ -29,6 +29,7 @@
 pub mod audit;
 pub mod config_transfer;
 pub mod db;
+pub mod entry_protocol;
 pub mod ipc_error;
 pub mod ip_reputation;
 pub mod platform;
@@ -57,6 +58,10 @@ pub use config_transfer::{
     build_export_doc, parse_import_doc, validate_import_pair, ConfigImportDoc,
 };
 pub use db::{DbPool, PortMapping};
+pub use entry_protocol::{
+    canonical_protocol, engine_flags, is_valid_protocol, DEFAULT_ENTRY_PORT_PROTOCOL,
+    ENTRY_PORT_PROTOCOLS, ENTRY_PORT_PROTOCOL_ERROR,
+};
 pub use ipc_error::{map_resin_error, IpcError};
 pub use ip_reputation::{
     parse_public_ips, ReputationClient, ReputationProvider, ReputationSnapshot,

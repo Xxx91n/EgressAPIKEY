@@ -268,7 +268,10 @@ pub async fn probe_exit_ip(
     tracing::info!(port, protocol = %protocol, "probe_exit_ip: probing through proxy");
     validate_port_segments(port)?;
     let proto = protocol.to_ascii_lowercase();
-    if proto != "http" && proto != "socks5" {
+    // Round 8 ticket 13 / D-007: the closed three-value set. A `mixed` port
+    // probes through the SOCKS5 dialect - a dual-flag listener accepts it,
+    // which is what the ADR-0068 D4 gate observed live against Resin.
+    if !resin_core::entry_protocol::is_valid_protocol(&proto) {
         return Err(IpcError::internal("error.invalidProtocol"));
     }
     let proxy_url = if proto == "http" {

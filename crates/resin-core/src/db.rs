@@ -61,6 +61,43 @@ impl DbPool {
             .map_err(|e| format!("apply migration v3: {e}"))?;
             tracing::info!(target: "db", "migrated to user_version 3 (auth_required column)");
         }
+        if v < 4 {
+            // Round 8 ticket 13 / D-007 (ADR-0068 D3): the entry-port protocol
+            // enum gained `mixed` and `socks5` was tightened to SOCKS5-only. A
+            // pre-change `socks5` row produced BOTH engine flags, so it is
+            // rewritten to the flag-preserving `mixed` - the "existing ports
+            // migrate once" half of the decision for the rows that seed the
+            // whitebox when the file is absent. The table is rebuilt rather than
+            // only UPDATEd so the column DEFAULT stops advertising the
+            // pre-change vocabulary: a future insert that omits `protocol` must
+            // land on the new default, not on a SOCKS5-only port.
+            conn.execute_batch(
+                "
+                BEGIN;
+                CREATE TABLE port_mappings_v4 (
+                    port INTEGER PRIMARY KEY,
+                    protocol TEXT NOT NULL DEFAULT 'mixed',
+                    platform_name TEXT NOT NULL,
+                    account TEXT NOT NULL,
+                    label TEXT NOT NULL DEFAULT '',
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    auth_required INTEGER NOT NULL DEFAULT 1
+                );
+                INSERT INTO port_mappings_v4
+                    (port, protocol, platform_name, account, label, enabled, auth_required)
+                    SELECT port,
+                           CASE WHEN lower(trim(protocol)) = 'socks5' THEN 'mixed' ELSE protocol END,
+                           platform_name, account, label, enabled, auth_required
+                    FROM port_mappings;
+                DROP TABLE port_mappings;
+                ALTER TABLE port_mappings_v4 RENAME TO port_mappings;
+                PRAGMA user_version = 4;
+                COMMIT;
+                ",
+            )
+            .map_err(|e| format!("apply migration v4: {e}"))?;
+            tracing::info!(target: "db", "migrated to user_version 4 (protocol enum: mixed default, legacy socks5 -> mixed)");
+        }
         Ok(())
     }
 
@@ -163,10 +200,59 @@ mod tests {
         let v: i64 = conn
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 3);
+        assert_eq!(v, 4);
         drop(conn);
         drop(pool);
     }
+
+    /// Round 8 ticket 13 / D-007: a v3-era table carried the pre-change
+    /// vocabulary, where `socks5` also opened HTTP forwarding. Migration v4
+    /// rewrites those rows to the flag-preserving `mixed` and moves the column
+    /// default off the retired token so a future insert that omits `protocol`
+    /// cannot land on a SOCKS5-only port by accident.
+    #[test]
+    fn migrate_v4_rewrites_legacy_socks5_and_moves_the_column_default() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE port_mappings (port INTEGER PRIMARY KEY, protocol TEXT NOT NULL DEFAULT 'socks5', platform_name TEXT NOT NULL, account TEXT NOT NULL, label TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1, auth_required INTEGER NOT NULL DEFAULT 1); PRAGMA user_version = 3;",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO port_mappings (port, protocol, platform_name, account, label, enabled, auth_required) VALUES (17990, 'socks5', 'A', 'a', '', 1, 1), (17991, 'http', 'B', 'b', '', 1, 1), (17992, 'mixed', 'C', 'c', '', 1, 1)",
+            [],
+        )
+        .unwrap();
+
+        DbPool::migrate(&conn).unwrap();
+        let pool = DbPool(Arc::new(Mutex::new(conn)));
+        let rows = pool.list_ports().unwrap();
+        let protocol_of = |p: u16| {
+            rows.iter()
+                .find(|r| r.port == p)
+                .expect("row must survive the table rebuild")
+                .protocol
+                .clone()
+        };
+        assert_eq!(protocol_of(17990), "mixed", "legacy socks5 is flag-preserving");
+        assert_eq!(protocol_of(17991), "http", "http keeps its meaning");
+        assert_eq!(protocol_of(17992), "mixed", "an already-mixed row is untouched");
+
+        let ddl: String = pool
+            .0
+            .lock()
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE name = 'port_mappings'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(ddl.contains("DEFAULT 'mixed'"), "column default moved to mixed: {ddl}");
+        assert!(!ddl.contains("DEFAULT 'socks5'"), "retired token must not survive: {ddl}");
+
+        // Idempotent: a second pass at the already-current version is a no-op.
+        DbPool::migrate(&pool.0.lock()).unwrap();
+    }
+}
 
     #[test]
     fn upsert_port_inserts_then_updates() {

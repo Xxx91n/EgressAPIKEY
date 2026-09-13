@@ -665,17 +665,20 @@ pub async fn ensure_default_port(
         );
         return StepStatus::AlreadyPresent;
     }
-    // (e) Create the socks5 listener — the exact endpoint body port_upsert
-    // sends for a socks5 mapping (allow_http_forward is true for socks5
-    // too; require_proxy_auth_info defaults on, matching the GUI's default
-    // for new ports).
+    // (e) Create the mixed listener — the exact endpoint body port_upsert
+    // sends for a `mixed` mapping (round 8 ticket 13 / D-007: `socks5` no
+    // longer implies HTTP forwarding, so the dual-flag default port declares
+    // itself `mixed`). require_proxy_auth_info defaults on, matching the
+    // GUI's default for new ports).
+    let (allow_socks5, allow_http_forward) =
+        crate::entry_protocol::engine_flags(crate::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL);
     let body = serde_json::json!({
         "port": port,
         "allow_management": false,
         "allow_proxy": true,
-        "allow_http_forward": true,
+        "allow_http_forward": allow_http_forward,
         "allow_http_reverse": false,
-        "allow_socks5": true,
+        "allow_socks5": allow_socks5,
         "require_proxy_auth_info": true,
     });
     if let Err(e) = client.create_endpoint(body).await {
@@ -696,7 +699,7 @@ pub async fn ensure_default_port(
     // ADR-0058 D-27). Identity defaults mirror port_upsert's.
     let mapping = PortMapping {
         port,
-        protocol: "socks5".to_string(),
+        protocol: crate::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL.to_string(),
         platform_name: platform_name.to_string(),
         account: format!("port-{port}"),
         label: String::new(),
