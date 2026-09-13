@@ -455,12 +455,15 @@ _Avoid_: optimizer, scheduler, balancer
 ### Strategy Pipeline Vocabularies
 
 The three strategy vocabularies and their single composition point
-(ADR-0052): the catalog is `strategy.rs` (StrategyId 6 shell options +
-protocol-weight table — the UI-facing names); the planner is
+(ADR-0052): the catalog is `strategy.rs` (StrategyId — the three Resin
+allocation policies, the UI-facing names; the six legacy shell tokens
+survive only as accepted input spellings for the one-time migration);
+the planner is
 `strategy_engine.rs` (StrategyConfig whitebox document, compute_plan,
 parse_nodes — the region-computation vocabulary); the display mapping is
-frontend `src/lib/strategy.ts` (StrategyId -> i18n key, many-to-one ->
-Resin allocation_policy). They are deliberately NOT merged into one enum;
+frontend `src/lib/strategy.ts` (StrategyId -> i18n key; the former
+many-to-one Resin allocation_policy mapping collapsed to the identity in
+round8 ticket 01). They are deliberately NOT merged into one enum;
 `resin_core::StrategyService` (strategy_service.rs) is the only owner of
 the strategyConfig lifecycle — read/validate/store/apply/snapshot
 read-side/deep region edit — and the only sanctioned write path for
@@ -468,9 +471,17 @@ egressapikey-strategy.json. Per ADR-0056, apply establishes
 missing-on-resin platforms (name-only create, then the region_filters
 PATCH) and never deletes whitebox entries — removal happens by editing
 the whitebox, never as an apply side effect. Per ADR-0057, apply
-PATCHes only platforms whose live region set actually drifts from the
-computed plan (diff-then-skip on the snapshot's set rule), so a
-converged runtime takes zero strategy writes.
+PATCHes only platforms whose live state actually drifts from the whitebox
+(diff-then-skip on the snapshot's comparison rules); round8 ticket 01
+extended the drift axes to include `allocation_policy`, and only the
+drifting axes are sent, so a converged runtime takes zero strategy writes.
+Storage form (round8 ticket 01): `PlatformStrategy::b_class` holds the
+catalog value verbatim (the Resin `allocation_policy` spelling), so the
+desired-vs-observed comparison needs no mapping table; the six legacy shell
+tokens survive as accepted input spellings only and are rewritten once at
+boot (`StrategyService::migrate_b_class_values_once`, generation untouched
+because the mapping is many-to-one onto the policy already in effect), and
+`BClassParams` is withdrawn from both the UI and the API surface.
 _Avoid_: strategy monolith, vocabulary merge, three-source config
 
 ### Port Auth Info
