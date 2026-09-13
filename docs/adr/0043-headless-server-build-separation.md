@@ -1,6 +1,6 @@
 # ADR-0043: Headless Server Build Separation — Source Relocation, required-features Gating, CI Job Split
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-08-17
 > Supersedes: none (builds on ADR-0009 CLI-GUI alignment status, ADR-0017 Resin upstream manifest)
 > Sources: atomcode research T17-Q1 (dual-binary architecture, 11 sources), T17-Q2 (dual-runtime frontend, 20 sources), T17-Q3 (build/packaging separation, 16 sources), T17-Q4 (documentation structure, 18 sources)

@@ -1,4 +1,6 @@
 # Strategy Single Source of Truth: strategyConfig JSON over direct Resin PATCH
+Status: ACCEPTED
+
 
 Q5 决策：画布拖线改策略不再直接 `ipcPlatformUpdate` PATCH Resin，改为更新 strategyConfig JSON -> `ipcStrategyConfigPut` -> `ipcStrategyApply` -> 改 Resin。白盒配置文件是所有策略写入的唯一管道，Resin sidecar 是最终权威源但不是写入入口。
 

@@ -1,6 +1,6 @@
 # ADR-0023: Node Pool Collapsible Tree View
 
-**Status**: Accepted
+Status: ACCEPTED
 **Date**: 2026-08-09
 
 ## Context

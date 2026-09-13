@@ -1,6 +1,6 @@
 # ADR-0058: generation/observedGeneration convergence echo (whitebox write-authority counters)
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-09-04
 > Ticket: round5-config-authority T09 (generation-observedgeneration-echo, 波次 W3.1, 票 37 四环 a)
 > Extends (reopens none): ADR-0054 §A (one-way reconcile), ADR-0051

@@ -1,7 +1,7 @@
 # ADR-0032: Platform Page UX Polish
 
 **Date**: 2026-08-14  
-**Status**: ACCEPTED  
+Status: ACCEPTED
 **Supersedes**: ADR-0029 (platform page UX fix, T8) partially — adds collapsible cards, per-platform sync, port form polish  
 
 ## Context

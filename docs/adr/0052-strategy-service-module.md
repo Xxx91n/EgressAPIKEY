@@ -1,6 +1,6 @@
 # ADR-0052: StrategyService — one deep module owns the strategyConfig pipeline (read / validate / store / apply / snapshot / deep-edit)
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-08-30
 > Ticket: architecture-recovery 10 (strategy-service-module)
 > Extends (reopens none): ADR-0036 (strategy whitebox single write entry),

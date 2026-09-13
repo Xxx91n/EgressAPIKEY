@@ -1,6 +1,6 @@
 # ADR-0068: data-plane dual mode (shell forwarder + engine direct) and mixed protocol entry ports
 
-> Status: ACCEPTED (2026-09-13, round8-grill decisions D-001/D-007)
+Status: ACCEPTED (2026-09-13, round8-grill decisions D-001/D-007)
 > Extends (reopens none): ADR-0012 (thin-shell multi-port forwarder, port = identity), ADR-0015 (port_forwarder thin-shell downgrade).
 > Research basis: atomcode Q3/Q7 (IETF BFF BCP draft-27; sing-box mixed inbound + mihomo mixed-port first-byte peek; golang/go#18508, psf/requests#3516).
 

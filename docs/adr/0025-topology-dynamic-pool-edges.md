@@ -1,6 +1,6 @@
 # ADR-0025: Topology Canvas C-Column Dynamic Pool + Strategy-Labeled Edges
 
-**Status**: Accepted
+Status: ACCEPTED
 **Date**: 2026-08-09
 
 ## Context

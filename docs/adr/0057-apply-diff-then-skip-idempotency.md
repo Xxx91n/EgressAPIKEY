@@ -1,6 +1,6 @@
 # ADR-0057: strategy apply idempotency — diff-then-skip (apply PATCHes only real drift)
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-09-03
 > Ticket: architecture-recovery 36 (apply-idempotency-align) — checkpoint B.
 > Extends (reopens none): ADR-0054 §A (one-way reconcile), ADR-0056

@@ -1,6 +1,6 @@
 # ADR-0049: Headless Server White-Screen Root Cause + SPA Fallback + Error Boundary
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-08-19
 > Supersedes: none
 > Related: ADR-0043 (headless build separation), GRILL T22

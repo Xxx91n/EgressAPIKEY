@@ -1,6 +1,6 @@
 # ADR-0065: GeoIP provider selection — third-party IP reputation over Resin built-in GeoIP
 
-- **Status**: ACCEPTED
+Status: ACCEPTED
 - **Date**: 2026-09-05 (round5 T20 / 裂痕 #7 — 波次 W4)
 - **Supersedes**: nothing; documents a selection left implicit by ADR-0050 —
   coverage rows R40-R43 (`/api/v1/geoip/*`) move from 空白-pending-T20 to

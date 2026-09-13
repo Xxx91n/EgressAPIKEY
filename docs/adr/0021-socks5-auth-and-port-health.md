@@ -1,6 +1,6 @@
 # ADR-0021: SOCKS5 Auth Exposure + Port Health Check
 
-**Status**: Accepted
+Status: ACCEPTED
 **Date**: 2026-08-08
 **Supersedes**: None (complements ADR-0012)
 

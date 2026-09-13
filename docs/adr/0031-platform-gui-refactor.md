@@ -1,7 +1,6 @@
 # ADR-0031: Platform GUI Refactor — Split Card, Chip Selectors, Smart Port, Thin Scrollbar
 
-## Status
-ACCEPTED (2026-08-14)
+Status: ACCEPTED (2026-08-14)
 
 ## Context
 ADR-0029 (T8) planned chip-based multi-select for A-class strategy selectors but the implementation left text inputs in place. The platform card A/B strategy areas are visually asymmetric (B-class `<select>` top-right, A-class text panel below). Manual A-class mode has zero selection UI. Port auth toggle forgets user preference. Scrollbars are platform default (17px, ugly). Port number defaults to hardcoded 17990 with no system occupancy check.

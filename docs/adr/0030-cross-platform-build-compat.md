@@ -1,6 +1,6 @@
 # ADR-0030: Cross-Platform Build/Compile/Test Compatibility
 
-> **Status**: ACCEPTED
+Status: ACCEPTED
 > **Date**: 2026-08-14
 > **Supersedes**: None (complements ADR-0019)
 

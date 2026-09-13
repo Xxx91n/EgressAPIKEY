@@ -1,6 +1,6 @@
 # ADR-0066: Platform actions not integrated (reset-to-default / rebuild-routable-view / preview-filter)
 
-- **Status**: ACCEPTED
+Status: ACCEPTED
 - **Date**: 2026-09-05 (round5 T22 / 裂痕 #2 子项 — 波次 W4)
 - **Supersedes**: nothing; narrows ADR-0062 D3/D4 — coverage rows R09/R13/R14
   move from 空白-pending-T22 to 故意不接 with the reasons recorded here.

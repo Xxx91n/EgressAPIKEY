@@ -1,6 +1,6 @@
 # ADR-0063: account-header-rules integration — coexistence with process routes
 
-> Status: ACCEPTED (2026-09-05, round5-config-authority ticket 16)
+Status: ACCEPTED (2026-09-05, round5-config-authority ticket 16)
 > Extends (reopens none): ADR-0055 (process routes as an L2 whitebox field),
 > ADR-0062 (Resin API coverage ledger: R32-R35 wiring roadmap).
 > Legislation: D-35 coexistence, not replacement.

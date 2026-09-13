@@ -1,6 +1,6 @@
 # ADR-0059: Append-only write audit log (audit.jsonl)
 
-- **Status**: ACCEPTED
+Status: ACCEPTED
 - **Date**: 2026-09-04 (round5 T11 / ticket 37 §4 gap (d))
 
 ## Context

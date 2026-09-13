@@ -1,6 +1,6 @@
 # ADR-0035: Performance Optimization — Job Object + Lightweight Mode + Virtualization
 
-**Status**: ACCEPTED
+Status: ACCEPTED
 **Date**: 2026-08-15
 **Supersedes**: —
 

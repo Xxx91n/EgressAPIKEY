@@ -1,6 +1,6 @@
 # ADR-0067: License layering and third-party provenance (GPL-3.0-or-later repo-wide)
 
-- **Status**: ACCEPTED
+Status: ACCEPTED
 - **Date**: 2026-09-05 (architecture-recovery ticket 01, wave W1)
 - **Research basis**: spec §8 R-A2 (atomcode-research: industrial licensing
   models for vendored third-party components combined with own copyleft code,

@@ -1,6 +1,6 @@
 # ADR-0064: Resin metrics integration — minimal set first (2 of 12 endpoints)
 
-- **Status**: ACCEPTED
+Status: ACCEPTED
 - **Date**: 2026-09-04 (round5 T19 / 裂痕 #5 部分治理 — 波次 W4)
 - **Supersedes**: nothing (new decision area; does not touch ADR-0050, which
   deleted the dead kernel face — this ADR only adds client methods, it does

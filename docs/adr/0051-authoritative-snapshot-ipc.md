@@ -1,6 +1,6 @@
 # ADR-0051: Authoritative Snapshot IPC — one pre-merged read-back of L2 + L3 config
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-08-30
 > Ticket: architecture-recovery 07 (authoritative-snapshot-ipc)
 > Extends (reopens none): ADR-0036 (strategy whitebox single write entry),

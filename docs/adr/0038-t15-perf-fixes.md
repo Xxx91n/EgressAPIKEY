@@ -1,6 +1,6 @@
 # ADR-0038: T15 Performance Fixes — DiagnosticsView usePoll, log-level control, canvas memo+throttle, reqwest::Client reuse
 
-**Status**: ACCEPTED
+Status: ACCEPTED
 **Date**: 2026-08-15
 **Relates to**: GRILL_T15_PERFORMANCE_FIX.md, ADR-0037 (prior session)
 

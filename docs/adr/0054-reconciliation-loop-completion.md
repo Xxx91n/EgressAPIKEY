@@ -1,8 +1,6 @@
 # ADR-0054: Reconciliation-Loop Completion — one-way reconcile, preview, versioned whitebox, snapshot metadata, acknowledged exemptions, one-shot notify
 
-> Status: ACCEPTED (flipped 2026-08-31 at ticket 16 closeout, after the
-> word-for-word alignment pass verified the sections against the landed
-> code of tickets 12-15 and this ticket's §E implementation)
+Status: ACCEPTED (flipped 2026-08-31 at ticket 16 closeout, after the word-for-word alignment pass verified the sections against the landed code of tickets 12-15 and this ticket's §E implementation)
 > Date: 2026-08-30
 > Revised 2026-09-04 (round5 T12): §E notify semantics superseded by
 > ADR-0060 — per drift episode (rising edge), not once per process.

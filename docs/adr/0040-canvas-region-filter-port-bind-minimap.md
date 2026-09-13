@@ -1,6 +1,6 @@
 # ADR-0040: Canvas region filter + port drag-bind + MiniMap i18n
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-08-16
 > Depends on: ADR-0039 (canvas v3 fold + strategy sync)
 

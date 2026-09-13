@@ -1,6 +1,6 @@
 # ADR-0055: processRoutes migrates from L1 to the L2 whitebox (field in egressapikey-ports.json)
 
-> Status: ACCEPTED (2026-08-31, architecture-recovery Round 3 ticket 17)
+Status: ACCEPTED (2026-08-31, architecture-recovery Round 3 ticket 17)
 > Extends (reopens none): ADR-0036 (strategy whitebox single write entry),
 > ADR-0042 (whitebox port truth + restore), ADR-0051 (authoritative
 > snapshot), ADR-0054 (reconciliation loop: one-way reconcile, versioned

@@ -1,6 +1,6 @@
 # ADR-0042: Canvas + Pipeline Sync — Port Health, Enable Switch, B-Strategy Params, Manual Mode, Config Entry, Whitebox Restore
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-08-17
 > Supersedes: none (builds on ADR-0036 strategyConfig single source, ADR-0039 canvas fold, ADR-0041 canvas v4)
 > Sources: atomcode research Q8 (sing-box urltest.go + Kiali cache + mihomo backoff), atomcode research Q16 (mihomo select vs filter + ReactFlow group no-handle + Kiali read-only canvas)

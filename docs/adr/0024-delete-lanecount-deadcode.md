@@ -1,6 +1,6 @@
 # ADR-0024: Delete Legacy LaneCount / SharedGateway Dead Code
 
-**Status**: Accepted
+Status: ACCEPTED
 **Date**: 2026-08-09
 
 ## Context

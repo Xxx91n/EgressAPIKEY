@@ -1,6 +1,6 @@
 # ADR-0048: Canvas C-column a_class-semantic filtering + new-platform default strategyConfig entry
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-08-19
 > Supersedes: T13-1 getSelectedRegions global-union filtering (L104-110), buildCColumnGroups selectedRegions param (L185-203), buildEdges region_filters-only B->C edge (L620-641)
 > Builds on: ADR-0036 strategyConfig single source, ADR-0039 canvas fold, ADR-0041 canvas v4, ADR-0042 canvas pipeline sync

@@ -1,6 +1,6 @@
 # ADR-0060: Drift-episode edge tray notification (rising-edge predicate)
 
-- **Status**: ACCEPTED
+Status: ACCEPTED
 - **Date**: 2026-09-04 (round5 T12 / 票 37 四环 (b) 上半)
 - **Revises**: ADR-0054 §E — the notify contract changes from "once per process, re-arm on zero drift" to "once per drift episode (rising edge)". The hook point, the acknowledged-exemption rule, the sidecar-down silence rule, and the delivery path are unchanged.
 - **Research basis**: R-B §3 Q3 (`C:\Users\Administrator\AppData\Local\Temp\round5-atomcode-B-config-authority.txt`) — ArgoCD notifications `when` + `oncePer` and AWS Config "SNS fires on compliance-state TRANSITION, not on steady state" are the industrial isomorphs; historical ticket 36 ADR-0057 diff-then-skip is the same transition-only reporting shape applied to writes.

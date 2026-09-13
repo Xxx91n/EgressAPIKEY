@@ -1,7 +1,6 @@
 # ADR-0045: IPC Error Contract Hardening — IpcError Full Wire + ESLint Guard + Toast Action + Full Tests
 
-## Status
-ACCEPTED
+Status: ACCEPTED
 
 ## Date
 2026-08-18

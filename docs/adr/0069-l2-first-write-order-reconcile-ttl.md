@@ -1,6 +1,6 @@
 # ADR-0069: L2-first write order, reconcile idempotency semantics, atomic config import
 
-> Status: ACCEPTED (2026-09-13, round8-grill decision D-006)
+Status: ACCEPTED (2026-09-13, round8-grill decision D-006)
 > Extends (reopens none): ADR-0042 (whitebox as truth S2/S6), ADR-0054 (reconciliation loop), ADR-0057 (apply idempotency diff-then-skip), ADR-0058 (generation/applied_generation).
 > Research basis: atomcode Q6 (Kubebuilder level-based reconcile; Azure Saga pattern limitations; WAL intent-first principle; ArgoCD self-heal semantics).
 

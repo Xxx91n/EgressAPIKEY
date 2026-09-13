@@ -1,4 +1,6 @@
 # Port-Based Identity as Single Source of Truth: route_id/interceptor reverted; port = identity
+Status: ACCEPTED
+
 
 P1 决策（commit c71bab5，2026-08-05）：删除 `crates/resin-core/src/interceptor.rs`、`a4_3_live.rs`、`lane.rs::route_id/normalize_auth`、`InterceptorPort`。Commit message 明确记载 "Delete interceptor.rs, a4_3_live.rs, route_id/normalize_auth, InterceptorPort" 作为 P1 dead-code deletion + EgressAPIKEY rename 的一部分。
 

@@ -1,6 +1,6 @@
 # Config Export/Import: Whitebox as Source (no direct Resin read/write)
 
-**Status**: Accepted
+Status: ACCEPTED
 
 **Round**: 5 (W2.3) — ticket T07, fractures #3 + #7
 

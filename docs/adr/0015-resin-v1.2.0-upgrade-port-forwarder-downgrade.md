@@ -1,6 +1,6 @@
 # ADR-0015: Resin v1.2.0 Upgrade — port_forwarder Thin-Shell Downgrade
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-08-06
 > Supersedes: None (complements ADR-0012)
 > Decides: T1 — port_forwarder downgrades to endpoint API forwarder; StreamSensor stays shell-side

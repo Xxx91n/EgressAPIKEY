@@ -1,7 +1,6 @@
 # ADR-0027: Empty proxy_token enables no-auth on all entry ports
 
-## Status
-ACCEPTED (T7-fix, 2026-08-13)
+Status: ACCEPTED (T7-fix, 2026-08-13)
 
 ## Context
 

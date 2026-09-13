@@ -1,7 +1,6 @@
 # ADR-0029: Platform Page UX Fix — Drag, Strategy Display, Unbound Ports
 
-## Status
-ACCEPTED (2026-08-13)
+Status: ACCEPTED (2026-08-13)
 
 ## Context
 

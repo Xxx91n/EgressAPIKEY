@@ -1,6 +1,6 @@
 # ADR-0056: reconcile platform-create semantics — apply fulfills the preview's "will be established" promise
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-09-02
 > Ticket: architecture-recovery 22 (b1-reconcile-platform-semantics) — checkpoint A.
 > Extends (reopens none): ADR-0054 §A (one-way reconcile), ADR-0036

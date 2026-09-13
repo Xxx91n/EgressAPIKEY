@@ -1,6 +1,6 @@
 # ADR-0050: Shrink resin-core public surface to the shell-used set
 
-**Status**: Accepted
+Status: ACCEPTED
 **Date**: 2026-08-30
 **Related**: ADR-0009 (stub bin, partially superseded), ADR-0024 (SharedGateway deletion precedent), ADR-0036 (whitebox single write entry), ADR-0043 (headless build separation), ADR-0045 (IPC error contract)
 

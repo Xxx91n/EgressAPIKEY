@@ -1,7 +1,7 @@
 # ADR-0033: Platform Page UX Fix (T12 Fix Branch)
 
 **Date**: 2026-08-14
-**Status**: ACCEPTED
+Status: ACCEPTED
 **Supersedes**: ADR-0032 partially (adds context-menu disable, hover expand, subscription-folded manual list, label compact)
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR-0062: Resin API coverage mapping (five-bucket consumption ledger)
 
-- **Status**: ACCEPTED
+Status: ACCEPTED
 - **Date**: 2026-09-04 (round5 T13 / crack #2)
 - **Companion doc**: [RESIN_API_COVERAGE.md](../architecture/RESIN_API_COVERAGE.md) (the row set this ADR legislates)
 

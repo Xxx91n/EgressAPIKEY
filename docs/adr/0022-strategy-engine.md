@@ -1,6 +1,6 @@
 # ADR-0022: Shell-Side Strategy Engine (A-class + B-class)
 
-**Status**: Accepted
+Status: ACCEPTED
 **Date**: 2026-08-09
 
 ## Context

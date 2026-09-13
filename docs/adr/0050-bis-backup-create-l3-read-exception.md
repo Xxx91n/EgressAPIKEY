@@ -1,6 +1,6 @@
 # ADR-0050-bis: backup_create's read-only exception to the L3 private-file rule
 
-> Status: ACCEPTED
+Status: ACCEPTED
 > Date: 2026-09-03
 > Ticket: round5-config-authority T06 (backup-create-l3-private-exception,
 > mental-model fractures #2 + #8).
