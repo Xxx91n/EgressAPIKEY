@@ -75,11 +75,17 @@ _Avoid_: server, proxy, relay
 
 ### Ghost Safety Net
 
-The Tauri shell's observation-only health monitor. Polls the Resin
-sidecar /healthz every 3s; after 3 consecutive failures it flips the
-tray red, clears the OS system HTTP/HTTPS proxy, and emits a
-"sidecar-status: unhealthy" event to the webview. Never auto-restarts
-the sidecar — restart policy is owned by the shell lifecycle.
+The Tauri shell's health monitor for the Resin sidecar. Polls /healthz
+every 3s; after 3 consecutive failures it flips the tray red, clears the
+OS system HTTP/HTTPS proxy, emits a "sidecar-status: unhealthy" event to
+the webview, and then RESTARTS the sidecar for real (two-phase kill of the
+child, respawn on the SAME control-plane port with the same admin token,
+await /healthz, swap the child back into the handle; A-012). Each unhealthy
+transition spends one of MAX_CRASH_RESTARTS=3 restart attempts with 1s/2s/4s
+backoff; the transition after the budget is exhausted marks the sidecar
+Terminated and stops restarting (the app must be restarted by the user).
+Port identity is deliberately preserved across the restart because the
+PortForwarder, diagnostics and strategy probe cache it at boot.
 _Avoid_: watchdog, monitor, guardian
 
 ### Sidecar
@@ -234,13 +240,15 @@ _Avoid_: log buffer, pipe drain, stderr cache
 
 ### Crash Restart
 
-The bounded auto-retry policy when the Resin CommandChild is detected
-dead (try_wait returns Some). Up to 3 retries with exponential backoff
-(1s, 2s, 4s). The tray shows a "restarting" spinner during retries.
-After 3 failures the sidecar is marked dead and the user is notified;
-the shell does not attempt further spawns until the user triggers a
-manual restart. Distinct from Ghost Safety Net which polls /healthz
-while the process is alive.
+The bounded auto-retry policy the Ghost Safety Net applies when the Resin
+sidecar is observed unhealthy (3 consecutive /healthz failures). Up to 3
+retries with exponential backoff (1s, 2s, 4s), each one a REAL restart
+(two-phase kill + respawn on the same port, A-012); a "restarting" event is
+emitted during retries. After the 3 attempts are spent, the next unhealthy
+transition marks the sidecar Terminated and the user is notified; the shell
+does not attempt further spawns until the user restarts the app. The restart
+re-binds the same control-plane port (RespawnSlot) instead of allocating a
+new one.
 _Avoid_: watchdog respawn, auto-recover
 
 ### Two-Phase Shutdown

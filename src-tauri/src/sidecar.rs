@@ -161,6 +161,19 @@ impl SidecarHandle {
         }
         *self.mode.write().unwrap() = new;
     }
+
+    /// A-012: capture the identity a restart must preserve. The control-plane
+    /// port is cached by several shell consumers at boot, so a restart must
+    /// re-bind THIS port with THIS admin token rather than allocate a new
+    /// pair (which would leave those consumers pointing at a dead port).
+    pub(crate) fn respawn_slot(&self) -> RespawnSlot {
+        RespawnSlot {
+            port: self.api_port,
+            admin_token: self.admin_token.clone(),
+            #[cfg(target_os = "windows")]
+            job: self.job_handle,
+        }
+    }
 }
 
 /// Boot the resin sidecar and wait for its control plane to be reachable.
@@ -248,6 +261,21 @@ fn scan_for_resin_bin(
     candidates.into_iter().next()
 }
 
+/// A-012: the identity a restart must PRESERVE. The shell caches the
+/// control-plane port at boot (PortForwarder in main.rs, the diagnostics
+/// panel, the strategy probe URL), so a restart that allocated a new port
+/// would leave all of them pointing at a dead listener. Restart therefore
+/// re-binds the same port with the same admin token and only swaps the
+/// child process (and re-uses the Windows Job Object already armed with
+/// KILL_ON_JOB_CLOSE).
+#[derive(Debug, Clone)]
+pub(crate) struct RespawnSlot {
+    port: u16,
+    admin_token: String,
+    #[cfg(target_os = "windows")]
+    job: Option<isize>,
+}
+
 /// Spawn the resin child, drain its stdout/stderr into the log buffer,
 /// poll /healthz until the control plane is up (15s deadline), then
 /// return a SidecarHandle. Path/port-independent: callers pass explicit
@@ -260,6 +288,40 @@ fn spawn_resin_await_healthz(
     binary_path: &std::path::Path,
     network: &NetworkConfig,
 ) -> Result<SidecarHandle> {
+    spawn_resin_inner(state_dir, cache_dir, log_dir, binary_path, network, None, None)
+}
+
+/// A-012 restart path: re-spawn into an EXISTING slot (same port, same admin
+/// token, same Windows Job Object) instead of allocating fresh identity, and
+/// drain the new child's output into the caller's log buffer so the
+/// diagnostics panel keeps seeing sidecar logs across a restart.
+fn respawn_resin_await_healthz(
+    state_dir: &std::path::Path,
+    cache_dir: &std::path::Path,
+    log_dir: &std::path::Path,
+    binary_path: &std::path::Path,
+    network: &NetworkConfig,
+    slot: RespawnSlot,
+    log_buf: Arc<LogBuffer>,
+) -> Result<SidecarHandle> {
+    spawn_resin_inner(
+        state_dir, cache_dir, log_dir, binary_path, network,
+        Some(slot), Some(log_buf),
+    )
+}
+
+/// Shared spawn body. A cold boot passes no slot (allocate a free port + a
+/// fresh admin token); an A-012 restart passes a RespawnSlot so the new
+/// process re-binds the port/token identity the rest of the shell cached.
+fn spawn_resin_inner(
+    state_dir: &std::path::Path,
+    cache_dir: &std::path::Path,
+    log_dir: &std::path::Path,
+    binary_path: &std::path::Path,
+    network: &NetworkConfig,
+    slot: Option<RespawnSlot>,
+    log_buf: Option<Arc<LogBuffer>>,
+) -> Result<SidecarHandle> {
     std::fs::create_dir_all(state_dir)
         .with_context(|| format!("sidecar: cannot create state_dir {:?}", state_dir))?;
     std::fs::create_dir_all(cache_dir)
@@ -271,8 +333,18 @@ fn spawn_resin_await_healthz(
         state_dir, cache_dir, log_dir
     );
 
-    let api_port = pick_free_loopback_port()?;
-    let admin_token = gen_token();
+    let (api_port, admin_token) = match &slot {
+        Some(s) => (s.port, s.admin_token.clone()),
+        None => (pick_free_loopback_port()?, gen_token()),
+    };
+    if let Some(s) = &slot {
+        // CONTEXT Port Cleanup / ADR-0016 Q4: refuse to spawn into a port
+        // that is still held. A silent bind failure would otherwise look
+        // like a successful restart while no control plane ever came up.
+        check_port_available(s.port).map_err(|e| {
+            anyhow!("sidecar: restart cannot rebind 127.0.0.1:{}: {e}", s.port)
+        })?;
+    }
     // T7-fix: empty proxy_token enables no-auth on ports where require_proxy_auth_info=0.
     // Resin socks5.go:261 — when s.token=="" the OR condition is false, so the
     // else branch accepts NoAuth(0x00) + UserPass(0x02). forward.go:103 — when
@@ -331,9 +403,9 @@ fn spawn_resin_await_healthz(
     // the child becomes orphan. This is an accepted limitation (same as
     // clash-verge-rev); a suspended-create fix requires patching tauri-plugin-shell.
     #[cfg(target_os = "windows")]
-    let job_handle = assign_sidecar_to_job_object(child.id());
+    let job_handle = assign_sidecar_to_job(child.id(), slot.as_ref().and_then(|s| s.job));
 
-    let log_buf = LogBuffer::new();
+    let log_buf = log_buf.unwrap_or_else(LogBuffer::new);
     let drain_buf = log_buf.clone();
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
@@ -441,6 +513,76 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
     spawn_resin_await_healthz(&state_dir, &cache_dir, &log_dir, &binary_path, &network)
 }
 
+/// A-012 (D-005 ii): restart the sidecar FOR REAL - the Ghost safety net used
+/// to announce a restart (emit "restarting" + backoff) without killing or
+/// respawning anything.
+///
+/// Sequence (ADR-0016 Q5 two-phase shutdown, then a fresh spawn):
+///   1. Running -> NotRunning, take the child out of the handle
+///   2. kill + wait SHUTDOWN_WAIT_MS + try_wait (port/SQLite lock released)
+///   3. NotRunning -> Starting, respawn on the SAME port with the SAME admin
+///      token (RespawnSlot) and await /healthz (15s deadline)
+///   4. swap the new child into the handle, Starting -> Running
+///
+/// BLOCKING (std::process + blocking reqwest + thread::sleep): callers MUST
+/// run this on a blocking pool (tokio::task::spawn_blocking), never directly
+/// on an async worker thread.
+pub(crate) fn restart_resin<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
+    let Some(state) = app.try_state::<SidecarHandle>() else {
+        return Err(anyhow!("sidecar: restart requested before SidecarHandle is managed"));
+    };
+    let slot = state.respawn_slot();
+    tracing::warn!("ghost: restarting sidecar on port {}", slot.port);
+
+    // Phase 1 + 2: two-phase shutdown of the old child (ADR-0016 Q5).
+    state.set_mode(RunningMode::NotRunning);
+    {
+        let mut guard = state.child.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(mut child) = guard.take() {
+            let killed = child.kill().is_ok();
+            std::thread::sleep(Duration::from_millis(SHUTDOWN_WAIT_MS));
+            let alive = matches!(child.try_wait(), Ok(None));
+            if let Err(e) = two_phase_shutdown_result(killed, alive) {
+                tracing::warn!("ghost: restart shutdown incomplete: {e}");
+            }
+            let _ = child.wait();
+        }
+    }
+    state.set_mode(RunningMode::Starting);
+
+    let path = app.path();
+    let app_data = path
+        .app_data_dir()
+        .context("sidecar: cannot resolve app_data_dir for restart")?;
+    let state_dir = app_data.join("resin-state");
+    let cache_dir = app_data.join("resin-cache");
+    let log_dir = path
+        .app_log_dir()
+        .unwrap_or_else(|_| app_data.join("logs"))
+        .join("resin");
+    let binary_path = resolve_resin_binary(None)?;
+    let network = read_network_config(&app_data);
+
+    let fresh = respawn_resin_await_healthz(
+        &state_dir, &cache_dir, &log_dir, &binary_path, &network,
+        slot, state.log_buf.clone(),
+    )?;
+    {
+        let mut dst = state.child.lock().unwrap_or_else(|e| e.into_inner());
+        let mut src = fresh.child.lock().unwrap_or_else(|e| e.into_inner());
+        *dst = src.take();
+    }
+    if fresh.api_port != state.api_port {
+        tracing::error!(
+            "ghost: restart bound port {} but the handle advertises {}",
+            fresh.api_port, state.api_port
+        );
+    }
+    state.set_mode(RunningMode::Running);
+    tracing::info!("ghost: sidecar restarted on port {}", state.api_port);
+    Ok(())
+}
+
 
 
 /// T6-2: Read network config from the whitebox JSON file on disk.
@@ -492,6 +634,16 @@ pub fn check_port_available(port: u16) -> Result<(), String> {
 /// sidecar process to it. clash-verge-rev PR #6853 pattern.
 #[cfg(target_os = "windows")]
 fn assign_sidecar_to_job_object(pid: u32) -> Option<isize> {
+    assign_sidecar_to_job(pid, None)
+}
+
+/// Same as assign_sidecar_to_job_object but able to REUSE the Job Object
+/// created at boot (A-012 restart: the new child must land in the same job
+/// so a force-killed GUI still takes the restarted sidecar down with it).
+/// Only a job created here is closed on the error paths - a borrowed handle
+/// still belongs to the SidecarHandle slot.
+#[cfg(target_os = "windows")]
+fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::JobObjects::{
         AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
@@ -502,42 +654,57 @@ fn assign_sidecar_to_job_object(pid: u32) -> Option<isize> {
         use windows_sys::Win32::System::Threading::{PROCESS_TERMINATE, PROCESS_SET_QUOTA};
 
     unsafe {
-        let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
-        if job.is_null() {
-            tracing::error!("T14-1: CreateJobObjectW failed: {}", std::io::Error::last_os_error());
-            return None;
-        }
-
-        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
-        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        let result = SetInformationJobObject(
-            job,
-            JobObjectExtendedLimitInformation,
-            &mut info as *mut _ as *mut std::ffi::c_void,
-            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
-        );
-        if result == 0 {
-            tracing::error!("T14-1: SetInformationJobObject failed: {}", std::io::Error::last_os_error());
-            CloseHandle(job);
-            return None;
+        let reused = matches!(existing, Some(h) if h != 0);
+        let job: windows_sys::Win32::Foundation::HANDLE = if reused {
+            existing.unwrap_or(0) as windows_sys::Win32::Foundation::HANDLE
+        } else {
+            let created = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+            if created.is_null() {
+                tracing::error!("T14-1: CreateJobObjectW failed: {}", std::io::Error::last_os_error());
+                return None;
+            }
+            created
+        };
+        let owned = !reused;
+        if owned {
+            let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            let result = SetInformationJobObject(
+                job,
+                JobObjectExtendedLimitInformation,
+                &mut info as *mut _ as *mut std::ffi::c_void,
+                std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+            );
+            if result == 0 {
+                tracing::error!("T14-1: SetInformationJobObject failed: {}", std::io::Error::last_os_error());
+                CloseHandle(job);
+                return None;
+            }
         }
 
         let process_handle = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, 0, pid);
         if process_handle.is_null() {
             tracing::error!("T14-1: OpenProcess({}) failed: {}", pid, std::io::Error::last_os_error());
-            CloseHandle(job);
+            if owned {
+                CloseHandle(job);
+            }
             return None;
         }
 
         if AssignProcessToJobObject(job, process_handle) == 0 {
             tracing::error!("T14-1: AssignProcessToJobObject failed: {}", std::io::Error::last_os_error());
             CloseHandle(process_handle);
-            CloseHandle(job);
+            if owned {
+                CloseHandle(job);
+            }
             return None;
         }
 
         CloseHandle(process_handle);
-        tracing::info!("T14-1: sidecar PID {} assigned to Job Object (KILL_ON_JOB_CLOSE)", pid);
+        tracing::info!(
+            "T14-1: sidecar PID {} assigned to Job Object (KILL_ON_JOB_CLOSE, reused={})",
+            pid, reused
+        );
         Some(job as isize)
     }
 }
@@ -742,6 +909,74 @@ mod tests {
     }
 
     #[test]
+    fn unhealthy_action_restarts_for_the_first_three_transitions() {
+        // A-012: transitions 1..=3 each spend one real restart attempt, with
+        // the ADR-0016 Q3 backoff (1s, 2s, 4s).
+        assert_eq!(
+            unhealthy_action(1),
+            UnhealthyAction::Restart { backoff_ms: 1000 }
+        );
+        assert_eq!(
+            unhealthy_action(2),
+            UnhealthyAction::Restart { backoff_ms: 2000 }
+        );
+        assert_eq!(
+            unhealthy_action(3),
+            UnhealthyAction::Restart { backoff_ms: 4000 }
+        );
+    }
+
+    #[test]
+    fn unhealthy_action_terminates_once_the_restart_budget_is_exhausted() {
+        // A-012: the 4th unhealthy transition has no restart left.
+        assert_eq!(unhealthy_action(4), UnhealthyAction::Terminate);
+        assert_eq!(unhealthy_action(50), UnhealthyAction::Terminate);
+    }
+
+    #[test]
+    fn ghost_restart_budget_is_three_restarts_then_terminated() {
+        // Acceptance: three restart attempts, then Terminated. The safety net
+        // spends one real restart per unhealthy transition; the next one is
+        // terminal.
+        let mut crash_count: u32 = 0;
+        let mut restarts: u32 = 0;
+        let mut terminated = false;
+        for _ in 0..10 {
+            crash_count += 1;
+            match unhealthy_action(crash_count) {
+                UnhealthyAction::Restart { .. } => restarts += 1,
+                UnhealthyAction::Terminate => {
+                    terminated = true;
+                    break;
+                }
+            }
+        }
+        assert_eq!(restarts, MAX_CRASH_RESTARTS, "exactly three restart attempts");
+        assert!(terminated, "budget exhaustion must be terminal");
+    }
+
+    #[test]
+    fn respawn_slot_preserves_the_live_port_and_admin_token() {
+        // A-012: a restart re-binds the CURRENT control-plane port + admin
+        // token. Allocating a new pair would stale the PortForwarder and the
+        // diagnostics/strategy consumers that cached the port at boot.
+        let h = SidecarHandle {
+            child: Mutex::new(None),
+            mode: std::sync::RwLock::new(RunningMode::Running),
+            log_buf: LogBuffer::new(),
+            api_port: 17890,
+            admin_token: "live-admin-token".to_string(),
+            proxy_token: String::new(),
+            healthz_last_check: std::sync::RwLock::new(String::new()),
+        #[cfg(target_os = "windows")]
+        job_handle: None,
+        };
+        let slot = h.respawn_slot();
+        assert_eq!(slot.port, 17890, "restart must reuse the live port");
+        assert_eq!(slot.admin_token, "live-admin-token");
+    }
+
+    #[test]
     fn crash_backoff_ms_is_exponential() {
         // Each step should be double the previous
         let s0 = crash_backoff_ms(0);
@@ -925,6 +1160,29 @@ pub fn crash_backoff_ms(attempt: u32) -> u64 {
     1000u64 << attempt
 }
 
+/// What the Ghost safety net does on unhealthy transition number
+/// `crash_count` (1-based). Transitions 1..=MAX_CRASH_RESTARTS spend one
+/// real restart attempt (after the ADR-0016 Q3 backoff); the next transition
+/// exhausts the budget and marks the sidecar Terminated. Extracted as a pure
+/// fn so the 3-strike budget is unit-testable without spawning a process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum UnhealthyAction {
+    /// Spend one restart attempt, after `backoff_ms` of backoff.
+    Restart { backoff_ms: u64 },
+    /// Budget exhausted: mark Terminated and stop restarting.
+    Terminate,
+}
+
+pub(crate) fn unhealthy_action(crash_count: u32) -> UnhealthyAction {
+    if crash_count > MAX_CRASH_RESTARTS {
+        UnhealthyAction::Terminate
+    } else {
+        UnhealthyAction::Restart {
+            backoff_ms: crash_backoff_ms(crash_count.saturating_sub(1)),
+        }
+    }
+}
+
 /// Spawn the Ghost safety-net poll loop. MUST be called exactly once from
 /// main.rs\.setup() after boot_resin(). It captures the AppHandle and runs
 /// the poll on tauri::async_runtime; cheap (one idle task + a 2s reqwest).
@@ -936,6 +1194,9 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
         // (not single poll failures). After MAX_CRASH_RESTARTS the
         // restarter gives up and marks the sidecar Terminated.
         let mut crash_count: u32 = 0;
+        // A-012: terminal latch - once the restart budget is exhausted the
+        // loop keeps observing /healthz but stops spending restart attempts.
+        let mut terminated = false;
         let client = match reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(2))
             .build()
@@ -994,44 +1255,67 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
             } else {
                 failures += 1;
                 tracing::warn!("ghost: sidecar /healthz fail #{failures}");
-                if failures >= HEALTH_FAILURE_THRESHOLD && was_healthy {
-                    tracing::error!(
-                        "ghost: sidecar unhealthy after {failures} failures; marking tray red + clearing OS proxy"
-                    );
-                    let _ = mark_tray_status(&app, false);
-                    // T14-6: emit payload <100B ("unhealthy" = 10 bytes), no Channel needed
-                    let _ = app.emit(STATUS_EVENT, "unhealthy");
-                    if let Err(e) = clear_os_proxy().await {
-                        tracing::warn!("ghost: clear_os_proxy error: {e}");
-                    }
-                    // T2-Q3: bound the noisy-unhealthy path to MAX_CRASH_RESTARTS
-                    // (1s + 2s + 4s exponential backoff ~ 3 health cycles before
-                    //  we transition to Terminated). Each unhealthy transition
-                    // increments crash_count; after the ceiling we set
-                    // RunningMode::Terminated and emit a Toast so the GUI can
-                    // show a dedicated "sidecar crashed; please restart" banner.
-                    crash_count += 1;
-                    if crash_count > MAX_CRASH_RESTARTS {
+                if failures >= HEALTH_FAILURE_THRESHOLD {
+                    // Red tray + OS-proxy cutoff + "unhealthy" fire once per
+                    // unhealthy EPISODE (was_healthy latch), unchanged by A-012.
+                    if was_healthy {
                         tracing::error!(
-                            "ghost: sidecar terminal after {} restart attempts; mode=Terminated",
-                            MAX_CRASH_RESTARTS
+                            "ghost: sidecar unhealthy after {failures} failures; marking tray red + clearing OS proxy"
                         );
-                        if let Some(state) = app.try_state::<SidecarHandle>() {
-                            state.set_mode(RunningMode::Terminated);
+                        let _ = mark_tray_status(&app, false);
+                        // T14-6: emit payload <100B ("unhealthy" = 10 bytes), no Channel needed
+                        let _ = app.emit(STATUS_EVENT, "unhealthy");
+                        if let Err(e) = clear_os_proxy().await {
+                            tracing::warn!("ghost: clear_os_proxy error: {e}");
                         }
-                        // T14-6: emit payload <100B ("terminated" = 11 bytes), no Channel needed
-                        let _ = app.emit(STATUS_EVENT, "terminated");
-                    } else {
-                        let backoff = crash_backoff_ms(crash_count - 1);
-                        tracing::warn!(
-                            "ghost: crash attempt {}/{}, backing off {}ms before next poll",
-                            crash_count, MAX_CRASH_RESTARTS, backoff
-                        );
-                        // T14-6: emit payload <100B ("restarting" = 12 bytes), no Channel needed
-                        let _ = app.emit(STATUS_EVENT, "restarting");
-                        tokio::time::sleep(std::time::Duration::from_millis(backoff)).await;
+                        was_healthy = false;
                     }
-                    was_healthy = false;
+                    // A-012: re-arm the 3-strike window. Previously the whole
+                    // branch was gated on was_healthy, so crash_count could
+                    // only ever reach 1 and Terminated was unreachable.
+                    failures = 0;
+                    if terminated {
+                        // Budget exhausted: keep observing, stop restarting.
+                        tokio::time::sleep(HEALTH_POLL_INTERVAL).await;
+                        continue;
+                    }
+                    crash_count += 1;
+                    match unhealthy_action(crash_count) {
+                        UnhealthyAction::Terminate => {
+                            tracing::error!(
+                                "ghost: sidecar terminal after {} restart attempts; mode=Terminated",
+                                MAX_CRASH_RESTARTS
+                            );
+                            if let Some(state) = app.try_state::<SidecarHandle>() {
+                                state.set_mode(RunningMode::Terminated);
+                            }
+                            // T14-6: emit payload <100B ("terminated" = 11 bytes), no Channel needed
+                            let _ = app.emit(STATUS_EVENT, "terminated");
+                            terminated = true;
+                        }
+                        UnhealthyAction::Restart { backoff_ms } => {
+                            tracing::warn!(
+                                "ghost: crash attempt {}/{}, backing off {}ms before restart",
+                                crash_count, MAX_CRASH_RESTARTS, backoff_ms
+                            );
+                            // T14-6: emit payload <100B ("restarting" = 12 bytes), no Channel needed
+                            let _ = app.emit(STATUS_EVENT, "restarting");
+                            tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
+                            // A-012: actually restart. spawn_resin_* blocks
+                            // (std::process + blocking reqwest), so it runs on
+                            // the blocking pool - never on this async worker.
+                            let restart_app = app.clone();
+                            match tokio::task::spawn_blocking(move || restart_resin(&restart_app)).await {
+                                Ok(Ok(())) => tracing::info!(
+                                    "ghost: sidecar respawned; the next /healthz cycle flips the tray green"
+                                ),
+                                Ok(Err(e)) => tracing::error!("ghost: sidecar restart failed: {e}"),
+                                Err(join_err) => {
+                                    tracing::error!("ghost: restart task join error: {join_err}")
+                                }
+                            }
+                        }
+                    }
                 }
             }
             tokio::time::sleep(HEALTH_POLL_INTERVAL).await;
