@@ -8,7 +8,7 @@
     "add": "アカウントを追加"
   },
   "app": {
-    "title": "AI API Route",
+    "title": "EgressAPIKEY",
     "tagline": "AI APIキー専用プロキシプール（トポロジーキャンバス付き）"
   },
   "backup": {

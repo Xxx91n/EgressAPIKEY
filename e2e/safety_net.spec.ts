@@ -23,7 +23,7 @@ test("G3: contract — sidecar-status event name and payloads", async ({ page })
   // the environment. This is intentionally weak; the meaningful assertion is
   // the release-exe harness at commit time.
   await page.goto("/");
-  await expect(page.getByText("AI API Route").first()).toBeVisible();
+  await expect(page.getByText("EgressAPIKEY").first()).toBeVisible();
   const labels = ["healthy", "unhealthy"];
   // The contract is enforced by src-tauri/src/sidecar.rs
   // (STATUS_EVENT = "sidecar-status"); see G3 commit.

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test("app renders the topology view and nav switches to settings", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByText("AI API Route").first()).toBeVisible();
+  await expect(page.getByText("EgressAPIKEY").first()).toBeVisible();
   // Nav contains the topology link
   await expect(page.getByRole("button", { name: /Topology/i })).toBeVisible();
   await page.getByRole("button", { name: /Settings/i }).click();

@@ -8,7 +8,7 @@
     "add": "계정 추가"
   },
   "app": {
-    "title": "AI API Route",
+    "title": "EgressAPIKEY",
     "tagline": "토폴로지 캔버스가 있는 API 키 전용 프록시 풀"
   },
   "backup": {

@@ -8,7 +8,7 @@
     "add": "Dodaj konto"
   },
   "app": {
-    "title": "AI API Route",
+    "title": "EgressAPIKEY",
     "tagline": "Specjalistyczna pula proxy dla kluczy API AI z kanwą topologii"
   },
   "backup": {

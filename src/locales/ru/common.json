@@ -8,7 +8,7 @@
     "add": "Добавить аккаунт"
   },
   "app": {
-    "title": "AI API Route",
+    "title": "EgressAPIKEY",
     "tagline": "Специализированный пул прокси для API-ключей с холстом топологии"
   },
   "backup": {

@@ -14,7 +14,7 @@ import { test, expect } from "@playwright/test";
 test("G1: app shell mounts and sidecar contract surfaces", async ({ page }) => {
   await page.goto("/");
   // The desktop shell title authored by TopologyView must be present.
-  await expect(page.getByText("AI API Route").first()).toBeVisible();
+  await expect(page.getByText("EgressAPIKEY").first()).toBeVisible();
   // The five-tab navigation is the skeleton G4 will fill with Resin views.
   await expect(page.getByRole("button", { name: /Topology/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /Settings/i })).toBeVisible();
