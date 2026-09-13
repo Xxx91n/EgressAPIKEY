@@ -209,6 +209,10 @@ export const CONVERGE_SETTLE_SECONDS = 60;
 
 /// Event channel owned by src-tauri/src/sidecar.rs (G3 health poll / G4).
 export const SIDECAR_STATUS_EVENT = "sidecar-status";
+/// ADR-0069 D3: emitted by the Rust port family when an L2 intent was
+/// persisted but the L3 (Resin) mutation was rejected, so the drift becomes
+/// visible immediately instead of at the next poll. Payload-less trigger only.
+export const SNAPSHOT_REFRESH_EVENT = "snapshot://refresh";
 
 /// Pure cadence selector (checkpoint A). Injected nowSec keeps it testable
 /// without fake timers. Converged + settled apply → 30s; everything else
@@ -232,6 +236,7 @@ export function convergePollIntervalMs(
 // resources, not render state — the observable parts are store fields.
 let convergeTimer: ReturnType<typeof setTimeout> | null = null;
 let convergeUnlistenSidecar: (() => void) | null = null;
+let convergeUnlistenSnapshotRefresh: (() => void) | null = null;
 let convergeOnVisibility: (() => void) | null = null;
 let convergeInFlight = false;
 /// Rises on every subscribe/unsubscribe so a late-resolving listen() from a
@@ -297,6 +302,18 @@ function convergeSubscribe(): () => void {
       else unlisten();
     })
     .catch(() => { /* outside Tauri: polling still runs */ });
+  // ADR-0069 D3: a port command that persisted the L2 intent but was rejected
+  // by Resin asks for an immediate re-pull, so the resulting drift shows at
+  // once instead of at the next 5s/30s poll. Same trigger-only discipline as
+  // checkpoint B (the payload is untrusted and unused).
+  void listen(SNAPSHOT_REFRESH_EVENT, () => {
+    void useAppStore.getState().refreshConvergeSnapshot();
+  })
+    .then((unlisten) => {
+      if (gen === convergeGeneration) convergeUnlistenSnapshotRefresh = unlisten;
+      else unlisten();
+    })
+    .catch(() => { /* outside Tauri: polling still runs */ });
   // Checkpoint D: hidden clears the timer; a resume refetches once and lets
   // the refresh re-arm the cadence from the (possibly changed) phase.
   convergeOnVisibility = () => {
@@ -329,6 +346,14 @@ function convergeUnsubscribe(): void {
       /* ignore double-unlisten */
     }
     convergeUnlistenSidecar = null;
+  }
+  if (convergeUnlistenSnapshotRefresh !== null) {
+    try {
+      convergeUnlistenSnapshotRefresh();
+    } catch {
+      /* ignore double-unlisten */
+    }
+    convergeUnlistenSnapshotRefresh = null;
   }
   useAppStore.setState({ convergeSubscribed: false, convergePausedByVisibility: false });
 }

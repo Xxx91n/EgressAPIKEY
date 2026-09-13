@@ -87,12 +87,27 @@ pub fn parse_import_doc(v: &Value) -> Result<ConfigImportDoc, String> {
     let ports: WhiteboxConfig = serde_json::from_value(ports_raw.clone())
         .map_err(|e| format!("config_import: ports whitebox invalid: {e}"))?;
 
-    crate::strategy_service::validate(&strategy)
-        .map_err(|e| format!("config_import: strategy whitebox rejected: {e}"))?;
-    crate::whitebox_config::validate(&ports)
-        .map_err(|e| format!("config_import: ports whitebox rejected: {e}"))?;
+    validate_import_pair(&strategy, &ports)?;
 
     Ok(ConfigImportDoc { strategy, ports })
+}
+
+/// ADR-0069 D4 (phase 1): validate BOTH whitebox documents before either is
+/// committed. This is the atomicity gate of `config_import` - because both
+/// documents are checked here, a rejection of the SECOND one can never leave
+/// the FIRST one already persisted (the pre-D4 half-imported state).
+///
+/// Pure: it never touches the filesystem, which is what makes the
+/// "validation failure writes nothing" acceptance case unit-testable.
+pub fn validate_import_pair(
+    strategy: &StrategyConfig,
+    ports: &WhiteboxConfig,
+) -> Result<(), String> {
+    crate::strategy_service::validate(strategy)
+        .map_err(|e| format!("config_import: strategy whitebox rejected: {e}"))?;
+    crate::whitebox_config::validate(ports)
+        .map_err(|e| format!("config_import: ports whitebox rejected: {e}"))?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -216,4 +231,63 @@ mod tests {
         assert!(err.contains("strategy whitebox rejected"), "got: {err}");
         assert!(err.contains("version"), "got: {err}");
     }
+
+    /// A privileged port - rejected by `whitebox_config::validate`, i.e. an
+    /// otherwise well-formed ports document that must fail the pair gate.
+    fn invalid_ports() -> WhiteboxConfig {
+        WhiteboxConfig::from_ports(vec![crate::db::PortMapping {
+            port: 80,
+            protocol: "socks5".into(),
+            platform_name: "Anthropic".into(),
+            account: String::new(),
+            label: String::new(),
+            enabled: true,
+            auth_required: false,
+        }])
+    }
+
+    /// ADR-0069 D4: the shared pair gate is the SINGLE validation seam - it
+    /// accepts a good pair and names the offending half on rejection.
+    #[test]
+    fn validate_import_pair_is_the_single_gate_for_both_documents() {
+        assert!(validate_import_pair(&sample_strategy(), &sample_ports()).is_ok());
+        let err = validate_import_pair(&sample_strategy(), &invalid_ports()).unwrap_err();
+        assert!(err.contains("ports whitebox rejected"), "{err}");
+    }
+
+    /// ADR-0069 D4 acceptance: an import whose SECOND (ports) document fails
+    /// validation must write NOTHING - both whitebox files stay byte-identical
+    /// and no staging temp file survives.
+    #[test]
+    fn import_rejecting_the_second_document_writes_nothing() {
+        let dir =
+            std::env::temp_dir().join(format!("egressapikey-import-d4-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let strategy_path = dir.join("egressapikey-strategy.json");
+        let ports_path = dir.join("egressapikey-ports.json");
+        let before_strategy = b"{"version":1}".to_vec();
+        let before_ports = b"{"version":1}".to_vec();
+        std::fs::write(&strategy_path, &before_strategy).unwrap();
+        std::fs::write(&ports_path, &before_ports).unwrap();
+
+        // A document whose FIRST half is valid and whose SECOND half is not.
+        let doc = json!({
+            "format": "egressapikey-config",
+            "version": CONFIG_EXPORT_FORMAT_VERSION,
+            "exported_at": "2026-09-14T00:00:00Z",
+            "strategy": sample_strategy(),
+            "ports": invalid_ports(),
+        });
+        let err = parse_import_doc(&doc).unwrap_err();
+        assert!(err.contains("ports whitebox rejected"), "{err}");
+
+        // Zero writes: both files byte-identical, no temp file left behind.
+        assert_eq!(std::fs::read(&strategy_path).unwrap(), before_strategy);
+        assert_eq!(std::fs::read(&ports_path).unwrap(), before_ports);
+        assert!(!strategy_path.with_extension("json.tmp").exists());
+        assert!(!ports_path.with_extension("json.tmp").exists());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
 }

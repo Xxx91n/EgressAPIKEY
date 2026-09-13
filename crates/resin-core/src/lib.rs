@@ -45,7 +45,17 @@ pub mod throttle;
 pub mod whitebox_backup;
 pub mod whitebox_config;
 
-pub use config_transfer::{build_export_doc, parse_import_doc, ConfigImportDoc};
+pub use backup::{
+    assert_no_forbidden, build_manifest, classify_member, is_encrypted, is_forbidden_member,
+    manifest_entry, manifest_json, open_package, parse_manifest, restore_action, seal_package,
+    verify_members, BackupClass, BackupManifest, ManifestEntry, RestoreAction,
+    BACKUP_FORMAT, BACKUP_FORMAT_VERSION, CONFIG_ENTRY, MANIFEST_ENTRY, SETTINGS_ENTRY,
+    STRATEGY_ENTRY, PORTS_ENTRY, PORT_DB_ENTRY, AUDIT_ENTRY, AUDIT_ARCHIVE_PREFIX,
+    WHITEBOX_HISTORY_DIR, STATE_DB_ENTRY, CACHE_DB_ENTRY, REQUEST_LOG_PREFIX,
+};
+pub use config_transfer::{
+    build_export_doc, parse_import_doc, validate_import_pair, ConfigImportDoc,
+};
 pub use db::{DbPool, PortMapping};
 pub use ipc_error::{map_resin_error, IpcError};
 pub use ip_reputation::{

@@ -561,6 +561,72 @@ use serde_json::json;
     // command polls list_subscriptions after POST /actions/refresh (Resin
     // returns only {"status":"ok"}) and decides `changed` from these pure fns.
 
+    // -----------------------------------------------------------------------
+    // ADR-0070 backup/restore audit - two invariants a later refactor can
+    // silently reverse: (1) backup_create packages the L3 databases through the
+    // consistent-snapshot helper instead of raw-copying them, and it rejects
+    // forbidden members before sealing the manifest; (2) backup_restore verifies
+    // the whole package (manifest + per-member SHA-256) BEFORE the first
+    // authoritative write entry is touched, so a tampered or truncated archive
+    // has zero side effects.
+    #[test]
+    fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
+        let src = std::fs::read_to_string("src/commands/backup.rs")
+            .expect("backup.rs readable from the crate root");
+        // Local slicer, kept local so this audit does not depend on another
+        // test's helper: one `fn <name>(` body, up to the first column-zero
+        // closing brace.
+        let body_of = |name: &str| -> String {
+            let start = src
+                .find(&format!("fn {name}("))
+                .unwrap_or_else(|| panic!("{name} not found"));
+            let rest = &src[start..];
+            let end = rest.find("\n}\n").unwrap_or(rest.len());
+            rest[..end].to_string()
+        };
+
+        let create = body_of("backup_create");
+        assert!(
+            create.contains("push_sqlite_snapshot("),
+            "backup_create must package the L3 databases through push_sqlite_snapshot (ADR-0070 D3)"
+        );
+        assert!(
+            !create.contains("std::fs::read("),
+            "backup_create must not raw-copy a database itself (ADR-0070 D3)"
+        );
+        let forbidden = create
+            .find("assert_no_forbidden(")
+            .expect("backup_create: no forbidden-member guard");
+        let manifest = create
+            .find("build_manifest(")
+            .expect("backup_create: no manifest build");
+        assert!(
+            forbidden < manifest,
+            "backup_create must reject forbidden members before sealing the manifest (ADR-0070 D1)"
+        );
+
+        let restore = body_of("backup_restore");
+        let envelope = restore
+            .find("open_package(")
+            .expect("backup_restore: no passphrase-envelope open");
+        let verify = restore
+            .find("verify_members(")
+            .expect("backup_restore: no per-member verification");
+        assert!(
+            envelope < verify,
+            "backup_restore must open the envelope before verifying members (ADR-0070 D7)"
+        );
+        // Every write entry the restore touches must come after verification.
+        for writer in ["svc.store(", ".apply(&db", "store.set("] {
+            if let Some(pos) = restore.find(writer) {
+                assert!(
+                    verify < pos,
+                    "backup_restore must verify every member before the write entry {writer} (ADR-0070 D4)"
+                );
+            }
+        }
+    }
+
     #[test]
     fn subscription_refresh_changed_detects_count_delta() {
         let changed = |a: u64, b: u64| subscription_refresh_changed_changed(a, None, b, None);
@@ -597,4 +663,40 @@ use serde_json::json;
         // Missing fields degrade to (0, None) — never panic on foreign rows.
         let bare = json!({ "id": "sub-2" });
         assert_eq!(extract_sub_row_stats(&bare), (0, None));
+    }
+
+    // -----------------------------------------------------------------------
+    // ADR-0069 D1 write-order audit - three commands, one by one.
+    //
+    // L2-first is a contract a later refactor can silently reverse, so it is
+    // pinned by a source-order assertion over the SHARED implementations (the
+    // ones the headless adapter also calls, ticket 02 option C). Each impl is
+    // checked for the whitebox persistence step preceding every L3 call.
+    #[test]
+    fn port_impls_persist_l2_before_mutating_l3() {
+        let src = std::fs::read_to_string("src/commands/ports.rs").expect("ports.rs readable from the crate root");
+        let cases: [(&str, &[&str]); 3] = [
+            ("port_upsert_impl", &["list_endpoints()", "update_endpoint(", "create_endpoint("]),
+            ("port_remove_impl", &["list_endpoints()", "delete_endpoint("]),
+            ("port_toggle_impl", &["list_endpoints()", "update_endpoint("]),
+        ];
+        for (name, l3_markers) in cases {
+            let body = body_of(&src, name);
+            let l2 = body.find("whitebox.apply(").unwrap_or_else(|| panic!("{name}: no L2 whitebox.apply step"));
+            for marker in l3_markers {
+                let l3 = body.find(marker).unwrap_or_else(|| panic!("{name}: expected L3 marker {marker}"));
+                assert!(l2 < l3, "{name}: L2 whitebox.apply must precede the L3 step {marker} (ADR-0069 D1)");
+            }
+        }
+    }
+
+    /// Slice one `fn <name>(` body out of a Rust source (up to the first
+    /// column-zero closing brace), so the audit can compare step positions.
+    fn body_of(src: &str, name: &str) -> String {
+        let start = src.find(&format!("fn {name}(")).unwrap_or_else(|| panic!("{name} not found"));
+        let rest = &src[start..];
+        let end = rest.find("
+}
+").unwrap_or(rest.len());
+        rest[..end].to_string()
     }

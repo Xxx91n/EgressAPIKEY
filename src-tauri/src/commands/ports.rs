@@ -12,6 +12,65 @@ use super::common::{
     validate_short_name,
 };
 
+// ---------------------------------------------------------------------------
+// ADR-0069 D3: immediate snapshot refresh after an L2-persisted / L3-rejected
+// port mutation. Payload-less event: a trigger only (AGENTS 7.6 discipline) -
+// the GUI re-pulls the authoritative snapshot instead of waiting for the
+// 5s/30s converge poll (ADR-0054 section C).
+// ---------------------------------------------------------------------------
+
+/// Event the GUI listens to in order to re-pull the authoritative snapshot
+/// immediately (ADR-0069 D3).
+pub const SNAPSHOT_REFRESH_EVENT: &str = "snapshot://refresh";
+
+/// Process-local GUI handle backing [`request_snapshot_refresh`]. Installed
+/// once by the desktop shell (main.rs setup); the headless control plane
+/// never installs it, so a refresh request degrades to a no-op there and
+/// the next poll converges instead.
+static SNAPSHOT_REFRESH: once_cell::sync::OnceCell<tauri::AppHandle> =
+    once_cell::sync::OnceCell::new();
+
+/// Install the GUI handle used by [`request_snapshot_refresh`].
+pub fn install_snapshot_refresh(app: tauri::AppHandle) {
+    let _ = SNAPSHOT_REFRESH.set(app);
+}
+
+/// Best-effort: a lost event only delays drift visibility to the next poll,
+/// so the emit result is swallowed - never fatal to the calling command.
+pub fn request_snapshot_refresh() {
+    if let Some(app) = SNAPSHOT_REFRESH.get() {
+        let _ = app.emit(SNAPSHOT_REFRESH_EVENT, ());
+    }
+}
+
+/// ADR-0069 D3: the error a port command returns when the L3 (Resin) step
+/// fails AFTER the L2 (whitebox) intent has been persisted (D1 write order).
+/// The message names both layers so the resulting drift is self-describing,
+/// and a snapshot refresh is requested before returning so the GUI shows
+/// the drift at once instead of at the next poll.
+fn l3_rejected(op: &str, port: u16, detail: &str) -> IpcError {
+    request_snapshot_refresh();
+    IpcError::from(format!(
+        "{op}: L2 persisted, L3 unchanged (Resin rejected: {detail}); port {port} intent is recorded in the whitebox but the engine was not changed - drift is visible, retry or remove the entry"
+    ))
+}
+
+/// ADR-0069 D1 / option C: how a port command reaches the Resin
+/// (L3) control plane. The desktop shell resolves it from the managed
+/// `SidecarHandle`; the headless adapter resolves it from its own loopback
+/// config. Keeping it a trait is what lets ONE shared implementation serve
+/// both surfaces (one domain validation, effective in both places).
+/// It is resolved only AFTER the L2 intent is persisted, so an unreachable
+/// engine can never cost the user their intent.
+pub trait ResinEndpointSource {
+    fn endpoint_client(&self) -> Result<resin_core::ResinClient, String>;
+}
+
+impl ResinEndpointSource for SidecarHandle {
+    fn endpoint_client(&self) -> Result<resin_core::ResinClient, String> {
+        resin_client(self)
+    }
+}
 /// Validate an entry-port mapping before touching DB / listeners.
 pub fn validate_port_mapping(
     port: u16,
@@ -110,14 +169,29 @@ pub async fn port_upsert(
         enabled,
         auth_required,
     };
-    // Step 1: Resin endpoint API CRUD (owns listener lifecycle)
+    // Step 1 (L2): persist the intent - validate -> DB -> atomic swap.
+    let mut next = whitebox.snapshot();
+    if let Some(existing) = next.entry_ports.iter_mut().find(|row| row.port == m.port) {
+        *existing = m.clone();
+    } else {
+        next.entry_ports.push(m.clone());
+        next.entry_ports.sort_by_key(|row| row.port);
+    }
+    whitebox.apply(db, forwarder, next).await?;
+    // Step 2 (L3): Resin endpoint API CRUD (owns listener lifecycle). A
+    // disabled port is a whitebox-only record - no listener to manage, so
+    // Resin is not contacted at all.
     if enabled {
-        let client = resin_client(&sidecar)?;
-        let existing = client.list_endpoints().await
-            .map_err(|e| IpcError::from(format!("list_endpoints: {e:?}")))?;
+        let client = resin.endpoint_client()?;
+        let existing = client
+            .list_endpoints()
+            .await
+            .map_err(|e| l3_rejected("port_upsert", port, &format!("list_endpoints: {e:?}")))?;
         let found = find_endpoint_id_by_port(&existing, port);
-        let allow_socks5 = proto == "socks5";
-        let allow_http_forward = proto == "http" || proto == "socks5";
+        // ONE shared derivation, not a fourth
+        // hand-rolled copy. mixed opens both capabilities, http only HTTP
+        // forwarding, socks5 only SOCKS5.
+        let (allow_socks5, allow_http_forward) = resin_core::entry_protocol::engine_flags(&proto);
         let body = serde_json::json!({
             "port": port,
             "allow_management": false,
@@ -127,28 +201,93 @@ pub async fn port_upsert(
             "allow_socks5": allow_socks5,
             "require_proxy_auth_info": auth_required,
         });
-        if let Some(ep_id) = found {
-            // PATCH if port exists
-            client.update_endpoint(&ep_id, body).await
-                .map_err(|e| IpcError::from(format!("update_endpoint: {e:?}")))?;
-        } else {
-            // POST if port does not exist (create new listener)
-            client.create_endpoint(body).await
-                .map_err(|e| IpcError::from(format!("create_endpoint: {e:?}")))?;
+        let res = match found {
+            Some(ep_id) => client.update_endpoint(&ep_id, body).await.map(|_| ()),
+            None => client.create_endpoint(body).await.map(|_| ()),
+        };
+        if let Err(e) = res {
+            return Err(l3_rejected("port_upsert", port, &format!("{e:?}")));
         }
     }
-    // Step 2: Shell DB + whitebox metadata (port -> platform_name binding)
-    let mut next = whitebox.snapshot();
-    if let Some(existing) = next.entry_ports.iter_mut().find(|row| row.port == m.port) {
-        *existing = m.clone();
-    } else {
-        next.entry_ports.push(m.clone());
-        next.entry_ports.sort_by_key(|row| row.port);
-    }
-    whitebox.apply(&db, &forwarder, next).await?;
     Ok(m)
 }
 
+/// Upsert one entry-port: L2 whitebox persist first, then the L3 Resin
+/// mutation (ADR-0069 D1). Thin state-extraction wrapper over
+/// [`port_upsert_impl`]; see it for the write-order contract.
+#[tauri::command]
+pub async fn port_upsert(
+    sidecar: State<'_, SidecarHandle>,
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+    port: u16,
+    protocol: String,
+    platform_name: String,
+    account: String,
+    label: String,
+    enabled: bool,
+    auth_required: bool,
+) -> Result<resin_core::PortMapping, IpcError> {
+    port_upsert_impl(
+        db.inner(),
+        sidecar.inner(),
+        forwarder.inner(),
+        whitebox.inner(),
+        port,
+        protocol,
+        platform_name,
+        account,
+        label,
+        enabled,
+        auth_required,
+    )
+    .await
+}
+
+/// ADR-0069 D1: shared `port_remove` implementation (L2 first, then L3).
+/// Dropping the whitebox intent first means a Resin-side failure can no
+/// longer leave the engine serving a port the user already deleted while
+/// the delete itself was never recorded.
+pub async fn port_remove_impl(
+    db: &DbPool,
+    resin: &dyn ResinEndpointSource,
+    forwarder: &resin_core::PortForwarder,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    port: u16,
+) -> Result<bool, IpcError> {
+    if port < resin_core::MIN_USER_PORT {
+        return Err(IpcError::from(format!("port {port} is privileged")));
+    }
+    // Step 1 (L2): remove the intent from the whitebox (DB + atomic swap).
+    let mut next = whitebox.snapshot();
+    let was_configured = next.entry_ports.iter().any(|row| row.port == port);
+    next.entry_ports.retain(|row| row.port != port);
+    whitebox.apply(db, forwarder, next).await?;
+    // Step 2 (L3): Resin endpoint API delete (find by port -> DELETE).
+    let client = resin.endpoint_client()?;
+    let existing = client
+        .list_endpoints()
+        .await
+        .map_err(|e| l3_rejected("port_remove", port, &format!("list_endpoints: {e:?}")))?;
+    match find_endpoint_id_by_port(&existing, port) {
+        Some(ep_id) => {
+            client
+                .delete_endpoint(&ep_id)
+                .await
+                .map_err(|e| l3_rejected("port_remove", port, &format!("delete_endpoint: {e:?}")))?;
+        }
+        None => {
+            if was_configured {
+                tracing::warn!(target: "ipc.port_remove", port, "no Resin endpoint found; whitebox intent already removed");
+            }
+        }
+    }
+    Ok(true)
+}
+
+/// Remove one entry-port: L2 whitebox first, then the L3 Resin delete
+/// (ADR-0069 D1). Thin state-extraction wrapper over [`port_remove_impl`].
 #[tauri::command]
 pub async fn port_remove(
     sidecar: State<'_, SidecarHandle>,
@@ -157,32 +296,62 @@ pub async fn port_remove(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     port: u16,
 ) -> Result<bool, IpcError> {
-    if port < resin_core::MIN_USER_PORT {
-        return Err(IpcError::from(format!("port {port} is privileged")));
-    }
-    // Step 1: Resin endpoint API delete (find by port -> endpoint_id -> DELETE)
-    let client = resin_client(&sidecar)?;
-    let existing = client.list_endpoints().await
-        .map_err(|e| IpcError::from(format!("list_endpoints: {e:?}")))?;
-    if let Some(ep_id) = find_endpoint_id_by_port(&existing, port) {
-        client.delete_endpoint(&ep_id).await
-            .map_err(|e| IpcError::from(format!("delete_endpoint: {e:?}")))?;
-    } else {
-        tracing::warn!("port_remove: no Resin endpoint found for port {port}, proceeding with shell DB cleanup");
-    }
-    // Step 2: Remove from shell DB + whitebox metadata
-    let mut next = whitebox.snapshot();
-    next.entry_ports.retain(|row| row.port != port);
-    whitebox.apply(&db, &forwarder, next).await?;
-    Ok(true)
+    port_remove_impl(db.inner(), sidecar.inner(), forwarder.inner(), whitebox.inner(), port).await
 }
 
-/// T18-S2 (ADR-0042): Toggle enabled flag on an entry-port without
-/// re-POST/Create or DELETE. Patches the Resin endpoint `{enabled: bool}`
-/// (Resin v1.2.0 supports `enabled` on PATCH — `inactive` keeps the record)
-/// then persists the same flag into the shell whitebox `entry_ports[].enabled`
-/// so the whitebox is the authoritative record. The listener is NOT removed
-/// from Resin's DB when toggled off, so toggled back on is a PATCH only.
+/// ADR-0069 D1 / ADR-0042 S2: shared `port_toggle` implementation.
+///
+/// The whitebox `enabled` flag is the truth (ADR-0042 S2), so it is
+/// persisted first and the Resin endpoint is PATCHed afterwards. Toggling
+/// off never deletes the Resin record (`inactive` keeps it), so toggling
+/// back on stays a PATCH.
+pub async fn port_toggle_impl(
+    db: &DbPool,
+    resin: &dyn ResinEndpointSource,
+    forwarder: &resin_core::PortForwarder,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    port: u16,
+    enabled: bool,
+) -> Result<resin_core::PortMapping, IpcError> {
+    validate_port_segments(port)?;
+    // Step 1 (L2): persist the enabled flag into the whitebox.
+    let mut next = whitebox.snapshot();
+    let m = match next.entry_ports.iter_mut().find(|r| r.port == port) {
+        Some(r) => {
+            r.enabled = enabled;
+            r.clone()
+        }
+        None => return Err(IpcError::from(format!("port_toggle: port {port} not in whitebox"))),
+    };
+    whitebox.apply(db, forwarder, next).await?;
+    // Step 2 (L3): Resin endpoint PATCH {enabled} - find endpoint by port.
+    let client = resin.endpoint_client()?;
+    let existing = client
+        .list_endpoints()
+        .await
+        .map_err(|e| l3_rejected("port_toggle", port, &format!("list_endpoints: {e:?}")))?;
+    match find_endpoint_id_by_port(&existing, port) {
+        Some(ep_id) => {
+            let body = serde_json::json!({ "enabled": enabled });
+            client
+                .update_endpoint(&ep_id, body)
+                .await
+                .map_err(|e| l3_rejected("port_toggle", port, &format!("update_endpoint: {e:?}")))?;
+            tracing::info!(target: "ipc.port_toggle", port, enabled, %ep_id, "endpoint patched");
+        }
+        None => {
+            // No Resin endpoint (never created, or externally DELETEd): the
+            // whitebox flag is already persisted, so the drift is visible and
+            // the next reconcile pass can re-assert the endpoint.
+            tracing::warn!(target: "ipc.port_toggle", port, enabled, "no Resin endpoint for port; whitebox enabled flag persisted");
+        }
+    }
+    Ok(m)
+}
+
+/// (ADR-0042) / ADR-0069 D1: toggle the enabled flag on an entry-port
+/// without re-POST/Create or DELETE. L2 whitebox first, then the Resin PATCH.
+/// Thin state-extraction wrapper over [`port_toggle_impl`].
 #[tauri::command]
 #[specta::specta]
 pub async fn port_toggle(
@@ -193,41 +362,10 @@ pub async fn port_toggle(
     port: u16,
     enabled: bool,
 ) -> Result<resin_core::PortMapping, IpcError> {
-    validate_port_segments(port)?;
-    // Step 1: Resin endpoint PATCH {enabled} — find endpoint by port.
-    let client = resin_client(&sidecar)?;
-    let existing = client.list_endpoints().await
-        .map_err(|e| IpcError::from(format!("list_endpoints: {e:?}")))?;
-    match find_endpoint_id_by_port(&existing, port) {
-        Some(ep_id) => {
-            let body = serde_json::json!({ "enabled": enabled });
-            client.update_endpoint(&ep_id, body).await
-                .map_err(|e| IpcError::from(format!("update_endpoint (toggle): {e:?}")))?;
-            tracing::info!(target: "ipc.port_toggle", port, enabled, %ep_id, "endpoint patched");
-        }
-        None => {
-            // Port was never created at Resin (or was DELETEd). Toggling off is
-            // a no-op; toggling on without an endpoint record is impossible —
-            // the user must re-create via port_upsert. Log and proceed to
-            // update the shell whitebox enabled flag so the GUI still reflects
-            // the requested state.
-            tracing::warn!(target: "ipc.port_toggle", port, enabled, "no Resin endpoint for port; only updating shell whitebox");
-        }
-    }
-    // Step 2: Update shell DB + whitebox metadata.
-    let mut next = whitebox.snapshot();
-    let row = next.entry_ports.iter_mut().find(|r| r.port == port);
-    if let Some(r) = row {
-        r.enabled = enabled;
-        let m = r.clone();
-        whitebox.apply(&db, &forwarder, next).await?;
-        Ok(m)
-    } else {
-        Err(IpcError::from(format!("port_toggle: port {port} not in whitebox")))
-    }
+    port_toggle_impl(db.inner(), sidecar.inner(), forwarder.inner(), whitebox.inner(), port, enabled).await
 }
 
-/// T8-1 (ADR-0029): Bind an entry-port to a platform WITHOUT touching
+/// (ADR-0029): Bind an entry-port to a platform WITHOUT touching
 /// auth_required. Only updates the shell-side whitebox PortMapping
 /// platform_name field. Does NOT call port_upsert (which would default
 /// auth_required=true and flip no-auth ports to require-auth).
