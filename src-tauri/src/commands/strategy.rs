@@ -653,15 +653,23 @@ pub(crate) async fn reconcile_ports_half(
         });
         match client.create_endpoint(body).await {
             Ok(_) => {
-                RECONCILE_MEMORY.stamp_asserted(m.port, now);
+                // ADR-0069 D2: a SUCCESSFUL assertion is deliberately NOT
+                // stamped. Idempotency on the success path comes from the
+                // liveness filter (the endpoint is live now, so the next pass
+                // skips it); leaving it unstamped is what lets an
+                // externally-DELETED endpoint be restored on the NEXT pass
+                // instead of after the 24h TTL window. Only the 409 conflict
+                // path stamps - that is the anti-hammer case.
                 outcome.restored.push(m.port);
                 tracing::info!(port = m.port, "reconcile: re-asserted Resin endpoint from whitebox");
             }
             Err(e) => {
                 let msg = format!("{e:?}");
                 if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage") {
-                    // Already present: satisfied. Stamp so the TTL window
-                    // keeps later passes quiet too.
+                    // ADR-0069 D2: this is the ONLY stamp site. 409 means the
+                    // port is held by something Resin refuses to re-create
+                    // (typically a listener Resin does not own), so the TTL
+                    // window exists to stop the pass from hammering it.
                     RECONCILE_MEMORY.stamp_asserted(m.port, now);
                     outcome.skipped += 1;
                     tracing::info!(port = m.port, "reconcile: endpoint already in Resin; satisfied");
