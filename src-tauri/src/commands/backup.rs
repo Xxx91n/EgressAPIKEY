@@ -241,16 +241,25 @@ pub async fn config_import(
         return Err(IpcError::from("config_import: config too large (max 256KB)".to_string()));
     }
 
-    // Parse + validate BOTH whitebox documents up front: any failure returns
-    // a clear error and writes nothing (no partial import).
+    // ADR-0069 D4 phase 1: parse + validate BOTH whitebox documents through
+    // the one shared gate BEFORE either is committed. Any rejection returns a
+    // clear error and writes NOTHING - this is what removes the
+    // half-imported state (a rejection of the second document can no longer
+    // leave the first one already persisted).
     let doc = resin_core::parse_import_doc(&config).map_err(IpcError::from)?;
+    resin_core::validate_import_pair(&doc.strategy, &doc.ports).map_err(IpcError::from)?;
 
-    // Write the strategy half through the single sanctioned entry (ADR-0036).
-    // T09: store() bumps generation and returns the landed document.
+    // ADR-0069 D4 phase 2: commit the two documents back-to-back through their
+    // sanctioned write entries - the strategy half through ADR-0036 (store
+    // bumps generation and returns the landed document), the ports half
+    // through ADR-0055. No fallible work sits between the two commits, and
+    // each entry is itself a temp-file write followed by an atomic rename
+    // (`atomic_write_bytes`), so the pair can only ever land whole. The
+    // entries are deliberately NOT bypassed: they own the generation bump
+    // (ADR-0058), the backup-before-write (ADR-0054 section B) and the audit
+    // row (ADR-0059).
     let svc = strategy_service(&app)?;
     svc.store(doc.strategy.clone()).map_err(IpcError::from)?;
-
-    // Write the ports half through the single sanctioned entry (ADR-0055).
     whitebox
         .apply(&db, &forwarder, doc.ports.clone())
         .await
