@@ -204,6 +204,11 @@ fn main() {
         .setup(|app| {
             build_tray(app.handle())?;
 
+            // ADR-0069 D3: give the port family a GUI handle so an L3-rejected
+            // mutation can ask the shell to re-pull the authoritative snapshot
+            // immediately instead of waiting for the converge poll.
+            egressapikey_app::commands::install_snapshot_refresh(app.handle().clone());
+
             // G1: boot the Resin Go sidecar and expose it to IPC commands (G2
             // ResinClient reads admin_token from this State). boot_resin blocks
             // up to 15s waiting for the sidecar /health endpoint; on timeout we
