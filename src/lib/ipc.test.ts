@@ -353,7 +353,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
 
   it("ipcPortUpsert rejects privileged port and bad protocol before invoke", async () => {
     await expect(ipcPortUpsert({ port: 80, protocol: "socks5", platform_name: "OpenAI" })).rejects.toThrow(/port out of range/);
-    await expect(ipcPortUpsert({ port: 17990, protocol: "ftp", platform_name: "OpenAI" })).rejects.toThrow(/protocol must be socks5 or http/);
+    await expect(ipcPortUpsert({ port: 17990, protocol: "ftp", platform_name: "OpenAI" })).rejects.toThrow(/protocol must be socks5, http or mixed/);
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
@@ -422,14 +422,14 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     expect(invokeMock).toHaveBeenCalledWith("port_health_check", expect.objectContaining({ port: 17990, protocol: "socks5" }));
   });
 
-  it("ipcPortHealthCheck defaults to socks5 when protocol omitted", async () => {
+  it("ipcPortHealthCheck defaults to mixed when protocol omitted", async () => {
     invokeMock.mockResolvedValueOnce({ port: 17991, reachable: true, socks5_ok: true, protocol_mismatch: false, latency_ms: 3, reason: "ok" });
     await ipcPortHealthCheck(17991);
-    expect(invokeMock).toHaveBeenCalledWith("port_health_check", expect.objectContaining({ port: 17991, protocol: "socks5" }));
+    expect(invokeMock).toHaveBeenCalledWith("port_health_check", expect.objectContaining({ port: 17991, protocol: "mixed" }));
   });
 
   it("ipcPortHealthCheck rejects invalid protocol before invoke", async () => {
-    await expect(ipcPortHealthCheck(17990, "ftp")).rejects.toThrow(/protocol must be socks5 or http/);
+    await expect(ipcPortHealthCheck(17990, "ftp")).rejects.toThrow(/protocol must be socks5, http or mixed/);
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
@@ -498,7 +498,7 @@ describe("T6-4 ipcProbeExitIp", () => {
   it("rejects invalid protocol before invoke", () => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue(undefined);
-    expect(() => ipcProbeExitIp(1790, "ftp")).toThrow(/protocol must be socks5 or http/);
+    expect(() => ipcProbeExitIp(1790, "ftp")).toThrow(/protocol must be socks5, http or mixed/);
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
