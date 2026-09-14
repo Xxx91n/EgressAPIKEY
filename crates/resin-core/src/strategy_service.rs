@@ -94,6 +94,11 @@ pub struct ReconcilePortsOutcome {
 /// than the window. It mirrors the `SkippedReason` pattern of the historical
 /// cleanup loop: an in-process `StdMutex` state, best-effort, never a truth
 /// source (the whitebox stays the truth; this only throttles re-asserts).
+///
+/// ADR-0069 D2: only the 409-conflict path stamps. A successful assertion is
+/// NOT stamped (the liveness filter already guarantees that pass cannot
+/// re-assert it), so an endpoint deleted OUTSIDE the app is restored on the
+/// NEXT pass instead of after the TTL window.
 pub struct ReconcileMemory {
     /// port -> Unix seconds of the last reconcile assertion.
     last: StdMutex<HashMap<u16, u64>>,
@@ -134,14 +139,15 @@ impl ReconcileMemory {
             .collect()
     }
 
-    /// Stamp a successful assertion.
+    /// Stamp a 409-conflict assertion (ADR-0069 D2) - the anti-hammer case.
+    /// Successful assertions are deliberately NOT stamped: see the struct doc.
     pub fn stamp_asserted(&self, port: u16, now: u64) {
         let mut guard = self.last.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         guard.insert(port, now);
     }
 }
 
-/// Architecture-recovery ticket 14 / ADR-0054 §A: what one reconcile pass
+/// ADR-0054 §A: what one reconcile pass
 /// WOULD change. Both halves are derived from data the snapshot/apply pass
 /// already fetches (list_platforms + list_endpoints + compute_plan) — the
 /// preview never issues extra requests of its own beyond those two reads.
@@ -1740,10 +1746,34 @@ mod tests {
         assert!(fourth.iter().all(|m| m.enabled));
     }
 
+    #[test]
+    fn reconcile_memory_stamps_only_conflicts_so_external_delete_recovers_next_pass() {
+        // ADR-0069 D2 regression: the success path is NOT stamped, so an
+        // endpoint that was asserted and is then deleted OUTSIDE the app is
+        // re-asserted on the very next pass - no 24h recovery gap.
+        let mem = ReconcileMemory::default();
+        let desired = vec![pm(17990, "alpha", true)];
+        // Pass 1: missing from live -> assert. The command creates it and,
+        // under D2, writes NO stamp.
+        assert_eq!(mem.ports_to_assert(&desired, &[], 1_000).len(), 1);
+        // Externally deleted (live no longer reports it): the next pass,
+        // seconds later and well inside the TTL, MUST assert it again.
+        let recovered = mem.ports_to_assert(&desired, &[], 1_000 + 5);
+        assert_eq!(recovered.len(), 1);
+        assert_eq!(recovered[0].port, 17990);
+        // The anti-hammer case is unchanged: a 409 conflict IS stamped, so a
+        // later pass inside the TTL stays quiet.
+        mem.stamp_asserted(17990, 1_000 + 5);
+        assert!(mem.ports_to_assert(&desired, &[], 1_000 + 65).is_empty());
+        // TTL expiry still self-corrects (the stamp throttles, never truths).
+        let after_ttl = mem.ports_to_assert(&desired, &[], 1_000 + 5 + RECONCILE_PORT_TTL_SECS);
+        assert_eq!(after_ttl.len(), 1);
+    }
+
     #[tokio::test]
     async fn reconcile_fails_fast_when_ports_half_errors() {
         // The ports closure failing must propagate as Err AFTER the strategy
-        // half succeeded (fail-fast ordering, issue 14 failure path).
+        // half succeeded (fail-fast ordering, failure path).
         let svc = StrategyService::new(FsStrategyStore::new(std::env::temp_dir().join(format!(
             "strategy-svc-reconcile-{}.json",
             std::process::id()
