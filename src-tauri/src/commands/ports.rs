@@ -84,9 +84,8 @@ pub fn validate_port_mapping(
     if port < MIN_USER_PORT {
         return Err(format!("port {port} is privileged (< {MIN_USER_PORT})"));
     }
-    let proto = protocol.trim().to_ascii_lowercase();
-    if proto != "socks5" && proto != "http" {
-        return Err("protocol must be socks5 or http".into());
+    if !resin_core::entry_protocol::is_valid_protocol(protocol) {
+        return Err(resin_core::entry_protocol::ENTRY_PORT_PROTOCOL_ERROR.into());
     }
     if !platform_name.is_empty() { validate_short_name(platform_name, "platform_name")?; }
     // account + label optional but length/control capped
@@ -551,9 +550,11 @@ pub struct PortHealthCheck {
 pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<PortHealthCheck, IpcError> {
     tracing::info!(port, protocol = ?protocol, "port_health_check: probing port");
     validate_port_segments(port)?;
+    // the default port protocol is `mixed`, so
+    // omitted dialect probes as mixed (which sends the SOCKS5 greeting).
     let proto = protocol
         .map(|s| s.to_ascii_lowercase())
-        .unwrap_or_else(|| "socks5".into());
+        .unwrap_or_else(|| resin_core::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL.into());
     use std::time::Instant;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let started = Instant::now();
@@ -626,7 +627,10 @@ pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<Po
             latency_ms: elapsed,
             reason: "ok".into(),
         }),
-        Ok(Ok(n)) if proto == "socks5" && n >= 2 && buf[0] == 0x05 && (buf[1] == 0x00 || buf[1] == 0x02) => Ok(PortHealthCheck {
+        // `mixed` is probed with the SOCKS5 greeting
+        // (the branch above), so a SOCKS5 method-selection reply is the expected
+        // answer for BOTH `socks5` and `mixed`.
+        Ok(Ok(n)) if proto != "http" && n >= 2 && buf[0] == 0x05 && (buf[1] == 0x00 || buf[1] == 0x02) => Ok(PortHealthCheck {
             port,
             reachable: true,
             socks5_ok: true,
