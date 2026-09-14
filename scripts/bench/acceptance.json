@@ -1,0 +1,173 @@
+{
+  "_comment": "D-004 perf acceptance table - machine-readable lock values. state=provisional until first CI bench run replaces initial values with measured locks (measuredAt/ciRun stamped by run-bench).",
+  "basis": "round8-grill D-004 / spec IMP-7 / A-015",
+  "state": "provisional",
+  "measuredAt": null,
+  "ciRun": null,
+  "env": {
+    "cpuCap": "resin pinned to 1 vCPU: linux taskset -c 0 + GOMAXPROCS=1; windows ProcessorAffinity=1 + GOMAXPROCS=1",
+    "memUnitLinux": "VmRSS (peak + p95 over steady window, warmup excluded)",
+    "memUnitWindows": "WorkingSet64 (peak + p95)",
+    "loadContext": "200 concurrent SSE streams through one mixed entry endpoint"
+  },
+  "items": [
+    {
+      "id": "app-steady-state-mb",
+      "desc": "whole-app steady state (GUI + resin.exe + webview procs)",
+      "op": "<=",
+      "threshold": 128,
+      "unit": "MB",
+      "scope": "windows-app",
+      "measure": "phases.app.totalMB.p95",
+      "locked": 567.77,
+      "lockedState": "fail"
+    },
+    {
+      "id": "sidecar-idle-rss-mb",
+      "desc": "sidecar idle memory",
+      "op": "<=",
+      "threshold": 60,
+      "unit": "MB",
+      "scope": "linux+windows",
+      "measure": "phases.idle.rssMB.p95",
+      "locked": 89.563,
+      "lockedState": "fail"
+    },
+    {
+      "id": "sidecar-load-rss-mb",
+      "desc": "sidecar memory at full load",
+      "op": "<=",
+      "threshold": 128,
+      "unit": "MB",
+      "scope": "linux+windows",
+      "measure": "phases.soak.rssMB.max",
+      "locked": 101.676,
+      "lockedState": "pass"
+    },
+    {
+      "id": "sidecar-cpu-idle-pct",
+      "desc": "sidecar idle CPU",
+      "op": "<",
+      "threshold": 1,
+      "unit": "% of one core",
+      "scope": "linux+windows",
+      "measure": "phases.idle.cpuPct.p95",
+      "locked": 0.0,
+      "lockedState": "pass"
+    },
+    {
+      "id": "sidecar-cpu-load-cores",
+      "desc": "sidecar CPU under load",
+      "op": "<",
+      "threshold": 0.5,
+      "unit": "cores",
+      "scope": "linux+windows",
+      "measure": "phases.soak.cpuCores.p95"
+    },
+    {
+      "id": "latency-delta-p95-ms",
+      "desc": "full-link added latency (paired-request delta)",
+      "op": "<=",
+      "threshold": 5,
+      "unit": "ms",
+      "scope": "linux+windows",
+      "measure": "phases.paired.delta.p95",
+      "locked": 0.997,
+      "lockedState": "pass"
+    },
+    {
+      "id": "latency-delta-p99-ms",
+      "desc": "full-link added latency tail",
+      "op": "<=",
+      "threshold": 10,
+      "unit": "ms",
+      "scope": "linux+windows",
+      "measure": "phases.paired.delta.p99",
+      "locked": 1.656,
+      "lockedState": "pass"
+    },
+    {
+      "id": "rps-sustained",
+      "desc": "sustained RPS at p99<50ms on 1 vCPU",
+      "op": ">=",
+      "threshold": 500,
+      "unit": "req/s",
+      "scope": "linux+windows",
+      "measure": "phases.rps.achievedRate",
+      "locked": 499.9,
+      "lockedState": "borderline-fail"
+    },
+    {
+      "id": "rps-latency-p99-ms",
+      "desc": "e2e latency p99 during fixed-rate run",
+      "op": "<",
+      "threshold": 50,
+      "unit": "ms",
+      "scope": "linux+windows",
+      "measure": "phases.rps.latencyP99",
+      "locked": 2872.249,
+      "lockedState": "fail"
+    },
+    {
+      "id": "sse-ttfb-delta-p95-ms",
+      "desc": "SSE first-event added latency (paired)",
+      "op": "<=",
+      "threshold": 5,
+      "unit": "ms",
+      "scope": "linux+windows",
+      "measure": "phases.sse.ttfbDelta.p95",
+      "locked": 41.258,
+      "lockedState": "fail"
+    },
+    {
+      "id": "sse-event-delta-p99-ms",
+      "desc": "SSE per-event forwarding delay",
+      "op": "<=",
+      "threshold": 10,
+      "unit": "ms",
+      "scope": "linux+windows",
+      "measure": "phases.sse.eventLag.p99",
+      "locked": 5598.0,
+      "lockedState": "fail"
+    },
+    {
+      "id": "sse-behavior-assertions",
+      "desc": "SSE hard behavior assertions (per-event flush / disconnect cascade cancel / bounded backpressure / in-band error)",
+      "op": "==",
+      "threshold": 4,
+      "unit": "count",
+      "scope": "linux+windows",
+      "measure": "phases.sse.assertionsPassed",
+      "locked": 3,
+      "lockedState": "fail"
+    },
+    {
+      "id": "soak-200-streams",
+      "desc": "concurrent SSE streams zero OOM zero deadlock",
+      "op": "==",
+      "threshold": 200,
+      "unit": "streams",
+      "scope": "linux+windows",
+      "measure": "phases.soak.connected",
+      "locked": 200,
+      "lockedState": "pass"
+    },
+    {
+      "id": "healthz-startup-ms",
+      "desc": "sidecar spawn to first /healthz 200 (no public data - measured then locked)",
+      "op": "measure-only",
+      "threshold": null,
+      "unit": "ms",
+      "scope": "linux+windows",
+      "measure": "phases.healthz.p95",
+      "locked": 263.3,
+      "lockedState": "measured"
+    }
+  ],
+  "meta": {
+    "state": "locked-local",
+    "measuredAt": "2026-09-14T13:26Z",
+    "evidence": "bench-results/results.json (local, results.ci=null); CI pending bench.yml dispatch",
+    "resinSha256": "b76dbab7c505d959d5fc52368ccafa96b4e76c9b240382bef5df5e993c032ecc"
+  }
+}

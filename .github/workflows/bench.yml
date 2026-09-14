@@ -1,0 +1,69 @@
+# Performance baseline benchmark (ticket 04 / D-004 / A-015).
+#
+# Runs scripts/bench/run-bench.mjs against a REAL Resin sidecar binary on both
+# Windows and Linux runners. The harness reads GITHUB_RUN_ID /
+# GITHUB_RUN_ATTEMPT / GITHUB_SHA / RUNNER_OS / ImageOS from the environment and
+# stamps them into bench-results/results.json, so every artifact is CI-attested.
+#
+# Triggered manually (workflow_dispatch) and weekly (schedule). Not part of the
+# PR gate — it is an evidence/regression runner.
+name: perf-bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: "Benchmark duration profile (short=~10min, long=30min soak)"
+        required: false
+        default: "short"
+        type: choice
+        options: [short, long]
+      gate:
+        description: "Gate mode: warn never fails the job; fail turns measured regressions red"
+        required: false
+        default: "warn"
+        type: choice
+        options: [warn, fail]
+  schedule:
+    - cron: "0 2 * * 1" # Mondays 02:00 UTC
+
+permissions: {}
+
+jobs:
+  bench:
+    name: bench (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Rust toolchain (host triple detection for fetch_resin.sh)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Fetch Resin sidecar binary
+        run: bash scripts/fetch_resin.sh
+        shell: bash
+
+      - name: Run benchmark
+        run: >
+          node scripts/bench/run-bench.mjs
+          --duration "${{ inputs.duration || 'short' }}"
+          --gate "${{ inputs.gate || 'warn' }}"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            bench-results/results.json
+            bench-results/SUMMARY.md
+          retention-days: 90
