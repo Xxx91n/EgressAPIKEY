@@ -219,6 +219,7 @@ const DISABLED_COMMANDS: Record<string, CommandDisabledReason> = {
   config_import: "shell_local_config_transfer",
   // Local zip + WebDAV backup (L1 credentials).
   backup_create: "shell_local_backup",
+  backup_restore: "shell_local_backup",
   backup_upload: "shell_local_backup",
   backup_list: "shell_local_backup",
   // Desktop shell sidecar lifecycle.
