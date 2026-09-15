@@ -73,11 +73,17 @@ pub fn find_endpoint_id_by_port(existing: &serde_json::Value, port: u16) -> Opti
 
 /// (ADR-0042 S6): Restore Resin endpoints from whitebox config on startup.
 /// Spawns-safe: failures log only, never fail the app. Skips ports already in Resin (409 Conflict).
+/// Mode A (ticket 17 / ADR-0068 D1) delegates to restore_shell_listeners: the
+/// shell's accept loops are the entry-port listeners there, not engine rows.
 pub async fn restore_ports_from_whitebox(
     sidecar: &SidecarHandle,
     whitebox: &resin_core::WhiteboxConfigStore,
+    forwarder: &resin_core::PortForwarder,
 ) -> Result<(), String> {
     let cfg = whitebox.snapshot();
+    if forwarder.is_shell() {
+        return restore_shell_listeners(sidecar, &cfg, forwarder).await;
+    }
     let enabled = resin_core::enabled_entries_for_restore(&cfg.entry_ports);
     if enabled.is_empty() {
         tracing::info!("T18-6: no enabled entry_ports to restore");
@@ -124,5 +130,51 @@ pub async fn restore_ports_from_whitebox(
         }
     }
     tracing::info!(restored, skipped, "T18-6: whitebox port restore complete");
+    Ok(())
+}
+
+/// Mode A restore (ticket 17): the whitebox rows apply to the shell's own
+/// accept loops, so the startup work is two convergence acts over L3-derived
+/// state (ADR-0042 S6: rebuildable, never user data):
+///   1. retire stale per-port Resin endpoints - a B-era row persisted in
+///      Resin's state.db would EADDRINUSE the shell bind and shadow the
+///      forwarder's credential-free entry; the default consolidated
+///      endpoint is never touched;
+///   2. reload the accept loops from the whitebox snapshot.
+/// Endpoint-delete failures are warnings, not fatal: the listener-retry loop
+/// keeps backing off and the snapshot reports the port missing meanwhile.
+async fn restore_shell_listeners(
+    sidecar: &SidecarHandle,
+    cfg: &resin_core::WhiteboxConfig,
+    forwarder: &resin_core::PortForwarder,
+) -> Result<(), String> {
+    let client = resin_client(sidecar)?;
+    let existing = client
+        .list_endpoints()
+        .await
+        .map_err(|e| format!("list_endpoints: {e:?}"))?;
+    let mut retired = 0u32;
+    for ep in items_arr(&existing) {
+        let id = match ep.get("id").and_then(|v| v.as_str()) {
+            Some(i) if i != "default" => i,
+            _ => continue,
+        };
+        let ep_port = ep.get("port").and_then(|p| p.as_u64());
+        let shadowing = cfg.entry_ports.iter().any(|m| Some(m.port as u64) == ep_port);
+        if !shadowing {
+            continue;
+        }
+        match client.delete_endpoint(id).await {
+            Ok(_) => {
+                retired += 1;
+                tracing::info!(port = ep_port, endpoint = id, "T18-6/modeA: retired stale Resin endpoint so the shell listener owns the entry port");
+            }
+            Err(e) => {
+                tracing::warn!(port = ep_port, error = %format!("{e:?}"), "T18-6/modeA: stale endpoint delete failed; shell bind will retry behind it");
+            }
+        }
+    }
+    forwarder.reload(&cfg.entry_ports).await?;
+    tracing::info!(retired, "T18-6/modeA: shell entry listeners restored from whitebox");
     Ok(())
 }

@@ -669,29 +669,34 @@ pub async fn ensure_default_port(
     // longer implies HTTP forwarding, so the dual-flag default port declares
     // itself `mixed`). require_proxy_auth_info defaults on, matching the
     // GUI's default for new ports).
-    let (allow_socks5, allow_http_forward) =
-        crate::entry_protocol::engine_flags(crate::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL);
-    let body = serde_json::json!({
-        "port": port,
-        "allow_management": false,
-        "allow_proxy": true,
-        "allow_http_forward": allow_http_forward,
-        "allow_http_reverse": false,
-        "allow_socks5": allow_socks5,
-        "require_proxy_auth_info": true,
-    });
-    if let Err(e) = client.create_endpoint(body).await {
-        let msg = format!("{e}");
-        if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage") {
-            tracing::warn!(
-                platform = %platform_name,
-                port,
-                error = %msg,
-                "subscription_pipeline: Resin reports the port taken; default-port skipped (warning, not overwritten)"
-            );
-            return StepStatus::AlreadyPresent;
+    // Mode A (ticket 17): the engine must NOT bind this port - the shell's
+    // accept loop owns it (step (f) writes the row and the whitebox apply
+    // binds it). A create_endpoint here would EADDRINUSE-collide.
+    if !forwarder.is_shell() {
+        let (allow_socks5, allow_http_forward) =
+            crate::entry_protocol::engine_flags(crate::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL);
+        let body = serde_json::json!({
+            "port": port,
+            "allow_management": false,
+            "allow_proxy": true,
+            "allow_http_forward": allow_http_forward,
+            "allow_http_reverse": false,
+            "allow_socks5": allow_socks5,
+            "require_proxy_auth_info": true,
+        });
+        if let Err(e) = client.create_endpoint(body).await {
+            let msg = format!("{e}");
+            if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage") {
+                tracing::warn!(
+                    platform = %platform_name,
+                    port,
+                    error = %msg,
+                    "subscription_pipeline: Resin reports the port taken; default-port skipped (warning, not overwritten)"
+                );
+                return StepStatus::AlreadyPresent;
+            }
+            return StepStatus::Failed(format!("create endpoint: {msg}"));
         }
-        return StepStatus::Failed(format!("create endpoint: {msg}"));
     }
     // (f) Whitebox write through the ONE write entry (validate -> SQLite ->
     // listeners -> atomic JSON -> swap; ADR-0042 S2, generation bump per

@@ -223,6 +223,7 @@ pub async fn authoritative_snapshot(
     sidecar: State<'_, SidecarHandle>,
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
     app: AppHandle,
 ) -> Result<resin_core::AuthoritativeSnapshot, IpcError> {
     // L2 strategy whitebox: file is the truth (ADR-0036); missing file =
@@ -290,7 +291,17 @@ pub async fn authoritative_snapshot(
     let plan = resin_core::compute_plan(&config, &nodes_v);
 
     let mut platforms = resin_core::snapshot::merge_strategies(&config, &resin_platforms, &plan, strategy_path_exists);
-    let mut ports = resin_core::snapshot::merge_ports(&all_ports, &resin_endpoint_ports);
+    // The listener set the three-state merge compares against is mode-aware
+    // (ADR-0068 D1, ticket 17): Engine mode reads the Resin endpoint ports
+    // (the L3 runtime truth); Mode A unions in the forwarder's bound entry
+    // ports, because there the shell listener IS the realisation of the row
+    // and must read Consistent. The forwarder only ever binds whitebox rows,
+    // so the union can close the mode gap without inventing listeners.
+    let mut listener_ports = resin_endpoint_ports;
+    if forwarder.is_shell() {
+        listener_ports.extend(forwarder.running_ports());
+    }
+    let mut ports = resin_core::snapshot::merge_ports(&all_ports, &listener_ports);
 
     // F4: subscription reverse lookup — union of live Resin
     // subscription rows and every whitebox reference, each with its
@@ -321,10 +332,13 @@ pub async fn authoritative_snapshot(
         .filter(|m| m.enabled)
         .map(|m| m.port)
         .collect();
+    // Mode-aware like the ports half above (ticket 17): a route's live side
+    // is the listener on its target port, and in Mode A that listener is
+    // the shell forwarder's - so the union set is the right live view.
     let mut routes = resin_core::snapshot::merge_routes(
         &whitebox_cfg.process_routes,
         &desired_enabled_ports,
-        &resin_endpoint_ports,
+        &listener_ports,
     );
     resin_core::snapshot::stamp_route_acknowledged(&mut routes, &whitebox_cfg.route_acknowledged);
 
@@ -595,6 +609,7 @@ static RECONCILE_MEMORY: once_cell::sync::Lazy<resin_core::ReconcileMemory> =
 pub async fn reconcile_now(
     sidecar: State<'_, SidecarHandle>,
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+    forwarder: State<'_, resin_core::PortForwarder>,
     app: AppHandle,
 ) -> Result<serde_json::Value, IpcError> {
     let svc = strategy_service(&app)?;
@@ -605,9 +620,10 @@ pub async fn reconcile_now(
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
+    let fwd_ref = forwarder.inner();
     let report = svc
         .reconcile(&client, resolve_id_in, async {
-            reconcile_ports_half(sidecar_ref, whitebox_ref, now).await
+            reconcile_ports_half(sidecar_ref, whitebox_ref, fwd_ref, now).await
         })
         .await
         .map_err(IpcError::from)?;
@@ -627,9 +643,30 @@ pub async fn reconcile_now(
 pub(crate) async fn reconcile_ports_half(
     sidecar: &SidecarHandle,
     whitebox: &resin_core::WhiteboxConfigStore,
+    forwarder: &resin_core::PortForwarder,
     now: u64,
 ) -> Result<resin_core::ReconcilePortsOutcome, String> {
     let cfg = whitebox.snapshot();
+    if forwarder.is_shell() {
+        // Mode A (ticket 17): the assertion target is the shell's own accept
+        // loops, not Resin endpoints. reload() is level-triggered (enabled
+        // rows already serving are skipped, missing ones spawn, stale ones
+        // stop), so the bound set is the liveness filter and the 409
+        // anti-hammer stamp below is Engine-path only.
+        let before: std::collections::HashSet<u16> =
+            forwarder.running_ports().into_iter().collect();
+        forwarder.reload(&cfg.entry_ports).await?;
+        let mut outcome = resin_core::ReconcilePortsOutcome::default();
+        for p in forwarder.running_ports() {
+            if before.contains(&p) {
+                outcome.skipped += 1;
+            } else {
+                outcome.restored.push(p);
+                tracing::info!(port = p, "reconcile: mode A entry listener asserted from whitebox");
+            }
+        }
+        return Ok(outcome);
+    }
     let client = resin_client(sidecar)?;
     let existing = client
         .list_endpoints()

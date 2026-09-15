@@ -532,7 +532,7 @@ impl WhiteboxConfigStore {
     pub async fn reload_file(
         &self,
         db: &DbPool,
-        _forwarder: &PortForwarder,
+        forwarder: &PortForwarder,
     ) -> Result<usize, String> {
         let _guard = self.writer.lock().await;
         self.config
@@ -540,7 +540,7 @@ impl WhiteboxConfigStore {
             .await
             .map_err(|e| format!("reload whitebox config: {e}"))?;
         let next = self.snapshot();
-        let started = apply_ports(db, _forwarder, &next.entry_ports).await?;
+        let started = apply_ports(db, forwarder, &next.entry_ports).await?;
         *self.applied.lock() = next;
         Ok(started)
     }
@@ -616,17 +616,24 @@ pub fn enabled_entries_for_restore(entry_ports: &[PortMapping]) -> Vec<&PortMapp
 
 async fn apply_ports(
     db: &DbPool,
-    _forwarder: &PortForwarder,
+    forwarder: &PortForwarder,
     next: &[PortMapping],
 ) -> Result<usize, String> {
     validate(&WhiteboxConfig::from_ports(next.to_vec()))?;
     let _previous = db.list_ports()?;
-    // Ponytail: Resin v1.2.0 owns listener lifecycle via /api/v1/endpoints.
-    // The shell DB only stores port -> platform_name binding metadata.
-    // Port CRUD (create/update/delete listener) happens through IPC commands
-    // (port_upsert/port_remove) which call ResinClient endpoint API directly.
-    // So hot-swap of shell metadata is just a DB write — no listener restart.
+    // Data-plane mode decides what "applying the rows to the listeners"
+    // means (ADR-0068 D1, ticket 17):
+    //   Engine (Mode B): Resin v1.2.0 owns the per-entry-port listeners;
+    //     endpoint CRUD happens through the command layer's ResinClient
+    //     step (port_upsert/port_remove), so the hot-swap of shell
+    //     metadata is just this DB write - no listener restart.
+    //   Shell (Mode A): the shell's own accept loops ARE the entry-port
+    //     listeners, so reload them inside this transaction: the whitebox
+    //     rows apply to the bound set atomically with the DB write, and a
+    //     row that cannot bind shows up as drift in the snapshot instead
+    //     of silently half-applying.
     db.replace_ports(next).map_err(|e| format!("entry-port DB replace failed: {e}"))?;
+    forwarder.reload(next).await?;
     Ok(next.len())
 }
 

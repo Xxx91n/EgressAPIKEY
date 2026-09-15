@@ -499,7 +499,7 @@ pub async fn config_import(
     let mut errors: Vec<String> = Vec::new();
     match svc
         .reconcile(&client, resolve_id_in, async {
-            reconcile_ports_half(sidecar.inner(), whitebox.inner(), now).await
+            reconcile_ports_half(sidecar.inner(), whitebox.inner(), &forwarder, now).await
         })
         .await
     {
@@ -755,7 +755,7 @@ pub async fn backup_restore(
     let mut ports_restored: usize = 0;
     match svc
         .reconcile(&client, resolve_id_in, async {
-            reconcile_ports_half(sidecar.inner(), whitebox.inner(), now).await
+            reconcile_ports_half(sidecar.inner(), whitebox.inner(), &forwarder, now).await
         })
         .await
     {

@@ -68,7 +68,7 @@ pub use ipc_error::{map_resin_error, IpcError};
 pub use ip_reputation::{
     parse_public_ips, ReputationClient, ReputationProvider, ReputationSnapshot,
 };
-pub use port_forwarder::{parse_trace_body_ip, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT};
+pub use port_forwarder::{parse_trace_body_ip, DataPlaneMode, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT};
 pub use port_health::PortHealthSnapshot;
 pub use resin_client::{resolve_id_in, validate_platform_name, ResinClient};
 pub use snapshot::{

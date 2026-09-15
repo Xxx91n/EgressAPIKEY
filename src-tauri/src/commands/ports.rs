@@ -198,8 +198,11 @@ pub async fn port_upsert_impl(
     whitebox.apply(db, forwarder, next).await?;
     // Step 2 (L3): Resin endpoint API CRUD (owns listener lifecycle). A
     // disabled port is a whitebox-only record - no listener to manage, so
-    // Resin is not contacted at all.
-    if enabled {
+    // Resin is not contacted at all. In Mode A (shell forwarder, ADR-0068
+    // D1 / ticket 17) the shell's own accept loop bound by step 1 IS the
+    // entry-port listener: creating a Resin endpoint on the same port would
+    // EADDRINUSE-collide with it, so the engine is not contacted either way.
+    if enabled && !forwarder.is_shell() {
         let client = resin.endpoint_client()?;
         let existing = client
             .list_endpoints()
@@ -283,6 +286,11 @@ pub async fn port_remove_impl(
     next.entry_ports.retain(|row| row.port != port);
     whitebox.apply(db, forwarder, next).await?;
     // Step 2 (L3): Resin endpoint API delete (find by port -> DELETE).
+    // Mode A: step 1 already tore the shell listener down via the whitebox
+    // apply; there is no Resin endpoint for this port to delete.
+    if forwarder.is_shell() {
+        return Ok(true);
+    }
     let client = resin.endpoint_client()?;
     let existing = client
         .list_endpoints()
@@ -343,6 +351,11 @@ pub async fn port_toggle_impl(
     };
     whitebox.apply(db, forwarder, next).await?;
     // Step 2 (L3): Resin endpoint PATCH {enabled} - find endpoint by port.
+    // Mode A: the whitebox apply in step 1 started/stopped the shell
+    // listener for this row; the engine holds no endpoint to patch.
+    if forwarder.is_shell() {
+        return Ok(m);
+    }
     let client = resin.endpoint_client()?;
     let existing = client
         .list_endpoints()
@@ -748,7 +761,7 @@ pub async fn whitebox_rollback(
             },
         )
         .await?;
-    restore_ports_from_whitebox(&sidecar, &whitebox)
+    restore_ports_from_whitebox(&sidecar, &whitebox, &forwarder)
         .await
         .map_err(IpcError::from)?;
     Ok(restored)

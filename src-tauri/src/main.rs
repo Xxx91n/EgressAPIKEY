@@ -259,10 +259,12 @@ fn main() {
                 }
             };
             app.manage(db.clone());
-            // Phase 2: multi-port thin forwarder (ADR-0012). Port = identity.
-            // Listens on each enabled port_mappings row and rewrites proxy-auth
-            // to Platform.Account:proxy_token before tunneling to Resin.
-            let forwarder = PortForwarder::new(
+            // Phase 2: multi-port forwarder (ADR-0012, re-materialised by
+            // ADR-0068 D1 / ticket 17). Port = identity: the desktop shell
+            // runs Data-Plane Mode A - it binds each enabled entry port,
+            // sniffs the dialect, and injects Platform.Account:proxy_token
+            // toward the Resin consolidated port. headless stays Mode B.
+            let forwarder = PortForwarder::shell(
                 db.clone(),
                 "127.0.0.1",
                 api_port,
@@ -327,10 +329,11 @@ fn main() {
                     // (ADR-0042 S6): async restore Resin endpoints from whitebox.
                     // Non-blocking: failures log only, never fail startup.
                     let store_restore = store.clone();
+                    let fwd_restore = forwarder.clone();
                     let handle_restore = app.handle().clone();
                     tauri::async_runtime::spawn(async move {
                         if let Some(sidecar) = handle_restore.try_state::<SidecarHandle>() {
-                            if let Err(e) = commands::restore_ports_from_whitebox(&sidecar, &store_restore).await {
+                            if let Err(e) = commands::restore_ports_from_whitebox(&sidecar, &store_restore, &fwd_restore).await {
                                 tracing::warn!(error = %e, "T18-6: Resin port restore from whitebox failed; endpoints may be missing until user re-saves");
                             }
                         }
