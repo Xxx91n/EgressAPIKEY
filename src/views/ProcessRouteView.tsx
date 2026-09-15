@@ -4,7 +4,7 @@ import { Route, Plus, Trash2, AlertCircle, CheckCircle2, Loader2, Inbox, ArrowRi
 import { useAppStore } from "../store/appStore";
 import { ipcProcessRouteAdd, ipcProcessRouteRemove, ipcProcessRouteList } from "../lib/ipc";
 import { translateError } from "../lib/i18n-error";
-import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
+import { HeadlessCapabilityNotice, commandBlocked } from "../components/HeadlessCapabilityNotice";
 
 /// ProcessRouteView: per-process -> entry-port routing table.
 /// ADR-0055: the family lives in the L2 whitebox
@@ -97,7 +97,7 @@ export function ProcessRouteView() {
               />
             </div>
             <button
-              disabled={!process.trim() || busy}
+              disabled={!process.trim() || busy || commandBlocked("process_route_add")}
               onClick={handleAdd}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 text-white text-sm font-medium transition-colors"
             >
@@ -141,7 +141,7 @@ export function ProcessRouteView() {
                 <span className="font-mono">:{r.targetPort}</span>
                 <button
                   onClick={() => handleRemove(r.process)}
-                  disabled={busy}
+                  disabled={busy || commandBlocked("process_route_remove")}
                   aria-label={t("common.delete")}
                   className="text-zinc-400 hover:text-red-600 dark:hover:text-red-400 p-1 disabled:opacity-40"
                 >

@@ -35,7 +35,7 @@ import {
   type RequestLogDetail,
   type RequestLogPayloads,
 } from "../lib/ipc";
-import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
+import { HeadlessCapabilityNotice, commandBlocked } from "../components/HeadlessCapabilityNotice";
 
 const btnCls = "px-2.5 py-1.5 rounded text-xs font-medium transition-colors bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5";
 
@@ -529,7 +529,7 @@ export function DiagnosticsView() {
             <option value="http">HTTP</option>
             <option value="socks5">SOCKS5</option>
           </select>
-          <button data-testid="diag-probe-btn" onClick={() => void handleProbe()} disabled={probeBusy} className={btnCls}>
+          <button data-testid="diag-probe-btn" onClick={() => void handleProbe()} disabled={probeBusy || commandBlocked("probe_exit_ip")} className={btnCls}>
             {probeBusy ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} strokeWidth={1.75} />}
             {t("diagnostics.exitIpProbe")}
           </button>
@@ -681,7 +681,7 @@ export function DiagnosticsView() {
             </DiagField>
             <button
               onClick={() => void runStrategyVerify()}
-              disabled={verifyBusy || !selectedPlatform}
+              disabled={verifyBusy || !selectedPlatform || commandBlocked("strategy_verify")}
               className={btnCls}
               data-testid="verify-run-btn"
             >
@@ -721,7 +721,7 @@ export function DiagnosticsView() {
       {/* T8-6: Connection control */}
       <DiagCard icon={<Flame size={16} strokeWidth={1.75} />} title={t("connectionControl.title")}>
         <div className="flex gap-2">
-          <button
+          <button disabled={commandBlocked("close_all_connections")}
             onClick={() => void handleCloseAll()}
             className="px-3 py-1.5 rounded text-xs font-medium bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-800/40 text-red-700 dark:text-red-400 transition-colors"
             data-testid="conn-close-all"
@@ -729,7 +729,7 @@ export function DiagnosticsView() {
             <Flame size={14} strokeWidth={1.75} className="inline mr-1" />
             {t("diagnostics.closeAllConnections")}
           </button>
-          <button
+          <button disabled={commandBlocked("reset_kernel")}
             onClick={() => void handleResetKernel()}
             className="px-3 py-1.5 rounded text-xs font-medium bg-orange-100 hover:bg-orange-200 dark:bg-orange-900/30 dark:hover:bg-orange-800/40 text-orange-700 dark:text-orange-400 transition-colors"
             data-testid="conn-reset-kernel"

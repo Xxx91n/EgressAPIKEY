@@ -18,7 +18,7 @@ import {
   type ReconcilePreview,
 } from "../lib/reconcile-preview";
 import { translateError } from "../lib/i18n-error";
-import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
+import { HeadlessCapabilityNotice, commandBlocked } from "../components/HeadlessCapabilityNotice";
 
 // one-level "effective config" view
 // (CONTEXT.md: Authoritative Snapshot; spec Implementation Decision 1/7).
@@ -526,7 +526,7 @@ export function EffectiveConfigView() {
               <button
                 data-testid="ec-preview-confirm"
                 onClick={() => void performReconcile()}
-                disabled={reconciling || reconcilePreviewIsEmpty(preview)}
+                disabled={reconciling || reconcilePreviewIsEmpty(preview) || commandBlocked("reconcile_now")}
                 className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 {reconciling ? t("effectiveConfig.reconcileWorking") : t("effectiveConfig.reconcileConfirm")}
@@ -559,7 +559,7 @@ export function EffectiveConfigView() {
               <button
                 data-testid="ec-confirm-rollback"
                 onClick={() => void performRollback(confirmTarget.store, confirmTarget.backup)}
-                disabled={rollbackBusy}
+                disabled={rollbackBusy || commandBlocked("strategy_rollback")}
                 className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {rollbackBusy ? t("effectiveConfig.rollbackWorking") : t("effectiveConfig.confirmOk")}

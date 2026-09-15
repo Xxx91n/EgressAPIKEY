@@ -23,7 +23,7 @@ import {
   saveNodeProbe,
   type NodeProbeConfig,
 } from "../lib/settings";
-import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
+import { HeadlessCapabilityNotice, commandBlocked } from "../components/HeadlessCapabilityNotice";
 
 const LOCALES: Locale[] = ["en", "zh", "es", "fr", "de", "ja", "ko", "ru", "pt", "it", "nl", "pl", "tr", "ar", "vi", "th", "id", "hi"];
 
@@ -579,7 +579,7 @@ export function SettingsView() {
           />
         </Field>
         <div className="flex items-center gap-2 pt-1">
-          <button data-testid="net-save-btn" onClick={() => void saveNetwork()} disabled={netBusy} className={btnCls}>
+          <button data-testid="net-save-btn" onClick={() => void saveNetwork()} disabled={netBusy || commandBlocked("whitebox_save_network")} className={btnCls}>
             {netBusy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} strokeWidth={1.75} />}
             {t("networkLayer.save")}
           </button>
@@ -651,6 +651,7 @@ export function SettingsView() {
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-3">
           <button
             onClick={() => void openDir("config")}
+            disabled={commandBlocked("get_config_dir")}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors"
           >
             <FolderOpen size={14} strokeWidth={1.75} />
@@ -658,6 +659,7 @@ export function SettingsView() {
           </button>
           <button
             onClick={() => void openDir("log")}
+            disabled={commandBlocked("get_log_dir")}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors"
           >
             <ScrollText size={14} strokeWidth={1.75} />
@@ -666,7 +668,7 @@ export function SettingsView() {
           {/* Round 5 T11 / ADR-0059: Export audit log button */}
           <button
             onClick={() => void doExportAuditLog()}
-            disabled={auditBusy}
+            disabled={auditBusy || commandBlocked("export_audit_log")}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {auditBusy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} strokeWidth={1.75} />}
@@ -675,7 +677,7 @@ export function SettingsView() {
           <button
             data-testid="settings-whitebox-reload"
             onClick={() => void reloadWhitebox()}
-            disabled={whiteboxBusy}
+            disabled={whiteboxBusy || commandBlocked("whitebox_reload")}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {whiteboxBusy ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} strokeWidth={1.75} />}
@@ -731,7 +733,7 @@ export function SettingsView() {
             <Save size={14} strokeWidth={1.75} />
             {t("backup.save")}
           </button>
-          <button onClick={() => void doBackup()} disabled={backupBusy} className={btnCls}>
+          <button onClick={() => void doBackup()} disabled={backupBusy || commandBlocked("backup_create")} className={btnCls}>
             {backupBusy ? <Loader2 size={14} strokeWidth={1.75} className="animate-spin" /> : <CloudUpload size={14} strokeWidth={1.75} />}
             {t("backup.create")}
           </button>
@@ -775,11 +777,11 @@ export function SettingsView() {
       </SectionCard>
       <SectionCard icon={<Download size={16} strokeWidth={1.75} />} title={t("config.title")}>
         <div className="flex items-center gap-2">
-          <button onClick={() => void doConfigExport()} disabled={configBusy} className={btnCls}>
+          <button onClick={() => void doConfigExport()} disabled={configBusy || commandBlocked("config_export")} className={btnCls}>
             <Download size={14} strokeWidth={1.75} />
             {t("config.exportBtn")}
           </button>
-          <button onClick={() => void doConfigImport()} disabled={configBusy} className={btnCls}>
+          <button onClick={() => void doConfigImport()} disabled={configBusy || commandBlocked("config_import")} className={btnCls}>
             <Upload size={14} strokeWidth={1.75} />
             {t("config.importBtn")}
           </button>
@@ -816,7 +818,7 @@ export function SettingsView() {
             <button
               data-testid="settings-strategy-reload"
               onClick={() => void reloadStrategyConfig()}
-              disabled={strategyBusy}
+              disabled={strategyBusy || commandBlocked("strategy_apply")}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm font-medium transition-colors disabled:opacity-50"
             >
               {strategyBusy ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} strokeWidth={1.75} />}
