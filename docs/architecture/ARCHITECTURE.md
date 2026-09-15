@@ -130,8 +130,9 @@ Two distinct write pipelines live behind L2 (verified in code;
   `whitebox_save_network` → `WhiteboxConfigStore` (atomic write +
   validate-before-swap + file watch) → accepted files applied to
   `egressapikey.db` + listeners as one transaction; boot seeds the store from
-  the DB, and `restore_ports_from_whitebox` re-POSTs `/api/v1/endpoints` to
-  Resin after a sidecar restart (ADR-0042 S6). Three-party sync: whitebox
+  the DB, and `restore_ports_from_whitebox` re-asserts the entry listeners after a sidecar restart —
+  Mode B (engine direct) re-POSTs `/api/v1/endpoints`; Mode A (desktop shell forwarder) retires stale B-era
+  endpoints and reloads the shell's bound set instead (ADR-0042 S6, ADR-0068 D1). Three-party sync: whitebox
   JSON ↔ `egressapikey.db` ↔ Resin endpoints, orchestrated in
   `src-tauri/src/main.rs`.
 

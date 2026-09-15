@@ -764,3 +764,21 @@ land/push：2026-09-06 用户授权后完成——主栈（01→02→02-fix1→0
 **过程发现（已登记 README process-violations 段）**：T11/T12 越权 push（用户本 /goal 已追认）；T02/T07 报告 push 状态失真；T08/T09 stack 错置（返修复）；T08 vs T09 CHANGELOG 同 hunk 跨窗口恢复；T04 报告 commit 数与 T09 commit message keys 数小偏差。
 
 **预存 bug 移交（backlog 候选）**：DiagnosticsView `diagnostics.portHealth.platform/.policy` undefined 键；PlatformsView `strategy.untagged` undefined 键。
+
+### 72. Round 8 close-out — 数据面真实性、策略诚实化、headless 等价与工程卫生收口（2026-09-16）
+
+**范围**：spec 引 `.scratch/architecture-recovery/spec.md`（IMP-1..IMP-11 + REC-1，覆盖 A-001..A-021）。18 票 + 返修轮次 1/2 + 集成 fix-forward + W2/W3 全部落板闭环（origin/main e1e104ae）。决策依据：round8-grill D-001..D-008 + ADR-0068/0069/0070 + CONTEXT.md 新词条。
+
+**五域成果**：
+
+- **数据面（IMP-1）**：T13 mixed 协议枚举化（entry_protocol.rs 三值闭集、flag 收紧、存量 socks5→mixed 一次迁移 + SQLite v4、D4 单端口双协议实测工件在案）→ T17 Mode A 壳侧转发器成真（DataPlaneMode Shell/Engine、首字节嗅探、按方言注入 Platform.Account、绝对形重隧道 CONNECT、SSE 四条硬断言 + p95≤5ms 配对初验 CI 实跑绿 run 34998534833）→ T18 README 双模如实化（Mode A 免凭据 / Mode B 一次性凭据，「零适配」限定 A 模式；94ad35cc + sync e1e104ae，run 35002617199 绿）
+- **策略面（IMP-2）**：T01 三真值化（BALANCED/PREFER_LOW_LATENCY/PREFER_IDLE_IP）、allocation_policy 进 apply diff-then-skip 与快照 Consistent 判定双轴、BClassParams 撤下、b_class 存量一次迁移（生成号不动）
+- **headless（IMP-3/4）**：T02 BFF 真适配层（mapped 35 + DISABLED_COMMANDS 44 = manifest 79 程序化闭合 + Notice 显式禁用态）；T03 安全三件套（CSPRNG --auth-token + Host/Origin 允许列表 + HEADLESS_DEPLOYMENT 威胁模型，DNS-rebinding 本地复现工件在案）——⚠️ guard 接线在收口集成 f682940e 被「注释剥离」误删（headless bin 不可编译且无鉴权），修复待授权，backlog P0 置顶
+- **写序与可观测（IMP-5/6）**：T12 L2-First 写序统一 + reconcile stamp 仅 409 + config_import 两阶段原子（ADR-0069）；T07 Ghost 不健康分支真实重启（RespawnSlot 端口/token 保留，3 预算后 Terminated）；T08 启动计时修正；T14 backup/restore 归一 + AEAD 信封（ADR-0070，manifest 78→79，D-008④ 追认）
+- **性能与治理（IMP-7..10）**：T04 14 门实机基线 + 锁值回呈（揪出 Mode B forward-GET SSE 全缓冲上游缺陷）；T05 process-route 诚实传导（declarativeNote×18）；T06 CI push→verify 自动门禁（release 保持手动 dispatch）；T09 更名清零（全仓 AI API Route=0）；T10 tailwind 单配置去重；T11 41→71 份 ADR Status 行规范；T15 注释治理（守卫 marker 字节级恢复）；T16 CAPABILITY_MATRIX（CI 证据锚定叙事替代 ADR 计数）
+
+**票与返修台账**：W1 16 票复核（达成 8 / 部分 4 / 未完成 1 / 拖欠 1 / 待裁决 2）→ 返修轮 1（04/09 达成；02/15 轮 2；12/13 归收口）→ 返修轮 2（15 达成；02 后端达成）→ 单收口窗（三处外科修复 + hunk 归账 377/420 + 栈线性化 06→03→12→13→14→07→01→15→02 + ADR Revision 收编 56bbd880；zz=0）→ fix-forward 4 刀（raw-string / 陈旧断言×2 / e2e / DISABLED_COMMANDS 补 backup_restore）→ W2 T17（+w2-fix1/2 两刀，Rust 交付时零编译=第 3 次复现 B1 教训）→ W3 T18（零刀）。verify 连绿 run 台账：34970387214/34970795825/34970942273/34971030804/34971420560/34971502968/34971681763/34972015472（收口批）+ 34998534833（W2）+ 35002617199（W3/tip）。
+
+**收口 gate（2026-09-16 审计复跑）**：六守卫本机 6/6 exit=0（i18n 524×18 / manifest 79 / license 6 / readme-lang 17 / upstream-router 9 / vitest-isolation）+ git diff --check clean；CI verify 全量绿。main 两枚未闭合红旗：① Docs Governance 自 9981dd83 连红 3 推（PERF-BENCH.md:42 MD040）；② headless 编译/接线缺口——两者都在 push→verify 的覆盖盲区（Linux 只编译 resin-core），坐实「合并树/编译预检」必须立项。
+
+**frontier 与候选立票（4 项，待裁决）**：① 编译/合并树预检票（verify 增补 src-tauri 编译覆盖 + 注释剥离语义守卫；B1 第三次复现教训）；② Data-Plane Mode 切换键（D-001 后续，L2 归类待定）；③ 30min 长 soak + 非争用复测 non200 定性（T04 未决议）；④ Mode B 引擎 forward.go flush 缺陷回呈上游（D-001 fork 后备触发器观察项）。
