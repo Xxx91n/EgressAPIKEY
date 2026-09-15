@@ -873,6 +873,35 @@ fn port_row(ctx: &PortCtx, port: u16) -> Result<resin_core::PortMapping, Respons
     }
 }
 
+/// ADR-0069 D1 / option C: the headless port family calls the SAME
+/// shared implementation as the desktop IPC command, so the L2-first write
+/// order and the domain validation cannot drift between the two surfaces
+/// . Only the transport-facing error mapping differs.
+impl egressapikey_app::commands::ResinEndpointSource for PortCtx {
+    fn endpoint_client(&self) -> Result<resin_core::ResinClient, String> {
+        self.client()
+    }
+}
+
+/// Translate the shared implementation
+'s typed error into a headless HTTP
+/// status. Validation-class rejections stay 400; a bind conflict is 409;
+/// everything the shared implementation reports around the L3 (Resin) step is
+/// a 502 on the upstream engine.
+fn port_ipc_err(e: &resin_core::IpcError) -> Response {
+    match e {
+        resin_core::IpcError::InvalidInput { .. }
+        | resin_core::IpcError::NotFound { .. }
+        | resin_core::IpcError::InvalidStrategy { .. } => {
+            port_err(StatusCode::BAD_REQUEST, &format!("{e:?}"))
+        }
+        resin_core::IpcError::BindConflict { .. } => {
+            port_err(StatusCode::CONFLICT, &format!("{e:?}"))
+        }
+        _ => port_err(StatusCode::BAD_GATEWAY, &format!("{e:?}")),
+    }
+}
+
 async fn ports_upsert_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Response {
     let v = match read_json_body(&body) {
         Ok(v) => v,
@@ -883,96 +912,43 @@ async fn ports_upsert_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Response {
     let account = v.get("account").and_then(|x| x.as_str()).unwrap_or("").to_string();
     let label = v.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string();
     let enabled = v.get("enabled").and_then(|x| x.as_bool()).unwrap_or(true);
-    let auth_required = v.get("auth_required").and_then(|x| x.as_bool()).unwrap_or(true);
-    // ONE validation, shared with the Tauri command (A-006).
-    if let Err(e) = egressapikey_app::commands::validate_port_mapping(
-        port, &protocol, &platform_name, &account, &label,
-    ) {
-        return port_err(StatusCode::BAD_REQUEST, &e);
-    }
-    let proto = protocol.trim().to_ascii_lowercase();
-    let acct = if account.trim().is_empty() { format!("port-{port}") } else { account };
-    let m = resin_core::PortMapping {
+    let auth_required = v.get("auth_required").and_then(|x| x.as_bool()).unwrap_or(false);
+    match egressapikey_app::commands::port_upsert_impl(
+        &ctx.db,
+        &*ctx,
+        &ctx.forwarder,
+        &ctx.whitebox,
         port,
-        protocol: proto.clone(),
+        protocol,
         platform_name,
-        account: acct,
+        account,
         label,
         enabled,
         auth_required,
-    };
-    // Step 1: Resin endpoint CRUD owns the listener lifecycle. Same order and
-    // same body shape as commands/ports.rs::port_upsert.
-    if enabled {
-        let client = match ctx.client() {
-            Ok(c) => c,
-            Err(e) => return port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
-        };
-        let existing = match client.list_endpoints().await {
-            Ok(v) => v,
-            Err(e) => return port_err(StatusCode::BAD_GATEWAY, &format!("list_endpoints: {e:?}")),
-        };
-        let ep_body = serde_json::json!({
-            "port": port,
-            "allow_management": false,
-            "allow_proxy": true,
-            "allow_http_forward": proto == "http" || proto == "socks5",
-            "allow_http_reverse": false,
-            "allow_socks5": proto == "socks5",
-            "require_proxy_auth_info": auth_required,
-        });
-        let res = match egressapikey_app::commands::find_endpoint_id_by_port(&existing, port) {
-            Some(ep_id) => client.update_endpoint(&ep_id, ep_body).await.map(|_| ()),
-            None => client.create_endpoint(ep_body).await.map(|_| ()),
-        };
-        if let Err(e) = res {
-            return port_err(StatusCode::BAD_GATEWAY, &format!("endpoint upsert: {e:?}"));
-        }
-    }
-    // Step 2: shell DB + whitebox metadata (port -> platform binding).
-    let mut next = ctx.whitebox.snapshot();
-    if let Some(row) = next.entry_ports.iter_mut().find(|r| r.port == m.port) {
-        *row = m.clone();
-    } else {
-        next.entry_ports.push(m.clone());
-        next.entry_ports.sort_by_key(|r| r.port);
-    }
-    match ctx.whitebox.apply(&ctx.db, &ctx.forwarder, next).await {
-        Ok(_) => axum::Json(m).into_response(),
-        Err(e) => port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    )
+    .await
+    {
+        Ok(m) => axum::Json(m).into_response(),
+        Err(e) => port_ipc_err(&e),
     }
 }
 
 async fn ports_remove_h(ctx: Arc<PortCtx>, port: u16) -> Response {
-    if let Err(e) = egressapikey_app::commands::validate_port_segments(port) {
-        return port_err(StatusCode::BAD_REQUEST, &e);
-    }
-    let client = match ctx.client() {
-        Ok(c) => c,
-        Err(e) => return port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
-    };
-    match client.list_endpoints().await {
-        Ok(existing) => {
-            if let Some(ep_id) = egressapikey_app::commands::find_endpoint_id_by_port(&existing, port) {
-                if let Err(e) = client.delete_endpoint(&ep_id).await {
-                    return port_err(StatusCode::BAD_GATEWAY, &format!("delete_endpoint: {e:?}"));
-                }
-            }
-        }
-        Err(e) => return port_err(StatusCode::BAD_GATEWAY, &format!("list_endpoints: {e:?}")),
-    }
-    let mut next = ctx.whitebox.snapshot();
-    next.entry_ports.retain(|r| r.port != port);
-    match ctx.whitebox.apply(&ctx.db, &ctx.forwarder, next).await {
-        Ok(_) => axum::Json(true).into_response(),
-        Err(e) => port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    match egressapikey_app::commands::port_remove_impl(
+        &ctx.db,
+        &*ctx,
+        &ctx.forwarder,
+        &ctx.whitebox,
+        port,
+    )
+    .await
+    {
+        Ok(removed) => axum::Json(removed).into_response(),
+        Err(e) => port_ipc_err(&e),
     }
 }
 
 async fn ports_toggle_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Response {
-    if let Err(e) = egressapikey_app::commands::validate_port_segments(port) {
-        return port_err(StatusCode::BAD_REQUEST, &e);
-    }
     let v = match read_json_body(&body) {
         Ok(v) => v,
         Err(e) => return port_err(StatusCode::BAD_REQUEST, &e),
@@ -981,43 +957,21 @@ async fn ports_toggle_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Response {
         Some(b) => b,
         None => return port_err(StatusCode::BAD_REQUEST, "body missing boolean enabled"),
     };
-    let client = match ctx.client() {
-        Ok(c) => c,
-        Err(e) => return port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
-    };
-    let existing = match client.list_endpoints().await {
-        Ok(v) => v,
-        Err(e) => return port_err(StatusCode::BAD_GATEWAY, &format!("list_endpoints: {e:?}")),
-    };
-    if let Some(ep_id) = egressapikey_app::commands::find_endpoint_id_by_port(&existing, port) {
-        if let Err(e) = client
-            .update_endpoint(&ep_id, serde_json::json!({ "enabled": enabled }))
-            .await
-        {
-            return port_err(StatusCode::BAD_GATEWAY, &format!("update_endpoint (toggle): {e:?}"));
-        }
-    }
-    let mut next = ctx.whitebox.snapshot();
-    let out = match next.entry_ports.iter_mut().find(|r| r.port == port) {
-        Some(row) => {
-            row.enabled = enabled;
-            row.clone()
-        }
-        None => {
-            return port_err(
-                StatusCode::NOT_FOUND,
-                &format!("port_toggle: port {port} not in whitebox"),
-            )
-        }
-    };
-    match ctx.whitebox.apply(&ctx.db, &ctx.forwarder, next).await {
-        Ok(_) => axum::Json(out).into_response(),
-        Err(e) => port_err(StatusCode::INTERNAL_SERVER_ERROR, &e),
+    match egressapikey_app::commands::port_toggle_impl(
+        &ctx.db,
+        &*ctx,
+        &ctx.forwarder,
+        &ctx.whitebox,
+        port,
+        enabled,
+    )
+    .await
+    {
+        Ok(m) => axum::Json(m).into_response(),
+        Err(e) => port_ipc_err(&e),
     }
 }
 
-/// T8-1 (ADR-0029): bind a port to a platform WITHOUT touching auth_required.
-/// Mirrors commands/ports.rs::port_bind_platform - whitebox only, no Resin call.
 async fn ports_bind_platform_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Response {
     if let Err(e) = egressapikey_app::commands::validate_port_segments(port) {
         return port_err(StatusCode::BAD_REQUEST, &e);

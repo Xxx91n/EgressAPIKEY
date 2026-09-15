@@ -41,6 +41,7 @@ import {
   ipcMetricsRealtimeThroughput, ipcMetricsProbeHistory,
   ipcRequestLogDetail, ipcRequestLogPayloads,
   assertLogId, decodePayloadPart, PAYLOAD_DISPLAY_CAP_BYTES,
+  IpcUnavailableError,
 } from "./ipc";
 
 describe("IPC wrappers (issue 1 closed-loops)", () => {
@@ -749,24 +750,39 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
   it("platform_list forwards GET /api/v1/platforms via fetch when isTauri=false", async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ items: [{ name: "a" }, { name: "b" }] }), { status: 200, headers: { "Content-Type": "application/json" } }));
     const r = await ipcPlatformList() as unknown;
-    // invokeHttp now unwraps Resin's {items:[...]} wrapper, returning
-    // bare array — matching what the Tauri command returns (Rust extracts names).
-    expect(r).toEqual([{ name: "a" }, { name: "b" }]);
+    // invokeHttp unwraps Resin's {items:[...]} wrapper AND projects each row to
+    // its `name` field. Which side is right, argued from both ends:
+    //   - the Tauri command is `platform_list -> Result<Vec<String>>`
+    //     (commands/platform.rs returns platform_names(&list));
+    //   - this wrapper is typed Promise<string[]> to match it;
+    //   - the headless route therefore declares `unwrapItems` + `project: "name"`
+    //     so the SPA sees the SAME shape in both modes (equivalent face).
+    // rework: the old object-array expectation contradicted
+    // both the signature and its own comment above it.
+    expect(r).toEqual(["a", "b"]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/v1/platforms");
     expect((init as RequestInit).method).toBe("GET");
   });
 
-  it("an unmapped command throws a helpful error (no silent fallback)", async () => {
-    // We exercise the internal invoke() helper directly with an unmapped command name.
-    // tray_refresh_labels' TS wrapper swallows errors (.catch), so test the lower layer.
-    // Direct require avoids TS exports barrier; this is a vitest-only inline assertion.
-    const { invoke: _rawInvoke } = await import("./ipc") as never;
-    // We can't easily access the non-exported invoke, so exercise via a wrapper that
-    // forwards an unmapped command name. ipcStrategyApply is NOT in CMD_TO_HTTP,
-    // so it will hit the "no HTTP route mapping" path.
-    await expect(ipcStrategyApply()).rejects.toThrow(/no HTTP route mapping/);
+  it("a headless-disabled command throws a typed IpcUnavailableError (no silent fallback)", async () => {
+    // rework. A command with no HTTP route is no
+    // longer an opaque missing-route string: every manifest command is either
+    // MAPPED (CMD_TO_HTTP) or explicitly DISABLED with a typed reason, and the
+    // UI reads that reason through ipcCommandAvailability() to render a
+    // disabled state instead of a runtime surprise.
+    //
+    // strategy_apply sits in the disabled set under shell_local_snapshot: its
+    // truth source is the L2 whitebox plus the three-store merge, which the
+    // headless server has no equivalent for.
+    const err: unknown = await ipcStrategyApply().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(IpcUnavailableError);
+    const typed = err as IpcUnavailableError;
+    expect(typed.name).toBe("IpcUnavailableError");
+    expect(typed.command).toBe("strategy_apply");
+    expect(typed.reason).toBe("shell_local_snapshot");
+    expect(typed.i18nKey).toBe("ipc.disabled.shell_local_snapshot");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

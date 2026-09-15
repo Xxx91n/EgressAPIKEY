@@ -750,7 +750,7 @@ export function SettingsView() {
           />
         </Field>
         <div className="flex items-center gap-2 pt-1">
-          <button onClick={() => void doListBackups()} disabled={backupBusy} className={btnCls}>
+          <button onClick={() => void doListBackups()} disabled={backupBusy || commandBlocked("backup_list")} className={btnCls}>
             <RefreshCw size={14} strokeWidth={1.75} />
             {t("backup.list")}
           </button>
@@ -766,7 +766,7 @@ export function SettingsView() {
           </select>
           <button
             onClick={() => void doRestore()}
-            disabled={restoreBusy || !backupPick}
+            disabled={restoreBusy || !backupPick || commandBlocked("backup_restore")}
             className={btnCls}
           >
             {restoreBusy ? <Loader2 size={14} strokeWidth={1.75} className="animate-spin" /> : <Upload size={14} strokeWidth={1.75} />}
