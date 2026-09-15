@@ -255,20 +255,10 @@ impl ResinClient {
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R08
     /// allocation policy left at Resin defaults.
     pub async fn create_platform_from_name(&self, name: &str) -> Result<Value> {
-        if name.trim().is_empty() {
-            return Err(anyhow!("resin_client: platform name cannot be empty"));
-        }
-        if name.len() > 253 {
-            return Err(anyhow!("resin_client: platform name length > 253"));
-        }
-        // Resin V1: reject names with ./:|/\@?#%~ and whitespace. Mirror the
-        // guard so the error message comes from us, not an opaque 400.
-        const BAD: &str = ".:|/\\@?#%~";
-        if name.chars().any(|c| BAD.contains(c) || c.is_whitespace()) {
-            return Err(anyhow!(
-                "resin_client: platform name contains disallowed char"
-            ));
-        }
+        // The Resin V1 name rule lives in `validate_platform_name` so the headless
+        // BFF enforces the identical bound on POST /api/v1/platforms (round-8
+        // ticket 02 / A-006: one validation, effective in both places).
+        validate_platform_name(name).map_err(|e| anyhow!("resin_client: {e}"))?;
         self.create_platform(serde_json::json!({ "name": name }))
             .await
     }
@@ -720,6 +710,27 @@ fn validate_resolve_name(name: &str, field: &str) -> Result<(), IpcError> {
 /// async `resolve_*_by_name` helpers and the fn-pointer resolution seams in
 /// `strategy_service::apply`/`reconcile` (whose signatures are wire-pinned by
 /// their mockito suites — the single-GET two-step hop stays there).
+/// Resin V1 platform-name rule, shared by every transport (round-8 ticket 02 /
+/// A-006: one validation, effective in both places). `create_platform_from_name`
+/// applies it before the POST, and the headless BFF applies the SAME function to
+/// `POST /api/v1/platforms`, so a browser caller cannot create a name the desktop
+/// command would have refused.
+pub fn validate_platform_name(name: &str) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("platform name cannot be empty".to_string());
+    }
+    if name.len() > 253 {
+        return Err("platform name length > 253".to_string());
+    }
+    // Resin V1 rejects these characters and any whitespace. Mirroring the guard
+    // here means the error comes from us, not an opaque 400.
+    const BAD: &str = ".:|/\\@?#%~";
+    if name.chars().any(|c| BAD.contains(c) || c.is_whitespace()) {
+        return Err("platform name contains disallowed char".to_string());
+    }
+    Ok(())
+}
+
 pub fn resolve_id_in(v: &Value, want: &str) -> Option<String> {
     let rows: &[Value] = if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
         arr
@@ -2123,5 +2134,19 @@ mod tests {
             .expect("probe_history without to should succeed");
         assert_eq!(out["items"], serde_json::json!([]));
         m.assert_async().await;
+    }
+    #[test]
+    fn validate_platform_name_mirrors_the_resin_v1_rule() {
+        // Ticket 02 (A-006): the shared rule the headless BFF also applies.
+        for ok in ["openai", "auto-ab12cd34", "p1"] {
+            assert!(validate_platform_name(ok).is_ok(), "{ok} should pass");
+        }
+        for bad in ["", "   ", "a b", "a.b", "a:b", "a|b", "a/b", "a\\b", "a@b", "a?b", "a#b", "a%b", "a~b"] {
+            assert!(validate_platform_name(bad).is_err(), "{bad:?} should be rejected");
+        }
+        let long = "a".repeat(254);
+        assert!(validate_platform_name(&long).is_err(), "over 253 chars");
+        let max = "a".repeat(253);
+        assert!(validate_platform_name(&max).is_ok(), "exactly 253 chars");
     }
 }
