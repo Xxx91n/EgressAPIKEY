@@ -1,7 +1,7 @@
 //! backup domain IPC commands (EgressAPIKEY).
 //!
-//! Extracted from the former commands/mod.rs monolith by architecture-recovery
-//! ticket 08: pure mechanical move - no behavior, naming, or IPC-surface change.
+//! Extracted from the former commands/mod.rs monolith
+//! pure mechanical move - no behavior, naming, or IPC-surface change.
 //!
 //! `backup_create` was rewritten (ADR-0070) so the archive actually carries
 //! the configuration that decides behaviour (the CONTEXT.md "Backup Scope"
