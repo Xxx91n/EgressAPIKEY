@@ -255,7 +255,7 @@ mod tests {
         assert!(err.contains("ports whitebox rejected"), "{err}");
     }
 
-    /// ADR-0069 D4 acceptance: an import whose SECOND (ports) document fails
+    ///  ADR-0069 D4: an import whose SECOND (ports) document fails
     /// validation must write NOTHING - both whitebox files stay byte-identical
     /// and no staging temp file survives.
     #[test]

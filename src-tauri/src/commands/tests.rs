@@ -670,7 +670,7 @@ use serde_json::json;
     //
     // L2-first is a contract a later refactor can silently reverse, so it is
     // pinned by a source-order assertion over the SHARED implementations (the
-    // ones the headless adapter also calls, ticket 02 option C). Each impl is
+    //  ones the headless adapter also calls, option C). Each impl is
     // checked for the whitebox persistence step preceding every L3 call.
     #[test]
     fn port_impls_persist_l2_before_mutating_l3() {

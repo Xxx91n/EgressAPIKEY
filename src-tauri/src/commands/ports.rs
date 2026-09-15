@@ -1,10 +1,11 @@
 //! ports domain IPC commands (EgressAPIKEY).
 //!
-//! Extracted from the former commands/mod.rs monolith by architecture-recovery
-//! ticket 08: pure mechanical move - no behavior, naming, or IPC-surface change.
+//! Extracted from the former commands/mod.rs monolith by
+//! pure mechanical move - no behavior, naming, or IPC-surface change.
 use serde::{Serialize};
-use tauri::{State};
+use tauri::{Emitter, State};
 use crate::sidecar::SidecarHandle;
+
 use resin_core::DbPool;
 use resin_core::IpcError;
 use super::common::{
@@ -125,26 +126,44 @@ pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapp
     db.list_ports().map_err(IpcError::from)
 }
 
-/// T10-6: Smart port suggestion (ADR-0031).
+/// Smart port suggestion (ADR-0031).
 /// Reads port_mappings for used ports, starts from 17990, skips used,
 /// probes each candidate with TcpListener::bind, returns first available.
 #[tauri::command]
 pub async fn port_suggest(db: State<'_, DbPool>) -> Result<u16, IpcError> {
-    // Ticket 03: the ADR-0031 algorithm now lives in resin-core so the
+// the ADR-0031 algorithm now lives in resin-core so the
     // establish cascade's default-port tail and this command suggest
     // identically (one implementation, not two).
     resin_core::subscription_pipeline::suggest_free_entry_port(&db)
         .map_err(IpcError::from)
 }
 
-/// Upsert one entry-port via the whitebox config transaction
-/// (validate -> SQLite replace -> listener reload -> atomic JSON -> hotswap).
-#[tauri::command]
-pub async fn port_upsert(
-    sidecar: State<'_, SidecarHandle>,
-    db: State<'_, DbPool>,
-    forwarder: State<'_, resin_core::PortForwarder>,
-    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
+// ---------------------------------------------------------------------------
+// ADR-0069 D1 (L2-first write order) + option C decoupling.
+//
+// The three shared `*_impl` functions below take plain references instead of
+// Tauri `State`, so the desktop IPC command and the headless adapter execute
+// the SAME implementation ( one domain validation, effective in both
+// places). The `#[tauri::command]` wrappers only extract managed state.
+// The write-order reversal lives in the shared functions - never in the
+// wrappers - so the headless path cannot keep the old order.
+// ---------------------------------------------------------------------------
+
+/// ADR-0069 D1: shared `port_upsert` implementation.
+///
+/// Write order is L2-FIRST: validate -> whitebox apply (DB + atomic file
+/// swap) -> Resin endpoint mutation. A Resin-side failure therefore leaves
+/// the intent persisted and the drift visible and retryable instead of
+/// losing it (the pre-D1 order mutated Resin first and could lose the
+/// intent entirely). Accepted trade-off: a permanently-rejected port (e.g.
+/// held by the OS) persists as a drifted entry the user removes -
+/// desired-state behaviour, not an error loop.
+#[allow(clippy::too_many_arguments)]
+pub async fn port_upsert_impl(
+    db: &DbPool,
+    resin: &dyn ResinEndpointSource,
+    forwarder: &resin_core::PortForwarder,
+    whitebox: &resin_core::WhiteboxConfigStore,
     port: u16,
     protocol: String,
     platform_name: String,
