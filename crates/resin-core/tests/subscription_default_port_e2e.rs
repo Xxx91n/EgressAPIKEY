@@ -153,12 +153,12 @@ async fn import_creates_one_socks5_port_and_unbind_releases_it() {
     let status = ensure_default_port(&client, &db, &forwarder, &whitebox, "e2e-sub", None).await;
     assert!(matches!(status, StepStatus::Written), "default port must be created: {status:?}");
 
-    // "导入 sub 后 1 个 socks5 端口可用": exactly ONE socks5 entry bound to
-    // the platform, enabled, present in BOTH the whitebox and its SQLite
-    // sync partner.
+    // "导入 sub 后 1 个入口端口可用": exactly ONE default-protocol (mixed,
+    // round-8 D-007) entry bound to the platform, enabled, present in BOTH
+    // the whitebox and its SQLite sync partner.
     let rows = db.list_ports().unwrap();
     assert_eq!(rows.len(), 1, "exactly one default port: {rows:?}");
-    assert_eq!(rows[0].protocol, "socks5");
+    assert_eq!(rows[0].protocol, resin_core::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL);
     assert_eq!(rows[0].platform_name, "e2e-sub");
     assert!(rows[0].enabled);
     assert!(rows[0].port >= resin_core::MIN_USER_PORT);
