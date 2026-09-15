@@ -8,7 +8,7 @@ import {
   unavailableCommands,
 } from "../lib/headlessCapability";
 
-// Ticket 02 / A-006: the SPA must render an EXPLICIT disabled state for the
+// A-006: the SPA must render an EXPLICIT disabled state for the
 // commands the headless server cannot serve, instead of letting the call throw
 // IpcUnavailableError when the user clicks. These three exports cover the three
 // shapes that need it: a view-level notice, the complete capability list, and a

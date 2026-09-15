@@ -47,7 +47,7 @@ function isTauri(): boolean {
 // Maps Tauri command names to the HTTP route the headless reverse-proxy exposes.
 //
 // Every route is DECLARATIVE so the three historical defect classes cannot
-// recur (ticket 02 audit):
+// recur:
 //   - wrong resource path        -> `path` is the real Resin route (R-numbers
 //      cite docs/architecture/RESIN_API_COVERAGE.md)
 //   - GET args silently dropped  -> `query` / `queryConst`
@@ -94,8 +94,8 @@ const CMD_TO_HTTP: Record<string, HttpRoute> = {
   platform_list_full:      { method: "GET",    path: "/api/v1/platforms" },
   // PATCH body stays in the IPC (camelCase) shape: the BFF owns the Resin
   // snake_case translation for this route (rewrite_patch_body_snake_case), so
-  // the SPA must NOT pre-rename - one place owns the Resin shape. Ticket 02
-  // rework: the TS-side bodyKeys here was REVERTED, because the pre-existing
+  // the SPA must NOT pre-rename - one place owns the Resin shape.
+  // The TS-side bodyKeys here was REVERTED, because the pre-existing
   // contract test proved the SPA/BFF split was intentional, not an oversight.
   platform_update:         { method: "PATCH",  path: "/api/v1/platforms" },
   // R08 full-schema create. The Tauri arg is already named `body`; unwrap it.
@@ -145,7 +145,7 @@ const CMD_TO_HTTP: Record<string, HttpRoute> = {
   system_config_get:       { method: "GET",    path: "/api/v1/system/config" },
   system_config_patch:     { method: "PATCH",  path: "/api/v1/system/config", bodyArg: "body" },
 
-  // --- Entry ports: BFF-owned L2 desired state (ticket 02 option C). ---
+  // --- Entry ports: BFF-owned L2 desired state (option C). ---
   // Desktop keeps the L2 whitebox as truth; headless initialises the SAME
   // resin-core stores, so these routes are BFF-native (Resin has no /ports
   // resource: its listener face is /api/v1/endpoints, driven as a side effect).
@@ -177,8 +177,8 @@ export type CommandDisabledReason =
   | "desktop_only_os"
   | "desktop_only_local_path"
 
-/** 43 commands with no reachable HTTP semantics in headless mode (ticket 02
- *  classification; see .scratch/architecture-recovery/reports/02-headless-adapter-report.md).
+/** 43 commands with no reachable HTTP semantics in headless mode (
+ *  see .scratch/architecture-recovery/reports/02-headless-adapter-report.md).
  *  Grouped by WHY, so a future change of circumstance has one place to edit. */
 const DISABLED_COMMANDS: Record<string, CommandDisabledReason> = {
   // A-020: echo commands kept per AGENTS 7.6; removal condition not triggered.
@@ -254,7 +254,7 @@ export class IpcUnavailableError extends Error {
 }
 
 /** Headless availability probe for one command. The UI uses this to render an
- *  explicit disabled state (ticket 02: no more runtime Tauri-only throw).
+ *  explicit disabled state (no more runtime Tauri-only throw).
  *  In Tauri mode every command is available. */
 export function ipcCommandAvailability(
   cmd: string,

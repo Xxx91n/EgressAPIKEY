@@ -256,8 +256,8 @@ impl ResinClient {
     /// allocation policy left at Resin defaults.
     pub async fn create_platform_from_name(&self, name: &str) -> Result<Value> {
         // The Resin V1 name rule lives in `validate_platform_name` so the headless
-        // BFF enforces the identical bound on POST /api/v1/platforms (round-8
-        // ticket 02 / A-006: one validation, effective in both places).
+        // BFF enforces the identical bound on POST /api/v1/platforms (
+        // A-006: one validation, effective in both places).
         validate_platform_name(name).map_err(|e| anyhow!("resin_client: {e}"))?;
         self.create_platform(serde_json::json!({ "name": name }))
             .await
@@ -710,7 +710,7 @@ fn validate_resolve_name(name: &str, field: &str) -> Result<(), IpcError> {
 /// async `resolve_*_by_name` helpers and the fn-pointer resolution seams in
 /// `strategy_service::apply`/`reconcile` (whose signatures are wire-pinned by
 /// their mockito suites — the single-GET two-step hop stays there).
-/// Resin V1 platform-name rule, shared by every transport (round-8 ticket 02 /
+/// Resin V1 platform-name rule, shared by every transport (
 /// A-006: one validation, effective in both places). `create_platform_from_name`
 /// applies it before the POST, and the headless BFF applies the SAME function to
 /// `POST /api/v1/platforms`, so a browser caller cannot create a name the desktop
@@ -2137,7 +2137,7 @@ mod tests {
     }
     #[test]
     fn validate_platform_name_mirrors_the_resin_v1_rule() {
-        // Ticket 02 (A-006): the shared rule the headless BFF also applies.
+        // (A-006): the shared rule the headless BFF also applies.
         for ok in ["openai", "auto-ab12cd34", "p1"] {
             assert!(validate_platform_name(ok).is_ok(), "{ok} should pass");
         }

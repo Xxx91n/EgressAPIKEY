@@ -79,7 +79,7 @@ function SideRail({ railConverge, railError }: { railConverge?: ConvergePhase; r
 
   return (
     <nav className="w-14 flex flex-col items-center gap-1 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 py-3 shrink-0">
-      {/* Architecture-recovery ticket 06 (D-C2.1, checkpoint C): single 4px
+      {/* (D-C2.1, checkpoint C): single 4px
           convergence dot at the top of the rail. Converged renders
           `display: none`; never opacity. Per-entry Health lives inside
           EffectiveConfigView (ArgoCD #22059 — Sync vs Health separate). */}
@@ -204,7 +204,7 @@ export default function App() {
           <Navigation size={16} className="text-zinc-400" strokeWidth={1.75} />
           <h1 className="text-sm font-semibold tracking-tight">{t("app.title")}</h1>
           <span className="text-xs text-zinc-400 dark:text-zinc-500 hidden sm:inline">· {t("app.tagline")}</span>
-          {/* Architecture-recovery ticket 06 (D-C2.1): the global Sync pill.
+          {/* (D-C2.1): the global Sync pill.
               ArgoCD #22059 — Sync vs Health are kept SEPARATE: this pill is
               the top-level ConvergePhase only; per-entry drift badges live
               inside EffectiveConfigView and are NOT merged here. */}

@@ -1,4 +1,4 @@
-// Headless capability surface (ticket 02 / A-006).
+// Headless capability surface (A-006).
 //
 // The ipc layer already knows which commands have no headless HTTP surface
 // (`DISABLED_COMMANDS` + `ipcCommandAvailability`). This module is the thin

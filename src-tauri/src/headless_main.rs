@@ -130,7 +130,7 @@ async fn main() -> Result<()> {
         sidecar.api_port
     );
 
-    // Ticket 02 (option C, user-ruled 2026-09-14): initialise the SAME L2 stores
+    // (option C, user-ruled 2026-09-14): initialise the SAME L2 stores
     // the desktop shell owns (WhiteboxConfigStore + DbPool) at this process state
     // root, so the port family has reachable HTTP semantics instead of being
     // desktop-only. Stores, write entry and validation are shared with the shell
@@ -149,7 +149,7 @@ async fn main() -> Result<()> {
     )
     .await
     .map_err(|e| anyhow::anyhow!("headless: open whitebox store: {e}"))?;
-    // Mode B (round8 D-001): Resin listens natively, so this forwarder binds no
+    // Mode B (D-001): Resin listens natively, so this forwarder binds no
     // listener; it carries the sidecar proxy token and the running-port view the
     // shared write path expects.
     let port_forwarder = resin_core::PortForwarder::new(
@@ -257,7 +257,7 @@ fn build_router(
         }
     };
 
-    // Ticket 02 (option C): headless owns the same L2 stores the desktop shell
+    // (option C): headless owns the same L2 stores the desktop shell
     // owns, so port management is not desktop-only (A-006). These are
     // BFF-native routes: Resin has no /ports resource (its listener face is
     // /api/v1/endpoints, driven here as a side effect exactly as
@@ -541,7 +541,7 @@ fn rewrite_patch_body_snake_case(body: &serde_json::Value) -> Result<serde_json:
         };
         if mapped == "allocation_policy" {
             if let Some(s) = v.as_str() {
-                // Ticket 02 (A-006): reuse the SAME allow-list the Tauri command
+                // (A-006): reuse the SAME allow-list the Tauri command
                 // validates against (commands/platform.rs ALLOWED_ALLOCATION_POLICIES)
                 // so the enum has ONE definition for both transports.
                 if !egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.contains(&s) {
@@ -642,7 +642,7 @@ fn parse_body(body_bytes: &bytes::Bytes) -> Result<serde_json::Value, String> {
 }
 
 /// Read + validate the business name shared by every name-keyed route.
-/// Ticket 02 (A-006): reuses the SAME validator the Tauri commands use, so
+/// (A-006): reuses the SAME validator the Tauri commands use, so
 /// the bound is defined once and effective on both transports.
 fn read_name(body_val: &serde_json::Value) -> Result<String, String> {
     let name = body_val
@@ -686,11 +686,11 @@ async fn resolve_id(
 ///
 /// 1. Collection + body name -> /{id} path param (DELETE/PATCH platforms,
 ///    DELETE subscriptions) - the original T17 audit fix.
-/// 2. GET /platforms?leases_for=<name> -> /platforms/{id}/leases. Ticket 02:
+/// 2. GET /platforms?leases_for=<name> -> /platforms/{id}/leases:
 ///    platform_leases was mapped at the bare collection, so headless handed
 ///    the SPA the platform LIST where it expected the lease set.
 /// 3. POST /subscriptions?refresh=<name> -> /subscriptions/{id}/actions/refresh.
-///    Ticket 02: R30 had no mapping at all, so refresh was desktop-only.
+///    R30 had no mapping at all, so refresh was desktop-only.
 /// 4. PUT/DELETE /account-header-rules with body url_prefix ->
 ///    /account-header-rules/{prefix}. R33/R35 address the rule by prefix in the
 ///    PATH and a prefix may contain "/" (its %2F must survive), so the SPA never
@@ -789,7 +789,7 @@ async fn translate_request(
         ));
     }
 
-    // --- 5. Ticket 02: POST /platforms validates the Resin V1 name rule. ---
+    // --- 5. POST /platforms validates the Resin V1 name rule. ---
     // The desktop command (create_platform_from_name) rejects names containing
     // . : | / \ @ ? # % ~ or any whitespace; the BFF must enforce the SAME rule
     // or a browser caller could create a name the desktop would have refused
@@ -1002,7 +1002,7 @@ async fn ports_bind_platform_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Res
     }
 }
 
-/// Mode B (round8 D-001): headless has no shell-side credential injection -
+/// Mode B (D-001): headless has no shell-side credential injection -
 /// Resin listens natively and the CLIENT supplies the Platform.Account
 /// credential once. The field shape stays identical to the desktop answer
 /// (PortAuthInfo) so the view needs no branch; `data_plane_mode` tells the
@@ -1162,7 +1162,7 @@ mod bff_translate_tests {
         assert!(err.contains("must be a JSON object"));
     }
 
-    // --- Ticket 02: the new BFF translation helpers (pure, no reqwest). ---
+    // --- the new BFF translation helpers (pure, no reqwest). ---
 
     #[test]
     fn split_query_separates_path_and_query() {

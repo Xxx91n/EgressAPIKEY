@@ -516,7 +516,7 @@ export function PlatformsView() {
                           </button>
                         )}
                       </div>
-                      {/* Round 8 ticket 13 / D-007: a `mixed` port answers BOTH
+                      {/* D-007: a `mixed` port answers BOTH
                           dialects, so it advertises both credential forms. */}
                       {a && (p.protocol === "socks5" || p.protocol === "mixed") && a.auth_required && (
                         <div className="break-all text-[10px] text-muted-foreground/80">{t("platform.socks5Auth")}: {a.username} · {t("platform.passwordMasked")}</div>
@@ -609,7 +609,7 @@ export function PlatformsView() {
                             </button>
                           ))}
                         </div>
-                        {/* Round 8 ticket 01 / acceptance 5 (D-002): honest
+                        {/* (D-002): honest
                             semantics. Top-N and manual node selection both land
                             on Resin as the SELECTED NODES' REGION SET — a
                             region filter, never per-node pinning (Resin v1.2.0

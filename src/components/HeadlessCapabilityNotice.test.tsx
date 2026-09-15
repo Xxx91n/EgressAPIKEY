@@ -8,7 +8,7 @@ import {
 } from "./HeadlessCapabilityNotice";
 import { allDisabledCommands } from "../lib/headlessCapability";
 
-// Ticket 02 / A-006. The shared setup (src/test/setup.ts) stubs the Tauri
+// A-006. The shared setup (src/test/setup.ts) stubs the Tauri
 // internals, so these specs start in TAURI mode and opt into headless per test.
 // That default is deliberate: the notice must be INVISIBLE in the desktop app,
 // and "renders nothing" is the assertion that proves it.
