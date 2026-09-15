@@ -65,3 +65,27 @@ scope for this decision.
   architecture separate from the data plane).
 - Existing whitebox rows migrate from the two-value protocol enum to the
   three-value enum in the same change that tightens the flag mapping.
+
+## Implementation note (round 8 ticket 13)
+
+D3 landed. The enum is `http | socks5 | mixed` with `mixed` the default;
+`crates/resin-core/src/entry_protocol.rs` owns the closed value set and the
+single flag derivation every endpoint body now uses. The one-time migration is
+flag-preserving (a pre-change `socks5` row already produced both flags, so it
+becomes `mixed`) and runs off the whitebox `version` 1 -> 2 stamp, plus a
+SQLite `user_version` 3 -> 4 table rebuild for the rows that seed a missing
+whitebox file.
+
+D4 gate PASSED - live, against a running Resin, before implementation:
+
+| endpoint flags | `curl -x http://` | `curl -x socks5h://` |
+| --- | --- | --- |
+| `allow_socks5` + `allow_http_forward` | `HTTP/1.1 503` (`NO_AVAILABLE_NODES`) | SOCKS5 method reply `05 00` |
+| `allow_http_forward` only | - | refused (`05 ff`) |
+| `allow_socks5` only | `403 ENDPOINT_CAPABILITY_DISABLED` | - |
+
+Same-port auto-detection is therefore confirmed, and the tightened mapping is
+observably meaningful: a single-protocol port refuses the other dialect, so
+`mixed` is the only value that serves both. Raw transcripts and the full
+byte-level probe matrix live in `.scratch/architecture-recovery/repro/d4-mixed/`
+(gitignored scratch).

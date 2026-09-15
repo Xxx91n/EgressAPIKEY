@@ -43,6 +43,15 @@ When the second step fails, the command's error names the state ("L3
 changed, L2 not persisted") and triggers an immediate snapshot refresh
 so the drift is observable without waiting for the poll cycle.
 
+> Note (2026-09-14, ticket 12 - wording correction, no decision change):
+> D3's parenthetical names the PRE-D1 failure state. Under D1 the Resin
+> mutation is the second step, so its failure leaves **L2 persisted and L3
+> unchanged** - and that is precisely the drift D3 must make visible. The
+> shipped message therefore reads "L2 persisted, L3 unchanged (Resin
+> rejected: ...) - drift is visible, retry or remove the entry". The
+> ticket-12 issue file still quotes the pre-D1 wording; it is reported as
+> wording drift in the ticket report and should be corrected at source.
+
 ### D4. Atomic config import
 
 config_import stages both whitebox documents to temporary files with
