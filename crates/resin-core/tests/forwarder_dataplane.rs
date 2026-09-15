@@ -361,7 +361,7 @@ async fn engine_session(mut s: TcpStream, origin_port: u16, st: EngineState) {
     st.request_lines.lock().push(line.clone());
     for l in head.lines() {
         if l.to_ascii_lowercase().starts_with("proxy-authorization:") {
-            st.auth_headers.lock().push(l.clone());
+            st.auth_headers.lock().push(l.to_string());
         }
     }
     if !line.starts_with("CONNECT ") {
