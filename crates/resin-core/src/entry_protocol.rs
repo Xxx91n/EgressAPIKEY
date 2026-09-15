@@ -1,4 +1,4 @@
-//! Entry-port protocol vocabulary - round 8 ticket 13 / D-007, ADR-0068 D3.
+//! Entry-port protocol vocabulary - /, ADR-0068 D3.
 //!
 //! An Entry Port declares exactly ONE of three protocol values, and `mixed`
 //! is the default. `mixed` is a single listener that accepts both HTTP-proxy
@@ -7,7 +7,7 @@
 //! otherwise HTTP). The live same-port behaviour - including the per-protocol
 //! refusal the tightened mapping relies on - was verified against a running
 //! Resin before this module landed (ADR-0068 D4 gate; raw evidence in
-//! `.scratch/architecture-recovery/repro/d4-mixed/`).
+//! `.scratch//repro/d4-mixed/`).
 //!
 //! This module is the single source of truth for two things that used to be
 //! spread across the codebase and therefore drifted apart:
@@ -18,7 +18,7 @@
 //!   2. the Resin endpoint capability flags derived from the token
 //!      (`engine_flags`) - previously hand-rolled at four separate call sites.
 //!
-//! Behavioural change (D-007): `socks5` NO LONGER implies HTTP forwarding.
+//! Behavioural change: `socks5` NO LONGER implies HTTP forwarding.
 //! Before the change a `socks5` port produced (allow_socks5 = true,
 //! allow_http_forward = true), i.e. it behaved as `mixed`; a `socks5` port is
 //! now SOCKS5-only and `mixed` is the only way to serve both dialects. Legacy
@@ -30,7 +30,7 @@
 pub const ENTRY_PORT_PROTOCOLS: [&str; 3] = ["mixed", "http", "socks5"];
 
 /// Protocol assigned to a new Entry Port when the caller expresses no
-/// preference (D-007: `mixed` is the default).
+/// preference (`mixed` is the default).
 pub const DEFAULT_ENTRY_PORT_PROTOCOL: &str = "mixed";
 
 /// The one message every boundary returns for an out-of-set token. Kept here so
@@ -101,7 +101,7 @@ mod tests {
     }
 
     /// An unknown token is rejected, never coerced - the same discipline the
-    /// strategy vocabulary adopted (ticket 01 / D-002).
+    /// strategy vocabulary adopted.
     #[test]
     fn canonical_protocol_rejects_out_of_set_tokens() {
         for bad in ["", "socks", "socks4", "https", "auto", "mixed5", "0x05"] {

@@ -1,6 +1,6 @@
 //! B-class strategy type — the shell-facing strategy vocabulary.
 //!
-//! Round 8 ticket 01 / grill decision D-002 (spec IMP-2): the vocabulary
+//! the vocabulary
 //! CONVERGED from six display-only shell options onto Resin's three real
 //! egress-selection policies. `StrategyId` now holds exactly the values
 //! Resin supports — BALANCED / PREFER_LOW_LATENCY / PREFER_IDLE_IP — and the
@@ -17,8 +17,8 @@
 //! The former catalog face (parse aliases, the Rust-side
 //! strategy->allocation_policy mapping, the protocol_weight table,
 //! strategy_catalog/StrategyInfo) had no consumer outside its own tests and
-//! was deleted (architecture-recovery ticket 24, ADR-0050 direction). With
-//! ticket 01 the remaining many-to-one mapping collapsed to the IDENTITY: the
+//! was deleted (ADR-0050 direction). With
+//! the remaining many-to-one mapping collapsed to the IDENTITY: the
 //! whitebox stores the Resin wire value verbatim, so the desired-vs-observed
 //! comparison in `snapshot::merge_strategies` needs no second mapping table,
 //! and the translation left in `src/lib/strategy.ts` is display-only.

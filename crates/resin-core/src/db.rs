@@ -62,7 +62,7 @@ impl DbPool {
             tracing::info!(target: "db", "migrated to user_version 3 (auth_required column)");
         }
         if v < 4 {
-            // Round 8 ticket 13 / D-007 (ADR-0068 D3): the entry-port protocol
+            // (ADR-0068 D3): the entry-port protocol
             // enum gained `mixed` and `socks5` was tightened to SOCKS5-only. A
             // pre-change `socks5` row produced BOTH engine flags, so it is
             // rewritten to the flag-preserving `mixed` - the "existing ports
@@ -244,7 +244,7 @@ mod tests {
         drop(pool);
     }
 
-    /// Round 8 ticket 13 / D-007: a v3-era table carried the pre-change
+    /// a v3-era table carried the pre-change
     /// vocabulary, where `socks5` also opened HTTP forwarding. Migration v4
     /// rewrites those rows to the flag-preserving `mixed` and moves the column
     /// default off the retired token so a future insert that omits `protocol`

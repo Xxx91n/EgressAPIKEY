@@ -1,5 +1,5 @@
-//! Subscription establish pipeline (architecture-recovery Round 7 ticket 01,
-//! spec D-C1.1) — the between-steps glue the ADR lattice implies but never
+//! Subscription establish pipeline
+//! — the between-steps glue the ADR lattice implies but never
 //! wired: import (POST /subscriptions) no longer stops at "data landed".
 //!
 //! Mental model (spec §9 R-A research verdict): a LEVEL-TRIGGERED desired-
@@ -30,16 +30,16 @@
 //!                       generation write-back (ADR-0058). In-sync = zero
 //!                       PATCH.
 //!
-//! Terminal criterion (spec D-C1.1): snapshot consumed_by non-empty AND the
+//! Terminal criterion: snapshot consumed_by non-empty AND the
 //! target platform not missing on Resin AND ConvergePhase in
 //! {Converged, Drifted(acknowledged)}. `is_terminal_state` is a pure fn so
 //! the check is unit-testable without Resin.
 //!
-//! Failure model (D-C1.1 allow clause): a failed step is PERSISTENT STATE —
+//! Failure model (allow clause): a failed step is PERSISTENT STATE —
 //! the event stays queued with attempts + last_error and is retried by the
 //! caller with exponential backoff (`retry_delay`), capped at
-//! MAX_ATTEMPTS. UI phase state is T02's SubscriptionPhase. Since T04
-//! (D-C1.4) a failed pass ALSO runs `compensate_failed_cascade` — the
+//! MAX_ATTEMPTS. UI phase state is 's SubscriptionPhase. Since
+//! a failed pass ALSO runs `compensate_failed_cascade` — the
 //! partial-failure compensation that deletes only what THIS pass created
 //! (never the strategy whitebox, never the subscription) and persists the
 //! ordered sub/plat/port/apply marking as `last_cascade_error` on the
@@ -385,7 +385,7 @@ pub async fn ensure_platform<S: StrategyConfigStore>(
 /// Step 5: strategy_apply — the existing diff-then-skip apply (ADR-0057) +
 /// generation write-back (ADR-0058 D3). In-sync platforms cost zero PATCH.
 /// Returns the step status plus the platform the failure BELONGS to (the
-/// first non-patched report row) — T04's compensation keys on that owner so
+/// first non-patched report row) — 's compensation keys on that owner so
 /// it never deletes a cascade resource for a failure this cascade did not
 /// cause. `None` = the apply pass failed without a platform-scoped row
 /// (transport-level failure) or did not run.
@@ -412,7 +412,7 @@ pub async fn apply_strategy(
 /// One full pass of the five-step cascade for one subscription. Public so
 /// the integration test and the drain loop share one implementation.
 ///
-/// Round 7 T02 (D-C1.2): the pass also DRIVES the persisted phase state
+/// the pass also DRIVES the persisted phase state
 /// machine — Importing while the data-landing beats run, Establishing with
 /// the platform/bind/apply sub-step while the whitebox beats run, Converged
 /// on an all-green pass, Failed(stage, reason) on the first failure. Every
@@ -442,7 +442,7 @@ pub async fn run_pipeline(
         // that produced it (Import/Resolve; steps after a failure are
         // skipped, so the FIRST failed step is the stage).
         let (stage, reason) = failed_stage(EstablishStep::Import, &[&s1, &s2]);
-        // T04 (D-C1.4): nothing past the subscription exists yet, so the
+// nothing past the subscription exists yet, so the
         // compensation is a recorded no-op — the subscription itself (even
         // when this pass just created it) is the user's original data and
         // is NEVER deleted.
@@ -458,7 +458,7 @@ pub async fn run_pipeline(
     let (s3, s4) = ensure_platform(client, svc, name).await;
     if s3.is_failed() || s4.is_failed() {
         let (stage, reason) = failed_stage(EstablishStep::Platform, &[&s3, &s4]);
-        // T04 (D-C1.4): the Resin platform row was NOT created this pass
+        // the Resin platform row was NOT created this pass
         // (s4 failed — a create that returned Err is treated as not
         // created), so the compensation is a recorded no-op: only the
         // subscription survives. The whitebox entry this pass may have
@@ -475,7 +475,7 @@ pub async fn run_pipeline(
     let _ = svc.record_subscription_phase(name, SubscriptionPhase::Establishing, Some(EstablishStep::Apply), None);
     let (s5, failing_platform) = apply_strategy(client, svc).await;
     if let StepStatus::Failed(reason) = &s5 {
-        // T04 (D-C1.4): the platform row exists. Compensation deletes it
+// the platform row exists. Compensation deletes it
         // ONLY when this pass created it (s4 Written) AND the apply failure
         // belongs to it — a failure owned by an unrelated platform must not
         // delete this cascade's resource (that platform may even be
@@ -497,7 +497,7 @@ pub async fn run_pipeline(
 /// the caller only invokes this when at least one step IS Failed.
 fn failed_stage(base: EstablishStep, steps: &[&StepStatus]) -> (EstablishStep, String) {
     // Canonical beat order; the base stage anchors the caller's section and
-    // each position past it advances one beat (T03 inserts Port between Bind
+    // each position past it advances one beat ( inserts Port between Bind
     // and Apply — the order already carries the slot).
     const ORDER: [EstablishStep; 6] = [
         EstablishStep::Import,
@@ -517,7 +517,7 @@ fn failed_stage(base: EstablishStep, steps: &[&StepStatus]) -> (EstablishStep, S
     (base, "cascade failed".to_string())
 }
 
-/// Terminal criterion (spec D-C1.1) as a PURE function: consumed_by non-empty
+/// Terminal criterion as a PURE function: consumed_by non-empty
 /// AND the target platform is not missing on Resin AND ConvergePhase is
 /// Converged or a Drifted whose entries are all acknowledged (Drifted(ack)).
 /// The caller feeds it from the authoritative snapshot it already holds —
@@ -536,8 +536,8 @@ pub fn is_terminal_state(
 }
 
 // ---------------------------------------------------------------------------
-// Optional default-port tail (architecture-recovery Round 7 ticket 03, spec
-// D-C1.3): the establish cascade may END by creating ONE socks5 entry port
+// Optional default-port tail ( spec
+// : the establish cascade may END by creating ONE socks5 entry port
 // bound to the freshly established platform — only when the user did not
 // provide a binding target. Everything the step needs (ResinClient, DbPool,
 // PortForwarder, WhiteboxConfigStore) is resin-core-owned; the shell passes
@@ -545,7 +545,7 @@ pub fn is_terminal_state(
 // a green drain pass — no drain/run_pipeline signature churn, the shared
 // 5-step report shape is untouched).
 //
-// Conflict law (D-C1.3): the user's pre-existing state ALWAYS wins. A
+// Conflict law: the user's pre-existing state ALWAYS wins. A
 // whitebox row already bound to this platform (the user's own binding
 // target, or this step's own pass-1 product = idempotence), a row holding
 // the candidate port for another platform, a foreign Resin listener, or a
@@ -595,7 +595,7 @@ fn custom_endpoint_ports(v: &serde_json::Value) -> Vec<u16> {
         .collect()
 }
 
-/// Step 6 — the OPTIONAL default-port (D-C1.3, ticket 03). The shell's
+/// Step 6 — the OPTIONAL default-port. The shell's
 /// subscription_add invokes it right after a green establish pass; the step
 /// is idempotent (a re-invocation after a retried pass writes nothing), so
 /// the level-triggered re-run discipline holds without owning queue state.
@@ -665,7 +665,7 @@ pub async fn ensure_default_port(
         return StepStatus::AlreadyPresent;
     }
     // (e) Create the mixed listener — the exact endpoint body port_upsert
-    // sends for a `mixed` mapping (round 8 ticket 13 / D-007: `socks5` no
+// sends for a `mixed` mapping ( `socks5` no
     // longer implies HTTP forwarding, so the dual-flag default port declares
     // itself `mixed`). require_proxy_auth_info defaults on, matching the
     // GUI's default for new ports).
@@ -695,7 +695,7 @@ pub async fn ensure_default_port(
     }
     // (f) Whitebox write through the ONE write entry (validate -> SQLite ->
     // listeners -> atomic JSON -> swap; ADR-0042 S2, generation bump per
-    // ADR-0058 D-27). Identity defaults mirror port_upsert's.
+    // ADR-0058 ). Identity defaults mirror port_upsert's.
     let mapping = PortMapping {
         port,
         protocol: crate::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL.to_string(),
@@ -731,8 +731,8 @@ pub async fn ensure_default_port(
 }
 
 // ---------------------------------------------------------------------------
-// Partial-failure compensation (architecture-recovery Round 7 ticket 04, spec
-// D-C1.4): a failed establish pass compensates ONLY the resources THIS pass
+// Partial-failure compensation ( spec
+// : a failed establish pass compensates ONLY the resources THIS pass
 // created. The law (ADR-0054-compliant explicit rollback — never a silent
 // auto-heal, never an L3->L2 write):
 //   - the subscription is the user's original data and is NEVER deleted;
@@ -742,7 +742,7 @@ pub async fn ensure_default_port(
 //     pass's `ensure_platform`, and only when the apply failure BELONGS to
 //     it (a failure owned by an unrelated platform must not delete this
 //     cascade's resource).
-// The default-port tail (T03) only arms after a GREEN pass, so it can never
+// The default-port tail only arms after a GREEN pass, so it can never
 // be part of a failed establish marking here.
 // ---------------------------------------------------------------------------
 
@@ -1196,7 +1196,7 @@ mod tests {
             .expect(1)
             .create_async()
             .await;
-        // T04 (D-C1.4): the compensation deletes the cascade-created platform.
+        // the compensation deletes the cascade-created platform.
         let m_delete_platform = server
             .mock("DELETE", "/api/v1/platforms/id-flaky")
             .match_header(BEARER.0, BEARER.1)
@@ -1244,7 +1244,7 @@ mod tests {
         // and records last_apply_error — no fake convergence.
         let cfg = svc.get().unwrap();
         assert!(cfg.last_apply_error.is_some(), "failure must be persistent state");
-        // T04 checkpoint B: the whitebox entry this cascade wrote is L2
+        // checkpoint B: the whitebox entry this cascade wrote is L2
         // desired state and SURVIVES the compensation (whitebox deletion is
         // another ticket's path).
         assert!(
@@ -1252,7 +1252,7 @@ mod tests {
                 && ps.a_class == AClassStrategy::Subscription),
             "whitebox entry must survive the compensation: {cfg:?}"
         );
-        // T04 checkpoint A branch 1: the failure record persists with the
+// checkpoint A branch 1: the failure record persists with the
         // ordered sub/plat/port/apply marking; the cascade-created Resin
         // platform row was deleted.
         let row = cfg.subscriptions.iter().find(|r| r.name == "flaky").expect("status row");
@@ -1412,7 +1412,7 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 
-    /// Checkpoint B (D-C1.4) — a whitebox-declared platform is NEVER touched
+    /// Checkpoint B — a whitebox-declared platform is NEVER touched
     /// by the compensation path: the user platform stays in the whitebox AND
     /// on Resin while the cascade-created platform is deleted (branch 1).
     #[tokio::test]
@@ -1465,7 +1465,7 @@ mod tests {
             .create_async()
             .await;
         // Platform reads: (1) ensure presence read — user-plat only;
-        // (2..) apply initial + per-platform re-reads (2 platforms) + the T04
+// (2..) apply initial + per-platform re-reads (2 platforms) + the
         // compensation resolve read — user-plat + guarded.
         let m_p_user = server
             .mock("GET", "/api/v1/platforms")
@@ -1559,7 +1559,7 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 
-    /// Checkpoint B (D-C1.4) — no overreach: when the apply failure belongs
+    /// Checkpoint B — no overreach: when the apply failure belongs
     /// to an UNRELATED platform, the cascade-created platform is KEPT even
     /// though this pass created it (deleting a resource this cascade did not
     /// fail would churn a converged row on every retry).
@@ -1825,7 +1825,7 @@ mod tests {
         assert_eq!(partial.first_error(), Some("PATCH failed: 500"));
     }
 
-    // ---- ticket 03 (D-C1.3): the optional default-port tail ----
+    // ---- the optional default-port tail ----
     //
     // Three checkpoint branches (A): default-create success / user-provided
     // port / existing same-name port; plus checkpoint B (conflict = warning,

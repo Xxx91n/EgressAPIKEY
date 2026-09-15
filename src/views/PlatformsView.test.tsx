@@ -24,7 +24,7 @@ const samplePlatform = {
   sticky_ttl: "30m",
 };
 
-/// T11: helper — expand the platform card so strategy selectors become visible.
+/// helper — expand the platform card so strategy selectors become visible.
 async function expandPlatform(name: string) {
   await waitFor(() => expect(screen.getByTestId("platform-card-header-" + name)).toBeInTheDocument(), { timeout: 5000 });
   fireEvent.click(screen.getByTestId("platform-card-header-" + name));
@@ -169,7 +169,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("port_bind_platform", expect.objectContaining({ port: 17990, platformName: "OpenAI" })));
   });
 
-  // T11-1: platform card collapsed by default, expand shows strategy
+  // platform card collapsed by default, expand shows strategy
   it("T11-1: platform card collapsed by default; expand reveals strategy-split", async () => {
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument(), { timeout: 5000 });
@@ -180,14 +180,14 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(screen.getByTestId("strategy-bclass-chips-Default")).toBeInTheDocument();
   });
 
-  // T11-1: collapsed card shows A/B badges
+  // collapsed card shows A/B badges
   it("T11-1: collapsed card shows A badge + B badge", async () => {
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("platform-abadge-Default")).toBeInTheDocument(), { timeout: 5000 });
     expect(screen.getByTestId("platform-bbadge-Default")).toBeInTheDocument();
   });
 
-  // T11-2: selected chip has ring class
+  // selected chip has ring class
   it("T11-2: selected A-class chip has ring-2 ring-primary", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
@@ -208,7 +208,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(screen.getByTestId("strategy-region-chip-US").className).toContain("ring-2");
   });
 
-  // T12-3: manual search filters nodes within subscription-folded groups
+  // manual search filters nodes within subscription-folded groups
   it("T12-3: manual search shows subscription group headers; selected nodes highlighted blue", async () => {
     const nodes = [
       { display_tag: "HK-1", region: "HK", node_hash: "h1", tags: [] },
@@ -230,7 +230,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     render(<PlatformsView />);
     await expandPlatform("Default");
     await waitFor(() => expect(screen.getByTestId("strategy-manual-search-Default")).toBeInTheDocument(), { timeout: 5000 });
-    // T12-3: subscription group header visible (default collapsed)
+    // subscription group header visible (default collapsed)
     const subBtn = await screen.findByTestId("strategy-manual-sub-Default-__untagged__");
     expect(subBtn).toBeInTheDocument();
     // Expand the group
@@ -243,14 +243,14 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(screen.getByTestId("strategy-manual-chip-h3")).toBeInTheDocument());
   });
 
-  // T11-4b: no global Apply button
+  // no global Apply button
   it("T11-4b: global Apply button is NOT present (per-platform sync)", async () => {
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
     expect(screen.queryByTestId("strategy-apply")).toBeNull();
   });
 
-  // T11-4b: clicking A-class region chip fires strategy_config_put + strategy_apply (per-platform sync)
+  // clicking A-class region chip fires strategy_config_put + strategy_apply (per-platform sync)
   it("T11-4b: clicking region chip triggers strategy_config_put + strategy_apply", async () => {
     let putCalled = false;
     let applyCalled = false;
@@ -278,7 +278,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
   // B-class chips visible after expand.
-  // Round 8 ticket 01 / D-002: the selector offers EXACTLY Resin's three real
+  // the selector offers EXACTLY Resin's three real
   // allocation policies — the six display-only shell options are withdrawn.
   it("B-class chip pane shows the 3 real allocation policies as toggle chips", async () => {
     render(<PlatformsView />);
@@ -374,7 +374,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
 
-  // T11-8: port card collapsed by default; expand shows details
+  // port card collapsed by default; expand shows details
   it("T11-8: port card collapsed by default; expand shows auth details", async () => {
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("port-row-17990")).toBeInTheDocument());
@@ -383,7 +383,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(screen.getByTestId("port-auth-17990")).toBeInTheDocument(), { timeout: 5000 });
   });
 
-  // T8-7: port row shows Unbound text when platform_name is empty
+  // port row shows Unbound text when platform_name is empty
   it("T8-7: port row shows Unbound text when platform_name is empty", async () => {
     const unboundPort = { ...samplePort, port: 17992, platform_name: "" };
     invokeMock.mockImplementation((cmd: string) => {
@@ -405,7 +405,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(screen.getByTestId("port-row-17992").textContent).toContain("Unbound");
   });
 
-  // T10-2: region strategy from config renders region chip toggle with US+JP selected (after expand)
+  // region strategy from config renders region chip toggle with US+JP selected (after expand)
   it("T10-2: region strategy from config shows US+JP selected chips after expand", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
@@ -428,7 +428,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(usChip.className).toContain("ring-2");
   });
 
-  // T12-fix: click on port card should NOT trigger opacity-50 (gray) or blue ring (selection removed)
+  // click on port card should NOT trigger opacity-50 (gray) or blue ring (selection removed)
   it("T12-fix: click on port card does not trigger opacity-50 or ring-2", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([{ port: 17990, platform_name: null, require_auth: false, protocol: "http" }]);
@@ -452,7 +452,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(portRow.className).not.toContain("opacity-50");
   });
 
-  // T12-fix: drag beyond 5px threshold triggers opacity-50 (gray)
+  // drag beyond 5px threshold triggers opacity-50 (gray)
   it("T12-fix: drag beyond threshold triggers opacity-50 gray", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([{ port: 17991, platform_name: null, require_auth: false, protocol: "http" }]);
@@ -475,7 +475,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     fireEvent.pointerUp(portRow, { clientX: 120, clientY: 120 });
   });
 
-  // T12-persist: strategy chip selection persists across re-mount (stale closure fix)
+  // strategy chip selection persists across re-mount (stale closure fix)
   it("T12-persist: strategy_config_put called after chip selection (stale closure fix)", async () => {
     let putCallCount = 0;
     let lastPutConfig: any = null;
@@ -508,7 +508,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(lastPutConfig.platforms.length).toBeGreaterThan(0);
   });;
 
-  // T12-persist: top_n quality strategy persists after page switch
+  // top_n quality strategy persists after page switch
   it("T12-persist: top_n quality strategy persists across re-mount", async () => {
     let savedConfig: any = null;
     invokeMock.mockImplementation((cmd: string, args: any) => {

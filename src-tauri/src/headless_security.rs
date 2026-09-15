@@ -1,4 +1,4 @@
-//! Headless control-surface security primitives (architecture-recovery ticket 03, A-007).
+//! Headless control-surface security primitives.
 //!
 //! The headless binary (`egressapikey-headless`) exposes the FULL Resin admin
 //! control plane over HTTP. Two controls keep that surface unreachable from a
@@ -20,8 +20,8 @@
 //!
 //! Local reproduction of the rebinding primitive (pre-fix shape served the admin
 //! plane to `Host: evil.example` with HTTP 200; post-fix shape returns 403):
-//! `.scratch/architecture-recovery/repro/dns-rebinding-repro.cjs`; log in
-//! `.scratch/architecture-recovery/reports/03-headless-security-report.md`.
+//! `.scratch//repro/dns-rebinding-repro.cjs`; log in
+//! `.scratch//reports/03-headless-security-report.md`.
 
 /// Number of CSPRNG bytes per token, before hex encoding (32 bytes = 256 bits).
 const TOKEN_BYTES: usize = 32;

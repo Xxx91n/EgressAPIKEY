@@ -1,4 +1,4 @@
-//! T18 Phase 1 — Port health batch probe (sing-box urltest pattern).
+//! Phase 1 — Port health batch probe (sing-box urltest pattern).
 //!
 //! Single Tokio task + ticker + for_each_concurrent(10) + AtomicBool reentry
 //! guard + TTL skip + exponential backoff (5 fails -> Dead, interval × 2^min(fails,5), cap 5m).
@@ -8,7 +8,7 @@
 //! The watcher is generic over the emit function so the Tauri command can
 //! pass a Channel<PortHealthSnapshot> and tests can pass a closure.
 //!
-//! Ticket 20 (architecture-recovery): interval/backoff arithmetic lives in
+//! interval/backoff arithmetic lives in
 //! the shared crate::throttle model; this module keeps only the poll's
 //! parameter values and the loop itself.
 
@@ -35,7 +35,7 @@ const CONNECT_TIMEOUT_MS: u64 = 200;
 /// Read-reply timeout (matches the existing per-port health check).
 const READ_TIMEOUT_MS: u64 = 550;
 
-/// Ticket 20: the poll's rhythm parameter VALUES (unchanged from before the
+/// the poll's rhythm parameter VALUES (unchanged from before the
 /// consolidation: floor 5s, backoff cap 300s, k=2, exponent cap 5); the
 /// arithmetic itself lives only in crate::throttle.
 const POLL_PARAMS: ThrottleParams = ThrottleParams::bounded(MIN_INTERVAL_SECS, BACKOFF_CAP_SECS);
@@ -102,7 +102,7 @@ impl PortHistory {
 }
 
 /// Adaptive interval: max(MIN_INTERVAL_SECS, k·ln(1+N)) where k=2 (Cilium CFP-32820).
-/// Ticket 20: thin delegation to the single-owner throttle model - same
+/// thin delegation to the single-owner throttle model - same
 /// signature, same rhythm.
 pub fn adaptive_interval(port_count: usize) -> Duration {
     throttle::adaptive_interval(POLL_PARAMS, ADAPTIVE_K, port_count)
@@ -111,7 +111,7 @@ pub fn adaptive_interval(port_count: usize) -> Duration {
 /// Probe a single port. TCP connect + SOCKS5 greeting or HTTP GET; returns
 /// (reachable, latency_ms). Mirrors src-tauri::commands::port_health_check.
 ///
-/// `mixed` (round 8 ticket 13 / D-007) is probed with the SOCKS5 greeting:
+/// `mixed` is probed with the SOCKS5 greeting:
 /// a dual-flag listener answers it, which is what the live D4 gate observed.
 async fn probe_one(port: u16, protocol: &str) -> (bool, Option<u32>) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -141,7 +141,7 @@ async fn probe_one(port: u16, protocol: &str) -> (bool, Option<u32>) {
         // `mixed` ports are probed with the SOCKS5 greeting (the branch
         // above), so a SOCKS5 method-selection reply is the expected answer for
         // BOTH `socks5` and `mixed`. Verified live against Resin: a dual-flag
-        // port answers 05 00 (round 8 ticket 13 / ADR-0068 D4 gate).
+        // port answers 05 00 (ADR-0068 D4 gate).
         Ok(Ok(n)) if protocol != "http" && n >= 2 && buf[0] == 0x05 && (buf[1] == 0x00 || buf[1] == 0x02) => (true, Some(elapsed)),
         Ok(Ok(n)) if n >= 4 => (true, Some(elapsed)), // protocol_mismatch but alive
         _ => (false, None),
@@ -207,9 +207,9 @@ async fn run_tick(
     out
 }
 
-/// Tick cadence (ticket 20): `Adaptive` recomputes the base interval from
+/// Tick cadence: `Adaptive` recomputes the base interval from
 /// the live port count each tick - the production rhythm, byte-identical to
-/// pre-ticket-20 behavior; `Fixed` pins the interval so rhythm semantics
+/// pre- behavior; `Fixed` pins the interval so rhythm semantics
 /// (multi-client coexistence, shared pause) are testable deterministically
 /// under tokio virtual time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -239,7 +239,7 @@ pub fn spawn_watcher<F, E>(
     spawn_watcher_with(ports_fn, emit, paused, WatchCadence::Adaptive);
 }
 
-/// `spawn_watcher` with an explicit tick cadence (ticket 20 test seam;
+/// `spawn_watcher` with an explicit tick cadence ( test seam;
 /// production callers use `spawn_watcher`, which passes `Adaptive`).
 pub fn spawn_watcher_with<F, E>(
     ports_fn: F,
@@ -309,7 +309,7 @@ mod tests {
         assert_eq!(HealthState::classify(false, 99), HealthState::Dead);
     }
 
-    /// Round 8 ticket 13 / D-007: a `mixed` port must classify as reachable
+    /// a `mixed` port must classify as reachable
     /// when it answers the SOCKS5 greeting. A dual-flag Resin listener replies
     /// `05 00` - exactly what the ADR-0068 D4 gate observed live - and the
     /// pre-change match arm only recognised `socks5`, so `mixed` would have
@@ -399,7 +399,7 @@ mod tests {
         assert!(out.is_empty());
     }
 
-    // --- Ticket 20: spawn_watcher cadence / multi-client / shared-pause semantics ---
+    // --- spawn_watcher cadence / multi-client / shared-pause semantics ---
 
     #[tokio::test(start_paused = true)]
     async fn spawn_watcher_default_adaptive_emits_monotonic_revisions() {

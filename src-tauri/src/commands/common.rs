@@ -1,7 +1,7 @@
 //! Shared domain IPC commands (EgressAPIKEY).
 //!
-//! Extracted from the former commands/mod.rs monolith by architecture-recovery
-//! ticket 08: pure mechanical move - no behavior, naming, or IPC-surface change.
+//! Extracted from the former commands/mod.rs monolith by
+//! pure mechanical move - no behavior, naming, or IPC-surface change.
 //! Shared IPC-boundary helpers used by every command domain.
 
 use crate::sidecar::SidecarHandle;
@@ -71,7 +71,7 @@ pub fn find_endpoint_id_by_port(existing: &serde_json::Value, port: u16) -> Opti
     None
 }
 
-/// T18-6 (ADR-0042 S6): Restore Resin endpoints from whitebox config on startup.
+/// (ADR-0042 S6): Restore Resin endpoints from whitebox config on startup.
 /// Spawns-safe: failures log only, never fail the app. Skips ports already in Resin (409 Conflict).
 pub async fn restore_ports_from_whitebox(
     sidecar: &SidecarHandle,
@@ -93,7 +93,7 @@ pub async fn restore_ports_from_whitebox(
             skipped += 1;
             continue;
         }
-        // Round 8 ticket 13 / D-007: ONE shared derivation, not a fourth
+        // ONE shared derivation, not a fourth
         // hand-rolled copy. mixed opens both capabilities, http only HTTP
         // forwarding, socks5 only SOCKS5.
         let (allow_socks5, allow_http_forward) =

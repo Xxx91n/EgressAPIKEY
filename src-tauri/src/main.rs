@@ -16,7 +16,7 @@ use resin_core::{
 use tauri::{Emitter, Manager, WindowEvent};
 
 fn main() {
-    // Issue 11: capture panics into the tracing pipeline so a crashed
+    // capture panics into the tracing pipeline so a crashed
     // sidecar thread or IPC handler surfaces a log line instead of silently
     // unwinding. The default hook prints to stderr only, which the GUI hides.
     let prev_hook = std::panic::take_hook();
@@ -47,7 +47,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
-        // Ticket 16 / ADR-0054 §E: OS notification permission for the one-shot
+        // ADR-0054 §E: OS notification permission for the one-shot
         // drift notice. The notification itself is fired from the snapshot
         // command; headless builds never construct this Builder.
         .plugin(tauri_plugin_notification::init())
@@ -57,7 +57,7 @@ fn main() {
         // file appender under app_log_dir() (Re6). Replaces tauri-plugin-log so
         // every `tracing::` macro in the codebase flows through one subscriber.
         .plugin(
-            // Issue 11: log hardening. Rotate daily OR at 10MB, keep the 7 most
+            // log hardening. Rotate daily OR at 10MB, keep the 7 most
             // recent files so a runaway stream cannot fill the user's disk.
             // Ponytail: use the plugin's built-in MaxFileSize + RotationStrategy
             // rather than a custom subscriber (zero new code, no overflow path).
@@ -83,7 +83,7 @@ fn main() {
                 // Best-effort hide; never panic if the window is already gone.
                 let _ = window.hide();
                 api.prevent_close();
-                // T14-2: start the lightweight-mode delay timer after window
+                // start the lightweight-mode delay timer after window
                 // hide. If the user does not refocus within N minutes, the
                 // timer fires and destroys the webview to free ~171 MB.
                 if let Some(ctrl) = window.app_handle().try_state::<LightweightController>() {
@@ -99,12 +99,12 @@ fn main() {
             }
             if let WindowEvent::Focused(focused) = event {
                 if *focused {
-                    // T14-2: cancel the lightweight-mode delay timer on focus
+                    // cancel the lightweight-mode delay timer on focus
                     if let Some(ctrl) = window.app_handle().try_state::<LightweightController>() {
                         ctrl.try_cancel_lightweight();
                     }
                 }
-                // T18 Phase 1: pause port-health batch probe while the window is unfocused.
+                // Phase 1: pause port-health batch probe while the window is unfocused.
                 if let Some(p) = window.app_handle().try_state::<commands::PortHealthPaused>() {
                     p.0.store(!*focused, std::sync::atomic::Ordering::Relaxed);
                 }
@@ -115,9 +115,9 @@ fn main() {
             // #7: open config / log directory buttons in Settings.
             commands::get_config_dir,
             commands::get_log_dir,
-            // Round 5 T11 / ADR-0059: Settings > Storage "Export audit log".
+            // ADR-0059: Settings > Storage "Export audit log".
             commands::export_audit_log,
-            // T2-2 (ADR-0016 Q2b): sidecar stderr ring buffer snapshot.
+            // (ADR-0016 b): sidecar stderr ring buffer snapshot.
             commands::get_sidecar_logs,
             commands::get_sidecar_status,
             // Re3: Platform/Account registry + weighted account selection.
@@ -130,7 +130,7 @@ fn main() {
             commands::process_route_add,
             commands::process_route_remove,
             commands::process_route_list,
-            // Round 5 T16 / ADR-0063: Resin account-header-rules family (R32-R35).
+            // ADR-0063: Resin account-header-rules family (R32-R35).
             commands::list_account_header_rules,
             commands::put_account_header_rules,
             commands::resolve_account_header_rule,
@@ -171,7 +171,7 @@ fn main() {
             commands::probe_exit_ip,
             commands::check_firewall_status,
             commands::request_log_tail,
-            // T19 (Round 5, ADR-0064): Resin metrics minimal set —
+            // (ADR-0064): Resin metrics minimal set —
             // history/probes (#R53) + realtime/throughput (#R47).
             commands::metrics_probe_history,
             commands::metrics_realtime_throughput,
@@ -191,13 +191,13 @@ fn main() {
             commands::strategy_rollback,
             commands::lightweight_get,
             commands::lightweight_set,
-            // T05 (Round 5): typed diag poll interval pair — closes the L1
+            // typed diag poll interval pair — closes the L1
             // bare get_store_value/set_store_value bypass in DiagnosticsView.
             commands::get_diag_poll_interval,
             commands::set_diag_poll_interval,
             commands::set_log_level,
             commands::get_log_level,
-            // T21 (Round 5): request-log detail drawer — single entry (#R45)
+            // request-log detail drawer — single entry (#R45)
             // + captured payloads (#R46); §7.5 log_id boundary inside.
             commands::request_log_detail,
             commands::request_log_payloads,
@@ -241,9 +241,9 @@ fn main() {
             let cfg_dir = app.path().app_config_dir().unwrap_or_else(|_| {
                 std::env::temp_dir().join("com.egressapikey.desktop")
             });
-            // Round 5 T11 / ADR-0059: point the process-global audit log at
+// ADR-0059: point the process-global audit log at
             // audit.jsonl in the SAME directory as the two whitebox files
-            // (D-30: same level, never app_log_dir where rotation breaks the
+// ( same level, never app_log_dir where rotation breaks the
             // prev_hash chain). Best-effort only; init failure cannot block
             // startup (argus principle).
             resin_core::audit::init(cfg_dir.join(resin_core::audit::AUDIT_LOG_FILE));
@@ -272,7 +272,7 @@ fn main() {
             // Seed from SQLite so first boot materializes the file from DB.
             let whitebox_path = cfg_dir.join(WHITEBOX_CONFIG_FILE);
             let mut seed = WhiteboxConfig::from_ports(db.list_ports().unwrap_or_default());
-            // Ticket 17 / ADR-0055 D5: one-time L1 -> L2 migration. If the
+// ADR-0055 D5: one-time L1 -> L2 migration. If the
             // legacy settings.json key exists, merge its rules into the seed
             // (whitebox wins per process name) and DELETE the key so the L1
             // path can never revive the rules. Idempotent: no key => no-op;
@@ -324,7 +324,7 @@ fn main() {
                         store_watch.watch_apply(db_wb, fwd_wb).await;
                     });
                     tracing::info!(path = %store.path().display(), "whitebox config opened");
-                    // T18-6 (ADR-0042 S6): async restore Resin endpoints from whitebox.
+                    // (ADR-0042 S6): async restore Resin endpoints from whitebox.
                     // Non-blocking: failures log only, never fail startup.
                     let store_restore = store.clone();
                     let handle_restore = app.handle().clone();
@@ -363,7 +363,7 @@ fn main() {
                     }
                 }
             }
-            // Round 8 ticket 01 / D-002 (spec IMP-2, acceptance 4): one-time
+            // one-time
             // strategy-vocabulary migration. The B-class whitebox field
             // converged from six display-only shell options onto Resin's three
             // real allocation policies (BALANCED / PREFER_LOW_LATENCY /
@@ -395,7 +395,7 @@ fn main() {
                 }
             }
             app.manage(forwarder);
-            // T18 Phase 1: shared pause flag for watch_port_health batch probe.
+            // Phase 1: shared pause flag for watch_port_health batch probe.
             app.manage(commands::PortHealthPaused::new(false));
             // G3: Ghost safety-net - /healthz poll every 3s, 3 consecutive
             // failures flip the tray red, clear OS system proxy if any, and
@@ -426,12 +426,12 @@ fn main() {
                     if let Some(mut child) = sidecar.child.lock().ok().and_then(|mut g| g.take()) {
                         let pid: u32 = child.id();
                         let _ = child.kill(); // std::process::Child::kill = &mut self (no consume)
-                        // T2-5 (ADR-0016 Q5): Phase 2 — wait for OS to release
+                        // (ADR-0016 ): Phase 2 — wait for OS to release
                         // port + SQLite lock before app exit, then verify PID.
                         std::thread::sleep(std::time::Duration::from_millis(
                             egressapikey_app::sidecar::SHUTDOWN_WAIT_MS,
                         ));
-                        // T3-Q6: apply CREATE_NO_WINDOW to suppress the console flash
+                        // apply CREATE_NO_WINDOW to suppress the console flash
                         // observed when the GUI exe runs tasklist at quit. Without
                         // this flag, Windows briefly allocates a console for the
                         // child even though stdout/stderr are captured.
@@ -456,7 +456,7 @@ fn main() {
                         }
                         tracing::info!("sidecar child killed on app exit");
                     }
-                    // ADR-0016 T2-1: mark mode as NotRunning so any
+                    // ADR-0016: mark mode as NotRunning so any
                     // concurrent reader (health poll, crash restarter)
                     // sees the shutdown is intentional, not a crash.
                     sidecar.set_mode(

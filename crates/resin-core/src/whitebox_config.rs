@@ -32,7 +32,7 @@ pub const WHITEBOX_CONFIG_FILE: &str = "egressapikey-ports.json";
 
 /// Current whitebox document version.
 ///
-/// v1 -> v2 is round 8 ticket 13 / D-007 (ADR-0068 D3): the entry-port protocol
+/// v1 -> v2 is / (ADR-0068 D3): the entry-port protocol
 /// enum gained `mixed` and `socks5` was tightened to SOCKS5-only. v1 documents
 /// still load - the two-value vocabulary is flag-preserving onto `mixed` - and
 /// are upgraded in place by `migrate_entry_port_protocols`.
@@ -45,23 +45,23 @@ pub struct WhiteboxConfig {
     pub entry_ports: Vec<PortMapping>,
     #[serde(default)]
     pub network: NetworkConfig,
-    /// Ticket 12 / ADR-0054 §D: optional exemption list. Members are decimal
+    /// ADR-0054 §D: optional exemption list. Members are decimal
     /// port numbers the user has marked "known drift, don't notify". Absent
     /// = empty (older configs load unchanged). NEVER enters the three-state
     /// merge — read-side presentation only. Shape checks in `validate`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acknowledged: Vec<String>,
-    /// Ticket 17 / ADR-0055 D1: per-process -> entry-port routing rules,
+    /// ADR-0055 D1: per-process -> entry-port routing rules,
     /// migrated out of L1 settings.json. Absent = empty (older files load
     /// unchanged); single write entry = WhiteboxConfigStore::apply via the
     /// process_route_* commands.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub process_routes: Vec<ProcessRouteRule>,
-    /// Ticket 17 / ADR-0055 D6: ADR-0054 §D exemption vocabulary for the
+/// ADR-0055 D6: ADR-0054 §D exemption vocabulary for the
     /// route family (process names). Read-side presentation only.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub route_acknowledged: Vec<String>,
-    /// Round 5 T09 / ADR-0058 (D-27): write-authority generation counter —
+    /// ADR-0058: write-authority generation counter —
     /// ports half is SINGLE-generation by design: the writer and the apply
     /// executor are the same process (`WhiteboxConfigStore::apply` completes
     /// synchronously), the Crossplane "external resource needs a second
@@ -90,7 +90,7 @@ impl WhiteboxConfig {
 }
 
 
-/// Ticket 17 / ADR-0055: one process-routing rule (L2 whitebox family).
+/// ADR-0055: one process-routing rule (L2 whitebox family).
 /// This is the SINGLE wire shape — the former dual writers (webview
 /// settings.ts camelCase `targetPort` vs Rust snake_case `target_port`)
 /// collapsed into this snake_case form on disk and over IPC.
@@ -100,7 +100,7 @@ pub struct ProcessRouteRule {
     pub target_port: u16,
 }
 
-/// Ticket 17 / ADR-0055 D1: upper bound for whitebox process routes
+/// ADR-0055 D1: upper bound for whitebox process routes
 /// (AGENTS 7.5 bounded-array template).
 pub const MAX_PROCESS_ROUTES: usize = 256;
 
@@ -161,10 +161,10 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
         validate_text(&port.label, "label")?;
     }
     validate_network(&config.network)?;
-    // Ticket 12 / ADR-0054 §D: the exemption array shares the strategy
+    // ADR-0054 §D: the exemption array shares the strategy
     // whitebox shape rules (≤64 × 1..128 chars, no control chars, no dupes).
     crate::strategy_service::validate_acknowledged(&config.acknowledged, "acknowledged")?;
-    // Ticket 17 / ADR-0055: route family validation. Bounded count, unique
+    // ADR-0055: route family validation. Bounded count, unique
     // normalized process names, port >= MIN_USER_PORT, and the legacy
     // one-port-one-process conflict rule so a hand-edited file cannot
     // smuggle two processes onto one port.
@@ -191,10 +191,10 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
     Ok(())
 }
 
-/// Ticket 17 / ADR-0055 D2: one target port may carry at most one process.
+/// ADR-0055 D2: one target port may carry at most one process.
 /// Returns Err naming the bound process (the legacy typed-conflict
 /// contract, now part of document validation). Pure; unit-tested.
-/// Round 8 ticket 13 / D-007 (spec IMP-1, ADR-0068 D3): the flag-preserving
+/// (ADR-0068 D3): the flag-preserving
 /// rewrite of ONE legacy protocol token.
 ///
 /// Under the v1 vocabulary a `socks5` row produced BOTH engine flags
@@ -226,7 +226,7 @@ pub fn migrate_legacy_port_rows(ports: &mut [PortMapping]) -> bool {
     changed
 }
 
-/// Round 8 ticket 13 / D-007: one-time entry-port protocol migration over a
+/// one-time entry-port protocol migration over a
 /// whole whitebox document.
 ///
 /// The `version` stamp is what makes this ONE-TIME, and is why it is not a bare
@@ -246,7 +246,7 @@ pub fn migrate_entry_port_protocols(doc: &mut WhiteboxConfig) -> bool {
     true
 }
 
-/// Round 8 ticket 13 / D-007: the FILE form of the migration, run once at boot
+/// the FILE form of the migration, run once at boot
 /// before the document is parsed (see `WhiteboxConfigStore::open`).
 ///
 /// Reads the raw bytes, applies `migrate_entry_port_protocols`, re-validates and
@@ -258,7 +258,7 @@ pub fn migrate_entry_port_protocols(doc: &mut WhiteboxConfig) -> bool {
 ///
 /// No generation bump: the v1 -> v2 table is flag-preserving, so the desired
 /// state is unchanged and a bump would manufacture a false PendingApply / drift
-/// episode on an already-converged runtime (the discipline ticket 01's
+/// episode on an already-converged runtime (the discipline 's
 /// `migrate_b_class_values_once` follows).
 pub fn migrate_entry_port_protocols_file_once(path: &Path) -> Result<bool, String> {
     if !path.exists() {
@@ -294,7 +294,7 @@ pub fn process_route_conflict_check(rules: &[ProcessRouteRule]) -> Result<(), St
     Ok(())
 }
 
-/// Ticket 17 / ADR-0055 D5: parse the LEGACY L1 settings.json value
+/// ADR-0055 D5: parse the LEGACY L1 settings.json value
 /// tolerantly. Both historical wire shapes are accepted
 /// (webview camelCase `targetPort` / Rust snake_case `target_port`, plus the
 /// even older `target_lane`); entries that are not objects, lack a
@@ -330,7 +330,7 @@ pub fn parse_legacy_l1_routes(v: &serde_json::Value) -> Vec<ProcessRouteRule> {
     out
 }
 
-/// Ticket 17 / ADR-0055 D5: one-time boot migration. Merge the legacy L1
+/// ADR-0055 D5: one-time boot migration. Merge the legacy L1
 /// rules into the seed document (existing whitebox process names WIN —
 /// the whitebox is already the truth source) and return the merged doc.
 /// Idempotent by construction: a second pass over an empty legacy value is
@@ -434,7 +434,7 @@ pub struct WhiteboxConfigStore {
 impl WhiteboxConfigStore {
     pub async fn open(path: PathBuf, initial: WhiteboxConfig) -> Result<Self, String> {
         validate(&initial)?;
-        // Round 8 ticket 13 / D-007: one-time entry-port protocol migration.
+        // one-time entry-port protocol migration.
         // Runs BEFORE the file is parsed so the loaded document already carries
         // the tightened three-value vocabulary. Best-effort: a malformed file is
         // left for the parse path below to report, so the caller's
@@ -553,7 +553,7 @@ impl WhiteboxConfigStore {
         forwarder: &PortForwarder,
         mut next: WhiteboxConfig,
     ) -> Result<usize, String> {
-        // Round 8 ticket 13 / D-007: a document that still declares the v1
+        // a document that still declares the v1
         // vocabulary (an imported or restored legacy export) gets the
         // flag-preserving `socks5` -> `mixed` rewrite on the way in, so the
         // tightened mapping can never reinterpret it. A v2 document is left
@@ -561,7 +561,7 @@ impl WhiteboxConfigStore {
         migrate_entry_port_protocols(&mut next);
         validate(&next)?;
         let _guard = self.writer.lock().await;
-        // Round 5 T09 / ADR-0058 (D-27): single-generation counter bump —
+        // ADR-0058: single-generation counter bump —
         // every ACCEPTED apply advances the ports write-authority generation
         // past the CURRENT committed value (not the incoming doc's: callers
         // hand-build documents that may not carry the latest counter). The
@@ -607,7 +607,7 @@ impl WhiteboxConfigStore {
     }
 }
 
-/// T18-6 (ADR-0042 S6): Filter entry_ports to only enabled entries for
+/// (ADR-0042 S6): Filter entry_ports to only enabled entries for
 /// Resin endpoint restore on startup. Pure helper so it is unit-testable
 /// without a live Resin sidecar.
 pub fn enabled_entries_for_restore(entry_ports: &[PortMapping]) -> Vec<&PortMapping> {
@@ -633,7 +633,7 @@ async fn apply_ports(
 /// Atomic whitebox write with versioning (ADR-0054 section B): the current
 /// file is copied to backup/ and rotated BEFORE the new bytes replace it.
 /// Callers have already validated; a failed backup aborts the write.
-/// Round 5 T11 / ADR-0059 audit: records a best-effort row with the
+/// ADR-0059 audit: records a best-effort row with the
 /// before/after content hashes (never propagates; rollback context comes
 /// from the AUDIT_CTX task-local set by the whitebox_rollback IPC command).
 fn write_atomic(path: &Path, config: &WhiteboxConfig) -> Result<(), String> {
@@ -681,7 +681,7 @@ mod tests {
         }
     }
 
-    // ---- ticket 17 / ADR-0055: process routes family ----
+    // ---- ADR-0055: process routes family ----
 
     fn route(process: &str, port: u16) -> ProcessRouteRule {
         ProcessRouteRule {
@@ -786,7 +786,7 @@ mod tests {
 
     #[test]
     fn old_document_without_route_fields_parses_unchanged() {
-        // pre-ticket-17 file shape: no process_routes / route_acknowledged keys
+        // pre- file shape: no process_routes / route_acknowledged keys
         let raw = serde_json::json!({
             "version": 1,
             "entry_ports": [],
@@ -934,7 +934,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// Round 5 T09 / ADR-0058 (D-27): every ACCEPTED apply bumps the ports
+    /// ADR-0058: every ACCEPTED apply bumps the ports
     /// single-generation counter and stamps updated_at. A v1 file (no
     /// generation fields) loads with generation=0 — serde(default) zero
     /// migration, and apply #1 lands at generation=1.
@@ -981,7 +981,7 @@ mod tests {
         );
         assert!(after2.updated_at.unwrap() >= after1.updated_at.unwrap());
 
-        // NO applied_generation on the ports half (D-27: local type is
+// NO applied_generation on the ports half ( local type is
         // single-generation — the field must not exist on this struct).
         // Verified by compilation of the struct definition itself.
         let _ = std::fs::remove_dir_all(&dir);

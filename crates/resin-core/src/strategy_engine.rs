@@ -1,4 +1,4 @@
-//! Shell-side strategy engine (T4-4 / ADR-0022).
+//! Shell-side strategy engine (ADR-0022).
 //!
 //! Two strategy classes:
 //! - A-class: which IPs enter a platform (manual / region / quality / subscription)
@@ -52,7 +52,7 @@ impl AClassStrategy {
     }
 }
 
-/// Round 8 ticket 01 / D-002 (spec IMP-2): the former `BClassParams` struct
+/// the former `BClassParams` struct
 /// lived here — four display-only "parameters" (round_robin_n,
 /// latency_threshold_ms, quality_score, bandwidth_weight) that NO backend ever
 /// read. Resin v1.2.0 accepts exactly one B-class knob (`allocation_policy`),
@@ -88,7 +88,7 @@ fn default_quality_top_n() -> usize {
     10
 }
 
-/// Round 7 T02 (spec D-C1.2): user-facing establish-cascade phase for ONE
+/// user-facing establish-cascade phase for ONE
 /// subscription. Persisted as a STATUS row in the strategy whitebox
 /// (`SubscriptionStatus`, top-level `subscriptions` array — the per-platform
 /// `PlatformStrategy::subscriptions` NAME REFS are a different field).
@@ -103,14 +103,14 @@ pub enum SubscriptionPhase {
     /// The data-landing beats are running (create_subscription / resolve).
     Importing,
     /// The whitebox+apply beats are running; the sub-step rides the
-    /// `stage` column (platform/bind/port/apply per spec D-C1.2).
+    /// `stage` column (platform/bind/port/apply per).
     Establishing,
     /// Terminal green: every cascade step wrote or skipped.
     Converged,
     /// A cascade step failed persistently; `stage` says where and
     /// `phase_error` carries the KEP-1623-style reason.
     Failed,
-    /// Reserved (T03 owns the first producer): a default-port conflict or
+/// Reserved (owns the first producer): a default-port conflict or
     /// similar needs explicit user consent before the cascade continues.
     NeedsApproval,
 }
@@ -131,14 +131,14 @@ pub enum EstablishStep {
     /// strategy_config_put beat (the subscriptions-ref binding; fused into
     /// the platform write today, kept distinct for the wire contract).
     Bind,
-    /// Default-port binding (T03 owns the producer; reserved tag).
+    /// Default-port binding (owns the producer; reserved tag).
     Port,
     /// strategy_apply beat (ADR-0057 diff-then-skip + ADR-0058 write-back).
     Apply,
 }
 
-/// Round 7 T04 (D-C1.4): per-subscription cascade failure record — the
-/// persisted partial-failure marking. Schema LOCKED (handoff validator note):
+/// per-subscription cascade failure record — the
+/// persisted partial-failure marking. Schema LOCKED (validator note):
 /// exactly `{ stage, reason, rollback_actions[] }`; `rollback_actions` is a
 /// fixed Vec<String> with ONE ordered entry per cascade step
 /// (sub/plat/port/apply), never extended into a dynamic object. Lives on the
@@ -168,7 +168,7 @@ pub struct CascadeError {
 /// desired-state generation. k8s status-subresource rule: a status write is
 /// not a write-authority change; bumping would flip ADR-0058's top-level
 /// ConvergePhase into a false PendingApply after every successful cascade
-/// (spec D-C1.6: existing ADR conclusions must not be broken).
+/// (existing ADR conclusions must not be broken).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SubscriptionStatus {
     /// Subscription name — the row key (1..128 chars, unique in the array).
@@ -181,7 +181,7 @@ pub struct SubscriptionStatus {
     /// chars, NUL rejected).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub phase_error: Option<String>,
-    /// Round 7 T04 (D-C1.4): the LAST cascade failure's compensation record
+    /// the LAST cascade failure's compensation record
     /// (schema-locked `{ stage, reason, rollback_actions[] }` — see
     /// `CascadeError`). Set by `StrategyService::record_cascade_failure`,
     /// cleared by the next Converged status write. Absent in older files =
@@ -196,21 +196,21 @@ pub struct StrategyConfig {
     pub version: u8,
     #[serde(default)]
     pub platforms: Vec<PlatformStrategy>,
-    /// Ticket 12 / ADR-0054 §D: optional exemption list. Members are platform
+    /// ADR-0054 §D: optional exemption list. Members are platform
     /// names the user has marked "known drift, don't notify". Parse-compat:
     /// absent = empty (older configs load unchanged). The list NEVER enters
     /// the three-state merge — it is surfaced read-side only. Validate caps:
     /// ≤64 members × 1..128 chars (no control chars), duplicates rejected.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acknowledged: Vec<String>,
-    /// Round 7 T02 (D-C1.2): per-subscription establish-phase STATUS rows.
+    /// per-subscription establish-phase STATUS rows.
     /// ABSENT in a v1 file = empty = every subscription reads phase `Never`
     /// (the same zero-migration serde-default story as `generation`).
     /// Writes go ONLY through `StrategyService::record_subscription_phase`
     /// (status subresource — no generation bump).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub subscriptions: Vec<SubscriptionStatus>,
-    /// Round 5 T09 / ADR-0058: write-authority generation counter. Bumped by
+/// ADR-0058: write-authority generation counter. Bumped by
     /// EVERY sanctioned store-path write (service `store`, deep region edit,
     /// rollback) after validate, before the file lands. Absent in a v1 file
     /// = 0 = "never applied" (k8s habit: a fresh boot is not a fake alarm).
@@ -403,7 +403,7 @@ pub fn compute_plan(
     plan
 }
 
-/// Round 8 ticket 01 / D-002 (spec IMP-2): one-time B-class vocabulary
+/// one-time B-class vocabulary
 /// migration. Rewrite every `platforms[].b_class` legacy token in a RAW
 /// whitebox document to its canonical Resin allocation policy, using the
 /// legislated many-to-one table in `strategy::StrategyId::parse`.
@@ -488,7 +488,7 @@ mod tests {
 
     #[test]
     fn manual_strategy_maps_manual_nodes_to_regions() {
-        // T11-4a: Manual mode maps manual_nodes (hashes) to regions via healthy nodes.
+        // Manual mode maps manual_nodes (hashes) to regions via healthy nodes.
         // With empty manual_nodes, result is empty (no nodes selected).
         let nodes = vec![
             mk_node("h1", "HK", true, None, None),
@@ -511,7 +511,7 @@ mod tests {
 
     #[test]
     fn manual_strategy_empty_nodes_returns_empty() {
-        // T11-4a: Manual mode with no manual_nodes selected returns empty vec.
+        // Manual mode with no manual_nodes selected returns empty vec.
         let nodes = vec![
             mk_node("h1", "HK", true, None, None),
         ];
@@ -724,7 +724,7 @@ mod tests {
         assert_eq!(unknown["platforms"][0]["b_class"], json!("p2c"));
     }
 
-    /// Withdrawal lock (spec IMP-2 / acceptance 3): a legacy document carrying
+    /// Withdrawal lock: a legacy document carrying
     /// the retired `b_class_params` key still loads, and the key is GONE from
     /// the re-serialized form — the display-only parameters cannot come back.
     #[test]

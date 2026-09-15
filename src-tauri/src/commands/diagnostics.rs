@@ -1,7 +1,7 @@
 //! diagnostics domain IPC commands (EgressAPIKEY).
 //!
-//! Extracted from the former commands/mod.rs monolith by architecture-recovery
-//! ticket 08: pure mechanical move - no behavior, naming, or IPC-surface change.
+//! Extracted from the former commands/mod.rs monolith by
+//! pure mechanical move - no behavior, naming, or IPC-surface change.
 use serde::{Serialize};
 use tauri::{State};
 use crate::sidecar::SidecarHandle;
@@ -10,7 +10,7 @@ use resin_core::IpcError;
 use super::common::{map_resin_error, resin_client};
 use super::ports::{validate_port_segments};
 
-/// T2-2 (ADR-0016 Q2b): IPC snapshot of the sidecar stderr/stdout ring
+/// (ADR-0016 b): IPC snapshot of the sidecar stderr/stdout ring
 /// buffer. Returns the last N lines (oldest still in buffer first) for the
 /// Settings > Logs view. Read-only; no input from the webview.
 #[tauri::command]
@@ -18,18 +18,18 @@ pub fn get_sidecar_logs(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>
     Ok(sidecar.log_buf.snapshot())
 }
 
-/// T3-A1 (ADR-0012 deep audit): Expose the Resin sidecar's actual runtime
+/// (ADR-0012 deep audit): Expose the Resin sidecar's actual runtime
 /// port + health status to the frontend as read-only data.
 #[derive(serde::Serialize)]
 pub struct SidecarStatus {
     pub api_port: u16,
     pub api_base: String,
     pub mode: String,
-    /// T6-7: sidecar process PID (0 if not running).
+    /// sidecar process PID (0 if not running).
     pub pid: u32,
-    /// T6-7: RFC3339 timestamp of the last successful /healthz probe.
+    /// RFC3339 timestamp of the last successful /healthz probe.
     pub healthz_last_check: String,
-    /// T6-7: round-trip latency of the get_sidecar_status IPC call (microseconds).
+    /// round-trip latency of the get_sidecar_status IPC call (microseconds).
     pub ipc_latency_us: u64,
 }
 
@@ -37,11 +37,11 @@ pub struct SidecarStatus {
 pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarStatus, IpcError> {
     let started = std::time::Instant::now();
     let mode = sidecar.mode.read().map(|m| format!("{:?}", *m)).unwrap_or_else(|_| "Unknown".to_string());
-    // T6-7: extract PID from the child process
+    // extract PID from the child process
     let pid = sidecar.child.lock().map(|c| {
         c.as_ref().map(|child| child.id()).unwrap_or(0)
     }).unwrap_or(0);
-    // T6-7: last healthz check timestamp
+    // last healthz check timestamp
     let healthz_last_check = sidecar.healthz_last_check.read()
         .map(|g| g.clone())
         .unwrap_or_default();
@@ -56,7 +56,7 @@ pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarSt
     })
 }
 
-/// T6-5 (rewritten by architecture-recovery ticket 11): Read the last N request
+/// (rewritten by): Read the last N request
 /// log entries via the Resin admin REST API (GET /api/v1/request-logs?limit=N).
 /// The previous implementation scanned Resin's private request_logs*.db files
 /// (temp-copy + read-only rusqlite query) — that bypassed the ResinClient REST
@@ -80,7 +80,7 @@ pub struct RequestLogEntry {
     pub http_status: i64,
     pub duration_ms: f64,
     pub resin_error: String,
-    /// T21: Resin row UUID (requestlog/repo.go:145) — the detail drawer's
+    /// Resin row UUID (requestlog/repo.go:145) — the detail drawer's
     /// key for GET /request-logs/{log_id}. Empty when the wire shape lacks
     /// it (older sidecar), which leaves the row inert.
     pub id: String,
@@ -147,7 +147,7 @@ pub async fn request_log_tail(
     Ok(entries)
 }
 
-/// T6-5: Check Windows firewall inbound allow status for Resin's listen ports.
+/// Check Windows firewall inbound allow status for Resin's listen ports.
 /// Read-only: runs `Get-NetFirewallProfile` to check if firewall is on.
 #[derive(Debug, Serialize, Clone)]
 pub struct FirewallStatus {
@@ -159,7 +159,7 @@ pub struct FirewallStatus {
 
 #[tauri::command]
 pub async fn check_firewall_status() -> Result<FirewallStatus, IpcError> {
-    // T7-1: enterprise-grade subprocess spawn - tokio::process::Command +
+    // enterprise-grade subprocess spawn - tokio::process::Command +
     // CREATE_NO_WINDOW on Windows + 5s timeout to prevent deadlock and
     // console window flash. Cross-platform: Linux uses systemctl, macOS
     // uses pfctl. Pattern from pwm gpt56_sol research.
@@ -253,7 +253,7 @@ pub async fn check_firewall_status() -> Result<FirewallStatus, IpcError> {
     }
 }
 
-/// T6-4: Probe the exit IP by routing a request to http://1.1.1.1/cdn-cgi/trace
+/// Probe the exit IP by routing a request to http://1.1.1.1/cdn-cgi/trace
 /// through the specified entry port (HTTP or SOCKS5 proxy). Returns the exit
 /// IP parsed from the Cloudflare trace body, plus latency. If no active
 /// subscription/nodes are available, returns an error so the GUI can show
@@ -268,7 +268,7 @@ pub async fn probe_exit_ip(
     tracing::info!(port, protocol = %protocol, "probe_exit_ip: probing through proxy");
     validate_port_segments(port)?;
     let proto = protocol.to_ascii_lowercase();
-    // Round 8 ticket 13 / D-007: the closed three-value set. A `mixed` port
+    // the closed three-value set. A `mixed` port
     // probes through the SOCKS5 dialect - a dual-flag listener accepts it,
     // which is what the ADR-0068 D4 gate observed live against Resin.
     if !resin_core::entry_protocol::is_valid_protocol(&proto) {
@@ -329,7 +329,7 @@ pub struct ExitIpProbe {
     pub status: u16,
 }
 
-// ── T19 (Round 5, ADR-0064): Resin metrics minimal set ─────────────────────
+// ── (ADR-0064): Resin metrics minimal set ─────────────────────
 // Two endpoints of the 12 registered by resin/internal/api/handler_metrics.go
 // (裂痕 #5): GET /metrics/realtime/throughput (#R47) and GET
 // /metrics/history/probes (#R53). Pull model (spec: no WebSocket push); the
@@ -406,7 +406,7 @@ pub(crate) fn validate_metrics_range(
     Ok((from.map(str::to_string), to.map(str::to_string)))
 }
 
-/// T19 (ADR-0064): GET /api/v1/metrics/history/probes — probe-count history
+/// (ADR-0064): GET /api/v1/metrics/history/probes — probe-count history
 /// buckets for the Diagnostics metrics card. from/to are RFC3339 strings,
 /// boundary-validated per §7.5 (see validate_metrics_range); both optional,
 /// in which case Resin applies its own defaults (to=now, from=to-1h).
@@ -428,7 +428,7 @@ pub async fn metrics_probe_history(
         .map_err(|e| map_resin_error(&e.to_string()))
 }
 
-/// T19 (ADR-0064): GET /api/v1/metrics/realtime/throughput — realtime
+/// (ADR-0064): GET /api/v1/metrics/realtime/throughput — realtime
 /// ingress/egress ring samples for the Diagnostics metrics card. No input
 /// params (issue F4: realtime 无入参) — Resin's parseMetricsTimeRange defaults
 /// apply upstream (last hour). Response shape (handler_metrics.go:147):
@@ -444,7 +444,7 @@ pub async fn metrics_realtime_throughput(
         .map_err(|e| map_resin_error(&e.to_string()))
 }
 
-/// §7.5 boundary for the T21 request-log single-entry commands. Resin
+/// §7.5 boundary for the request-log single-entry commands. Resin
 /// generates the row id as a UUID (requestlog/repo.go:145
 /// `uuid.NewString()`), so the shape is checked strictly — 1..=64 chars of
 /// ASCII hex digits and hyphens — which also rejects NUL/control characters,
@@ -471,7 +471,7 @@ pub(crate) fn validate_log_id(log_id: &str) -> Result<(), IpcError> {
     Ok(())
 }
 
-/// T21 (Round 5): GET /api/v1/request-logs/{log_id} — single request-log
+/// GET /api/v1/request-logs/{log_id} — single request-log
 /// entry for the DiagnosticsView detail drawer (RESIN_API_COVERAGE #R45;
 /// handler_requestlog.go:174). §7.5 log_id boundary above. The wire Value
 /// is returned untrusted — the TS side coerces before rendering.
@@ -489,7 +489,7 @@ pub async fn request_log_detail(
         .map_err(|e| map_resin_error(&e.to_string()))
 }
 
-/// T21 (Round 5): GET /api/v1/request-logs/{log_id}/payloads — captured
+/// GET /api/v1/request-logs/{log_id}/payloads — captured
 /// request/response payloads for the DiagnosticsView detail drawer
 /// (RESIN_API_COVERAGE #R46; handler_requestlog.go:198). Same §7.5 log_id
 /// boundary. Upstream returns base64 bodies ({req_headers_b64, req_body_b64,

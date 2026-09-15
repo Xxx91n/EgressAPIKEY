@@ -1,5 +1,5 @@
 /**
- * Round 8 ticket 01 / grill decision D-002 (spec IMP-2): the shell strategy
+ * the shell strategy
  * vocabulary IS Resin's `allocation_policy` enum.
  *
  * The GUI used to expose six shell options that collapsed many-to-one onto
@@ -14,7 +14,7 @@
  * (`resin_core::strategy_engine::migrate_b_class_values`), and the Rust
  * `StrategyId` rejects an unknown token outright.
  *
- * Sole vocabulary owner (ticket 24): this file is the ONLY strategy <->
+ * Sole vocabulary owner: this file is the ONLY strategy <->
  * allocation_policy mapping left in the repo — used for view display labels
  * and the webview-side translation before the platform PATCH. The Rust side
  * holds the same three values as the storage type; do not reintroduce a second
@@ -30,7 +30,7 @@ export const STRATEGY_IDS = [
 export type StrategyId = (typeof STRATEGY_IDS)[number];
 
 /// Resin allocation_policy enum (the backend wire format) — identical to the
-/// shell vocabulary after the ticket-01 convergence.
+/// shell vocabulary after the convergence.
 export type AllocationPolicy = StrategyId;
 
 export const ALLOCATION_POLICIES: AllocationPolicy[] = [...STRATEGY_IDS];
@@ -46,7 +46,7 @@ const LEGACY_B_CLASS_TOKENS = [
 ] as const;
 
 /**
- * The legislated many-to-one convergence table (ticket 01): a canonical value
+ * The legislated many-to-one convergence table: a canonical value
  * or one of the six withdrawn shell options -> the real policy. Mirrors
  * `resin_core::strategy::StrategyId::parse` row for row. Returns null for an
  * unrecognized token — never silently coerced.
@@ -113,7 +113,7 @@ export function isLegacyStrategyToken(s: string): boolean {
   );
 }
 
-/// Round 8 ticket 01 / acceptance 3: the B-class badge label. The former
+/// the B-class badge label. The former
 /// per-strategy parameter interpolation (round-robin N, latency threshold ms,
 /// quality score, bandwidth weight) went away with `BClassParams` — those
 /// were display-only values no backend ever read. The badge now states the ONE

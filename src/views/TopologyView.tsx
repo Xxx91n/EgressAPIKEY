@@ -46,7 +46,7 @@ interface PlatformFull {
   allocation_policy: string;
   routable_node_count: number;
   sticky_ttl: string;
-  // T15-v3-3: strategyConfig read-side fields (ADR-0036 read-side, ADR-0039 SS2)
+  // strategyConfig read-side fields (ADR-0036 read-side, ADR-0039 SS2)
   aClass?: string;              // strategyConfig a_class: manual | region | quality | subscription
   bClass?: string;             // strategyConfig b_class == the Resin allocation_policy value
   subscriptionNames?: string[]; // strategyConfig subscriptions
@@ -72,7 +72,7 @@ interface SubscriptionGroup {
   regions: string[];
 }
 
-// --- T13-5: topologyStore (zustand + shallow) ---
+// --- topologyStore (zustand + shallow) ---
 interface TopologyState {
   platforms: PlatformFull[];
   subGroups: SubscriptionGroup[];
@@ -99,7 +99,7 @@ export const useTopologyStore = create<TopologyState>((set) => ({
   setPortHealth: (m) => set((s) => (shallow(s.portHealth, m) ? {} : { portHealth: m })),
 }));
 
-/// T22-1 (ADR-0048 S1+S3+S4): a_class-semantic node filter helper.
+/// (ADR-0048 S1+S3+S4): a_class-semantic node filter helper.
 /// Exported for vitest.
 /// @param node       NodeItem from a subscription group
 /// @param platforms  PlatformFull[] - the live canvas platforms
@@ -141,7 +141,7 @@ export function isNodeSelectedByAnyPlatform(
   return false;
 }
 
-// --- T13-1: parse nodes grouped by subscription source ---
+// --- parse nodes grouped by subscription source ---
 function parseSubscriptionGroups(raw: unknown): SubscriptionGroup[] {
   if (!raw || typeof raw !== "object") return [];
   const v = raw as Record<string, unknown>;
@@ -178,7 +178,7 @@ function parseSubscriptionGroups(raw: unknown): SubscriptionGroup[] {
   return groups.sort((a, b) => a.subscriptionName.localeCompare(b.subscriptionName));
 }
 
-/// T17-2 (ADR-0041 S2): dedup a list of nodes by node_hash.
+/// (ADR-0041 S2): dedup a list of nodes by node_hash.
 /// - Empty/missing node_hash means "best-effort keep" (no dedup).
 /// - Returns a stable-order array with duplicates removed; first occurrence wins.
 /// Exported so a vitest can assert the contract without driving the DOM.
@@ -195,7 +195,7 @@ export function dedupNodesByHash<T extends { node_hash?: string }>(nodes: readon
   return out;
 }
 
-// T14-audit: extract region from a node — deduplicated from 6 inline copies
+// extract region from a node — deduplicated from 6 inline copies
 function getNodeRegion(n: NodeItem): string {
   if (n.region) return n.region.toLowerCase();
   if (Array.isArray(n.tags)) {
@@ -204,8 +204,8 @@ function getNodeRegion(n: NodeItem): string {
   }
   return "other";
 }
-/// T17-audit helper: build C-column subscriptionGroup/regionGroup nodes.
-/// T17-audit (ADR-0041 S1): C-column builder extracted from rawNodes useMemo so a vitest
+/// helper: build C-column subscriptionGroup/regionGroup nodes.
+/// (ADR-0041 S1): C-column builder extracted from rawNodes useMemo so a vitest
 /// can directly assert the viewMode guard without driving jsdom-rendered ReactFlow nodes
 /// (jsdom does not stamp subscriptionGroup/regionGroup DOM nodes; textContent assertions
 /// are unreliable because RegionGroupNode renders subscription name sub chips). The helper
@@ -218,7 +218,7 @@ export function buildCColumnGroups(
   t: (key: string, opts?: Record<string, unknown>) => string,
 ): Node[] {
   const list: Node[] = [];
-  // T17-1 (ADR-0041 S1): viewMode guard — only push subscriptionGroup nodes when
+// (ADR-0041 S1): viewMode guard — only push subscriptionGroup nodes when
   // viewMode === "subscription". In region viewMode they would be edgeless and
   // dagre would scatter them near the entry-port column (the "port column stray
   // nodes" bug). Region viewMode builds its own regionGroup nodes below.
@@ -231,19 +231,19 @@ export function buildCColumnGroups(
       ? g.regions.slice(0, 5).join(", ").toUpperCase() + (g.regions.length > 5 ? "+" : "")
       : "";
     const sub = [healthLabel, regionsLabel].filter(Boolean).join(" * ");
-    // T13-1: filter node rows — only show nodes in selected regions
+    // filter node rows — only show nodes in selected regions
     const filteredNodes = g.nodes.filter((n) => isNodeSelectedByAnyPlatform(n, platforms, g.subscriptionName));
-    // T15-1: hide subscription group entirely if no nodes are selected by any platform
+    // hide subscription group entirely if no nodes are selected by any platform
     if (filteredNodes.length === 0) return;
     const unboundCount = g.nodes.length - filteredNodes.length;
-    // T14-3: compute region stats for collapsed view
+    // compute region stats for collapsed view
     const regionStatsMap = new Map<string, number>();
     for (const n of g.nodes) {
       const r = getNodeRegion(n);
       regionStatsMap.set(r, (regionStatsMap.get(r) ?? 0) + 1);
     }
     const regionStatsArr = [...regionStatsMap.entries()].sort((a, b) => b[1] - a[1]).map(([region, count]) => ({ region: region.toUpperCase(), count }));
-    // T17-2 (ADR-0041 S2): dedup by node_hash within this subscription.
+    // (ADR-0041 S2): dedup by node_hash within this subscription.
     const dedupNodes = dedupNodesByHash(filteredNodes);
     const nodeRows = dedupNodes.map((n) => {
       const isHealthy = (n.failure_count ?? 0) === 0 && n.has_outbound !== false;
@@ -269,10 +269,10 @@ export function buildCColumnGroups(
   // Fusing these into the helper would couple aggregation into a dedup-only function and grow the regression
   // surface. Reuse the helper here only when the two concerns can be cleanly separated — tracked in
   // docs/PONYTAIL_DEBT_LEDGER.md. S2 contract honored, different shape.
-  // T14-4: region view mode — build region group nodes
+  // region view mode — build region group nodes
   if (viewMode === "region") {
     const regionMap = new Map<string, { total: number; healthy: number; subs: Set<string>; nodeRows: Array<{ display_tag: string; region: string; healthy: boolean; latencyColor: string }> }>();
-    // T17-2 (ADR-0041 S2): dedup across subscriptions by node_hash.
+    // (ADR-0041 S2): dedup across subscriptions by node_hash.
     // The same node_hash can appear under multiple subscription names (Resin
     // echoes proxies), which previously produced duplicate rows in one
     // regionGroup card.
@@ -299,7 +299,7 @@ export function buildCColumnGroups(
       }
     }
     for (const [region, info] of regionMap) {
-      // T22-1 (ADR-0048 S1): a_class-semantic region filter
+      // (ADR-0048 S1): a_class-semantic region filter
       const anySelected = platforms.some((p) => {
         const aClass = p.aClass ?? "manual";
         if (aClass === "quality") return true;
@@ -327,7 +327,7 @@ export function buildCColumnGroups(
 
 
 
-/// Ticket 07 (Authoritative Snapshot): map the pre-merged snapshot entries to
+/// (Authoritative Snapshot): map the pre-merged snapshot entries to
 /// the canvas PlatformFull shape. Strategy intent fields now come from the
 /// snapshot (merged in resin-core at the sanctioned merge point); a divergent
 /// entry carries BOTH values and the canvas shows the whitebox intent while
@@ -376,7 +376,7 @@ export function snapshotToPlatformFulls(snap: AuthoritativeSnapshot): PlatformFu
       };
     });
 }
-/// Ticket 07: map the snapshot's port half into the store's PortMapping[] so
+/// map the snapshot's port half into the store's PortMapping[] so
 /// the entry-port column keeps its existing rendering contract. Resin runtime
 /// agreement is already reflected in each state tag; the canvas only needs
 /// identity + enabled to render.
@@ -394,7 +394,7 @@ export function snapshotToPortMappings(snap: AuthoritativeSnapshot): PortMapping
 
 
 
-// --- T13-2: dagre auto-layout helper ---
+// --- dagre auto-layout helper ---
 export function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 200, nodeHeight = 100): Node[] {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", ranksep: 80, nodesep: 40, marginx: 20, marginy: 20 });
@@ -406,7 +406,7 @@ export function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 20
     g.setEdge(e.source, e.target);
   }
   dagre.layout(g);
-  // T15-v3-2: authoritative dagre → ReactFlow position formula (pos.x - nodeWidth/2 only).
+  // authoritative dagre → ReactFlow position formula (pos.x - nodeWidth/2 only).
   // The graphLabel.width/2 subtraction was a known offset-drift bug (ADR-0039 SS4).
   return nodes.map((n) => {
     const pos = g.node(n.id);
@@ -417,7 +417,7 @@ export function layoutNodesViaDagre(nodes: Node[], edges: Edge[], nodeWidth = 20
   });
 }
 
-// --- T13-3: fixed-edge Handle style (replaces full-area overlay) ---
+// --- fixed-edge Handle style (replaces full-area overlay) ---
 export const fixedHandleStyle: React.CSSProperties = {
   width: 12,
   height: 12,
@@ -433,7 +433,7 @@ const EntryPortNode = memo(function EntryPortNode({ data }: NodeProps) {
   const healthState = typeof d.healthState === "string" ? (d.healthState as "alive" | "degraded" | "dead" | "restarting") : "alive";
   const authRequired = typeof d.authRequired === "boolean" ? d.authRequired : false;
   const enabled = typeof d.enabled === "boolean" ? d.enabled : true;
-  // T18-S1: 4-state chip — alive=green, degraded=amber, dead=red+grayed, restarting=blue pulse
+  // 4-state chip — alive=green, degraded=amber, dead=red+grayed, restarting=blue pulse
   const dot: Record<string, string> = {
     alive: "bg-emerald-500",
     degraded: "bg-amber-500",
@@ -530,7 +530,7 @@ const PlatformNode = memo(function PlatformNode({ data }: NodeProps) {
 }
 );
 
-/// T13-1: Custom node: Subscription group (C column) — only shows selected nodes.
+/// Custom node: Subscription group (C column) — only shows selected nodes.
 const SubscriptionGroupNode = memo(function SubscriptionGroupNode({ data }: NodeProps) {
   const d = data as Record<string, unknown>;
   const nodes = (Array.isArray(d.nodes) ? d.nodes : []) as Array<{
@@ -595,8 +595,8 @@ const SubscriptionGroupNode = memo(function SubscriptionGroupNode({ data }: Node
 );
 
 
-/// T14-4: Custom node: Region group (C column region view) — aggregates by region
-/// T15-v3-1: Region group (C column region view) — fold contract mirroring SubscriptionGroupNode.
+/// Custom node: Region group (C column region view) — aggregates by region
+/// Region group (C column region view) — fold contract mirroring SubscriptionGroupNode.
 /// Collapsed by default: summary card with region label + healthy/total badge + sub chip.
 /// Expandable on click: per-node rows (max 10 visible + "+N more").
 const RegionGroupNode = memo(function RegionGroupNode({ data }: NodeProps) {
@@ -713,7 +713,7 @@ export function buildEdges(
     for (const g of nodeGroups as any[]) {
       if (isNewShape) {
         const groupRegions: string[] = g.regions ?? [];
-        // T22-3 (ADR-0048 S3): a_class-semantic B->C edge
+        // (ADR-0048 S3): a_class-semantic B->C edge
         const aClass = (p as any).aClass ?? "manual";
         let edgeMatched = false;
         let edgeLabel = "";
@@ -772,7 +772,7 @@ export function buildEdges(
   return list;
 }
 
-/// T13-5: Custom CanvasControls with i18n tooltips.
+/// Custom CanvasControls with i18n tooltips.
 function CanvasControls({ viewMode, setViewMode, locked, setLocked }: { viewMode: "subscription" | "region"; setViewMode: (m: "subscription" | "region") => void; locked: boolean; setLocked: (l: boolean) => void; }) {
   const { t } = useTranslation();
   const reactFlow = useReactFlow();
@@ -868,7 +868,7 @@ function TopologyCanvas() {
   const reactFlow = useReactFlow();
   const theme = useAppStore((s) => s.theme);
 
-  // T13-5: zustand store selectors with shallow
+  // zustand store selectors with shallow
   const platforms = useTopologyStore((s) => s.platforms);
   const subGroups = useTopologyStore((s) => s.subGroups);
   const leases = useTopologyStore((s) => s.leases);
@@ -888,7 +888,7 @@ function TopologyCanvas() {
 
   const sync = useCallback(async () => {
     try {
-      // Ticket 07 (Authoritative Snapshot): the canvas consumes the ONE
+      // (Authoritative Snapshot): the canvas consumes the ONE
       // pre-merged snapshot (whitebox strategy + whitebox ports + Resin
       // runtime merged in resin-core). View-layer cross-store merging is
       // deleted per ARCHITECTURE.md §Config Authority; divergence is now
@@ -907,7 +907,7 @@ function TopologyCanvas() {
     setReady(true); // T13-4: setReady after sync so data is present before show
   }, [setPlatforms, setSubGroups, setLeases, setPorts]);
 
-  // T14-3: usePoll replaces setInterval + visibilitychange boilerplate
+  // usePoll replaces setInterval + visibilitychange boilerplate
   usePoll(sync, { intervalMs: 5000, fireImmediately: true, pauseWhenHidden: true });
 
   // Keep the sidecar-status event listener (not covered by usePoll)
@@ -919,7 +919,7 @@ function TopologyCanvas() {
     return () => { if (unsub) { try { unsub(); } catch { /* ignore */ } } };
   }, []);
 
-  // T18-S1: subscribe to port health batch snapshots; update per-port health map.
+  // subscribe to port health batch snapshots; update per-port health map.
   useEffect(() => {
     const unsub = ipcWatchPortHealth((snap) => {
       const next: Record<number, PortHealthEntry> = {};
@@ -929,7 +929,7 @@ function TopologyCanvas() {
     return () => { try { unsub(); } catch { /* ignore */ } };
   }, [setPortHealth]);
 
-  // T15-3: persist viewMode + locked when they change (but only after ready to avoid overriding onInit load)
+  // persist viewMode + locked when they change (but only after ready to avoid overriding onInit load)
   useEffect(() => {
     if (!ready) return;
     void (async () => {
@@ -964,7 +964,7 @@ function TopologyCanvas() {
   const colorMode: ColorMode = theme;
 
 
-  // T13-2: build nodes — positions assigned by dagre later
+  // build nodes — positions assigned by dagre later
   const rawNodes: Node[] = useMemo(() => {
     if (!i18n.isInitialized || !i18n.language) return [];
     const list: Node[] = [];
@@ -1002,10 +1002,10 @@ function TopologyCanvas() {
       const filters = p.regex_filters?.length ? t("topology.filters", { filters: p.regex_filters.join(", ") }) : "";
       const routable = t("topology.routable", { count: p.routable_node_count });
       const sub = [filters, routable].filter(Boolean).join("\n");
-      // T15-v3-3: strategy badge reads strategyConfig first (ADR-0039 SS2).
+      // strategy badge reads strategyConfig first (ADR-0039 SS2).
       // B-class: prefer strategyConfig b_class; fall back to Resin allocation_policy mapping.
       const shellStrategy = p.bClass ?? mapResinToShell(p.allocation_policy ?? "BALANCED");
-      // Ticket 01: no parameter interpolation left — the withdrawn
+      // no parameter interpolation left — the withdrawn
       // display-only BClassParams are gone, so the badge states the policy.
       const bClassLabel = bClassLabelFn(shellStrategy, t);
       // A-class: switch on strategyConfig a_class (not just region_filters length).
@@ -1019,7 +1019,7 @@ function TopologyCanvas() {
             return t("topology.aClassSubscription", { subs: (p.subscriptionNames ?? []).join(",") });
           case "manual":
           default:
-            // T18-4: Show manual_nodes count when available.
+            // Show manual_nodes count when available.
             if (Array.isArray(p.manualNodes) && p.manualNodes.length > 0) {
               return t("topology.aClassManualCount", { n: p.manualNodes.length });
             }
@@ -1043,7 +1043,7 @@ function TopologyCanvas() {
         },
       });
     });
-    // T17-audit (ADR-0041 S1): C-column subscriptionGroup/regionGroup nodes are built by the
+// (ADR-0041 S1): C-column subscriptionGroup/regionGroup nodes are built by the
     // extracted `buildCColumnGroups` helper so a vitest can assert the viewMode guard directly
     // without driving jsdom-rendered ReactFlow custom-node DOM (which does not stamp C-column
     // nodes reliably). See docs/adr/0041-canvas-v4-node-pool-toolbars-merge.md §S1 + GRILL_T17_CANVAS_V4_PLAN.md.
@@ -1052,10 +1052,10 @@ function TopologyCanvas() {
     return list;
   }, [platforms, subGroups, leases, ports, t, i18n.isInitialized, i18n.language, viewMode, portHealth]);
 
-  // T13-2: build edges first, then dagre layout both
+  // build edges first, then dagre layout both
   const edges: Edge[] = useMemo(() => {
     if (viewMode === "region") {
-      // T14-4: in region view, edges connect platforms to region groups
+      // in region view, edges connect platforms to region groups
       const list: Edge[] = [];
       for (const p of platforms) {
         for (const port of ports) {
@@ -1066,10 +1066,10 @@ function TopologyCanvas() {
         if (ports.length === 0) {
           list.push({ id: "e-entry-" + p.name, source: "entry-port", target: "platform-" + p.name, animated: true });
         }
-        // T22-3 (ADR-0048 S3): a_class-semantic region-viewMode edges
+        // (ADR-0048 S3): a_class-semantic region-viewMode edges
         const rAclass = (p as any).aClass ?? "manual";
         if (rAclass === "quality") {
-          // T22-audit: edge to all actual regionGroup nodes (not a phantom "regiongroup-all")
+          // edge to all actual regionGroup nodes (not a phantom "regiongroup-all")
           const allRegions = new Set<string>();
           for (const g of subGroups) for (const r of g.regions) allRegions.add(r.toLowerCase());
           for (const r of allRegions) {
@@ -1096,13 +1096,13 @@ function TopologyCanvas() {
     return buildEdges(platforms, adapted, ports) as Edge[];
   }, [platforms, subGroups, ports, viewMode]);
 
-  // T13-2: dagre auto-layout — compute positions
+  // dagre auto-layout — compute positions
   const nodes: Node[] = useMemo(() => {
     return layoutNodesViaDagre(rawNodes, edges);
   }, [rawNodes, edges]);
 
   
-  // T15-5, ticket 10 (ADR-0052): update platform region_filters through the
+// (ADR-0052): update platform region_filters through the
   // StrategyService deep IPC (strategy_platform_regions_set). The view no
   // longer reads/edits/derives the strategyConfig JSON shape itself — one
   // call sets regions whitebox-side, then strategy_apply enforces it on Resin.
@@ -1112,7 +1112,7 @@ function TopologyCanvas() {
   }, []);
 
   const onConnect = useCallback(async (conn: Connection) => {
-    // T16-2: entry-port → platform drag-bind
+    // entry-port → platform drag-bind
     if (conn.source.startsWith("entry-port-") && conn.target.startsWith("platform-")) {
       const portNum = parseInt(conn.source.slice("entry-port-".length), 10);
       const platName = conn.target.slice("platform-".length);
