@@ -208,7 +208,9 @@ mod tests {
     #[test]
     fn parse_rejects_invalid_ports_schema() {
         let mut p = sample_ports();
-        p.version = 2;
+        // version 2 is the CURRENT ports schema since the round-8 mixed-protocol
+        // migration; the future schema (3) is what must be rejected.
+        p.version = 3;
         let doc = json!({"version": 1, "strategy": sample_strategy(), "ports": p});
         let err = parse_import_doc(&doc).unwrap_err();
         assert!(err.contains("ports whitebox rejected"), "got: {err}");

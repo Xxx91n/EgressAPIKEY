@@ -1867,9 +1867,10 @@ mod tests {
     }
 
     /// BRANCH A1 — default create success: no user port, no pre-existing
-    /// binding -> the ADR-0031 suggest probe picks a port, the socks5
-    /// endpoint POSTs, and the whitebox (plus its SQLite partner) carries
-    /// exactly one bound row with port_upsert's identity defaults.
+    /// binding -> the ADR-0031 suggest probe picks a port, the mixed
+    /// endpoint POSTs (round-8 D-007: DEFAULT_ENTRY_PORT_PROTOCOL), and the
+    /// whitebox (plus its SQLite partner) carries exactly one bound row with
+    /// port_upsert's identity defaults.
     #[tokio::test]
     async fn default_port_created_when_user_provides_nothing() {
         let (db, forwarder, whitebox, path) = port_fixture("def-ok").await;
@@ -1897,7 +1898,7 @@ mod tests {
 
         let rows = db.list_ports().unwrap();
         assert_eq!(rows.len(), 1, "exactly one row: {rows:?}");
-        assert_eq!(rows[0].protocol, "socks5");
+        assert_eq!(rows[0].protocol, crate::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL);
         assert_eq!(rows[0].platform_name, "newsub");
         assert_eq!(rows[0].account, format!("port-{}", rows[0].port));
         assert!(rows[0].enabled);
