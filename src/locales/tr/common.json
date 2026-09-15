@@ -563,5 +563,27 @@
       "Drifted": "Canlı durum saptı",
       "Unknown": "Yakınsama bilinmiyor (Resin çevrimdışı)"
     }
+  },
+  "ipc": {
+    "disabled": {
+      "deprecated_noop": "Kullanımdan kaldırılmış komut; yalnızca IPC sözleşmesi uyumluluğu için tutuluyor.",
+      "shell_local_l1_prefs": "Bu cihazın masaüstü tercihlerinde saklanır; headless sunucuda bu katman yoktur.",
+      "shell_local_l2_whitebox": "Yerel whitebox yapılandırma dosyasını okur veya yazar; headless sunucu bu dosyayı sunmaz.",
+      "shell_local_snapshot": "Anlık görüntüyü oluşturmak için masaüstü kabuğunun yerel durum depoları gerekir.",
+      "shell_local_process_route": "Süreç yolları masaüstü kabuğunun yerel port dosyasında tutulur.",
+      "shell_local_config_transfer": "Yapılandırma içe ve dışa aktarma masaüstü kabuğunun dosya işlemleridir.",
+      "shell_local_backup": "Yedekleme yerel dosyaları ve masaüstünde saklanan kimlik bilgilerini kullanır.",
+      "shell_local_sidecar": "Masaüstü kabuğunun kendi sidecar yaşam döngüsünü yönetir.",
+      "desktop_only_tray": "Yalnızca masaüstü tepsi ve akış arayüzü için.",
+      "desktop_only_os": "Yalnızca masaüstü uygulamasında bulunan işletim sistemi düzeyinde erişim gerektirir.",
+      "desktop_only_local_path": "Masaüstünde yerel bir dosya sistemi yolu çözer.",
+      "unknown": "headless modunda kullanılamaz."
+    },
+    "headlessNotice": {
+      "title": "headless modu: bazı eylemler kullanılamıyor",
+      "body": "Aşağıdaki yetenekler yalnızca masaüstüne özgüdür, bu yüzden burada devre dışı gösterilir.",
+      "panelTitle": "headless modunda kullanılamayan yetenekler",
+      "panelBody": "Aşağıdaki komutların hiçbirinin headless HTTP karşılığı yoktur. Masaüstü uygulaması bunları sunmaya devam eder."
+    }
   }
 }

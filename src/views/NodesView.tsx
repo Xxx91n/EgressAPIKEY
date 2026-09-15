@@ -7,6 +7,7 @@ import { translateError } from "../lib/i18n-error";
 import { usePoll } from "../hooks/usePoll";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAppStore, type NodeInfo } from "../store/appStore";
+import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
 /// NodesView — collapsible tree by subscription (clash-verge-dev pattern).
 /// groups default-collapsed (seed-all after first refresh), hide-unhealthy toggle,
@@ -340,6 +341,7 @@ export function NodesView() {
 
   return (
     <div className="flex-1 overflow-auto p-6 space-y-4">
+      <HeadlessCapabilityNotice commands={["ip_reputation_snapshot"]} />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Server size={20} className="text-zinc-500 dark:text-zinc-400" />

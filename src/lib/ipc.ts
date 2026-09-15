@@ -269,6 +269,15 @@ export function ipcIsHeadless(): boolean {
   return !isTauri();
 }
 
+/** Every command with no headless HTTP surface, paired with its typed reason
+ * Exposed so the UI capability panel can render the
+ *  COMPLETE disabled set: a command must not be invisible just because no
+ *  view happens to call it, and the user must be able to see WHY it is gone
+ *  rather than discovering it at click time. */
+export function ipcDisabledCommands(): { command: string; reason: CommandDisabledReason }[] {
+  return Object.entries(DISABLED_COMMANDS).map(([command, reason]) => ({ command, reason }));
+}
+
 /** Fill `{arg}` placeholders from the Tauri args as URL-encoded segments. */
 function buildPath(route: HttpRoute, args?: Record<string, unknown>): string {
   return route.path.replace(/\{([A-Za-z0-9_]+)\}/g, (_m, key: string) => {

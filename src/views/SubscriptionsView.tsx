@@ -13,6 +13,7 @@ import {
 import { translateError } from "../lib/i18n-error";
 import { loadSubOrder, saveSubOrder } from "../lib/settings";
 import { usePoll } from "../hooks/usePoll";
+import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
 /// (F1): state of the INLINE (never a modal) bind
 /// step. After a successful import the form area switches to a second step
@@ -568,6 +569,7 @@ export function SubscriptionsView() {
 
   return (
     <section className="w-full max-w-none px-6 space-y-4">
+      <HeadlessCapabilityNotice commands={["strategy_config_get", "strategy_config_put", "strategy_apply", "authoritative_snapshot"]} />
       <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
           <Rss size={16} className="text-zinc-500 dark:text-zinc-400" strokeWidth={1.75} />

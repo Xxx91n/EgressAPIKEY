@@ -23,6 +23,7 @@ import {
   saveNodeProbe,
   type NodeProbeConfig,
 } from "../lib/settings";
+import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
 const LOCALES: Locale[] = ["en", "zh", "es", "fr", "de", "ja", "ko", "ru", "pt", "it", "nl", "pl", "tr", "ar", "vi", "th", "id", "hi"];
 
@@ -490,6 +491,7 @@ export function SettingsView() {
 
   return (
     <section className="w-full max-w-none px-6 space-y-5">
+      <HeadlessCapabilityNotice commands={["backup_create", "backup_upload", "backup_list", "backup_restore", "config_export", "config_import", "whitebox_get", "whitebox_path", "whitebox_reload", "whitebox_save_network", "lightweight_get", "lightweight_set", "set_log_level", "get_log_level", "strategy_apply", "get_config_dir", "get_log_dir", "export_audit_log", "get_sidecar_status"]} />
       <SectionCard icon={<Globe size={16} strokeWidth={1.75} />} title={t("settings.general")}>
         <Field label={t("settings.language")}>
           <select

@@ -35,6 +35,7 @@ import {
   type RequestLogDetail,
   type RequestLogPayloads,
 } from "../lib/ipc";
+import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
 const btnCls = "px-2.5 py-1.5 rounded text-xs font-medium transition-colors bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5";
 
@@ -329,6 +330,7 @@ export function DiagnosticsView() {
 
   return (
     <div className="w-full max-w-none px-6 space-y-4" data-testid="diag-view">
+      <HeadlessCapabilityNotice commands={["get_sidecar_status", "check_firewall_status", "probe_exit_ip", "strategy_verify", "close_all_connections", "reset_kernel"]} />
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
           <Stethoscope size={20} strokeWidth={1.75} />

@@ -18,6 +18,7 @@ import {
   type ReconcilePreview,
 } from "../lib/reconcile-preview";
 import { translateError } from "../lib/i18n-error";
+import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
 // one-level "effective config" view
 // (CONTEXT.md: Authoritative Snapshot; spec Implementation Decision 1/7).
@@ -256,6 +257,7 @@ export function EffectiveConfigView() {
 
   return (
     <div className="w-full max-w-none px-6 py-4 space-y-4" data-testid="ec-view">
+      <HeadlessCapabilityNotice commands={["authoritative_snapshot", "reconcile_now", "strategy_backup_list", "strategy_rollback", "whitebox_backup_list", "whitebox_rollback"]} />
       <div className="flex items-center gap-2 flex-wrap">
         <ClipboardCheck size={16} strokeWidth={1.75} />
         <h2 className="text-sm font-semibold tracking-tight">{t("nav.effectiveConfig")}</h2>

@@ -563,5 +563,27 @@
       "Drifted": "Estado en vivo divergente",
       "Unknown": "Convergencia desconocida (Resin caído)"
     }
+  },
+  "ipc": {
+    "disabled": {
+      "deprecated_noop": "Comando retirado, conservado solo por compatibilidad del contrato IPC.",
+      "shell_local_l1_prefs": "Se guarda en las preferencias de escritorio de este dispositivo, que el servidor headless no tiene.",
+      "shell_local_l2_whitebox": "Lee o escribe el archivo local de configuración whitebox, que el servidor headless no expone.",
+      "shell_local_snapshot": "Necesita los almacenes de estado locales de la shell de escritorio para construir la instantánea.",
+      "shell_local_process_route": "Las rutas de proceso viven en el archivo local de puertos de la shell de escritorio.",
+      "shell_local_config_transfer": "Importar y exportar configuración son operaciones de archivo de la shell de escritorio.",
+      "shell_local_backup": "La copia de seguridad usa archivos locales y credenciales guardadas en el escritorio.",
+      "shell_local_sidecar": "Controla el ciclo de vida del sidecar de la propia shell de escritorio.",
+      "desktop_only_tray": "Solo para la bandeja de escritorio y la interfaz de streaming.",
+      "desktop_only_os": "Requiere acceso a nivel de sistema operativo que solo tiene la app de escritorio.",
+      "desktop_only_local_path": "Resuelve una ruta local del sistema de archivos en el escritorio.",
+      "unknown": "No disponible en modo headless."
+    },
+    "headlessNotice": {
+      "title": "Modo headless: algunas acciones no están disponibles",
+      "body": "Las capacidades siguientes son exclusivas de escritorio, por eso se muestran desactivadas.",
+      "panelTitle": "Capacidades no disponibles en modo headless",
+      "panelBody": "Ninguno de los comandos siguientes tiene equivalente HTTP en headless. La app de escritorio sí los ofrece."
+    }
   }
 }

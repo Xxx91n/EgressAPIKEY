@@ -563,5 +563,27 @@
       "Drifted": "라이브 상태 불일치",
       "Unknown": "수렴 상태 알 수 없음 (Resin 오프라인)"
     }
+  },
+  "ipc": {
+    "disabled": {
+      "deprecated_noop": "폐기된 명령입니다. IPC 계약 호환을 위해서만 유지합니다.",
+      "shell_local_l1_prefs": "이 기기의 데스크톱 환경설정에 저장되며 headless 서버에는 없습니다.",
+      "shell_local_l2_whitebox": "로컬 화이트박스 설정 파일을 읽고 쓰지만 headless 서버는 이를 노출하지 않습니다.",
+      "shell_local_snapshot": "스냅샷을 만들려면 데스크톱 셸의 로컬 상태 저장소가 필요합니다.",
+      "shell_local_process_route": "프로세스 경로는 데스크톱 셸의 로컬 포트 파일에 있습니다.",
+      "shell_local_config_transfer": "설정 가져오기와 내보내기는 데스크톱 셸의 파일 작업입니다.",
+      "shell_local_backup": "백업은 로컬 파일과 데스크톱에 저장된 자격 증명을 사용합니다.",
+      "shell_local_sidecar": "데스크톱 셸 자체의 sidecar 수명 주기를 제어합니다.",
+      "desktop_only_tray": "데스크톱 트레이와 스트리밍 화면 전용입니다.",
+      "desktop_only_os": "데스크톱 앱에만 있는 운영체제 수준 접근이 필요합니다.",
+      "desktop_only_local_path": "데스크톱의 로컬 파일 시스템 경로를 확인합니다.",
+      "unknown": "headless 모드에서는 사용할 수 없습니다."
+    },
+    "headlessNotice": {
+      "title": "headless 모드: 일부 작업을 사용할 수 없습니다",
+      "body": "아래 기능은 데스크톱 전용이므로 여기서는 비활성으로 표시됩니다.",
+      "panelTitle": "headless 모드에서 사용할 수 없는 기능",
+      "panelBody": "아래 명령에는 headless HTTP 대응 기능이 없습니다. 데스크톱 앱에서는 계속 사용할 수 있습니다."
+    }
   }
 }

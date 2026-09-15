@@ -4,6 +4,7 @@ import { Route, Plus, Trash2, AlertCircle, CheckCircle2, Loader2, Inbox, ArrowRi
 import { useAppStore } from "../store/appStore";
 import { ipcProcessRouteAdd, ipcProcessRouteRemove, ipcProcessRouteList } from "../lib/ipc";
 import { translateError } from "../lib/i18n-error";
+import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
 /// ProcessRouteView: per-process -> entry-port routing table.
 /// ADR-0055: the family lives in the L2 whitebox
@@ -66,6 +67,7 @@ export function ProcessRouteView() {
 
   return (
     <section className="w-full max-w-none px-6 space-y-4">
+      <HeadlessCapabilityNotice commands={["process_route_add", "process_route_remove", "process_route_list"]} />
       <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
           <Route size={16} className="text-zinc-500 dark:text-zinc-400" strokeWidth={1.75} />

@@ -31,6 +31,7 @@ import {
 } from "../lib/ipc";
 import { strategyToI18nKey, strategyToResinPolicy, mapResinToShell, STRATEGY_IDS, type StrategyId } from "../lib/strategy";
 import { loadSplitRatio, saveSplitRatio, loadPortAuthDefault, savePortAuthDefault } from "../lib/settings";
+import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
 /** Phase 5 / ADR-0012: left = Entry Ports, right = Platforms. Port = identity. */
 interface PlatformInfoFull {
@@ -405,6 +406,7 @@ export function PlatformsView() {
   if (!bootstrapped) {
     return (
       <section className="flex h-full w-full flex-col gap-3 p-4" data-testid="platforms-view">
+      <HeadlessCapabilityNotice commands={["strategy_config_get", "strategy_apply"]} />
         <div className="animate-pulse space-y-3">
           <div className="h-6 w-48 rounded bg-muted" />
           <div className="h-32 rounded-lg border bg-muted/50" />

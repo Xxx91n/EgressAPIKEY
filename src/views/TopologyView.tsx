@@ -25,18 +25,19 @@ import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
 import { AlertTriangle, Loader2, ZoomIn, ZoomOut, Maximize, Lock, Unlock, Home, FileCog, ChevronDown } from "lucide-react";
 import { usePoll } from "../hooks/usePoll";
+import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
-/// T18: translate helper for use inside memoized nodes (no React context).
+/// translate helper for use inside memoized nodes (no React context).
 const tFn = (k: string) => i18n.t(k);
 
-/// TopologyView T13 — Canvas V2: strategy-driven dagre layout + flash fix + zustand cache.
+/// TopologyView — Canvas V2: strategy-driven dagre layout + flash fix + zustand cache.
 ///   A (Entry proxy port) --> B (Platforms) --strategy match--> C (IP channels / nodes)
 ///
-/// T13-1: C column only shows nodes targeted by at least one platform region_filters.
-/// T13-2: dagre auto-layout replaces hardcoded positions.
-/// T13-3: Handle fixed at card edge midpoint (not full-area overlay).
-/// T13-4: Empty-state messages inside opacity gate; sync() resolves then setReady.
-/// T13-5: topologyStore (zustand + shallow) caches sync data; 5s poll restored.
+/// C column only shows nodes targeted by at least one platform region_filters.
+/// dagre auto-layout replaces hardcoded positions.
+/// Handle fixed at card edge midpoint (not full-area overlay).
+/// Empty-state messages inside opacity gate; sync() resolves then setReady.
+/// topologyStore (zustand + shallow) caches sync data; 5s poll restored.
 
 interface PlatformFull {
   id: string;
@@ -1190,6 +1191,7 @@ function TopologyCanvas() {
 
   return (
     <section className="flex h-full flex-col p-3">
+      <HeadlessCapabilityNotice commands={["backup_create", "strategy_apply", "strategy_platform_regions_set", "get_config_dir", "authoritative_snapshot"]} />
       {sidecarStatus === "unhealthy" && (
         <div className="mb-2 flex items-center gap-2 rounded-md border border-red-400 dark:border-red-700 bg-red-100 dark:bg-red-950/60 px-3 py-2 text-xs text-red-800 dark:text-red-200">
           <AlertTriangle size={14} className="shrink-0" />
