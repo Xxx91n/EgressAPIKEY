@@ -31,7 +31,7 @@ bash scripts/fetch_resin.sh     # pin the prebuilt Resin sidecar into src-tauri/
 pnpm tauri dev                  # Vite dev server + Tauri shell (GUI)
 ```
 
-Headless server (same control surface, no desktop shell): `pnpm build`, then `cargo build --release -p egressapikey-app --bin egressapikey-headless --features headless`, then run the binary with `--dist dist --binary-dir src-tauri/binaries`. Deployment layouts live in [docs/how-to/HEADLESS_DEPLOYMENT.md](docs/how-to/HEADLESS_DEPLOYMENT.md).
+Headless server (same browser control surface — desktop-only commands render disabled; no desktop shell): `pnpm build`, then `cargo build --release -p egressapikey-app --bin egressapikey-headless --features headless`, then run the binary with `--dist dist --binary-dir src-tauri/binaries`. Deployment layouts live in [docs/how-to/HEADLESS_DEPLOYMENT.md](docs/how-to/HEADLESS_DEPLOYMENT.md).
 
 ## Verify before you push
 

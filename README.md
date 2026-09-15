@@ -2,7 +2,7 @@
 
 # EgressAPIKEY
 
-**Multi-port socks5/http forwarder between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas.**
+**Multi-port socks5/http proxy gateway between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas.**
 
 [![License](https://img.shields.io/github/license/Xxx91n/EgressAPIKEY?style=flat-square)](https://github.com/Xxx91n/EgressAPIKEY/blob/main/LICENSE) [![CI](https://img.shields.io/github/actions/workflow/status/Xxx91n/EgressAPIKEY/ci.yml?style=flat-square&label=CI)](https://github.com/Xxx91n/EgressAPIKEY/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/Xxx91n/EgressAPIKEY?style=flat-square)](https://github.com/Xxx91n/EgressAPIKEY/releases)
 
@@ -26,7 +26,10 @@ A single unified proxy cannot carry per-key identity for HTTPS upstreams (the CO
 
 ## Architecture
 
-Request flow: AI gateway → entry ports → resin-core → Resin sidecar → distinct sticky exit IPs.
+Request flow — the data plane runs in two modes ([ADR-0068](docs/adr/0068-data-plane-dual-mode-mixed-protocol.md)); the diagram below shows Mode A:
+
+- **Mode A — shell forwarder** (desktop default): AI gateway → entry port bound by the shell, no client credentials → the forwarder injects the port's `Platform.Account` identity → Resin sidecar → distinct sticky exit IP.
+- **Mode B — engine direct** (headless/VPS default): AI gateway → entry port bound by Resin itself → the client presents the port's `Platform.Account` proxy credential once → sticky exit IP.
 
 <p align="center">
   <img src="assets/readme/architecture.svg" alt="Architecture: AI gateway to entry ports to resin-core to Resin sidecar to exit nodes" width="1200">
@@ -63,7 +66,7 @@ graph LR
 
 **Desktop** — installers (MSI / NSIS / deb / AppImage / dmg) and one portable, drop-and-run executable per OS are published on the [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) page. No tagged release yet — artifacts ship with the first tagged release.
 
-**Headless server** — the same control surface (Platforms, Subscriptions, Nodes, Topology) served in any browser at `http://127.0.0.1:14200`, for Linux servers, Docker, or a remote VPS. The admin bearer token is injected server-side; the browser never sees it. The `@egressapikey/server` npm launcher is **not published to npm** — run from source:
+**Headless server** — the same control surface (Platforms, Subscriptions, Nodes, Topology) served in any browser at `http://127.0.0.1:14200`, for Linux servers, Docker, or a remote VPS. The admin bearer token is injected server-side; the browser never sees it. Headless runs data-plane **Mode B**: the Resin engine binds each entry port, and clients present the port's `Platform.Account` proxy credential once (username `Platform.Account`, password = the proxy token). One upstream caveat: plain-HTTP forward-form requests on a Mode B port are buffered by the engine — CONNECT-tunnelled HTTPS traffic, the actual AI API path, streams normally ([ADR-0068](docs/adr/0068-data-plane-dual-mode-mixed-protocol.md)). The `@egressapikey/server` npm launcher is **not published to npm** — run from source:
 
 ```bash
 git clone https://github.com/Xxx91n/EgressAPIKEY.git
@@ -79,12 +82,13 @@ On Windows the binary is `target\release\egressapikey-headless.exe`. Deployment 
 ## Features
 
 - **Entry port = identity** — one (platform, account) pair per port; Resin binds the sticky exit IP natively
+- **Two data-plane modes** — Mode A (desktop): the shell listens on each entry port and injects the port's identity credential toward Resin, so clients need none; Mode B (headless): Resin listens natively and the client presents `Platform.Account` once
 - **SSE session stickiness** — a streaming response locks its node until completion, auto-switching on failure
-- **Per-request TCP freshness** — `pool_max_idle_per_host(0)` keeps every request on a fresh connection
-- **Strategy engine** — A-class decides which IPs enter a platform (region / quality / subscription source), B-class decides how a port picks its exit (random / round-robin / low-latency)
+- **Transport pool control** — whitebox `network` knobs (`max_idle_conns`, per-host cap, idle timeout) are passed to the sidecar as `RESIN_PROXY_TRANSPORT_*` env vars
+- **Strategy engine** — A-class decides which IPs enter a platform (region / quality / subscription source), B-class picks the port's exit policy — Resin's three real `allocation_policy` values: BALANCED (lease count × latency), PREFER_LOW_LATENCY, PREFER_IDLE_IP
 - **Topology canvas** — drag-to-connect hot-patches per-platform region filters on the live sidecar
-- **Zero adaptation** — point your gateway at an entry port; client code stays unchanged
-- **Headless twin** — the full GUI control surface over HTTP, without the desktop shell
+- **Zero adaptation (Mode A)** — on the desktop, point your gateway at an entry port; client code stays unchanged and no proxy credential is needed. On headless Mode B the client configures the port's `Platform.Account` credential once
+- **Headless twin** — the GUI control surface over HTTP, without the desktop shell; commands that require the desktop shell render as disabled with their reason instead of failing at runtime
 
 ## Screenshots
 

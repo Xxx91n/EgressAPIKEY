@@ -1,6 +1,6 @@
 # EgressAPIKEY
 
-> Multi-port socks5/http forwarder between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas. Desktop shell (Tauri 2 + React 19) over a Resin Go sidecar reachable only through a loopback REST seam. License: GPL-3.0-or-later.
+> Multi-port socks5/http proxy gateway between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas. Two data-plane modes (ADR-0068): Mode A (desktop) — the shell listens on each entry port and injects the port's `Platform.Account` credential toward Resin, so clients need none; Mode B (headless) — Resin listens natively and the client presents the credential once. Desktop shell (Tauri 2 + React 19) over a Resin Go sidecar reachable only through a loopback REST seam. License: GPL-3.0-or-later.
 
 ## Docs
 

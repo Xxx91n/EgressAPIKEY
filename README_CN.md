@@ -2,7 +2,7 @@
 
 # EgressAPIKEY
 
-**面向 AI 网关与上游服务商的多端口 socks5/http 转发器 —— 为 AI API Key 提供粘性出口 IP 路由，并配有拓扑画布。**
+**面向 AI 网关与上游服务商的多端口 socks5/http 代理网关 —— 为 AI API Key 提供粘性出口 IP 路由，并配有拓扑画布。**
 
 [![License](https://img.shields.io/github/license/Xxx91n/EgressAPIKEY?style=flat-square)](https://github.com/Xxx91n/EgressAPIKEY/blob/main/LICENSE) [![CI](https://img.shields.io/github/actions/workflow/status/Xxx91n/EgressAPIKEY/ci.yml?style=flat-square&label=CI)](https://github.com/Xxx91n/EgressAPIKEY/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/Xxx91n/EgressAPIKEY?style=flat-square)](https://github.com/Xxx91n/EgressAPIKEY/releases)
 
@@ -26,7 +26,10 @@ EgressAPIKEY 是一款桌面应用（Tauri 2 + React 19），位于你的 AI 网
 
 ## 架构
 
-请求流向：AI 网关 → 入口端口 → resin-core → Resin 侧车 → 各自独立的粘性出口 IP。
+请求流向 —— 数据面有两种模式（[ADR-0068](docs/adr/0068-data-plane-dual-mode-mixed-protocol.md)）；下图为 Mode A：
+
+- **Mode A —— 壳侧转发器**（桌面默认）：AI 网关 → 壳绑定的入口端口（客户端免凭据）→ 转发器注入该端口的 `Platform.Account` 身份 → Resin 侧车 → 独立粘性出口 IP。
+- **Mode B —— 引擎直听**（headless/VPS 默认）：AI 网关 → Resin 自行绑定的入口端口 → 客户端一次性出示该端口的 `Platform.Account` 代理凭据 → 粘性出口 IP。
 
 <p align="center">
   <img src="assets/readme/architecture.svg" alt="架构：AI 网关到入口端口到 resin-core 到 Resin 侧车到出口节点" width="1200">
@@ -63,7 +66,7 @@ graph LR
 
 **桌面版** —— 安装包（MSI / NSIS / deb / AppImage / dmg）与每平台一个免安装、开箱即用的可执行文件发布在 [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) 页面。目前尚无 tagged release —— 产物将随首个 tagged release 一并发布。
 
-**无头服务器** —— 同一套控制面（平台 / 订阅 / 节点 / 拓扑），可在任意浏览器经 `http://127.0.0.1:14200` 访问，适用于 Linux 服务器、Docker 或远程 VPS。admin bearer 令牌由服务端注入，浏览器永远看不到它。`@egressapikey/server` npm 启动器**未发布到 npm** —— 请从源码运行：
+**无头服务器** —— 同一套控制面（平台 / 订阅 / 节点 / 拓扑），可在任意浏览器经 `http://127.0.0.1:14200` 访问，适用于 Linux 服务器、Docker 或远程 VPS。admin bearer 令牌由服务端注入，浏览器永远看不到它。headless 运行数据面 **Mode B**：入口端口由 Resin 引擎自行绑定，客户端一次性出示该端口的 `Platform.Account` 代理凭据（用户名 = `Platform.Account`，密码 = 代理令牌）。上游注意项：Mode B 端口上的纯 HTTP 转发形态请求会被引擎缓冲 —— 经 CONNECT 隧道的 HTTPS 流量（AI API 实际路径）不受影响，正常流式（[ADR-0068](docs/adr/0068-data-plane-dual-mode-mixed-protocol.md)）。`@egressapikey/server` npm 启动器**未发布到 npm** —— 请从源码运行：
 
 ```bash
 git clone https://github.com/Xxx91n/EgressAPIKEY.git
@@ -79,12 +82,13 @@ Windows 下二进制为 `target\release\egressapikey-headless.exe`。部署布�
 ## 特性
 
 - **入口端口即身份** —— 每端口对应一个（平台，账户）对；Resin 原生绑定粘性出口 IP
+- **双数据面模式** —— Mode A（桌面）：壳监听每个入口端口并向 Resin 注入该端口的身份凭据，客户端无需凭据；Mode B（headless）：Resin 原生监听，客户端一次性出示 `Platform.Account` 凭据
 - **SSE 会话粘性** —— 流式响应锁定其节点直至完成，失败时自动切换
-- **每请求 TCP 新建** —— `pool_max_idle_per_host(0)` 让每次请求都走全新连接
-- **策略引擎** —— A 类策略决定哪些 IP 进入平台（地区 / 质量 / 订阅源），B 类策略决定端口如何选出口（随机 / 轮询 / 低延时）
+- **传输连接池可控** —— 白盒 `network` 配置项（`max_idle_conns`、每主机上限、空闲超时）以 `RESIN_PROXY_TRANSPORT_*` 环境变量传给侧车
+- **策略引擎** —— A 类策略决定哪些 IP 进入平台（地区 / 质量 / 订阅源），B 类策略决定端口的出口策略 —— Resin 的三个真实 `allocation_policy`：BALANCED（租约数 × 延迟）、PREFER_LOW_LATENCY、PREFER_IDLE_IP
 - **拓扑画布** —— 拖拽连线即向在线侧车热更新各平台的 region 过滤器
-- **零适配** —— 把你的网关指向一个入口端口即可；客户端代码无需改动
-- **无头孪生** —— 完整的 GUI 控制面经 HTTP 提供，无需桌面壳
+- **零适配（Mode A）** —— 桌面端把你的网关指向一个入口端口即可；客户端代码无需改动、也无需管理代理凭据。headless Mode B 下客户端需一次性配置该端口的 `Platform.Account` 凭据
+- **无头孪生** —— GUI 控制面经 HTTP 提供，无需桌面壳；确需桌面壳的命令在 UI 中显示为禁用并注明原因，而非运行时才失败
 
 ## 截图
 
