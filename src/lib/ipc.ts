@@ -482,7 +482,7 @@ export async function ipcBackupRestore(
   });
 }
 
-// ---- Process routing (ticket 17 / ADR-0055: L2 whitebox family) ----
+// ---- Process routing (ADR-0055: L2 whitebox family) ----
 export interface ProcessRouteRule {
   process: string;
   target_port: number;
