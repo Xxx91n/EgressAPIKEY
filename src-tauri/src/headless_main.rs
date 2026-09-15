@@ -789,12 +789,27 @@ async fn translate_request(
         ));
     }
 
+    // --- 5. Ticket 02: POST /platforms validates the Resin V1 name rule. ---
+    // The desktop command (create_platform_from_name) rejects names containing
+    // . : | / \ @ ? # % ~ or any whitespace; the BFF must enforce the SAME rule
+    // or a browser caller could create a name the desktop would have refused
+    // (A-006: one validation, effective in both places). Validates only -
+    // the body still passes through unchanged below.
+    if method == Method::POST && is_platforms {
+        let body_val = parse_body(body_bytes)?;
+        let name = body_val
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| r#"body missing "name" field"#.to_string())?;
+        resin_core::validate_platform_name(name)
+            .map_err(|e| format!("platform name rejected: {e}"))?;
+    }
     Ok((raw_path.to_string(), reqwest::Body::from(body_bytes.clone())))
 }
 
-/// Headless L2 context (ticket 02 option C). The desktop shell holds the same
+/// Headless L2 context (option C). The desktop shell holds the same
 /// stores as Tauri managed state; headless builds them once at startup so the
-/// port family is not a desktop-only capability (A-006).
+/// port family is not a desktop-only capability.
 struct PortCtx {
     db: resin_core::DbPool,
     whitebox: resin_core::WhiteboxConfigStore,
