@@ -92,14 +92,16 @@ const CMD_TO_HTTP: Record<string, HttpRoute> = {
   platform_remove:         { method: "DELETE", path: "/api/v1/platforms" },
   platform_list:           { method: "GET",    path: "/api/v1/platforms", unwrapItems: true, project: "name" },
   platform_list_full:      { method: "GET",    path: "/api/v1/platforms" },
-  platform_update:         { method: "PATCH",  path: "/api/v1/platforms", bodyKeys: {
-    allocationPolicy: "allocation_policy", regexFilters: "regex_filters",
-    regionFilters: "region_filters", stickyTtl: "sticky_ttl",
-  } },
+  // PATCH body stays in the IPC (camelCase) shape: the BFF owns the Resin
+  // snake_case translation for this route (rewrite_patch_body_snake_case), so
+  // the SPA must NOT pre-rename - one place owns the Resin shape. Ticket 02
+  // rework: the TS-side bodyKeys here was REVERTED, because the pre-existing
+  // contract test proved the SPA/BFF split was intentional, not an oversight.
+  platform_update:         { method: "PATCH",  path: "/api/v1/platforms" },
   // R08 full-schema create. The Tauri arg is already named `body`; unwrap it.
   platform_create_with_fields: { method: "POST", path: "/api/v1/platforms", bodyArg: "body" },
   // R20: the real resource is /platforms/{id}/leases. The BFF resolves the
-  // business name carried in `leases_for` to a UUID (ticket 02 wrong-route fix).
+  // business name carried in `leases_for` to a UUID (wrong-route fix).
   platform_leases:         { method: "GET",    path: "/api/v1/platforms", query: { name: "leases_for" }, unwrapItems: true },
 
   // --- Subscriptions (R25 list / R26 create / R29 delete / R30 refresh) ---
