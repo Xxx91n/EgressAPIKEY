@@ -51,6 +51,7 @@ use std::time::Duration;
 
 use parking_lot::Mutex;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::task::JoinHandle;
 
@@ -177,7 +178,7 @@ struct PortForwarderInner {
     /// Shell mode: the ports whose listener is actually bound right now.
     /// The authoritative snapshot unions this with the Resin endpoint list
     /// so a shell-listened entry port reads Consistent.
-    bound: Mutex<HashSet<u16>>,
+    bound: Arc<Mutex<HashSet<u16>>>,
 }
 
 impl PortForwarder {
@@ -219,7 +220,7 @@ impl PortForwarder {
             mode,
             stream_sensor: StreamSensor::new(),
             running: Mutex::new(HashMap::new()),
-            bound: Mutex::new(HashSet::new()),
+            bound: Arc::new(Mutex::new(HashSet::new())),
         });
         Self { inner }
     }
@@ -750,8 +751,8 @@ async fn handle_http(mut client: TcpStream, first: u8, ctx: SessionCtx) -> Resul
 
     // client -> upstream: only the request body can still arrive; a close on
     // this direction is an abort and must tear the upstream side down.
-    let mut up_w = upstream.clone();
-    let mut cl_r = client.clone();
+    let (mut up_rd, mut up_w) = upstream.into_split();
+    let (mut cl_r, mut cl_w) = client.into_split();
     let c2u = tokio::spawn(async move {
         let mut buf = vec![0u8; RELAY_BUF_BYTES];
         loop {
@@ -771,10 +772,10 @@ async fn handle_http(mut client: TcpStream, first: u8, ctx: SessionCtx) -> Resul
     let mut buf = vec![0u8; RELAY_BUF_BYTES];
     let mut status = Ok(());
     loop {
-        match upstream.read(&mut buf).await {
+        match up_rd.read(&mut buf).await {
             Ok(0) => break,
             Ok(n) => {
-                if client.write_all(&buf[..n]).await.is_err() || client.flush().await.is_err() {
+                if cl_w.write_all(&buf[..n]).await.is_err() || cl_w.flush().await.is_err() {
                     status = Err("client write failed".to_string());
                     break;
                 }
@@ -784,10 +785,10 @@ async fn handle_http(mut client: TcpStream, first: u8, ctx: SessionCtx) -> Resul
                 // only in-band signal still reaching the client is an error
                 // frame, so emit one before closing.
                 if event_stream {
-                    let _ = client
+                    let _ = cl_w
                         .write_all(b"event: error\r\ndata: {\"error\":\"upstream_aborted\"}\r\n\r\n")
                         .await;
-                    let _ = client.flush().await;
+                    let _ = cl_w.flush().await;
                 }
                 status = Err(format!("upstream read: {e}"));
                 break;
@@ -795,8 +796,8 @@ async fn handle_http(mut client: TcpStream, first: u8, ctx: SessionCtx) -> Resul
         }
     }
     c2u.abort();
-    let _ = client.shutdown().await;
-    let _ = upstream.shutdown().await;
+    let _ = cl_w.shutdown().await;
+    drop(up_rd);
     status
 }
 
@@ -939,14 +940,14 @@ fn find_head_end(buf: &[u8]) -> Option<usize> {
 /// this form; the absolute-form HTTP path with the event-stream error frame
 /// is handled by its own inline loop instead.
 async fn relay_pair(client: TcpStream, upstream: TcpStream) {
-    let c = client.clone();
-    let u = upstream.clone();
-    let a = tokio::spawn(async move { pump_direction(client, u).await; });
-    let b = tokio::spawn(async move { pump_direction(upstream, c).await; });
+    let (cr, cw) = client.into_split();
+    let (ur, uw) = upstream.into_split();
+    let a = tokio::spawn(async move { pump_direction(cr, uw).await; });
+    let b = tokio::spawn(async move { pump_direction(ur, cw).await; });
     let _ = tokio::join!(a, b);
 }
 
-async fn pump_direction(mut rd: TcpStream, mut wr: TcpStream) {
+async fn pump_direction(mut rd: OwnedReadHalf, mut wr: OwnedWriteHalf) {
     let mut buf = vec![0u8; RELAY_BUF_BYTES];
     loop {
         match rd.read(&mut buf).await {
