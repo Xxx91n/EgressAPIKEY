@@ -498,12 +498,12 @@ mod tests {
         build_manifest(
             "2026-09-14T00:00:00Z",
             vec![
-                entry(CONFIG_ENTRY, "{"format":"egressapikey-config"}"),
-                entry(STRATEGY_ENTRY, "{"version":1}"),
-                entry(PORTS_ENTRY, "{"version":2}"),
+                entry(CONFIG_ENTRY, r#"{"format":"egressapikey-config"}"#),
+                entry(STRATEGY_ENTRY, r#"{"version":1}"#),
+                entry(PORTS_ENTRY, r#"{"version":2}"#),
                 entry(PORT_DB_ENTRY, "SQLite format 3"),
-                entry(AUDIT_ENTRY, "{"schema":"audit/v1"}"),
-                entry(SETTINGS_ENTRY, "{"lang":"en"}"),
+                entry(AUDIT_ENTRY, r#"{"schema":"audit/v1"}"#),
+                entry(SETTINGS_ENTRY, r#"{"lang":"en"}"#),
                 entry(STATE_DB_ENTRY, "SQLite format 3"),
                 entry(CACHE_DB_ENTRY, "SQLite format 3"),
             ],

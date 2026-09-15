@@ -265,8 +265,8 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let strategy_path = dir.join("egressapikey-strategy.json");
         let ports_path = dir.join("egressapikey-ports.json");
-        let before_strategy = b"{"version":1}".to_vec();
-        let before_ports = b"{"version":1}".to_vec();
+        let before_strategy = br#"{"version":1}"#.to_vec();
+        let before_ports = br#"{"version":1}"#.to_vec();
         std::fs::write(&strategy_path, &before_strategy).unwrap();
         std::fs::write(&ports_path, &before_ports).unwrap();
 
