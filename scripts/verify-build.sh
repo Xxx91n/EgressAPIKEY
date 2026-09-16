@@ -7,8 +7,15 @@ IS_CI="${CI:-false}"
 echo "[verify] cargo build"
 if [ "$IS_CI" = "true" ]; then
   if [ "$(uname -s 2>/dev/null)" = "Linux" ] || [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
-    echo "[verify] NOTE: non-Windows CI - app crate skipped (Windows-only compile surface; GUI jobs cover it)"
+    echo "[verify] NOTE: non-Windows CI - app crate LINK skipped (GUI jobs cover it); the headless bin is cargo-checked below"
     cargo build -p resin-core --quiet
+    # f682940e-class guard (architecture-recovery ticket 03 / IMP-3): the
+    # headless bin lives in src-tauri, which this branch never compiled, so a
+    # bin that no longer builds still passed the push gate. `cargo check` needs
+    # no linker, so it can run here; --all-targets also type-checks the test
+    # modules (a plain check leaves cfg(test) off, which would hide a broken
+    # regression lock).
+    cargo check -p egressapikey-app --features headless --all-targets --quiet
   else
     cargo build --workspace --quiet
   fi

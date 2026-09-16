@@ -23,6 +23,12 @@
 //! 4. Two-phase shutdown: on Ctrl+C/SIGTERM, kills the resin child and
 //!    exits. Logs the full sequence via `tracing` to the OS log dir.
 //!
+//! 5. Enforces the ticket-03 (A-007) control-surface security gate: a shared
+//!    `--auth-token` on `/api/v1/*` + `/metrics/*`, and a `Host`/`Origin`
+//!    allowlist on every request (DNS-rebinding mitigation). The primitives live
+//!    in `headless_security`; the operator-facing threat model is
+//!    `docs/how-to/HEADLESS_DEPLOYMENT.md`.
+//!
 //! This binary does NOT:
 //! - Load Tauri plugins or the webview
 //! - Manage the OS system HTTP proxy (Ghost safety net feature owned by the
@@ -43,6 +49,7 @@ use axum::{
     Router,
 };
 use clap::Parser;
+use egressapikey_app::headless_security::{self, HeadlessGuard};
 use egressapikey_app::sidecar::boot_resin_standalone;
 use tower_http::services::{ServeDir, ServeFile};
 
@@ -72,6 +79,16 @@ struct Cli {
     /// Skip the automatic browser-open. Useful for daemons.
     #[arg(long)]
     no_browser: bool,
+    /// Shared secret required on every control-plane request (`/api/v1/*`,
+    /// `/metrics/*`). When omitted, a token is generated with the OS CSPRNG if
+    /// `--bind` is loopback; startup is REFUSED if `--bind` is not loopback.
+    #[arg(long)]
+    auth_token: Option<String>,
+    /// Extra hostname accepted in the `Host` / `Origin` header (repeatable).
+    /// Required when the server is reached through a name other than the bind
+    /// address, e.g. a TLS reverse proxy in front of `--bind=0.0.0.0`.
+    #[arg(long = "allowed-host", value_name = "HOST")]
+    allowed_host: Vec<String>,
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -111,6 +128,36 @@ async fn main() -> Result<()> {
     tracing::info!(
         "headless: starting (bind={}:{}, dist={:?}, state_root={:?})",
         cli.bind, cli.port, cli.dist, state_root
+    );
+
+    // Ticket 03 (A-007) startup gate: refuse to expose the admin control plane
+    // off-host without a token; otherwise fall back to a CSPRNG token. Runs
+    // BEFORE the resin sidecar is spawned so a refusal leaves no orphan child.
+    let resolved = headless_security::resolve_token(cli.auth_token.as_deref(), &cli.bind)
+        .map_err(|e| {
+            tracing::error!("{e}");
+            anyhow::anyhow!(e)
+        })?;
+    let guard = Arc::new(HeadlessGuard::new(
+        headless_security::allowed_hosts(&cli.bind, &cli.allowed_host),
+        resolved.token.clone(),
+    ));
+    if resolved.source == headless_security::TokenSource::Generated {
+        tracing::info!("headless: generated a CSPRNG --auth-token for this session");
+        eprintln!("headless: auth token (printed once): {}", resolved.token);
+        eprintln!(
+            "headless: open http://{}:{}/?{}={}",
+            cli.bind,
+            cli.port,
+            headless_security::TOKEN_QUERY,
+            resolved.token
+        );
+    } else {
+        tracing::info!("headless: enforcing the operator-supplied --auth-token");
+    }
+    tracing::info!(
+        "headless: Host/Origin allowlist = {:?}",
+        guard.allowed_hosts()
     );
 
     let binary_dir = cli.binary_dir.unwrap_or_else(|| {
@@ -193,8 +240,20 @@ async fn main() -> Result<()> {
     });
 
     if !cli.no_browser {
-        let launch_url = format!("http://{}:{}/", cli.bind, cli.port);
-        tracing::info!("headless: opening browser at {launch_url}");
+        // The control plane now requires the token, so the launch URL carries it
+        // once; the guard plants the session cookie on that first request.
+        let launch_url = format!(
+            "http://{}:{}/?{}={}",
+            cli.bind,
+            cli.port,
+            headless_security::TOKEN_QUERY,
+            resolved.token
+        );
+        tracing::info!(
+            "headless: opening browser at http://{}:{}/ (token elided from logs)",
+            cli.bind,
+            cli.port
+        );
         let _ = open::that(&launch_url);
     }
 
@@ -344,6 +403,87 @@ fn build_router(
         .route("/metrics/*path", any(proxy_handler))
 
         .fallback_service(serve_dir)
+        // Ticket 03 (A-007): the Host/Origin + token guard wraps every route and
+        // the static fallback. Applied last so it also covers the fallback.
+        .layer(middleware::from_fn_with_state(guard, security_guard))
+}
+
+/// Ticket 03 (A-007) request guard. Two ordered checks:
+///
+/// 1. Host / Origin allowlist - rejects DNS-rebinding style requests whose
+///    `Host` names a domain that merely resolves to this machine. Applies to
+///    every request, static assets included.
+/// 2. Shared-secret token - required on the control-plane prefixes
+///    `/api/v1/*` and `/metrics/*`. A valid token arriving via `?auth_token=`
+///    also plants the session cookie, so the SPA's later same-origin fetches
+///    authenticate without ever holding the token in JS.
+async fn security_guard(
+    State(guard): State<Arc<HeadlessGuard>>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
+    let host = req
+        .headers()
+        .get(header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
+    let origin = req
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
+    if let Err(reason) =
+        headless_security::host_allowed(host.as_deref(), origin.as_deref(), guard.allowed_hosts())
+    {
+        tracing::warn!(target: "headless.security", "rejected: {reason}");
+        return (StatusCode::FORBIDDEN, format!("headless: {reason}")).into_response();
+    }
+
+    let path = req.uri().path().to_owned();
+    let gated = path.starts_with("/api/v1/") || path == "/api/v1" || path.starts_with("/metrics");
+    let mut plant_cookie = false;
+    if gated {
+        let authorization = req
+            .headers()
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned);
+        let cookie = req
+            .headers()
+            .get(header::COOKIE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned);
+        let query = req.uri().query().map(str::to_owned);
+        match guard.extract_token(authorization.as_deref(), cookie.as_deref(), query.as_deref()) {
+            Some((candidate, from_query)) if guard.token_matches(candidate) => {
+                plant_cookie = from_query;
+            }
+            _ => {
+                tracing::warn!(
+                    target: "headless.security",
+                    "rejected: missing or invalid auth token on {path}"
+                );
+                let mut resp = (
+                    StatusCode::UNAUTHORIZED,
+                    "headless: missing or invalid auth token",
+                )
+                    .into_response();
+                resp.headers_mut().insert(
+                    header::WWW_AUTHENTICATE,
+                    HeaderValue::from_static("Bearer"),
+                );
+                return resp;
+            }
+        }
+    }
+
+    let mut resp = next.run(req).await;
+    if plant_cookie {
+        if let Ok(value) = HeaderValue::from_str(&guard.session_cookie()) {
+            resp.headers_mut().insert(header::SET_COOKIE, value);
+        }
+    }
+    resp
 }
 
 /// Pure-proxy to resin with a thin BFF translation layer for the three
@@ -1223,5 +1363,272 @@ mod bff_translate_tests {
         assert!(rewrite_patch_body_snake_case(&body).is_ok());
         let bad = serde_json::json!({ "name": "x", "allocationPolicy": "random" });
         assert!(rewrite_patch_body_snake_case(&bad).is_err());
+    }
+}
+
+#[cfg(test)]
+mod guard_wiring_tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    const TEST_TOKEN: &str = "s3cret-token";
+    const TEST_ADMIN_TOKEN: &str = "test-admin-token";
+
+    /// One request as the mock resin control plane saw it.
+    #[derive(Debug, Clone)]
+    struct Seen {
+        method: String,
+        uri: String,
+        body: String,
+    }
+
+    /// Fresh throwaway L2 state root for one test.
+    fn temp_state_root() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "egressapikey-guard-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp state root");
+        dir
+    }
+
+    /// Serve the REAL router - the one `main` serves - over a throwaway L2
+    /// context, on an ephemeral loopback port. Returns (base_url, state_root).
+    ///
+    /// This is the regression lock the guard was missing: it drives
+    /// `build_router` end to end, guard layer included, instead of the
+    /// `headless_security` primitives alone. The router lives in the headless
+    /// BIN rather than the lib, so the lock lives here too.
+    async fn serve_router(api_base: &str) -> (String, PathBuf) {
+        let dir = temp_state_root();
+        let db = resin_core::DbPool::open(&dir.join("egressapikey.db")).expect("open db");
+        let rows = db.list_ports().expect("list_ports");
+        let whitebox = resin_core::WhiteboxConfigStore::open(
+            dir.join(resin_core::WHITEBOX_CONFIG_FILE),
+            resin_core::WhiteboxConfig::from_ports(rows),
+        )
+        .await
+        .expect("open whitebox");
+        let forwarder = resin_core::PortForwarder::new(
+            db.clone(),
+            "127.0.0.1",
+            1,
+            "test-proxy-token".to_string(),
+        );
+        let port_ctx = Arc::new(PortCtx {
+            db,
+            whitebox,
+            forwarder,
+            api_base: api_base.to_string(),
+            admin_token: TEST_ADMIN_TOKEN.to_string(),
+        });
+        let guard = Arc::new(HeadlessGuard::new(
+            headless_security::allowed_hosts("127.0.0.1", &[]),
+            TEST_TOKEN.to_string(),
+        ));
+        let app = build_router(
+            &dir.join("dist"),
+            api_base.to_string(),
+            TEST_ADMIN_TOKEN.to_string(),
+            guard,
+            port_ctx,
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind ephemeral port");
+        let addr = listener.local_addr().expect("local_addr");
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        (format!("http://{addr}"), dir)
+    }
+
+    /// Mock resin control plane: answers 200 JSON and records what it saw.
+    async fn serve_mock_upstream() -> (String, Arc<Mutex<Vec<Seen>>>) {
+        let seen: Arc<Mutex<Vec<Seen>>> = Arc::new(Mutex::new(Vec::new()));
+        let recorder = seen.clone();
+        let echo = move |method: Method, uri: axum::http::Uri, body: Bytes| {
+            let recorder = recorder.clone();
+            async move {
+                {
+                    let mut sink = recorder.lock().expect("mock recorder poisoned");
+                    sink.push(Seen {
+                        method: method.to_string(),
+                        uri: uri.to_string(),
+                        body: String::from_utf8_lossy(&body).to_string(),
+                    });
+                }
+                axum::Json(serde_json::json!({ "ok": true })).into_response()
+            }
+        };
+        let app = Router::new()
+            .route("/api/v1/*path", any(echo.clone()))
+            .route("/metrics/*path", any(echo.clone()))
+            .fallback(echo);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind mock port");
+        let addr = listener.local_addr().expect("mock local_addr");
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        (format!("http://{addr}"), seen)
+    }
+
+    /// Send a raw HTTP/1.1 request and read the whole response. Raw bytes keep
+    /// the Host header under test control (an HTTP client would rewrite it).
+    async fn raw_request(base: &str, request: &str) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let addr = base.trim_start_matches("http://").trim_end_matches('/');
+        let mut stream = tokio::net::TcpStream::connect(addr).await.expect("connect");
+        stream.write_all(request.as_bytes()).await.expect("write");
+        let mut buf = Vec::new();
+        let _ = stream.read_to_end(&mut buf).await;
+        String::from_utf8_lossy(&buf).to_string()
+    }
+
+    /// A token-bearing GET through the guard.
+    fn with_token(path_and_query: &str) -> String {
+        format!(
+            "GET {path_and_query} HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {TEST_TOKEN}\r\nConnection: close\r\n\r\n"
+        )
+    }
+
+    #[tokio::test]
+    async fn guard_layer_rejects_control_plane_without_token() {
+        let (base, dir) = serve_router("http://127.0.0.1:1/").await;
+        let resp = raw_request(
+            &base,
+            "GET /api/v1/platforms HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+        )
+        .await;
+        assert!(
+            resp.starts_with("HTTP/1.1 401"),
+            "a tokenless control-plane call must be 401, got: {resp}"
+        );
+        assert!(
+            resp.to_ascii_lowercase().contains("www-authenticate: bearer"),
+            "the 401 must advertise the Bearer scheme, got: {resp}"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[tokio::test]
+    async fn guard_layer_rejects_unexpected_host_on_api_and_static_routes() {
+        let (base, dir) = serve_router("http://127.0.0.1:1/").await;
+        for path in ["/api/v1/platforms", "/", "/index.html"] {
+            let resp = raw_request(
+                &base,
+                &format!(
+                    "GET {path} HTTP/1.1\r\nHost: evil.example.com\r\nConnection: close\r\n\r\n"
+                ),
+            )
+            .await;
+            assert!(
+                resp.starts_with("HTTP/1.1 403"),
+                "a DNS-rebinding Host must be 403 on {path}, got: {resp}"
+            );
+        }
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[tokio::test]
+    async fn guard_layer_plants_the_session_cookie_on_query_bootstrap() {
+        let (mock_base, _seen) = serve_mock_upstream().await;
+        let (base, dir) = serve_router(&mock_base).await;
+        let resp = raw_request(
+            &base,
+            &format!(
+                "GET /api/v1/platforms?{}={} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
+                headless_security::TOKEN_QUERY,
+                TEST_TOKEN
+            ),
+        )
+        .await;
+        assert!(
+            resp.starts_with("HTTP/1.1 200"),
+            "the query bootstrap must pass the guard, got: {resp}"
+        );
+        let lower = resp.to_ascii_lowercase();
+        assert!(
+            lower.contains(&format!(
+                "set-cookie: {}={}",
+                headless_security::TOKEN_COOKIE,
+                TEST_TOKEN
+            )),
+            "the bootstrap request must plant the session cookie, got: {resp}"
+        );
+        assert!(
+            lower.contains("httponly"),
+            "the session cookie must be HttpOnly, got: {resp}"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[tokio::test]
+    async fn guard_layer_admits_the_token_bearing_bff_ports_route() {
+        let (base, dir) = serve_router("http://127.0.0.1:1/").await;
+        let resp = raw_request(&base, &with_token("/api/v1/ports")).await;
+        assert!(
+            resp.starts_with("HTTP/1.1 200"),
+            "the BFF ports list route must stay reachable behind the guard, got: {resp}"
+        );
+        assert!(
+            resp.contains("[]"),
+            "the throwaway state root holds no port rows, got: {resp}"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[tokio::test]
+    async fn proxy_preserves_the_get_query_and_forwards_the_body_once() {
+        let (mock_base, seen) = serve_mock_upstream().await;
+        let (base, dir) = serve_router(&mock_base).await;
+
+        let get = raw_request(&base, &with_token("/api/v1/nodes?limit=5&cursor=abc")).await;
+        assert!(
+            get.starts_with("HTTP/1.1 200"),
+            "the GET must be proxied to resin, got: {get}"
+        );
+
+        let body = r#"{"name":"openai"}"#;
+        let post = raw_request(
+            &base,
+            &format!(
+                "POST /api/v1/platforms HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {TEST_TOKEN}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            ),
+        )
+        .await;
+        assert!(
+            post.starts_with("HTTP/1.1 200"),
+            "the POST must be proxied to resin, got: {post}"
+        );
+
+        let recorded = seen.lock().expect("mock recorder poisoned").clone();
+        let get_seen = recorded
+            .iter()
+            .find(|s| s.method == "GET")
+            .expect("the GET must reach resin");
+        assert_eq!(
+            get_seen.uri, "/api/v1/nodes?limit=5&cursor=abc",
+            "the query string must survive the BFF verbatim"
+        );
+        let posts: Vec<&Seen> = recorded.iter().filter(|s| s.method == "POST").collect();
+        assert_eq!(
+            posts.len(),
+            1,
+            "the body must be forwarded exactly once (no double wrap)"
+        );
+        assert_eq!(posts[0].uri, "/api/v1/platforms");
+        assert_eq!(
+            posts[0].body, body,
+            "the forwarded body must be byte-identical to the request body"
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
