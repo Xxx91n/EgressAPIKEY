@@ -39,7 +39,7 @@ CI run id/url/sha/runner image are stamped into `results.env` automatically.
 
 ## Topology under test
 
-```
+```text
 client ──forward-GET / CONNECT──► endpoint ──► node (mock Clash HTTP CONNECT)
                                       │
                                       └──► mock upstream (/echo /sse /bytes)
