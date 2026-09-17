@@ -218,6 +218,38 @@ for (const pair of [["README.md", en], ["README_CN.md", cn]]) {
   );
 }
 
+// 18 (ticket 06, spec IMP-6 #5). Fenced-code info-string mirror. The CN page
+// is a translated mirror, so every fenced block must carry the SAME info
+// string (mermaid / bash / ...), in the SAME order, on both sides - a
+// translation that drops or renames a fence silently breaks Mermaid rendering
+// and syntax highlighting. Unbalanced fences fail too: an unclosed fence
+// swallows the rest of the page.
+function fenceInfoStrings(lines) {
+  const re = /^\s{0,3}([`~])\1{2,}\s*(\S*)/;
+  const out = [];
+  let open = null;
+  for (const line of lines) {
+    const m = line.match(re);
+    if (!m) continue;
+    if (open === null) {
+      open = m[1];
+      out.push(m[2]);
+    } else if (m[1] === open && m[2] === "") {
+      open = null;
+    }
+  }
+  return { fences: out, balanced: open === null };
+}
+const enFences = fenceInfoStrings(en.lines);
+const cnFences = fenceInfoStrings(cn.lines);
+record(
+  "code fence info strings mirror EN<->CN (same order, fences balanced)",
+  enFences.balanced && cnFences.balanced &&
+    JSON.stringify(enFences.fences) === JSON.stringify(cnFences.fences),
+  "EN " + JSON.stringify(enFences.fences) + (enFences.balanced ? "" : " [unclosed]") +
+    " vs CN " + JSON.stringify(cnFences.fences) + (cnFences.balanced ? "" : " [unclosed]")
+);
+
 // Report (style matches scripts/license-field-check.cjs).
 let failed = 0;
 for (const c of checks) {
@@ -232,4 +264,4 @@ if (failed > 0) {
   console.error("readme-lang-check: FAILED (" + failed + " error(s))");
   process.exit(1);
 }
-console.log("readme-lang-check: OK (" + checks.length + " checks - EN<->CN structure, License anchors, cross-links, D-05 tokens, sync comments, asset coverage, upstream-router pair coverage)");
+console.log("readme-lang-check: OK (" + checks.length + " checks - EN<->CN structure, License anchors, cross-links, D-05 tokens, sync comments, asset coverage, upstream-router pair coverage, code-fence info strings)");

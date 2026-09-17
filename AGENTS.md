@@ -37,7 +37,7 @@ CodeGraph is the project's indexed code intelligence layer. The index lives at `
 
 **When NOT needed**: trivial one-file edits where you already know the exact line, or after CodeGraph has already returned the source in this session (treat returned source as already Read — do NOT re-open those files).
 
-**Index sync is mandatory after code changes** (same commit that changes code must update the index). The index is gitignored and never committed.
+**Index sync is recommended after code changes** (run `codegraph sync .` in the same session that changes code, so the index reflects it). This is a local developer aid, not a gate: the index is gitignored and never committed, and CI installs no codegraph and holds no index, so nothing in the push gate can enforce it (ticket 06 / spec IMP-6 #7 corrected the former hard-close-loop wording).
 
 ## Project Overview
 
@@ -77,7 +77,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 ### 1. Code exploration - CodeGraph MANDATORY
 
 - Before reading source files to answer "how does X work / where is X / what calls Y", query CodeGraph first. See the CodeGraph block above for commands.
-- After any source change in a commit, run `codegraph sync .` in the SAME session before committing so the index reflects the change. The index lives in `.codegraph/` (gitignored, never committed).
+- After any source change in a commit, run `codegraph sync .` in the SAME session before committing so the index reflects the change. Recommended, not enforced: the index lives in `.codegraph/` (gitignored, never committed) and CI has no codegraph install, so the push gate cannot check it.
 - Treat codegraph-returned source as already-Read; do NOT re-open those files in the same session.
 
 ### 2. Tool routing - context-mode MANDATORY
