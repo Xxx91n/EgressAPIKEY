@@ -658,6 +658,10 @@ fn custom_endpoint_ports(v: &serde_json::Value) -> Vec<u16> {
 /// subscription_add invokes it right after a green establish pass; the step
 /// is idempotent (a re-invocation after a retried pass writes nothing), so
 /// the level-triggered re-run discipline holds without owning queue state.
+/// Ticket 05 (A-008): a whitebox-write failure after a successful Mode B
+/// create compensates by DELETE-ing exactly the endpoint this step created,
+/// and subscription_remove's reverse tail (below) releases the bound row
+/// with the subscription — an engine listener never outlives its intent.
 pub async fn ensure_default_port(
     client: &ResinClient,
     db: &DbPool,
@@ -731,6 +735,11 @@ pub async fn ensure_default_port(
     // Mode A (ticket 17): the engine must NOT bind this port - the shell's
     // accept loop owns it (step (f) writes the row and the whitebox apply
     // binds it). A create_endpoint here would EADDRINUSE-collide.
+    // endpoint_created_this_pass: true only when THIS step's create_endpoint
+    // returned Ok — compensation at the (f) failure branch deletes exactly
+    // that row, never a pre-existing engine listener (D-C1.4 compensate-
+    // only-what-this-pass-created discipline; A-008 / Round 9 D-007).
+    let mut endpoint_created_this_pass = false;
     if !forwarder.is_shell() {
         let (allow_socks5, allow_http_forward) =
             crate::entry_protocol::engine_flags(crate::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL);
@@ -756,6 +765,7 @@ pub async fn ensure_default_port(
             }
             return StepStatus::Failed(format!("create endpoint: {msg}"));
         }
+        endpoint_created_this_pass = true;
     }
     // (f) Whitebox write through the ONE write entry (validate -> SQLite ->
     // listeners -> atomic JSON -> swap; ADR-0042 S2, generation bump per
@@ -790,7 +800,44 @@ pub async fn ensure_default_port(
             );
             StepStatus::Written
         }
-        Err(e) => StepStatus::Failed(format!("whitebox store: {e}")),
+        Err(e) => {
+            // (g) Compensation (A-008 / Round 9 D-007, Mode B residue):
+            // this pass created the engine endpoint but the L2 row never
+            // landed — delete exactly that row so no orphan listener
+            // survives the step. Fresh live read: an already-deleted row is
+            // an idempotent no-op; the read-only id="default" endpoint is
+            // never a candidate. A failed delete is a warning (the step
+            // already failed; drift will surface the leftover).
+            if endpoint_created_this_pass {
+                match client.list_endpoints().await {
+                    Ok(live) => {
+                        let target = items_of(&live).iter().find(|ep| {
+                            ep.get("id").and_then(|i| i.as_str()) != Some("default")
+                                && ep.get("port").and_then(|p| p.as_u64()) == Some(port as u64)
+                        });
+                        if let Some(id) = target
+                            .and_then(|ep| ep.get("id"))
+                            .and_then(|i| i.as_str())
+                        {
+                            if let Err(del_e) = client.delete_endpoint(id).await {
+                                tracing::warn!(
+                                    endpoint = %id,
+                                    port,
+                                    error = %del_e,
+                                    "subscription_pipeline: default-port compensation delete failed (drift will surface it)"
+                                );
+                            }
+                        }
+                    }
+                    Err(list_e) => tracing::warn!(
+                        port,
+                        error = %list_e,
+                        "subscription_pipeline: default-port compensation could not list endpoints (drift will surface it)"
+                    ),
+                }
+            }
+            StepStatus::Failed(format!("whitebox store: {e}"))
+        }
     }
 }
 
@@ -883,6 +930,97 @@ async fn delete_cascade_platform(client: &ResinClient, name: &str) -> Result<(),
         .map_err(|e| format!("delete platform {name}: {e}"))?;
     tracing::info!(platform = %name, "subscription_pipeline: compensated cascade-created platform (deleted on Resin)");
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Reverse tail (architecture-recovery ticket 05, spec IMP-5 / A-008 / Round 9
+// D-007 option B): subscription_remove releases the default entry port the
+// establish cascade bound to the subscription's platform. Same three-layer
+// order as port_remove (ADR-0069 D1): L2 whitebox retain -> apply (DB +
+// listeners + atomic swap) FIRST, then the L3 Resin endpoint delete — and
+// only in Mode B; in Mode A (ticket 17) the shell listener IS the port's L3
+// realisation, so the whitebox apply already tore it down and Resin is never
+// contacted. The read-only id="default" endpoint is never a deletion
+// candidate (custom_endpoint_ports / find_endpoint_id_by_port precedent).
+// Best-effort: a failed L3 delete is a warning, never an error — the intent
+// is already gone from L2 and the leftover engine row surfaces as drift.
+// ---------------------------------------------------------------------------
+
+/// Release the default entry port bound to `platform_name` (the
+/// subscription's platform), if one exists. Returns false only when the L2
+/// write entry itself rejects the release (the caller turns that into an
+/// explicit IPC error); a missing binding is an idempotent success.
+pub async fn remove_default_port_if_orphaned(
+    client: &ResinClient,
+    db: &DbPool,
+    forwarder: &PortForwarder,
+    whitebox: &WhiteboxConfigStore,
+    platform_name: &str,
+) -> bool {
+    let snapshot = whitebox.snapshot();
+    let bound: Vec<u16> = snapshot
+        .entry_ports
+        .iter()
+        .filter(|row| row.platform_name == platform_name)
+        .map(|row| row.port)
+        .collect();
+    if bound.is_empty() {
+        tracing::info!(
+            platform = %platform_name,
+            "subscription_pipeline: no default port bound to platform; reverse tail is a no-op"
+        );
+        return true;
+    }
+    // L2 first: drop the intent rows (DB + listeners + atomic swap).
+    let mut next = snapshot;
+    next.entry_ports
+        .retain(|row| row.platform_name != platform_name);
+    if let Err(e) = whitebox.apply(db, forwarder, next).await {
+        tracing::warn!(
+            platform = %platform_name,
+            error = %e,
+            "subscription_pipeline: reverse tail whitebox release failed"
+        );
+        return false;
+    }
+    // L3 (Mode B only): delete the engine endpoints for the released ports.
+    if !forwarder.is_shell() {
+        match client.list_endpoints().await {
+            Ok(live) => {
+                let targets: Vec<(String, u16)> = items_of(&live)
+                    .iter()
+                    .filter(|ep| ep.get("id").and_then(|i| i.as_str()) != Some("default"))
+                    .filter_map(|ep| {
+                        let id = ep.get("id")?.as_str()?.to_string();
+                        let port = u16::try_from(ep.get("port")?.as_u64()?).ok()?;
+                        Some((id, port))
+                    })
+                    .filter(|(_, port)| bound.contains(port))
+                    .collect();
+                for (id, port) in targets {
+                    if let Err(e) = client.delete_endpoint(&id).await {
+                        tracing::warn!(
+                            endpoint = %id,
+                            port,
+                            error = %e,
+                            "subscription_pipeline: reverse tail endpoint delete failed (drift will surface it)"
+                        );
+                    }
+                }
+            }
+            Err(e) => tracing::warn!(
+                platform = %platform_name,
+                error = %e,
+                "subscription_pipeline: reverse tail endpoint list failed (drift will surface it)"
+            ),
+        }
+    }
+    tracing::info!(
+        platform = %platform_name,
+        ports = ?bound,
+        "subscription_pipeline: default port(s) released with the subscription"
+    );
+    true
 }
 
 #[cfg(test)]
@@ -2234,5 +2372,202 @@ mod tests {
         let got = suggest_free_entry_port(&db).unwrap();
         assert_ne!(got, 17990, "used port must be skipped");
         assert!(got >= crate::port_forwarder::MIN_USER_PORT, "got {got}");
+    }
+
+    // ---- ticket 05 (A-008 / Round 9 D-007): orphan-cleanup + idempotence ----
+
+    /// The (e)->(f) window (Mode B): create_endpoint succeeded, the
+    /// whitebox apply failed -> the step compensates by DELETE-ing exactly
+    /// the endpoint it created. Failure injection: a whitebox already at
+    /// MAX_ENTRY_PORTS rows — the hand-built next document exceeds the
+    /// capacity ceiling and validate() rejects it at the write entry.
+    #[tokio::test]
+    async fn default_port_whitebox_failure_deletes_created_endpoint() {
+        let (db, forwarder, whitebox, path) = port_fixture("def-comp").await;
+        let mut server = mockito::Server::new_async().await;
+        let m_list_empty = mock_endpoints_empty(&mut server).await;
+        let m_create = server
+            .mock("POST", "/api/v1/endpoints")
+            .match_header(BEARER.0, BEARER.1)
+            .match_body(mockito::Matcher::PartialJson(json!({"port": 24420})))
+            .with_status(201)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "ep-comp", "port": 24420}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        // Fresh live read the compensation performs: the created row is
+        // visible on the engine list.
+        let m_list_one = server
+            .mock("GET", "/api/v1/endpoints")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({"items": [{"id": "ep-comp", "port": 24420}]}).to_string(),
+            )
+            .expect(1)
+            .create_async()
+            .await;
+        let m_delete = server
+            .mock("DELETE", "/api/v1/endpoints/ep-comp")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "ep-comp"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        // Seed the whitebox at capacity (MAX_ENTRY_PORTS rows, none bound
+        // to "compsub", none on port 24420): the step's (c) same-port and
+        // (a) same-platform guards pass, but the hand-built "next" document
+        // holds MAX_ENTRY_PORTS + 1 rows and validate() rejects it at the
+        // write entry — the same failure class a capacity race hits.
+        let seed: Vec<PortMapping> = (0..crate::port_forwarder::MAX_ENTRY_PORTS as u16)
+            .map(|i| PortMapping {
+                port: 20000 + i,
+                protocol: "mixed".into(),
+                platform_name: format!("seed-{i}"),
+                account: format!("port-{}", 20000 + i),
+                label: String::new(),
+                enabled: true,
+                auth_required: true,
+            })
+            .collect();
+        whitebox
+            .apply(&db, &forwarder, crate::whitebox_config::WhiteboxConfig::from_ports(seed))
+            .await
+            .unwrap();
+
+        let base = server.url();
+        let client = ResinClient::new(&base, "testtok".into()).unwrap();
+        let status =
+            ensure_default_port(&client, &db, &forwarder, &whitebox, "compsub", Some(24420)).await;
+        assert!(matches!(status, StepStatus::Failed(_)), "{status:?}");
+        // The write entry never accepted the row: the seed set survives
+        // untouched and no "compsub" row landed anywhere.
+        let wb_rows = whitebox.snapshot().entry_ports;
+        assert_eq!(wb_rows.len(), crate::port_forwarder::MAX_ENTRY_PORTS);
+        assert!(wb_rows.iter().all(|r| r.platform_name != "compsub"));
+        assert!(!db.list_ports().unwrap().iter().any(|r| r.platform_name == "compsub"));
+
+        m_list_empty.assert_async().await;
+        m_create.assert_async().await;
+        m_list_one.assert_async().await;
+        m_delete.assert_async().await;
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// Reverse tail: subscription_remove releases ONLY the platform's own
+    /// row (a foreign platform's row and the engine id="default" endpoint
+    /// stay byte-identical); Mode B endpoint delete rides the same call.
+    #[tokio::test]
+    async fn remove_default_port_if_orphaned_releases_only_bound_rows() {
+        let (db, forwarder, whitebox, path) = port_fixture("rm-tail").await;
+        whitebox
+            .apply(
+                &db,
+                &forwarder,
+                crate::whitebox_config::WhiteboxConfig::from_ports(vec![
+                    PortMapping {
+                        port: 24501,
+                        protocol: "mixed".into(),
+                        platform_name: "other".into(),
+                        account: "port-24501".into(),
+                        label: String::new(),
+                        enabled: true,
+                        auth_required: true,
+                    },
+                    PortMapping {
+                        port: 24502,
+                        protocol: "mixed".into(),
+                        platform_name: "gone".into(),
+                        account: "port-24502".into(),
+                        label: String::new(),
+                        enabled: true,
+                        auth_required: true,
+                    },
+                ]),
+            )
+            .await
+            .unwrap();
+        let mut server = mockito::Server::new_async().await;
+        let m_list = server
+            .mock("GET", "/api/v1/endpoints")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({"items": [
+                    {"id": "default", "port": 7890},
+                    {"id": "ep-keep", "port": 24501},
+                    {"id": "ep-gone", "port": 24502}
+                ]})
+                .to_string(),
+            )
+            .expect(1)
+            .create_async()
+            .await;
+        let m_delete = server
+            .mock("DELETE", "/api/v1/endpoints/ep-gone")
+            .match_header(BEARER.0, BEARER.1)
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"id": "ep-gone"}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+
+        let base = server.url();
+        let client = ResinClient::new(&base, "testtok".into()).unwrap();
+        let ok = remove_default_port_if_orphaned(&client, &db, &forwarder, &whitebox, "gone").await;
+        assert!(ok, "release must succeed");
+        // port_list filter: only the foreign row survives (SQLite partner
+        // = what port_list reads; whitebox = the L2 truth file).
+        let rows = db.list_ports().unwrap();
+        assert_eq!(rows.len(), 1, "{rows:?}");
+        assert_eq!(rows[0].platform_name, "other");
+        let wb = whitebox.snapshot().entry_ports;
+        assert_eq!(wb.len(), 1);
+        assert_eq!(wb[0].platform_name, "other");
+
+        m_list.assert_async().await;
+        m_delete.assert_async().await;
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// Idempotence acceptance (user-port path): the platform already has
+    /// a default port -> the tail skips creation even when the caller
+    /// passes ANOTHER user port (the binding check runs before the port
+    /// candidate logic).
+    #[tokio::test]
+    async fn default_port_skips_when_platform_already_bound_via_user_port() {
+        let (db, forwarder, whitebox, path) = port_fixture("def-idem-user").await;
+        whitebox
+            .apply(
+                &db,
+                &forwarder,
+                crate::whitebox_config::WhiteboxConfig::from_ports(vec![PortMapping {
+                    port: 24601,
+                    protocol: "mixed".into(),
+                    platform_name: "newsub".into(),
+                    account: "port-24601".into(),
+                    label: String::new(),
+                    enabled: true,
+                    auth_required: true,
+                }]),
+            )
+            .await
+            .unwrap();
+        // Dead-socket client: any wire call fails the test.
+        let client = ResinClient::new("http://127.0.0.1:1", "t".into()).unwrap();
+        let status =
+            ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", Some(24602)).await;
+        assert!(matches!(status, StepStatus::AlreadyPresent), "{status:?}");
+        let rows = db.list_ports().unwrap();
+        assert_eq!(rows.len(), 1, "no second port: {rows:?}");
+        assert_eq!(rows[0].port, 24601);
+        let _ = std::fs::remove_file(path);
     }
 }

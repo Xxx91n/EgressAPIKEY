@@ -435,6 +435,9 @@ pub struct SubscriptionPipelineState(pub resin_core::SubscriptionPipeline);
 #[tauri::command]
 pub async fn subscription_remove(
     sidecar: State<'_, SidecarHandle>,
+    db: State<'_, DbPool>,
+    forwarder: State<'_, resin_core::PortForwarder>,
+    whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     name: String,
 ) -> Result<bool, IpcError> {
     validate_short_name(&name, "subscription")?;
@@ -446,6 +449,25 @@ pub async fn subscription_remove(
         .delete_subscription(&id)
         .await
         .map_err(|e| map_resin_error(&e.to_string()))?;
+    // Reverse tail (ticket 05, A-008 / Round 9 D-007): release the default
+    // entry port the establish cascade bound to this subscription's
+    // platform. The subscription is already deleted; a failed release is a
+    // WARNING (the leftover surfaces as drift for port_remove), never an
+    // error — the removal itself succeeded.
+    let released = resin_core::subscription_pipeline::remove_default_port_if_orphaned(
+        &client,
+        &db,
+        &forwarder,
+        &whitebox,
+        &name,
+    )
+    .await;
+    if !released {
+        tracing::warn!(
+            subscription = %name,
+            "subscription_remove: default-port reverse tail failed; entry port may surface as drift"
+        );
+    }
     Ok(true)
 }
 
