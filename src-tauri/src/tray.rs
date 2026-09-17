@@ -44,10 +44,10 @@ pub enum TrayLang {
 
 /// Per-locale tray label set.
 pub struct TrayLabels {
-    pub show: 'static str,
-    pub converge_status: 'static str,
-    pub quit: 'static str,
-    pub tooltip: 'static str,
+    pub show: &'static str,
+    pub converge_status: &'static str,
+    pub quit: &'static str,
+    pub tooltip: &'static str,
 }
 
 /// ADR-0060 (revising ADR-0054 §E): per-locale copy for the drift-episode
@@ -520,14 +520,14 @@ pub fn apply_converge_mirror(
         // ApplyFailed: solid red, held until the next GREEN apply flips the
         // phase (checkpoint C: long-lived visibility, not an edge toast).
         resin_core::ConvergePhase::ApplyFailed => {
-            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase);
+            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase, gen, applied_gen);
             tray.set_icon(Some(solid_icon(0xd8, 0x2c, 0x2c)))
                 .and_then(|_| tray.set_tooltip(Some(tip)))
         }
         // Unknown (sidecar unreachable) and NeverApplied (pre-apply baseline):
         // grey mirror — honest "cannot assert", a deviation but not a failure.
         resin_core::ConvergePhase::Unknown | resin_core::ConvergePhase::NeverApplied => {
-            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase);
+            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase, gen, applied_gen);
             tray.set_icon(Some(solid_icon(0x9c, 0xa3, 0xaf)))
                 .and_then(|_| tray.set_tooltip(Some(tip)))
         }
@@ -746,6 +746,7 @@ mod tests {
             ],
             routes: vec![],
             subscriptions: vec![],
+            subscription_phases: vec![],
             resin_reachable: true,
             last_checked_at: 42,
             strategy_generation: 0,
@@ -785,6 +786,7 @@ mod tests {
             }],
             routes: vec![],
             subscriptions: vec![],
+            subscription_phases: vec![],
             resin_reachable: true,
             last_checked_at: 43,
             strategy_generation: 0,

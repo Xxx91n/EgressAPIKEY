@@ -8,6 +8,9 @@
 //! ledger), and `backup_restore` adds download -> verify -> import through the
 //! EXISTING authoritative write entries. The request-log DBs can never enter a
 //! package, enforced on both the packing and the restore side.
+use std::collections::BTreeMap;
+use std::io::{Cursor, Read, Write};
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_store::StoreExt;
 use crate::sidecar::SidecarHandle;
@@ -821,7 +824,7 @@ pub async fn backup_restore(
             std::fs::create_dir_all(parent).map_err(|e| IpcError::from(e.to_string()))?;
         }
         std::fs::write(&target, bytes).map_err(|e| IpcError::from(e.to_string()))?;
-        evidence.push(path.clone());
+        evidence.push(path.to_string());
     }
     evidence.sort();
 

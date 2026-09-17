@@ -525,6 +525,7 @@ use serde_json::json;
             }],
             routes: vec![],
             subscriptions: vec![],
+            subscription_phases: vec![],
             resin_reachable: true,
             last_checked_at: 1_756_521_601,
             strategy_generation: 0,

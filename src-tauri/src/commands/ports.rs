@@ -63,7 +63,7 @@ fn l3_rejected(op: &str, port: u16, detail: &str) -> IpcError {
 /// both surfaces (one domain validation, effective in both places).
 /// It is resolved only AFTER the L2 intent is persisted, so an unreachable
 /// engine can never cost the user their intent.
-pub trait ResinEndpointSource {
+pub trait ResinEndpointSource: Send + Sync {
     fn endpoint_client(&self) -> Result<resin_core::ResinClient, String>;
 }
 
