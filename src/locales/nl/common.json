@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "Goedkeuring vereist",
     "cascadeShow": "Rollback-details tonen",
     "cascadeHide": "Rollback-details verbergen",
-    "cascadeDetail": "rollback"
+    "cascadeDetail": "rollback",
+    "retry": "{{name}} opnieuw proberen",
+    "retryLabel": "Opnieuw proberen",
+    "retryOk": "Nieuwe poging aangevraagd voor {{name}}",
+    "retryUrlMissing": "Kan {{name}} niet opnieuw proberen: Resin rapporteert de bron-URL niet meer"
   },
   "theme": {
     "label": "Thema",

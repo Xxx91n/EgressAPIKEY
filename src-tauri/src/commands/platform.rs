@@ -354,8 +354,14 @@ pub async fn subscription_add(
     // re-pulls the remote URL via its own clash.meta UA fetcher
     // (cmd/resin/main.go const downloadUserAgent); the shell no longer
     // re-fetches or converts the Clash YAML itself (P13 B4 chain deleted).
-    // update_interval default 30s — Resin has no public force-refresh
-    // endpoint, the 30s tick lands the first background fetch within seconds.
+    // update_interval default 30s — the 30s scheduler tick lands the first
+    // background fetch within seconds, so the import path itself does not need
+    // to force one. (Resin DOES expose a synchronous force-refresh:
+    // POST /api/v1/subscriptions/{id}/actions/refresh
+    // — resin/internal/api/server.go:108 -> HandleRefreshSubscription ->
+    // RefreshSubscription -> Scheduler.UpdateSubscription. The
+    // `subscription_refresh` command below uses it. The earlier "Resin has no
+    // public force-refresh endpoint" note here was stale.)
     tracing::info!(subscription = %name, url = %url, "subscription_add: POST source_type=remote");
     let body = serde_json::json!({
         "name": name.clone(),
@@ -574,6 +580,12 @@ pub async fn subscription_refresh(
 #[derive(Debug, Serialize)]
 pub struct SubscriptionSnapshotEntry {
     pub name: String,
+    /// Resin `url` — the remote source this subscription pulls from. Surfaced
+    /// so the GUI can re-drive a failed establish cascade: the Failed chip's
+    /// retry affordance re-enqueues `EstablishEvent { subscription, url }`,
+    /// and this is the ONLY name→url hop on the wire (the whitebox status row
+    /// is name-only and the local view cache is name-less).
+    pub url: String,
     pub node_count: u64,
     pub healthy_node_count: u64,
     /// Resin `last_error` (empty string when fetch succeeded). Surfaced so
@@ -878,8 +890,17 @@ pub fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotE
                     .and_then(|n| n.as_str())
                     .unwrap_or("")
                     .to_string();
+                // Resin's SubscriptionResponse already carries `url`
+                // (resin/internal/service/control_plane_subscription.go:28);
+                // the shell projection used to drop it.
+                let url = p
+                    .get("url")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 Some(SubscriptionSnapshotEntry {
                     name: name.to_string(),
+                    url,
                     node_count,
                     healthy_node_count,
                     last_error,

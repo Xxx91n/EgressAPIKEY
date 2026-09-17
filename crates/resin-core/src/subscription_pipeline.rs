@@ -8,10 +8,11 @@
 //! drain loop walks the five steps in order; every step is IDEMPOTENT (it
 //! re-reads the live world and only writes what is missing — re-running a
 //! converged pipeline emits zero writes). There is no background loop and no
-//! auto-heal: the pipeline runs when enqueued (and on explicit retry), which
-//! keeps the ADR-0054 "reconcile is user-triggered" discipline intact —
-//! enqueueing IS the user action here (the subscription_add call that asked
-//! for pipeline=establish).
+//! auto-heal of DRIFT: the pipeline runs when enqueued, on explicit retry, and
+//! when the Inline-Polling driver (`drive_due`) drains a retry the user
+//! already enqueued. The driver NEVER enqueues, which keeps the ADR-0054
+//! "reconcile is user-triggered" discipline intact — enqueueing IS the user
+//! action here (the subscription_add call that asked for pipeline=establish).
 //!
 //! The five steps and their per-step idempotence seam:
 //! 1. create_subscription — skip when the name is already on Resin (list read).
@@ -193,6 +194,62 @@ impl SubscriptionPipeline {
         (2u64 << attempts_so_far.min(5)).min(CAP)
     }
 
+    /// Deterministic retry jitter (seconds) added on top of `retry_delay`
+    /// when the next attempt is scheduled. Evidence: atomcode C4 / AWS
+    /// "Exponential Backoff And Jitter" — capped exponential WITHOUT jitter is
+    /// the measured loser, and without it every event that failed on the same
+    /// tick re-fires on the same tick forever. Derived from (subscription
+    /// name, scheduling instant) via FNV-1a instead of an RNG so the schedule
+    /// stays a pure function the tests can own with an injected clock.
+    ///
+    /// The span is bounded far below the driver's tick stride, so the backoff
+    /// contract is preserved: `retry_delay(n) + retry_jitter(..)` can never
+    /// push an attempt past the next drain instant.
+    fn retry_jitter(subscription: &str, now: u64) -> u64 {
+        const SPAN: u64 = 30;
+        const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+        const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+        let mut h = FNV_OFFSET;
+        for b in subscription.as_bytes() {
+            h ^= u64::from(*b);
+            h = h.wrapping_mul(FNV_PRIME);
+        }
+        h ^= now;
+        h = h.wrapping_mul(FNV_PRIME);
+        (h >> 33) % SPAN
+    }
+
+    /// The driver's due gate: how many events are runnable at `now` — queued,
+    /// NOT parked, and past their backoff instant. Pure read, no mutation, so
+    /// the shell can skip building a Resin client on a tick with nothing due.
+    /// A parked (`failed`) event is NEVER due.
+    pub fn due_count(&self, now: u64) -> usize {
+        let q = self.queue.lock().expect("pipeline queue poisoned");
+        q.iter()
+            .filter(|e| !e.failed && e.next_retry_at <= now)
+            .count()
+    }
+
+    /// The Inline-Polling driver tick. Runs ONE `drain` pass IFF at least one
+    /// event is due at `now`; otherwise a true no-op that returns an empty
+    /// report vec without touching the client, the service, or the queue.
+    ///
+    /// It NEVER enqueues: ADR-0054 keeps "only a user action enqueues a
+    /// desired establish" — the driver only finishes retries the user already
+    /// asked for, so detection stays resident while the ACTION stays opt-in
+    /// (atomcode C2/C6). `now` is injected so tests own the clock.
+    pub async fn drive_due(
+        &self,
+        client: &ResinClient,
+        svc: &StrategyService<crate::strategy_service::FsStrategyStore>,
+        now: u64,
+    ) -> Vec<PipelineReport> {
+        if self.due_count(now) == 0 {
+            return Vec::new();
+        }
+        self.drain(client, svc, now).await
+    }
+
     /// Single reconciler: drain every due event, one pass. Steps run in
     /// order; a failed step records the error and parks the event for
     /// backoff retry (or Failed after MAX_ATTEMPTS). Returns one report per
@@ -232,7 +289,9 @@ impl SubscriptionPipeline {
                         entry.failed = true;
                         tracing::warn!(subscription = %subscription, attempts = entry.attempts, "subscription_pipeline: parked after max attempts");
                     } else {
-                        entry.next_retry_at = now + Self::retry_delay(entry.attempts - 1);
+                        entry.next_retry_at = now
+                            + Self::retry_delay(entry.attempts - 1)
+                            + Self::retry_jitter(&subscription, now);
                     }
                     let mut q = self.queue.lock().expect("pipeline queue poisoned");
                     q.push_back(entry);
@@ -853,6 +912,81 @@ mod tests {
         assert_eq!(SubscriptionPipeline::retry_delay(4), 32);
         assert_eq!(SubscriptionPipeline::retry_delay(5), 60, "capped at 60s");
         assert_eq!(SubscriptionPipeline::retry_delay(10), 60, "stays capped");
+    }
+
+    /// The jitter is bounded, deterministic (no RNG state), and does not
+    /// collapse every subscription onto one instant.
+    #[test]
+    fn retry_jitter_is_bounded_and_deterministic() {
+        for now in [0u64, 1, 1_000_000, u64::MAX] {
+            let j = SubscriptionPipeline::retry_jitter("x", now);
+            assert!(j < 30, "jitter stays inside its span: {j}");
+            assert_eq!(j, SubscriptionPipeline::retry_jitter("x", now), "deterministic for the same inputs");
+        }
+        // Distinct names must spread out instead of all firing on one tick.
+        let a = SubscriptionPipeline::retry_jitter("alpha", 1_000_000);
+        let b = SubscriptionPipeline::retry_jitter("bravo", 1_000_000);
+        let c = SubscriptionPipeline::retry_jitter("charlie", 1_000_000);
+        assert!(a != b || b != c, "jitter must not collapse every name onto one instant");
+    }
+
+    /// The driver tick: an empty queue is a true no-op (and NEVER enqueues a
+    /// new establish), a not-yet-due event is left alone, a due event is
+    /// drained, and the re-queued retry waits out its (jittered) backoff.
+    #[tokio::test]
+    async fn drive_due_is_noop_on_empty_queue_then_drains_due_events() {
+        let (svc, path) = temp_store("drive-due");
+        // No mocks: every request fails -> step 1 fails every pass.
+        let client = ResinClient::new("http://127.0.0.1:1", "t".into()).unwrap();
+        let p = SubscriptionPipeline::new();
+
+        let now: u64 = 1_000_000;
+        // Empty queue: no work AND no new establish (ADR-0054 discipline).
+        let reports = p.drive_due(&client, &svc, now).await;
+        assert!(reports.is_empty(), "empty queue: the driver is a no-op");
+        assert!(p.pending().is_empty(), "the driver must never enqueue");
+        assert_eq!(p.failed_count(), 0, "the driver must never park anything");
+
+        assert!(p.enqueue(EstablishEvent { subscription: "x".into(), url: "https://u/x".into() }));
+        // Freshly enqueued (next_retry_at = 0) => due at once.
+        assert_eq!(p.due_count(now), 1);
+        let reports = p.drive_due(&client, &svc, now).await;
+        assert_eq!(reports.len(), 1, "the due event is drained");
+        assert!(!reports[0].all_ok());
+
+        // Inside the backoff window: NOT due => untouched (no client call).
+        assert_eq!(p.due_count(now + 1), 0, "re-queued behind backoff");
+        let reports = p.drive_due(&client, &svc, now + 1).await;
+        assert!(reports.is_empty(), "a not-yet-due event must not be retried");
+
+        // Past the backoff plus the bounded jitter: due again.
+        let later = now + 1 + SubscriptionPipeline::retry_delay(0) + 30;
+        assert_eq!(p.due_count(later), 1, "backoff elapsed => due");
+        let reports = p.drive_due(&client, &svc, later).await;
+        assert_eq!(reports.len(), 1, "the driver retries once the backoff elapsed");
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// A parked event is terminal: the driver never retries it. Only a fresh
+    /// user enqueue re-arms it (the Failed chip's retry affordance).
+    #[tokio::test]
+    async fn drive_due_never_retries_parked_events() {
+        let (svc, path) = temp_store("drive-parked");
+        let client = ResinClient::new("http://127.0.0.1:1", "t".into()).unwrap();
+        let p = SubscriptionPipeline::new();
+        assert!(p.enqueue(EstablishEvent { subscription: "x".into(), url: "https://u/x".into() }));
+
+        let now: u64 = 1_000_000;
+        // MAX_ATTEMPTS driver ticks, each advancing past the jittered backoff.
+        for attempt in 1..=MAX_ATTEMPTS {
+            let reports = p.drive_due(&client, &svc, now + u64::from(attempt) * 120).await;
+            assert_eq!(reports.len(), 1, "tick {attempt} must process the due event");
+        }
+        assert_eq!(p.failed_count(), 1, "parked after MAX_ATTEMPTS");
+        assert_eq!(p.due_count(now + 999_999), 0, "a parked event is never due");
+        let reports = p.drive_due(&client, &svc, now + 999_999).await;
+        assert!(reports.is_empty(), "the driver never retries a parked event");
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]

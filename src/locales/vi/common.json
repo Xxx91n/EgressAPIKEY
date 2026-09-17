@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "Cần phê duyệt",
     "cascadeShow": "Hiện chi tiết hoàn tác",
     "cascadeHide": "Ẩn chi tiết hoàn tác",
-    "cascadeDetail": "hoàn tác"
+    "cascadeDetail": "hoàn tác",
+    "retry": "Thử lại {{name}}",
+    "retryLabel": "Thử lại",
+    "retryOk": "Đã yêu cầu thử lại {{name}}",
+    "retryUrlMissing": "Không thể thử lại {{name}}: Resin không còn báo cáo URL nguồn"
   },
   "theme": {
     "label": "Giao diện",

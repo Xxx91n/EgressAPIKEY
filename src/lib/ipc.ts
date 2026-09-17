@@ -577,6 +577,10 @@ export async function ipcRefreshTray(): Promise<void> {
 /// Resin-level (name, node_count) for each imported subscription.
 export interface SubscriptionSnapshotEntry {
   name: string;
+  /** Resin `url` — the remote source this subscription pulls from. The
+   *  Failed chip's retry affordance re-enqueues `{ subscription, url }`, and
+   *  this is the only name→url hop on the wire (the phase row is name-only). */
+  url: string;
   node_count: number;
   healthy_node_count: number;
   last_error: string;

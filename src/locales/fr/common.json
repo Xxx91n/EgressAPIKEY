@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "Approbation requise",
     "cascadeShow": "Afficher le détail du rollback",
     "cascadeHide": "Masquer le détail du rollback",
-    "cascadeDetail": "rollback"
+    "cascadeDetail": "rollback",
+    "retry": "Réessayer {{name}}",
+    "retryLabel": "Réessayer",
+    "retryOk": "Réessai demandé pour {{name}}",
+    "retryUrlMissing": "Impossible de réessayer {{name}} : Resin ne signale plus son URL source"
   },
   "theme": {
     "label": "Thème",

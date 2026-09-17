@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "承認待ち",
     "cascadeShow": "ロールバック詳細を表示",
     "cascadeHide": "ロールバック詳細を非表示",
-    "cascadeDetail": "ロールバック"
+    "cascadeDetail": "ロールバック",
+    "retry": "{{name}} を再試行",
+    "retryLabel": "再試行",
+    "retryOk": "{{name}} の再試行を要求しました",
+    "retryUrlMissing": "{{name}} を再試行できません: Resin がソース URL を報告していません"
   },
   "theme": {
     "label": "テーマ",

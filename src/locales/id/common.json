@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "Perlu persetujuan",
     "cascadeShow": "Tampilkan detail rollback",
     "cascadeHide": "Sembunyikan detail rollback",
-    "cascadeDetail": "rollback"
+    "cascadeDetail": "rollback",
+    "retry": "Coba lagi {{name}}",
+    "retryLabel": "Coba lagi",
+    "retryOk": "Percobaan ulang diminta untuk {{name}}",
+    "retryUrlMissing": "Tidak dapat mencoba lagi {{name}}: Resin tidak lagi melaporkan URL sumbernya"
   },
   "theme": {
     "label": "Tema",

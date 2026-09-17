@@ -956,3 +956,97 @@ describe("SubscriptionsView T02: subscription phase chips (6-state palette)", ()
     expect(screen.queryByTestId("sub-cascade-toggle-legacy-f")).toBeNull();
   }, 20000);
 });
+
+// --- ticket 08: the Failed chip's retry affordance (backoff driver closed loop) ---
+describe("SubscriptionsView T08: Failed chip retry re-enqueues the subscription", () => {
+  beforeEach(() => {
+    useAppStore.setState({ subscriptions: [], subscriptionPhases: [] });
+    invokeMock.mockReset();
+  });
+
+  it("re-enqueues the SAME subscription through subscription_add with pipeline=establish", async () => {
+    const calls: Array<{ cmd: string; args?: Record<string, unknown> }> = [];
+    invokeMock.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+      calls.push({ cmd, args });
+      if (cmd === "subscription_list") {
+        return [{
+          name: "retry-sub",
+          url: "https://example.invalid/retry.yaml",
+          node_count: 3,
+          healthy_node_count: 3,
+          last_error: "",
+          last_checked: "",
+        }];
+      }
+      if (cmd === "authoritative_snapshot") {
+        return {
+          strategyVersion: 1,
+          platforms: [],
+          ports: [],
+          routes: [],
+          subscriptions: [],
+          subscriptionPhases: [
+            { name: "retry-sub", phase: "Failed", stage: "apply", phase_error: "PATCH 500" },
+          ],
+          resinReachable: true,
+          lastCheckedAt: 1700000000,
+        };
+      }
+      if (cmd === "node_pool_snapshot") {
+        return { total_nodes: 3, healthy_nodes: 3, egress_ip_count: 3, healthy_egress_ip_count: 3 };
+      }
+      return undefined;
+    });
+
+    render(<SubscriptionsView />);
+    const retry = await screen.findByTestId("sub-retry-retry-sub", {}, { timeout: 10000 });
+    // The aria-label is the interpolated per-subscription retry copy.
+    expect(retry.getAttribute("aria-label")).toContain("retry-sub");
+    fireEvent.click(retry);
+
+    await waitFor(() => expect(calls.some((c) => c.cmd === "subscription_add")).toBe(true));
+    const add = calls.find((c) => c.cmd === "subscription_add");
+    expect(add?.args).toMatchObject({
+      name: "retry-sub",
+      url: "https://example.invalid/retry.yaml",
+      pipeline: "establish",
+    });
+  }, 20000);
+
+  it("degrades to an honest toast and posts NOTHING when Resin no longer reports the URL", async () => {
+    const calls: string[] = [];
+    invokeMock.mockImplementation(async (cmd: string) => {
+      calls.push(cmd);
+      if (cmd === "subscription_list") {
+        return [{
+          name: "orphan-f",
+          url: "",
+          node_count: 3,
+          healthy_node_count: 3,
+          last_error: "",
+          last_checked: "",
+        }];
+      }
+      if (cmd === "authoritative_snapshot") {
+        return {
+          strategyVersion: 1,
+          platforms: [],
+          ports: [],
+          routes: [],
+          subscriptions: [],
+          subscriptionPhases: [{ name: "orphan-f", phase: "Failed", phase_error: "boom" }],
+          resinReachable: true,
+          lastCheckedAt: 1700000000,
+        };
+      }
+      return undefined;
+    });
+
+    render(<SubscriptionsView />);
+    const retry = await screen.findByTestId("sub-retry-orphan-f", {}, { timeout: 10000 });
+    fireEvent.click(retry);
+
+    await waitFor(() => expect(screen.getByText(/Cannot retry orphan-f/)).toBeInTheDocument());
+    expect(calls).not.toContain("subscription_add");
+  }, 20000);
+});

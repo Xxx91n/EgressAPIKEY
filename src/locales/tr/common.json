@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "Onay bekliyor",
     "cascadeShow": "Geri alma ayrıntılarını göster",
     "cascadeHide": "Geri alma ayrıntılarını gizle",
-    "cascadeDetail": "geri alma"
+    "cascadeDetail": "geri alma",
+    "retry": "{{name}} yeniden dene",
+    "retryLabel": "Yeniden dene",
+    "retryOk": "{{name}} için yeniden deneme istendi",
+    "retryUrlMissing": "{{name}} yeniden denenemiyor: Resin artık kaynak URL'sini bildirmiyor"
   },
   "theme": {
     "label": "Tema",

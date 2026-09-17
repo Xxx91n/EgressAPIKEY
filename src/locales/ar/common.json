@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "بحاجة إلى موافقة",
     "cascadeShow": "عرض تفاصيل التراجع",
     "cascadeHide": "إخفاء تفاصيل التراجع",
-    "cascadeDetail": "تراجع"
+    "cascadeDetail": "تراجع",
+    "retry": "إعادة محاولة {{name}}",
+    "retryLabel": "إعادة المحاولة",
+    "retryOk": "تم طلب إعادة المحاولة لـ {{name}}",
+    "retryUrlMissing": "تعذّرت إعادة محاولة {{name}}: لم يعد Resin يبلّغ عن عنوان المصدر"
   },
   "theme": {
     "label": "السمة",

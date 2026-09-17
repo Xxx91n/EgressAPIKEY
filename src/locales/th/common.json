@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "ต้องการการอนุมัติ",
     "cascadeShow": "แสดงรายละเอียดการย้อนกลับ",
     "cascadeHide": "ซ่อนรายละเอียดการย้อนกลับ",
-    "cascadeDetail": "ย้อนกลับ"
+    "cascadeDetail": "ย้อนกลับ",
+    "retry": "ลองใหม่ {{name}}",
+    "retryLabel": "ลองใหม่",
+    "retryOk": "ขอให้ลองใหม่ {{name}} แล้ว",
+    "retryUrlMissing": "ไม่สามารถลองใหม่ {{name}} ได้: Resin ไม่รายงาน URL ต้นทางอีกต่อไป"
   },
   "theme": {
     "label": "ธีม",

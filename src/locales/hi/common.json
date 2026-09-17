@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "अनुमोदन आवश्यक",
     "cascadeShow": "रोलबैक विवरण दिखाएँ",
     "cascadeHide": "रोलबैक विवरण छिपाएँ",
-    "cascadeDetail": "रोलबैक"
+    "cascadeDetail": "रोलबैक",
+    "retry": "{{name}} पुनः प्रयास करें",
+    "retryLabel": "पुनः प्रयास करें",
+    "retryOk": "{{name}} के लिए पुनः प्रयास का अनुरोध किया गया",
+    "retryUrlMissing": "{{name}} का पुनः प्रयास नहीं कर सकते: Resin अब इसका स्रोत URL नहीं बताता"
   },
   "theme": {
     "label": "थीम",

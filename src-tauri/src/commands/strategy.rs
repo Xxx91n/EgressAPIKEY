@@ -2,7 +2,7 @@
 //!
 //! Extracted from the former commands/mod.rs monolith by
 //! pure mechanical move - no behavior, naming, or IPC-surface change.
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use crate::sidecar::SidecarHandle;
 use resin_core::DbPool;
 use resin_core::IpcError;
@@ -482,6 +482,41 @@ pub async fn authoritative_snapshot(
         snapshot.strategy_generation,
         snapshot.strategy_applied_generation,
     );
+
+    // the Inline-Polling driver for the subscription
+    // pipeline's backoff retries. 07 报告 §2.E3 found the due-retry schedule
+    // had NO driver in production: a failed cascade re-queued its event with
+    // `next_retry_at` and nothing in the repo ever drained it. This is the
+    // lightest variant of the drift-detection patterns the research pass
+    // surveyed (atomcode C3: "Inline Polling — reconcile 时顺手查"), so it
+    // rides the existing snapshot poll (TopologyView 5s / EffectiveConfigView
+    // open / manual re-check) instead of adding a second timer or a background
+    // loop (ADR-0054 rejects the latter outright).
+    //
+    // Discipline (ADR-0054): the driver drains ONLY retries the user already
+    // enqueued — it never enqueues a desired establish, so detection stays
+    // resident while the ACTION stays opt-in (atomcode C2/C6). Gated on
+    // `due_count > 0`, so a tick with nothing due costs one mutex read and
+    // never builds a Resin client. Best-effort: a failed drain is logged and
+    // swallowed — the queue keeps the event for the next tick, and a retry
+    // problem must never break the snapshot read.
+    if reachable {
+        if let Some(pipeline_state) = app.try_state::<super::platform::SubscriptionPipelineState>() {
+            if pipeline_state.0.due_count(now) > 0 {
+                if let Ok(client) = resin_client(&sidecar) {
+                    let reports = pipeline_state.0.drive_due(&client, &svc, now).await;
+                    for r in &reports {
+                        tracing::info!(
+                            subscription = %r.subscription,
+                            ok = r.all_ok(),
+                            error = r.first_error().unwrap_or(""),
+                            "subscription_pipeline: inline-polling driver drained a due retry"
+                        );
+                    }
+                }
+            }
+        }
+    }
 
     Ok(snapshot)
 }

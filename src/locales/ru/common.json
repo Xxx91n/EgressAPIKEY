@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "Требует подтверждения",
     "cascadeShow": "Показать детали отката",
     "cascadeHide": "Скрыть детали отката",
-    "cascadeDetail": "откат"
+    "cascadeDetail": "откат",
+    "retry": "Повторить {{name}}",
+    "retryLabel": "Повторить",
+    "retryOk": "Запрошен повтор для {{name}}",
+    "retryUrlMissing": "Не удалось повторить {{name}}: Resin больше не сообщает исходный URL"
   },
   "theme": {
     "label": "Тема",

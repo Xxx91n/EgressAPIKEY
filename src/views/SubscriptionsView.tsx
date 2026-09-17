@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Rss, Download, Inbox, Trash2, Loader2, GripVertical, CheckCircle2, AlertCircle, Pencil, ArrowDownUp, ChevronDown, Link2 } from "lucide-react";
+import { Rss, Download, Inbox, Trash2, Loader2, GripVertical, CheckCircle2, AlertCircle, Pencil, ArrowDownUp, ChevronDown, Link2, RefreshCw } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import {
   ipcSubscriptionAdd, ipcSubscriptionList, ipcSubscriptionRemove, ipcNodePoolSnapshot,
@@ -278,6 +278,30 @@ export function SubscriptionsView() {
       await refresh();
     } catch { /* local */ }
     setBusy(false);
+  };
+
+  /// the Failed chip's retry affordance. A fresh
+  /// user enqueue RE-ARMS the event with a fresh attempt budget (that is the
+  /// documented semantics of `enqueue`), so the retry is exactly the same
+  /// `subscription_add` call the import used — no new IPC, no new command.
+  /// The url comes from the live Resin row (name-keyed); when Resin no longer
+  /// knows the name we degrade to an honest toast instead of posting a guess.
+  const handleRetry = async (subName: string) => {
+    const url = live.find((x) => x.name === subName)?.url ?? "";
+    if (!url) {
+      setToast({ kind: "err", msg: t("subscription.retryUrlMissing", { name: subName }) });
+      return;
+    }
+    setBusy(true); setToast(null);
+    try {
+      await ipcSubscriptionAdd(subName, url, undefined, "establish");
+      await refreshWithRetry();
+      setToast({ kind: "ok", msg: t("subscription.retryOk", { name: subName }) });
+    } catch (e: unknown) {
+      setToast({ kind: "err", msg: translateError(e, t) });
+    } finally {
+      setBusy(false);
+    }
   };
 
   /// P19 item 6: rename via delete + recreate. Resin has no PATCH
@@ -788,7 +812,9 @@ export function SubscriptionsView() {
                       whitebox has no status row for this subscription yet. */}
                   {(() => {
                     const prow = phaseRowMap.get(s.name);
-                    return prow ? <SubscriptionPhaseChip row={prow} t={t} /> : <SubscriptionPhaseChip row={{ name: s.name, phase: "Never" }} t={t} />;
+                    return prow
+                      ? <SubscriptionPhaseChip row={prow} t={t} onRetry={handleRetry} busy={busy} />
+                      : <SubscriptionPhaseChip row={{ name: s.name, phase: "Never" }} t={t} onRetry={handleRetry} busy={busy} />;
                   })()}
                   {(() => {
                     const row = subRows.get(s.name);
@@ -913,10 +939,14 @@ function SubscriptionRowHint({ s, t }: { s: SubscriptionSnapshotEntry; t: Return
 /// needs approval. The sub-step renders as a lowercase technical token
 /// (mono) — it names a pipeline beat, not a locale string.
 function SubscriptionPhaseChip({
-  row, t,
+  row, t, onRetry, busy,
 }: {
   row: SubscriptionPhaseRow;
   t: ReturnType<typeof useTranslation>["t"];
+  /// the Failed chip's retry affordance, threaded in from the view so the
+  /// chip itself stays presentational (it owns no IPC of its own).
+  onRetry: (name: string) => void;
+  busy: boolean;
 }) {
   const chip = "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium";
   const common = { "data-testid": "sub-phase-chip-" + row.name, "data-phase": row.phase } as const;
@@ -929,7 +959,7 @@ function SubscriptionPhaseChip({
         </span>
       );
     case "Failed":
-      return <FailedPhaseChip common={common} chipClass={chip + " bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"} row={row} t={t} />;
+      return <FailedPhaseChip common={common} chipClass={chip + " bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"} row={row} t={t} onRetry={onRetry} busy={busy} />;
     case "Establishing":
       return (
         <span {...common} className={amber}>
@@ -956,20 +986,40 @@ function SubscriptionPhaseChip({
 /// record (toggle button, aria-expanded — same collapse pattern as
 /// SubscriptionRowHint's error banner).
 function FailedPhaseChip({
-  common, chipClass, row, t,
+  common, chipClass, row, t, onRetry, busy,
 }: {
   common: { "data-testid": string; "data-phase": string };
   chipClass: string;
   row: SubscriptionPhaseRow;
   t: ReturnType<typeof useTranslation>["t"];
+  onRetry: (name: string) => void;
+  busy: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ce: CascadeErrorInfo | undefined = row.last_cascade_error;
   const title = ce ? ce.reason : row.phase_error;
   return (
     <span className="inline-flex flex-col items-start">
-      <span {...common} title={title || undefined} className={chipClass}>
-        {t("subscription.phaseFailed")}
+      <span className="inline-flex items-center gap-1">
+        <span {...common} title={title || undefined} className={chipClass}>
+          {t("subscription.phaseFailed")}
+        </span>
+        {/* the retry affordance. The driver only ever drains
+            retries the user already enqueued, so a PARKED (Failed) event is
+            recovered by an explicit user action: this button re-enqueues the
+            same subscription (fresh attempt budget) and drains it, through the
+            SAME subscription_add IPC the import used. */}
+        <button
+          type="button"
+          onClick={() => onRetry(row.name)}
+          disabled={busy}
+          aria-label={t("subscription.retry", { name: row.name })}
+          data-testid={"sub-retry-" + row.name}
+          className="shrink-0 inline-flex items-center gap-0.5 rounded border border-red-300 dark:border-red-800 px-1 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-40"
+        >
+          <RefreshCw size={10} />
+          {t("subscription.retryLabel")}
+        </button>
       </span>
       {ce && (
         <>

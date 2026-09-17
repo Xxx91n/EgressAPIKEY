@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "승인 필요",
     "cascadeShow": "롤백 상세 보기",
     "cascadeHide": "롤백 상세 숨기기",
-    "cascadeDetail": "롤백"
+    "cascadeDetail": "롤백",
+    "retry": "{{name}} 재시도",
+    "retryLabel": "재시도",
+    "retryOk": "{{name}} 재시도를 요청했습니다",
+    "retryUrlMissing": "{{name}}을(를) 재시도할 수 없습니다: Resin이 소스 URL을 더 이상 보고하지 않습니다"
   },
   "theme": {
     "label": "테마",

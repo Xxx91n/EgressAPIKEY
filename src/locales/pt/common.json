@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "Requer aprovação",
     "cascadeShow": "Mostrar detalhes da reversão",
     "cascadeHide": "Ocultar detalhes da reversão",
-    "cascadeDetail": "reversão"
+    "cascadeDetail": "reversão",
+    "retry": "Tentar novamente {{name}}",
+    "retryLabel": "Tentar novamente",
+    "retryOk": "Nova tentativa solicitada para {{name}}",
+    "retryUrlMissing": "Não é possível tentar novamente {{name}}: o Resin não informa mais a URL de origem"
   },
   "theme": {
     "label": "Tema",

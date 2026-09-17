@@ -340,7 +340,11 @@
     "phaseNeedsApproval": "Freigabe erforderlich",
     "cascadeShow": "Rollback-Details anzeigen",
     "cascadeHide": "Rollback-Details ausblenden",
-    "cascadeDetail": "Rollback"
+    "cascadeDetail": "Rollback",
+    "retry": "{{name}} erneut versuchen",
+    "retryLabel": "Erneut versuchen",
+    "retryOk": "Erneuter Versuch für {{name}} angefordert",
+    "retryUrlMissing": "{{name}} kann nicht erneut versucht werden: Resin meldet die Quell-URL nicht mehr"
   },
   "theme": {
     "label": "Design",
