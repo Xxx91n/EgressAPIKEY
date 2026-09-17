@@ -495,6 +495,7 @@
     "refresh": "Sprawdź ponownie teraz",
     "lastCheckedAt": "Ostatnie sprawdzenie",
     "notRecorded": "brak zapisu",
+    "livePolicy": "Bieżąca polityka",
     "resinDown": "Sidecar Resin nie działa; wartości na żywo są niedostępne, część oczekiwana nadal odzwierciedla whitebox.",
     "loading": "Odczytywanie konfiguracji efektywnej…",
     "noEntries": "Brak skonfigurowanych platform i portów.",

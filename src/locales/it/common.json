@@ -495,6 +495,7 @@
     "refresh": "Riverifica ora",
     "lastCheckedAt": "Ultima verifica",
     "notRecorded": "non registrato",
+    "livePolicy": "Policy live",
     "resinDown": "Il sidecar Resin non è in esecuzione; i valori live non sono disponibili, la parte desiderata riflette ancora la whitebox.",
     "loading": "Lettura della configurazione effettiva…",
     "noEntries": "Nessuna piattaforma o porta configurata.",

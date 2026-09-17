@@ -495,6 +495,7 @@
     "refresh": "Re-check now",
     "lastCheckedAt": "Last checked",
     "notRecorded": "not recorded",
+    "livePolicy": "Live policy",
     "resinDown": "Resin sidecar is not running; live values are unavailable — the desired half still reflects the whitebox.",
     "loading": "Reading effective configuration…",
     "noEntries": "No platforms or ports configured.",

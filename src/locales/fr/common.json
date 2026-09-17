@@ -495,6 +495,7 @@
     "refresh": "Revérifier maintenant",
     "lastCheckedAt": "Dernière vérification",
     "notRecorded": "non enregistré",
+    "livePolicy": "Politique en direct",
     "resinDown": "Le sidecar Resin n'est pas en cours d'exécution ; les valeurs en direct sont indisponibles, la partie souhaitée reflète toujours la whitebox.",
     "loading": "Lecture de la configuration effective…",
     "noEntries": "Aucune plateforme ni port configuré.",

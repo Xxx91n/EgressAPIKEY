@@ -48,6 +48,8 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
     render(<EffectiveConfigView />);
     const alpha = await screen.findByTestId("ec-platform-alpha");
     expect(within(alpha).getByTestId("ec-badge-consistent")).toHaveAttribute("data-state", "consistent");
+    // round9 ticket 02 (A-002): the Consistent row also surfaces the live policy value.
+    expect(within(alpha).getByTestId("ec-live-policy-alpha")).toHaveTextContent("p2c");
     const beta = screen.getByTestId("ec-platform-beta");
     expect(within(beta).getByTestId("ec-badge-divergent")).toBeInTheDocument();
     expect(within(beta).getByTestId("ec-divergent-since-beta")).toHaveTextContent(
@@ -55,6 +57,8 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
     );
     expect(within(beta).getByText(/r1, r2/)).toBeInTheDocument(); // desired half
     expect(within(beta).getByText(/r1(?!, r2)/)).toBeInTheDocument(); // live half
+    // ticket 02 scope is the Consistent row: the Divergent row keeps the region-only layout.
+    expect(within(beta).queryByTestId("ec-live-policy-beta")).not.toBeInTheDocument();
     const portRow = screen.getByTestId("ec-port-1790");
     expect(within(portRow).getByTestId("ec-badge-consistent")).toBeInTheDocument();
   });
@@ -545,5 +549,43 @@ describe("EffectiveConfigView converge chip (round5 T09)", () => {
     render(<EffectiveConfigView />);
     await screen.findByTestId("ec-view");
     expect(screen.queryByTestId("ec-converge-chip")).toBeNull();
+  });
+});
+
+// round9 ticket 02 (A-002): the Consistent row surfaces the live
+// allocation_policy Resin reported for the platform — the visible half of the
+// D-002 two-axis reconcile. The REAL en catalog is wired in so the assertions
+// lock the shipped wording values, not key fallbacks.
+describe("EffectiveConfigView live policy render (round9 ticket 02)", () => {
+  beforeAll(() => {
+    i18next.addResourceBundle("en", "translation", { effectiveConfig: enCommon.effectiveConfig }, true, true);
+  });
+
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "authoritative_snapshot") {
+        return Promise.resolve(baseSnap({
+          platforms: [
+            { state: "consistent", platform_name: "alpha", platform_id: "a", regions: ["r1"], resin_allocation_policy: "PREFER_IDLE_IP", b_class: "", a_class: "", manual_nodes: [], subscriptions: [], acknowledged: false },
+            { state: "consistent", platform_name: "omega", platform_id: "o", regions: ["r2"], resin_allocation_policy: "", b_class: "", a_class: "", manual_nodes: [], subscriptions: [], acknowledged: false },
+            { state: "divergent", platform_name: "beta", platform_id: "b", whitebox_regions: ["r1", "r2"], resin_regions: ["r1"], resin_allocation_policy: "BALANCED", b_class: "", a_class: "", manual_nodes: [], subscriptions: [], divergent_since: TS, acknowledged: false },
+          ],
+        }));
+      }
+      return Promise.resolve([]);
+    });
+  });
+
+  it("renders the live allocation_policy on the Consistent row only", async () => {
+    render(<EffectiveConfigView />);
+    const alpha = await screen.findByTestId("ec-live-policy-alpha");
+    expect(alpha).toHaveTextContent(enCommon.effectiveConfig.livePolicy);
+    expect(alpha).toHaveTextContent("PREFER_IDLE_IP");
+    // an empty live policy degrades to the shared "not recorded" wording
+    const omega = screen.getByTestId("ec-live-policy-omega");
+    expect(omega).toHaveTextContent(enCommon.effectiveConfig.notRecorded);
+    // the Divergent row keeps the region-only layout (scope: Consistent rows)
+    expect(screen.queryByTestId("ec-live-policy-beta")).not.toBeInTheDocument();
   });
 });

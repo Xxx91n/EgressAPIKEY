@@ -495,6 +495,7 @@
     "refresh": "Şimdi yeniden doğrula",
     "lastCheckedAt": "Son doğrulama",
     "notRecorded": "kayıt yok",
+    "livePolicy": "Canlı politika",
     "resinDown": "Resin sidecar çalışmıyor; canlı değerler kullanılamıyor, istenen taraf whitebox'ı yansıtmaya devam ediyor.",
     "loading": "Etkin yapılandırma okunuyor…",
     "noEntries": "Yapılandırılmış platform veya bağlantı noktası yok.",

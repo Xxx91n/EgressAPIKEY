@@ -495,6 +495,7 @@
     "refresh": "立即复验",
     "lastCheckedAt": "上次核验",
     "notRecorded": "无记录",
+    "livePolicy": "实况策略",
     "resinDown": "Resin sidecar 未运行；实况值不可用，期望态仍显示白盒内容。",
     "loading": "正在读取生效配置…",
     "noEntries": "尚未配置任何平台或端口。",

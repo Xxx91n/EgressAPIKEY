@@ -495,6 +495,7 @@
     "refresh": "지금 다시 확인",
     "lastCheckedAt": "마지막 확인",
     "notRecorded": "기록 없음",
+    "livePolicy": "실시간 정책",
     "resinDown": "Resin 사이드카가 실행 중이 아니어서 실시간 값을 사용할 수 없습니다. 기대 상태는 화이트박스 내용을 표시합니다.",
     "loading": "유효 설정을 읽는 중…",
     "noEntries": "구성된 플랫폼이나 포트가 없습니다.",

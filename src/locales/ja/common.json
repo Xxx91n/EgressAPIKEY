@@ -495,6 +495,7 @@
     "refresh": "今すぐ再確認",
     "lastCheckedAt": "最終確認",
     "notRecorded": "記録なし",
+    "livePolicy": "実況ポリシー",
     "resinDown": "Resin サイドカーが起動していないため、実況値を取得できません。期待状態は白ボックスの内容を表示します。",
     "loading": "有効設定を読み込み中…",
     "noEntries": "プラットフォームもポートも設定されていません。",

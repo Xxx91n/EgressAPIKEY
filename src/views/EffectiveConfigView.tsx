@@ -170,6 +170,17 @@ function liveRegions(p: StrategySnapshot): string {
   return ""; // missingOnResin: no live value exists.
 }
 
+// A-002 (round9 ticket 02): the Consistent row also surfaces the live
+// allocation_policy Resin reported for the platform — the D-002 two-axis
+// reconcile already keeps it equal to the whitebox, so this is the visible
+// proof of the policy axis on the converged row. Divergent rows keep the
+// region-only layout: the snapshot already shows the drift, and the
+// reconcile preview owns the "live -> desired" policy/region wording.
+function livePolicy(p: StrategySnapshot): string {
+  if (p.state === "consistent") return p.resin_allocation_policy;
+  return "";
+}
+
 export function EffectiveConfigView() {
   const { t } = useTranslation();
   const [snap, setSnap] = useState<AuthoritativeSnapshot | null>(null);
@@ -340,6 +351,12 @@ export function EffectiveConfigView() {
                     {liveRegions(p) || t("effectiveConfig.notRecorded")}
                   </div>
                 </div>
+                {p.state === "consistent" ? (
+                  <div data-testid={"ec-live-policy-" + p.platform_name} className="font-mono text-xs">
+                    <span className="text-zinc-400">{t("effectiveConfig.livePolicy")}: </span>
+                    {livePolicy(p) || t("effectiveConfig.notRecorded")}
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
