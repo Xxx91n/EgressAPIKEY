@@ -66,3 +66,5 @@ echo "[verify] bilingual README alignment (ticket 03, spec D-06)"
 node scripts/readme-lang-check.cjs
 echo "[verify] upstream router integrity (ticket 14, spec D-C3.9)"
 node scripts/upstream-router-check.cjs
+echo "[verify] contracts (mode-a contract gate, ADR-0068 D4 / round9 D-001)"
+node scripts/mode-a-contract-check.cjs
