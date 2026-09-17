@@ -42,7 +42,7 @@ npx vite build
 # path that actually ships to users: custom-protocol is the ONLY feature that
 # embeds dist/ into the GUI exe. It MUST run AFTER `vite build` - with
 # custom-protocol on, tauri::generate_context! resolves frontendDist (../dist)
-at compile time and fails when the directory is missing, and dist/ is
+# at compile time and fails when the directory is missing, and dist/ is
 # gitignored, so a fresh CI checkout has none.
 if [ "$IS_CI" = "true" ]; then
   if [ "$(uname -s 2>/dev/null)" = "Linux" ] || [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
