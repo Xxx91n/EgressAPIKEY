@@ -519,6 +519,37 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
 /// to announce a restart (emit "restarting" + backoff) without killing or
 /// respawning anything.
 ///
+/// Resolves per-user app data + log dirs via the Tauri path resolver, then
+/// delegates to `restart_into_slot` (the testable core).
+///
+/// BLOCKING (std::process + blocking reqwest + thread::sleep): callers MUST
+/// run this on a blocking pool (tokio::task::spawn_blocking), never directly
+/// on an async worker thread.
+pub(crate) fn restart_resin<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
+    let Some(state) = app.try_state::<SidecarHandle>() else {
+        return Err(anyhow!("sidecar: restart requested before SidecarHandle is managed"));
+    };
+    let path = app.path();
+    let app_data = path
+        .app_data_dir()
+        .context("sidecar: cannot resolve app_data_dir for restart")?;
+    let state_dir = app_data.join("resin-state");
+    let cache_dir = app_data.join("resin-cache");
+    let log_dir = path
+        .app_log_dir()
+        .unwrap_or_else(|_| app_data.join("logs"))
+        .join("resin");
+    let binary_path = resolve_resin_binary(None)?;
+    let network = read_network_config(&app_data);
+
+    restart_into_slot(&state, state_dir, cache_dir, log_dir, binary_path, network)
+}
+
+/// Core of `restart_resin`: two-phase shutdown + slot-preserving respawn.
+/// Extracted (round9 ticket 04 / D-004 B') so the kill, respawn, and mode
+/// transitions are unit-testable against a tempdir + the real resin binary
+/// without an AppHandle or MockRuntime path resolution.
+///
 /// Sequence (ADR-0016 Q5 two-phase shutdown, then a fresh spawn):
 ///   1. Running -> NotRunning, take the child out of the handle
 ///   2. kill + wait SHUTDOWN_WAIT_MS + try_wait (port/SQLite lock released)
@@ -529,10 +560,14 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
 /// BLOCKING (std::process + blocking reqwest + thread::sleep): callers MUST
 /// run this on a blocking pool (tokio::task::spawn_blocking), never directly
 /// on an async worker thread.
-pub(crate) fn restart_resin<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
-    let Some(state) = app.try_state::<SidecarHandle>() else {
-        return Err(anyhow!("sidecar: restart requested before SidecarHandle is managed"));
-    };
+fn restart_into_slot(
+    state: &SidecarHandle,
+    state_dir: std::path::PathBuf,
+    cache_dir: std::path::PathBuf,
+    log_dir: std::path::PathBuf,
+    binary_path: std::path::PathBuf,
+    network: NetworkConfig,
+) -> Result<()> {
     let slot = state.respawn_slot();
     tracing::warn!("ghost: restarting sidecar on port {}", slot.port);
 
@@ -551,19 +586,6 @@ pub(crate) fn restart_resin<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
         }
     }
     state.set_mode(RunningMode::Starting);
-
-    let path = app.path();
-    let app_data = path
-        .app_data_dir()
-        .context("sidecar: cannot resolve app_data_dir for restart")?;
-    let state_dir = app_data.join("resin-state");
-    let cache_dir = app_data.join("resin-cache");
-    let log_dir = path
-        .app_log_dir()
-        .unwrap_or_else(|_| app_data.join("logs"))
-        .join("resin");
-    let binary_path = resolve_resin_binary(None)?;
-    let network = read_network_config(&app_data);
 
     let fresh = respawn_resin_await_healthz(
         &state_dir, &cache_dir, &log_dir, &binary_path, &network,
@@ -1102,6 +1124,105 @@ mod tests {
     fn assign_sidecar_to_job_object_stub_returns_none() {
         let handle = assign_sidecar_to_job_object(12345);
         assert!(handle.is_none(), "non-Windows stub should always return None");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn restart_into_slot_kills_mock_child_and_respawns_to_running() {
+        // round10 ticket 04 regression lock (A-005 / D-004 B'): after killing
+        // a mock child, restart_into_slot must respawn the real resin binary
+        // on the SAME port, flip mode back to Running, and keep api_port
+        // unchanged. Requires the real resin binary (CI fetches it via
+        // scripts/fetch_resin.sh); skips gracefully when absent.
+        let binary_path = match resolve_resin_binary(None) {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("skip: resin binary not available: {e}");
+                return;
+            }
+        };
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+
+        let tmp = std::env::temp_dir().join(format!(
+            "egressapikey-t04-restart-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let state_dir = tmp.join("resin-state");
+        let cache_dir = tmp.join("resin-cache");
+        let log_dir = tmp.join("logs").join("resin");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        std::fs::create_dir_all(&cache_dir).unwrap();
+        std::fs::create_dir_all(&log_dir).unwrap();
+
+        // Mock child: a sleeper the kill phase can take() and kill().
+        let dummy = std::process::Command::new("sleep")
+            .arg("60")
+            .spawn()
+            .expect("spawn sleep");
+
+        let h = SidecarHandle {
+            child: Mutex::new(Some(dummy)),
+            mode: std::sync::RwLock::new(RunningMode::Running),
+            log_buf: LogBuffer::new(),
+            api_port: port,
+            admin_token: "t04-test-admin-token".to_string(),
+            proxy_token: String::new(),
+            healthz_last_check: std::sync::RwLock::new(String::new()),
+            #[cfg(target_os = "windows")]
+            job_handle: None,
+        };
+
+        assert_eq!(h.mode(), RunningMode::Running, "pre: handle starts Running");
+        let before_port = h.api_port;
+
+        let network = NetworkConfig::default();
+        let result = restart_into_slot(
+            &h,
+            state_dir,
+            cache_dir,
+            log_dir,
+            binary_path,
+            network,
+        );
+
+        if let Err(e) = &result {
+            if let Some(mut c) = h.child.lock().unwrap().take() {
+                let _ = c.kill();
+                let _ = c.wait();
+            }
+            let _ = std::fs::remove_dir_all(&tmp);
+            panic!("restart_into_slot failed: {e:#}");
+        }
+
+        // Acceptance (2): mock child kill -> mode back to Running.
+        assert_eq!(
+            h.mode(),
+            RunningMode::Running,
+            "post: mode must be Running after restart"
+        );
+        // Acceptance (3): api_port unchanged (RespawnSlot contract).
+        assert_eq!(
+            h.api_port, before_port,
+            "post: api_port must be unchanged"
+        );
+        // Acceptance (1): a NEW child was spawned (not just a kill).
+        assert!(
+            h.child.lock().unwrap().is_some(),
+            "post: a new resin child must be present after restart"
+        );
+
+        if let Some(mut c) = h.child.lock().unwrap().take() {
+            let _ = c.kill();
+            let _ = c.wait();
+        }
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }
 

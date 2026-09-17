@@ -21,6 +21,11 @@ echo "[verify] cargo test"
 if [ "$IS_CI" = "true" ]; then
   if [ "$(uname -s 2>/dev/null)" = "Linux" ] || [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
     cargo test -p resin-core --quiet
+    # round10 ticket 04 (A-005 / D-004 B'): run the app-crate lib tests
+    # on CI so the restart_into_slot regression lock (sidecar.rs
+    # #[cfg(test)]) produces real evidence. Scoped to --lib to avoid the
+    # specta bindings integration test (tests/bindings_export.rs).
+    cargo test -p egressapikey-app --lib --quiet
   else
     cargo test --workspace --quiet
   fi

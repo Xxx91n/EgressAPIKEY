@@ -120,34 +120,22 @@ pub async fn reset_kernel(
     sidecar_restart(&app, &sidecar).await
 }
 
-/// shared kill+restart helper. Kills the Resin child process and
-/// re-runs boot_resin() to get a fresh sidecar. The old CommandChild is
-/// consumed; a new one replaces it.
+/// shared kill+restart helper. Delegates to the Ghost-tested restart seam
+/// `crate::sidecar::restart_resin` (ADR-0016 Q5 two-phase shutdown +
+/// RespawnSlot-preserving respawn, round8-07 / round9 D-004 B'). BLOCKING by
+/// contract — restart_resin parks on std::process + blocking reqwest healthz
+/// polls, so it runs on the blocking pool, never on the async runtime
+/// directly (mirrors the Ghost caller in sidecar.rs). Failure surfaces as
+/// IpcError so the UI can show why the restart failed.
 pub async fn sidecar_restart(
-    _app: &tauri::AppHandle,
-    sidecar: &State<'_, SidecarHandle>,
+    app: &tauri::AppHandle,
+    _sidecar: &State<'_, SidecarHandle>,
 ) -> Result<(), IpcError> {
-    // Kill existing child if present.
-    {
-        let mut guard = sidecar.child.lock().unwrap_or_else(|e| e.into_inner()); // ponytail: poison-safe, matches AGENTS §7.5 no-panic-in-production
-        if let Some(mut child) = guard.take() {
-            let _ = child.kill();
-            tracing::info!("T8-6: killed existing sidecar child");
-        }
-    }
-    // Re-boot: the boot_resin function is called from main.rs setup,
-    // but we cannot call it directly from here (it needs app handle
-    // lifecycle hooks). Instead, emit an event that main.rs listens
-    // to and triggers re-boot. For now, we return Ok(()) and the
-    // tray/health-poller will detect the dead sidecar and surface
-    // the unhealthy state. A full re-boot requires the app to re-run
-    // boot_resin — the simplest path is app.restart() which Tauri
-    // supports natively. BUT that would close the webview too.
-    //
-    // Ponytail: the shortest viable path is to tell the user the
-    // sidecar was killed and they need to restart the app. A future
-    // iteration can wire a hot-restart via tauri::Manager.
-    tracing::warn!("T8-6: sidecar killed; user should restart the app to bring it back");
+    let restart_app = app.clone();
+    tokio::task::spawn_blocking(move || crate::sidecar::restart_resin(&restart_app))
+        .await
+        .map_err(|e| IpcError::from(format!("sidecar_restart: blocking task failed: {e}")))?
+        .map_err(|e| IpcError::from(format!("sidecar_restart: {e:#}")))?;
     Ok(())
 }
 
