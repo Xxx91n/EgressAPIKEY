@@ -1024,7 +1024,7 @@ impl egressapikey_app::commands::ResinEndpointSource for PortCtx {
 }
 
 /// Translate the shared implementation
-'s typed error into a headless HTTP
+/// 's typed error into a headless HTTP
 /// status. Validation-class rejections stay 400; a bind conflict is 409;
 /// everything the shared implementation reports around the L3 (Resin) step is
 /// a 502 on the upstream engine.

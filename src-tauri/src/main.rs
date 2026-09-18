@@ -438,8 +438,10 @@ fn main() {
                         // observed when the GUI exe runs tasklist at quit. Without
                         // this flag, Windows briefly allocates a console for the
                         // child even though stdout/stderr are captured.
-                        use std::os::windows::process::CommandExt;
+                        // (round10 closeout: cfg-guarded so Linux CI can compile the GUI bin -- os::windows::process::CommandExt is Windows-only)
+                        #[cfg(target_os = "windows")]
                         let alive = {
+                            use std::os::windows::process::CommandExt;
                             let mut cmd = std::process::Command::new("tasklist");
                             cmd.creation_flags(0x08000000);
                             let out = cmd
@@ -453,6 +455,8 @@ fn main() {
                                 Err(_) => false,
                             }
                         };
+                        #[cfg(not(target_os = "windows"))]
+                        let alive: bool = false;
                         match egressapikey_app::sidecar::two_phase_shutdown_result(true, alive) {
                             Ok(()) => tracing::info!("sidecar two-phase shutdown: PID {pid} reaped cleanly"),
                             Err(e) => tracing::warn!("sidecar two-phase shutdown: PID {pid} {e}"),

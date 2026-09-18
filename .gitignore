@@ -64,7 +64,7 @@ Desktop.ini
 
 # tauri build artifacts
 src-tauri/gen/
-src-tauri/icons/
+src-tauri/icons/*
 !src-tauri/icons/*.png
 !src-tauri/icons/*.icns
 !src-tauri/icons/*.ico
