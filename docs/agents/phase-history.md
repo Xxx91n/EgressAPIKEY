@@ -782,3 +782,24 @@ land/push：2026-09-06 用户授权后完成——主栈（01→02→02-fix1→0
 **收口 gate（2026-09-16 审计复跑）**：六守卫本机 6/6 exit=0（i18n 524×18 / manifest 79 / license 6 / readme-lang 17 / upstream-router 9 / vitest-isolation）+ git diff --check clean；CI verify 全量绿。main 两枚未闭合红旗：① Docs Governance 自 9981dd83 连红 3 推（PERF-BENCH.md:42 MD040）；② headless 编译/接线缺口——两者都在 push→verify 的覆盖盲区（Linux 只编译 resin-core），坐实「合并树/编译预检」必须立项。
 
 **frontier 与候选立票（4 项，待裁决）**：① 编译/合并树预检票（verify 增补 src-tauri 编译覆盖 + 注释剥离语义守卫；B1 第三次复现教训）；② Data-Plane Mode 切换键（D-001 后续，L2 归类待定）；③ 30min 长 soak + 非争用复测 non200 定性（T04 未决议）；④ Mode B 引擎 forward.go flush 缺陷回呈上游（D-001 fork 后备触发器观察项）。
+
+### 73. Round 10 close-out — 锐评终裁、控制面安全恢复与持续控制器最小闭环（2026-09-18）
+
+**范围**：spec 引 `.scratch/architecture-recovery/spec.md`（IMP-1..IMP-7 + REC-1，覆盖 A-001..A-012）。数据源 = 锐评 12 项摩擦点（.codex-tmp/rui.txt，P0x4 + P1x6 + P1/P2x1 + P2x1）+ round9-grill D-001..D-010。8 票（01-08）两波执行 + 两波首脑复核 + 整轮收口审计。账本结算 8 implemented + 3 deferred + 1 round8-carried = 12/12，无 stale。
+
+**八票成果（CI 证据链全部 gh run view 亲自核实）**：
+
+- **T01 合同门禁（A-001）**：ADR-0068 D4 四场景 + t17 身份归属从手动复测转 CI 强制门禁（mode-a-contract-check.cjs 424 行 + repro/t17-contract/README + RELEASE.md +17）；a27d85f7，run 35190600026 绿；收口复跑本机 13/0（真实 socket 探针含身份归属 + request-logs）
+- **T02 Live policy（A-002）**：EffectiveConfigView Consistent 行渲染 resin_allocation_policy（livePolicy() :179 + 渲染 :356）+ 18 locale；c590850d，run 35183034191 绿
+- **T03 Guard 恢复（A-003+A-004）**：f682940e 剥离的 146 行接线从 f18f365b 逐块恢复（import/CLI/resolve_token 拒启/HeadlessGuard::new/.layer/security_guard 本体）+ 5 个驱动真实 build_router 的集成回归锁（401/403/cookie/query+body）+ verify-build 非 Windows 分支加 cargo check --features headless --all-targets；d32e2aa3，后续 run 闭合
+- **T04 reset_kernel（A-005）**：sidecar_restart 从 kill-only 改为 spawn_blocking 委托 Ghost 已测的 restart_resin（两阶段关闭 + RespawnSlot）；restart_into_slot 抽取为可测核心 + mock-child 回归锁；verify-build 挂 --lib 门禁——**首推红（35231385115）暴露 5 处 pre-existing app-crate latent breakage**（tray.rs / converge_mirror_tooltip 4-arg / AuthoritativeSnapshot 字面量 / backup.rs std imports / ports.rs Send+Sync），CI repair 717b24d6 修复后 35234014014 绿；f682940e 漏检根因第三次实证
+- **T05 孤儿清理（A-008）**：subscription_remove 反向尾巴 remove_default_port_if_orphaned（pipeline.rs:894 + platform.rs:451）+ ensure_default_port 补偿（create-then-write 窗口 DELETE 本轮创建的 endpoint）+ 7 新测试（e2e +284 行）；0100f484，run 35196861252 绿
+- **T06 工程边角（A-011）**：#1+#2 custom-protocol GUI 门禁（verify-build L56-57，与 T03 headless 各占一轴）；#3 DISABLED_COMMANDS 43→44（归档报告 :193）；#7 codegraph "mandatory→Recommended, not enforced"（AGENTS.md 两处 diff）；#5 readme-lang-check 第 18 check（fenceInfoStrings EN↔CN code fence 镜像）；#8 vitest-isolation-guard 泛化（targets discovered not hardcoded，单行+两步 pattern，明确拒绝 blanket-ban）；8db7303a + closeout-fix b6e3494d（bare-word `at` line 修复）；**CI 红系栈序问题非代码缺陷**（06 ancestry 不含 04 CI repair，单独 push 暴露 latent breakage），全栈 land 后消解
+- **T07 Controller 调研（A-012 调研半）**：atomcode 12 来源三引擎交叉；Resin v1.2.0 无 controller 接口；三选项呈报，用户拍板 (b) 最小形
+- **T08 Controller 实施（A-012 实施半）**：drive_due 注入时钟纯函数（pipeline.rs:241）只驱动用户已 enqueue 的 due 重试（不自动入队）+ Failed-chip 重试按钮走既有 subscription_add IPC + SubscriptionSnapshotEntry.url 投影 + 过时注释更正 + 18 locale retryOk 全覆盖（node 全量脚本 NONE missing）；16116b17，run 35242213832 绿
+
+**复核与审计记录**：W1（5 票，实物证据对照表登记 README）；W2（3 票）；Closeout（CI 终态表 + 8 守卫本机绿 + 三层一致 + 账本结算）。交叉核对修正 3 处 stale CI 声明（06 "待 push"→实已 push 红、08 "未 push"→实已 push 绿、A-012 同）。
+
+**过程发现**：decision-ledger A-011/A-012 编号与 spec 倒置（票 06/08 独立登记，收口时按 spec 口径对调修正）；票 02 分支名 round9-02 口径错（内容无影响）；verify-build.sh bare-word line bash -n 不可见（runtime exit 127，closeout-fix 修复）。
+
+**收口 gate（2026-09-18）**：8 守卫本机全绿（bash -n verify-build / i18n 529x18 / ipc-manifest 79 / readme-lang 18 checks / license 6 / vitest-isolation 8 files / upstream-router 9 / mode-a-contract 13/0）+ git diff --check clean；三层一致（CONTEXT.md 6 术语 + ADR 五份 + 代码 rg 全符号）；账本 12/12 结算；全栈 land 经用户明确授权执行。
