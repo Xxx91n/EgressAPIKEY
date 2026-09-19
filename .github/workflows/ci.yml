@@ -191,6 +191,10 @@ jobs:
     needs: verify
     # Release-track job: manual dispatch only (ADR-0010 Track 2).
     if: github.event_name == 'workflow_dispatch'
+    # tauri-action creates the draft GitHub release + uploads installer
+    # assets (releaseName/tagName below) — the default token is read-only.
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
