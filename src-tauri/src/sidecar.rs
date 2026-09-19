@@ -11,11 +11,12 @@
 //!   server-side trust only — they NEVER cross into the webview. The webview
 //!   can only reach Resin through the Rust-side ResinClient (G2) which holds
 //!   this handle's admin token.
-//! - We pick a free port up front (TCP bind :0 then drop) and tell Resin to
-//!   listen on it. Avoids races where Resin picks first.
+//! - We pick a free port up front (TCP bind :0, probe listener held until
+//!   just before spawn) and tell Resin to listen on it. A foreign process
+//!   can still win the residual exec->bind race, so a cold boot re-picks on
+//!   the lost-race signature (bounded by PORT_PICK_ATTEMPTS).
 //!
-//! Ponytail: do NOT add a retry/restart loop here — that is Ghost safety net
-//! (G3), separate file, separate concerns.
+//! Crash-restart loops live in the Ghost safety net (G3), not here.
 use std::collections::VecDeque;
 use std::net::TcpListener;
 use std::sync::Arc;
@@ -24,7 +25,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
-// Q6 fix: bypass tauri_plugin_shell .sidecar() which spawns a child via the
+// Bypass tauri_plugin_shell .sidecar() which spawns a child via the
 // plugin layer — the plugin does NOT set CREATE_NO_WINDOW, so a console
 // window flashes on every quit of the GUI. We use std::process::Command
 // directly with creation_flags(0x08000000) on Windows to suppress the console.
@@ -41,7 +42,7 @@ use resin_core::NetworkConfig;
 ///   NotRunning -> Starting -> Running  (boot_resin success path)
 ///   Running -> NotRunning              (exit hook / crash)
 ///   Starting -> NotRunning             (boot timeout)
-/// Ponytail: std RwLock, not arc-swap crate — mode transitions are rare
+/// std RwLock (no arc-swap dep): mode transitions are rare
 /// (boot, crash, shutdown), so RwLock contention is negligible.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunningMode {
@@ -180,18 +181,47 @@ impl SidecarHandle {
 ///
 /// Timeout: 15s (matches the Ghost safety-net reference but uses HTTP poll
 /// rather than stdout because Resin's design is HTTP-first).
-/// Pick a free loopback TCP port up front so the resin child can bind it.
-/// Returns (port, dummy_listener_dropped).
-fn pick_free_loopback_port() -> Result<u16> {
+/// Pick a free loopback TCP port for the resin child to bind. The probe
+/// listener is returned ALIVE: the caller drops it immediately before
+/// `Command::spawn` so the port stays claimed through command setup,
+/// shrinking the probe->bind race window to the child's own exec+bind.
+/// A lost race is retried by the caller (see PortRaceLost).
+fn pick_free_loopback_port() -> Result<(u16, TcpListener)> {
     let listener = TcpListener::bind("127.0.0.1:0")
         .context("sidecar: failed to allocate a free port for Resin")?;
     let port = listener
         .local_addr()
         .context("sidecar: listener has no local addr")?
         .port();
-    drop(listener);
-    Ok(port)
+    Ok((port, listener))
 }
+
+/// Marker error: the picked port was claimed by a foreign process before the
+/// resin child could bind it — the probe->bind TOCTOU race was lost. The
+/// child is already dead when this is produced (a live child could be the
+/// legitimate holder). Cold boots catch it and re-pick a fresh port;
+/// respawn slots keep their fixed port and surface it as a hard error.
+#[derive(Debug)]
+struct PortRaceLost {
+    port: u16,
+}
+
+impl std::fmt::Display for PortRaceLost {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "sidecar: port 127.0.0.1:{} was claimed by another process before resin could bind it",
+            self.port
+        )
+    }
+}
+
+impl std::error::Error for PortRaceLost {}
+
+/// Bound on cold-boot port re-picks. Retrying is only meaningful for a lost
+/// probe->bind race (PortRaceLost); any other failure is returned on the
+/// first attempt.
+const PORT_PICK_ATTEMPTS: u32 = 3;
 
 /// Resolve the resin sidecar binary by host triple. Tries `binary_dir`
 /// (CLI-supplied) first, then packaged resource_dir, then dev fallback.
@@ -333,18 +363,78 @@ fn spawn_resin_inner(
         state_dir, cache_dir, log_dir
     );
 
-    let (api_port, admin_token) = match &slot {
-        Some(s) => (s.port, s.admin_token.clone()),
-        None => (pick_free_loopback_port()?, gen_token()),
-    };
-    if let Some(s) = &slot {
-        // CONTEXT Port Cleanup / ADR-0016 Q4: refuse to spawn into a port
-        // that is still held. A silent bind failure would otherwise look
-        // like a successful restart while no control plane ever came up.
-        check_port_available(s.port).map_err(|e| {
-            anyhow!("sidecar: restart cannot rebind 127.0.0.1:{}: {e}", s.port)
-        })?;
+    match &slot {
+        Some(s) => {
+            // CONTEXT Port Cleanup / ADR-0016 Q4: refuse to spawn into a port
+            // that is still held. A silent bind failure would otherwise look
+            // like a successful restart while no control plane ever came up.
+            check_port_available(s.port).map_err(|e| {
+                anyhow!("sidecar: restart cannot rebind 127.0.0.1:{}: {e}", s.port)
+            })?;
+            spawn_resin_on_port(
+                binary_path,
+                network,
+                s.port,
+                s.admin_token.clone(),
+                slot.as_ref(),
+                None,
+                log_buf,
+            )
+        }
+        None => {
+            // A foreign process can still win the residual exec->bind race
+            // after the probe listener drops. Re-pick only on the lost-race
+            // signature; bounded so an exhausted ephemeral range cannot
+            // loop forever.
+            let mut last_err: Option<anyhow::Error> = None;
+            for attempt in 1..=PORT_PICK_ATTEMPTS {
+                let (api_port, probe) = pick_free_loopback_port()?;
+                let admin_token = gen_token()?;
+                match spawn_resin_on_port(
+                    binary_path,
+                    network,
+                    api_port,
+                    admin_token,
+                    None,
+                    Some(probe),
+                    log_buf.clone(),
+                ) {
+                    Ok(h) => return Ok(h),
+                    Err(e) => {
+                        let lost_race = e.downcast_ref::<PortRaceLost>().is_some();
+                        if lost_race && attempt < PORT_PICK_ATTEMPTS {
+                            tracing::warn!(
+                                "sidecar: port pick attempt {attempt}/{PORT_PICK_ATTEMPTS} lost the bind race; re-picking"
+                            );
+                            last_err = Some(e);
+                            continue;
+                        }
+                        return Err(e);
+                    }
+                }
+            }
+            Err(last_err
+                .unwrap_or_else(|| anyhow!("sidecar: could not allocate a loopback port")))
+        }
     }
+}
+
+/// Spawn one resin child on a concrete port and wait for /healthz (15s
+/// deadline). `probe` is the still-bound listener from
+/// pick_free_loopback_port; it is released immediately before
+/// `Command::spawn` so the port stays claimed through command setup.
+/// `_slot` is the respawn identity (same port/token + Windows job object
+/// reuse); None on a cold boot. Unused off Windows — the job object is a
+/// Windows-only concern.
+fn spawn_resin_on_port(
+    binary_path: &std::path::Path,
+    network: &NetworkConfig,
+    api_port: u16,
+    admin_token: String,
+    _slot: Option<&RespawnSlot>,
+    probe: Option<TcpListener>,
+    log_buf: Option<Arc<LogBuffer>>,
+) -> Result<SidecarHandle> {
     // empty proxy_token enables no-auth on ports where require_proxy_auth_info=0.
     // Resin socks5.go:261 — when s.token=="" the OR condition is false, so the
     // else branch accepts NoAuth(0x00) + UserPass(0x02). forward.go:103 — when
@@ -394,6 +484,12 @@ fn spawn_resin_inner(
         cmd.creation_flags(0x08000000);
     }
 
+    // Release the probe listener as late as possible: the port stays
+    // claimed through the whole env setup, so only the child's own
+    // exec+bind is uncovered. A lost race surfaces as PortRaceLost and the
+    // cold-boot caller re-picks.
+    drop(probe);
+
     // Startup latency = spawn initiation -> first /healthz success.
     let spawn_started = Instant::now();
     let mut child = cmd.spawn().context("sidecar: failed to spawn resin binary")?;
@@ -405,7 +501,7 @@ fn spawn_resin_inner(
     // the child becomes orphan. This is an accepted limitation (same as
     // clash-verge-rev); a suspended-create fix requires patching tauri-plugin-shell.
     #[cfg(target_os = "windows")]
-    let job_handle = assign_sidecar_to_job(child.id(), slot.as_ref().and_then(|s| s.job));
+    let job_handle = assign_sidecar_to_job(child.id(), _slot.and_then(|s| s.job));
 
     let log_buf = log_buf.unwrap_or_else(LogBuffer::new);
     let drain_buf = log_buf.clone();
@@ -442,6 +538,13 @@ fn spawn_resin_inner(
         .context("sidecar: blocking client build")?;
     let mut last_err: Option<String> = None;
     while Instant::now() < deadline {
+        // A child that dies during startup (e.g. its bind lost the
+        // probe->bind race) never reaches /healthz; bail out now instead
+        // of burning the whole deadline.
+        if let Ok(Some(status)) = child.try_wait() {
+            last_err = Some(format!("resin exited during startup: {status}"));
+            break;
+        }
         let url = format!("{base}/healthz");
         match client.get(&url).send() {
             Ok(r) if r.status().is_success() => {
@@ -467,7 +570,19 @@ fn spawn_resin_inner(
         std::thread::sleep(Duration::from_millis(250));
     }
 
-    let _ = child.kill();
+    // Guarantee the child is dead before judging the port: only then does
+    // a still-bound port unambiguously belong to a foreign process — the
+    // lost probe->bind race the cold-boot caller retries on.
+    match child.try_wait() {
+        Ok(Some(_)) => {} // already exited and reaped
+        _ => {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+    if check_port_available(api_port).is_err() {
+        return Err(PortRaceLost { port: api_port }.into());
+    }
     let port_hint = match check_port_available(api_port) {
         Ok(()) => "port is free; sidecar likely crashed during startup".to_string(),
         Err(_) => "port is occupied by a stale process; kill it or use a different port".to_string(),
@@ -515,8 +630,8 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
     spawn_resin_await_healthz(&state_dir, &cache_dir, &log_dir, &binary_path, &network)
 }
 
-/// (ii): restart the sidecar FOR REAL - the Ghost safety net used
-/// to announce a restart (emit "restarting" + backoff) without killing or
+/// Restart the sidecar FOR REAL — the Ghost safety net must not merely
+/// announce a restart (emit "restarting" + backoff) without killing or
 /// respawning anything.
 ///
 /// Resolves per-user app data + log dirs via the Tauri path resolver, then
@@ -546,7 +661,7 @@ pub(crate) fn restart_resin<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
 }
 
 /// Core of `restart_resin`: two-phase shutdown + slot-preserving respawn.
-/// Extracted (round9 ticket 04 / D-004 B') so the kill, respawn, and mode
+/// Extracted (D-004 B') so the kill, respawn, and mode
 /// transitions are unit-testable against a tempdir + the real resin binary
 /// without an AppHandle or MockRuntime path resolution.
 ///
@@ -627,18 +742,15 @@ fn read_network_config(app_data: &std::path::Path) -> NetworkConfig {
     }
 }
 
-/// Generate a loopback-only secret token. Ponytail: use stdrand + Instant
-/// instead of pulling a uuid crate dep — 32 hex chars of entropy from
-/// SystemTime nanos + process id is plenty for a per-session localhost secret.
-fn gen_token() -> String {
-    use std::time::SystemTime;
-    let now = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    let pid = std::process::id() as u128;
-    let mix = now ^ (pid << 64) ^ (now.rotate_left(13));
-    format!("{mix:032x}")
+/// Generate a loopback-only admin token: 16 bytes from the OS CSPRNG,
+/// hex-encoded to the 32-lowercase-hex contract. Same entropy source as
+/// the headless --auth-token generator (headless_security::generate_token);
+/// time/pid entropy is not a cryptographic source (CWE-330/340).
+fn gen_token() -> Result<String> {
+    let mut bytes = [0u8; 16];
+    getrandom::getrandom(&mut bytes)
+        .context("sidecar: OS CSPRNG unavailable; cannot mint admin token")?;
+    Ok(hex::encode(bytes))
 }
 
 /// (ADR-0016 ): Check if a loopback TCP port is available to bind.
@@ -684,7 +796,7 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
         } else {
             let created = CreateJobObjectW(std::ptr::null(), std::ptr::null());
             if created.is_null() {
-                tracing::error!("T14-1: CreateJobObjectW failed: {}", std::io::Error::last_os_error());
+                tracing::error!("CreateJobObjectW failed: {}", std::io::Error::last_os_error());
                 return None;
             }
             created
@@ -700,7 +812,7 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
                 std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
             );
             if result == 0 {
-                tracing::error!("T14-1: SetInformationJobObject failed: {}", std::io::Error::last_os_error());
+                tracing::error!("SetInformationJobObject failed: {}", std::io::Error::last_os_error());
                 CloseHandle(job);
                 return None;
             }
@@ -708,7 +820,7 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
 
         let process_handle = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, 0, pid);
         if process_handle.is_null() {
-            tracing::error!("T14-1: OpenProcess({}) failed: {}", pid, std::io::Error::last_os_error());
+            tracing::error!("OpenProcess({}) failed: {}", pid, std::io::Error::last_os_error());
             if owned {
                 CloseHandle(job);
             }
@@ -716,7 +828,7 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
         }
 
         if AssignProcessToJobObject(job, process_handle) == 0 {
-            tracing::error!("T14-1: AssignProcessToJobObject failed: {}", std::io::Error::last_os_error());
+            tracing::error!("AssignProcessToJobObject failed: {}", std::io::Error::last_os_error());
             CloseHandle(process_handle);
             if owned {
                 CloseHandle(job);
@@ -726,7 +838,7 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
 
         CloseHandle(process_handle);
         tracing::info!(
-            "T14-1: sidecar PID {} assigned to Job Object (KILL_ON_JOB_CLOSE, reused={})",
+            "sidecar PID {} assigned to Job Object (KILL_ON_JOB_CLOSE, reused={})",
             pid, reused
         );
         Some(job as isize)
@@ -742,18 +854,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn gen_token_is_32_hex_chars() {
-        let t = gen_token();
+    fn gen_token_is_32_lowercase_hex_chars() {
+        let t = gen_token().expect("OS CSPRNG available");
         assert_eq!(t.len(), 32);
         assert!(t.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_eq!(t, t.to_ascii_lowercase(), "hex output must be lowercase");
     }
 
     #[test]
     fn gen_token_is_not_constant() {
-        let a = gen_token();
-        std::thread::sleep(Duration::from_millis(5));
-        let b = gen_token();
-        assert_ne!(a, b, "tokens should differ across calls");
+        let a = gen_token().expect("OS CSPRNG available");
+        let b = gen_token().expect("OS CSPRNG available");
+        assert_ne!(a, b, "two CSPRNG draws must differ");
+    }
+
+    #[test]
+    fn pick_free_loopback_port_keeps_probe_bound_until_drop() {
+        let (port, probe) = pick_free_loopback_port().unwrap();
+        // While the probe is held a second bind on the same port fails;
+        // after drop it succeeds. The spawn path relies on this
+        // claim->release (drop happens just before Command::spawn).
+        assert!(TcpListener::bind(("127.0.0.1", port)).is_err());
+        drop(probe);
+        assert!(TcpListener::bind(("127.0.0.1", port)).is_ok());
+    }
+
+    #[test]
+    fn port_race_lost_downcasts_through_anyhow() {
+        let e: anyhow::Error = PortRaceLost { port: 1234 }.into();
+        assert!(e.downcast_ref::<PortRaceLost>().is_some());
+        let other = anyhow!("spawn failed");
+        assert!(other.downcast_ref::<PortRaceLost>().is_none());
     }
 
     #[test]
@@ -1129,7 +1260,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn restart_into_slot_kills_mock_child_and_respawns_to_running() {
-        // round10 ticket 04 regression lock (A-005 / D-004 B'): after killing
+        // Regression lock (A-005 / D-004 B'): after killing
         // a mock child, restart_into_slot must respawn the real resin binary
         // on the SAME port, flip mode back to Running, and keep api_port
         // unchanged. Requires the real resin binary (CI fetches it via
@@ -1229,7 +1360,7 @@ mod tests {
 // ---------------------------------------------------------------------------
 // G3: Ghost safety net (health poll + tray + system proxy cutoff).
 //
-// - spec: docs/HANDOFF_PATH_A.md G3. We extend src-tauri/src/sidecar.rs.
+// - spec: Ghost safety net G3 (health poll + tray + system-proxy cutoff).
 // - safety posture: the Resin sidecar is the OS-facing proxy runtime. If it
 //   dies (crash, OOM-kill, malicious quit) we must NOT silently keep the
 //   desktop tray pretending the proxy is up, and we must NOT let a stale
@@ -1344,7 +1475,7 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
             let healthy = match client.get(&url).send().await {
                 Ok(r) if r.status().is_success() => {
                 if crate::commands::log_level_enabled(3) {
-                    tracing::debug!("ghost: /healthz ok (per-cycle, gated by T15-2 log level >=debug)");
+                    tracing::debug!("ghost: /healthz ok (per-cycle, gated by log level >=debug)");
                 }
                 true
             },
@@ -1459,7 +1590,7 @@ fn mark_tray_status<R: Runtime>(app: &AppHandle<R>, healthy: bool) -> tauri::Res
             }
             let _ = tray.set_tooltip(Some("EgressAPIKEY"));
         } else {
-            // 32x32 solid red icon — Ponytail: generate at runtime, no extra
+            // 32x32 solid red icon — generate at runtime: no extra
             // asset file, no github LFS, no branded-red variant to maintain.
             let mut rgba = vec![0u8; 32 * 32 * 4];
             for px in rgba.chunks_exact_mut(4) {

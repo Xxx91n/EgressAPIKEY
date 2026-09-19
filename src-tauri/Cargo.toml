@@ -23,7 +23,7 @@ required-features = ["headless"]
 
 
 [dependencies]
-# specta feature: ticket 09 pilot - IpcError/PortMapping derive specta::Type
+# specta feature: IpcError/PortMapping derive specta::Type
 # so the tauri-specta export can emit the typed error contract.
 resin-core = { path = "../crates/resin-core", features = ["specta"] }
 tokio = { workspace = true }
@@ -40,11 +40,17 @@ http-body-util = { workspace = true }
 bytes = { workspace = true }
 clap = { workspace = true }
 dirs = { workspace = true }
-# Ticket 03 (A-007): OS CSPRNG for the headless --auth-token. getrandom 0.2.17 is
-# already present in Cargo.lock as a transitive dependency, so this adds no new
-# crate to the dependency tree.
+# (A-007): OS CSPRNG for the headless --auth-token and the sidecar admin
+# token. getrandom 0.2.17 is already present in Cargo.lock as a transitive
+# dependency, so this adds no new crate to the dependency tree.
 getrandom = "0.2"
-# Ticket 09 (tauri-specta pilot): trio pinned with `=` per the upstream
+# Lowercase hex encoding for the sidecar admin token (gen_token) and the
+# headless CSPRNG token; 0.4.3 already sits in Cargo.lock transitively.
+hex = "0.4"
+# RFC 3986 percent-encoding for the headless BFF path segments; 2.3.2 is
+# already in Cargo.lock transitively via the url/reqwest tree.
+percent-encoding = "2.3"
+# (tauri-specta pilot): trio pinned with `=` per the upstream
 # rc.25 pairing (tauri-specta 2.0.0-rc.25 + specta 2.0.0-rc.25 +
 # specta-typescript 0.0.12) - beta versions break without exact pins.
 specta = "=2.0.0-rc.25"
@@ -58,7 +64,7 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
-# Ticket 16 / ADR-0054 §E: one-shot drift tray notification (best-effort).
+# ADR-0054 §E: one-shot drift tray notification (best-effort).
 tauri-plugin-notification = "2"
 # Single-instance guard (must be the FIRST plugin registered in main.rs):
 # clicking a second GUI exe focuses the existing window instead of spawning a
@@ -100,7 +106,7 @@ default = []
 custom-protocol = ["tauri/custom-protocol"]
 headless = []
 
-# T14-1: Windows Job Object for sidecar orphan prevention (clash-verge-rev PR #6853 pattern).
+# Windows Job Object for sidecar orphan prevention (clash-verge-rev PR #6853 pattern).
 # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE ensures the OS kills resin.exe even if the
 # GUI is force-terminated via Task Manager (RunEvent::Exit never fires).
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -112,6 +118,6 @@ windows-sys = { version = "0.59", features = [
 ] }
 
 [dev-dependencies]
-# Ticket 09: mock runtime for the bindings export test (headless; avoids
+# Mock runtime for the bindings export test (headless; avoids
 # pulling tao/comctl32 into the test binary - see specta_bindings.rs docs).
 tauri = { version = "2", features = ["test"] }
