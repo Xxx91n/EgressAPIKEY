@@ -703,9 +703,8 @@ fn validate_resolve_name(name: &str, field: &str) -> Result<(), IpcError> {
 }
 
 /// Extract the array from a Resin list response: the `{"items":[...]}`
-/// wrapper OR a bare array (Resin v1.2.0 uses both). Same contract as the
-/// shell-side `commands::items_arr` — the canonical resin-core helper every
-/// consumer in this crate routes through.
+/// wrapper OR a bare array (Resin v1.2.0 uses both). Canonical helper — the
+/// Tauri shell re-exports this as `commands::items_arr`.
 pub fn items_arr(v: &Value) -> &[Value] {
     if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
         return arr.as_slice();

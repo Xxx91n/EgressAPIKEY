@@ -42,15 +42,7 @@ pub use resin_core::map_resin_error;
 /// collections as `{"items":[...], "total", "limit", "offset"}`; a few
 /// legacy endpoints still return a bare array. Accept both so a future
 /// Resin API tightening cannot silently empty the UI.
-pub fn items_arr<'a>(v: &'a serde_json::Value) -> &'a [serde_json::Value] {
-    if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
-        return arr.as_slice();
-    }
-    if let Some(arr) = v.as_array() {
-        return arr.as_slice();
-    }
-    &[]
-}
+pub use resin_core::items_arr;
 
 /// Find a Resin endpoint ID by port number from the list-endpoints response.
 /// Handles both `{"items":[...]}` wrapper and bare-array shapes.

@@ -46,6 +46,9 @@ percent-encoding = "2.3"
 # civil-from-days). 0.4.45 is already in Cargo.lock transitively; alloc only,
 # no clock - the caller passes epoch seconds.
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
+# Lowercase-hex encoding for the audit hash chain; 0.4.3 is already in
+# Cargo.lock transitively via the Tauri shell's direct dep.
+hex = "0.4"
 # (tauri-specta pilot): optional, enabled only by the Tauri shell.
 specta = { version = "=2.0.0-rc.25", optional = true }
 
