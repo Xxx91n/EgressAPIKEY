@@ -203,7 +203,7 @@ function findResinBinary() {
   } catch (e) {
     return null;
   }
-    const candidates = entries.filter(n => n.startsWith('resin-') && !n.endsWith('.sha256') && !n.endsWith('.tar.gz') && !n.endsWith('.zip'));
+  const candidates = entries.filter(n => n.startsWith('resin-') && !n.endsWith('.sha256') && !n.endsWith('.tar.gz') && !n.endsWith('.zip'));
   const chosen = WIN ? candidates.find(n => n.endsWith('.exe')) : candidates.find(n => !n.endsWith('.exe'));
   const name = chosen || candidates[0];
   if (!name) return null;
@@ -286,8 +286,8 @@ async function main() {
       RESIN_REQUEST_LOG_QUEUE_FLUSH_INTERVAL: '2s',
     }),
   });
-  child.stdout.on('data', () => {});
-  child.stderr.on('data', () => {});
+  child.stdout.on('data', () => { });
+  child.stderr.on('data', () => { });
   let childDead = false;
   child.on('exit', () => { childDead = true; });
 
@@ -411,9 +411,9 @@ async function main() {
         JSON.stringify(sawRows.slice(0, 8).map(r => ({ acct: r.account, status: r.http_status, err: r.resin_error }))));
     }
   } finally {
-    try { child.kill(); } catch (e) {}
+    try { child.kill(); } catch (e) { }
     await sleep(300);
-    try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch (e) {}
+    try { fs.rmSync(tmpRoot, { recursive: true, force: true }); } catch (e) { }
   }
   summaryAndExit();
 }

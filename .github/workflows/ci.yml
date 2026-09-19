@@ -266,17 +266,21 @@ jobs:
           mkdir -p "$STAGE"
           # Cargo workspace emits to the ROOT target/ dir (src-tauri is a
           # workspace member, not a workspace root) — search both roots.
-          find "target/${{ matrix.target }}/release/bundle" \
-               "src-tauri/target/${{ matrix.target }}/release/bundle" \
-               "target/release/bundle" \
-               src-tauri/target/release/bundle \
-               -type f \( \
-            -name '*.msi' -o -name '*-setup.exe' -o \
-            -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' \) \
-               -print 2>/dev/null | while read -r f; do
-            cp "$f" "$STAGE/"
+          # find exits non-zero on missing dirs (pipefail) — filter first.
+          for d in "target/${{ matrix.target }}/release/bundle" \
+                   "src-tauri/target/${{ matrix.target }}/release/bundle" \
+                   "target/release/bundle" \
+                   "src-tauri/target/release/bundle"; do
+            [ -d "$d" ] || continue
+            find "$d" -type f \( \
+              -name '*.msi' -o -name '*-setup.exe' -o \
+              -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' \) \
+              -print | while read -r f; do
+              cp "$f" "$STAGE/"
+            done
           done
-          ls -lh "$STAGE" || true
+          [ "$(ls -A "$STAGE" 2>/dev/null)" ] || { echo "::error::no installer bundles staged"; exit 1; }
+          ls -lh "$STAGE"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}-installers
