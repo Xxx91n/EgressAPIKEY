@@ -1,12 +1,11 @@
 /**
- * Headless request guard + fetch dispatch (R11-04 boundary split out of
- * lib/ipc.ts).
+ * Headless request guard + fetch dispatch.
  *
  * Consumes the declarative route table (./headless-routes.ts) and the
  * disabled-command registry (./headless-availability.ts). lib/ipc.ts's
  * invoke() delegates to invokeHeadless() whenever isTauri() is false, so
- * R11 headless-parity work adds routes/capabilities in the two data modules
- * without ever touching the invoke-wrapper body.
+ * headless surface changes land in the two data modules and never touch
+ * the invoke-wrapper body.
  */
 import { CMD_TO_HTTP, type HttpRoute } from "./headless-routes";
 import { DISABLED_COMMANDS, IpcUnavailableError } from "./headless-availability";

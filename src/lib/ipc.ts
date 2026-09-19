@@ -14,9 +14,8 @@ import type { LogLevel, PortMapping } from "../bindings";
 // In the Tauri webview we use the native invoke(). In a plain browser
 // (headless npm server) the dispatch falls back to fetch("/api/v1/...")
 // which the headless axum reverse-proxy forwards to the local Resin sidecar.
-// R11-04 split the headless-mode knowledge out of this file so the R11
-// headless-parity work adds routes/capabilities without touching the
-// invoke-wrapper body:
+// Headless-mode knowledge lives in sibling modules so headless surface
+// changes never touch the invoke-wrapper body:
 //   ./headless-routes.ts       cmd -> REST route table (CMD_TO_HTTP)
 //   ./headless-availability.ts isTauri detection + DISABLED_COMMANDS + probe
 //   ./headless-dispatch.ts     request guard + fetch dispatch (invokeHeadless)

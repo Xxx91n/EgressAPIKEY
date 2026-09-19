@@ -1,11 +1,11 @@
 /**
- * Headless BFF route table (R11-04 boundary split out of lib/ipc.ts).
+ * Headless BFF route table.
  *
  * Maps Tauri command names to the HTTP route the headless reverse-proxy
  * exposes. This module is pure data: the capability registry lives in
  * ./headless-availability.ts and the request guard + fetch dispatch in
- * ./headless-dispatch.ts, so R11 headless-parity work adds routes here
- * without touching the invoke-wrapper body in lib/ipc.ts.
+ * ./headless-dispatch.ts, so adding a headless route never touches the
+ * invoke-wrapper body in lib/ipc.ts.
  */
 
 // --- dual-mode: cmd -> REST route map (ADR-0043 Q2=A) ---
@@ -61,9 +61,8 @@ export const CMD_TO_HTTP: Record<string, HttpRoute> = {
   platform_list_full:      { method: "GET",    path: "/api/v1/platforms" },
   // PATCH body stays in the IPC (camelCase) shape: the BFF owns the Resin
   // snake_case translation for this route (rewrite_patch_body_snake_case), so
-  // the SPA must NOT pre-rename - one place owns the Resin shape.
-  // The TS-side bodyKeys here was REVERTED, because the pre-existing
-  // contract test proved the SPA/BFF split was intentional, not an oversight.
+  // the SPA must NOT pre-rename - one place owns the Resin shape. The
+  // contract test locks this split: adding bodyKeys here would break it.
   platform_update:         { method: "PATCH",  path: "/api/v1/platforms" },
   // R08 full-schema create. The Tauri arg is already named `body`; unwrap it.
   platform_create_with_fields: { method: "POST", path: "/api/v1/platforms", bodyArg: "body" },

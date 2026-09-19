@@ -1,5 +1,5 @@
 /**
- * Headless capability registry (R11-04 boundary split out of lib/ipc.ts).
+ * Headless capability registry.
  *
  * Owns the headless-mode knowledge the UI and the dispatch share:
  *   - isTauri(): which runtime this SPA runs in (Tauri webview with the
@@ -65,8 +65,8 @@ export type CommandDisabledReason =
   | "desktop_only_os"
   | "desktop_only_local_path"
 
-/** 44 commands with no reachable HTTP semantics in headless mode (
- *  see .scratch/architecture-recovery-closed-2026-09-16/reports/02-headless-adapter-report.md).
+/** 44 commands with no reachable HTTP semantics in headless mode
+ *  (policy: docs/adr/0071-headless-parity-policy.md).
  *  Grouped by WHY, so a future change of circumstance has one place to edit. */
 export const DISABLED_COMMANDS: Record<string, CommandDisabledReason> = {
   // A-020: echo commands kept per AGENTS 7.6; removal condition not triggered.
