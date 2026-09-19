@@ -241,13 +241,26 @@ fn resolve_resin_binary(binary_dir: Option<&std::path::Path>) -> Result<std::pat
             return Ok(p);
         }
     }
+    // Desktop app path (binary_dir == None): release layouts ship the sidecar
+    // beside the app binary (externalBin/staged convention); CARGO_MANIFEST_DIR
+    // only exists on the build machine, so the exe dir is the portable root.
+    if binary_dir.is_none() {
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(exe_dir) = exe.parent() {
+                if let Some(p) = scan_for_resin_bin(exe_dir, arch, os, exe_suffix, &direct_name) {
+                    tracing::info!(resolved = ?p, "sidecar: resolved resin binary (exe dir)");
+                    return Ok(p);
+                }
+            }
+        }
+    }
     let dev_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("binaries");
     if let Some(p) = scan_for_resin_bin(&dev_dir, arch, os, exe_suffix, &direct_name) {
         tracing::info!(resolved = ?p, "sidecar: resolved resin binary (dev fallback)");
         return Ok(p);
     }
     Err(anyhow!(
-        "sidecar: resin binary not found in caller dir ({:?}) or src-tauri/binaries (arch={}, os={})",
+        "sidecar: resin binary not found in caller dir ({:?}), exe dir, or src-tauri/binaries (arch={}, os={})",
         binary_dir, arch, os
     ))
 }
@@ -285,6 +298,12 @@ fn scan_for_resin_bin(
             if name == direct_full {
                 return Some(e.path());
             }
+        }
+        // Bundled/staged installs rename the sidecar to the externalBin
+        // basename ('resin[.exe]') — accept it as a last-resort candidate so
+        // installer/portable layouts resolve the same way the dev tree does.
+        if name == format!("resin{}", exe_suffix) {
+            candidates.push(e.path());
         }
     }
     candidates.sort();
@@ -1065,6 +1084,42 @@ mod tests {
         assert_eq!(crash_backoff_ms(0), 1000, "attempt 0 -> 1s");
         assert_eq!(crash_backoff_ms(1), 2000, "attempt 1 -> 2s");
         assert_eq!(crash_backoff_ms(2), 4000, "attempt 2 -> 4s");
+    }
+
+    #[test]
+    fn scan_for_resin_bin_accepts_staged_plain_resin_name() {
+        // Release layouts (installer externalBin, portable stage, headless
+        // tarball) rename the sidecar to 'resin[.exe]' — the scan must accept
+        // the basename, not only the cargo-triple name.
+        let dir = std::env::temp_dir().join(format!(
+            "egressapikey-resin-scan-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("resin.exe"), b"x").unwrap();
+        let found = scan_for_resin_bin(
+            &dir,
+            "x86_64",
+            "windows",
+            ".exe",
+            "resin-x86_64-pc-windows.exe",
+        );
+        assert_eq!(found, Some(dir.join("resin.exe")));
+
+        std::fs::write(dir.join("resin"), b"x").unwrap();
+        let found = scan_for_resin_bin(
+            &dir,
+            "x86_64",
+            "linux",
+            "",
+            "resin-x86_64-unknown-linux-gnu",
+        );
+        assert_eq!(found, Some(dir.join("resin")));
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
