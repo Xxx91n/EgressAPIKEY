@@ -70,7 +70,7 @@ pub use ip_reputation::{
 };
 pub use port_forwarder::{parse_trace_body_ip, DataPlaneMode, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT};
 pub use port_health::PortHealthSnapshot;
-pub use resin_client::{resolve_id_in, validate_platform_name, ResinClient};
+pub use resin_client::{items_arr, resolve_id_in, validate_platform_name, ResinClient};
 pub use snapshot::{
     AuthoritativeSnapshot, ConvergePhase, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot,
     SubscriptionPhaseSnapshot, SubscriptionSnapshot,

@@ -18,10 +18,6 @@
 //! explicitly rejected: it is guessable from the process start window and is not
 //! a cryptographic source.
 //!
-//! Local reproduction of the rebinding primitive (pre-fix shape served the admin
-//! plane to `Host: evil.example` with HTTP 200; post-fix shape returns 403):
-//! `.scratch//repro/dns-rebinding-repro.cjs`; log in
-//! `.scratch//reports/03-headless-security-report.md`.
 
 /// Number of CSPRNG bytes per token, before hex encoding (32 bytes = 256 bits).
 const TOKEN_BYTES: usize = 32;
@@ -73,18 +69,7 @@ pub fn generate_token() -> Result<String, String> {
     let mut bytes = [0u8; TOKEN_BYTES];
     getrandom::getrandom(&mut bytes)
         .map_err(|e| format!("headless: OS CSPRNG unavailable: {e}"))?;
-    Ok(hex_encode(&bytes))
-}
-
-/// Lowercase hex encoding (stdlib only; no `hex` crate dependency).
-fn hex_encode(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for b in bytes {
-        out.push(HEX[(b >> 4) as usize] as char);
-        out.push(HEX[(b & 0x0f) as usize] as char);
-    }
-    out
+    Ok(hex::encode(bytes))
 }
 
 /// Startup gate. Decides the process token, or refuses to start:

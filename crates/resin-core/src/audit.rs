@@ -91,27 +91,12 @@ pub fn now_iso() -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    // Format as UTC ISO 8601 without pulling in chrono: seconds since epoch
-    // -> YYYY-MM-DDTHH:MM:SSZ via civil-from-days (Howard Hinnant's algorithm).
-    let days = (secs / 86_400) as i64;
-    let rem = secs % 86_400;
-    let (h, m, s) = (rem / 3600, (rem % 3600) / 60, rem % 60);
-    let (y, mo, d) = civil_from_days(days);
-    format!("{y:04}-{mo:02}-{d:02}T{h:02}:{m:02}:{s:02}Z")
-}
-
-/// Convert days since 1970-01-01 to a (year, month, day) civil date.
-fn civil_from_days(z: i64) -> (i64, u32, u32) {
-    let z = z + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-    (if m <= 2 { y + 1 } else { y }, m, d)
+    // UTC ISO 8601 via chrono (epoch seconds -> YYYY-MM-DDTHH:MM:SSZ); no
+    // hand-rolled civil calendar. The fallback is unreachable in practice —
+    // from_timestamp only fails outside ±262k years.
+    chrono::DateTime::<chrono::Utc>::from_timestamp(secs as i64, 0)
+        .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+        .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string())
 }
 
 /// RFC 4122 v4 uuid string for `audit_id` (uuid is already in Cargo.lock via

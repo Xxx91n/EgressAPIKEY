@@ -194,13 +194,7 @@ impl ReconcilePlan {
 /// Lives beside the reconcile logic so the shell, the snapshot command, and
 /// the tests share ONE parsing rule.
 pub fn endpoint_live_ports(existing: &serde_json::Value) -> Vec<u16> {
-    let arr = if let Some(a) = existing.get("items").and_then(|i| i.as_array()) {
-        a.as_slice()
-    } else if let Some(a) = existing.as_array() {
-        a.as_slice()
-    } else {
-        &[]
-    };
+    let arr = crate::items_arr(existing);
     let mut ports: Vec<u16> = arr
         .iter()
         .filter_map(|ep| ep.get("port").and_then(|p| p.as_u64()))
@@ -409,7 +403,7 @@ impl FsStrategyStore {
     }
 }
 
-/// F3: diff every whitebox platform's
+/// Diff every whitebox platform's
 /// `subscriptions` members against the live Resin subscription names.
 /// Returns one (platform_name, dangling_names) pair per platform with at
 /// least one unresolvable member. Pure — the caller owns the live-name set
@@ -619,18 +613,6 @@ pub fn validate_acknowledged(list: &[String], field: &str) -> Result<(), String>
 
 /// Cap for whitebox `acknowledged` exemption arrays (ADR-0054 §D).
 pub const MAX_ACKNOWLEDGED_ENTRIES: usize = 64;
-
-/// Accept Resin's items-wrapper shape `{"items":[...]}` OR a bare array
-/// (mirrors the shell-side items_arr contract; Resin v1.2.0 uses both).
-fn items(v: &serde_json::Value) -> &[serde_json::Value] {
-    if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
-        return arr.as_slice();
-    }
-    if let Some(arr) = v.as_array() {
-        return arr.as_slice();
-    }
-    &[]
-}
 
 /// The service. Owns the store handle; Resin access goes through the
 /// `ResinClient` REST seam only (never sidecar files).
@@ -915,12 +897,12 @@ impl StrategyService<FsStrategyStore> {
             .list_platforms()
             .await
             .map_err(|e| e.to_string())?;
-        let live_names: std::collections::HashSet<String> = items(&live_platforms_v)
+        let live_names: std::collections::HashSet<String> = crate::items_arr(&live_platforms_v)
             .iter()
             .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(String::from))
             .collect();
 
-        // F3: reference-resolution input. One extra
+        // Reference-resolution input. One extra
         // GET /subscriptions ONLY when at least one whitebox platform lists
         // subscriptions — a region/manual-only config keeps the exact
         // ADR-0057 wire shape (zero new requests). The dangling list is
@@ -929,7 +911,7 @@ impl StrategyService<FsStrategyStore> {
         let dangling_by_platform: HashMap<String, Vec<String>> =
             if config.platforms.iter().any(|ps| !ps.subscriptions.is_empty()) {
                 let subs_v = client.list_subscriptions().await.map_err(|e| e.to_string())?;
-                let live_subs: std::collections::HashSet<String> = items(&subs_v)
+                let live_subs: std::collections::HashSet<String> = crate::items_arr(&subs_v)
                     .iter()
                     .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(String::from))
                     .collect();
@@ -1291,7 +1273,7 @@ mod tests {
         assert_eq!(g2.generation, 2);
         let t2 = g2.updated_at.unwrap();
         assert!(t2 >= t1, "updated_at must advance or hold (same-second ok)");
-        // apply-generation write-back (F3) also lands through store(): the
+        // apply-generation write-back also lands through store(): the
         // error path bumps too. Verify via a direct green write-back below.
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -1320,7 +1302,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    // ---- ADR-0058: apply write-back (F3) ----
+    // ---- ADR-0058: apply write-back ----
     #[tokio::test]
     async fn apply_green_write_back_applies_generation_inside_store_entry() {
         let store_path = apply_fixture_store_path("gen-green");
@@ -2436,14 +2418,14 @@ mod tests {
     }
 
     fn platform_id_for_name_fixture(v: &serde_json::Value, name: &str) -> Option<String> {
-        let arr = v.get("items").and_then(|i| i.as_array()).or_else(|| v.as_array())?;
+        let arr = crate::items_arr(v);
         arr.iter()
             .find(|p| p.get("name").and_then(|n| n.as_str()) == Some(name))
             .and_then(|p| p.get("id").and_then(|i| i.as_str()))
             .map(String::from)
     }
 
-    // ---- F3: apply reference resolution ----
+    // ---- apply reference resolution ----
 
     fn ps_sub(name: &str, subs: &[&str]) -> PlatformStrategy {
         let mut p = ps(name, &[]);

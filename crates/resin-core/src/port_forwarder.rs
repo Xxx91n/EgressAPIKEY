@@ -1,5 +1,5 @@
 //! Multi-port identity layer - the ADR-0012 listener surface, re-materialised
-//! as Data-Plane Mode A (ADR-0068 D1/D3; round-8 ticket 17; ledger A-001).
+//! as Data-Plane Mode A (ADR-0068 D1/D3; ledger A-001).
 //!
 //! Each Entry Port is an identity. The mode decides which process realises it:
 //!
@@ -18,15 +18,14 @@
 //!         with absolute-form requests re-tunnelled through CONNECT so the
 //!         relayed bytes never traverse the engine's buffered forward path.
 //!         That path copies a proxied response with io.Copy and NO flush, so
-//!         a text/event-stream body arrives in 2-4 KB batches - the
-//!         ticket-04 measurement named the defect; the CONNECT tunnel copies
+//!         a text/event-stream body arrives in 2-4 KB batches; the CONNECT tunnel copies
 //!         raw bytes and per-event flush survives.
 //!
 //! The connection's first byte picks the dialect (0x05 = SOCKS5, otherwise
 //! HTTP, detect_protocol). The port's declared protocol (entry_protocol:
 //! mixed | http | socks5) gates what is ACCEPTED here, because the
 //! consolidated port accepts both dialects and will not refuse the wrong one
-//! on the forwarder's behalf (ticket-13 handoff note). The refusals mirror
+//! on the forwarder's behalf. The refusals mirror
 //! the per-endpoint behaviour the ADR-0068 D4 gate observed live: a SOCKS5
 //! client on an http-only port gets a 05 FF method rejection, an HTTP client
 //! on a socks5-only port gets 403 + X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED.
@@ -49,6 +48,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
+use base64::Engine as _;
 use parking_lot::Mutex;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
@@ -127,34 +127,14 @@ pub fn dialect_allowed(port_protocol: &str, sniffed_dialect: &str) -> bool {
 }
 
 /// Proxy-Authorization value injected toward Resin for an identity: the
-/// V1 credential pair identity:proxy_token base64-encoded (Basic scheme).
+/// V1 credential pair identity:proxy_token base64-encoded (Basic scheme,
+/// standard alphabet with padding — base64 crate).
 pub fn basic_proxy_auth(identity: &str, proxy_token: &str) -> String {
     let raw = format!("{identity}:{proxy_token}");
-    format!("Basic {}", b64_encode(raw.as_bytes()))
-}
-
-fn b64_encode(input: &[u8]) -> String {
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut out = String::with_capacity(((input.len() + 2) / 3) * 4);
-    for chunk in input.chunks(3) {
-        let b0 = chunk[0] as u32;
-        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
-        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-        out.push(CHARS[((triple >> 18) & 63) as usize] as char);
-        out.push(CHARS[((triple >> 12) & 63) as usize] as char);
-        if chunk.len() > 1 {
-            out.push(CHARS[((triple >> 6) & 63) as usize] as char);
-        } else {
-            out.push('=');
-        }
-        if chunk.len() > 2 {
-            out.push(CHARS[(triple & 63) as usize] as char);
-        } else {
-            out.push('=');
-        }
-    }
-    out
+    format!(
+        "Basic {}",
+        base64::engine::general_purpose::STANDARD.encode(raw.as_bytes())
+    )
 }
 
 /// Runtime port-identity + stream-sensor holder + (Mode A) the per-port
@@ -182,7 +162,7 @@ struct PortForwarderInner {
 }
 
 impl PortForwarder {
-    /// Mode B constructor (headless default and every pre-ticket-17 call
+    /// Mode B constructor (headless default and every legacy call
     /// site): binds nothing, keeps the ADR-0015 thin behaviour.
     pub fn new(
         db: DbPool,
@@ -684,7 +664,7 @@ async fn handle_http(mut client: TcpStream, first: u8, ctx: SessionCtx) -> Resul
 
     // Absolute-form plain-HTTP request. Tunnel it through CONNECT and replay
     // origin-form: the engine forward path would buffer the response without
-    // flushing (ticket-04 defect), the tunnel copies raw bytes.
+    // flushing, the tunnel copies raw bytes.
     let (host, port, path) = match split_absolute_form(&target)? {
         Some(v) => v,
         None => {
@@ -1051,10 +1031,11 @@ mod tests {
     }
 
     #[test]
-    fn b64_padding() {
-        assert_eq!(b64_encode(b"a"), "YQ==");
-        assert_eq!(b64_encode(b"ab"), "YWI=");
-        assert_eq!(b64_encode(b"abc"), "YWJj");
+    fn basic_proxy_auth_base64_vectors() {
+        // Standard-alphabet base64 of "<identity>:<proxy_token>" (RFC 7617).
+        assert_eq!(basic_proxy_auth("a", ""), "Basic YTo=");
+        assert_eq!(basic_proxy_auth("ab", ""), "Basic YWI6");
+        assert_eq!(basic_proxy_auth("abc", ""), "Basic YWJjOg==");
     }
 
     #[test]

@@ -303,22 +303,9 @@ impl SubscriptionPipeline {
     }
 }
 
-/// Accept Resin's items-wrapper shape `{"items":[...]}` OR a bare array —
-/// the same tolerance as the shell-side `items_arr` and strategy_service's
-/// private `items` (kept module-local: no new pub surface on strategy_service).
-fn items_of(v: &serde_json::Value) -> &[serde_json::Value] {
-    if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
-        return arr.as_slice();
-    }
-    if let Some(arr) = v.as_array() {
-        return arr.as_slice();
-    }
-    &[]
-}
-
 /// Step 1: POST /subscriptions — skip when the name already exists on Resin
-/// (per-step idempotence; the name-keyed overwrite hazard from P20 item 3
-/// makes re-POSTing a real hazard, not just a wasted write).
+/// (per-step idempotence; the name-keyed overwrite hazard makes re-POSTing
+/// a real hazard, not just a wasted write).
 pub async fn ensure_subscription(
     client: &ResinClient,
     name: &str,
@@ -328,7 +315,7 @@ pub async fn ensure_subscription(
         Ok(v) => v,
         Err(e) => return StepStatus::Failed(format!("list subscriptions: {e}")),
     };
-    let items = items_of(&live);
+    let items = crate::items_arr(&live);
     if items.iter().any(|s| s.get("name").and_then(|n| n.as_str()) == Some(name)) {
         return StepStatus::AlreadyPresent;
     }
@@ -352,7 +339,7 @@ pub async fn resolve_subscription(client: &ResinClient, name: &str) -> StepStatu
         Ok(v) => v,
         Err(e) => return StepStatus::Failed(format!("list subscriptions: {e}")),
     };
-    let items = items_of(&live);
+    let items = crate::items_arr(&live);
     match items
         .iter()
         .find(|s| s.get("name").and_then(|n| n.as_str()) == Some(name))
@@ -428,7 +415,7 @@ pub async fn ensure_platform<S: StrategyConfigStore>(
         Ok(v) => v,
         Err(e) => return (whitebox_status, StepStatus::Failed(format!("list platforms: {e}"))),
     };
-    let items = items_of(&live);
+    let items = crate::items_arr(&live);
     if items
         .iter()
         .any(|p| p.get("name").and_then(|n| n.as_str()) == Some(name))
@@ -640,10 +627,10 @@ pub fn suggest_free_entry_port(db: &DbPool) -> Result<u16, String> {
 }
 
 /// Resin endpoint port numbers from a list response (items wrapper or bare
-/// array — the `items_of` tolerance). The `default` management endpoint is
+/// array — the shared items_arr tolerance). The `default` management endpoint is
 /// excluded: only shell-owned custom listeners count as conflicts.
 fn custom_endpoint_ports(v: &serde_json::Value) -> Vec<u16> {
-    items_of(v)
+    crate::items_arr(v)
         .iter()
         .filter(|ep| ep.get("id").and_then(|i| i.as_str()) != Some("default"))
         .filter_map(|ep| {
@@ -658,7 +645,7 @@ fn custom_endpoint_ports(v: &serde_json::Value) -> Vec<u16> {
 /// subscription_add invokes it right after a green establish pass; the step
 /// is idempotent (a re-invocation after a retried pass writes nothing), so
 /// the level-triggered re-run discipline holds without owning queue state.
-/// Ticket 05 (A-008): a whitebox-write failure after a successful Mode B
+/// (A-008): a whitebox-write failure after a successful Mode B
 /// create compensates by DELETE-ing exactly the endpoint this step created,
 /// and subscription_remove's reverse tail (below) releases the bound row
 /// with the subscription — an engine listener never outlives its intent.
@@ -732,13 +719,13 @@ pub async fn ensure_default_port(
     // longer implies HTTP forwarding, so the dual-flag default port declares
     // itself `mixed`). require_proxy_auth_info defaults on, matching the
     // GUI's default for new ports).
-    // Mode A (ticket 17): the engine must NOT bind this port - the shell's
+    // Mode A: the engine must NOT bind this port - the shell's
     // accept loop owns it (step (f) writes the row and the whitebox apply
     // binds it). A create_endpoint here would EADDRINUSE-collide.
     // endpoint_created_this_pass: true only when THIS step's create_endpoint
     // returned Ok — compensation at the (f) failure branch deletes exactly
     // that row, never a pre-existing engine listener (D-C1.4 compensate-
-    // only-what-this-pass-created discipline; A-008 / Round 9 D-007).
+    // only-what-this-pass-created discipline; A-008 / D-007).
     let mut endpoint_created_this_pass = false;
     if !forwarder.is_shell() {
         let (allow_socks5, allow_http_forward) =
@@ -801,7 +788,7 @@ pub async fn ensure_default_port(
             StepStatus::Written
         }
         Err(e) => {
-            // (g) Compensation (A-008 / Round 9 D-007, Mode B residue):
+            // (g) Compensation (A-008 / D-007, Mode B residue):
             // this pass created the engine endpoint but the L2 row never
             // landed — delete exactly that row so no orphan listener
             // survives the step. Fresh live read: an already-deleted row is
@@ -811,7 +798,7 @@ pub async fn ensure_default_port(
             if endpoint_created_this_pass {
                 match client.list_endpoints().await {
                     Ok(live) => {
-                        let target = items_of(&live).iter().find(|ep| {
+                        let target = crate::items_arr(&live).iter().find(|ep| {
                             ep.get("id").and_then(|i| i.as_str()) != Some("default")
                                 && ep.get("port").and_then(|p| p.as_u64()) == Some(port as u64)
                         });
@@ -933,12 +920,12 @@ async fn delete_cascade_platform(client: &ResinClient, name: &str) -> Result<(),
 }
 
 // ---------------------------------------------------------------------------
-// Reverse tail (architecture-recovery ticket 05, spec IMP-5 / A-008 / Round 9
+// Reverse tail (spec IMP-5 / A-008 / D-007
 // D-007 option B): subscription_remove releases the default entry port the
 // establish cascade bound to the subscription's platform. Same three-layer
 // order as port_remove (ADR-0069 D1): L2 whitebox retain -> apply (DB +
 // listeners + atomic swap) FIRST, then the L3 Resin endpoint delete — and
-// only in Mode B; in Mode A (ticket 17) the shell listener IS the port's L3
+// only in Mode B; in Mode A the shell listener IS the port's L3
 // realisation, so the whitebox apply already tore it down and Resin is never
 // contacted. The read-only id="default" endpoint is never a deletion
 // candidate (custom_endpoint_ports / find_endpoint_id_by_port precedent).
@@ -987,7 +974,7 @@ pub async fn remove_default_port_if_orphaned(
     if !forwarder.is_shell() {
         match client.list_endpoints().await {
             Ok(live) => {
-                let targets: Vec<(String, u16)> = items_of(&live)
+                let targets: Vec<(String, u16)> = crate::items_arr(&live)
                     .iter()
                     .filter(|ep| ep.get("id").and_then(|i| i.as_str()) != Some("default"))
                     .filter_map(|ep| {
@@ -1461,7 +1448,7 @@ mod tests {
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(json!({"items": [{"id": "id-flaky", "name": "flaky", "region_filters": []}]}).to_string())
-            .expect(3) // apply initial + apply per-platform re-read + T04 compensation resolve read
+            .expect(3) // apply initial + apply per-platform re-read + compensation resolve read
             .create_async()
             .await;
         let m_create_platform = server
@@ -1628,7 +1615,7 @@ mod tests {
         );
         let row = cfg.subscriptions.iter().find(|r| r.name == "platfail").expect("row");
         assert_eq!(row.phase, SubscriptionPhase::Failed);
-        assert_eq!(row.stage, Some(EstablishStep::Bind), "Resin-create half maps to the bind beat (T02 ORDER)");
+        assert_eq!(row.stage, Some(EstablishStep::Bind), "Resin-create half maps to the bind beat (ORDER)");
         let ce = row.last_cascade_error.as_ref().expect("cascade error record");
         assert_eq!(ce.rollback_actions.len(), 4);
         assert_eq!(ce.rollback_actions[0], "sub: kept (user data)");
@@ -2145,7 +2132,7 @@ mod tests {
 
     /// BRANCH A1 — default create success: no user port, no pre-existing
     /// binding -> the ADR-0031 suggest probe picks a port, the mixed
-    /// endpoint POSTs (round-8 D-007: DEFAULT_ENTRY_PORT_PROTOCOL), and the
+    /// endpoint POSTs (D-007: DEFAULT_ENTRY_PORT_PROTOCOL), and the
     /// whitebox (plus its SQLite partner) carries exactly one bound row with
     /// port_upsert's identity defaults.
     #[tokio::test]
@@ -2374,7 +2361,7 @@ mod tests {
         assert!(got >= crate::port_forwarder::MIN_USER_PORT, "got {got}");
     }
 
-    // ---- ticket 05 (A-008 / Round 9 D-007): orphan-cleanup + idempotence ----
+    // ---- (A-008 / D-007): orphan-cleanup + idempotence ----
 
     /// The (e)->(f) window (Mode B): create_endpoint succeeded, the
     /// whitebox apply failed -> the step compensates by DELETE-ing exactly

@@ -8,7 +8,7 @@
 //! `src-tauri/src/sidecar.rs::SidecarHandle` and never exposes the token to
 //! the webview (AGENTS 7.6).
 //!
-//! Ponytail: this is a small reqwest wrapper, not an SDK. We do NOT model
+//! This is a small reqwest wrapper, not an SDK. We do NOT model
 //! every Resin REST endpoint. We expose only the verbs the IPC commands
 //! layer currently needs:
 //!   - POST /api/v1/platforms               create_platform
@@ -53,7 +53,7 @@ const API_PREFIX: &str = "/api/v1";
 /// The IPC layer constructs a fresh ResinClient per call (one per Tauri
 /// command), but reqwest::Client owns a connection pool + TLS context.
 /// Reusing a single Client avoids building a new pool per IPC call.
-/// Ponytail: std::sync::OnceLock (Rust stdlib, zero new deps).
+/// std::sync::OnceLock (Rust stdlib, zero new deps).
 static SHARED_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 fn shared_client() -> &'static reqwest::Client {
@@ -324,8 +324,8 @@ impl ResinClient {
     /// remote subscription refresh. Resin's Scheduler re-pulls the remote URL
     /// via its own clash.meta UA fetcher (cmd/resin/main.go const downloadUserAgent).
     /// The shell no longer re-fetches or converts the Clash YAML itself
-    /// (P13 B4 fetch_clash_subscription+clash_yaml_to_proxies_block+PATCH chain
-    /// deleted; ADR-0045 supersedes ADR-0044 S2 for the refresh path).
+    /// (the former fetch_clash_subscription+clash_yaml_to_proxies_block+PATCH
+    /// chain is deleted; ADR-0045 supersedes ADR-0044 S2 for the refresh path).
     /// Refresh on a local-source subscription is a no-op re-parse of in-memory
     /// content, so the paired subscription_add migrated to source_type="remote".
     /// No request body is sent; Resin kicks its scheduler tick synchronously.
@@ -386,7 +386,7 @@ impl ResinClient {
        self.send_with_retry(reqwest::Method::POST, &path, None).await
    }
 
-   /// POST /api/v1/platforms with the full create schema (P21 Milestone B).
+   /// POST /api/v1/platforms with the full create schema.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R08
     /// Accepts a free-form body (serde_json::Value) so the GUI form can pass
     /// exactly the fields Resin DESIGN.md lists for platform creation:
@@ -402,7 +402,7 @@ impl ResinClient {
             .await
     }
 
-    /// GET /api/v1/platforms/{id}/leases — list live leases on a platform (P21).
+    /// GET /api/v1/platforms/{id}/leases — list live leases on a platform.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R20
     /// Resin returns an items-wrapper; the caller parses (account, egress_ip,
     /// node_hash, expiry) to surface the keys already bound to an exit IP on
@@ -702,14 +702,20 @@ fn validate_resolve_name(name: &str, field: &str) -> Result<(), IpcError> {
     Ok(())
 }
 
-/// Pure name→id lookup over a Resin list response. Accepts the
-/// items-wrapper shape `{"items":[...]}` OR a bare array (Resin v1.2.0 uses
-/// both — same contract as the shell-side `items_arr` and the core-side
-/// `items` helpers, so every historical caller shape keeps resolving). A row
-/// whose `id` is missing/empty is skipped rather than matched. Shared by the
-/// async `resolve_*_by_name` helpers and the fn-pointer resolution seams in
-/// `strategy_service::apply`/`reconcile` (whose signatures are wire-pinned by
-/// their mockito suites — the single-GET two-step hop stays there).
+/// Extract the array from a Resin list response: the `{"items":[...]}`
+/// wrapper OR a bare array (Resin v1.2.0 uses both). Same contract as the
+/// shell-side `commands::items_arr` — the canonical resin-core helper every
+/// consumer in this crate routes through.
+pub fn items_arr(v: &Value) -> &[Value] {
+    if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
+        return arr.as_slice();
+    }
+    if let Some(arr) = v.as_array() {
+        return arr.as_slice();
+    }
+    &[]
+}
+
 /// Resin V1 platform-name rule, shared by every transport (
 /// A-006: one validation, effective in both places). `create_platform_from_name`
 /// applies it before the POST, and the headless BFF applies the SAME function to
@@ -731,14 +737,14 @@ pub fn validate_platform_name(name: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Pure name→id lookup over a Resin list response (see items_arr for the
+/// accepted shapes). A row whose `id` is missing/empty is skipped rather
+/// than matched. Shared by the async `resolve_*_by_name` helpers and the
+/// fn-pointer resolution seams in `strategy_service::apply`/`reconcile`
+/// (whose signatures are wire-pinned by their mockito suites — the
+/// single-GET two-step hop stays there).
 pub fn resolve_id_in(v: &Value, want: &str) -> Option<String> {
-    let rows: &[Value] = if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
-        arr
-    } else if let Some(arr) = v.as_array() {
-        arr
-    } else {
-        &[]
-    };
+    let rows: &[Value] = items_arr(v);
     for row in rows {
         let name = row.get("name").and_then(|n| n.as_str()).unwrap_or("");
         if name == want {
@@ -773,40 +779,39 @@ pub struct RequestLogQuery {
 /// does not make every subscription import fail. 15s timeout: subscription
 /// YAML can be large (50+ proxies) on slow hosts.
 ///
-/// URL-encode a single path segment. serde_urlencoded::encode over-encodes;
-/// use a tiny inline encoder for safe chars only (Resin IDs are canonical
-/// UUIDs and need no escaping, but we keep the door open for future callers
-/// who might pass a name).
+/// Percent-encode a path segment or query value, keeping RFC 3986
+/// alphanumerics plus `-`/`_` literal; every other UTF-8 byte becomes %XX.
+/// Backed by the percent-encoding crate — no hand-rolled escape table.
+/// (Resin IDs are canonical UUIDs and need no escaping, but we keep the
+/// door open for future callers who might pass a name.)
+const SEGMENT_ENCODE_SET: &percent_encoding::AsciiSet =
+    &percent_encoding::NON_ALPHANUMERIC.remove(b'-').remove(b'_');
+
 fn urlencoding(s: &str) -> String {
-    s.chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
-                c.to_string()
-            } else {
-                format!("%{:02X}", c as u32)
-            }
-        })
-        .collect()
+    percent_encoding::utf8_percent_encode(s, SEGMENT_ENCODE_SET).to_string()
 }
+
+/// JS encodeURIComponent unreserved set: A-Z a-z 0-9 - _ . ! ~ * ' ( ).
+const URI_COMPONENT_ENCODE_SET: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'_')
+    .remove(b'.')
+    .remove(b'!')
+    .remove(b'~')
+    .remove(b'*')
+    .remove(b'\'')
+    .remove(b'(')
+    .remove(b')');
 
 /// encodeURIComponent-compatible path-segment encoder for account-header-rule
 /// url_prefix values. The upstream contract test exercises
 /// `api.example.com%2Fv1` — the `/` MUST stay percent-encoded so the Go 1.22
 /// ServeMux `{prefix...}` wildcard receives one segment and unescapes it back
-/// to `api.example.com/v1`. Mirrors JS encodeURIComponent byte-for-byte
-/// (unreserved: A-Z a-z 0-9 - _ . ! ~ * ' ( )) to match the bundled WebUI
-/// rules client, the proven-good encoding against this exact server.
+/// to `api.example.com/v1`. Byte-for-byte identical to JS
+/// encodeURIComponent (same unreserved set, UTF-8 bytes) — the proven-good
+/// encoding against this exact server.
 fn encode_uri_component(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for b in s.bytes() {
-        let c = b as char;
-        if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '!' | '~' | '*' | '\'' | '(' | ')') {
-            out.push(c);
-        } else {
-            out.push_str(&format!("%{:02X}", b));
-        }
-    }
-    out
+    percent_encoding::utf8_percent_encode(s, URI_COMPONENT_ENCODE_SET).to_string()
 }
 
 #[cfg(test)]
@@ -831,6 +836,17 @@ mod tests {
     fn urlencoding_escapes_disallowed_chars() {
         assert_eq!(urlencoding("foo-bar_b123"), "foo-bar_b123");
         assert_eq!(urlencoding("a/b"), "a%2Fb");
+        // Non-ASCII input is UTF-8 percent-encoded per byte (the prior
+        // char-wise table emitted the raw codepoint, e.g. %540D).
+        assert_eq!(urlencoding("名"), "%E5%90%8D");
+    }
+
+    #[test]
+    fn encode_uri_component_matches_js_unreserved_set() {
+        assert_eq!(encode_uri_component("api.example.com/v1"), "api.example.com%2Fv1");
+        // encodeURIComponent keeps - _ . ! ~ * ' ( ) literal.
+        assert_eq!(encode_uri_component("a-b_c.d!e~f*g'h(i)"), "a-b_c.d!e~f*g'h(i)");
+        assert_eq!(encode_uri_component("a b"), "a%20b");
     }
 
     #[tokio::test]
@@ -1637,7 +1653,7 @@ mod tests {
        m.assert_async().await;
    }
 
-    // ── Account header rules mockito tests (R32-R35) ─────
+    // ── Account header rules mockito tests ─────
 
     #[tokio::test]
     async fn mockito_list_account_header_rules_happy_path() {
@@ -1821,7 +1837,7 @@ mod tests {
     }
 
    #[test]
-   fn t15_4_shared_client_returns_same_instance() {
+   fn shared_client_returns_same_instance() {
         // Two calls to shared_client() must return pointers to the same Client.
         let a = shared_client();
         let b = shared_client();
@@ -1833,7 +1849,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_resolve_platform_id_by_name_hit() {
-        // F4 case 1 (hit): name exists in the items-wrapper list -> the UUID.
+        // Hit: name exists in the items-wrapper list -> the UUID.
         let mut server = mockito::Server::new_async().await;
         let m = server
             .mock("GET", "/api/v1/platforms")
@@ -1856,7 +1872,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_resolve_platform_id_by_name_miss_is_not_found() {
-        // F4 case 2 (miss): name absent -> typed IpcError::NotFound with the
+        // Miss: name absent -> typed IpcError::NotFound with the
         // same message text the former stringly rejection produced.
         let mut server = mockito::Server::new_async().await;
         let m = server
@@ -1887,7 +1903,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_resolve_platform_id_by_name_non_json_is_internal() {
-        // F4 case 3 (parse failure): a 200 whose application/json body does
+        // Parse failure: a 200 whose application/json body does
         // not decode -> send() errors and map_resin_error surfaces the
         // Internal catch-all (the enum has no Backend variant; the issue
         // draft's "Backend" maps here — see report deviation note).
@@ -1913,7 +1929,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_resolve_subscription_id_by_name_hit() {
-        // F4 case 1 (hit), subscription face. Bare-array responses resolve
+        // Hit, subscription face. Bare-array responses resolve
         // too (the same mixed-shape contract the shell items_arr handled).
         let mut server = mockito::Server::new_async().await;
         let m = server
@@ -1937,7 +1953,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_resolve_subscription_id_by_name_miss_is_not_found() {
-        // F4 case 2 (miss), subscription face: absent name AND the
+        // Miss, subscription face: absent name AND the
         // empty-id-row skip (a matched row without an id cannot resolve).
         let mut server = mockito::Server::new_async().await;
         let m = server
@@ -1973,7 +1989,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_resolve_subscription_id_by_name_non_json_is_internal() {
-        // F4 case 3 (parse failure), subscription face.
+        // Parse failure, subscription face.
         let mut server = mockito::Server::new_async().await;
         let m = server
             .mock("GET", "/api/v1/subscriptions")

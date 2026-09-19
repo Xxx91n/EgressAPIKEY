@@ -1,7 +1,4 @@
 //! Shared domain IPC commands (EgressAPIKEY).
-//!
-//! Extracted from the former commands/mod.rs monolith by
-//! pure mechanical move - no behavior, naming, or IPC-surface change.
 //! Shared IPC-boundary helpers used by every command domain.
 
 use crate::sidecar::SidecarHandle;
@@ -44,7 +41,7 @@ pub use resin_core::map_resin_error;
 /// Extract the array from a Resin list response. Resin wraps paginated
 /// collections as `{"items":[...], "total", "limit", "offset"}`; a few
 /// legacy endpoints still return a bare array. Accept both so a future
-/// Resin API tightening cannot silently empty the UI (P13 root cause).
+/// Resin API tightening cannot silently empty the UI.
 pub fn items_arr<'a>(v: &'a serde_json::Value) -> &'a [serde_json::Value] {
     if let Some(arr) = v.get("items").and_then(|i| i.as_array()) {
         return arr.as_slice();
@@ -73,7 +70,7 @@ pub fn find_endpoint_id_by_port(existing: &serde_json::Value, port: u16) -> Opti
 
 /// (ADR-0042 S6): Restore Resin endpoints from whitebox config on startup.
 /// Spawns-safe: failures log only, never fail the app. Skips ports already in Resin (409 Conflict).
-/// Mode A (ticket 17 / ADR-0068 D1) delegates to restore_shell_listeners: the
+/// Mode A (ADR-0068 D1) delegates to restore_shell_listeners: the
 /// shell's accept loops are the entry-port listeners there, not engine rows.
 pub async fn restore_ports_from_whitebox(
     sidecar: &SidecarHandle,
@@ -86,7 +83,7 @@ pub async fn restore_ports_from_whitebox(
     }
     let enabled = resin_core::enabled_entries_for_restore(&cfg.entry_ports);
     if enabled.is_empty() {
-        tracing::info!("T18-6: no enabled entry_ports to restore");
+        tracing::info!("no enabled entry_ports to restore");
         return Ok(());
     }
     let client = resin_client(sidecar)?;
@@ -116,24 +113,24 @@ pub async fn restore_ports_from_whitebox(
         match client.create_endpoint(body).await {
             Ok(_) => {
                 restored += 1;
-                tracing::info!(port = m.port, "T18-6: restored Resin endpoint from whitebox");
+                tracing::info!(port = m.port, "restored Resin endpoint from whitebox");
             }
             Err(e) => {
                 let msg = format!("{e:?}");
                 if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage") {
                     skipped += 1;
-                    tracing::info!(port = m.port, "T18-6: port already in Resin; skipping");
+                    tracing::info!(port = m.port, "port already in Resin; skipping");
                 } else {
-                    tracing::warn!(port = m.port, error = %msg, "T18-6: restore failed; user can re-save in GUI");
+                    tracing::warn!(port = m.port, error = %msg, "restore failed; user can re-save in GUI");
                 }
             }
         }
     }
-    tracing::info!(restored, skipped, "T18-6: whitebox port restore complete");
+    tracing::info!(restored, skipped, "whitebox port restore complete");
     Ok(())
 }
 
-/// Mode A restore (ticket 17): the whitebox rows apply to the shell's own
+/// Mode A restore: the whitebox rows apply to the shell's own
 /// accept loops, so the startup work is two convergence acts over L3-derived
 /// state (ADR-0042 S6: rebuildable, never user data):
 ///   1. retire stale per-port Resin endpoints - a B-era row persisted in
@@ -167,14 +164,14 @@ async fn restore_shell_listeners(
         match client.delete_endpoint(id).await {
             Ok(_) => {
                 retired += 1;
-                tracing::info!(port = ep_port, endpoint = id, "T18-6/modeA: retired stale Resin endpoint so the shell listener owns the entry port");
+                tracing::info!(port = ep_port, endpoint = id, "retired stale Resin endpoint so the shell listener owns the entry port");
             }
             Err(e) => {
-                tracing::warn!(port = ep_port, error = %format!("{e:?}"), "T18-6/modeA: stale endpoint delete failed; shell bind will retry behind it");
+                tracing::warn!(port = ep_port, error = %format!("{e:?}"), "stale endpoint delete failed; shell bind will retry behind it");
             }
         }
     }
     forwarder.reload(&cfg.entry_ports).await?;
-    tracing::info!(retired, "T18-6/modeA: shell entry listeners restored from whitebox");
+    tracing::info!(retired, "shell entry listeners restored from whitebox");
     Ok(())
 }

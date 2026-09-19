@@ -14,8 +14,7 @@
 //!    browser request). Mutating routes that the SPA addresses by
 //!    business `name` (DELETE/PATCH on `/platforms` and `/subscriptions`)
 //!    are translated here to Resin's `/{id}` path-param form BEFORE the
-//!    upstream call (industrial BFF pattern; see ADR-0043 followup +
-//!    docs/GRILL_T17_HEADLESS_SERVER.md audit). This mirrors the
+//!    upstream call (industrial BFF pattern; see ADR-0043). This mirrors the
 //!    list+match resolution the Tauri Rust IPC commands (platform_remove,
 //!    platform_update, subscription_remove) already perform, so the two
 //!    modes stay behaviour-equivalent and TOCTOU-free (resolve + mutate in
@@ -23,7 +22,7 @@
 //! 4. Two-phase shutdown: on Ctrl+C/SIGTERM, kills the resin child and
 //!    exits. Logs the full sequence via `tracing` to the OS log dir.
 //!
-//! 5. Enforces the ticket-03 (A-007) control-surface security gate: a shared
+//! 5. Enforces the (A-007) control-surface security gate: a shared
 //!    `--auth-token` on `/api/v1/*` + `/metrics/*`, and a `Host`/`Origin`
 //!    allowlist on every request (DNS-rebinding mitigation). The primitives live
 //!    in `headless_security`; the operator-facing threat model is
@@ -130,7 +129,7 @@ async fn main() -> Result<()> {
         cli.bind, cli.port, cli.dist, state_root
     );
 
-    // Ticket 03 (A-007) startup gate: refuse to expose the admin control plane
+    // (A-007) startup gate: refuse to expose the admin control plane
     // off-host without a token; otherwise fall back to a CSPRNG token. Runs
     // BEFORE the resin sidecar is spawned so a refusal leaves no orphan child.
     let resolved = headless_security::resolve_token(cli.auth_token.as_deref(), &cli.bind)
@@ -403,12 +402,12 @@ fn build_router(
         .route("/metrics/*path", any(proxy_handler))
 
         .fallback_service(serve_dir)
-        // Ticket 03 (A-007): the Host/Origin + token guard wraps every route and
+        // (A-007): the Host/Origin + token guard wraps every route and
         // the static fallback. Applied last so it also covers the fallback.
         .layer(middleware::from_fn_with_state(guard, security_guard))
 }
 
-/// Ticket 03 (A-007) request guard. Two ordered checks:
+/// (A-007) request guard. Two ordered checks:
 ///
 /// 1. Host / Origin allowlist - rejects DNS-rebinding style requests whose
 ///    `Host` names a domain that merely resolves to this machine. Applies to
@@ -496,7 +495,7 @@ async fn security_guard(
 ///   1) the frontend contract is name-based in BOTH modes (matches Tauri);
 ///   2) resolve + mutate are atomic in one process (no client-side TOCTOU);
 ///   3) the browser never needs to hold Resin UUIDs.
-/// See docs/GRILL_T17_HEADLESS_SERVER.md and ADR-0043 for the
+/// See ADR-0043 for the
 /// industry-template lineage (Kong request-transformer / LiteLLM pattern).
 async fn proxy_to_resin(
     method: Method,
@@ -612,23 +611,11 @@ async fn proxy_to_resin(
     }
 }
 
-/// Accept Resin's items-wrapper shape `{"items":[...]}` OR a bare array and
-/// return the slice of entries. Mirrors commands::mod::items_arr.
-fn items_arr(v: &serde_json::Value) -> &[serde_json::Value] {
-    match v {
-        serde_json::Value::Array(arr) => arr.as_slice(),
-        serde_json::Value::Object(obj) => obj
-            .get("items")
-            .and_then(|i| i.as_array())
-            .map(|a| a.as_slice())
-            .unwrap_or(&[]),
-        _ => &[],
-    }
-}
-
 /// Look up an entity by business `name` in a list response and return its `id`.
+/// List-shape tolerance comes from the shared canonical
+/// `egressapikey_app::commands::items_arr`.
 fn id_for_name(list: &serde_json::Value, want: &str) -> Option<String> {
-    for p in items_arr(list) {
+    for p in egressapikey_app::commands::items_arr(list) {
         let name = p.get("name").and_then(|n| n.as_str()).unwrap_or("");
         if name == want {
             let id = p.get("id").and_then(|n| n.as_str()).unwrap_or("");
@@ -640,18 +627,13 @@ fn id_for_name(list: &serde_json::Value, want: &str) -> Option<String> {
     None
 }
 
-/// URL-encode a path segment (RFC 3986 unreserved + tolerate UUID dashes).
-/// No new crates — stdlib + a tiny escape table.
+/// Percent-encode a path segment, keeping RFC 3986 alphanumerics plus
+/// `-`/`_` literal (UUID dashes); every other UTF-8 byte becomes %XX.
+/// Backed by the percent-encoding crate — no hand-rolled escape table.
 fn url_encode_segment(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for b in s.bytes() {
-        if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' {
-            out.push(b as char);
-        } else {
-            out.push_str(&format!("%{:02X}", b));
-        }
-    }
-    out
+    const SEGMENT_ENCODE_SET: &percent_encoding::AsciiSet =
+        &percent_encoding::NON_ALPHANUMERIC.remove(b'-').remove(b'_');
+    percent_encoding::utf8_percent_encode(s, SEGMENT_ENCODE_SET).to_string()
 }
 
 /// Pure: rewrite a PATCH body by stripping `name` and translating the
@@ -796,7 +778,7 @@ fn read_name(body_val: &serde_json::Value) -> Result<String, String> {
 
 /// List a collection and resolve a business name to a Resin UUID. Resolve +
 /// mutate stay in ONE process, so there is no client-side TOCTOU and the
-/// browser never has to hold a UUID (T17 audit rationale, unchanged).
+/// browser never has to hold a UUID.
 async fn resolve_id(
     client: &reqwest::Client,
     upstream_base: &str,
@@ -825,14 +807,14 @@ async fn resolve_id(
 /// contract (the browser never holds a Resin UUID):
 ///
 /// 1. Collection + body name -> /{id} path param (DELETE/PATCH platforms,
-///    DELETE subscriptions) - the original T17 audit fix.
+///    DELETE subscriptions).
 /// 2. GET /platforms?leases_for=<name> -> /platforms/{id}/leases:
 ///    platform_leases was mapped at the bare collection, so headless handed
 ///    the SPA the platform LIST where it expected the lease set.
 /// 3. POST /subscriptions?refresh=<name> -> /subscriptions/{id}/actions/refresh.
-///    R30 had no mapping at all, so refresh was desktop-only.
+///    Refresh had no bare-collection mapping, so it was desktop-only.
 /// 4. PUT/DELETE /account-header-rules with body url_prefix ->
-///    /account-header-rules/{prefix}. R33/R35 address the rule by prefix in the
+///    /account-header-rules/{prefix}. Rules are addressed by prefix in the
 ///    PATH and a prefix may contain "/" (its %2F must survive), so the SPA never
 ///    builds that segment itself.
 ///
@@ -886,7 +868,7 @@ async fn translate_request(
         }
     }
 
-    // --- 3. POST /subscriptions?refresh=<name> -> R30 actions/refresh ---
+    // --- 3. POST /subscriptions?refresh=<name> -> actions/refresh ---
     if method == Method::POST && is_subscriptions {
         if let Some(name) = query_param(query, "refresh") {
             egressapikey_app::commands::validate_short_name(&name, "subscription")?;

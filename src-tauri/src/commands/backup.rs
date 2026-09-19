@@ -293,8 +293,15 @@ pub async fn backup_create(
         .map_err(|e| IpcError::from(e.to_string()))?
         .into_inner();
 
-    if let Some(pass) = passphrase.as_deref().filter(|p| !p.is_empty()) {
-        package = backup_model::seal_package(&package, pass).map_err(IpcError::from)?;
+    if let Some(pass) = passphrase.filter(|p| !p.is_empty()) {
+        // PBKDF2-HMAC-SHA256 at 600k iterations is ~hundreds of ms of pure
+        // CPU; keep it off the async runtime worker (spawn_blocking is the
+        // codebase's offload pattern for blocking work).
+        let plain = package;
+        package = tokio::task::spawn_blocking(move || backup_model::seal_package(&plain, &pass))
+            .await
+            .map_err(|e| IpcError::from(format!("seal_package join: {e}")))?
+            .map_err(IpcError::from)?;
     }
 
     let file_name = format!("egressapikey-backup-{}-{}.zip", stamp(), random_suffix());
@@ -630,13 +637,18 @@ pub async fn backup_restore(
 
     // ---- passphrase envelope -------------------------------------------
     if backup_model::is_encrypted(&package) {
-        let pass = passphrase.as_deref().unwrap_or("");
+        let pass = passphrase.unwrap_or_default();
         if pass.is_empty() {
             return Err(IpcError::from(
                 "this backup package is encrypted; a passphrase is required".to_string(),
             ));
         }
-        package = backup_model::open_package(&package, pass).map_err(IpcError::from)?;
+        // Same 600k-iteration PBKDF2 as seal_package — offloaded likewise.
+        let sealed = package;
+        package = tokio::task::spawn_blocking(move || backup_model::open_package(&sealed, &pass))
+            .await
+            .map_err(|e| IpcError::from(format!("open_package join: {e}")))?
+            .map_err(IpcError::from)?;
     }
 
     // ---- read + screen every member BEFORE any write --------------------

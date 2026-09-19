@@ -1,5 +1,4 @@
-//! Unit tests for the commands domain split (moved verbatim from the former
-//! commands/mod.rs inline tests module by ).
+//! Unit tests for the commands domain.
 
 use super::*;
 
@@ -71,7 +70,7 @@ use serde_json::json;
         assert!(resin_core::process_route_conflict_check(&existing).is_ok());
     }
 
-    /// P13 B6/B4: Resin wraps list responses as `{"items":[...]}`. The old
+    /// Resin wraps list responses as `{"items":[...]}`. The old
     /// code used `v.as_array()` which always returned None for that shape,
     /// so platform_list / subscription_list returned empty even with live data.
     /// These tests pin both the bare-array back-compat path and the items path.
@@ -484,7 +483,7 @@ use serde_json::json;
     /// (top-level camelCase), per-entry divergent_since (snake_case, omitted
     /// when None), acknowledged flag stamps read-side only.
     #[test]
-    fn authoritative_snapshot_ticket12_wire_shape() {
+    fn authoritative_snapshot_wire_shape() {
         let mut snap = resin_core::AuthoritativeSnapshot {
             strategy_version: 1,
             platforms: vec![
