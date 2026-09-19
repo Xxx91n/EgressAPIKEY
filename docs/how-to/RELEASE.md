@@ -37,7 +37,7 @@ Before promoting a build (and after any Resin sidecar version bump):
   plus the ticket-17 identity-attribution cases (HTTP Basic and SOCKS5
   UserPass credentials land in the request log attributed to their account
   even on the failure path). Baseline table + hand recipe:
-  `repro/t17-contract/README.md`. A contract failure after a Resin bump is a
+  `tests/fixtures/t17-contract/README.md`. A contract failure after a Resin bump is a
   release blocker, not a retest-later item.
 - CI verify job green on the release commit (the same gate runs there - test
   evidence is the CI run, per the 2026-09-04 CI-only build policy).

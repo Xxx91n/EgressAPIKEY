@@ -11,7 +11,7 @@
  * This script re-establishes the same evidence on every CI run so a Resin
  * upgrade that silently changes the engine contract fails the build instead
  * of surfacing as a user-visible regression. Hand recipe + baseline table:
- * repro/t17-contract/README.md.
+ * tests/fixtures/t17-contract/README.md.
  *
  * Scenarios (per docs/adr/0068 D4, verified on custom endpoints):
  *   mixed  (allow_socks5 + allow_http_forward):
@@ -22,7 +22,7 @@
  *   socks5 (allow_socks5 only):
  *            HTTP CONNECT    -> HTTP/1.1 403 + X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED
  *
- * Identity attribution ("credential is identity", repro/t17-contract): with
+ * Identity attribution ("credential is identity", tests/fixtures/t17-contract): with
  * RESIN_PROXY_TOKEN empty the no-auth default endpoint still PUBLISHES the
  * client-supplied credential into routing metadata - HTTP Basic T17G.ac1 and
  * SOCKS5 RFC1929 UserPass T17G.ac2 both land in GET /api/v1/request-logs with
@@ -242,19 +242,19 @@ function summaryAndExit() {
 async function main() {
   // ---- static self-checks (always run; these ship in the repo) ----
   let verifyScript = '';
-  try { verifyScript = fs.readFileSync(path.join(REPO_ROOT, 'scripts', 'verify-build.sh'), 'utf8'); } catch (e) {}
+  try { verifyScript = fs.readFileSync(path.join(REPO_ROOT, 'scripts', 'verify-build.sh'), 'utf8'); } catch (e) { }
   record(verifyScript.indexOf('mode-a-contract-check.cjs') !== -1,
     'gate mounted in scripts/verify-build.sh',
     'contracts sub-step must invoke scripts/mode-a-contract-check.cjs');
-  record(fs.existsSync(path.join(REPO_ROOT, 'repro', 't17-contract', 'README.md')),
-    'repro/t17-contract/README.md present (baseline table + hand recipe)');
+  record(fs.existsSync(path.join(REPO_ROOT, 'tests', 'fixtures', 't17-contract', 'README.md')),
+    'tests/fixtures/t17-contract/README.md present (baseline table + hand recipe)');
 
   // ---- locate the sidecar binary ----
   const bin = findResinBinary();
   if (!bin) {
     if (IS_CI) {
       record(false, 'resin sidecar binary present',
-      'CI needs scripts/fetch_resin.sh output under src-tauri/binaries before this gate');
+        'CI needs scripts/fetch_resin.sh output under src-tauri/binaries before this gate');
       summaryAndExit();
     }
     console.log('WARN  resin sidecar binary not found under ' + BIN_DIR);

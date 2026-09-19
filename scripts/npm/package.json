@@ -23,7 +23,7 @@
   },
   "scripts": {
     "start": "node ./launcher.cjs",
-    "build:headless": "../scripts/build-all.sh --headless-only",
+    "build:headless": "../build-all.sh --headless-only",
     "test": "node ./launcher.cjs --dry-run"
   }
 }

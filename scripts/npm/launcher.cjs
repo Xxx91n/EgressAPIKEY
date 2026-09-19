@@ -10,12 +10,12 @@
 //      and CI which build outside the standard layout).
 //   2. `binaries/egressapikey-headless<ext>` next to this launcher
 //      (shippable npm package layout).
-//   3. `../target/release/egressapikey-headless<ext>` (dev build output).
-//   4. `../target/debug/egressapikey-headless<ext>` (dev convenience).
+//   3. `../../target/release/egressapikey-headless<ext>` (dev build output).
+//   4. `../../target/debug/egressapikey-headless<ext>` (dev convenience).
 //
 // Priority for `--dist`:
 //   1. `EGRESSAPIKEY_DIST` env var.
-//   2. `../dist/` relative to this launcher.
+//   2. `../../dist/` relative to this launcher.
 //   3. `dist/` relative to CWD (Tauri build output convention).
 //
 // Ponytail: ~80 lines. CommonJS (no top-level await for Node 18 compat).
@@ -44,7 +44,7 @@ function resolveBin() {
   const candidates = [
     path.join(LAUNCHER_DIR, "binaries", `egressapikey-headless${EXT}`),
   ];
-  const targetDir = path.join(LAUNCHER_DIR, "..", "target");
+  const targetDir = path.join(LAUNCHER_DIR, "..", "..", "target");
   const releaseFlat = path.join(targetDir, "release", `egressapikey-headless${EXT}`);
   const debugFlat = path.join(targetDir, "debug", `egressapikey-headless${EXT}`);
   candidates.push(releaseFlat);
@@ -71,7 +71,7 @@ function resolveDist() {
   const env = process.env.EGRESSAPIKEY_DIST;
   if (env && existsSync(env)) return env;
   const candidates = [
-    path.join(LAUNCHER_DIR, "..", "dist"),
+    path.join(LAUNCHER_DIR, "..", "..", "dist"),
     path.join(process.cwd(), "dist"),
   ];
   for (const c of candidates) {
