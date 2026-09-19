@@ -350,6 +350,15 @@ jobs:
             cp "target/release/${{ matrix.bin }}" "$STAGE/${{ matrix.bin }}" 2>/dev/null || \
             cp "src-tauri/target/release/${{ matrix.bin }}" "$STAGE/${{ matrix.bin }}" 2>/dev/null || {
               echo "::error::portable binary not found"; exit 1; }
+          # The app resolves the Resin sidecar next to the app binary (exe dir)
+          # under its externalBin name — ship it beside the portable exe.
+          TRIPLE="${{ matrix.target }}"
+          SIDECAR_BIN="$(ls src-tauri/binaries/resin-*${TRIPLE}* 2>/dev/null | head -1 || true)"
+          if [ -n "$SIDECAR_BIN" ]; then
+            cp "$SIDECAR_BIN" "$STAGE/resin${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
+          else
+            echo "::warning::resin sidecar not found — portable app cannot boot resin"
+          fi
           ls -lh "$STAGE"
       - uses: actions/upload-artifact@v4
         with:
