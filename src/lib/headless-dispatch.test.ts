@@ -1,10 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-/// R11-04: the headless request guard + fetch dispatch is now a standalone
-/// module (boundary split out of lib/ipc.ts). Covers the route-consumption
-/// seam invoke() delegates to when isTauri() is false: invokeHeadless does
-/// the lookup, throws the typed guard error, and the build*/invokeHttp
-/// helpers own path/query/body shaping.
+/// Contract pins for the headless request guard + fetch dispatch: the
+/// route-consumption seam invoke() delegates to when isTauri() is false.
+/// invokeHeadless does the lookup, throws the typed guard error, and the
+/// build*/invokeHttp helpers own path/query/body shaping.
 
 import {
   buildBody,

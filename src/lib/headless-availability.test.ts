@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-/// R11-04: the capability registry is now a standalone module (boundary
-/// split out of lib/ipc.ts). Covers the isTauri() mode detector, the
-/// DISABLED_COMMANDS registry, the availability probe the UI calls before
-/// rendering controls, and the typed error the dispatch guard throws.
+/// Contract pins for the headless capability registry: the isTauri() mode
+/// detector, the DISABLED_COMMANDS registry, the availability probe the UI
+/// calls before rendering controls, and the typed error the dispatch guard
+/// throws.
 
 import {
   isTauri,
