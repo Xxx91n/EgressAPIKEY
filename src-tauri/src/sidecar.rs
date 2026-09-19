@@ -177,10 +177,6 @@ impl SidecarHandle {
     }
 }
 
-/// Boot the resin sidecar and wait for its control plane to be reachable.
-///
-/// Timeout: 15s (matches the Ghost safety-net reference but uses HTTP poll
-/// rather than stdout because Resin's design is HTTP-first).
 /// Pick a free loopback TCP port for the resin child to bind. The probe
 /// listener is returned ALIVE: the caller drops it immediately before
 /// `Command::spawn` so the port stays claimed through command setup,
