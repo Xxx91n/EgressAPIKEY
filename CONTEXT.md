@@ -246,7 +246,9 @@ The browser SPA plus the Rust headless BFF that reproduce the desktop
 control surface without Tauri (round8 D-003). The BFF holds the Resin
 admin token server-side and never exposes it to the browser; it must
 refuse to start when bound beyond loopback without an explicit auth
-token, and rejects unexpected Host/Origin values.
+token, and rejects unexpected Host/Origin values. The browser UI is
+the only first-class remote management surface; headless capability is
+same-SPA parity with a documented disable list (ADR-0071).
 _Avoid_: admin web panel, public dashboard
 
 ### RunningMode
@@ -880,3 +882,34 @@ exact tag URL) — never memory. On any upstream version bump, the registry is
 re-verified and updated in the same commit (ADR-0017 amendment).
 _Avoid_: license claims without a source link, updating the manifest without
 the registry, relying on a component's declared license alone
+
+### Strategy Template
+
+A preset snapshot of strategy choices (B-class allocation_policy plus
+A-class region shaping) applied to a platform through the single
+authoritative write entry, exactly like a hand edit (round11 D-002).
+A template is a convenience over the same write path - never a second
+config layer and never a bypass of generation or audit semantics.
+_Avoid_: strategy presets stored outside the whitebox, applying a
+template without a generation bump
+
+### Strategy Orchestration
+
+The platform-level conditional-automation state machine that reacts to
+risk signals (a burned or challenged exit IP) by probing candidates,
+switching region or strategy, holding an observation window, then
+committing or rolling back, with ejection-style cooldown to prevent
+flapping (round11 D-002). It reuses existing Resin probe and platform
+PATCH APIs and introduces no new data-plane behavior.
+_Avoid_: per-request routing, content-aware switching (fork-line
+territory), silent lease restarts
+
+### Fork Line
+
+The separate product line where data-plane innovations the vendored
+Resin kernel cannot express are pursued (round11 D-001/D-002). Pinned
+to exactly one trigger: per-request model-field-driven exit switching
+inside one account; node-level pinning also lives here. Until the
+trigger fires the fork line must not start, and the shell line must
+not re-enter the kernel (ADR-0050).
+_Avoid_: patching Resin casually, shell-side kernel forks
