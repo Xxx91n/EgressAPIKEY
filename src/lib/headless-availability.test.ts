@@ -48,7 +48,7 @@ let saved: { internals: unknown; flag: unknown }[] = [];
 function enterHeadless(): void {
   saved = bags().map((b) => ({ internals: b.__TAURI_INTERNALS__, flag: b.isTauri }));
   for (const b of bags()) {
-    b.__TAURI_INTERNALS = undefined;
+    b.__TAURI_INTERNALS__ = undefined;
     b.isTauri = undefined;
   }
 }
