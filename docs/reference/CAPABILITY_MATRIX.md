@@ -80,7 +80,7 @@ defined = registered = AGENTS.md manifest), `vitest-isolation-guard`,
 
 | Capability | What CI proves | Anchor (tier) | Residual gap |
 | --- | --- | --- | --- |
-| Browser control surface | 35/78 IPC commands have real HTTP semantics (26 Resin-proxy translations + 9 native port routes); 43 carry typed disabled reasons — no runtime Tauri-only throws | CMD_TO_HTTP/DISABLED_COMMANDS tables + T17 dual-mode vitest cases (T1); headless_main.rs 17 tests (T0) | 43 shell-local commands intentionally absent (L1 prefs, L2 whitebox raw files, snapshot/reconcile, process routes, config transfer, backup, sidecar lifecycle, tray/OS) — "full parity" is not the design |
+| Browser control surface | 35/79 IPC commands have real HTTP semantics (26 Resin-proxy translations + 9 native port routes); 44 carry typed disabled reasons — no runtime Tauri-only throws | CMD_TO_HTTP/DISABLED_COMMANDS tables + T17 dual-mode vitest cases (T1); headless_main.rs 17 tests (T0) | 44 shell-local commands intentionally absent (L1 prefs, L2 whitebox raw files, snapshot/reconcile, process routes, config transfer, backup, sidecar lifecycle, tray/OS) — "full parity" is not the design |
 | Server-side token injection | browser never holds Resin admin token; BFF strips inbound Authorization, injects server-side | headless BFF code + headless_security tests (T0 — not CI-run) | Structurally enforced in code; tests run only on Windows-capable hosts |
 | Non-loopback security gate | refuses to bind beyond loopback without explicit --auth-token; Host/Origin allowlist; CSPRNG token | headless_security.rs 14 tests (T0) | Same T0 caveat |
 | Headless binary ships | egressapikey-headless compiles for linux/win/macos×2 | backend matrix (T3) | Release-track only; no push-gate compile of the app crate |
@@ -95,7 +95,7 @@ defined = registered = AGENTS.md manifest), `vitest-isolation-guard`,
 | License layering declared | package.json = Cargo workspace = README = GPL-3.0-or-later; LICENSE is verbatim GPL text | license-field-check (T1) | Legal posture documented in THIRD_PARTY.md/ADR-0067 — declared, not audited |
 | Bilingual README | EN/CN heading map 1:1 + license body + drift-token absence | readme-lang-check (T1) | — |
 | Upstream docs integrity | UPSTREAM.md links resolve; RELEASE_NOTES↔CHANGELOG versions aligned | upstream-router-check (T1) | — |
-| IPC surface locked | 78 commands defined = registered = manifest | ipc-manifest-check (T1) | — |
+| IPC surface locked | 79 commands defined = registered = manifest | ipc-manifest-check (T1) | — |
 
 ## 3. Cross-check: README / docs promises vs verified state
 
@@ -109,7 +109,7 @@ defined = registered = AGENTS.md manifest), `vitest-isolation-guard`,
 | 6 | "Strategy engine — B-class decides how a port picks its exit (random / round-robin / low-latency)" (README) | **stale vocabulary** | Post ticket-01 truth set is the three Resin allocation policies; the six-way per-port picker narrative is withdrawn (CONTEXT.md B-Class Strategy) |
 | 7 | "Topology canvas — drag-to-connect hot-patches region filters on the live sidecar" (README) | **anchored (partial)** | `strategy_platform_regions_set` → apply path tested (T1) + TopologyView vitest; live-sidecar effect covered by contract, not e2e |
 | 8 | "Zero adaptation — point your gateway at an entry port; client code stays unchanged" (README) | **partially true today** | No-auth entry ports accept credential-free clients (ADR-0027); per-port (platform,account) binding still needs client-supplied credential until Mode A lands (tickets 13/17/18) |
-| 9 | "Headless twin — the full GUI control surface over HTTP" (README) | **overstated** | 35/78 mapped + 43 typed-disabled by design (§2 Headless); "same control surface" holds only for the Resin-backed subset |
+| 9 | "Headless twin — the full GUI control surface over HTTP" (README) | **overstated** | 35/79 mapped + 44 typed-disabled by design (§2 Headless); "same control surface" holds only for the Resin-backed subset |
 | 10 | "admin bearer token injected server-side; browser never sees it" (README) | **anchored (code) + T0 tests** | BFF strips/injects (headless_main.rs) + security gate tests exist but are not CI-executed |
 | 11 | "68 ADRs" (docs/README.md) | **stale count** | 70 files on disk (69 numbered + 0050-bis) — the narrative this page replaces was not even numerically current |
 | 12 | "socks5/http/https listening port" (CONTEXT.md Entry Port) | **wording drift** | Protocol set is {http,socks5}→{mixed,http,socks5}; "https" describes CONNECT targets, not an entry protocol — harmless but loose |
