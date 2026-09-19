@@ -372,6 +372,9 @@ fn spawn_resin_inner(
                 anyhow!("sidecar: restart cannot rebind 127.0.0.1:{}: {e}", s.port)
             })?;
             spawn_resin_on_port(
+                state_dir,
+                cache_dir,
+                log_dir,
                 binary_path,
                 network,
                 s.port,
@@ -391,6 +394,9 @@ fn spawn_resin_inner(
                 let (api_port, probe) = pick_free_loopback_port()?;
                 let admin_token = gen_token()?;
                 match spawn_resin_on_port(
+                    state_dir,
+                    cache_dir,
+                    log_dir,
                     binary_path,
                     network,
                     api_port,
@@ -427,6 +433,9 @@ fn spawn_resin_inner(
 /// reuse); None on a cold boot. Unused off Windows — the job object is a
 /// Windows-only concern.
 fn spawn_resin_on_port(
+    state_dir: &std::path::Path,
+    cache_dir: &std::path::Path,
+    log_dir: &std::path::Path,
     binary_path: &std::path::Path,
     network: &NetworkConfig,
     api_port: u16,
