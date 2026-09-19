@@ -124,6 +124,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: refs/tags/${{ inputs.tag }}
+      - name: install Linux native deps
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential curl wget file
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -138,17 +143,20 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The tauri build script validates externalBin resources at BUILD time
+      # (binaries/resin-* must exist before cargo runs) and generate_context!
+      # embeds frontendDist, so both prerequisites precede the compile.
+      - name: fetch Resin Go sidecar binary
+        shell: bash
+        run: bash scripts/fetch_resin.sh
+      - run: pnpm build
       - name: Build backend binary
         run: cargo build --release --target ${{ matrix.target }} -p egressapikey-app --bin egressapikey-headless --features headless
       - name: Package backend
         shell: bash
         run: |
           set -e
-          # Fetch resin sidecar binary (headless stage is self-contained)
-          bash scripts/fetch_resin.sh
-          # Install deps + build frontend dist (headless serves the SPA)
-          pnpm install --frozen-lockfile
-          pnpm build
           mkdir -p release
           STAGE="release/${{ matrix.name }}-backend"
           mkdir -p "$STAGE"
@@ -252,7 +260,11 @@ jobs:
           set -e
           STAGE="release/${{ matrix.name }}"
           mkdir -p "$STAGE"
-          find "src-tauri/target/${{ matrix.target }}/release/bundle" \
+          # Cargo workspace emits to the ROOT target/ dir (src-tauri is a
+          # workspace member, not a workspace root) — search both roots.
+          find "target/${{ matrix.target }}/release/bundle" \
+               "src-tauri/target/${{ matrix.target }}/release/bundle" \
+               "target/release/bundle" \
                src-tauri/target/release/bundle \
                -type f \( \
             -name '*.msi' -o -name '*-setup.exe' -o \
@@ -331,8 +343,13 @@ jobs:
           set -e
           STAGE="release/${{ matrix.name }}"
           mkdir -p "$STAGE"
-          cp "src-tauri/target/${{ matrix.target }}/release/${{ matrix.bin }}" "$STAGE/${{ matrix.bin }}" 2>/dev/null || \
-            cp "src-tauri/target/release/${{ matrix.bin }}" "$STAGE/${{ matrix.bin }}" 2>/dev/null || true
+          # Cargo workspace emits to the ROOT target/ dir — search it first,
+          # then the legacy src-tauri/target/ path, and fail loudly if absent.
+          cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$STAGE/${{ matrix.bin }}" 2>/dev/null || \
+            cp "src-tauri/target/${{ matrix.target }}/release/${{ matrix.bin }}" "$STAGE/${{ matrix.bin }}" 2>/dev/null || \
+            cp "target/release/${{ matrix.bin }}" "$STAGE/${{ matrix.bin }}" 2>/dev/null || \
+            cp "src-tauri/target/release/${{ matrix.bin }}" "$STAGE/${{ matrix.bin }}" 2>/dev/null || {
+              echo "::error::portable binary not found"; exit 1; }
           ls -lh "$STAGE"
       - uses: actions/upload-artifact@v4
         with:
