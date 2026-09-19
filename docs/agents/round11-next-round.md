@@ -27,7 +27,7 @@
 
 ### R11-03: headless 管理面对等补齐（P0 主票）
 - **覆盖决策**: D-003（全部）+ D-006#4a
-- **范围**: ①修复 `/api/v1/ports/{port}` axum 0.7 字面路径 bug（Round10 backlog P1-① 吸收）；②CMD_TO_HTTP 40 → SPA 可达功能全覆盖（shell 侧命令由 BFF 原生实现，非透传）；③新增 `GET /api/v1/capabilities`（BFF 原生端点，不增 IPC manifest）；④DISABLED_COMMANDS 43 条按判据重裁（仅桌面环境假设类可禁，纯控制面命令转正）；⑤`X-Forwarded-Proto` scheme 检测 + CSP `frame-ancestors none`；⑥HTTP 冒烟脚本（非浏览器，断言新路由）挂入 CI verify job
+- **范围**: ①修复 `/api/v1/ports/{port}` axum 0.7 字面路径 bug（Round10 backlog P1-① 吸收）；②CMD_TO_HTTP 40 → SPA 可达功能全覆盖（shell 侧命令由 BFF 原生实现，非透传）；③新增 `GET /api/v1/capabilities`（BFF 原生端点，不增 IPC manifest）；④DISABLED_COMMANDS 44 条按判据重裁（仅桌面环境假设类可禁，纯控制面命令转正）；⑤`X-Forwarded-Proto` scheme 检测 + CSP `frame-ancestors none`；⑥HTTP 冒烟脚本（非浏览器，断言新路由）挂入 CI verify job
 - **工作量**: 3-5 天；**风险**: 中（BFF 面广）；**依赖**: 建议 R11-04 先行
 - **验收**: capabilities 端点返回机器可读清单；禁用清单缩小到桌面专属；冒烟脚本在 CI 绿
 
