@@ -6,12 +6,12 @@ Status: ACCEPTED (2026-09-19, round11-grill decision D-003)
 
 ## Context
 
-The headless BFF maps 40 of 79 IPC commands to HTTP with 43 commands explicitly disabled, and the /api/v1/ports/{port} write routes are runtime-unreachable (axum 0.7 literal-path bug, round10 backlog P1). The documented "same control surface" promise is therefore not met. Desktop and headless share one React SPA, so UI-level parity is nearly free; the real curation surface is the command-to-route mapping layer.
+The headless BFF maps 35 of 79 IPC commands to HTTP with 44 commands explicitly disabled, and the /api/v1/ports/{port} write routes are runtime-unreachable (axum 0.7 literal-path bug, round10 backlog P1). The documented "same control surface" promise is therefore not met. Desktop and headless share one React SPA, so UI-level parity is nearly free; the real curation surface is the command-to-route mapping layer.
 
 ## Decision
 
 D1 - Form factor: the browser UI served by the headless BFF is the only first-class remote management surface this round. A remote-managing desktop client is deferred behind three trigger conditions (restricted-network environments proven significant; multi-node single-screen aggregation demand; a desktop-exclusive capability demanded remotely). API-first is rejected.
-D2 - Parity policy: same-SPA default. Every function reachable in the SPA MUST be reachable headless. A command may be disabled ONLY when it assumes a local desktop environment (tray, OS proxy settings, and the like); pure control-plane state commands have no excuse to be absent from the HTTP surface. The current 43-entry DISABLED_COMMANDS list is re-adjudicated under this criterion.
+D2 - Parity policy: same-SPA default. Every function reachable in the SPA MUST be reachable headless. A command may be disabled ONLY when it assumes a local desktop environment (tray, OS proxy settings, and the like); pure control-plane state commands have no excuse to be absent from the HTTP surface. The current 44-entry DISABLED_COMMANDS list is re-adjudicated under this criterion.
 D3 - Machine-readable capabilities: GET /api/v1/capabilities (BFF-native endpoint, no IPC manifest change) exposes enabled/disabled per command with reason; the UI renders disabled commands as desktop-only with a documentation link instead of a runtime throw.
 D4 - Security micro-hardening: X-Forwarded-Proto scheme detection and CSP frame-ancestors none join the existing security guard; zero-trust networking (Tailscale/WireGuard) is documented as a recommended, not required, deployment option in the headless deployment guide.
 
