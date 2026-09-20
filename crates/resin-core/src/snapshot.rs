@@ -16,7 +16,8 @@
 //! stays a pure relocation (AGENTS.md ADR-0036 write entry unchanged).
 
 use crate::strategy_engine::{
-    CascadeError, EstablishStep, StrategyConfig, SubscriptionPhase, SubscriptionStatus,
+    CascadeError, EstablishStep, PlatformStrategy, StrategyConfig, SubscriptionPhase,
+    SubscriptionStatus,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
