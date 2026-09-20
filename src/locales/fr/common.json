@@ -579,15 +579,8 @@
   },
   "ipc": {
     "disabled": {
-      "deprecated_noop": "Commande retirée, conservée uniquement pour la compatibilité du contrat IPC.",
-      "shell_local_l1_prefs": "Stocké dans les préférences de bureau de cet appareil, absentes du serveur headless.",
-      "shell_local_l2_whitebox": "Lit ou écrit le fichier de configuration whitebox local, que le serveur headless n'expose pas.",
-      "shell_local_snapshot": "Nécessite les magasins d'état locaux du shell de bureau pour construire l'instantané.",
-      "shell_local_process_route": "Les routes de processus résident dans le fichier de ports local du shell de bureau.",
-      "shell_local_config_transfer": "L'import et l'export de configuration sont des opérations de fichiers du shell de bureau.",
-      "shell_local_backup": "La sauvegarde utilise des fichiers locaux et des identifiants stockés sur le bureau.",
-      "shell_local_sidecar": "Contrôle le cycle de vie du sidecar du shell de bureau lui-même.",
       "desktop_only_tray": "Réservé à la zone de notification et à l'interface de streaming du bureau.",
+      "desktop_only_transport": "Diffuse l'état en direct via un canal push Tauri Channel que seul le runtime de bureau fournit.",
       "desktop_only_os": "Nécessite un accès au niveau du système d'exploitation, propre à l'application de bureau.",
       "desktop_only_local_path": "Résout un chemin local du système de fichiers sur le bureau.",
       "unknown": "Indisponible en mode headless."

@@ -579,15 +579,8 @@
   },
   "ipc": {
     "disabled": {
-      "deprecated_noop": "Polecenie wycofane, zachowane wyłącznie dla zgodności kontraktu IPC.",
-      "shell_local_l1_prefs": "Przechowywane w preferencjach pulpitu tego urządzenia, których serwer headless nie ma.",
-      "shell_local_l2_whitebox": "Czyta lub zapisuje lokalny plik konfiguracji whitebox, którego serwer headless nie udostępnia.",
-      "shell_local_snapshot": "Do zbudowania migawki potrzebne są lokalne magazyny stanu powłoki pulpitu.",
-      "shell_local_process_route": "Trasy procesów znajdują się w lokalnym pliku portów powłoki pulpitu.",
-      "shell_local_config_transfer": "Import i eksport konfiguracji to operacje na plikach powłoki pulpitu.",
-      "shell_local_backup": "Kopia zapasowa używa plików lokalnych i poświadczeń zapisanych na pulpicie.",
-      "shell_local_sidecar": "Steruje cyklem życia sidecara samej powłoki pulpitu.",
       "desktop_only_tray": "Tylko dla zasobnika pulpitu i interfejsu strumieniowania.",
+      "desktop_only_transport": "Strumieniuje stan na żywo przez kanał push Tauri Channel dostępny tylko w runtime pulpitu.",
       "desktop_only_os": "Wymaga dostępu na poziomie systemu operacyjnego, który ma tylko aplikacja pulpitu.",
       "desktop_only_local_path": "Rozwiązuje lokalną ścieżkę systemu plików na pulpicie.",
       "unknown": "Niedostępne w trybie headless."

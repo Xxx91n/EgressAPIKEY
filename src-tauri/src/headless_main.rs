@@ -44,12 +44,14 @@ use axum::{
     http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{any, delete, get, patch, put},
+    routing::{any, get, patch, put},
     Router,
 };
 use clap::Parser;
 use egressapikey_app::headless_security::{self, HeadlessGuard};
-use egressapikey_app::sidecar::boot_resin_standalone;
+use egressapikey_app::sidecar::{boot_resin_standalone, SidecarHandle};
+
+mod headless_shell;
 use tower_http::services::{ServeDir, ServeFile};
 
 #[derive(Parser, Debug)]
@@ -174,6 +176,9 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|| PathBuf::from("binaries"))
     });
 
+    // Resolved once here so both boot and the restart seam (R11-03) reuse
+    // the exact same binary path the running child was spawned from.
+    let resin_binary = egressapikey_app::sidecar::resolve_resin_binary(Some(&binary_dir))?;
     let sidecar = boot_resin_standalone(state_root.clone(), log_root.clone(), binary_dir)?;
     let sidecar = Arc::new(sidecar);
     let api_base = format!("http://127.0.0.1:{}/", sidecar.api_port);
@@ -212,12 +217,27 @@ async fn main() -> Result<()> {
         sidecar.api_port,
         sidecar.proxy_token.clone(),
     );
+    // R11-03: the strategy L2 service roots at state_root here — the desktop
+    // shell roots the identical store at app_config_dir (option C).
+    let strategy_svc = resin_core::StrategyService::new(resin_core::FsStrategyStore::new(
+        state_root.join("egressapikey-strategy.json"),
+    ));
     let port_ctx = Arc::new(PortCtx {
         db: port_db,
         whitebox: port_whitebox,
         forwarder: port_forwarder,
         api_base: api_base.clone(),
         admin_token: admin_token.clone(),
+        sidecar: sidecar.clone(),
+        strategy: strategy_svc,
+        settings_path: state_root.join("settings.json"),
+        state_root: state_root.clone(),
+        restart: headless_shell::RestartDirs {
+            state_dir: state_root.join("resin-state"),
+            cache_dir: state_root.join("resin-cache"),
+            log_dir: log_root.join("resin"),
+            binary_path: resin_binary,
+        },
     });
     tracing::info!(
         "headless: L2 whitebox + egressapikey.db opened at {:?} ({} port row(s))",
@@ -419,6 +439,10 @@ fn build_router(
         .route("/api/v1/ports/:port/platform", patch(r_bind))
         .route("/api/v1/ports/:port/auth", get(r_auth))
         .route("/api/v1/ports/:port/health", get(r_health))
+        // R11-03: BFF-native shell routes (/api/v1/shell/* + /api/v1/capabilities).
+        // Merged before the wildcard; axum 0.7 prefers static segments so the
+        // Resin proxy keeps owning every unmatched /api/v1/* path.
+        .merge(headless_shell::shell_routes(port_ctx.clone()))
         .route("/api/v1/*path", any(proxy_handler.clone()))
         .route("/metrics/*path", any(proxy_handler))
         .fallback_service(serve_dir)
@@ -441,6 +465,15 @@ async fn security_guard(
     req: Request<Body>,
     next: Next,
 ) -> Response {
+    // ADR-0071 D3: behind a TLS-terminating reverse proxy the browser leg is
+    // HTTPS even though our inbound socket is plain HTTP; the trusted-hop
+    // X-Forwarded-Proto marker then upgrades the session cookie to Secure.
+    let forwarded_https = req
+        .headers()
+        .get("x-forwarded-proto")
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.trim().eq_ignore_ascii_case("https"))
+        .unwrap_or(false);
     let host = req
         .headers()
         .get(header::HOST)
@@ -455,7 +488,9 @@ async fn security_guard(
         headless_security::host_allowed(host.as_deref(), origin.as_deref(), guard.allowed_hosts())
     {
         tracing::warn!(target: "headless.security", "rejected: {reason}");
-        return (StatusCode::FORBIDDEN, format!("headless: {reason}")).into_response();
+        return with_security_headers(
+            (StatusCode::FORBIDDEN, format!("headless: {reason}")).into_response(),
+        );
     }
 
     let path = req.uri().path().to_owned();
@@ -493,17 +528,40 @@ async fn security_guard(
                     .into_response();
                 resp.headers_mut()
                     .insert(header::WWW_AUTHENTICATE, HeaderValue::from_static("Bearer"));
-                return resp;
+                return with_security_headers(resp);
             }
         }
     }
 
     let mut resp = next.run(req).await;
     if plant_cookie {
-        if let Ok(value) = HeaderValue::from_str(&guard.session_cookie()) {
+        let mut cookie = guard.session_cookie();
+        if forwarded_https {
+            cookie.push_str("; Secure");
+        }
+        if let Ok(value) = HeaderValue::from_str(&cookie) {
             resp.headers_mut().insert(header::SET_COOKIE, value);
         }
     }
+    with_security_headers(resp)
+}
+
+/// ADR-0071 D3: baseline response headers for every headless response —
+/// self-only CSP (no framing anywhere), referrer + nosniff. Applied inside
+/// the guard so static assets, BFF routes and proxy responses all carry it.
+fn with_security_headers(mut resp: Response) -> Response {
+    resp.headers_mut().insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; \
+             img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; \
+             frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+        ),
+    );
+    resp.headers_mut().insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
     resp
 }
 
@@ -979,6 +1037,19 @@ struct PortCtx {
     forwarder: resin_core::PortForwarder,
     api_base: String,
     admin_token: String,
+    /// The Resin sidecar this process booted — the BFF shell routes share it
+    /// for status/logs/restart and ResinClient construction (R11-03).
+    sidecar: Arc<SidecarHandle>,
+    /// L2 strategy service rooted at state_root — the same store shape the
+    /// desktop opens at app_config_dir (option C: same stores, different root).
+    strategy: resin_core::StrategyService<resin_core::FsStrategyStore>,
+    /// L1 preferences document (<state_root>/settings.json) backing the
+    /// settings KV surface the SPA's store() shim writes through.
+    settings_path: PathBuf,
+    /// L2/L1 root (egressapikey.db, whitebox file, settings.json, backups/).
+    state_root: PathBuf,
+    /// Directories the sidecar restart seam re-enters (resolved at boot).
+    restart: headless_shell::RestartDirs,
 }
 
 impl PortCtx {
@@ -1473,12 +1544,38 @@ mod guard_wiring_tests {
             1,
             "test-proxy-token".to_string(),
         );
+        // A stub sidecar handle (no child): enough for the guard/route wiring
+        // these tests exercise; shell handlers that need a live sidecar are
+        // covered by the smoke script, not this fixture.
+        let stub_sidecar = Arc::new(SidecarHandle {
+            child: std::sync::Mutex::new(None),
+            mode: std::sync::RwLock::new(egressapikey_app::sidecar::RunningMode::Running),
+            log_buf: egressapikey_app::sidecar::LogBuffer::new(),
+            api_port: 0,
+            admin_token: String::new(),
+            proxy_token: String::new(),
+            healthz_last_check: std::sync::RwLock::new(String::new()),
+            #[cfg(target_os = "windows")]
+            job_handle: None,
+        });
         let port_ctx = Arc::new(PortCtx {
             db,
             whitebox,
             forwarder,
             api_base: api_base.to_string(),
             admin_token: TEST_ADMIN_TOKEN.to_string(),
+            sidecar: stub_sidecar,
+            strategy: resin_core::StrategyService::new(resin_core::FsStrategyStore::new(
+                dir.join("egressapikey-strategy.json"),
+            )),
+            settings_path: dir.join("settings.json"),
+            state_root: dir.clone(),
+            restart: headless_shell::RestartDirs {
+                state_dir: dir.join("resin-state"),
+                cache_dir: dir.join("resin-cache"),
+                log_dir: dir.join("resin-logs"),
+                binary_path: dir.join("resin"),
+            },
         });
         let guard = Arc::new(HeadlessGuard::new(
             headless_security::allowed_hosts("127.0.0.1", &[]),

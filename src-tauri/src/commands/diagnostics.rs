@@ -35,6 +35,12 @@ pub struct SidecarStatus {
 
 #[tauri::command]
 pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarStatus, IpcError> {
+    Ok(sidecar_status_of(&sidecar))
+}
+
+/// Transport-free status read (R11-03): the headless BFF owns a SidecarHandle
+/// too, so both transports read the same fields.
+pub fn sidecar_status_of(sidecar: &SidecarHandle) -> SidecarStatus {
     let started = std::time::Instant::now();
     let mode = sidecar
         .mode
@@ -54,14 +60,14 @@ pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarSt
         .map(|g| g.clone())
         .unwrap_or_default();
     let ipc_latency_us = started.elapsed().as_micros() as u64;
-    Ok(SidecarStatus {
+    SidecarStatus {
         api_port: sidecar.api_port,
         api_base: sidecar.api_base(),
         mode,
         pid,
         healthz_last_check,
         ipc_latency_us,
-    })
+    }
 }
 
 /// (rewritten by): Read the last N request
@@ -327,6 +333,17 @@ pub async fn probe_exit_ip(
     port: u16,
     protocol: String,
 ) -> Result<ExitIpProbe, IpcError> {
+    probe_exit_ip_impl(&sidecar.proxy_token, &db, port, protocol).await
+}
+
+/// Transport-free body (R11-03): the headless BFF holds the same proxy_token
+/// + port DB, so the probe runs identically on either transport.
+pub async fn probe_exit_ip_impl(
+    proxy_token: &str,
+    db: &DbPool,
+    port: u16,
+    protocol: String,
+) -> Result<ExitIpProbe, IpcError> {
     tracing::info!(port, protocol = %protocol, "probe_exit_ip: probing through proxy");
     validate_port_segments(port)?;
     let proto = protocol.to_ascii_lowercase();
@@ -349,7 +366,7 @@ pub async fn probe_exit_ip(
         } else {
             format!("{}.{}", mapping.platform_name, mapping.account)
         };
-        let password = &sidecar.proxy_token;
+        let password = proxy_token;
         format!("socks5h://{username}:{password}@127.0.0.1:{port}")
     };
     let proxy = reqwest::Proxy::all(&proxy_url)

@@ -579,15 +579,8 @@
   },
   "ipc": {
     "disabled": {
-      "deprecated_noop": "已弃用命令，仅为 IPC 契约兼容而保留。",
-      "shell_local_l1_prefs": "存储在本机的桌面偏好中，headless 服务器没有这一层。",
-      "shell_local_l2_whitebox": "读写本地白盒配置文件，headless 服务器不暴露该文件。",
-      "shell_local_snapshot": "需要桌面壳的本地状态存储才能构建快照。",
-      "shell_local_process_route": "进程路由保存在桌面壳的本地端口文件中。",
-      "shell_local_config_transfer": "配置导入导出是桌面壳的文件操作。",
-      "shell_local_backup": "备份依赖本地文件与桌面保存的凭据。",
-      "shell_local_sidecar": "用于控制桌面壳自身的 sidecar 生命周期。",
       "desktop_only_tray": "仅限桌面托盘与流式界面。",
+      "desktop_only_transport": "需要通过 Tauri Channel 推送通道传输实时状态，该通道仅桌面运行时提供。",
       "desktop_only_os": "需要仅桌面应用具备的操作系统级访问。",
       "desktop_only_local_path": "解析桌面上的本地文件系统路径。",
       "unknown": "在 headless 模式下不可用。"

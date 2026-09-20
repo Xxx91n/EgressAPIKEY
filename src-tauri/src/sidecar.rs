@@ -217,7 +217,7 @@ const PORT_PICK_ATTEMPTS: u32 = 3;
 
 /// Resolve the resin sidecar binary by host triple. Tries `binary_dir`
 /// (CLI-supplied) first, then packaged resource_dir, then dev fallback.
-fn resolve_resin_binary(binary_dir: Option<&std::path::Path>) -> Result<std::path::PathBuf> {
+pub fn resolve_resin_binary(binary_dir: Option<&std::path::Path>) -> Result<std::path::PathBuf> {
     // std::env::consts::OS returns 'windows'/'macos'/'linux' WITHOUT the
     // ABI suffix (msvc/gnu), so the triple we can construct at runtime is
     // only a prefix of the real cargo host-triple. We glob
@@ -740,7 +740,7 @@ pub(crate) fn restart_resin<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
 /// BLOCKING (std::process + blocking reqwest + thread::sleep): callers MUST
 /// run this on a blocking pool (tokio::task::spawn_blocking), never directly
 /// on an async worker thread.
-fn restart_into_slot(
+pub fn restart_into_slot(
     state: &SidecarHandle,
     state_dir: std::path::PathBuf,
     cache_dir: std::path::PathBuf,
@@ -833,7 +833,9 @@ pub fn check_port_available(port: u16) -> Result<(), String> {
 
 /// Create a Windows Job Object with KILL_ON_JOB_CLOSE and assign the
 /// sidecar process to it. clash-verge-rev PR #6853 pattern.
-#[cfg(target_os = "windows")]
+/// Test-only helper: production goes through assign_sidecar_to_job (which
+/// can reuse the boot job object); this wrapper exists for the unit tests.
+#[cfg(all(target_os = "windows", test))]
 fn assign_sidecar_to_job_object(pid: u32) -> Option<isize> {
     assign_sidecar_to_job(pid, None)
 }
@@ -924,7 +926,7 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(all(not(target_os = "windows"), test))]
 fn assign_sidecar_to_job_object(_pid: u32) -> Option<isize> {
     None
 }

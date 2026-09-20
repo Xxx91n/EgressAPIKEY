@@ -37,10 +37,10 @@ export function buildQuery(route: HttpRoute, args?: Record<string, unknown>): st
 /** Non-GET body: unwrap the Tauri arg envelope, rename camelCase keys, and
  *  drop nulls (the "only provided fields" contract Resin and the BFF share). */
 export function buildBody(route: HttpRoute, args?: Record<string, unknown>): string | undefined {
-  if (route.method === "GET" || !args) return undefined;
-  let payload: Record<string, unknown> = args;
+  if (route.method === "GET" || (!args && !route.bodyConst)) return undefined;
+  let payload: Record<string, unknown> = { ...(route.bodyConst ?? {}), ...(args ?? {}) };
   if (route.bodyArg) {
-    const inner = args[route.bodyArg];
+    const inner = args?.[route.bodyArg];
     if (inner === undefined || inner === null) return undefined;
     if (typeof inner !== "object" || Array.isArray(inner)) {
       throw new Error(`[ipc] ${route.bodyArg} must be a JSON object`);

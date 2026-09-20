@@ -17,7 +17,7 @@ cargo fmt --all -- --check
 echo "[verify] cargo build"
 if [ "$IS_CI" = "true" ]; then
   if [ "$(uname -s 2>/dev/null)" = "Linux" ] || [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
-    echo "[verify] NOTE: non-Windows CI - app crate LINK skipped (GUI jobs cover it); the headless bin is cargo-checked below"
+    echo "[verify] NOTE: non-Windows CI - GUI app crate LINK skipped (GUI jobs cover it)"
     cargo build -p resin-core --quiet
     # f682940e-class guard (architecture-recovery ticket 03 / IMP-3): the
     # headless bin lives in src-tauri, which this branch never compiled, so a
@@ -26,6 +26,11 @@ if [ "$IS_CI" = "true" ]; then
     # modules (a plain check leaves cfg(test) off, which would hide a broken
     # regression lock).
     cargo check -p egressapikey-app --features headless --all-targets --quiet
+    # R11-03e: the verify job must also produce the real headless binary so
+    # the smoke script below exercises a live process (验收: 编译通过、启动
+    # 并测活软件进程). The bin is a pure axum server - no webkit link deps -
+    # and the backend release matrix already builds it on ubuntu-22.04.
+    cargo build -p egressapikey-app --features headless --bin egressapikey-headless --quiet
   else
     cargo build --workspace --quiet
   fi
@@ -85,3 +90,21 @@ echo "[verify] upstream router integrity (ticket 14, spec D-C3.9)"
 node scripts/upstream-router-check.cjs
 echo "[verify] contracts (mode-a contract gate, ADR-0068 D4 / round9 D-001)"
 node scripts/mode-a-contract-check.cjs
+
+# R11-03b: the headless capability registry must cover every registered
+# command exactly once and agree with the transport route table.
+echo "[verify] headless capability registry contract"
+node scripts/headless-capability-check.cjs
+
+# R11-03e: live-process smoke for the headless transport (验收闭环: 启动并
+# 测活软件进程). Requires the built bin + a fetched Resin sidecar; locally
+# both may be absent, so the smoke skips with an explicit WARN rather than
+# silently passing. In CI verify both are always present.
+HEADLESS_BIN="target/debug/egressapikey-headless"
+[ "$(uname -s 2>/dev/null | cut -c1-5)" = "MINGW" ] && HEADLESS_BIN="${HEADLESS_BIN}.exe"
+if [ -x "$HEADLESS_BIN" ] || [ -f "$HEADLESS_BIN" ]; then
+  echo "[verify] headless live smoke ($HEADLESS_BIN)"
+  node scripts/headless-smoke.cjs
+else
+  echo "[verify] WARN: $HEADLESS_BIN absent - headless smoke skipped (local run?)"
+fi

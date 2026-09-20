@@ -14,6 +14,7 @@
  * the public surface so existing callers keep importing from "./ipc".
  */
 import { CMD_TO_HTTP } from "./headless-routes";
+import CAPABILITIES from "./headless-capabilities.json";
 
 // --- dual-mode: isTauri detection (ADR-0043 Q2=A) ---
 // In the Tauri webview we use the native invoke(). In a plain browser
@@ -33,7 +34,10 @@ export function isTauri(): boolean {
   };
   const hasInternals = !!w.__TAURI_INTERNALS__;
   const hasIsTauri = !!w.isTauri;
-  if (!hasInternals && !hasIsTauri && typeof console !== "undefined") {
+  // The diagnostic probe is dev-build only (import.meta.env.DEV is statically
+  // replaced by Vite, so the warn block is dead-code-eliminated from prod
+  // bundles and can never leak UA/location to end-user consoles).
+  if (!hasInternals && !hasIsTauri && typeof console !== "undefined" && import.meta.env.DEV) {
     // Diagnostic: only log once per session to avoid spam.
     try {
       const key = "__egressapikey_isTauri_diag";
@@ -51,80 +55,40 @@ export function isTauri(): boolean {
 }
 
 /** Why a command has no headless surface. Drives the UI disabled state and
- *  the i18n reason key (`ipc.disabled.<reason>`); never a runtime surprise. */
+ *  the i18n reason key (`ipc.disabled.<reason>`); never a runtime surprise.
+ *  R11-03 re-triage (ADR-0071): a command may stay disabled ONLY when it
+ *  assumes a desktop environment — everything else must be reachable. */
 export type CommandDisabledReason =
-  | "deprecated_noop"
-  | "shell_local_l1_prefs"
-  | "shell_local_l2_whitebox"
-  | "shell_local_snapshot"
-  | "shell_local_process_route"
-  | "shell_local_config_transfer"
-  | "shell_local_backup"
-  | "shell_local_sidecar"
   | "desktop_only_tray"
   | "desktop_only_os"
   | "desktop_only_local_path"
+  | "desktop_only_transport";
 
-/** 44 commands with no reachable HTTP semantics in headless mode
- *  (policy: docs/adr/0071-headless-parity-policy.md).
- *  Grouped by WHY, so a future change of circumstance has one place to edit. */
-export const DISABLED_COMMANDS: Record<string, CommandDisabledReason> = {
-  // A-020: echo commands kept per AGENTS 7.6; removal condition not triggered.
-  account_add: "deprecated_noop",
-  account_bind_ip: "deprecated_noop",
-  // L1 GUI preferences (tauri-plugin-store).
-  lightweight_get: "shell_local_l1_prefs",
-  lightweight_set: "shell_local_l1_prefs",
-  get_diag_poll_interval: "shell_local_l1_prefs",
-  set_diag_poll_interval: "shell_local_l1_prefs",
-  set_log_level: "shell_local_l1_prefs",
-  get_log_level: "shell_local_l1_prefs",
-  ip_reputation_snapshot: "shell_local_l1_prefs",
-  // L2 whitebox files (ports + strategy) - present in headless only for the
-  // port CRUD subset exposed above; the raw file surface stays desktop-only.
-  whitebox_get: "shell_local_l2_whitebox",
-  whitebox_path: "shell_local_l2_whitebox",
-  whitebox_reload: "shell_local_l2_whitebox",
-  whitebox_save_network: "shell_local_l2_whitebox",
-  whitebox_backup_list: "shell_local_l2_whitebox",
-  whitebox_rollback: "shell_local_l2_whitebox",
-  strategy_config_get: "shell_local_l2_whitebox",
-  strategy_config_put: "shell_local_l2_whitebox",
-  strategy_platform_regions_set: "shell_local_l2_whitebox",
-  strategy_backup_list: "shell_local_l2_whitebox",
-  strategy_rollback: "shell_local_l2_whitebox",
-  // Cross-store snapshot / reconcile (L2 + egressapikey.db + L3 merge).
-  strategy_verify: "shell_local_snapshot",
-  strategy_apply: "shell_local_snapshot",
-  authoritative_snapshot: "shell_local_snapshot",
-  reconcile_now: "shell_local_snapshot",
-  // Process routes live in egressapikey-ports.json (ADR-0055).
-  process_route_add: "shell_local_process_route",
-  process_route_remove: "shell_local_process_route",
-  process_route_list: "shell_local_process_route",
-  // ADR-0061: whitebox-source transfer, no headless HTTP surface.
-  config_export: "shell_local_config_transfer",
-  config_import: "shell_local_config_transfer",
-  // Local zip + WebDAV backup (L1 credentials).
-  backup_create: "shell_local_backup",
-  backup_restore: "shell_local_backup",
-  backup_upload: "shell_local_backup",
-  backup_list: "shell_local_backup",
-  // Desktop shell sidecar lifecycle.
-  get_sidecar_status: "shell_local_sidecar",
-  get_sidecar_logs: "shell_local_sidecar",
-  close_all_connections: "shell_local_sidecar",
-  reset_kernel: "shell_local_sidecar",
-  // Tray / OS / streaming surfaces.
-  tray_refresh_labels: "desktop_only_tray",
-  check_firewall_status: "desktop_only_os",
-  probe_exit_ip: "desktop_only_os",
-  watch_port_health: "desktop_only_tray",
-  // Local filesystem paths / exports.
-  get_config_dir: "desktop_only_local_path",
-  get_log_dir: "desktop_only_local_path",
-  export_audit_log: "desktop_only_local_path",
-};
+/** Shape of one entry in the shared capability registry. */
+interface CapabilityEntry {
+  status: "enabled" | "disabled";
+  method?: string;
+  path?: string;
+  reason?: CommandDisabledReason;
+  note?: string;
+}
+
+/** The disabled registry is DERIVED from ./headless-capabilities.json — the
+ *  same document GET /api/v1/capabilities serves verbatim — so the UI, the
+ *  dispatch guard and the machine-readable endpoint can never disagree.
+ *  (R11-03: was 44 hand-maintained entries; the re-triage promoted every
+ *  command whose dependence on the desktop was only a storage root.) */
+export const DISABLED_COMMANDS: Record<string, CommandDisabledReason> =
+  Object.fromEntries(
+    Object.entries(
+      (CAPABILITIES as { commands: Record<string, CapabilityEntry> }).commands,
+    )
+      .filter(([, entry]) => entry.status === "disabled")
+      .map(([cmd, entry]) => [
+        cmd,
+        entry.reason ?? "desktop_only_os",
+      ]),
+  );
 
 /** Thrown when a headless-mode call targets a command with no HTTP surface.
  *  The UI checks `ipcCommandAvailability` BEFORE calling, so reaching this is a

@@ -579,15 +579,8 @@
   },
   "ipc": {
     "disabled": {
-      "deprecated_noop": "Lệnh đã ngừng dùng, chỉ giữ lại để tương thích hợp đồng IPC.",
-      "shell_local_l1_prefs": "Được lưu trong tùy chọn máy tính của thiết bị này, mà máy chủ headless không có.",
-      "shell_local_l2_whitebox": "Đọc hoặc ghi tệp cấu hình whitebox cục bộ, mà máy chủ headless không cung cấp.",
-      "shell_local_snapshot": "Cần kho trạng thái cục bộ của vỏ máy tính để tạo ảnh chụp.",
-      "shell_local_process_route": "Tuyến tiến trình nằm trong tệp cổng cục bộ của vỏ máy tính.",
-      "shell_local_config_transfer": "Nhập và xuất cấu hình là thao tác tệp của vỏ máy tính.",
-      "shell_local_backup": "Sao lưu dùng tệp cục bộ và thông tin đăng nhập lưu trên máy tính.",
-      "shell_local_sidecar": "Điều khiển vòng đời sidecar của chính vỏ máy tính.",
       "desktop_only_tray": "Chỉ dành cho khay máy tính và giao diện truyền trực tuyến.",
+      "desktop_only_transport": "Truyền trạng thái trực tiếp qua kênh push Tauri Channel chỉ có trong runtime desktop.",
       "desktop_only_os": "Cần quyền truy cập cấp hệ điều hành mà chỉ ứng dụng máy tính mới có.",
       "desktop_only_local_path": "Phân giải một đường dẫn hệ thống tệp cục bộ trên máy tính.",
       "unknown": "Không khả dụng ở chế độ headless."

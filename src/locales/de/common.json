@@ -579,15 +579,8 @@
   },
   "ipc": {
     "disabled": {
-      "deprecated_noop": "Stillgelegter Befehl, nur zur Kompatibilität des IPC-Vertrags behalten.",
-      "shell_local_l1_prefs": "Liegt in den Desktop-Einstellungen dieses Geräts, die der headless-Server nicht hat.",
-      "shell_local_l2_whitebox": "Liest oder schreibt die lokale Whitebox-Konfigurationsdatei, die der headless-Server nicht bereitstellt.",
-      "shell_local_snapshot": "Benötigt die lokalen Zustandsspeicher der Desktop-Shell, um den Schnappschuss zu bilden.",
-      "shell_local_process_route": "Prozessrouten liegen in der lokalen Portdatei der Desktop-Shell.",
-      "shell_local_config_transfer": "Konfigurations-Import und -Export sind Dateioperationen der Desktop-Shell.",
-      "shell_local_backup": "Die Sicherung nutzt lokale Dateien und im Desktop gespeicherte Anmeldedaten.",
-      "shell_local_sidecar": "Steuert den Sidecar-Lebenszyklus der Desktop-Shell selbst.",
       "desktop_only_tray": "Nur für Desktop-Tray und Streaming-Oberfläche.",
+      "desktop_only_transport": "Streamt Live-Status über einen Tauri-Channel-Push-Kanal, den nur die Desktop-Laufzeit bereitstellt.",
       "desktop_only_os": "Erfordert Betriebssystemzugriff, den nur die Desktop-App hat.",
       "desktop_only_local_path": "Löst einen lokalen Dateisystempfad auf dem Desktop auf.",
       "unknown": "Im headless-Modus nicht verfügbar."

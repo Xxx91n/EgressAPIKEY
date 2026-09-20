@@ -135,6 +135,18 @@ pub async fn process_route_add(
     process: String,
     target_port: u16,
 ) -> Result<(), IpcError> {
+    process_route_add_impl(&db, &forwarder, &whitebox, process, target_port).await
+}
+
+/// Transport-free body (R11-03): the whitebox write entry is identical on
+/// both transports.
+pub async fn process_route_add_impl(
+    db: &DbPool,
+    forwarder: &resin_core::PortForwarder,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    process: String,
+    target_port: u16,
+) -> Result<(), IpcError> {
     validate_short_name(&process, "process")?;
     if target_port < 1024 {
         return Err(IpcError::from(format!(
@@ -154,7 +166,7 @@ pub async fn process_route_add(
             target_port,
         });
     }
-    whitebox.apply(&db, &forwarder, next).await?;
+    whitebox.apply(db, forwarder, next).await?;
     Ok(())
 }
 
@@ -167,6 +179,16 @@ pub async fn process_route_remove(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     process: String,
 ) -> Result<bool, IpcError> {
+    process_route_remove_impl(&db, &forwarder, &whitebox, process).await
+}
+
+/// Transport-free body (R11-03).
+pub async fn process_route_remove_impl(
+    db: &DbPool,
+    forwarder: &resin_core::PortForwarder,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    process: String,
+) -> Result<bool, IpcError> {
     validate_short_name(&process, "process")?;
     let mut next = whitebox.snapshot();
     let before = next.process_routes.len();
@@ -175,7 +197,7 @@ pub async fn process_route_remove(
     if next.process_routes.len() == before {
         return Ok(false);
     }
-    whitebox.apply(&db, &forwarder, next).await?;
+    whitebox.apply(db, forwarder, next).await?;
     Ok(true)
 }
 
@@ -1063,9 +1085,18 @@ pub async fn ip_reputation_snapshot(
     let store = app
         .store("settings.json")
         .map_err(|e| IpcError::from(format!("settings store: {e}")))?;
-    let provider_name = store
-        .get("ipReputationProvider")
-        .and_then(|v| v.as_str().map(str::to_string));
+    let client = resin_client(&sidecar)?;
+    ip_reputation_snapshot_impl(|k| store.get(k), &client).await
+}
+
+/// Transport-free body (R11-03): the headless BFF reads the same settings
+/// keys from its own settings.json store.
+pub async fn ip_reputation_snapshot_impl(
+    get_setting: impl Fn(&str) -> Option<serde_json::Value>,
+    client: &resin_core::ResinClient,
+) -> Result<ReputationSnapshot, IpcError> {
+    let provider_name =
+        get_setting("ipReputationProvider").and_then(|v| v.as_str().map(str::to_string));
     let Some(provider) = provider_name.as_deref().and_then(ReputationProvider::parse) else {
         return Ok(ReputationSnapshot {
             provider: None,
@@ -1074,9 +1105,7 @@ pub async fn ip_reputation_snapshot(
         });
     };
     let api_key = if provider.requires_key() {
-        store
-            .get(provider.key_name())
-            .and_then(|v| v.as_str().map(str::to_string))
+        get_setting(provider.key_name()).and_then(|v| v.as_str().map(str::to_string))
     } else {
         None
     };
@@ -1087,7 +1116,6 @@ pub async fn ip_reputation_snapshot(
             entries: Vec::new(),
         });
     }
-    let client = resin_client(&sidecar)?;
     let raw = client
         .active_leases()
         .await

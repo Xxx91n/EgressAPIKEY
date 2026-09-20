@@ -17,17 +17,10 @@ import {
 import { CMD_TO_HTTP } from "./headless-routes";
 
 const REASONS: readonly CommandDisabledReason[] = [
-  "deprecated_noop",
-  "shell_local_l1_prefs",
-  "shell_local_l2_whitebox",
-  "shell_local_snapshot",
-  "shell_local_process_route",
-  "shell_local_config_transfer",
-  "shell_local_backup",
-  "shell_local_sidecar",
   "desktop_only_tray",
   "desktop_only_os",
   "desktop_only_local_path",
+  "desktop_only_transport",
 ];
 
 // setup.ts stubs BOTH injection flags so isTauri() is true by default.
@@ -93,13 +86,13 @@ describe("headless-availability: ipcCommandAvailability", () => {
 
   it("headless: a disabled command returns its typed reason", () => {
     enterHeadless();
-    expect(ipcCommandAvailability("strategy_apply")).toEqual({
+    expect(ipcCommandAvailability("tray_refresh_labels")).toEqual({
       available: false,
-      reason: "shell_local_snapshot",
+      reason: "desktop_only_tray",
     });
-    expect(ipcCommandAvailability("whitebox_get")).toEqual({
+    expect(ipcCommandAvailability("whitebox_path")).toEqual({
       available: false,
-      reason: "shell_local_l2_whitebox",
+      reason: "desktop_only_local_path",
     });
   });
 
@@ -149,14 +142,14 @@ describe("headless-availability: DISABLED_COMMANDS registry", () => {
 
 describe("headless-availability: IpcUnavailableError", () => {
   it("carries command, typed reason, and the i18n key", () => {
-    const err = new IpcUnavailableError("strategy_apply", "shell_local_snapshot");
+    const err = new IpcUnavailableError("watch_port_health", "desktop_only_transport");
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe("IpcUnavailableError");
-    expect(err.command).toBe("strategy_apply");
-    expect(err.reason).toBe("shell_local_snapshot");
-    expect(err.i18nKey).toBe("ipc.disabled.shell_local_snapshot");
-    expect(err.message).toContain("strategy_apply");
-    expect(err.message).toContain("shell_local_snapshot");
+    expect(err.command).toBe("watch_port_health");
+    expect(err.reason).toBe("desktop_only_transport");
+    expect(err.i18nKey).toBe("ipc.disabled.desktop_only_transport");
+    expect(err.message).toContain("watch_port_health");
+    expect(err.message).toContain("desktop_only_transport");
   });
 
   it("accepts the \"unknown\" reason for unlisted commands", () => {

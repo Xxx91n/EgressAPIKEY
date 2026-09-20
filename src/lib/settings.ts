@@ -19,11 +19,78 @@
 
 import { LazyStore } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "./headless-availability";
 
 const STORE = "settings.json";
 
-function store() {
-  return new LazyStore(STORE);
+interface StoreLike {
+  get<T>(key: string): Promise<T | null | undefined>;
+  set(key: string, value: unknown): Promise<void>;
+  delete(key: string): Promise<unknown>;
+  save(): Promise<void>;
+}
+
+/** R11-03 / ADR-0071: headless-mode drop-in for tauri-plugin-store. The
+ *  desktop LazyStore persists to app_config_dir/settings.json; the headless
+ *  equivalent persists to <state_root>/settings.json through the BFF's
+ *  settings KV (GET/PUT /api/v1/shell/settings). Same get/set/delete/save
+ *  surface, so every L1 preference above (lang, theme, view, topology state,
+ *  sub order, webdav creds, reputation keys, ...) survives in headless too. */
+class HeadlessStore implements StoreLike {
+  private doc: Record<string, unknown> | null = null;
+  private dirty = false;
+  private loading: Promise<void> | null = null;
+
+  private ensure(): Promise<void> {
+    this.loading ??= (async () => {
+      const r = await fetch("/api/v1/shell/settings");
+      if (!r.ok) throw new Error(`settings GET -> ${r.status}`);
+      const v: unknown = await r.json();
+      this.doc = v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+    })();
+    return this.loading;
+  }
+
+  async get<T>(key: string): Promise<T | null> {
+    await this.ensure();
+    const v = this.doc?.[key];
+    return (v === undefined ? null : v) as T | null;
+  }
+  async set(key: string, value: unknown): Promise<void> {
+    await this.ensure();
+    this.doc![key] = value;
+    this.dirty = true;
+  }
+  async delete(key: string): Promise<void> {
+    await this.ensure();
+    delete this.doc![key];
+    this.dirty = true;
+  }
+  async save(): Promise<void> {
+    if (!this.dirty) return;
+    const r = await fetch("/api/v1/shell/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(this.doc ?? {}),
+    });
+    if (!r.ok) throw new Error(`settings PUT -> ${r.status}`);
+    this.dirty = false;
+  }
+}
+
+/** One HeadlessStore per store file — the module-level cache mirrors
+ *  tauri-plugin-store's own per-file document caching (per-call `new
+ *  HeadlessStore()` would re-GET the document on every op). */
+const headlessStores = new Map<string, HeadlessStore>();
+
+function store(): StoreLike {
+  if (isTauri()) return new LazyStore(STORE);
+  let s = headlessStores.get(STORE);
+  if (!s) {
+    s = new HeadlessStore();
+    headlessStores.set(STORE, s);
+  }
+  return s;
 }
 
 export async function loadLocale(): Promise<string | null> {

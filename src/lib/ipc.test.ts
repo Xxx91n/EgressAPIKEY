@@ -434,57 +434,57 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-describe("strategy IPC (T4-4)", () => {
-  it("ipcStrategyConfigGet forwards to strategy_config_get", async () => {
-    invokeMock.mockResolvedValueOnce({ version: 1, platforms: [] });
-    const cfg = await ipcStrategyConfigGet();
-    expect(cfg.version).toBe(1);
-    expect(cfg.platforms).toEqual([]);
-    expect(invokeMock).toHaveBeenCalledWith("strategy_config_get", expect.objectContaining({ __trace_id: expect.any(String) }));
-  });
+  describe("strategy IPC (T4-4)", () => {
+    it("ipcStrategyConfigGet forwards to strategy_config_get", async () => {
+      invokeMock.mockResolvedValueOnce({ version: 1, platforms: [] });
+      const cfg = await ipcStrategyConfigGet();
+      expect(cfg.version).toBe(1);
+      expect(cfg.platforms).toEqual([]);
+      expect(invokeMock).toHaveBeenCalledWith("strategy_config_get", expect.objectContaining({ __trace_id: expect.any(String) }));
+    });
 
-  it("ipcStrategyConfigPut validates and forwards to strategy_config_put", async () => {
-    invokeMock.mockResolvedValueOnce(undefined);
-    await ipcStrategyConfigPut({ version: 1, platforms: [{ platform_name: "Test", a_class: "manual", b_class: "balanced" }] });
-    expect(invokeMock).toHaveBeenCalledWith("strategy_config_put", expect.objectContaining({ config: expect.any(Object) }));
-  });
+    it("ipcStrategyConfigPut validates and forwards to strategy_config_put", async () => {
+      invokeMock.mockResolvedValueOnce(undefined);
+      await ipcStrategyConfigPut({ version: 1, platforms: [{ platform_name: "Test", a_class: "manual", b_class: "balanced" }] });
+      expect(invokeMock).toHaveBeenCalledWith("strategy_config_put", expect.objectContaining({ config: expect.any(Object) }));
+    });
 
-  it("ipcStrategyConfigPut rejects version != 1 before invoke", async () => {
-    await expect(ipcStrategyConfigPut({ version: 2, platforms: [] } as any)).rejects.toThrow("version must be 1");
-    expect(invokeMock).not.toHaveBeenCalled();
-  });
+    it("ipcStrategyConfigPut rejects version != 1 before invoke", async () => {
+      await expect(ipcStrategyConfigPut({ version: 2, platforms: [] } as any)).rejects.toThrow("version must be 1");
+      expect(invokeMock).not.toHaveBeenCalled();
+    });
 
-  it("ipcStrategyConfigPut rejects too many regions before invoke", async () => {
-    const regions = Array.from({ length: 65 }, (_, i) => "r" + i);
-    await expect(ipcStrategyConfigPut({ version: 1, platforms: [{ platform_name: "T", a_class: "region", b_class: "balanced", regions }] } as any)).rejects.toThrow("regions");
-    expect(invokeMock).not.toHaveBeenCalled();
-  });
+    it("ipcStrategyConfigPut rejects too many regions before invoke", async () => {
+      const regions = Array.from({ length: 65 }, (_, i) => "r" + i);
+      await expect(ipcStrategyConfigPut({ version: 1, platforms: [{ platform_name: "T", a_class: "region", b_class: "balanced", regions }] } as any)).rejects.toThrow("regions");
+      expect(invokeMock).not.toHaveBeenCalled();
+    });
 
-  it("ipcStrategyApply forwards to strategy_apply", async () => {
-    invokeMock.mockResolvedValueOnce({ platforms: [{ platform: "T", region_filters: ["US"], patched: true }] });
-    const result = await ipcStrategyApply();
-    expect(result.platforms[0].patched).toBe(true);
-    expect(invokeMock).toHaveBeenCalledWith("strategy_apply", expect.objectContaining({ __trace_id: expect.any(String) }));
-  });
+    it("ipcStrategyApply forwards to strategy_apply", async () => {
+      invokeMock.mockResolvedValueOnce({ platforms: [{ platform: "T", region_filters: ["US"], patched: true }] });
+      const result = await ipcStrategyApply();
+      expect(result.platforms[0].patched).toBe(true);
+      expect(invokeMock).toHaveBeenCalledWith("strategy_apply", expect.objectContaining({ __trace_id: expect.any(String) }));
+    });
 
-  it("ipcStrategyPlatformRegionsSet forwards name + regions (ticket 10 deep IPC)", async () => {
-    invokeMock.mockResolvedValue({ version: 1, platforms: [] });
-    await ipcStrategyPlatformRegionsSet("openai", ["US", "HK"]);
-    expect(invokeMock).toHaveBeenCalledWith("strategy_platform_regions_set", expect.objectContaining({ platformName: "openai", regions: ["US", "HK"] }));
-  });
+    it("ipcStrategyPlatformRegionsSet forwards name + regions (ticket 10 deep IPC)", async () => {
+      invokeMock.mockResolvedValue({ version: 1, platforms: [] });
+      await ipcStrategyPlatformRegionsSet("openai", ["US", "HK"]);
+      expect(invokeMock).toHaveBeenCalledWith("strategy_platform_regions_set", expect.objectContaining({ platformName: "openai", regions: ["US", "HK"] }));
+    });
 
-  it("ipcStrategyPlatformRegionsSet rejects bad name / region bounds before invoke", async () => {
-    await expect(ipcStrategyPlatformRegionsSet("bad\x00name", ["US"])).rejects.toThrow(/platform invalid/);
-    await expect(ipcStrategyPlatformRegionsSet("openai", ["x".repeat(33)])).rejects.toThrow(/region code invalid/);
-    await expect(ipcStrategyPlatformRegionsSet("openai", Array.from({ length: 65 }, (_, i) => "R" + i))).rejects.toThrow(/regions list too long/);
-    expect(invokeMock).not.toHaveBeenCalled();
-  });
+    it("ipcStrategyPlatformRegionsSet rejects bad name / region bounds before invoke", async () => {
+      await expect(ipcStrategyPlatformRegionsSet("bad\x00name", ["US"])).rejects.toThrow(/platform invalid/);
+      await expect(ipcStrategyPlatformRegionsSet("openai", ["x".repeat(33)])).rejects.toThrow(/region code invalid/);
+      await expect(ipcStrategyPlatformRegionsSet("openai", Array.from({ length: 65 }, (_, i) => "R" + i))).rejects.toThrow(/regions list too long/);
+      expect(invokeMock).not.toHaveBeenCalled();
+    });
 
-  it("ipcStrategyPlatformRegionsSet rejects unexpected response shape", async () => {
-    invokeMock.mockResolvedValue({ version: 2 });
-    await expect(ipcStrategyPlatformRegionsSet("openai", ["US"])).rejects.toThrow(/unexpected response shape/);
+    it("ipcStrategyPlatformRegionsSet rejects unexpected response shape", async () => {
+      invokeMock.mockResolvedValue({ version: 2 });
+      await expect(ipcStrategyPlatformRegionsSet("openai", ["US"])).rejects.toThrow(/unexpected response shape/);
+    });
   });
-});
 });
 
 // probe_exit_ip IPC wrapper closed-loop.
@@ -532,7 +532,7 @@ describe("T6-5 firewall + request log tail", () => {
     invokeMock.mockResolvedValue([]);
     await ipcRequestLogTail();
     // When no limit is provided, the wrapper still passes an object (possibly with __trace_id).
-  expect(invokeMock).toHaveBeenCalledWith("request_log_tail", expect.anything());
+    expect(invokeMock).toHaveBeenCalledWith("request_log_tail", expect.anything());
   });
 });
 
@@ -773,16 +773,17 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
     // UI reads that reason through ipcCommandAvailability() to render a
     // disabled state instead of a runtime surprise.
     //
-    // strategy_apply sits in the disabled set under shell_local_snapshot: its
-    // truth source is the L2 whitebox plus the three-store merge, which the
-    // headless server has no equivalent for.
-    const err: unknown = await ipcStrategyApply().catch((e: unknown) => e);
+    // get_config_dir stays disabled under desktop_only_local_path (R11-03
+    // re-triage): it resolves a desktop filesystem path, a genuinely
+    // local-only surface — everything else was promoted to a BFF route.
+    const { ipcGetConfigDir } = await import("./ipc");
+    const err: unknown = await ipcGetConfigDir().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(IpcUnavailableError);
     const typed = err as IpcUnavailableError;
     expect(typed.name).toBe("IpcUnavailableError");
-    expect(typed.command).toBe("strategy_apply");
-    expect(typed.reason).toBe("shell_local_snapshot");
-    expect(typed.i18nKey).toBe("ipc.disabled.shell_local_snapshot");
+    expect(typed.command).toBe("get_config_dir");
+    expect(typed.reason).toBe("desktop_only_local_path");
+    expect(typed.i18nKey).toBe("ipc.disabled.desktop_only_local_path");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

@@ -579,15 +579,8 @@
   },
   "ipc": {
     "disabled": {
-      "deprecated_noop": "廃止されたコマンドです。IPC 契約の互換性のためだけに残しています。",
-      "shell_local_l1_prefs": "この端末のデスクトップ設定に保存される項目で、headless サーバーには存在しません。",
-      "shell_local_l2_whitebox": "ローカルのホワイトボックス設定ファイルを読み書きします。headless サーバーは公開していません。",
-      "shell_local_snapshot": "スナップショットの生成にはデスクトップシェルのローカル状態ストアが必要です。",
-      "shell_local_process_route": "プロセスルートはデスクトップシェルのローカルポートファイルに保存されます。",
-      "shell_local_config_transfer": "設定のインポートとエクスポートはデスクトップシェルのファイル操作です。",
-      "shell_local_backup": "バックアップはローカルファイルとデスクトップ保存の認証情報を使います。",
-      "shell_local_sidecar": "デスクトップシェル自身の sidecar ライフサイクルを制御します。",
       "desktop_only_tray": "デスクトップのトレイとストリーミング画面専用です。",
+      "desktop_only_transport": "Tauri Channel のプッシュ転送でライブ状態をストリームします。この転送はデスクトップランタイム専用です。",
       "desktop_only_os": "デスクトップアプリだけが持つ OS レベルのアクセスが必要です。",
       "desktop_only_local_path": "デスクトップ上のローカルファイルパスを解決します。",
       "unknown": "headless モードでは利用できません。"

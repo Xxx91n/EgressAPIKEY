@@ -257,7 +257,7 @@ const DIAG_POLL_INTERVAL_MAX_MS: u64 = 24 * 60 * 60 * 1000;
 /// §7.5 validation for set_diag_poll_interval: accepts 100..=24h, rejects
 /// everything else with IpcError::InvalidInput. Pure fn so the §7.5 boundary
 /// values are unit-testable without an AppHandle.
-fn validate_diag_poll_interval(interval_ms: u64) -> Result<(), IpcError> {
+pub fn validate_diag_poll_interval(interval_ms: u64) -> Result<(), IpcError> {
     if interval_ms < DIAG_POLL_INTERVAL_MIN_MS || interval_ms > DIAG_POLL_INTERVAL_MAX_MS {
         return Err(IpcError::invalid_input(&format!(
             "interval_ms must be {DIAG_POLL_INTERVAL_MIN_MS}..={DIAG_POLL_INTERVAL_MAX_MS}"

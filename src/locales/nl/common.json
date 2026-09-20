@@ -579,15 +579,8 @@
   },
   "ipc": {
     "disabled": {
-      "deprecated_noop": "Ingetrokken opdracht, alleen behouden voor compatibiliteit van het IPC-contract.",
-      "shell_local_l1_prefs": "Staat in de desktoppreferenties van dit apparaat, die de headless-server niet heeft.",
-      "shell_local_l2_whitebox": "Leest of schrijft het lokale whitebox-configuratiebestand, dat de headless-server niet aanbiedt.",
-      "shell_local_snapshot": "Heeft de lokale statusopslag van de desktop-shell nodig om de momentopname te maken.",
-      "shell_local_process_route": "Procesroutes staan in het lokale poortenbestand van de desktop-shell.",
-      "shell_local_config_transfer": "Configuratie importeren en exporteren zijn bestandsbewerkingen van de desktop-shell.",
-      "shell_local_backup": "Back-up gebruikt lokale bestanden en in de desktop opgeslagen inloggegevens.",
-      "shell_local_sidecar": "Beheert de sidecar-levenscyclus van de desktop-shell zelf.",
       "desktop_only_tray": "Alleen voor het desktopvak en de streaming-interface.",
+      "desktop_only_transport": "Streamt live status over een Tauri Channel push-kanaal dat alleen de desktop-runtime biedt.",
       "desktop_only_os": "Vereist toegang op besturingssysteemniveau die alleen de desktopapp heeft.",
       "desktop_only_local_path": "Lost een lokaal bestandssysteempad op de desktop op.",
       "unknown": "Niet beschikbaar in headless-modus."

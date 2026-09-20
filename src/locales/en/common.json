@@ -579,15 +579,8 @@
   },
   "ipc": {
     "disabled": {
-      "deprecated_noop": "Retired command, kept only for IPC contract compatibility.",
-      "shell_local_l1_prefs": "Stored in this device's desktop preferences, which the headless server does not have.",
-      "shell_local_l2_whitebox": "Reads or writes the local whitebox config file, which the headless server does not expose.",
-      "shell_local_snapshot": "Needs the desktop shell's local state stores to build the snapshot.",
-      "shell_local_process_route": "Process routes live in the desktop shell's local ports file.",
-      "shell_local_config_transfer": "Config import and export are desktop-shell file operations.",
-      "shell_local_backup": "Backup uses local files and desktop-stored credentials.",
-      "shell_local_sidecar": "Controls the desktop shell's own sidecar lifecycle.",
       "desktop_only_tray": "Desktop tray and streaming surface only.",
+      "desktop_only_transport": "Streams live state over a Tauri Channel push transport that only the desktop runtime provides.",
       "desktop_only_os": "Needs OS-level access that only the desktop app has.",
       "desktop_only_local_path": "Resolves a local filesystem path on the desktop.",
       "unknown": "Not available in headless mode."

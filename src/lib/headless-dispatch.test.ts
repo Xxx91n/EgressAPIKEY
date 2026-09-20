@@ -159,12 +159,12 @@ describe("headless-dispatch: invokeHeadless (the request guard)", () => {
   });
 
   it("a disabled-listed command throws IpcUnavailableError with the typed reason (no fetch)", async () => {
-    const err: unknown = await invokeHeadless("strategy_apply").catch((e: unknown) => e);
+    const err: unknown = await invokeHeadless("watch_port_health").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(IpcUnavailableError);
     const typed = err as IpcUnavailableError;
-    expect(typed.command).toBe("strategy_apply");
-    expect(typed.reason).toBe("shell_local_snapshot");
-    expect(typed.i18nKey).toBe("ipc.disabled.shell_local_snapshot");
+    expect(typed.command).toBe("watch_port_health");
+    expect(typed.reason).toBe("desktop_only_transport");
+    expect(typed.i18nKey).toBe("ipc.disabled.desktop_only_transport");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

@@ -33,18 +33,18 @@ describe("headless disabled state (ticket 02 / A-006)", () => {
     enterHeadless();
     render(
       <HeadlessCapabilityNotice
-        commands={["strategy_apply", "platform_list", "backup_create"]}
+        commands={["tray_refresh_labels", "platform_list", "get_config_dir"]}
       />,
     );
     const notice = screen.getByTestId("headless-capability-notice");
     // platform_list IS mapped, so it must NOT appear as blocked.
-    expect(notice.getAttribute("data-blocked-commands")).toBe("strategy_apply backup_create");
+    expect(notice.getAttribute("data-blocked-commands")).toBe("tray_refresh_labels get_config_dir");
     expect(notice.getAttribute("data-blocked-count")).toBe("2");
     const reasons = Array.from(notice.querySelectorAll("li")).map((li) =>
       li.getAttribute("data-reason"),
     );
-    expect(reasons).toContain("shell_local_snapshot");
-    expect(reasons).toContain("shell_local_backup");
+    expect(reasons).toContain("desktop_only_tray");
+    expect(reasons).toContain("desktop_only_local_path");
     expect(reasons.length).toBe(2);
   });
 
@@ -57,14 +57,15 @@ describe("headless disabled state (ticket 02 / A-006)", () => {
   it("the panel enumerates the COMPLETE disabled set, one row per command", () => {
     enterHeadless();
     const expected = allDisabledCommands();
-    // 44 = the round-2 classification (35 mapped + 44 disabled = 79 manifest).
+    // 8 = the R11-03 re-triage (71 enabled + 8 disabled = 79 manifest): only
+    // genuinely desktop-environment assumptions stay disabled.
     // If a ticket adds or removes a command, this fails on purpose.
-    expect(expected.length).toBe(44);
+    expect(expected.length).toBe(8);
     render(<HeadlessCapabilityPanel />);
     const panel = screen.getByTestId("headless-capability-panel");
-    expect(panel.getAttribute("data-command-count")).toBe(String(44));
+    expect(panel.getAttribute("data-command-count")).toBe(String(8));
     const rows = Array.from(panel.querySelectorAll("li[data-command]"));
-    expect(rows.length).toBe(44);
+    expect(rows.length).toBe(8);
     expect(rows.every((r) => (r.getAttribute("data-reason") ?? "").length > 0)).toBe(true);
     const got = rows.map((r) => r.getAttribute("data-command")).sort();
     expect(got).toEqual(expected.map((entry) => entry.command).sort());
@@ -77,9 +78,9 @@ describe("headless disabled state (ticket 02 / A-006)", () => {
 
   it("commandBlocked drives a control disabled state and flips with the mode", () => {
     enterHeadless();
-    expect(commandBlocked("strategy_apply")).toBe(true);
+    expect(commandBlocked("watch_port_health")).toBe(true);
     expect(commandBlocked("platform_list")).toBe(false);
     enterTauri();
-    expect(commandBlocked("strategy_apply")).toBe(false);
+    expect(commandBlocked("watch_port_health")).toBe(false);
   });
 });

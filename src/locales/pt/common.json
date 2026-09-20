@@ -579,15 +579,8 @@
   },
   "ipc": {
     "disabled": {
-      "deprecated_noop": "Comando descontinuado, mantido apenas para compatibilidade do contrato IPC.",
-      "shell_local_l1_prefs": "Fica nas preferências de área de trabalho deste dispositivo, que o servidor headless não tem.",
-      "shell_local_l2_whitebox": "Lê ou grava o arquivo local de configuração whitebox, que o servidor headless não expõe.",
-      "shell_local_snapshot": "Precisa dos armazenamentos de estado locais do shell de desktop para montar o instantâneo.",
-      "shell_local_process_route": "As rotas de processo ficam no arquivo local de portas do shell de desktop.",
-      "shell_local_config_transfer": "Importar e exportar configuração são operações de arquivo do shell de desktop.",
-      "shell_local_backup": "O backup usa arquivos locais e credenciais guardadas no desktop.",
-      "shell_local_sidecar": "Controla o ciclo de vida do sidecar do próprio shell de desktop.",
       "desktop_only_tray": "Somente para a bandeja do desktop e a interface de streaming.",
+      "desktop_only_transport": "Transmite estado ao vivo por um canal push Tauri Channel que só o runtime de desktop fornece.",
       "desktop_only_os": "Exige acesso em nível de sistema operacional, que só o app de desktop tem.",
       "desktop_only_local_path": "Resolve um caminho local do sistema de arquivos no desktop.",
       "unknown": "Indisponível no modo headless."

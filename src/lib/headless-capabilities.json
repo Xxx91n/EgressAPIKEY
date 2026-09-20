@@ -1,0 +1,395 @@
+{
+  "$comment": "R11-03 / ADR-0071: single source of truth for the headless command surface. GET /api/v1/capabilities serves this document verbatim (src-tauri/src/headless_shell.rs include_str!); the SPA derives DISABLED_COMMANDS from it (headless-availability.ts); scripts/headless-capability-check.cjs asserts the union of enabled+disabled covers every registered command exactly once. status=enabled entries carry the HTTP route the dispatch layer uses; status=disabled entries carry the typed reason (i18n key ipc.disabled.<reason>).",
+  "mode": "headless",
+  "commands": {
+    "account_add": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/accounts"
+    },
+    "account_bind_ip": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/accounts/bind-ip"
+    },
+    "authoritative_snapshot": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/snapshot"
+    },
+    "backup_create": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/backups"
+    },
+    "backup_list": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/backups/list"
+    },
+    "backup_restore": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/backups/restore"
+    },
+    "backup_upload": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/backups/upload"
+    },
+    "check_firewall_status": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/firewall"
+    },
+    "close_all_connections": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/sidecar/restart",
+      "note": "body reason=close_all"
+    },
+    "config_export": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/config/export"
+    },
+    "config_import": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/config/import"
+    },
+    "delete_account_header_rule": {
+      "status": "enabled",
+      "method": "DELETE",
+      "path": "/api/v1/account-header-rules"
+    },
+    "export_audit_log": {
+      "status": "disabled",
+      "reason": "desktop_only_local_path"
+    },
+    "get_config_dir": {
+      "status": "disabled",
+      "reason": "desktop_only_local_path"
+    },
+    "get_diag_poll_interval": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/settings/diag-poll-interval"
+    },
+    "get_log_dir": {
+      "status": "disabled",
+      "reason": "desktop_only_local_path"
+    },
+    "get_log_level": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/log-level"
+    },
+    "get_sidecar_logs": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/sidecar/logs"
+    },
+    "get_sidecar_status": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/sidecar/status"
+    },
+    "ip_reputation_snapshot": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/ip-reputation"
+    },
+    "lease_map": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/metrics/realtime/leases"
+    },
+    "lightweight_get": {
+      "status": "disabled",
+      "reason": "desktop_only_os"
+    },
+    "lightweight_set": {
+      "status": "disabled",
+      "reason": "desktop_only_os"
+    },
+    "list_account_header_rules": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/account-header-rules"
+    },
+    "metrics_probe_history": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/metrics/history/probes"
+    },
+    "metrics_realtime_throughput": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/metrics/realtime/throughput"
+    },
+    "node_list": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/nodes"
+    },
+    "node_pool_snapshot": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/metrics/snapshots/node-pool"
+    },
+    "node_probe": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/nodes/{nodeHash}/actions/probe-{kind}"
+    },
+    "platform_add": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/platforms"
+    },
+    "platform_create_with_fields": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/platforms"
+    },
+    "platform_leases": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/platforms"
+    },
+    "platform_list": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/platforms"
+    },
+    "platform_list_full": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/platforms"
+    },
+    "platform_remove": {
+      "status": "enabled",
+      "method": "DELETE",
+      "path": "/api/v1/platforms"
+    },
+    "platform_update": {
+      "status": "enabled",
+      "method": "PATCH",
+      "path": "/api/v1/platforms"
+    },
+    "port_auth_info": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/ports/{port}/auth"
+    },
+    "port_bind_platform": {
+      "status": "enabled",
+      "method": "PATCH",
+      "path": "/api/v1/ports/{port}/platform"
+    },
+    "port_health_check": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/ports/{port}/health"
+    },
+    "port_list": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/ports"
+    },
+    "port_remove": {
+      "status": "enabled",
+      "method": "DELETE",
+      "path": "/api/v1/ports/{port}"
+    },
+    "port_running": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/ports/running"
+    },
+    "port_suggest": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/ports/suggest"
+    },
+    "port_toggle": {
+      "status": "enabled",
+      "method": "PATCH",
+      "path": "/api/v1/ports/{port}"
+    },
+    "port_upsert": {
+      "status": "enabled",
+      "method": "PUT",
+      "path": "/api/v1/ports/{port}"
+    },
+    "probe_exit_ip": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/probe-exit-ip"
+    },
+    "process_route_add": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/process-routes"
+    },
+    "process_route_list": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/process-routes"
+    },
+    "process_route_remove": {
+      "status": "enabled",
+      "method": "DELETE",
+      "path": "/api/v1/shell/process-routes"
+    },
+    "put_account_header_rules": {
+      "status": "enabled",
+      "method": "PUT",
+      "path": "/api/v1/account-header-rules"
+    },
+    "reconcile_now": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/reconcile"
+    },
+    "request_log_detail": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/request-logs/{logId}"
+    },
+    "request_log_payloads": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/request-logs/{logId}/payloads"
+    },
+    "request_log_tail": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/request-logs"
+    },
+    "reset_kernel": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/sidecar/restart",
+      "note": "body reason=reset_kernel"
+    },
+    "resolve_account_header_rule": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/account-header-rules:resolve"
+    },
+    "set_diag_poll_interval": {
+      "status": "enabled",
+      "method": "PUT",
+      "path": "/api/v1/shell/settings/diag-poll-interval"
+    },
+    "set_log_level": {
+      "status": "enabled",
+      "method": "PUT",
+      "path": "/api/v1/shell/log-level"
+    },
+    "strategy_apply": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/strategy/apply"
+    },
+    "strategy_backup_list": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/strategy/backups"
+    },
+    "strategy_config_get": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/strategy/config"
+    },
+    "strategy_config_put": {
+      "status": "enabled",
+      "method": "PUT",
+      "path": "/api/v1/shell/strategy/config"
+    },
+    "strategy_platform_regions_set": {
+      "status": "enabled",
+      "method": "PATCH",
+      "path": "/api/v1/shell/strategy/regions"
+    },
+    "strategy_rollback": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/strategy/rollback"
+    },
+    "strategy_verify": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/strategy/verify"
+    },
+    "subscription_add": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/subscriptions"
+    },
+    "subscription_list": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/subscriptions"
+    },
+    "subscription_refresh": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/subscriptions"
+    },
+    "subscription_remove": {
+      "status": "enabled",
+      "method": "DELETE",
+      "path": "/api/v1/subscriptions"
+    },
+    "system_config_get": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/system/config"
+    },
+    "system_config_patch": {
+      "status": "enabled",
+      "method": "PATCH",
+      "path": "/api/v1/system/config"
+    },
+    "tray_refresh_labels": {
+      "status": "disabled",
+      "reason": "desktop_only_tray"
+    },
+    "watch_port_health": {
+      "status": "disabled",
+      "reason": "desktop_only_transport"
+    },
+    "whitebox_backup_list": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/whitebox/backups"
+    },
+    "whitebox_get": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/whitebox"
+    },
+    "whitebox_path": {
+      "status": "disabled",
+      "reason": "desktop_only_local_path"
+    },
+    "whitebox_reload": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/whitebox/reload"
+    },
+    "whitebox_rollback": {
+      "status": "enabled",
+      "method": "POST",
+      "path": "/api/v1/shell/whitebox/rollback"
+    },
+    "whitebox_save_network": {
+      "status": "enabled",
+      "method": "PATCH",
+      "path": "/api/v1/shell/whitebox/network"
+    }
+  }
+}

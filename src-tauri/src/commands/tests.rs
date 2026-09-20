@@ -614,7 +614,10 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
         rest[..end].to_string()
     };
 
-    let create = body_of("backup_create");
+    // R11-03: the invariants live in the transport-free *_impl bodies the
+    // Tauri wrapper and the headless BFF both call — slice those, not the
+    // thin wrappers.
+    let create = body_of("backup_create_impl");
     assert!(
         create.contains("push_sqlite_snapshot("),
         "backup_create must package the L3 databases through push_sqlite_snapshot (ADR-0070 D3)"
@@ -634,7 +637,7 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
         "backup_create must reject forbidden members before sealing the manifest (ADR-0070 D1)"
     );
 
-    let restore = body_of("backup_restore");
+    let restore = body_of("backup_restore_impl");
     let envelope = restore
         .find("open_package(")
         .expect("backup_restore: no passphrase-envelope open");
@@ -646,7 +649,9 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
         "backup_restore must open the envelope before verifying members (ADR-0070 D7)"
     );
     // Every write entry the restore touches must come after verification.
-    for writer in ["svc.store(", ".apply(&db", "store.set("] {
+    // (R11-03: the L1 write entry is the injected settings_apply closure —
+    // the Tauri wrapper passes store.set, headless passes the KV file merge.)
+    for writer in ["svc.store(", ".apply(db", "settings_apply("] {
         if let Some(pos) = restore.find(writer) {
             assert!(
                     verify < pos,

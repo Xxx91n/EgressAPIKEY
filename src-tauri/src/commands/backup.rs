@@ -198,14 +198,26 @@ pub async fn backup_create(
     let cfg = cfg_dir(&app)?;
     let data = data_dir(&app)?;
     let out_dir = backups_dir(&app)?;
+    let svc = strategy_service(&app)?;
+    backup_create_impl(&cfg, &data, &out_dir, &svc, &whitebox, passphrase).await
+}
 
+/// Transport-free body (R11-03): the headless BFF passes its own state roots
+/// and StrategyService; the packing logic is identical.
+pub async fn backup_create_impl(
+    cfg: &Path,
+    data: &Path,
+    out_dir: &Path,
+    svc: &resin_core::StrategyService<resin_core::FsStrategyStore>,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    passphrase: Option<String>,
+) -> Result<String, IpcError> {
     let mut members: Vec<(String, Vec<u8>)> = Vec::new();
 
     // Config layer: one canonical re-importable container (ADR-0061). This is
     // the member a restore replays, which is how the two backup models stop
     // competing - backup now speaks the same container as config_export and
     // config_import.
-    let svc = strategy_service(&app)?;
     let strategy = svc.get().map_err(IpcError::from)?;
     let ports = whitebox.snapshot();
     let exported_at = chrono::Local::now().to_rfc3339();
@@ -330,6 +342,24 @@ pub async fn backup_upload(
     password: String,
     zip_path: String,
 ) -> Result<(), IpcError> {
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| IpcError::from(e.to_string()))?;
+    let backups_dir = app_data.join("backups");
+    backup_upload_impl(&backups_dir, url, username, password, zip_path).await
+}
+
+/// Transport-free body (R11-03). The backups_dir confinement root is the
+/// caller's responsibility — the shell passes app_data/backups, the headless
+/// BFF passes state_root/backups.
+pub async fn backup_upload_impl(
+    backups_dir: &Path,
+    url: String,
+    username: String,
+    password: String,
+    zip_path: String,
+) -> Result<(), IpcError> {
     if url.trim().is_empty() {
         return Err(IpcError::from("webdav url must not be empty".to_string()));
     }
@@ -347,13 +377,8 @@ pub async fn backup_upload(
     // escapes and absolute paths outside app data. Prevents a compromised
     // webview from exfiltrating arbitrary files (e.g. the Resin admin token,
     // settings.json, or system files) to an attacker-controlled WebDAV URL.
-    let app_data = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| IpcError::from(e.to_string()))?;
-    let backups_dir = app_data.join("backups");
-    std::fs::create_dir_all(&backups_dir).map_err(|e| IpcError::from(e.to_string()))?;
-    let canon_backup = std::fs::canonicalize(&backups_dir)
+    std::fs::create_dir_all(backups_dir).map_err(|e| IpcError::from(e.to_string()))?;
+    let canon_backup = std::fs::canonicalize(backups_dir)
         .map_err(|e| IpcError::from(format!("backups dir not accessible: {e}")))?;
     let canon_zip = std::fs::canonicalize(&zip_path)
         .map_err(|e| IpcError::from(format!("zip path not accessible: {e}")))?;
@@ -464,6 +489,14 @@ pub async fn config_export(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
 ) -> Result<serde_json::Value, IpcError> {
     let svc = strategy_service(&app)?;
+    config_export_impl(&svc, &whitebox).await
+}
+
+/// Transport-free body (R11-03).
+pub async fn config_export_impl(
+    svc: &resin_core::StrategyService<resin_core::FsStrategyStore>,
+    whitebox: &resin_core::WhiteboxConfigStore,
+) -> Result<serde_json::Value, IpcError> {
     let strategy = svc.get().map_err(IpcError::from)?;
     let ports = whitebox.snapshot();
     let exported_at = chrono::Local::now().to_rfc3339();
@@ -494,6 +527,19 @@ pub async fn config_import(
     forwarder: State<'_, resin_core::PortForwarder>,
     config: serde_json::Value,
 ) -> Result<serde_json::Value, IpcError> {
+    let svc = strategy_service(&app)?;
+    config_import_impl(&svc, &sidecar, &whitebox, &db, &forwarder, config).await
+}
+
+/// Transport-free body (R11-03).
+pub async fn config_import_impl(
+    svc: &resin_core::StrategyService<resin_core::FsStrategyStore>,
+    sidecar: &SidecarHandle,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    db: &resin_core::DbPool,
+    forwarder: &resin_core::PortForwarder,
+    config: serde_json::Value,
+) -> Result<serde_json::Value, IpcError> {
     // Cap input size before any parse (AGENTS s7.5: 256KB max).
     let config_str = serde_json::to_string(&config).map_err(|e| IpcError::from(e.to_string()))?;
     if config_str.len() > 262_144 {
@@ -519,17 +565,16 @@ pub async fn config_import(
     // entries are deliberately NOT bypassed: they own the generation bump
     // (ADR-0058), the backup-before-write (ADR-0054 section B) and the audit
     // row (ADR-0059).
-    let svc = strategy_service(&app)?;
     svc.store(doc.strategy.clone()).map_err(IpcError::from)?;
     whitebox
-        .apply(&db, &forwarder, doc.ports.clone())
+        .apply(db, forwarder, doc.ports.clone())
         .await
         .map_err(IpcError::from)?;
 
     // Trigger the one-way reconcile (ADR-0054 §A / F2): strategy apply
     // (diff-then-skip, ADR-0057) then ports re-assert — the SAME path as
     // reconcile_now, fail-fast, whitebox always wins.
-    let client = resin_client(&sidecar)?;
+    let client = resin_client(sidecar)?;
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -537,7 +582,7 @@ pub async fn config_import(
     let mut errors: Vec<String> = Vec::new();
     match svc
         .reconcile(&client, resolve_id_in, async {
-            reconcile_ports_half(sidecar.inner(), whitebox.inner(), &forwarder, now).await
+            reconcile_ports_half(sidecar, whitebox, forwarder, now).await
         })
         .await
     {
@@ -602,6 +647,50 @@ pub async fn backup_restore(
     password: String,
     zip_name: String,
     passphrase: Option<String>,
+) -> Result<serde_json::Value, IpcError> {
+    let data = data_dir(&app)?;
+    let svc = strategy_service(&app)?;
+    backup_restore_impl(
+        &data,
+        &svc,
+        &sidecar,
+        &whitebox,
+        &db,
+        &forwarder,
+        url,
+        username,
+        password,
+        zip_name,
+        passphrase,
+        |obj| {
+            let store = app
+                .store(SETTINGS_STORE)
+                .map_err(|e| IpcError::from(e.to_string()))?;
+            for (key, val) in obj {
+                store.set(key.clone(), val.clone());
+            }
+            store.save().map_err(|e| IpcError::from(e.to_string()))
+        },
+    )
+    .await
+}
+
+/// Transport-free body (R11-03). The L1 restore half is a caller-supplied
+/// settings writer: the shell writes through tauri-plugin-store, the headless
+/// BFF writes through its own settings.json document.
+pub async fn backup_restore_impl(
+    data: &Path,
+    svc: &resin_core::StrategyService<resin_core::FsStrategyStore>,
+    sidecar: &SidecarHandle,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    db: &resin_core::DbPool,
+    forwarder: &resin_core::PortForwarder,
+    url: String,
+    username: String,
+    password: String,
+    zip_name: String,
+    passphrase: Option<String>,
+    settings_apply: impl FnOnce(&serde_json::Map<String, serde_json::Value>) -> Result<(), IpcError>,
 ) -> Result<serde_json::Value, IpcError> {
     // ---- IPC-boundary validation (AGENTS 7.5) ---------------------------
     let base = url.trim().trim_end_matches('/').to_string();
@@ -691,7 +780,7 @@ pub async fn backup_restore(
     let mut members: BTreeMap<String, Vec<u8>> = BTreeMap::new();
     let mut total: u64 = 0;
     for i in 0..archive.len() {
-        let mut entry = archive
+        let entry = archive
             .by_index(i)
             .map_err(|e| IpcError::from(format!("backup member {i}: {e}")))?;
         if entry.is_dir() {
@@ -777,10 +866,9 @@ pub async fn backup_restore(
     // config_import (ADR-0069 D4): no fallible work between them, and neither
     // entry is bypassed - they own the generation bump (ADR-0058), the
     // backup-before-write (ADR-0054 section B) and the audit row (ADR-0059).
-    let svc = strategy_service(&app)?;
     svc.store(doc.strategy.clone()).map_err(IpcError::from)?;
     whitebox
-        .apply(&db, &forwarder, doc.ports.clone())
+        .apply(db, forwarder, doc.ports.clone())
         .await
         .map_err(IpcError::from)?;
 
@@ -788,7 +876,7 @@ pub async fn backup_restore(
     // restored whitebox. A reconcile failure does not fail the restore - the
     // whitebox is already the truth (ADR-0036) and Resin converges on the
     // next apply / boot restore.
-    let client = resin_client(&sidecar)?;
+    let client = resin_client(sidecar)?;
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -797,7 +885,7 @@ pub async fn backup_restore(
     let mut ports_restored: usize = 0;
     match svc
         .reconcile(&client, resolve_id_in, async {
-            reconcile_ports_half(sidecar.inner(), whitebox.inner(), &forwarder, now).await
+            reconcile_ports_half(sidecar, whitebox, forwarder, now).await
         })
         .await
     {
@@ -827,13 +915,7 @@ pub async fn backup_restore(
         let obj = value
             .as_object()
             .ok_or_else(|| IpcError::from("settings.json must be a JSON object".to_string()))?;
-        let store = app
-            .store(SETTINGS_STORE)
-            .map_err(|e| IpcError::from(e.to_string()))?;
-        for (key, val) in obj {
-            store.set(key.clone(), val.clone());
-        }
-        store.save().map_err(|e| IpcError::from(e.to_string()))?;
+        settings_apply(obj)?;
         settings_restored = true;
     }
 
@@ -842,8 +924,7 @@ pub async fn backup_restore(
     // and the append-only audit chain is never rewritten. Both are extracted
     // next to the app so a human can inspect them, and the UI says so.
     let evidence_dir =
-        data_dir(&app)?
-            .join("restore-artifacts")
+        data.join("restore-artifacts")
             .join(format!("{}-{}", stamp(), random_suffix()));
     let mut evidence: Vec<String> = Vec::new();
     for (path, bytes) in &members {

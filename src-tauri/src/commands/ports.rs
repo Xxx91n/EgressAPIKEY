@@ -784,6 +784,18 @@ pub async fn whitebox_rollback(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     backup_name: String,
 ) -> Result<usize, IpcError> {
+    whitebox_rollback_impl(&sidecar, &db, &forwarder, &whitebox, backup_name).await
+}
+
+/// Transport-free body (R11-03): same audit-scoped rollback + L3 restore for
+/// both transports (the headless BFF passes its own stores).
+pub async fn whitebox_rollback_impl(
+    sidecar: &SidecarHandle,
+    db: &DbPool,
+    forwarder: &resin_core::PortForwarder,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    backup_name: String,
+) -> Result<usize, IpcError> {
     if backup_name.is_empty() || backup_name.len() > 200 {
         return Err(IpcError::from("backup_name invalid".to_string()));
     }
@@ -798,12 +810,12 @@ pub async fn whitebox_rollback(
     let restored = resin_core::audit::AUDIT_CTX
         .scope(audit_ctx, async {
             whitebox
-                .rollback_to_backup(&db, &forwarder, &backup_name)
+                .rollback_to_backup(db, forwarder, &backup_name)
                 .await
                 .map_err(IpcError::from)
         })
         .await?;
-    restore_ports_from_whitebox(&sidecar, &whitebox, &forwarder)
+    restore_ports_from_whitebox(sidecar, whitebox, forwarder)
         .await
         .map_err(IpcError::from)?;
     Ok(restored)

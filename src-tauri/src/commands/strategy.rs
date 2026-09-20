@@ -8,6 +8,7 @@ use crate::sidecar::SidecarHandle;
 use resin_core::resolve_id_in;
 use resin_core::DbPool;
 use resin_core::IpcError;
+use resin_core::ResinClient;
 use tauri::{AppHandle, Manager, State};
 
 /// ADR-0054 §C: process-local first-drift memory backing
@@ -37,9 +38,20 @@ pub async fn strategy_verify(
     platform_name: String,
     sample_count: u32,
 ) -> Result<serde_json::Value, IpcError> {
+    let client = resin_client(&sidecar)?;
+    strategy_verify_impl(sidecar.api_port, &client, platform_name, sample_count).await
+}
+
+/// Transport-free body (R11-03): the probe loop runs through the Resin
+/// forward proxy on loopback — identical on the headless transport.
+pub async fn strategy_verify_impl(
+    api_port: u16,
+    client: &ResinClient,
+    platform_name: String,
+    sample_count: u32,
+) -> Result<serde_json::Value, IpcError> {
     validate_short_name(&platform_name, "platform")?;
     let n = sample_count.clamp(3, 50);
-    let client = resin_client(&sidecar)?;
 
     // Get the platform's allocation_policy for display.
     let list = client
@@ -58,7 +70,7 @@ pub async fn strategy_verify(
     // The proxy_token for the shell is empty (no-auth), so the path is
     // just the protocol + host. But Resin forward proxy needs the account
     // header to identify the platform. We send X-Resin-Account = platform_name.
-    let proxy_url = format!("http://127.0.0.1:{}/https/api.ipify.org", sidecar.api_port);
+    let proxy_url = format!("http://127.0.0.1:{}/https/api.ipify.org", api_port);
     tracing::info!(
         platform = %platform_name,
         proxy_url = %proxy_url,
@@ -231,9 +243,84 @@ pub async fn authoritative_snapshot(
     forwarder: State<'_, resin_core::PortForwarder>,
     app: AppHandle,
 ) -> Result<resin_core::AuthoritativeSnapshot, IpcError> {
+    let svc = strategy_service(&app)?;
+    let snapshot = authoritative_snapshot_core(&svc, &sidecar, &whitebox, &db, &forwarder).await?;
+
+    // ADR-0054 §E: one-shot drift notice. Hooked on the only
+    // sanctioned merge point so every snapshot consumer (TopologyView 5s
+    // poll, EffectiveConfigView open/re-check/reconcile/rollback re-verify)
+    // feeds the same per-process notify-once state machine — no extra
+    // polling, no background loop. Best-effort: a failed toast is logged.
+    crate::tray::fire_drift_notification(&app, &snapshot);
+
+    // mirror the top-level
+    // convergence phase on the tray (icon colour + tooltip tag). Same hook
+    // point discipline as the drift notice above: every snapshot consumer
+    // feeds one edge-driven state machine — no extra polling, no new IPC.
+    // Best-effort: a failed tray repaint is logged, never fatal.
+    crate::tray::apply_converge_mirror(
+        &app,
+        snapshot.converge_phase,
+        snapshot.strategy_generation,
+        snapshot.strategy_applied_generation,
+    );
+
+    // the Inline-Polling driver for the subscription
+    // pipeline's backoff retries. 07 报告 §2.E3 found the due-retry schedule
+    // had NO driver in production: a failed cascade re-queued its event with
+    // `next_retry_at` and nothing in the repo ever drained it. This is the
+    // lightest variant of the drift-detection patterns the research pass
+    // surveyed (atomcode C3: "Inline Polling — reconcile 时顺手查"), so it
+    // rides the existing snapshot poll (TopologyView 5s / EffectiveConfigView
+    // open / manual re-check) instead of adding a second timer or a background
+    // loop (ADR-0054 rejects the latter outright).
+    //
+    // Discipline (ADR-0054): the driver drains ONLY retries the user already
+    // enqueued — it never enqueues a desired establish, so detection stays
+    // resident while the ACTION stays opt-in (atomcode C2/C6). Gated on
+    // `due_count > 0`, so a tick with nothing due costs one mutex read and
+    // never builds a Resin client. Best-effort: a failed drain is logged and
+    // swallowed — the queue keeps the event for the next tick, and a retry
+    // problem must never break the snapshot read.
+    if snapshot.resin_reachable {
+        if let Some(pipeline_state) = app.try_state::<super::platform::SubscriptionPipelineState>()
+        {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            if pipeline_state.0.due_count(now) > 0 {
+                if let Ok(client) = resin_client(&sidecar) {
+                    let reports = pipeline_state.0.drive_due(&client, &svc, now).await;
+                    for r in &reports {
+                        tracing::info!(
+                            subscription = %r.subscription,
+                            ok = r.all_ok(),
+                            error = r.first_error().unwrap_or(""),
+                            "subscription_pipeline: inline-polling driver drained a due retry"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(snapshot)
+}
+
+/// Transport-free core of `authoritative_snapshot` — the L2+L3 merge every
+/// consumer shares. The Tauri command wraps it with tray/pipeline hooks;
+/// the headless BFF wraps it with its own ctx (same deps, no AppHandle).
+/// Same split discipline as the port_*_impl family (A-006).
+pub async fn authoritative_snapshot_core(
+    svc: &resin_core::StrategyService<resin_core::FsStrategyStore>,
+    sidecar: &SidecarHandle,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    db: &DbPool,
+    forwarder: &resin_core::PortForwarder,
+) -> Result<resin_core::AuthoritativeSnapshot, IpcError> {
     // L2 strategy whitebox: file is the truth (ADR-0036); missing file =
     // defaults. Read goes through the Service (ADR-0052).
-    let svc = strategy_service(&app)?;
     let config: resin_core::StrategyConfig = svc.get().map_err(IpcError::from)?;
     let strategy_path = svc.store_ref().path().clone();
     let strategy_path_exists = strategy_path.exists();
@@ -486,61 +573,6 @@ pub async fn authoritative_snapshot(
         last_apply_error: config.last_apply_error,
     };
 
-    // ADR-0054 §E: one-shot drift notice. Hooked on the only
-    // sanctioned merge point so every snapshot consumer (TopologyView 5s
-    // poll, EffectiveConfigView open/re-check/reconcile/rollback re-verify)
-    // feeds the same per-process notify-once state machine — no extra
-    // polling, no background loop. Best-effort: a failed toast is logged.
-    crate::tray::fire_drift_notification(&app, &snapshot);
-
-    // mirror the top-level
-    // convergence phase on the tray (icon colour + tooltip tag). Same hook
-    // point discipline as the drift notice above: every snapshot consumer
-    // feeds one edge-driven state machine — no extra polling, no new IPC.
-    // Best-effort: a failed tray repaint is logged, never fatal.
-    crate::tray::apply_converge_mirror(
-        &app,
-        snapshot.converge_phase,
-        snapshot.strategy_generation,
-        snapshot.strategy_applied_generation,
-    );
-
-    // the Inline-Polling driver for the subscription
-    // pipeline's backoff retries. 07 报告 §2.E3 found the due-retry schedule
-    // had NO driver in production: a failed cascade re-queued its event with
-    // `next_retry_at` and nothing in the repo ever drained it. This is the
-    // lightest variant of the drift-detection patterns the research pass
-    // surveyed (atomcode C3: "Inline Polling — reconcile 时顺手查"), so it
-    // rides the existing snapshot poll (TopologyView 5s / EffectiveConfigView
-    // open / manual re-check) instead of adding a second timer or a background
-    // loop (ADR-0054 rejects the latter outright).
-    //
-    // Discipline (ADR-0054): the driver drains ONLY retries the user already
-    // enqueued — it never enqueues a desired establish, so detection stays
-    // resident while the ACTION stays opt-in (atomcode C2/C6). Gated on
-    // `due_count > 0`, so a tick with nothing due costs one mutex read and
-    // never builds a Resin client. Best-effort: a failed drain is logged and
-    // swallowed — the queue keeps the event for the next tick, and a retry
-    // problem must never break the snapshot read.
-    if reachable {
-        if let Some(pipeline_state) = app.try_state::<super::platform::SubscriptionPipelineState>()
-        {
-            if pipeline_state.0.due_count(now) > 0 {
-                if let Ok(client) = resin_client(&sidecar) {
-                    let reports = pipeline_state.0.drive_due(&client, &svc, now).await;
-                    for r in &reports {
-                        tracing::info!(
-                            subscription = %r.subscription,
-                            ok = r.all_ok(),
-                            error = r.first_error().unwrap_or(""),
-                            "subscription_pipeline: inline-polling driver drained a due retry"
-                        );
-                    }
-                }
-            }
-        }
-    }
-
     Ok(snapshot)
 }
 
@@ -668,17 +700,27 @@ pub async fn reconcile_now(
     app: AppHandle,
 ) -> Result<serde_json::Value, IpcError> {
     let svc = strategy_service(&app)?;
-    let client = resin_client(&sidecar)?;
-    let sidecar_ref = sidecar.inner();
-    let whitebox_ref = whitebox.inner();
+    reconcile_now_impl(&svc, &sidecar, &whitebox, &forwarder).await
+}
+
+/// Transport-free reconcile body (R11-03): the same serial strategy-apply ->
+/// ports-reassert the Tauri command runs, callable by the headless BFF which
+/// owns the same stores (option C). Same split discipline as the port_*_impl
+/// family.
+pub async fn reconcile_now_impl(
+    svc: &resin_core::StrategyService<resin_core::FsStrategyStore>,
+    sidecar: &SidecarHandle,
+    whitebox: &resin_core::WhiteboxConfigStore,
+    forwarder: &resin_core::PortForwarder,
+) -> Result<serde_json::Value, IpcError> {
+    let client = resin_client(sidecar)?;
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let fwd_ref = forwarder.inner();
     let report = svc
         .reconcile(&client, resolve_id_in, async {
-            reconcile_ports_half(sidecar_ref, whitebox_ref, fwd_ref, now).await
+            reconcile_ports_half(sidecar, whitebox, forwarder, now).await
         })
         .await
         .map_err(IpcError::from)?;

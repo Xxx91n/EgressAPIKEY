@@ -579,15 +579,8 @@
   },
   "ipc": {
     "disabled": {
-      "deprecated_noop": "Perintah yang sudah dihentikan, hanya dipertahankan untuk kompatibilitas kontrak IPC.",
-      "shell_local_l1_prefs": "Disimpan di preferensi desktop perangkat ini, yang tidak dimiliki server headless.",
-      "shell_local_l2_whitebox": "Membaca atau menulis berkas konfigurasi whitebox lokal, yang tidak disediakan server headless.",
-      "shell_local_snapshot": "Memerlukan penyimpanan status lokal shell desktop untuk membangun snapshot.",
-      "shell_local_process_route": "Rute proses berada di berkas port lokal shell desktop.",
-      "shell_local_config_transfer": "Impor dan ekspor konfigurasi adalah operasi berkas shell desktop.",
-      "shell_local_backup": "Pencadangan memakai berkas lokal dan kredensial yang tersimpan di desktop.",
-      "shell_local_sidecar": "Mengendalikan siklus hidup sidecar milik shell desktop sendiri.",
       "desktop_only_tray": "Hanya untuk baki desktop dan antarmuka streaming.",
+      "desktop_only_transport": "Mengalirkan status langsung lewat kanal push Tauri Channel yang hanya tersedia di runtime desktop.",
       "desktop_only_os": "Memerlukan akses tingkat sistem operasi yang hanya dimiliki aplikasi desktop.",
       "desktop_only_local_path": "Menyelesaikan jalur sistem berkas lokal di desktop.",
       "unknown": "Tidak tersedia dalam mode headless."
