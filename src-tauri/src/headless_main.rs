@@ -570,8 +570,10 @@ fn with_security_headers(mut resp: Response) -> Response {
              frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
         ),
     );
-    resp.headers_mut()
-        .insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
+    resp.headers_mut().insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
     resp
 }
 

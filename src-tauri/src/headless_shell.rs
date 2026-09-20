@@ -48,7 +48,12 @@ fn str_arg<'v>(v: &'v serde_json::Value, key: &str) -> Result<String, Response> 
     v.get(key)
         .and_then(|x| x.as_str())
         .map(str::to_string)
-        .ok_or_else(|| port_err(StatusCode::BAD_REQUEST, &format!("missing string arg {key}")))
+        .ok_or_else(|| {
+            port_err(
+                StatusCode::BAD_REQUEST,
+                &format!("missing string arg {key}"),
+            )
+        })
 }
 
 fn str_arg_opt(v: &serde_json::Value, key: &str) -> Option<String> {
@@ -77,8 +82,10 @@ fn write_settings_doc(
 }
 
 async fn settings_get_h(ctx: Arc<PortCtx>) -> Response {
-    axum::Json(serde_json::Value::Object(read_settings_doc(&ctx.settings_path)))
-        .into_response()
+    axum::Json(serde_json::Value::Object(read_settings_doc(
+        &ctx.settings_path,
+    )))
+    .into_response()
 }
 
 async fn settings_put_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
@@ -87,7 +94,10 @@ async fn settings_put_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Err(r) => return r,
     };
     let Some(patch) = v.as_object() else {
-        return port_err(StatusCode::BAD_REQUEST, "settings PUT body must be a JSON object");
+        return port_err(
+            StatusCode::BAD_REQUEST,
+            "settings PUT body must be a JSON object",
+        );
     };
     let mut doc = read_settings_doc(&ctx.settings_path);
     for (k, val) in patch {
@@ -195,12 +205,13 @@ async fn whitebox_network_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Ok(v) => v,
         Err(r) => return r,
     };
-    let network: resin_core::NetworkConfig = match serde_json::from_value(
-        v.get("network").cloned().unwrap_or(v),
-    ) {
-        Ok(n) => n,
-        Err(e) => return port_err(StatusCode::BAD_REQUEST, &format!("bad network config: {e}")),
-    };
+    let network: resin_core::NetworkConfig =
+        match serde_json::from_value(v.get("network").cloned().unwrap_or(v)) {
+            Ok(n) => n,
+            Err(e) => {
+                return port_err(StatusCode::BAD_REQUEST, &format!("bad network config: {e}"))
+            }
+        };
     let mut current = ctx.whitebox.snapshot();
     current.network = network;
     match ctx
@@ -258,12 +269,16 @@ async fn strategy_config_put_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Ok(v) => v,
         Err(r) => return r,
     };
-    let cfg: resin_core::StrategyConfig = match serde_json::from_value(
-        v.get("config").cloned().unwrap_or(v),
-    ) {
-        Ok(c) => c,
-        Err(e) => return port_err(StatusCode::BAD_REQUEST, &format!("bad strategy config: {e}")),
-    };
+    let cfg: resin_core::StrategyConfig =
+        match serde_json::from_value(v.get("config").cloned().unwrap_or(v)) {
+            Ok(c) => c,
+            Err(e) => {
+                return port_err(
+                    StatusCode::BAD_REQUEST,
+                    &format!("bad strategy config: {e}"),
+                )
+            }
+        };
     match ctx.strategy.store(cfg).map_err(IpcError::from) {
         Ok(stored) => axum::Json(stored).into_response(),
         Err(e) => port_ipc_err(&e),
@@ -294,7 +309,12 @@ async fn strategy_regions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
 }
 
 async fn strategy_backups_h(ctx: Arc<PortCtx>) -> Response {
-    match ctx.strategy.store_ref().list_backups().map_err(IpcError::from) {
+    match ctx
+        .strategy
+        .store_ref()
+        .list_backups()
+        .map_err(IpcError::from)
+    {
         Ok(list) => axum::Json(list).into_response(),
         Err(e) => port_ipc_err(&e),
     }
@@ -358,10 +378,7 @@ async fn strategy_verify_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Ok(s) => s,
         Err(r) => return r,
     };
-    let sample_count_raw = v
-        .get("sample_count")
-        .and_then(|x| x.as_u64())
-        .unwrap_or(10);
+    let sample_count_raw = v.get("sample_count").and_then(|x| x.as_u64()).unwrap_or(10);
     let Ok(sample_count) = u32::try_from(sample_count_raw) else {
         return port_err(StatusCode::BAD_REQUEST, "sample_count out of range");
     };
@@ -369,13 +386,8 @@ async fn strategy_verify_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Ok(c) => c,
         Err(e) => return port_err(StatusCode::BAD_GATEWAY, &e),
     };
-    match commands::strategy_verify_impl(
-        ctx.sidecar.api_port,
-        &client,
-        platform_name,
-        sample_count,
-    )
-    .await
+    match commands::strategy_verify_impl(ctx.sidecar.api_port, &client, platform_name, sample_count)
+        .await
     {
         Ok(v) => axum::Json(v).into_response(),
         Err(e) => port_ipc_err(&e),
@@ -561,7 +573,10 @@ async fn backup_upload_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         str_arg(&v, "username"),
         str_arg(&v, "zip_path"),
     ) else {
-        return port_err(StatusCode::BAD_REQUEST, "url, username and zip_path are required");
+        return port_err(
+            StatusCode::BAD_REQUEST,
+            "url, username and zip_path are required",
+        );
     };
     let password = str_arg_opt(&v, "password").unwrap_or_default();
     let backups_dir = ctx.state_root.join("backups");
@@ -581,7 +596,10 @@ async fn backup_restore_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         str_arg(&v, "username"),
         str_arg(&v, "zip_name"),
     ) else {
-        return port_err(StatusCode::BAD_REQUEST, "url, username and zip_name are required");
+        return port_err(
+            StatusCode::BAD_REQUEST,
+            "url, username and zip_name are required",
+        );
     };
     let password = str_arg_opt(&v, "password").unwrap_or_default();
     let passphrase = str_arg_opt(&v, "passphrase");
@@ -697,8 +715,8 @@ async fn account_add_h(body: Bytes) -> Response {
     };
     let platform = str_arg_opt(&v, "platform").unwrap_or_default();
     let id = str_arg_opt(&v, "id").unwrap_or_default();
-    let lane = usize::try_from(v.get("lane").and_then(|x| x.as_u64()).unwrap_or(0))
-        .unwrap_or(usize::MAX);
+    let lane =
+        usize::try_from(v.get("lane").and_then(|x| x.as_u64()).unwrap_or(0)).unwrap_or(usize::MAX);
     if let Err(e) = commands::validate_short_name(&platform, "platform")
         .and_then(|_| commands::validate_short_name(&id, "account"))
     {
@@ -707,7 +725,10 @@ async fn account_add_h(body: Bytes) -> Response {
     if lane >= resin_core::MAX_LANES {
         return port_err(
             StatusCode::BAD_REQUEST,
-            &format!("lane {lane} out of range (max {})", resin_core::MAX_LANES - 1),
+            &format!(
+                "lane {lane} out of range (max {})",
+                resin_core::MAX_LANES - 1
+            ),
         );
     }
     axum::Json(serde_json::json!({ "ok": true })).into_response()
@@ -772,14 +793,20 @@ pub fn shell_routes(ctx: Arc<PortCtx>) -> Router {
             "/api/v1/shell/log-level",
             get(log_level_get_h).put(log_level_put_h),
         )
-        .route("/api/v1/shell/ip-reputation", get(h!(ip_reputation_h, no_body)))
+        .route(
+            "/api/v1/shell/ip-reputation",
+            get(h!(ip_reputation_h, no_body)),
+        )
         // L2 whitebox
         .route("/api/v1/shell/whitebox", get(h!(whitebox_get_h, no_body)))
         .route(
             "/api/v1/shell/whitebox/reload",
             post(h!(whitebox_reload_h, no_body)),
         )
-        .route("/api/v1/shell/whitebox/network", patch(h!(whitebox_network_h)))
+        .route(
+            "/api/v1/shell/whitebox/network",
+            patch(h!(whitebox_network_h)),
+        )
         .route(
             "/api/v1/shell/whitebox/backups",
             get(h!(whitebox_backups_h, no_body)),
