@@ -409,14 +409,16 @@ fn build_router(
         .route("/api/v1/ports/suggest", get(r_suggest))
         .route("/api/v1/ports/running", get(r_running))
         // axum panics on two .route() calls for one path, so the three verbs on
-        // /api/v1/ports/{port} are combined into one MethodRouter.
+        // /api/v1/ports/:port are combined into one MethodRouter. (axum 0.7
+        // param syntax is ":name" — "{name}" is axum 0.8 and would be a
+        // LITERAL segment here, silently unreachable.)
         .route(
-            "/api/v1/ports/{port}",
+            "/api/v1/ports/:port",
             put(r_upsert).delete(r_remove).patch(r_toggle),
         )
-        .route("/api/v1/ports/{port}/platform", patch(r_bind))
-        .route("/api/v1/ports/{port}/auth", get(r_auth))
-        .route("/api/v1/ports/{port}/health", get(r_health))
+        .route("/api/v1/ports/:port/platform", patch(r_bind))
+        .route("/api/v1/ports/:port/auth", get(r_auth))
+        .route("/api/v1/ports/:port/health", get(r_health))
         .route("/api/v1/*path", any(proxy_handler.clone()))
         .route("/metrics/*path", any(proxy_handler))
         .fallback_service(serve_dir)
@@ -1567,6 +1569,39 @@ mod guard_wiring_tests {
                 .contains("www-authenticate: bearer"),
             "the 401 must advertise the Bearer scheme, got: {resp}"
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// R11-03: regression lock for the axum-0.7 literal-path bug — under
+    /// "{port}" syntax these URIs silently fell through to the /api/v1/*path
+    /// proxy. Every :port route must reach the BFF-native handler instead of
+    /// being proxied verbatim (the mock upstream always answers {"ok":true},
+    /// so a passthrough is instantly recognisable).
+    #[tokio::test]
+    async fn bff_port_param_routes_reach_native_handlers_not_proxy() {
+        let (mock_base, _seen) = serve_mock_upstream().await;
+        let (base, dir) = serve_router(&mock_base).await;
+        for (method, path) in [
+            ("PUT", "/api/v1/ports/8080"),
+            ("DELETE", "/api/v1/ports/8080"),
+            ("PATCH", "/api/v1/ports/8080"),
+            ("PATCH", "/api/v1/ports/8080/platform"),
+            ("GET", "/api/v1/ports/8080/auth"),
+            ("GET", "/api/v1/ports/8080/health"),
+        ] {
+            let req = format!(
+                "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {TEST_TOKEN}\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}"
+            );
+            let resp = raw_request(&base, &req).await;
+            assert!(
+                !resp.contains("\"ok\":true"),
+                "{method} {path} must NOT pass through to the mock upstream, got: {resp}"
+            );
+            assert!(
+                !resp.starts_with("HTTP/1.1 405"),
+                "{method} {path} must match a registered route, got: {resp}"
+            );
+        }
         let _ = std::fs::remove_dir_all(dir);
     }
 
