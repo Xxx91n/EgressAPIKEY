@@ -11,6 +11,7 @@
 > **总纲（D-001）**：双轨分工——本轮主战场＝壳层（headless 控制面 + Windows GUI）；Resin vendored 原样不动；壳层不重返数据面内核（ADR-0050）；fork 触发条件未命中前禁止启动 fork。
 > **构建纪律（ADR-0072）**：CI-only——本机零构建；交付证据＝CI 产物；verify job 每 push 必跑，release dispatch 按需。
 > **调研存档**（ctx_search 按 source 检索）：atomcode-q2-multistrategy / atomcode-q3-vps-mgmt / atomcode-q4-perf-budget / atomcode-q5-debt / atomcode-q6-governance。
+> **Wave 状态（2026-09-20 更新）**: Wave A（R11-00/02/04/10/11）已 landed origin/main @ 17866d37（verify 绿）。Wave B 执行任务书＝docs/agents/round11-wave-b-next-round.md（r11-wave-b grill D-001 拍板：wave B 照单全收 + 新增 R11-14「CI 门+卫生」，规格定义在 wave B 任务书）。
 
 ## 任务清单
 
@@ -98,7 +99,7 @@
 | 应用层前置网关（LiteLLM 模式） | D-002：远期可选组件；Mode B 双跳延迟与低延时目标冲突 |
 | 桌面客户端远程管理 | D-003：三触发条件均未命中 |
 | API-first（弃完整 UI） | D-003：不采纳 |
-| strategy_service 7 职责全分解 / TopologyView 拆分 | D-005⑤：只拆特性边界；⑤c churn 触发 |
+| strategy_service 7 职责全分解 / TopologyView 拆分 | D-005⑤：只拆特性边界；⑤c churn 触发；Zustand shallow 空对象（TopologyView.tsx:76，r11-wave-b D-002③）并入 ⑤c 同批（触碰时先实测再修） |
 | React Query 全迁移 | D-005⑥：R11-13 触发评估 |
 | tray i18n 构建期生成 | D-005⑧：下次 i18n 需求触发 |
 | i18n 收缩 | D-006#3：维持 18 语言；locale 分布触发 |

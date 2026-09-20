@@ -19,3 +19,4 @@ D4 - Security micro-hardening: X-Forwarded-Proto scheme detection and CSP frame-
 
 - The round11 headless completion ticket (R11-03) implements D2/D3/D4 including the ports-route fix; R11-04 performs the preparatory ipc.ts boundary split first (D-005 5b).
 - The trust boundary is unchanged: token bootstrap + Host/Origin allowlist + reverse-proxy TLS remains the boundary (validated as the industry convergence point).
+- Known trade-off (r11-wave-b grill D-002-2, 2026-09-20): the BFF translate_request name-to-id resolution costs one extra control-plane RTT (list-then-act) per name-addressed mutation. Accepted as a consequence of the same-SPA BFF design; name-addressed Resin routes belong to the Resin fork line, not the shell.
