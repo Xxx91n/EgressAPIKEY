@@ -290,7 +290,14 @@
     "subscription": "Par Abonnement",
     "subscriptionSelect": "Sélectionner par abonnement",
     "title": "Stratégie de Sortie",
-    "topN": "Nœuds max"
+    "topN": "Nœuds max",
+    "presets": "Préréglages",
+    "presetBalanced": "Équilibré",
+    "presetBalancedDesc": "Toutes les régions saines, allocation équilibrée",
+    "presetLowLatency": "Faible latence",
+    "presetLowLatencyDesc": "5 régions les plus rapides, allocation à faible latence",
+    "presetIdleIp": "IP inactives",
+    "presetIdleIpDesc": "Pool qualité top-20, préfère les IP de sortie inactives"
   },
   "subscription": {
     "title": "Abonnements",

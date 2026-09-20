@@ -290,7 +290,14 @@
     "subscription": "Por Assinatura",
     "subscriptionSelect": "Selecionar por assinatura",
     "title": "Estratégia de Saída",
-    "topN": "Máx. nós"
+    "topN": "Máx. nós",
+    "presets": "Predefinições",
+    "presetBalanced": "Equilibrado",
+    "presetBalancedDesc": "Todas as regiões saudáveis, alocação equilibrada",
+    "presetLowLatency": "Baixa latência",
+    "presetLowLatencyDesc": "5 regiões mais rápidas, alocação de baixa latência",
+    "presetIdleIp": "IPs ociosos",
+    "presetIdleIpDesc": "Pool de qualidade top-20, prefere IPs de saída ociosos"
   },
   "subscription": {
     "title": "Assinaturas",

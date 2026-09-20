@@ -290,7 +290,14 @@
     "subscription": "구독별",
     "subscriptionSelect": "구독별 선택",
     "title": "이그레스 전략",
-    "topN": "최대 노드 수"
+    "topN": "최대 노드 수",
+    "presets": "프리셋",
+    "presetBalanced": "균형",
+    "presetBalancedDesc": "모든 정상 리전, 균등 분배",
+    "presetLowLatency": "저지연",
+    "presetLowLatencyDesc": "가장 빠른 상위 5개 리전, 저지연 분배",
+    "presetIdleIp": "유휴 IP",
+    "presetIdleIpDesc": "상위 20개 품질 풀, 유휴 출구 IP 우선"
   },
   "subscription": {
     "title": "구독",

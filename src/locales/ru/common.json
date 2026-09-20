@@ -290,7 +290,14 @@
     "subscription": "По подпискам",
     "subscriptionSelect": "По подписке",
     "title": "Стратегия выхода",
-    "topN": "Макс. узлов"
+    "topN": "Макс. узлов",
+    "presets": "Пресеты",
+    "presetBalanced": "Сбалансированный",
+    "presetBalancedDesc": "Все здоровые регионы, сбалансированное распределение",
+    "presetLowLatency": "Низкая задержка",
+    "presetLowLatencyDesc": "5 самых быстрых регионов, распределение с низкой задержкой",
+    "presetIdleIp": "Свободные IP",
+    "presetIdleIpDesc": "Пул качества топ-20, предпочтение свободным исходящим IP"
   },
   "subscription": {
     "title": "Подписки",

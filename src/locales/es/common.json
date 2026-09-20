@@ -290,7 +290,14 @@
     "subscription": "Por Suscripción",
     "subscriptionSelect": "Seleccionar por suscripción",
     "title": "Estrategia de Salida",
-    "topN": "Máx. nodos"
+    "topN": "Máx. nodos",
+    "presets": "Preajustes",
+    "presetBalanced": "Equilibrado",
+    "presetBalancedDesc": "Todas las regiones sanas, asignación equilibrada",
+    "presetLowLatency": "Baja latencia",
+    "presetLowLatencyDesc": "5 regiones más rápidas, asignación de baja latencia",
+    "presetIdleIp": "IP inactivas",
+    "presetIdleIpDesc": "Pool de calidad top-20, preferencia por IPs de salida inactivas"
   },
   "subscription": {
     "title": "Suscripciones",

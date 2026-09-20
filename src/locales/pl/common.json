@@ -290,7 +290,14 @@
     "subscription": "Według Subskrypcji",
     "subscriptionSelect": "Wybierz według subskrypcji",
     "title": "Strategia Wyjścia",
-    "topN": "Maks. węzłów"
+    "topN": "Maks. węzłów",
+    "presets": "Presety",
+    "presetBalanced": "Zrównoważony",
+    "presetBalancedDesc": "Wszystkie zdrowe regiony, zrównoważona alokacja",
+    "presetLowLatency": "Niska latencja",
+    "presetLowLatencyDesc": "5 najszybszych regionów, alokacja o niskim opóźnieniu",
+    "presetIdleIp": "Bezczynne IP",
+    "presetIdleIpDesc": "Pula jakości top-20, preferuj bezczynne IP wyjściowe"
   },
   "subscription": {
     "title": "Subskrypcje",

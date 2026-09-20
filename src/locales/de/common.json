@@ -290,7 +290,14 @@
     "subscription": "Nach Abonnement",
     "subscriptionSelect": "Nach Abonnement wählen",
     "title": "Egress-Strategie",
-    "topN": "Max. Knoten"
+    "topN": "Max. Knoten",
+    "presets": "Vorlagen",
+    "presetBalanced": "Ausgewogen",
+    "presetBalancedDesc": "Alle gesunden Regionen, ausgeglichene Verteilung",
+    "presetLowLatency": "Niedrige Latenz",
+    "presetLowLatencyDesc": "5 schnellste Regionen, latenzarme Verteilung",
+    "presetIdleIp": "Freie IPs",
+    "presetIdleIpDesc": "Top-20-Qualitätspool, bevorzugt freie Ausgangs-IPs"
   },
   "subscription": {
     "title": "Abonnements",

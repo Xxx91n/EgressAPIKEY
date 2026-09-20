@@ -290,7 +290,14 @@
     "subscription": "By Subscription",
     "subscriptionSelect": "Select by subscription",
     "title": "Egress Strategy",
-    "topN": "Max nodes"
+    "topN": "Max nodes",
+    "presets": "Presets",
+    "presetBalanced": "Balanced",
+    "presetBalancedDesc": "All healthy regions, balanced allocation",
+    "presetLowLatency": "Low latency",
+    "presetLowLatencyDesc": "Top-5 fastest regions, low-latency allocation",
+    "presetIdleIp": "Idle IP",
+    "presetIdleIpDesc": "Top-20 quality pool, prefer idle exit IPs"
   },
   "subscription": {
     "title": "Subscriptions",

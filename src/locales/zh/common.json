@@ -290,7 +290,14 @@
     "subscription": "按订阅",
     "subscriptionSelect": "按订阅选择",
     "title": "出口策略",
-    "topN": "最大节点数"
+    "topN": "最大节点数",
+    "presets": "预设",
+    "presetBalanced": "均衡",
+    "presetBalancedDesc": "全部健康区域，均衡分配",
+    "presetLowLatency": "低延迟",
+    "presetLowLatencyDesc": "最快的前 5 个区域，低延迟分配",
+    "presetIdleIp": "空闲 IP",
+    "presetIdleIpDesc": "前 20 优质节点池，优先空闲出口 IP"
   },
   "subscription": {
     "title": "订阅",

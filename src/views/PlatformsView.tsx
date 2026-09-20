@@ -30,6 +30,7 @@ import {
   extractIpcErr,
 } from "../lib/ipc";
 import { strategyToI18nKey, strategyToResinPolicy, mapResinToShell, STRATEGY_IDS, type StrategyId } from "../lib/strategy";
+import { STRATEGY_PRESETS, type StrategyPreset } from "../lib/strategy-templates";
 import { loadSplitRatio, saveSplitRatio, loadPortAuthDefault, savePortAuthDefault } from "../lib/settings";
 import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
@@ -130,7 +131,10 @@ export function PlatformsView() {
 
   /// after updating a strategy field, sync to backend immediately.
   /// Uses functional update so sync sees the latest state (not stale closure).
-  const updateAndSync = (platformName: string, field: keyof PlatformStrategy, value: string | string[]) => {
+  const patchAndSync = (
+    platformName: string,
+    patch: Partial<PlatformStrategy>,
+  ) => {
     let latestConfig: StrategyConfig | null = null;
     setStrategyConfig((prev) => {
       let platforms = [...prev.platforms];
@@ -139,7 +143,7 @@ export function PlatformsView() {
         platforms.push({ platform_name: platformName, a_class: "manual", b_class: "BALANCED" });
         idx = platforms.length - 1;
       }
-      platforms[idx] = { ...platforms[idx], [field]: value };
+      platforms[idx] = { ...platforms[idx], ...patch };
       const next = { ...prev, platforms };
       latestConfig = next;
       return next;
@@ -150,6 +154,16 @@ export function PlatformsView() {
       else syncPlatformStrategy(platformName);
     });
   };
+
+  /// after updating a strategy field, sync to backend immediately.
+  const updateAndSync = (platformName: string, field: keyof PlatformStrategy, value: string | string[] | number) =>
+    patchAndSync(platformName, { [field]: value });
+
+  /// R11-05: one-click preset — merges the template's snapshot fields into
+  /// this platform's entry and commits via the same authoritative write
+  /// entry every chip uses (strategy_config_put -> strategy_apply).
+  const applyPreset = (platformName: string, preset: StrategyPreset) =>
+    patchAndSync(platformName, preset.patch);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const resizingRef = useRef(false);
@@ -394,7 +408,7 @@ export function PlatformsView() {
   };
 
   /// toggle port card selection (click same card to deselect)
-/// toggle port card expand/collapse
+  /// toggle port card expand/collapse
   const togglePortCard = (port: number) => {
     setExpandedPortCards((prev) => {
       const next = new Set(prev);
@@ -406,7 +420,7 @@ export function PlatformsView() {
   if (!bootstrapped) {
     return (
       <section className="flex h-full w-full flex-col gap-3 p-4" data-testid="platforms-view">
-      <HeadlessCapabilityNotice commands={["strategy_config_get", "strategy_apply"]} />
+        <HeadlessCapabilityNotice commands={["strategy_config_get", "strategy_apply"]} />
         <div className="animate-pulse space-y-3">
           <div className="h-6 w-48 rounded bg-muted" />
           <div className="h-32 rounded-lg border bg-muted/50" />
@@ -597,6 +611,23 @@ export function PlatformsView() {
                       <div className="flex-1 min-w-0" data-testid={"strategy-aclass-pane-" + p.name}>
                         <div className="mb-1.5">
                           <span className="text-[10px] font-medium uppercase text-muted-foreground">{t("strategy.aClass")}</span>
+                        </div>
+                        {/* R11-05: one-click presets — prebuilt snapshots
+                            committed through the authoritative write entry. */}
+                        <div className="mb-1.5 flex flex-wrap items-center gap-1" data-testid={"strategy-presets-" + p.name}>
+                          <span className="text-[10px] text-muted-foreground">{t("strategy.presets")}:</span>
+                          {STRATEGY_PRESETS.map((preset) => (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              title={t(preset.descKey)}
+                              className="rounded px-2 py-0.5 text-[10px] border border-dashed border-border text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                              onClick={() => applyPreset(p.name, preset)}
+                              data-testid={"strategy-preset-" + preset.id + "-" + p.name}
+                            >
+                              {t(preset.nameKey)}
+                            </button>
+                          ))}
                         </div>
                         {/* A-class type selector chips with T11-2 ring feedback */}
                         <div className="flex flex-wrap gap-1" data-testid={"strategy-aclass-chips-" + p.name}>

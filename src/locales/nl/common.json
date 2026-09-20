@@ -290,7 +290,14 @@
     "subscription": "Per Abonnement",
     "subscriptionSelect": "Selecteer per abonnement",
     "title": "Egress Strategie",
-    "topN": "Max. knooppunten"
+    "topN": "Max. knooppunten",
+    "presets": "Presets",
+    "presetBalanced": "Gebalanceerd",
+    "presetBalancedDesc": "Alle gezonde regio's, gebalanceerde toewijzing",
+    "presetLowLatency": "Lage latentie",
+    "presetLowLatencyDesc": "5 snelste regio's, lage-latentie toewijzing",
+    "presetIdleIp": "Idle IP",
+    "presetIdleIpDesc": "Top-20 kwaliteitspool, vrije uitgaande IPs voorkeur"
   },
   "subscription": {
     "title": "Abonnementen",

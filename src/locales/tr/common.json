@@ -290,7 +290,14 @@
     "subscription": "Aboneliğe Göre",
     "subscriptionSelect": "Aboneliğe göre seç",
     "title": "Çıkış Stratejisi",
-    "topN": "Maks. düğüm"
+    "topN": "Maks. düğüm",
+    "presets": "Hazır ayarlar",
+    "presetBalanced": "Dengeli",
+    "presetBalancedDesc": "Tüm sağlıklı bölgeler, dengeli dağıtım",
+    "presetLowLatency": "Düşük gecikme",
+    "presetLowLatencyDesc": "En hızlı 5 bölge, düşük gecikmeli dağıtım",
+    "presetIdleIp": "Boş IP",
+    "presetIdleIpDesc": "İlk-20 kalite havuzu, boş çıkış IP'lerini tercih et"
   },
   "subscription": {
     "title": "Abonelikler",

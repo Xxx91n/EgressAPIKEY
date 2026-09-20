@@ -290,7 +290,14 @@
     "subscription": "सदस्यता अनुसार",
     "subscriptionSelect": "सदस्यता अनुसार चुनें",
     "title": "निकास रणनीति",
-    "topN": "अधिकतम नोड"
+    "topN": "अधिकतम नोड",
+    "presets": "प्रीसेट",
+    "presetBalanced": "संतुलित",
+    "presetBalancedDesc": "सभी स्वस्थ क्षेत्र, संतुलित आवंटन",
+    "presetLowLatency": "कम विलंबता",
+    "presetLowLatencyDesc": "शीर्ष-5 तीव्रतम क्षेत्र, निम्न-विलंब आवंटन",
+    "presetIdleIp": "निष्क्रिय IP",
+    "presetIdleIpDesc": "टॉप-20 गुणवत्ता पूल, निष्क्रिय एग्ज़िट IP प्राथमिकता"
   },
   "subscription": {
     "title": "सब्सक्रिप्शन",

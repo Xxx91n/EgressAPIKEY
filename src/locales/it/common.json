@@ -290,7 +290,14 @@
     "subscription": "Per Abbonamento",
     "subscriptionSelect": "Seleziona per abbonamento",
     "title": "Strategia di Uscita",
-    "topN": "Nodi max"
+    "topN": "Nodi max",
+    "presets": "Preset",
+    "presetBalanced": "Bilanciato",
+    "presetBalancedDesc": "Tutte le regioni sane, allocazione bilanciata",
+    "presetLowLatency": "Bassa latenza",
+    "presetLowLatencyDesc": "5 regioni più veloci, allocazione a bassa latenza",
+    "presetIdleIp": "IP inattivi",
+    "presetIdleIpDesc": "Pool qualità top-20, preferisce IP di uscita inattivi"
   },
   "subscription": {
     "title": "Sottoscrizioni",

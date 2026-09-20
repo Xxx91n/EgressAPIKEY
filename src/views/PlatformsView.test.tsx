@@ -277,6 +277,35 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(applyCalled).toBe(true), { timeout: 5000 });
   });
 
+  // R11-05: one-click preset commits a prebuilt snapshot through the SAME
+  // authoritative write entry (config_put + apply) — no side channel.
+  it("R11-05: preset button applies the snapshot via config_put + apply", async () => {
+    let putBody: Record<string, unknown> | null = null;
+    let applyCalled = false;
+    invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "strategy_config_put") { putBody = (args?.config ?? args) as Record<string, unknown>; return Promise.resolve(null); }
+      if (cmd === "strategy_apply") { applyCalled = true; return Promise.resolve({ platforms: [] }); }
+      if (cmd === "node_list") return Promise.resolve([{ display_tag: "HK-1", region: "HK", node_hash: "h1" }]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await expandPlatform("Default");
+    fireEvent.click(screen.getByTestId("strategy-preset-lowLatency-Default"));
+    await waitFor(() => expect(putBody).not.toBeNull(), { timeout: 5000 });
+    await waitFor(() => expect(applyCalled).toBe(true), { timeout: 5000 });
+    const plats = (putBody as Record<string, unknown>).platforms as Array<Record<string, unknown>>;
+    const entry = plats.find((p) => p.platform_name === "Default");
+    expect(entry?.a_class).toBe("quality");
+    expect(entry?.b_class).toBe("PREFER_LOW_LATENCY");
+    expect(entry?.top_n).toBe(5);
+  });
+
   // B-class chips visible after expand.
   // the selector offers EXACTLY Resin's three real
   // allocation policies — the six display-only shell options are withdrawn.

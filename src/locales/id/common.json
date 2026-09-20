@@ -290,7 +290,14 @@
     "subscription": "Berdasarkan Langganan",
     "subscriptionSelect": "Pilih berdasarkan langganan",
     "title": "Strategi Egress",
-    "topN": "Maks. node"
+    "topN": "Maks. node",
+    "presets": "Preset",
+    "presetBalanced": "Seimbang",
+    "presetBalancedDesc": "Semua region sehat, alokasi seimbang",
+    "presetLowLatency": "Latensi rendah",
+    "presetLowLatencyDesc": "5 region tercepat, alokasi latensi rendah",
+    "presetIdleIp": "IP idle",
+    "presetIdleIpDesc": "Pool kualitas top-20, utamakan IP keluar idle"
   },
   "subscription": {
     "title": "Langganan",

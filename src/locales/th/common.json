@@ -290,7 +290,14 @@
     "subscription": "ตามการสมัครรับข้อมูล",
     "subscriptionSelect": "เลือกตามการสมัครรับข้อมง",
     "title": "กลยุทธ์ทางออก",
-    "topN": "โหนดสูงสุด"
+    "topN": "โหนดสูงสุด",
+    "presets": "พรีเซ็ต",
+    "presetBalanced": "สมดุล",
+    "presetBalancedDesc": "ทุกรีเจียนที่พร้อมใช้ การกระจายแบบสมดุล",
+    "presetLowLatency": "เวลาแฝงต่ำ",
+    "presetLowLatencyDesc": "5 รีเจียนที่เร็วสุด การกระจายแบบเวลาแฝงต่ำ",
+    "presetIdleIp": "IP ว่าง",
+    "presetIdleIpDesc": "พูลคุณภาพ 20 อันดับแรก ให้ความสำคัญกับ IP ขาออกที่ว่าง"
   },
   "subscription": {
     "title": "การสมัครรับข้อมูล",

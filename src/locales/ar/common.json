@@ -290,7 +290,14 @@
     "subscription": "حسب الاشتراك",
     "subscriptionSelect": "اختيار حسب الاشتراك",
     "title": "استراتيجية الخروج",
-    "topN": "الحد الأقصى للعقد"
+    "topN": "الحد الأقصى للعقد",
+    "presets": "الإعدادات المسبقة",
+    "presetBalanced": "متوازن",
+    "presetBalancedDesc": "جميع المناطق السليمة، توزيع متوازن",
+    "presetLowLatency": "زمن وصول منخفض",
+    "presetLowLatencyDesc": "أسرع 5 مناطق، توزيع بزمن وصول منخفض",
+    "presetIdleIp": "IP خاملة",
+    "presetIdleIpDesc": "مجموعة جودة أول 20، تفضيل عناوين IP الخارجة الخاملة"
   },
   "subscription": {
     "title": "الاشتراكات",

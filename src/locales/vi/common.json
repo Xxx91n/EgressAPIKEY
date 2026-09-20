@@ -290,7 +290,14 @@
     "subscription": "Theo đăng ký",
     "subscriptionSelect": "Chọn theo đăng ký",
     "title": "Chiến lược Egess",
-    "topN": "Tối đa node"
+    "topN": "Tối đa node",
+    "presets": "Mẫu sẵn",
+    "presetBalanced": "Cân bằng",
+    "presetBalancedDesc": "Mọi vùng khỏe, phân bổ cân bằng",
+    "presetLowLatency": "Độ trễ thấp",
+    "presetLowLatencyDesc": "5 vùng nhanh nhất, phân bổ độ trễ thấp",
+    "presetIdleIp": "IP rảnh",
+    "presetIdleIpDesc": "Pool chất lượng top-20, ưu tiên IP thoát rảnh"
   },
   "subscription": {
     "title": "Đăng ký",

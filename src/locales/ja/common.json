@@ -290,7 +290,14 @@
     "subscription": "サブスクリプション別",
     "subscriptionSelect": "サブスクリプションで選択",
     "title": "エグレス戦略",
-    "topN": "最大ノード数"
+    "topN": "最大ノード数",
+    "presets": "プリセット",
+    "presetBalanced": "バランス",
+    "presetBalancedDesc": "すべての健全リージョン、均等割り当て",
+    "presetLowLatency": "低遅延",
+    "presetLowLatencyDesc": "最速トップ5リージョン、低遅延割り当て",
+    "presetIdleIp": "アイドルIP",
+    "presetIdleIpDesc": "上位20の品質プール、空き出口IPを優先"
   },
   "subscription": {
     "title": "サブスクリプション",
