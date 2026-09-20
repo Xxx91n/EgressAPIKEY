@@ -280,7 +280,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   // R11-05: one-click preset commits a prebuilt snapshot through the SAME
   // authoritative write entry (config_put + apply) — no side channel.
   it("R11-05: preset button applies the snapshot via config_put + apply", async () => {
-    let putBody: Record<string, unknown> | null = null;
+    let putBody: Record<string, unknown> | undefined;
     let applyCalled = false;
     invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
       if (cmd === "port_list") return Promise.resolve([]);
@@ -297,7 +297,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     render(<PlatformsView />);
     await expandPlatform("Default");
     fireEvent.click(screen.getByTestId("strategy-preset-lowLatency-Default"));
-    await waitFor(() => expect(putBody).not.toBeNull(), { timeout: 5000 });
+    await waitFor(() => expect(putBody).not.toBeUndefined(), { timeout: 5000 });
     await waitFor(() => expect(applyCalled).toBe(true), { timeout: 5000 });
     const plats = (putBody as Record<string, unknown>).platforms as Array<Record<string, unknown>>;
     const entry = plats.find((p) => p.platform_name === "Default");
