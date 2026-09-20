@@ -202,7 +202,7 @@ pub async fn backup_create(
     backup_create_impl(&cfg, &data, &out_dir, &svc, &whitebox, passphrase).await
 }
 
-/// Transport-free body (R11-03): the headless BFF passes its own state roots
+/// Transport-free body: the headless BFF passes its own state roots
 /// and StrategyService; the packing logic is identical.
 pub async fn backup_create_impl(
     cfg: &Path,
@@ -350,7 +350,7 @@ pub async fn backup_upload(
     backup_upload_impl(&backups_dir, url, username, password, zip_path).await
 }
 
-/// Transport-free body (R11-03). The backups_dir confinement root is the
+/// Transport-free body. The backups_dir confinement root is the
 /// caller's responsibility — the shell passes app_data/backups, the headless
 /// BFF passes state_root/backups.
 pub async fn backup_upload_impl(
@@ -492,7 +492,7 @@ pub async fn config_export(
     config_export_impl(&svc, &whitebox).await
 }
 
-/// Transport-free body (R11-03).
+/// Transport-free body.
 pub async fn config_export_impl(
     svc: &resin_core::StrategyService<resin_core::FsStrategyStore>,
     whitebox: &resin_core::WhiteboxConfigStore,
@@ -531,7 +531,7 @@ pub async fn config_import(
     config_import_impl(&svc, &sidecar, &whitebox, &db, &forwarder, config).await
 }
 
-/// Transport-free body (R11-03).
+/// Transport-free body.
 pub async fn config_import_impl(
     svc: &resin_core::StrategyService<resin_core::FsStrategyStore>,
     sidecar: &SidecarHandle,
@@ -675,7 +675,7 @@ pub async fn backup_restore(
     .await
 }
 
-/// Transport-free body (R11-03). The L1 restore half is a caller-supplied
+/// Transport-free body. The L1 restore half is a caller-supplied
 /// settings writer: the shell writes through tauri-plugin-store, the headless
 /// BFF writes through its own settings.json document.
 pub async fn backup_restore_impl(

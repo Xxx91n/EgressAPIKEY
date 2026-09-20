@@ -3,12 +3,12 @@ import { usePoll } from "../hooks/usePoll";
 import { useTranslation } from "react-i18next";
 import { Activity, Stethoscope, Flame, Globe, Server, Loader2, FolderOpen, ArrowRight, Zap } from "lucide-react"; // T8-2/T8-3 added Zap for verify button
 import { openPath } from "@tauri-apps/plugin-opener";
-import { invoke } from "@tauri-apps/api/core";
 import {
   getDiagPollInterval,
   setDiagPollInterval,
 } from "../lib/settings";
 import {
+  ipcInvoke,
   ipcGetSidecarStatus,
   ipcCheckFirewallStatus,
   ipcRequestLogTail,
@@ -95,12 +95,12 @@ function MetricsSparkline({
 
 export /** T21: one collapsible payload half (headers/body). b64 decoded via
  *  decodePayloadPart — 1 MB display cap enforced there, flag drives the label. */
-function PayloadPart({ label, b64, truncatedUpstream, testId }: {
-  label: string;
-  b64: string;
-  truncatedUpstream: boolean;
-  testId: string;
-}) {
+  function PayloadPart({ label, b64, truncatedUpstream, testId }: {
+    label: string;
+    b64: string;
+    truncatedUpstream: boolean;
+    testId: string;
+  }) {
   const { t } = useTranslation();
   const decoded = decodePayloadPart(b64);
   if (!decoded.text && !truncatedUpstream) return null;
@@ -148,7 +148,7 @@ export function DiagnosticsView() {
   const [metricsThroughput, setMetricsThroughput] = useState<MetricsThroughput | null>(null);
   const [metricsProbes, setMetricsProbes] = useState<MetricsProbeHistory | null>(null);
   const [probeRange, setProbeRange] = useState<"1h" | "24h" | "7d">("24h");
-// request-log detail drawer state (pull model — opened by
+  // request-log detail drawer state (pull model — opened by
   // clicking a request_log_tail row; the two detail commands are called only
   // then, riding the same untrusted-coercion wrappers as the tail).
   const [detailLogId, setDetailLogId] = useState<string | null>(null);
@@ -229,7 +229,7 @@ export function DiagnosticsView() {
         ipcGetSidecarStatus().catch(() => null),
         ipcCheckFirewallStatus().catch(() => null),
         ipcRequestLogTail(50).catch(() => []),
-        invoke<string[]>("get_sidecar_logs").catch(() => []),
+        ipcInvoke<string[]>("get_sidecar_logs").catch(() => []),
         // (ADR-0064): realtime throughput rides the same poll cycle.
         ipcMetricsRealtimeThroughput().catch(() => null),
       ]);
@@ -280,7 +280,7 @@ export function DiagnosticsView() {
   // Open log directory
   const openLogDir = async () => {
     try {
-      const dir = await invoke<string>("get_log_dir");
+      const dir = await ipcInvoke<string>("get_log_dir");
       if (dir) await openPath(dir);
     } catch { /* not in tauri */ }
   };
@@ -538,7 +538,7 @@ export function DiagnosticsView() {
               <p>IP: {probeResult.exit_ip || "N/A"}</p>
               <p>Latency: {probeResult.latency_ms}ms</p>
               <p>Status: {probeResult.status}</p>
-              
+
             </div>
           )}
         </div>
@@ -573,7 +573,7 @@ export function DiagnosticsView() {
             <div className="text-xs space-y-0.5" data-testid="diag-health-result">
               <p>Reachable: {healthResult.reachable ? "YES" : "NO"}</p>
               <p>Latency: {healthResult.latency_ms}ms</p>
-              
+
             </div>
           )}
         </div>

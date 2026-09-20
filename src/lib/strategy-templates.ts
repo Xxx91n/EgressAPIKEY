@@ -1,5 +1,5 @@
 /**
- * R11-05: strategy presets ("templates").
+ * Strategy presets ("templates").
  *
  * A preset is a PREBUILT platform-strategy snapshot — not a new write path.
  * Applying one merges the preset's fields into the platform's

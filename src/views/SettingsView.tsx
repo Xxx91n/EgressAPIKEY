@@ -1,13 +1,15 @@
 import { useTranslation } from "react-i18next";
-import { invoke } from "@tauri-apps/api/core";
+import { ipcInvoke as invoke } from "../lib/ipc";
 
-  import { useEffect, useMemo, useState, useRef } from "react";
-import {ArrowRight, Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap, RefreshCw} from "lucide-react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { ArrowRight, Globe, Activity, Server, Save, Check, FolderOpen, ScrollText, CloudUpload, Loader2, Download, Upload, Zap, RefreshCw } from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { save } from "@tauri-apps/plugin-dialog";
-import { ipcBackupCreate, ipcBackupUpload, ipcBackupList, ipcBackupRestore, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig , ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, ipcGetConfigDir, ipcExportAuditLog,
+import {
+  ipcBackupCreate, ipcBackupUpload, ipcBackupList, ipcBackupRestore, ipcConfigExport, ipcConfigImport, ipcWhiteboxPath, ipcWhiteboxReload, ipcWhiteboxGet, ipcWhiteboxSaveNetwork, type NetworkConfig, ipcLightweightGet, ipcLightweightSet, ipcSetLogLevel, ipcGetLogLevel, ipcStrategyApply, ipcGetConfigDir, ipcExportAuditLog,
   ipcSystemConfigGet,
-  ipcSystemConfigPatch, type StrategyApplyResult} from "../lib/ipc";
+  ipcSystemConfigPatch, type StrategyApplyResult
+} from "../lib/ipc";
 import { useAppStore, type Locale, type Theme } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
 import { ipcGetSidecarStatus, type SidecarStatus } from "../lib/ipc";
@@ -232,17 +234,17 @@ export function SettingsView() {
     let cancelled = false;
     void (async () => {
       const [status, reputation] = await Promise.all([ipcGetSidecarStatus().catch(() => null), loadIpReputationConfig()]);
-    if (cancelled) return;
-    if (status) setSidecarStatus(status);
-    setReputationConfig(reputation);
-    setBaseline({ reputationConfig: reputation });
-    // also load network-layer config from whitebox
-    void ipcWhiteboxGet().then((wb) => setNetCfg(wb.network ?? {})).catch((e) => console.warn("[SettingsView] ipcWhiteboxGet failed", e));
+      if (cancelled) return;
+      if (status) setSidecarStatus(status);
+      setReputationConfig(reputation);
+      setBaseline({ reputationConfig: reputation });
+      // also load network-layer config from whitebox
+      void ipcWhiteboxGet().then((wb) => setNetCfg(wb.network ?? {})).catch((e) => console.warn("[SettingsView] ipcWhiteboxGet failed", e));
     })();
     return () => { cancelled = true; };
   }, []);
 
-   // Hydrate WebDAV backup config
+  // Hydrate WebDAV backup config
   useEffect(() => {
     let c2 = false;
     void (async () => {
@@ -407,14 +409,14 @@ export function SettingsView() {
         setTimeout(() => setConfigMsg(""), 5000);
       }
     };
-   input.click();
- };
+    input.click();
+  };
 
- // C2-8: isDirty = baseline vs current form snapshot. showSaveBar gates the sticky bar.
- const isDirty = useMemo(() => JSON.stringify({ reputationConfig }) !== JSON.stringify(baseline), [reputationConfig, baseline]);
- const showSaveBar = isDirty || busy || saved;
+  // C2-8: isDirty = baseline vs current form snapshot. showSaveBar gates the sticky bar.
+  const isDirty = useMemo(() => JSON.stringify({ reputationConfig }) !== JSON.stringify(baseline), [reputationConfig, baseline]);
+  const showSaveBar = isDirty || busy || saved;
 
- // Save network-layer config to whitebox JSON.
+  // Save network-layer config to whitebox JSON.
   const saveNetwork = async () => {
     setNetBusy(true);
     setNetMsg("");
@@ -437,15 +439,15 @@ export function SettingsView() {
 
 
 
- const saveAll = async () => {
-   setBusy(true);
+  const saveAll = async () => {
+    setBusy(true);
     try {
-    // Sidecar port is auto-assigned by the shell (ADR-0012) — nothing
-    // network-related to persist here.
-    await saveIpReputationConfig(reputationConfig);
-    setBaseline({ reputationConfig });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+      // Sidecar port is auto-assigned by the shell (ADR-0012) — nothing
+      // network-related to persist here.
+      await saveIpReputationConfig(reputationConfig);
+      setBaseline({ reputationConfig });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
     } finally { setBusy(false); }
   };
 
@@ -946,20 +948,20 @@ export function SettingsView() {
         </div>
       </SectionCard>
       {showSaveBar && (
-      <div className="sticky bottom-0 left-0 right-0 mt-4 px-4 py-3 bg-white/85 dark:bg-zinc-900/80 backdrop-blur border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2" data-testid="settings-save-bar">
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("settings.unifiedHelp")}</span>
-        <button
-          data-testid="settings-save-button" onClick={() => void saveAll()}
-          disabled={busy || (!isDirty && !saved)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-40"
-        >
-          {busy ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} strokeWidth={2.5} /> : <Save size={14} strokeWidth={2} />}
-          {t("settings.save")}
-        </button>
-      </div>
+        <div className="sticky bottom-0 left-0 right-0 mt-4 px-4 py-3 bg-white/85 dark:bg-zinc-900/80 backdrop-blur border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2" data-testid="settings-save-bar">
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("settings.unifiedHelp")}</span>
+          <button
+            data-testid="settings-save-button" onClick={() => void saveAll()}
+            disabled={busy || (!isDirty && !saved)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-40"
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : saved ? <Check size={14} strokeWidth={2.5} /> : <Save size={14} strokeWidth={2} />}
+            {t("settings.save")}
+          </button>
+        </div>
       )}
     </section>
 
-      
+
   );
 }

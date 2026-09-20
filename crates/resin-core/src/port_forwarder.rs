@@ -452,7 +452,7 @@ async fn refuse_dialect(client: &mut TcpStream, sniffed: &str) -> Result<(), Str
     };
     let _ = client.write_all(out).await;
     let _ = client.flush().await;
-    // Graceful close (R11-09): the peer's greeting may still carry unread
+    // Graceful close: the peer's greeting may still carry unread
     // bytes (e.g. the SOCKS5 method list after the version byte). Dropping
     // the socket with unread inbound data makes the kernel emit RST, which
     // on Windows can discard the refusal we just wrote. Half-close our

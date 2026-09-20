@@ -134,7 +134,7 @@ export const CMD_TO_HTTP: Record<string, HttpRoute> = {
   port_auth_info: { method: "GET", path: "/api/v1/ports/{port}/auth" },
   port_health_check: { method: "GET", path: "/api/v1/ports/{port}/health", query: { protocol: "protocol" } },
 
-  // --- BFF-native shell routes (R11-03, /api/v1/shell/*): commands whose
+  // --- BFF-native shell routes (/api/v1/shell/*): commands whose
   // desktop dependence was only the storage root. The headless server opens
   // the SAME resin-core stores at --state-root and calls the same *_impl
   // bodies the Tauri commands call — a native implementation, not a proxy.

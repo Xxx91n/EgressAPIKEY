@@ -1,4 +1,4 @@
-// headless-capability-check.cjs — R11-03 contract guard.
+// headless-capability-check.cjs — headless capability contract guard.
 //
 // Asserts the three headless capability surfaces can never drift apart:
 //   1. src/lib/headless-capabilities.json — the single source of truth, served

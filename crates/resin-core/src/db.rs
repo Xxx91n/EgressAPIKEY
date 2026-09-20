@@ -13,7 +13,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// R11-08: cross-connection write contention budget. A second process or
+/// Cross-connection write contention budget. A second process or
 /// thread holding a write txn (e.g. the backup snapshot path) makes an
 /// un-tuned connection fail instantly with SQLITE_BUSY; 5s absorbs the
 /// worst-case snapshot window without masking a real deadlock.
@@ -167,7 +167,7 @@ impl DbPool {
     /// map untouched.
     pub fn replace_ports(&self, mappings: &[PortMapping]) -> Result<(), String> {
         let mut conn = self.0.lock();
-        // BEGIN IMMEDIATE (R11-08): take the RESERVED lock at BEGIN, not at
+        // BEGIN IMMEDIATE: take the RESERVED lock at BEGIN, not at
         // the first write — a deferred txn that upgrades mid-flight can hit
         // SQLITE_BUSY_SNAPSHOT under WAL when a reader advanced past it, and
         // the whole DELETE+INSERT batch would have to abort. Grabbing the
@@ -487,7 +487,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// R11-08: every pooled connection carries busy_timeout >= 5s so a
+    /// Every pooled connection carries busy_timeout >= 5s so a
     /// concurrent writer (a second connection, a live snapshot) never turns
     /// into an instant SQLITE_BUSY failure.
     #[test]
@@ -501,7 +501,7 @@ mod tests {
         assert!(ms >= 5000, "busy_timeout must be >= 5000ms, got {ms}");
     }
 
-    /// R11-08: a second connection's write WAITS on a held write txn instead
+    /// A second connection's write WAITS on a held write txn instead
     /// of failing instantly — the busy_timeout contract in action.
     #[test]
     fn cross_connection_write_waits_through_busy_timeout() {
@@ -556,7 +556,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// R11-08: replace_ports must begin its txn with BEGIN IMMEDIATE (write
+    /// replace_ports must begin its txn with BEGIN IMMEDIATE (write
     /// lock at BEGIN), and the whole write path must stay inside the control-
     /// plane latency budget (D-004: p99 <= 50ms).
     #[test]
@@ -569,7 +569,7 @@ mod tests {
         let end = body.find("\n    }\n").unwrap_or(body.len());
         assert!(
             body[..end].contains("TransactionBehavior::Immediate"),
-            "replace_ports must BEGIN IMMEDIATE (R11-08)"
+            "replace_ports must BEGIN IMMEDIATE"
         );
 
         // Latency budget check on the real write path: repeated full-map

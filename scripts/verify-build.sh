@@ -4,7 +4,7 @@ set -euo pipefail
 # T9-8: CI/local test split — CI runs full workspace, local skips app crate
 IS_CI="${CI:-false}"
 
-# R11-14 CI gates (wave-b D-001, audit handover F1):
+# CI gates:
 # 1) lockfile-diff — Cargo.lock out of sync with Cargo.toml fails red here
 #    (cargo metadata --locked is read-only, produces no build artifacts).
 # 2) cargo fmt --check — stops fmt residue from continuing to leak through.
@@ -26,7 +26,7 @@ if [ "$IS_CI" = "true" ]; then
     # modules (a plain check leaves cfg(test) off, which would hide a broken
     # regression lock).
     cargo check -p egressapikey-app --features headless --all-targets --quiet
-    # R11-03e: the verify job must also produce the real headless binary so
+    # The verify job must also produce the real headless binary so
     # the smoke script below exercises a live process (验收: 编译通过、启动
     # 并测活软件进程). The bin is a pure axum server - no webkit link deps -
     # and the backend release matrix already builds it on ubuntu-22.04.
@@ -91,12 +91,12 @@ node scripts/upstream-router-check.cjs
 echo "[verify] contracts (mode-a contract gate, ADR-0068 D4 / round9 D-001)"
 node scripts/mode-a-contract-check.cjs
 
-# R11-03b: the headless capability registry must cover every registered
+# The headless capability registry must cover every registered
 # command exactly once and agree with the transport route table.
 echo "[verify] headless capability registry contract"
 node scripts/headless-capability-check.cjs
 
-# R11-03e: live-process smoke for the headless transport (验收闭环: 启动并
+# Live-process smoke for the headless transport (验收闭环: 启动并
 # 测活软件进程). The script resolves the bin under target/<triple>/debug or
 # target/debug itself; it fails hard in CI when no binary exists and skips
 # locally with an explicit WARN (local runs are not delivery evidence).

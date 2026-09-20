@@ -18,7 +18,7 @@
  */
 
 import { LazyStore } from "@tauri-apps/plugin-store";
-import { invoke } from "@tauri-apps/api/core";
+import { ipcInvoke as invoke } from "./ipc";
 import { isTauri } from "./headless-availability";
 
 const STORE = "settings.json";
@@ -30,7 +30,7 @@ interface StoreLike {
   save(): Promise<void>;
 }
 
-/** R11-03 / ADR-0071: headless-mode drop-in for tauri-plugin-store. The
+/** ADR-0071: headless-mode drop-in for tauri-plugin-store. The
  *  desktop LazyStore persists to app_config_dir/settings.json; the headless
  *  equivalent persists to <state_root>/settings.json through the BFF's
  *  settings KV (GET/PUT /api/v1/shell/settings). Same get/set/delete/save

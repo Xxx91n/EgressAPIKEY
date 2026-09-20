@@ -57,7 +57,7 @@ describe("headless disabled state (ticket 02 / A-006)", () => {
   it("the panel enumerates the COMPLETE disabled set, one row per command", () => {
     enterHeadless();
     const expected = allDisabledCommands();
-    // 8 = the R11-03 re-triage (71 enabled + 8 disabled = 79 manifest): only
+    // 8 = the ADR-0071 re-triage (71 enabled + 8 disabled = 79 manifest): only
     // genuinely desktop-environment assumptions stay disabled.
     // If a ticket adds or removes a command, this fails on purpose.
     expect(expected.length).toBe(8);

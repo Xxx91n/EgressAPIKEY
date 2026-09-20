@@ -1,4 +1,4 @@
-//! BFF-native shell routes (R11-03, ADR-0071 option C).
+//! BFF-native shell routes (ADR-0071 option C).
 //!
 //! Every command that reads or writes control-plane state gets a real
 //! endpoint here — NOT a proxy pass-through and NOT a disabled stub. The
@@ -22,7 +22,7 @@ use resin_core::IpcError;
 
 use crate::{port_err, port_ipc_err, read_json_body, PortCtx};
 
-/// Directories the sidecar restart seam needs (R11-03): identical to the set
+/// Directories the sidecar restart seam needs: identical to the set
 /// `boot_resin_standalone` resolved at startup — kept on the ctx so
 /// close_all_connections / reset_kernel can re-enter it without re-deriving.
 #[derive(Clone)]
@@ -294,10 +294,20 @@ async fn strategy_regions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Ok(s) => s,
         Err(r) => return r,
     };
-    let regions: Vec<String> = v
-        .get("regions")
-        .and_then(|r| serde_json::from_value(r.clone()).ok())
-        .unwrap_or_default();
+    let regions: Vec<String> = match v.get("regions") {
+        None => Vec::new(),
+        // A malformed `regions` must not silently wipe the platform's set —
+        // reject like every sibling handler instead of unwrap_or_default().
+        Some(r) => match serde_json::from_value(r.clone()) {
+            Ok(rs) => rs,
+            Err(_) => {
+                return port_err(
+                    StatusCode::BAD_REQUEST,
+                    "regions must be an array of strings",
+                )
+            }
+        },
+    };
     match ctx
         .strategy
         .set_platform_regions(&platform_name, regions)
@@ -709,6 +719,7 @@ async fn probe_exit_ip_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
 // accounts since ADR-0050).
 
 async fn account_add_h(body: Bytes) -> Response {
+    tracing::warn!(target: "ipc.account_deprecated", "account_add is deprecated since ADR-0050 (Resin owns account semantics); manage accounts via Resin directly");
     let v = match json_body(&body).await {
         Ok(v) => v,
         Err(r) => return r,
@@ -735,6 +746,7 @@ async fn account_add_h(body: Bytes) -> Response {
 }
 
 async fn account_bind_ip_h(body: Bytes) -> Response {
+    tracing::warn!(target: "ipc.account_deprecated", "account_bind_ip is deprecated since ADR-0050 (Resin owns account semantics); manage accounts via Resin directly");
     let v = match json_body(&body).await {
         Ok(v) => v,
         Err(r) => return r,

@@ -277,9 +277,9 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(applyCalled).toBe(true), { timeout: 5000 });
   });
 
-  // R11-05: one-click preset commits a prebuilt snapshot through the SAME
+  // One-click preset commits a prebuilt snapshot through the SAME
   // authoritative write entry (config_put + apply) — no side channel.
-  it("R11-05: preset button applies the snapshot via config_put + apply", async () => {
+  it("preset button applies the snapshot via config_put + apply", async () => {
     let putBody: Record<string, unknown> | undefined;
     let applyCalled = false;
     invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {

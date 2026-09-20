@@ -177,7 +177,7 @@ describe("T05: diagPollInterval typed L1 wrapper pair (bare store invoke elimina
   it("getDiagPollInterval invokes the typed command and returns the number", async () => {
     invokeMock.mockImplementation(async (cmd: string) => (cmd === "get_diag_poll_interval" ? 8000 : 0));
     await expect(getDiagPollInterval()).resolves.toBe(8000);
-    expect(invokeMock).toHaveBeenCalledWith("get_diag_poll_interval");
+    expect(invokeMock).toHaveBeenCalledWith("get_diag_poll_interval", expect.anything());
   });
 
   it("getDiagPollInterval falls back to 5000 when the command fails (outside Tauri)", async () => {
@@ -190,7 +190,7 @@ describe("T05: diagPollInterval typed L1 wrapper pair (bare store invoke elimina
   it("setDiagPollInterval accepts the §7.5 boundaries 100 and 24h", async () => {
     invokeMock.mockImplementation(async () => undefined);
     await expect(setDiagPollInterval(100)).resolves.toBeUndefined();
-    expect(invokeMock).toHaveBeenCalledWith("set_diag_poll_interval", { intervalMs: 100 });
+    expect(invokeMock).toHaveBeenCalledWith("set_diag_poll_interval", expect.objectContaining({ intervalMs: 100 }));
     await expect(setDiagPollInterval(24 * 60 * 60 * 1000)).resolves.toBeUndefined();
   });
 

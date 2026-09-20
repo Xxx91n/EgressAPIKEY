@@ -1,4 +1,4 @@
-// headless-smoke.cjs — R11-03 liveness + parity smoke for the headless binary.
+// headless-smoke.cjs — liveness + parity smoke for the headless binary.
 //
 // Runs against the REAL built binary in CI verify (ADR-0072): boots the
 // headless server with a throwaway state root, then asserts the guard, the
@@ -141,7 +141,9 @@ async function main() {
     const badHost = await req("GET", "/api/v1/capabilities", { host: "evil.example.com" });
     check("foreign Host header is 403", badHost.status === 403);
     const capsResp = await req("GET", "/api/v1/capabilities");
-    check("CSP header present", !!capsResp.headers.get("content-security-policy"));
+    const csp = capsResp.headers.get("content-security-policy") || "";
+    check("CSP header present", !!csp);
+    check("CSP pins frame-ancestors 'none'", csp.includes("frame-ancestors 'none'"));
 
     // settings KV round-trip (L1 parity surface)
     await req("PUT", "/api/v1/shell/settings", { body: { smokeKey: "v1" } });

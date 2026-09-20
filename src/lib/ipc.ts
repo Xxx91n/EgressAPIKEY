@@ -67,6 +67,17 @@ async function invoke<T = unknown>(cmd: string, args?: Record<string, unknown>):
   return _invoke<T>(cmd, enriched);
 }
 
+/// Public dispatcher for call sites outside this module. Bare
+/// `@tauri-apps/api/core` invoke() bypasses the headless route table and
+/// produces a different failure shape than a typed IpcUnavailableError —
+/// every IPC command, enabled or disabled, goes through this one point.
+export async function ipcInvoke<T = unknown>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
+  return invoke<T>(cmd, args);
+}
+
 function assertShortName(v: string, field: string): void {
   if (!v || v.length > NAME_MAX || /[\x00-\x1f\x7f]/.test(v)) {
     throw new Error(`${field} invalid (1..${NAME_MAX} chars, no control)`);
@@ -700,7 +711,7 @@ export function ipcWatchPortHealth(
   // In non-Tauri (headless browser) mode, Channel constructor and
   // _invoke both touch window.__TAURI_INTERNALS__ which doesn't exist.
   // Return a no-op unsubscribe to avoid throwing inside React useEffect.
-  if (!isTauri()) return () => {};
+  if (!isTauri()) return () => { };
   const channel = new Channel<PortHealthSnapshot>();
   channel.onmessage = (snap) => {
     try { onSnapshot(snap); }
@@ -716,7 +727,7 @@ export function ipcWatchPortHealth(
     // ends on its next emit when the webview GCs the JS Channel object.
     // To force a prompt stop, we null the handler so any in-flight message
     // becomes a no-op.
-    channel.onmessage = () => {};
+    channel.onmessage = () => { };
   };
 }
 
@@ -1074,7 +1085,7 @@ export interface WhiteboxBackupEntry {
 /** (section 7.6): a backup name must look like <name>.<digits>[-N].bak. */
 function assertBackupName(name: string): void {
   if (!name || name.length > 200 || !/^[A-Za-z0-9._-]+$/i.test(name) ||
-      !/\.bak$/.test(name) || !/\.\d+(-\d+)?\.bak$/.test(name)) {
+    !/\.bak$/.test(name) || !/\.\d+(-\d+)?\.bak$/.test(name)) {
     throw new Error("whitebox_backup: backup_name invalid");
   }
 }
@@ -1817,9 +1828,9 @@ export async function ipcReconcileNow(): Promise<ReconcileReport> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const portsRestored = Array.isArray(r.portsRestored)
     ? r.portsRestored
-        .map((x) => Number(x))
-        .filter((n) => Number.isInteger(n) && n >= USER_PORT_MIN && n <= USER_PORT_MAX)
-        .slice(0, MAX_SNAPSHOT_ENTRIES)
+      .map((x) => Number(x))
+      .filter((n) => Number.isInteger(n) && n >= USER_PORT_MIN && n <= USER_PORT_MAX)
+      .slice(0, MAX_SNAPSHOT_ENTRIES)
     : [];
   const skip = Number(r.portsSkipped);
   return {
@@ -1835,94 +1846,94 @@ export async function ipcReconcileNow(): Promise<ReconcileReport> {
 export function snapshotPlatformName(p: StrategySnapshot): string {
   return p.platform_name;
 }
- 
- // ---------------------------------------------------------------------------
- // Phase 5-2: typed IPC error contract (ADR-0026 Q6-Q8).
- // Discriminated union matching the Rust IpcError enum (externally-tagged serde).
- // Each variant carries an i18n_key so the GUI renders a locale-specific message
- // without parsing English error text.
- // ---------------------------------------------------------------------------
- 
- export type IpcErr =
-   | { kind: "BindConflict"; data: { port: number; i18n_key: string } }
-   | { kind: "InvalidStrategy"; data: { value: string; accepted: string[]; i18n_key: string } }
-   | { kind: "ResinUpstream"; data: { status: number; excerpt: string; i18n_key: string } }
-   | { kind: "InvalidInput"; data: { msg: string; i18n_key: string } }
-   /** name→UUID lookup miss (error.notFound locale key). */
-   | { kind: "NotFound"; data: { msg: string; i18n_key: string } }
-   | { kind: "Internal"; data: { msg: string; i18n_key: string } };
- 
- /** Narrow a thrown/unknown value from invoke() into a typed IpcErr.
-  *  Tauri rejects with a string by default; if the Rust side returns
-  *  IpcError via serde, Tauri serialises it as a JS object. */
- export function extractIpcErr(e: unknown): IpcErr {
-   if (e && typeof e === "object" && "kind" in e && "data" in e) {
-     const kind = (e as { kind: string }).kind;
-     const data = (e as { data: Record<string, unknown> }).data;
-     switch (kind) {
-       case "BindConflict":
-         return {
-           kind: "BindConflict",
-           data: {
-             port: Number(data?.port ?? 0),
-             i18n_key: String(data?.i18n_key ?? ""),
-           },
-         };
-       case "InvalidStrategy":
-         return {
-           kind: "InvalidStrategy",
-           data: {
-             value: String(data?.value ?? ""),
-             accepted: Array.isArray(data?.accepted) ? data.accepted.map(String) : [],
-             i18n_key: String(data?.i18n_key ?? ""),
-           },
-         };
-       case "ResinUpstream":
-         return {
-           kind: "ResinUpstream",
-           data: {
-             status: Number(data?.status ?? 0),
-             excerpt: String(data?.excerpt ?? ""),
-             i18n_key: String(data?.i18n_key ?? ""),
-           },
-         };
-       case "InvalidInput":
-         return {
-           kind: "InvalidInput",
-           data: {
-             msg: String(data?.msg ?? ""),
-             i18n_key: String(data?.i18n_key ?? ""),
-           },
-         };
-       case "NotFound":
-         // name→UUID lookup miss keeps its i18n_key so the GUI
-         // renders the locale "Not found" line instead of the Internal text.
-         return {
-           kind: "NotFound",
-           data: {
-             msg: String(data?.msg ?? ""),
-             i18n_key: String(data?.i18n_key ?? ""),
-           },
-         };
-       case "Internal":
-         return {
-           kind: "Internal",
-           data: {
-             msg: String(data?.msg ?? ""),
-             i18n_key: String(data?.i18n_key ?? ""),
-           },
-         };
-     }
-   }
-   // Fallback: Tauri string rejection or unknown error -> Internal.
-   const msg = typeof e === "string" ? e : e instanceof Error ? e.message : String(e);
-   return { kind: "Internal", data: { msg, i18n_key: "error.internal" } };
- }
- 
- /** Extract the i18n key from an IpcErr for direct use with t(). */
- export function ipcErrI18nKey(e: unknown): string {
-   return extractIpcErr(e).data.i18n_key || "error.internal";
- }
+
+// ---------------------------------------------------------------------------
+// Phase 5-2: typed IPC error contract (ADR-0026 Q6-Q8).
+// Discriminated union matching the Rust IpcError enum (externally-tagged serde).
+// Each variant carries an i18n_key so the GUI renders a locale-specific message
+// without parsing English error text.
+// ---------------------------------------------------------------------------
+
+export type IpcErr =
+  | { kind: "BindConflict"; data: { port: number; i18n_key: string } }
+  | { kind: "InvalidStrategy"; data: { value: string; accepted: string[]; i18n_key: string } }
+  | { kind: "ResinUpstream"; data: { status: number; excerpt: string; i18n_key: string } }
+  | { kind: "InvalidInput"; data: { msg: string; i18n_key: string } }
+  /** name→UUID lookup miss (error.notFound locale key). */
+  | { kind: "NotFound"; data: { msg: string; i18n_key: string } }
+  | { kind: "Internal"; data: { msg: string; i18n_key: string } };
+
+/** Narrow a thrown/unknown value from invoke() into a typed IpcErr.
+ *  Tauri rejects with a string by default; if the Rust side returns
+ *  IpcError via serde, Tauri serialises it as a JS object. */
+export function extractIpcErr(e: unknown): IpcErr {
+  if (e && typeof e === "object" && "kind" in e && "data" in e) {
+    const kind = (e as { kind: string }).kind;
+    const data = (e as { data: Record<string, unknown> }).data;
+    switch (kind) {
+      case "BindConflict":
+        return {
+          kind: "BindConflict",
+          data: {
+            port: Number(data?.port ?? 0),
+            i18n_key: String(data?.i18n_key ?? ""),
+          },
+        };
+      case "InvalidStrategy":
+        return {
+          kind: "InvalidStrategy",
+          data: {
+            value: String(data?.value ?? ""),
+            accepted: Array.isArray(data?.accepted) ? data.accepted.map(String) : [],
+            i18n_key: String(data?.i18n_key ?? ""),
+          },
+        };
+      case "ResinUpstream":
+        return {
+          kind: "ResinUpstream",
+          data: {
+            status: Number(data?.status ?? 0),
+            excerpt: String(data?.excerpt ?? ""),
+            i18n_key: String(data?.i18n_key ?? ""),
+          },
+        };
+      case "InvalidInput":
+        return {
+          kind: "InvalidInput",
+          data: {
+            msg: String(data?.msg ?? ""),
+            i18n_key: String(data?.i18n_key ?? ""),
+          },
+        };
+      case "NotFound":
+        // name→UUID lookup miss keeps its i18n_key so the GUI
+        // renders the locale "Not found" line instead of the Internal text.
+        return {
+          kind: "NotFound",
+          data: {
+            msg: String(data?.msg ?? ""),
+            i18n_key: String(data?.i18n_key ?? ""),
+          },
+        };
+      case "Internal":
+        return {
+          kind: "Internal",
+          data: {
+            msg: String(data?.msg ?? ""),
+            i18n_key: String(data?.i18n_key ?? ""),
+          },
+        };
+    }
+  }
+  // Fallback: Tauri string rejection or unknown error -> Internal.
+  const msg = typeof e === "string" ? e : e instanceof Error ? e.message : String(e);
+  return { kind: "Internal", data: { msg, i18n_key: "error.internal" } };
+}
+
+/** Extract the i18n key from an IpcErr for direct use with t(). */
+export function ipcErrI18nKey(e: unknown): string {
+  return extractIpcErr(e).data.i18n_key || "error.internal";
+}
 
 /// T8-1: GET /api/v1/system/config — read system-level config.
 export async function ipcSystemConfigGet(): Promise<unknown> {
@@ -1936,7 +1947,7 @@ export async function ipcSystemConfigPatch(body: {
 }): Promise<unknown> {
   if (body.max_consecutive_failures !== undefined) {
     if (typeof body.max_consecutive_failures !== "number" ||
-        body.max_consecutive_failures < 1 || body.max_consecutive_failures > 100) {
+      body.max_consecutive_failures < 1 || body.max_consecutive_failures > 100) {
       throw new Error("max_consecutive_failures must be between 1 and 100");
     }
   }

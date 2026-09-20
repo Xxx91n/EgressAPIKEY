@@ -773,7 +773,7 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
     // UI reads that reason through ipcCommandAvailability() to render a
     // disabled state instead of a runtime surprise.
     //
-    // get_config_dir stays disabled under desktop_only_local_path (R11-03
+    // get_config_dir stays disabled under desktop_only_local_path (ADR-0071
     // re-triage): it resolves a desktop filesystem path, a genuinely
     // local-only surface — everything else was promoted to a BFF route.
     const { ipcGetConfigDir } = await import("./ipc");

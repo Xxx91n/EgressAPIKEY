@@ -138,7 +138,7 @@ pub async fn process_route_add(
     process_route_add_impl(&db, &forwarder, &whitebox, process, target_port).await
 }
 
-/// Transport-free body (R11-03): the whitebox write entry is identical on
+/// Transport-free body: the whitebox write entry is identical on
 /// both transports.
 pub async fn process_route_add_impl(
     db: &DbPool,
@@ -182,7 +182,7 @@ pub async fn process_route_remove(
     process_route_remove_impl(&db, &forwarder, &whitebox, process).await
 }
 
-/// Transport-free body (R11-03).
+/// Transport-free body.
 pub async fn process_route_remove_impl(
     db: &DbPool,
     forwarder: &resin_core::PortForwarder,
@@ -1089,7 +1089,7 @@ pub async fn ip_reputation_snapshot(
     ip_reputation_snapshot_impl(|k| store.get(k), &client).await
 }
 
-/// Transport-free body (R11-03): the headless BFF reads the same settings
+/// Transport-free body: the headless BFF reads the same settings
 /// keys from its own settings.json store.
 pub async fn ip_reputation_snapshot_impl(
     get_setting: impl Fn(&str) -> Option<serde_json::Value>,

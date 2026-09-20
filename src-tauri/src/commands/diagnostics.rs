@@ -38,7 +38,7 @@ pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarSt
     Ok(sidecar_status_of(&sidecar))
 }
 
-/// Transport-free status read (R11-03): the headless BFF owns a SidecarHandle
+/// Transport-free status read: the headless BFF owns a SidecarHandle
 /// too, so both transports read the same fields.
 pub fn sidecar_status_of(sidecar: &SidecarHandle) -> SidecarStatus {
     let started = std::time::Instant::now();
@@ -336,7 +336,7 @@ pub async fn probe_exit_ip(
     probe_exit_ip_impl(&sidecar.proxy_token, &db, port, protocol).await
 }
 
-/// Transport-free body (R11-03): the headless BFF holds the same proxy_token
+/// Transport-free body: the headless BFF holds the same proxy_token
 /// + port DB, so the probe runs identically on either transport.
 pub async fn probe_exit_ip_impl(
     proxy_token: &str,

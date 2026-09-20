@@ -56,7 +56,7 @@ export function isTauri(): boolean {
 
 /** Why a command has no headless surface. Drives the UI disabled state and
  *  the i18n reason key (`ipc.disabled.<reason>`); never a runtime surprise.
- *  R11-03 re-triage (ADR-0071): a command may stay disabled ONLY when it
+ *  Re-triage rule (ADR-0071): a command may stay disabled ONLY when it
  *  assumes a desktop environment — everything else must be reachable. */
 export type CommandDisabledReason =
   | "desktop_only_tray"
@@ -76,7 +76,7 @@ interface CapabilityEntry {
 /** The disabled registry is DERIVED from ./headless-capabilities.json — the
  *  same document GET /api/v1/capabilities serves verbatim — so the UI, the
  *  dispatch guard and the machine-readable endpoint can never disagree.
- *  (R11-03: was 44 hand-maintained entries; the re-triage promoted every
+ *  (Was 44 hand-maintained entries; the re-triage promoted every
  *  command whose dependence on the desktop was only a storage root.) */
 export const DISABLED_COMMANDS: Record<string, CommandDisabledReason> =
   Object.fromEntries(

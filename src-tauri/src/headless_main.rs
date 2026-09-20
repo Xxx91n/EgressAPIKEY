@@ -176,7 +176,7 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|| PathBuf::from("binaries"))
     });
 
-    // Resolved once here so both boot and the restart seam (R11-03) reuse
+    // Resolved once here so both boot and the restart seam reuse
     // the exact same binary path the running child was spawned from.
     let resin_binary = egressapikey_app::sidecar::resolve_resin_binary(Some(&binary_dir))?;
     // boot_resin_standalone -> spawn_resin_inner drives a reqwest::blocking
@@ -229,7 +229,7 @@ async fn main() -> Result<()> {
         sidecar.api_port,
         sidecar.proxy_token.clone(),
     );
-    // R11-03: the strategy L2 service roots at state_root here — the desktop
+    // The strategy L2 service roots at state_root here — the desktop
     // shell roots the identical store at app_config_dir (option C).
     let strategy_svc = resin_core::StrategyService::new(resin_core::FsStrategyStore::new(
         state_root.join("egressapikey-strategy.json"),
@@ -451,7 +451,7 @@ fn build_router(
         .route("/api/v1/ports/:port/platform", patch(r_bind))
         .route("/api/v1/ports/:port/auth", get(r_auth))
         .route("/api/v1/ports/:port/health", get(r_health))
-        // R11-03: BFF-native shell routes (/api/v1/shell/* + /api/v1/capabilities).
+        // BFF-native shell routes (/api/v1/shell/* + /api/v1/capabilities).
         // Merged before the wildcard; axum 0.7 prefers static segments so the
         // Resin proxy keeps owning every unmatched /api/v1/* path.
         .merge(headless_shell::shell_routes(port_ctx.clone()))
@@ -1050,7 +1050,7 @@ struct PortCtx {
     api_base: String,
     admin_token: String,
     /// The Resin sidecar this process booted — the BFF shell routes share it
-    /// for status/logs/restart and ResinClient construction (R11-03).
+    /// for status/logs/restart and ResinClient construction.
     sidecar: Arc<SidecarHandle>,
     /// L2 strategy service rooted at state_root — the same store shape the
     /// desktop opens at app_config_dir (option C: same stores, different root).
@@ -1681,7 +1681,7 @@ mod guard_wiring_tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// R11-03: regression lock for the axum-0.7 literal-path bug — under
+    /// Regression lock for the axum-0.7 literal-path bug — under
     /// "{port}" syntax these URIs silently fell through to the /api/v1/*path
     /// proxy. Every :port route must reach the BFF-native handler instead of
     /// being proxied verbatim (the mock upstream always answers {"ok":true},

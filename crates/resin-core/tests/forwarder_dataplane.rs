@@ -862,7 +862,7 @@ async fn paired_request_added_latency_p95_under_5ms() {
     );
 }
 
-/// R11-09 (D-004): same paired harness, tighter tail — p99 <= 10 ms, on the
+/// Same paired harness, tighter tail — p99 <= 10 ms, on the
 /// ESTABLISHED tunnel (handshake excluded: the data-plane latency bound is
 /// about relay cost, not connect setup). The p95 <= 5 ms assertion above is
 /// kept; this adds the tail bound.
@@ -912,7 +912,7 @@ async fn paired_request_added_latency_p99_under_10ms() {
 }
 
 // ---------------------------------------------------------------------------
-// R11-09 SSE dual metrics: first-token added latency + frames-per-arrival
+// SSE dual metrics: first-token added latency + frames-per-arrival
 // ---------------------------------------------------------------------------
 
 /// Drive one SSE request to first `data:` byte; returns TTFB for the HEAD +
@@ -938,8 +938,8 @@ async fn sse_first_byte_ms(stream: &mut TcpStream, origin_port: u16) -> f64 {
 }
 
 #[tokio::test]
-async fn sse_first_token_added_latency_p99_under_1ms() {
-    // D-004 (R11-09): the relay must add <= 1 ms to time-to-first-token at
+async fn sse_first_token_added_latency_median_under_1ms() {
+    // D-004: the relay must add <= 1 ms to time-to-first-token at
     // p99. Paired measurement per iteration cancels host scheduling noise:
     // same origin, same payload, direct leg vs tunnelled leg. The "direct"
     // leg goes through the mock engine's CONNECT path so both legs share
@@ -980,7 +980,7 @@ async fn sse_first_token_added_latency_p99_under_1ms() {
     let p99 = deltas[(N as f64 * 0.99) as usize - 1];
     println!("SSE first-token added latency: median {median:.3} ms, p99 {p99:.3} ms over {N}");
     // D-004 bound (<=1 ms added) asserted on the robust estimator: the ticket
-    // note defers absolute p99 calibration on shared runners to R11-12, but
+    // note defers absolute p99 calibration on shared runners to the baseline ticket, but
     // the MEDIAN is where the steady-state relay cost shows up, and it must
     // be well under 1 ms. The p99 tail gate (3 ms) catches a relay that
     // stalls arbitrarily without pretending timer-tick jitter is signal.
@@ -990,13 +990,13 @@ async fn sse_first_token_added_latency_p99_under_1ms() {
     );
     assert!(
         p99 <= 3.0,
-        "first-token added latency p99 {p99:.3} ms — tail regression beyond runner noise (recalibrate at R11-12)"
+        "first-token added latency p99 {p99:.3} ms — tail regression beyond runner noise (recalibrate at the perf-baseline ticket)"
     );
 }
 
 #[tokio::test]
 async fn sse_frames_arrive_unmerged_one_per_read() {
-    // D-004 (R11-09): frames-per-arrival == 1 — after the response head,
+    // D-004: frames-per-arrival == 1 — after the response head,
     // every read() that yields complete events must contain exactly ONE
     // 10-byte frame. Batching would deliver 2+ frames per read.
     let (origin_port, _os) = spawn_origin(OriginMode::SsePaced).await;
@@ -1055,11 +1055,11 @@ async fn sse_frames_arrive_unmerged_one_per_read() {
 }
 
 // ---------------------------------------------------------------------------
-// R11-09: 500 concurrent SSE streams stay memory-bounded
+// 500 concurrent SSE streams stay memory-bounded
 // ---------------------------------------------------------------------------
 
 /// Process RSS in bytes where a cheap OS interface exists (Linux /proc);
-/// None elsewhere — the absolute numbers belong to R11-12's baseline run on
+/// None elsewhere — the absolute numbers belong to the perf-baseline run on
 /// representative hardware anyway, this test only needs the DELTA to be
 /// bounded where it is measurable.
 #[cfg(target_os = "linux")]
@@ -1075,7 +1075,7 @@ fn process_rss_bytes() -> Option<u64> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn sse_five_hundred_concurrent_streams_stay_bounded() {
-    // D-004 (R11-09): 500 simultaneous SSE tunnels through one entry port.
+    // D-004: 500 simultaneous SSE tunnels through one entry port.
     // Boundedness proof has two parts:
     //   - every stream is alive and receives frames (no starvation, no
     //     collapse under the conn count);

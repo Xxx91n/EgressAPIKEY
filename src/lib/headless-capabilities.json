@@ -1,5 +1,5 @@
 {
-  "$comment": "R11-03 / ADR-0071: single source of truth for the headless command surface. GET /api/v1/capabilities serves this document verbatim (src-tauri/src/headless_shell.rs include_str!); the SPA derives DISABLED_COMMANDS from it (headless-availability.ts); scripts/headless-capability-check.cjs asserts the union of enabled+disabled covers every registered command exactly once. status=enabled entries carry the HTTP route the dispatch layer uses; status=disabled entries carry the typed reason (i18n key ipc.disabled.<reason>).",
+  "$comment": "Single source of truth for the headless command surface. GET /api/v1/capabilities serves this document verbatim (src-tauri/src/headless_shell.rs include_str!); the SPA derives DISABLED_COMMANDS from it (headless-availability.ts); scripts/headless-capability-check.cjs asserts the union of enabled+disabled covers every registered command exactly once. status=enabled entries carry the HTTP route the dispatch layer uses; status=disabled entries carry the typed reason (i18n key ipc.disabled.<reason>).",
   "mode": "headless",
   "commands": {
     "account_add": {

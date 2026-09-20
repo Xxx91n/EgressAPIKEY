@@ -42,7 +42,7 @@ pub async fn strategy_verify(
     strategy_verify_impl(sidecar.api_port, &client, platform_name, sample_count).await
 }
 
-/// Transport-free body (R11-03): the probe loop runs through the Resin
+/// Transport-free body: the probe loop runs through the Resin
 /// forward proxy on loopback — identical on the headless transport.
 pub async fn strategy_verify_impl(
     api_port: u16,
@@ -703,7 +703,7 @@ pub async fn reconcile_now(
     reconcile_now_impl(&svc, &sidecar, &whitebox, &forwarder).await
 }
 
-/// Transport-free reconcile body (R11-03): the same serial strategy-apply ->
+/// Transport-free reconcile body: the same serial strategy-apply ->
 /// ports-reassert the Tauri command runs, callable by the headless BFF which
 /// owns the same stores (option C). Same split discipline as the port_*_impl
 /// family.

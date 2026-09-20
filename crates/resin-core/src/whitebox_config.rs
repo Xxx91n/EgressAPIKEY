@@ -647,7 +647,7 @@ async fn apply_ports(
     //     rows apply to the bound set atomically with the DB write, and a
     //     row that cannot bind shows up as drift in the snapshot instead
     //     of silently half-applying.
-    // R11-08: the write txn is synchronous SQLite work — run it on the
+    // The write txn is synchronous SQLite work — run it on the
     // blocking pool so an async worker never parks on the pool Mutex (the
     // ADR-0011 Mutex+spawn_blocking pattern). The txn itself is short:
     // BEGIN IMMEDIATE + one DELETE + N INSERTs + COMMIT.

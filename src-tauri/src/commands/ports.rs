@@ -787,7 +787,7 @@ pub async fn whitebox_rollback(
     whitebox_rollback_impl(&sidecar, &db, &forwarder, &whitebox, backup_name).await
 }
 
-/// Transport-free body (R11-03): same audit-scoped rollback + L3 restore for
+/// Transport-free body: same audit-scoped rollback + L3 restore for
 /// both transports (the headless BFF passes its own stores).
 pub async fn whitebox_rollback_impl(
     sidecar: &SidecarHandle,

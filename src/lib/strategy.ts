@@ -33,8 +33,6 @@ export type StrategyId = (typeof STRATEGY_IDS)[number];
 /// shell vocabulary after the convergence.
 export type AllocationPolicy = StrategyId;
 
-export const ALLOCATION_POLICIES: AllocationPolicy[] = [...STRATEGY_IDS];
-
 /// The withdrawn six-option shell catalogue, accepted on read only.
 const LEGACY_B_CLASS_TOKENS = [
   "random",

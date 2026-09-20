@@ -137,7 +137,7 @@ describe("DiagnosticsView closed-loop tests", () => {
   it("T05: loads poll interval via typed get_diag_poll_interval, never via bare get_store_value", async () => {
     render(<DiagnosticsView />);
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("get_diag_poll_interval");
+      expect(invokeMock).toHaveBeenCalledWith("get_diag_poll_interval", expect.anything());
     });
     const commands = invokeMock.mock.calls.map((c: unknown[]) => c[0]);
     expect(commands).not.toContain("get_store_value");
@@ -152,7 +152,7 @@ describe("DiagnosticsView closed-loop tests", () => {
     invokeMock.mockClear();
     fireEvent.change(screen.getByTestId("diag-poll-select"), { target: { value: "10000" } });
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("set_diag_poll_interval", { intervalMs: 10000 });
+      expect(invokeMock).toHaveBeenCalledWith("set_diag_poll_interval", expect.objectContaining({ intervalMs: 10000 }));
     });
   });
 

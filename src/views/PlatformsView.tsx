@@ -159,7 +159,7 @@ export function PlatformsView() {
   const updateAndSync = (platformName: string, field: keyof PlatformStrategy, value: string | string[] | number) =>
     patchAndSync(platformName, { [field]: value });
 
-  /// R11-05: one-click preset — merges the template's snapshot fields into
+  /// One-click preset — merges the template's snapshot fields into
   /// this platform's entry and commits via the same authoritative write
   /// entry every chip uses (strategy_config_put -> strategy_apply).
   const applyPreset = (platformName: string, preset: StrategyPreset) =>
@@ -612,7 +612,7 @@ export function PlatformsView() {
                         <div className="mb-1.5">
                           <span className="text-[10px] font-medium uppercase text-muted-foreground">{t("strategy.aClass")}</span>
                         </div>
-                        {/* R11-05: one-click presets — prebuilt snapshots
+                        {/* One-click presets — prebuilt snapshots
                             committed through the authoritative write entry. */}
                         <div className="mb-1.5 flex flex-wrap items-center gap-1" data-testid={"strategy-presets-" + p.name}>
                           <span className="text-[10px] text-muted-foreground">{t("strategy.presets")}:</span>
