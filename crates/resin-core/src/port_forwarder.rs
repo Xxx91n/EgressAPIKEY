@@ -452,6 +452,21 @@ async fn refuse_dialect(client: &mut TcpStream, sniffed: &str) -> Result<(), Str
     };
     let _ = client.write_all(out).await;
     let _ = client.flush().await;
+    // Graceful close (R11-09): the peer's greeting may still carry unread
+    // bytes (e.g. the SOCKS5 method list after the version byte). Dropping
+    // the socket with unread inbound data makes the kernel emit RST, which
+    // on Windows can discard the refusal we just wrote. Half-close our
+    // side, drain whatever is already in flight, then let the drop FIN.
+    let _ = client.shutdown().await;
+    let mut drain = [0u8; 256];
+    for _ in 0..8 {
+        match client.try_read(&mut drain) {
+            Ok(0) => break,
+            Ok(_) => {}      // consumed bytes; give stragglers one more moment
+            Err(_) => break, // WouldBlock: nothing pending
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
     Err(format!("dialect refused: {sniffed}"))
 }
 
