@@ -7,10 +7,17 @@
 //! + WAL + hand-rolled PRAGMA user_version migration).
 
 use parking_lot::Mutex;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
+
+/// R11-08: cross-connection write contention budget. A second process or
+/// thread holding a write txn (e.g. the backup snapshot path) makes an
+/// un-tuned connection fail instantly with SQLITE_BUSY; 5s absorbs the
+/// worst-case snapshot window without masking a real deadlock.
+const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// One row of the port_mappings table.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -33,14 +40,26 @@ impl DbPool {
         let conn = Connection::open(path).map_err(|e| format!("open db: {e}"))?;
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| format!("pragma journal_mode=WAL: {e}"))?;
+        // WAL pairs with NORMAL sync: FULL still fsyncs every commit, which
+        // WAL makes unnecessary for durability here (checkpoint durability
+        // is unaffected; commit-group fsync is what NORMAL relaxes).
+        conn.pragma_update(None, "synchronous", "NORMAL")
+            .map_err(|e| format!("pragma synchronous=NORMAL: {e}"))?;
+        Self::configure(&conn)?;
         Self::migrate(&conn)?;
         Ok(Self(Arc::new(Mutex::new(conn))))
     }
 
     pub fn open_in_memory() -> Result<Self, String> {
         let conn = Connection::open_in_memory().map_err(|e| format!("open in-memory: {e}"))?;
+        Self::configure(&conn)?;
         Self::migrate(&conn)?;
         Ok(Self(Arc::new(Mutex::new(conn))))
+    }
+
+    fn configure(conn: &Connection) -> Result<(), String> {
+        conn.busy_timeout(BUSY_TIMEOUT)
+            .map_err(|e| format!("pragma busy_timeout: {e}"))
     }
 
     fn migrate(conn: &Connection) -> Result<(), String> {
@@ -148,8 +167,14 @@ impl DbPool {
     /// map untouched.
     pub fn replace_ports(&self, mappings: &[PortMapping]) -> Result<(), String> {
         let mut conn = self.0.lock();
+        // BEGIN IMMEDIATE (R11-08): take the RESERVED lock at BEGIN, not at
+        // the first write — a deferred txn that upgrades mid-flight can hit
+        // SQLITE_BUSY_SNAPSHOT under WAL when a reader advanced past it, and
+        // the whole DELETE+INSERT batch would have to abort. Grabbing the
+        // write lock up front makes the batch either start cleanly (after
+        // busy_timeout) or fail fast with nothing half-applied.
         let tx = conn
-            .transaction()
+            .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| format!("begin replace_ports: {e}"))?;
         tx.execute("DELETE FROM port_mappings", [])
             .map_err(|e| format!("clear port_mappings: {e}"))?;
@@ -212,6 +237,8 @@ pub fn snapshot_db_readonly(src: &Path, dst: &Path) -> Result<(), String> {
     let dst_str = dst.to_string_lossy().to_string();
     let conn = Connection::open_with_flags(src, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(|e| format!("snapshot: open {} read-only: {e}", src.display()))?;
+    conn.busy_timeout(BUSY_TIMEOUT)
+        .map_err(|e| format!("snapshot: busy_timeout {}: {e}", src.display()))?;
     conn.execute("VACUUM INTO ?1", [dst_str.as_str()])
         .map_err(|e| format!("snapshot: VACUUM INTO {}: {e}", dst.display()))?;
     drop(conn);
@@ -457,6 +484,130 @@ mod tests {
         drop(pool);
         let _ = std::fs::remove_file(&src);
         let _ = std::fs::remove_file(&dst);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// R11-08: every pooled connection carries busy_timeout >= 5s so a
+    /// concurrent writer (a second connection, a live snapshot) never turns
+    /// into an instant SQLITE_BUSY failure.
+    #[test]
+    fn open_sets_busy_timeout_at_least_five_seconds() {
+        let pool = DbPool::open_in_memory().unwrap();
+        let ms: i64 = pool
+            .0
+            .lock()
+            .query_row("PRAGMA busy_timeout", [], |r| r.get(0))
+            .unwrap();
+        assert!(ms >= 5000, "busy_timeout must be >= 5000ms, got {ms}");
+    }
+
+    /// R11-08: a second connection's write WAITS on a held write txn instead
+    /// of failing instantly — the busy_timeout contract in action.
+    #[test]
+    fn cross_connection_write_waits_through_busy_timeout() {
+        let dir = std::env::temp_dir().join(format!("resin-db-busy-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("busy.db");
+        let _ = std::fs::remove_file(&path);
+
+        // Migrate first via the pool so port_mappings exists for both
+        // connections (the holder thread opens a raw Connection).
+        let b = DbPool::open(&path).unwrap();
+
+        // Connection A lives on a holder thread (Transaction borrows its
+        // Connection, so the txn cannot cross the boundary — the connection
+        // itself can). The channel proves BEGIN IMMEDIATE landed before B
+        // writes, making the contention deterministic.
+        let path2 = path.clone();
+        let (begun_tx, begun_rx) = std::sync::mpsc::channel();
+        let holder = std::thread::spawn(move || {
+            let mut conn = Connection::open(&path2).unwrap();
+            conn.busy_timeout(BUSY_TIMEOUT).unwrap();
+            let tx = conn
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .unwrap();
+            tx.execute(
+                "INSERT INTO port_mappings (port, protocol, platform_name, account, label, enabled, auth_required) VALUES (19000, 'mixed', 'A', 'a', '', 1, 1)",
+                [],
+            )
+            .unwrap();
+            begun_tx.send(()).unwrap();
+            std::thread::sleep(Duration::from_millis(150));
+            tx.commit().unwrap();
+        });
+        begun_rx.recv().unwrap(); // A holds the write lock now
+
+        // B's write must wait ~150ms through busy_timeout and then succeed,
+        // not return SQLITE_BUSY instantly.
+        b.upsert_port(&PortMapping {
+            port: 19001,
+            protocol: "http".into(),
+            platform_name: "B".into(),
+            account: "b".into(),
+            label: "".into(),
+            enabled: true,
+            auth_required: true,
+        })
+        .expect("busy_timeout must absorb the held write txn");
+        holder.join().unwrap();
+
+        assert!(b.get_port(19001).unwrap().is_some());
+        drop(b);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// R11-08: replace_ports must begin its txn with BEGIN IMMEDIATE (write
+    /// lock at BEGIN), and the whole write path must stay inside the control-
+    /// plane latency budget (D-004: p99 <= 50ms).
+    #[test]
+    fn replace_ports_begins_immediate_and_meets_p99_budget() {
+        let src = std::fs::read_to_string("src/db.rs").expect("db.rs readable from crate root");
+        let start = src
+            .find("fn replace_ports(")
+            .expect("replace_ports present");
+        let body = &src[start..];
+        let end = body.find("\n    }\n").unwrap_or(body.len());
+        assert!(
+            body[..end].contains("TransactionBehavior::Immediate"),
+            "replace_ports must BEGIN IMMEDIATE (R11-08)"
+        );
+
+        // Latency budget check on the real write path: repeated full-map
+        // replaces on a file-backed WAL database. Sequential writes isolate
+        // the per-commit cost (no artificial contention); p99 over 200
+        // samples leaves large headroom for CI-runner jitter while still
+        // proving the control-plane write stays well under 50ms.
+        let dir = std::env::temp_dir().join(format!("resin-db-p99-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("p99.db");
+        let _ = std::fs::remove_file(&path);
+        let pool = DbPool::open(&path).unwrap();
+        let map = |i: usize| PortMapping {
+            port: (20000 + i) as u16,
+            protocol: "mixed".into(),
+            platform_name: "P".into(),
+            account: format!("acct-{i}"),
+            label: "".into(),
+            enabled: true,
+            auth_required: true,
+        };
+        let mut samples = Vec::with_capacity(200);
+        for i in 0..200 {
+            let rows: Vec<PortMapping> = (0..8).map(|j| map(j)).collect();
+            let t = std::time::Instant::now();
+            pool.replace_ports(&rows).unwrap();
+            samples.push(t.elapsed());
+            let _ = i;
+        }
+        samples.sort();
+        let p99 = samples[(samples.len() * 99 / 100).min(samples.len() - 1)];
+        assert!(
+            p99 <= Duration::from_millis(50),
+            "replace_ports p99 must be <= 50ms (D-004), got {:?}",
+            p99
+        );
+
+        drop(pool);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

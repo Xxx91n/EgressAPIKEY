@@ -647,7 +647,15 @@ async fn apply_ports(
     //     rows apply to the bound set atomically with the DB write, and a
     //     row that cannot bind shows up as drift in the snapshot instead
     //     of silently half-applying.
-    db.replace_ports(next)
+    // R11-08: the write txn is synchronous SQLite work — run it on the
+    // blocking pool so an async worker never parks on the pool Mutex (the
+    // ADR-0011 Mutex+spawn_blocking pattern). The txn itself is short:
+    // BEGIN IMMEDIATE + one DELETE + N INSERTs + COMMIT.
+    let rows = next.to_vec();
+    let db2 = db.clone();
+    tokio::task::spawn_blocking(move || db2.replace_ports(&rows))
+        .await
+        .map_err(|e| format!("entry-port DB join: {e}"))?
         .map_err(|e| format!("entry-port DB replace failed: {e}"))?;
     forwarder.reload(next).await?;
     Ok(next.len())
