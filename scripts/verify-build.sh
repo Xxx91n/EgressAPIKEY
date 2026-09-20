@@ -97,14 +97,8 @@ echo "[verify] headless capability registry contract"
 node scripts/headless-capability-check.cjs
 
 # R11-03e: live-process smoke for the headless transport (验收闭环: 启动并
-# 测活软件进程). Requires the built bin + a fetched Resin sidecar; locally
-# both may be absent, so the smoke skips with an explicit WARN rather than
-# silently passing. In CI verify both are always present.
-HEADLESS_BIN="target/debug/egressapikey-headless"
-[ "$(uname -s 2>/dev/null | cut -c1-5)" = "MINGW" ] && HEADLESS_BIN="${HEADLESS_BIN}.exe"
-if [ -x "$HEADLESS_BIN" ] || [ -f "$HEADLESS_BIN" ]; then
-  echo "[verify] headless live smoke ($HEADLESS_BIN)"
-  node scripts/headless-smoke.cjs
-else
-  echo "[verify] WARN: $HEADLESS_BIN absent - headless smoke skipped (local run?)"
-fi
+# 测活软件进程). The script resolves the bin under target/<triple>/debug or
+# target/debug itself; it fails hard in CI when no binary exists and skips
+# locally with an explicit WARN (local runs are not delivery evidence).
+echo "[verify] headless live smoke"
+node scripts/headless-smoke.cjs

@@ -48,12 +48,7 @@ fn str_arg<'v>(v: &'v serde_json::Value, key: &str) -> Result<String, Response> 
     v.get(key)
         .and_then(|x| x.as_str())
         .map(str::to_string)
-        .ok_or_else(|| {
-            port_err(
-                StatusCode::BAD_REQUEST,
-                &format!("missing string arg {key}"),
-            )
-        })
+        .ok_or_else(|| port_err(StatusCode::BAD_REQUEST, &format!("missing string arg {key}")))
 }
 
 fn str_arg_opt(v: &serde_json::Value, key: &str) -> Option<String> {
@@ -82,10 +77,8 @@ fn write_settings_doc(
 }
 
 async fn settings_get_h(ctx: Arc<PortCtx>) -> Response {
-    axum::Json(serde_json::Value::Object(read_settings_doc(
-        &ctx.settings_path,
-    )))
-    .into_response()
+    axum::Json(serde_json::Value::Object(read_settings_doc(&ctx.settings_path)))
+        .into_response()
 }
 
 async fn settings_put_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
@@ -94,10 +87,7 @@ async fn settings_put_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Err(r) => return r,
     };
     let Some(patch) = v.as_object() else {
-        return port_err(
-            StatusCode::BAD_REQUEST,
-            "settings PUT body must be a JSON object",
-        );
+        return port_err(StatusCode::BAD_REQUEST, "settings PUT body must be a JSON object");
     };
     let mut doc = read_settings_doc(&ctx.settings_path);
     for (k, val) in patch {
@@ -205,13 +195,12 @@ async fn whitebox_network_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Ok(v) => v,
         Err(r) => return r,
     };
-    let network: resin_core::NetworkConfig =
-        match serde_json::from_value(v.get("network").cloned().unwrap_or(v)) {
-            Ok(n) => n,
-            Err(e) => {
-                return port_err(StatusCode::BAD_REQUEST, &format!("bad network config: {e}"))
-            }
-        };
+    let network: resin_core::NetworkConfig = match serde_json::from_value(
+        v.get("network").cloned().unwrap_or(v),
+    ) {
+        Ok(n) => n,
+        Err(e) => return port_err(StatusCode::BAD_REQUEST, &format!("bad network config: {e}")),
+    };
     let mut current = ctx.whitebox.snapshot();
     current.network = network;
     match ctx
@@ -269,16 +258,12 @@ async fn strategy_config_put_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Ok(v) => v,
         Err(r) => return r,
     };
-    let cfg: resin_core::StrategyConfig =
-        match serde_json::from_value(v.get("config").cloned().unwrap_or(v)) {
-            Ok(c) => c,
-            Err(e) => {
-                return port_err(
-                    StatusCode::BAD_REQUEST,
-                    &format!("bad strategy config: {e}"),
-                )
-            }
-        };
+    let cfg: resin_core::StrategyConfig = match serde_json::from_value(
+        v.get("config").cloned().unwrap_or(v),
+    ) {
+        Ok(c) => c,
+        Err(e) => return port_err(StatusCode::BAD_REQUEST, &format!("bad strategy config: {e}")),
+    };
     match ctx.strategy.store(cfg).map_err(IpcError::from) {
         Ok(stored) => axum::Json(stored).into_response(),
         Err(e) => port_ipc_err(&e),
@@ -309,12 +294,7 @@ async fn strategy_regions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
 }
 
 async fn strategy_backups_h(ctx: Arc<PortCtx>) -> Response {
-    match ctx
-        .strategy
-        .store_ref()
-        .list_backups()
-        .map_err(IpcError::from)
-    {
+    match ctx.strategy.store_ref().list_backups().map_err(IpcError::from) {
         Ok(list) => axum::Json(list).into_response(),
         Err(e) => port_ipc_err(&e),
     }
@@ -378,13 +358,24 @@ async fn strategy_verify_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Ok(s) => s,
         Err(r) => return r,
     };
-    let sample_count = v.get("sample_count").and_then(|x| x.as_u64()).unwrap_or(10) as u32;
+    let sample_count_raw = v
+        .get("sample_count")
+        .and_then(|x| x.as_u64())
+        .unwrap_or(10);
+    let Ok(sample_count) = u32::try_from(sample_count_raw) else {
+        return port_err(StatusCode::BAD_REQUEST, "sample_count out of range");
+    };
     let client = match ctx.client() {
         Ok(c) => c,
         Err(e) => return port_err(StatusCode::BAD_GATEWAY, &e),
     };
-    match commands::strategy_verify_impl(ctx.sidecar.api_port, &client, platform_name, sample_count)
-        .await
+    match commands::strategy_verify_impl(
+        ctx.sidecar.api_port,
+        &client,
+        platform_name,
+        sample_count,
+    )
+    .await
     {
         Ok(v) => axum::Json(v).into_response(),
         Err(e) => port_ipc_err(&e),
@@ -456,7 +447,12 @@ async fn process_route_add_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Ok(s) => s,
         Err(r) => return r,
     };
-    let target_port = v.get("target_port").and_then(|x| x.as_u64()).unwrap_or(0) as u16;
+    let target_port_raw = v.get("target_port").and_then(|x| x.as_u64()).unwrap_or(0);
+    // Same range the Tauri boundary enforces via the u16 arg type — the HTTP
+    // surface must not silently truncate oversized values.
+    let Ok(target_port) = u16::try_from(target_port_raw) else {
+        return port_err(StatusCode::BAD_REQUEST, "target_port out of range");
+    };
     match commands::process_route_add_impl(
         &ctx.db,
         &ctx.forwarder,
@@ -565,10 +561,7 @@ async fn backup_upload_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         str_arg(&v, "username"),
         str_arg(&v, "zip_path"),
     ) else {
-        return port_err(
-            StatusCode::BAD_REQUEST,
-            "url, username and zip_path are required",
-        );
+        return port_err(StatusCode::BAD_REQUEST, "url, username and zip_path are required");
     };
     let password = str_arg_opt(&v, "password").unwrap_or_default();
     let backups_dir = ctx.state_root.join("backups");
@@ -588,10 +581,7 @@ async fn backup_restore_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         str_arg(&v, "username"),
         str_arg(&v, "zip_name"),
     ) else {
-        return port_err(
-            StatusCode::BAD_REQUEST,
-            "url, username and zip_name are required",
-        );
+        return port_err(StatusCode::BAD_REQUEST, "url, username and zip_name are required");
     };
     let password = str_arg_opt(&v, "password").unwrap_or_default();
     let passphrase = str_arg_opt(&v, "passphrase");
@@ -648,26 +638,27 @@ async fn sidecar_restart_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     let handle = ctx.sidecar.clone();
     let dirs = ctx.restart.clone();
     let network = ctx.whitebox.snapshot().network;
-    let result = tokio::task::spawn_blocking(move || {
-        egressapikey_app::sidecar::restart_into_slot(
+    // restart_into_slot re-runs the reqwest::blocking healthz loop, which
+    // refuses any thread carrying a tokio context — use a bare std::thread +
+    // oneshot so the async handler can await it without spawn_blocking.
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    std::thread::spawn(move || {
+        let r = egressapikey_app::sidecar::restart_into_slot(
             &handle,
             dirs.state_dir,
             dirs.cache_dir,
             dirs.log_dir,
             dirs.binary_path,
             network,
-        )
-    })
-    .await;
-    match result {
+        );
+        let _ = tx.send(r);
+    });
+    match rx.await {
         Ok(Ok(())) => {
             axum::Json(serde_json::json!({ "ok": true, "reason": reason })).into_response()
         }
         Ok(Err(e)) => port_err(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
-        Err(e) => port_err(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            &format!("restart join: {e}"),
-        ),
+        Err(_) => port_err(StatusCode::INTERNAL_SERVER_ERROR, "restart thread panicked"),
     }
 }
 
@@ -683,7 +674,10 @@ async fn probe_exit_ip_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
         Ok(v) => v,
         Err(r) => return r,
     };
-    let port = v.get("port").and_then(|x| x.as_u64()).unwrap_or(0) as u16;
+    let port_raw = v.get("port").and_then(|x| x.as_u64()).unwrap_or(0);
+    let Ok(port) = u16::try_from(port_raw) else {
+        return port_err(StatusCode::BAD_REQUEST, "port out of range");
+    };
     let protocol = str_arg_opt(&v, "protocol").unwrap_or_else(|| "mixed".to_string());
     match commands::probe_exit_ip_impl(&ctx.sidecar.proxy_token, &ctx.db, port, protocol).await {
         Ok(v) => axum::Json(v).into_response(),
@@ -703,7 +697,8 @@ async fn account_add_h(body: Bytes) -> Response {
     };
     let platform = str_arg_opt(&v, "platform").unwrap_or_default();
     let id = str_arg_opt(&v, "id").unwrap_or_default();
-    let lane = v.get("lane").and_then(|x| x.as_u64()).unwrap_or(0) as usize;
+    let lane = usize::try_from(v.get("lane").and_then(|x| x.as_u64()).unwrap_or(0))
+        .unwrap_or(usize::MAX);
     if let Err(e) = commands::validate_short_name(&platform, "platform")
         .and_then(|_| commands::validate_short_name(&id, "account"))
     {
@@ -712,10 +707,7 @@ async fn account_add_h(body: Bytes) -> Response {
     if lane >= resin_core::MAX_LANES {
         return port_err(
             StatusCode::BAD_REQUEST,
-            &format!(
-                "lane {lane} out of range (max {})",
-                resin_core::MAX_LANES - 1
-            ),
+            &format!("lane {lane} out of range (max {})", resin_core::MAX_LANES - 1),
         );
     }
     axum::Json(serde_json::json!({ "ok": true })).into_response()
@@ -780,20 +772,14 @@ pub fn shell_routes(ctx: Arc<PortCtx>) -> Router {
             "/api/v1/shell/log-level",
             get(log_level_get_h).put(log_level_put_h),
         )
-        .route(
-            "/api/v1/shell/ip-reputation",
-            get(h!(ip_reputation_h, no_body)),
-        )
+        .route("/api/v1/shell/ip-reputation", get(h!(ip_reputation_h, no_body)))
         // L2 whitebox
         .route("/api/v1/shell/whitebox", get(h!(whitebox_get_h, no_body)))
         .route(
             "/api/v1/shell/whitebox/reload",
             post(h!(whitebox_reload_h, no_body)),
         )
-        .route(
-            "/api/v1/shell/whitebox/network",
-            patch(h!(whitebox_network_h)),
-        )
+        .route("/api/v1/shell/whitebox/network", patch(h!(whitebox_network_h)))
         .route(
             "/api/v1/shell/whitebox/backups",
             get(h!(whitebox_backups_h, no_body)),

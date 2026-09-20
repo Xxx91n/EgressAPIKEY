@@ -18,8 +18,22 @@ const PORT = Number(process.env.SMOKE_PORT || 14277);
 const TOKEN = "smoke-" + Math.random().toString(36).slice(2);
 const BASE = `http://127.0.0.1:${PORT}`;
 
-const BIN = process.env.HEADLESS_BIN
-  || path.join(ROOT, "target", "debug", process.platform === "win32" ? "egressapikey-headless.exe" : "egressapikey-headless");
+const BIN_NAME = process.platform === "win32" ? "egressapikey-headless.exe" : "egressapikey-headless";
+// Cargo lands the binary at target/<triple>/debug/ when a build target is in
+// effect (CI sets CARGO_BUILD_TARGET; this repo's .cargo/config.toml pins the
+// MSVC triple on Windows) and at target/debug/ otherwise — probe both.
+function findHeadlessBin() {
+  if (process.env.HEADLESS_BIN) return process.env.HEADLESS_BIN;
+  const candidates = [path.join(ROOT, "target", "debug", BIN_NAME)];
+  const tdir = path.join(ROOT, "target");
+  if (fs.existsSync(tdir)) {
+    for (const d of fs.readdirSync(tdir)) {
+      candidates.push(path.join(tdir, d, "debug", BIN_NAME));
+    }
+  }
+  return candidates.find((p) => fs.existsSync(p)) || null;
+}
+const BIN = findHeadlessBin();
 const DIST = process.env.DIST_DIR || path.join(ROOT, "dist");
 const BIN_DIR = process.env.RESIN_BINARY_DIR || path.join(ROOT, "src-tauri", "binaries");
 
@@ -33,11 +47,28 @@ function check(name, ok, detail) {
 }
 
 async function req(method, p, opts = {}) {
+  // undici forbids overriding Host — use node:http for the hostile-Host probe.
+  if (opts.host) {
+    return await new Promise((resolve, reject) => {
+      const r = require("node:http").request(
+        {
+          method, path: p, port: PORT, host: "127.0.0.1",
+          headers: { host: opts.host, authorization: `Bearer ${TOKEN}` }
+        },
+        (res) => {
+          let text = "";
+          res.on("data", (c) => { text += c; });
+          res.on("end", () => resolve({ status: res.statusCode, text, json: null, headers: res.headers }));
+        },
+      );
+      r.on("error", reject);
+      r.end();
+    });
+  }
   const res = await fetch(`${BASE}${p}`, {
     method,
     headers: {
       ...(opts.token === false ? {} : { authorization: `Bearer ${TOKEN}` }),
-      ...(opts.host ? { host: opts.host } : {}),
       ...(opts.body ? { "content-type": "application/json" } : {}),
     },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -49,10 +80,18 @@ async function req(method, p, opts = {}) {
 }
 
 async function main() {
-  if (!fs.existsSync(BIN)) {
-    console.error(`[smoke] headless binary not found: ${BIN}`);
-    process.exit(1);
+  if (!BIN || !fs.existsSync(BIN)) {
+    // No binary = nothing to smoke. In CI verify the binary is always built
+    // above, so an absence there is a real failure; a local run may skip.
+    const msg = `[smoke] headless binary not found under target/`;
+    if (process.env.CI) {
+      console.error(msg);
+      process.exit(1);
+    }
+    console.warn(`${msg} — skipped (local run)`);
+    process.exit(0);
   }
+  console.log(`[smoke] using ${BIN}`);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "egressapikey-smoke-"));
   const stateRoot = path.join(tmp, "state");
   const logRoot = path.join(tmp, "logs");

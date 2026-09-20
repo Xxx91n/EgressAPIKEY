@@ -179,7 +179,19 @@ async fn main() -> Result<()> {
     // Resolved once here so both boot and the restart seam (R11-03) reuse
     // the exact same binary path the running child was spawned from.
     let resin_binary = egressapikey_app::sidecar::resolve_resin_binary(Some(&binary_dir))?;
-    let sidecar = boot_resin_standalone(state_root.clone(), log_root.clone(), binary_dir)?;
+    // boot_resin_standalone -> spawn_resin_inner drives a reqwest::blocking
+    // healthz loop; reqwest::blocking REFUSES to run on any thread that
+    // carries a tokio runtime context (spawn_blocking threads included —
+    // "Cannot drop a runtime in a context where blocking is not allowed").
+    // The desktop path is legal because Tauri runs sync commands on plain
+    // threads. Boot on a bare std::thread and join: startup is synchronous
+    // anyway, so this changes no scheduling semantics.
+    let sidecar = {
+        let (sr, lr, bd) = (state_root.clone(), log_root.clone(), binary_dir.clone());
+        std::thread::spawn(move || boot_resin_standalone(sr, lr, bd))
+            .join()
+            .map_err(|_| anyhow::anyhow!("headless: resin boot thread panicked"))??
+    };
     let sidecar = Arc::new(sidecar);
     let api_base = format!("http://127.0.0.1:{}/", sidecar.api_port);
     let admin_token = sidecar.admin_token.clone();
@@ -558,10 +570,8 @@ fn with_security_headers(mut resp: Response) -> Response {
              frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
         ),
     );
-    resp.headers_mut().insert(
-        header::X_CONTENT_TYPE_OPTIONS,
-        HeaderValue::from_static("nosniff"),
-    );
+    resp.headers_mut()
+        .insert(header::X_CONTENT_TYPE_OPTIONS, HeaderValue::from_static("nosniff"));
     resp
 }
 
