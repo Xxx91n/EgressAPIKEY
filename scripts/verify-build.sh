@@ -4,6 +4,16 @@ set -euo pipefail
 # T9-8: CI/local test split — CI runs full workspace, local skips app crate
 IS_CI="${CI:-false}"
 
+# R11-14 CI gates (wave-b D-001, audit handover F1):
+# 1) lockfile-diff — Cargo.lock out of sync with Cargo.toml fails red here
+#    (cargo metadata --locked is read-only, produces no build artifacts).
+# 2) cargo fmt --check — stops fmt residue from continuing to leak through.
+echo "[verify] lockfile freshness (cargo metadata --locked)"
+cargo metadata --locked --format-version 1 >/dev/null
+
+echo "[verify] cargo fmt --check"
+cargo fmt --all -- --check
+
 echo "[verify] cargo build"
 if [ "$IS_CI" = "true" ]; then
   if [ "$(uname -s 2>/dev/null)" = "Linux" ] || [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then

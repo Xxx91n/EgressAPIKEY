@@ -17,6 +17,7 @@
 | --- | --- | --- |
 | 一致 consistent | whitebox and Resin runtime agree | Nothing to do |
 | 漂移 divergent | both sides readable but disagree | See scenario 1 or 2 |
+| 漂移 divergent（刚手改白盒文件后立刻查看） | watch_apply 回滚窗口：新内容已写盘但 apply 失败时内存视图回滚、磁盘保留新文件——瞬时态，不是写丢 | 点「同步到期望态」(reconcile_now) 可自愈；勿为掩盖此窗口做磁盘回滚——那会吞掉用户手改的 L2 权威内容 |
 | 缺失 missingOnResin | entity absent on the Resin side | See scenario 2 or 3 |
 | 已知 known (grey) | drift exists but you marked it acknowledged | Revoke the exemption in the whitebox if unintended |
 

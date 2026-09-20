@@ -112,8 +112,6 @@ export async function ipcPlatformListFull(): Promise<unknown> {
 export { STRATEGY_IDS, type StrategyId, type AllocationPolicy, strategyToI18nKey, strategyToResinPolicy, isValidStrategyId } from "./strategy";
 import type { StrategyId, AllocationPolicy } from "./strategy";
 import { strategyToResinPolicy, isValidStrategyId, STRATEGY_IDS } from "./strategy";
-/// Back-compat: keep ALLOCATION_POLICIES for any call site that still imports it.
-export const ALLOCATION_POLICIES = ["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"] as const;
 
 /// Phase R1: PATCH a platform's allocation_policy / regex_filters / sticky_ttl.
 /// TS-boundary validation mirrors the Rust side (AGENTS s7.6): policy enum,

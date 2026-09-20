@@ -16,8 +16,8 @@
 //! stays a pure relocation (AGENTS.md ADR-0036 write entry unchanged).
 
 use crate::strategy_engine::{
-    AClassStrategy, CascadeError, EstablishStep, PlatformStrategy, StrategyConfig,
-    SubscriptionPhase, SubscriptionStatus,
+    CascadeError, EstablishStep, PlatformStrategy, StrategyConfig, SubscriptionPhase,
+    SubscriptionStatus,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -990,6 +990,7 @@ mod tests {
 
     use super::*;
     use crate::strategy::StrategyId;
+    use crate::strategy_engine::AClassStrategy;
     use serde_json::json;
 
     fn strategy_entry(name: &str, regions: &[&str]) -> PlatformStrategy {

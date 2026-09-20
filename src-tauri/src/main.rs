@@ -429,7 +429,7 @@ fn main() {
                     if let Some(mut child) = sidecar.child.lock().ok().and_then(|mut g| g.take()) {
                         let pid: u32 = child.id();
                         let _ = child.kill(); // std::process::Child::kill = &mut self (no consume)
-                        // (ADR-0016 ): Phase 2 — wait for OS to release
+                        // (ADR-0016): Phase 2 — wait for OS to release
                         // port + SQLite lock before app exit, then verify PID.
                         std::thread::sleep(std::time::Duration::from_millis(
                             egressapikey_app::sidecar::SHUTDOWN_WAIT_MS,

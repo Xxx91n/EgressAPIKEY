@@ -52,7 +52,7 @@ pub enum RunningMode {
     Starting,
     /// Process is live and control plane is up (normal steady state).
     Running,
-    /// (ADR-0016 ): After MAX_CRASH_RESTARTS the crash restarter
+    /// (ADR-0016): After MAX_CRASH_RESTARTS the crash restarter
     /// gives up and marks the sidecar Terminated — no further restart
     /// attempts. The mode is terminal until the user restarts the app.
     /// mode transition is Running|Starting -> Terminated.
@@ -660,22 +660,39 @@ pub fn boot_resin_standalone(
     spawn_resin_await_healthz(&state_dir, &cache_dir, &log_dir, &binary_path, &network)
 }
 
-/// Tauri app entry: resolve per-user app data + log dirs via the Tauri
-/// path resolver, then delegate to the shared spawn helper.
-pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
+/// Per-user directories the sidecar needs, resolved once through the Tauri
+/// path resolver. Single dir-resolution block shared by boot_resin and
+/// restart_resin.
+struct ResinDirs {
+    app_data: std::path::PathBuf,
+    state: std::path::PathBuf,
+    cache: std::path::PathBuf,
+    log: std::path::PathBuf,
+}
+
+fn resolve_resin_dirs<R: Runtime>(app: &AppHandle<R>) -> Result<ResinDirs> {
     let path = app.path();
     let app_data = path
         .app_data_dir()
-        .context("sidecar: cannot resolve app_data_dir for resin state")?;
-    let state_dir = app_data.join("resin-state");
-    let cache_dir = app_data.join("resin-cache");
-    let log_dir = path
-        .app_log_dir()
-        .unwrap_or_else(|_| app_data.join("logs"))
-        .join("resin");
+        .context("sidecar: cannot resolve app_data_dir")?;
+    Ok(ResinDirs {
+        state: app_data.join("resin-state"),
+        cache: app_data.join("resin-cache"),
+        log: path
+            .app_log_dir()
+            .unwrap_or_else(|_| app_data.join("logs"))
+            .join("resin"),
+        app_data,
+    })
+}
+
+/// Tauri app entry: resolve per-user app data + log dirs via the Tauri
+/// path resolver, then delegate to the shared spawn helper.
+pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
+    let dirs = resolve_resin_dirs(app)?;
     let binary_path = resolve_resin_binary(None)?;
-    let network = read_network_config(&app_data);
-    spawn_resin_await_healthz(&state_dir, &cache_dir, &log_dir, &binary_path, &network)
+    let network = read_network_config(&dirs.app_data);
+    spawn_resin_await_healthz(&dirs.state, &dirs.cache, &dirs.log, &binary_path, &network)
 }
 
 /// Restart the sidecar FOR REAL — the Ghost safety net must not merely
@@ -694,20 +711,18 @@ pub(crate) fn restart_resin<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
             "sidecar: restart requested before SidecarHandle is managed"
         ));
     };
-    let path = app.path();
-    let app_data = path
-        .app_data_dir()
-        .context("sidecar: cannot resolve app_data_dir for restart")?;
-    let state_dir = app_data.join("resin-state");
-    let cache_dir = app_data.join("resin-cache");
-    let log_dir = path
-        .app_log_dir()
-        .unwrap_or_else(|_| app_data.join("logs"))
-        .join("resin");
+    let dirs = resolve_resin_dirs(app)?;
     let binary_path = resolve_resin_binary(None)?;
-    let network = read_network_config(&app_data);
+    let network = read_network_config(&dirs.app_data);
 
-    restart_into_slot(&state, state_dir, cache_dir, log_dir, binary_path, network)
+    restart_into_slot(
+        &state,
+        dirs.state,
+        dirs.cache,
+        dirs.log,
+        binary_path,
+        network,
+    )
 }
 
 /// Core of `restart_resin`: two-phase shutdown + slot-preserving respawn.
@@ -805,7 +820,7 @@ fn gen_token() -> Result<String> {
     Ok(hex::encode(bytes))
 }
 
-/// (ADR-0016 ): Check if a loopback TCP port is available to bind.
+/// (ADR-0016): Check if a loopback TCP port is available to bind.
 /// Returns Ok(()) if free, Err(message) if occupied by another process.
 /// Pure function for testability: the test binds a listener then calls this
 /// with the same port and expects Err.
@@ -1247,16 +1262,15 @@ mod tests {
 
     #[test]
     fn check_port_available_returns_ok_for_free_port() {
-        // Bind a listener on an ephemeral port, then check it's free
-        // after dropping the listener (race window is acceptable for the test).
+        // Bind a listener on an ephemeral port, drop it, then the port must
+        // read bindable again — this predicate backs the probe->bind race
+        // recovery, so the assertion must be a real one.
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         drop(listener);
-        let result = check_port_available(port);
-        // Port should be free after listener is dropped (with tiny race)
         assert!(
-            result.is_ok() || result.is_err(),
-            "either is acceptable due to race"
+            check_port_available(port).is_ok(),
+            "freshly released loopback port must be bindable"
         );
     }
 
@@ -1489,13 +1503,13 @@ const STATUS_EVENT: &str = "sidecar-status";
 /// After MAX_RESTARTS, mark terminal dead + notify user (no infinite loop).
 const MAX_CRASH_RESTARTS: u32 = 3;
 
-/// (ADR-0016 ): milliseconds to wait between TerminateProcess and
+/// (ADR-0016): milliseconds to wait between TerminateProcess and
 /// PID reaping check. Gives the OS time to release the port + SQLite state
 /// lock so the next boot does not get EADDRINUSE or "database is locked".
 /// 500ms is the clash-verge-rev CoreManager two-phase shutdown interval.
 pub const SHUTDOWN_WAIT_MS: u64 = 500;
 
-/// (ADR-0016 ): Two-phase shutdown sequence for the sidecar process.
+/// (ADR-0016): Two-phase shutdown sequence for the sidecar process.
 /// Phase 1: Send the kill signal (TerminateProcess on Windows, SIGTERM on Unix).
 /// Phase 2: Wait SHUTDOWN_WAIT_MS, then verify the process is gone.
 /// Returns Ok(()) if the process is gone within the wait window,
