@@ -32,8 +32,8 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 // stdout/stderr pipes are still drained into the LogBuffer via tokio async
 // read — same observable behavior as the plugin's CommandEvent, minus the
 // console window.
-use std::process::{Child, Command, Stdio};
 use resin_core::NetworkConfig;
+use std::process::{Child, Command, Stdio};
 
 /// Lifecycle state of the Resin sidecar process (ADR-0016 Q1).
 /// Modeled after clash-verge-rev CoreManager RunningMode: a lightweight
@@ -154,11 +154,7 @@ impl SidecarHandle {
                 | (RunningMode::Terminated, RunningMode::NotRunning)
         );
         if !valid {
-            tracing::warn!(
-                "sidecar: unexpected mode transition {:?} -> {:?}",
-                old,
-                new
-            );
+            tracing::warn!("sidecar: unexpected mode transition {:?} -> {:?}", old, new);
         }
         *self.mode.write().unwrap() = new;
     }
@@ -229,7 +225,11 @@ fn resolve_resin_binary(binary_dir: Option<&std::path::Path>) -> Result<std::pat
     // fallback dir so any ABI variant is resolved symmetrically.
     let arch = std::env::consts::ARCH;
     let os = std::env::consts::OS;
-    let exe_suffix = if cfg!(target_os = "windows") { ".exe" } else { "" };
+    let exe_suffix = if cfg!(target_os = "windows") {
+        ".exe"
+    } else {
+        ""
+    };
     let direct_name = format!("resin-{}-pc-{}{}", arch, os, exe_suffix);
     if let Some(bd) = binary_dir {
         if let Some(p) = scan_for_resin_bin(bd, arch, os, exe_suffix, &direct_name) {
@@ -333,7 +333,15 @@ fn spawn_resin_await_healthz(
     binary_path: &std::path::Path,
     network: &NetworkConfig,
 ) -> Result<SidecarHandle> {
-    spawn_resin_inner(state_dir, cache_dir, log_dir, binary_path, network, None, None)
+    spawn_resin_inner(
+        state_dir,
+        cache_dir,
+        log_dir,
+        binary_path,
+        network,
+        None,
+        None,
+    )
 }
 
 /// restart path: re-spawn into an EXISTING slot (same port, same admin
@@ -350,8 +358,13 @@ fn respawn_resin_await_healthz(
     log_buf: Arc<LogBuffer>,
 ) -> Result<SidecarHandle> {
     spawn_resin_inner(
-        state_dir, cache_dir, log_dir, binary_path, network,
-        Some(slot), Some(log_buf),
+        state_dir,
+        cache_dir,
+        log_dir,
+        binary_path,
+        network,
+        Some(slot),
+        Some(log_buf),
     )
 }
 
@@ -375,7 +388,9 @@ fn spawn_resin_inner(
         .with_context(|| format!("sidecar: cannot create log_dir {:?}", log_dir))?;
     tracing::info!(
         "resin sidecar dirs: state={:?} cache={:?} log={:?}",
-        state_dir, cache_dir, log_dir
+        state_dir,
+        cache_dir,
+        log_dir
     );
 
     match &slot {
@@ -383,9 +398,8 @@ fn spawn_resin_inner(
             // CONTEXT Port Cleanup / ADR-0016 Q4: refuse to spawn into a port
             // that is still held. A silent bind failure would otherwise look
             // like a successful restart while no control plane ever came up.
-            check_port_available(s.port).map_err(|e| {
-                anyhow!("sidecar: restart cannot rebind 127.0.0.1:{}: {e}", s.port)
-            })?;
+            check_port_available(s.port)
+                .map_err(|e| anyhow!("sidecar: restart cannot rebind 127.0.0.1:{}: {e}", s.port))?;
             spawn_resin_on_port(
                 state_dir,
                 cache_dir,
@@ -434,8 +448,7 @@ fn spawn_resin_inner(
                     }
                 }
             }
-            Err(last_err
-                .unwrap_or_else(|| anyhow!("sidecar: could not allocate a loopback port")))
+            Err(last_err.unwrap_or_else(|| anyhow!("sidecar: could not allocate a loopback port")))
         }
     }
 }
@@ -485,7 +498,10 @@ fn spawn_resin_on_port(
         cmd.env("RESIN_PROXY_TRANSPORT_MAX_IDLE_CONNS", v.to_string());
     }
     if let Some(v) = network.max_idle_conns_per_host {
-        cmd.env("RESIN_PROXY_TRANSPORT_MAX_IDLE_CONNS_PER_HOST", v.to_string());
+        cmd.env(
+            "RESIN_PROXY_TRANSPORT_MAX_IDLE_CONNS_PER_HOST",
+            v.to_string(),
+        );
     }
     if let Some(v) = network.idle_conn_timeout_secs {
         cmd.env("RESIN_PROXY_TRANSPORT_IDLE_CONN_TIMEOUT", format!("{}s", v));
@@ -516,7 +532,9 @@ fn spawn_resin_on_port(
 
     // Startup latency = spawn initiation -> first /healthz success.
     let spawn_started = Instant::now();
-    let mut child = cmd.spawn().context("sidecar: failed to spawn resin binary")?;
+    let mut child = cmd
+        .spawn()
+        .context("sidecar: failed to spawn resin binary")?;
 
     // Assign child to Windows Job Object so the OS kills resin.exe
     // even if the GUI is force-terminated (Task Manager End Task, crash, etc.)
@@ -582,14 +600,18 @@ fn spawn_resin_on_port(
                     log_buf,
                     api_port,
                     admin_token,
-                   proxy_token,
-                   healthz_last_check: std::sync::RwLock::new(String::new()),
+                    proxy_token,
+                    healthz_last_check: std::sync::RwLock::new(String::new()),
                     #[cfg(target_os = "windows")]
                     job_handle,
                 });
-           }
-           Ok(r) => { last_err = Some(format!("HTTP {}", r.status())); }
-            Err(e) => { last_err = Some(e.to_string()); }
+            }
+            Ok(r) => {
+                last_err = Some(format!("HTTP {}", r.status()));
+            }
+            Err(e) => {
+                last_err = Some(e.to_string());
+            }
         }
         std::thread::sleep(Duration::from_millis(250));
     }
@@ -609,7 +631,9 @@ fn spawn_resin_on_port(
     }
     let port_hint = match check_port_available(api_port) {
         Ok(()) => "port is free; sidecar likely crashed during startup".to_string(),
-        Err(_) => "port is occupied by a stale process; kill it or use a different port".to_string(),
+        Err(_) => {
+            "port is occupied by a stale process; kill it or use a different port".to_string()
+        }
     };
     Err(anyhow!(
         "sidecar: resin /healthz did not come up within 15s on 127.0.0.1:{api_port} (last error: {}) [{port_hint}]",
@@ -666,7 +690,9 @@ pub fn boot_resin<R: Runtime>(app: &AppHandle<R>) -> Result<SidecarHandle> {
 /// on an async worker thread.
 pub(crate) fn restart_resin<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
     let Some(state) = app.try_state::<SidecarHandle>() else {
-        return Err(anyhow!("sidecar: restart requested before SidecarHandle is managed"));
+        return Err(anyhow!(
+            "sidecar: restart requested before SidecarHandle is managed"
+        ));
     };
     let path = app.path();
     let app_data = path
@@ -727,8 +753,13 @@ fn restart_into_slot(
     state.set_mode(RunningMode::Starting);
 
     let fresh = respawn_resin_await_healthz(
-        &state_dir, &cache_dir, &log_dir, &binary_path, &network,
-        slot, state.log_buf.clone(),
+        &state_dir,
+        &cache_dir,
+        &log_dir,
+        &binary_path,
+        &network,
+        slot,
+        state.log_buf.clone(),
     )?;
     {
         let mut dst = state.child.lock().unwrap_or_else(|e| e.into_inner());
@@ -738,7 +769,8 @@ fn restart_into_slot(
     if fresh.api_port != state.api_port {
         tracing::error!(
             "ghost: restart bound port {} but the handle advertises {}",
-            fresh.api_port, state.api_port
+            fresh.api_port,
+            state.api_port
         );
     }
     state.set_mode(RunningMode::Running);
@@ -746,22 +778,18 @@ fn restart_into_slot(
     Ok(())
 }
 
-
-
 /// Read network config from the whitebox JSON file on disk.
 /// Returns NetworkConfig::default() if file is missing or unreadable.
 fn read_network_config(app_data: &std::path::Path) -> NetworkConfig {
     let path = app_data.join(resin_core::WHITEBOX_CONFIG_FILE);
     match std::fs::read_to_string(&path) {
-        Ok(text) => {
-            match serde_json::from_str::<resin_core::WhiteboxConfig>(&text) {
-                Ok(cfg) => cfg.network,
-                Err(e) => {
-                    tracing::warn!(error = %e, ?path, "whitebox config parse failed; using default network");
-                    NetworkConfig::default()
-                }
+        Ok(text) => match serde_json::from_str::<resin_core::WhiteboxConfig>(&text) {
+            Ok(cfg) => cfg.network,
+            Err(e) => {
+                tracing::warn!(error = %e, ?path, "whitebox config parse failed; using default network");
+                NetworkConfig::default()
             }
-        }
+        },
         Err(_) => NetworkConfig::default(),
     }
 }
@@ -784,9 +812,7 @@ fn gen_token() -> Result<String> {
 pub fn check_port_available(port: u16) -> Result<(), String> {
     match TcpListener::bind(("127.0.0.1", port)) {
         Ok(_) => Ok(()),
-        Err(e) => Err(format!(
-            "port 127.0.0.1:{port} is occupied: {e}"
-        )),
+        Err(e) => Err(format!("port 127.0.0.1:{port} is occupied: {e}")),
     }
 }
 
@@ -806,12 +832,12 @@ fn assign_sidecar_to_job_object(pid: u32) -> Option<isize> {
 fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::JobObjects::{
-        AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
-        JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
     };
     use windows_sys::Win32::System::Threading::OpenProcess;
-        use windows_sys::Win32::System::Threading::{PROCESS_TERMINATE, PROCESS_SET_QUOTA};
+    use windows_sys::Win32::System::Threading::{PROCESS_SET_QUOTA, PROCESS_TERMINATE};
 
     unsafe {
         let reused = matches!(existing, Some(h) if h != 0);
@@ -820,7 +846,10 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
         } else {
             let created = CreateJobObjectW(std::ptr::null(), std::ptr::null());
             if created.is_null() {
-                tracing::error!("CreateJobObjectW failed: {}", std::io::Error::last_os_error());
+                tracing::error!(
+                    "CreateJobObjectW failed: {}",
+                    std::io::Error::last_os_error()
+                );
                 return None;
             }
             created
@@ -836,7 +865,10 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
                 std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
             );
             if result == 0 {
-                tracing::error!("SetInformationJobObject failed: {}", std::io::Error::last_os_error());
+                tracing::error!(
+                    "SetInformationJobObject failed: {}",
+                    std::io::Error::last_os_error()
+                );
                 CloseHandle(job);
                 return None;
             }
@@ -844,7 +876,11 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
 
         let process_handle = OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, 0, pid);
         if process_handle.is_null() {
-            tracing::error!("OpenProcess({}) failed: {}", pid, std::io::Error::last_os_error());
+            tracing::error!(
+                "OpenProcess({}) failed: {}",
+                pid,
+                std::io::Error::last_os_error()
+            );
             if owned {
                 CloseHandle(job);
             }
@@ -852,7 +888,10 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
         }
 
         if AssignProcessToJobObject(job, process_handle) == 0 {
-            tracing::error!("AssignProcessToJobObject failed: {}", std::io::Error::last_os_error());
+            tracing::error!(
+                "AssignProcessToJobObject failed: {}",
+                std::io::Error::last_os_error()
+            );
             CloseHandle(process_handle);
             if owned {
                 CloseHandle(job);
@@ -863,15 +902,17 @@ fn assign_sidecar_to_job(pid: u32, existing: Option<isize>) -> Option<isize> {
         CloseHandle(process_handle);
         tracing::info!(
             "sidecar PID {} assigned to Job Object (KILL_ON_JOB_CLOSE, reused={})",
-            pid, reused
+            pid,
+            reused
         );
         Some(job as isize)
     }
 }
 
 #[cfg(not(target_os = "windows"))]
-fn assign_sidecar_to_job_object(_pid: u32) -> Option<isize> { None }
-
+fn assign_sidecar_to_job_object(_pid: u32) -> Option<isize> {
+    None
+}
 
 #[cfg(test)]
 mod tests {
@@ -929,8 +970,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
-        #[cfg(target_os = "windows")]
-        job_handle: None,
+            #[cfg(target_os = "windows")]
+            job_handle: None,
         };
         assert_eq!(h.mode(), RunningMode::Running);
     }
@@ -945,8 +986,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
-        #[cfg(target_os = "windows")]
-        job_handle: None,
+            #[cfg(target_os = "windows")]
+            job_handle: None,
         };
         h.set_mode(RunningMode::NotRunning);
         assert_eq!(h.mode(), RunningMode::NotRunning);
@@ -962,8 +1003,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
-        #[cfg(target_os = "windows")]
-        job_handle: None,
+            #[cfg(target_os = "windows")]
+            job_handle: None,
         };
         // Reboot: NotRunning -> Starting is a valid transition
         h.set_mode(RunningMode::Starting);
@@ -980,8 +1021,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
-        #[cfg(target_os = "windows")]
-        job_handle: None,
+            #[cfg(target_os = "windows")]
+            job_handle: None,
         };
         h.set_mode(RunningMode::Running);
         assert_eq!(h.mode(), RunningMode::Running);
@@ -989,7 +1030,7 @@ mod tests {
 
     #[test]
     fn sidecar_handle_set_mode_running_to_terminated() {
-// Running -> Terminated is a valid transition (reached when
+        // Running -> Terminated is a valid transition (reached when
         // the health poll exhausts MAX_CRASH_RESTARTS).
         let h = SidecarHandle {
             child: Mutex::new(None),
@@ -999,8 +1040,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
-        #[cfg(target_os = "windows")]
-        job_handle: None,
+            #[cfg(target_os = "windows")]
+            job_handle: None,
         };
         h.set_mode(RunningMode::Terminated);
         assert_eq!(h.mode(), RunningMode::Terminated);
@@ -1017,8 +1058,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
-        #[cfg(target_os = "windows")]
-        job_handle: None,
+            #[cfg(target_os = "windows")]
+            job_handle: None,
         };
         h.set_mode(RunningMode::Terminated);
         assert_eq!(h.mode(), RunningMode::Terminated);
@@ -1040,8 +1081,8 @@ mod tests {
             admin_token: String::new(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
-        #[cfg(target_os = "windows")]
-        job_handle: None,
+            #[cfg(target_os = "windows")]
+            job_handle: None,
         };
         h.set_mode(RunningMode::Starting);
         // set_mode writes the new value regardless of validity (warn-only).
@@ -1166,7 +1207,10 @@ mod tests {
                 }
             }
         }
-        assert_eq!(restarts, MAX_CRASH_RESTARTS, "exactly three restart attempts");
+        assert_eq!(
+            restarts, MAX_CRASH_RESTARTS,
+            "exactly three restart attempts"
+        );
         assert!(terminated, "budget exhaustion must be terminal");
     }
 
@@ -1183,8 +1227,8 @@ mod tests {
             admin_token: "live-admin-token".to_string(),
             proxy_token: String::new(),
             healthz_last_check: std::sync::RwLock::new(String::new()),
-        #[cfg(target_os = "windows")]
-        job_handle: None,
+            #[cfg(target_os = "windows")]
+            job_handle: None,
         };
         let slot = h.respawn_slot();
         assert_eq!(slot.port, 17890, "restart must reuse the live port");
@@ -1210,7 +1254,10 @@ mod tests {
         drop(listener);
         let result = check_port_available(port);
         // Port should be free after listener is dropped (with tiny race)
-        assert!(result.is_ok() || result.is_err(), "either is acceptable due to race");
+        assert!(
+            result.is_ok() || result.is_err(),
+            "either is acceptable due to race"
+        );
     }
 
     #[test]
@@ -1245,7 +1292,8 @@ mod tests {
 
     #[test]
     fn read_network_config_returns_default_for_missing_file() {
-        let tmp = std::env::temp_dir().join(format!("egressapikey-t6-2-missing-{}", std::process::id()));
+        let tmp =
+            std::env::temp_dir().join(format!("egressapikey-t6-2-missing-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&tmp);
         std::fs::create_dir_all(&tmp).unwrap();
         let cfg = read_network_config(&tmp);
@@ -1255,20 +1303,25 @@ mod tests {
 
     #[test]
     fn read_network_config_parses_whitebox_json() {
-        let tmp = std::env::temp_dir().join(format!("egressapikey-t6-2-parse-{}", std::process::id()));
+        let tmp =
+            std::env::temp_dir().join(format!("egressapikey-t6-2-parse-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&tmp);
         std::fs::create_dir_all(&tmp).unwrap();
         let json = r#"{"version":1,"entry_ports":[],"network":{"dns_upstreams":["https://doh.pub/dns-query"],"max_idle_conns":2048}}"#;
         std::fs::write(tmp.join(resin_core::WHITEBOX_CONFIG_FILE), json).unwrap();
         let cfg = read_network_config(&tmp);
-        assert_eq!(cfg.dns_upstreams, vec!["https://doh.pub/dns-query".to_string()]);
+        assert_eq!(
+            cfg.dns_upstreams,
+            vec!["https://doh.pub/dns-query".to_string()]
+        );
         assert_eq!(cfg.max_idle_conns, Some(2048));
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]
     fn read_network_config_defaults_on_corrupt_json() {
-        let tmp = std::env::temp_dir().join(format!("egressapikey-t6-2-corrupt-{}", std::process::id()));
+        let tmp =
+            std::env::temp_dir().join(format!("egressapikey-t6-2-corrupt-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&tmp);
         std::fs::create_dir_all(&tmp).unwrap();
         std::fs::write(tmp.join(resin_core::WHITEBOX_CONFIG_FILE), "not json").unwrap();
@@ -1299,7 +1352,9 @@ mod tests {
         // Close the job handle (drops the isize, but we need to actually CloseHandle)
         // Since we store as isize, we close via the Win32 API
         use windows_sys::Win32::Foundation::CloseHandle;
-        unsafe { CloseHandle(handle_val as windows_sys::Win32::Foundation::HANDLE); }
+        unsafe {
+            CloseHandle(handle_val as windows_sys::Win32::Foundation::HANDLE);
+        }
     }
 
     #[cfg(target_os = "windows")]
@@ -1314,7 +1369,10 @@ mod tests {
     #[test]
     fn assign_sidecar_to_job_object_stub_returns_none() {
         let handle = assign_sidecar_to_job_object(12345);
-        assert!(handle.is_none(), "non-Windows stub should always return None");
+        assert!(
+            handle.is_none(),
+            "non-Windows stub should always return None"
+        );
     }
 
     #[cfg(unix)]
@@ -1374,14 +1432,7 @@ mod tests {
         let before_port = h.api_port;
 
         let network = NetworkConfig::default();
-        let result = restart_into_slot(
-            &h,
-            state_dir,
-            cache_dir,
-            log_dir,
-            binary_path,
-            network,
-        );
+        let result = restart_into_slot(&h, state_dir, cache_dir, log_dir, binary_path, network);
 
         if let Err(e) = &result {
             if let Some(mut c) = h.child.lock().unwrap().take() {
@@ -1399,10 +1450,7 @@ mod tests {
             "post: mode must be Running after restart"
         );
         // Acceptance (3): api_port unchanged (RespawnSlot contract).
-        assert_eq!(
-            h.api_port, before_port,
-            "post: api_port must be unchanged"
-        );
+        assert_eq!(h.api_port, before_port, "post: api_port must be unchanged");
         // Acceptance (1): a NEW child was spawned (not just a kill).
         assert!(
             h.child.lock().unwrap().is_some(),
@@ -1534,11 +1582,13 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
             let _admin = &snapshot.1; // admin token unused here; dusted to keep it in scope
             let healthy = match client.get(&url).send().await {
                 Ok(r) if r.status().is_success() => {
-                if crate::commands::log_level_enabled(3) {
-                    tracing::debug!("ghost: /healthz ok (per-cycle, gated by log level >=debug)");
+                    if crate::commands::log_level_enabled(3) {
+                        tracing::debug!(
+                            "ghost: /healthz ok (per-cycle, gated by log level >=debug)"
+                        );
+                    }
+                    true
                 }
-                true
-            },
                 Ok(r) => {
                     tracing::warn!("ghost: /healthz status {}", r.status());
                     false
@@ -1610,7 +1660,9 @@ pub fn spawn_health_poll<R: Runtime>(app: AppHandle<R>) {
                         UnhealthyAction::Restart { backoff_ms } => {
                             tracing::warn!(
                                 "ghost: crash attempt {}/{}, backing off {}ms before restart",
-                                crash_count, MAX_CRASH_RESTARTS, backoff_ms
+                                crash_count,
+                                MAX_CRASH_RESTARTS,
+                                backoff_ms
                             );
                             // emit payload <100B ("restarting" = 12 bytes), no Channel needed
                             let _ = app.emit(STATUS_EVENT, "restarting");

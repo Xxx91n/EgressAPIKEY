@@ -31,5 +31,8 @@ fn embed_test_manifest() {
     let path = std::path::Path::new(&out_dir).join("test-manifest.manifest");
     std::fs::write(&path, manifest).expect("write test-manifest.manifest");
     println!("cargo:rustc-link-arg-tests=/MANIFEST:EMBED");
-    println!("cargo:rustc-link-arg-tests=/MANIFESTINPUT:{}", path.display());
+    println!(
+        "cargo:rustc-link-arg-tests=/MANIFESTINPUT:{}",
+        path.display()
+    );
 }

@@ -113,14 +113,18 @@ async fn e2e_sub_then_platform_then_apply_in_wire_order() {
         .match_header("authorization", "Bearer testtok")
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(json!({"items": [{"id": "p1", "name": "e2e-sub", "region_filters": []}]}).to_string())
+        .with_body(
+            json!({"items": [{"id": "p1", "name": "e2e-sub", "region_filters": []}]}).to_string(),
+        )
         .expect(2)
         .create_async()
         .await;
     let m_patch = server
         .mock("PATCH", "/api/v1/platforms/p1")
         .match_header("authorization", "Bearer testtok")
-        .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+        .match_body(mockito::Matcher::PartialJson(
+            json!({"region_filters": ["HK"]}),
+        ))
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(json!({"id": "p1"}).to_string())
@@ -172,7 +176,8 @@ async fn e2e_sub_then_platform_then_apply_in_wire_order() {
 async fn e2e_twice_second_pass_zero_writes() {
     let mut server = mockito::Server::new_async().await;
     let base = server.url();
-    let store_path = std::env::temp_dir().join(format!("sub-pipe-e2e2-{}.json", std::process::id()));
+    let store_path =
+        std::env::temp_dir().join(format!("sub-pipe-e2e2-{}.json", std::process::id()));
     let _ = std::fs::remove_file(&store_path);
     let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
     // Seed the converged whitebox (pass 1 already ran in the previous test;
@@ -195,7 +200,10 @@ async fn e2e_twice_second_pass_zero_writes() {
         .match_header("authorization", "Bearer testtok")
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(json!({"items": [{"id": "p1", "name": "e2e-sub", "region_filters": ["HK"]}]}).to_string())
+        .with_body(
+            json!({"items": [{"id": "p1", "name": "e2e-sub", "region_filters": ["HK"]}]})
+                .to_string(),
+        )
         .expect(6) // 3 platform GETs per pass x 2 passes
         .create_async()
         .await;
@@ -220,7 +228,11 @@ async fn e2e_twice_second_pass_zero_writes() {
         }));
         let reports = p.drain(&client, &svc, now + pass).await;
         assert_eq!(reports.len(), 1);
-        assert!(reports[0].all_ok(), "pass {pass} must be green: {:?}", reports[0]);
+        assert!(
+            reports[0].all_ok(),
+            "pass {pass} must be green: {:?}",
+            reports[0]
+        );
     }
     // Both passes green, queue empty. The zero-writes claim is scoped to the
     // WIRE (no POST/PATCH mocks exist to hit) and to whitebox CONTENT (no
@@ -230,9 +242,16 @@ async fn e2e_twice_second_pass_zero_writes() {
     // whitebox rewrite.
     assert!(p.pending().is_empty());
     let cfg = svc.get().unwrap();
-    assert_eq!(cfg.generation, 3, "exactly seed + one green write-back per pass");
+    assert_eq!(
+        cfg.generation, 3,
+        "exactly seed + one green write-back per pass"
+    );
     assert_eq!(cfg.platforms.len(), 1, "no duplicate platform entry");
-    assert_eq!(cfg.platforms[0].subscriptions, vec!["e2e-sub".to_string()], "ref not duplicated");
+    assert_eq!(
+        cfg.platforms[0].subscriptions,
+        vec!["e2e-sub".to_string()],
+        "ref not duplicated"
+    );
 
     m_subs.assert_async().await;
     m_platforms.assert_async().await;

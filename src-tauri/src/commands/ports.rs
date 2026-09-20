@@ -2,16 +2,16 @@
 //!
 //! Extracted from the former commands/mod.rs monolith by
 //! pure mechanical move - no behavior, naming, or IPC-surface change.
-use serde::{Serialize};
-use tauri::{Emitter, State};
 use crate::sidecar::SidecarHandle;
+use serde::Serialize;
+use tauri::{Emitter, State};
 
+use super::common::{
+    find_endpoint_id_by_port, resin_client, restore_ports_from_whitebox, validate_short_name,
+    NAME_MAX_LEN,
+};
 use resin_core::DbPool;
 use resin_core::IpcError;
-use super::common::{
-    NAME_MAX_LEN, find_endpoint_id_by_port, resin_client, restore_ports_from_whitebox,
-    validate_short_name,
-};
 
 // ---------------------------------------------------------------------------
 // ADR-0069 D3: immediate snapshot refresh after an L2-persisted / L3-rejected
@@ -87,7 +87,9 @@ pub fn validate_port_mapping(
     if !resin_core::entry_protocol::is_valid_protocol(protocol) {
         return Err(resin_core::entry_protocol::ENTRY_PORT_PROTOCOL_ERROR.into());
     }
-    if !platform_name.is_empty() { validate_short_name(platform_name, "platform_name")?; }
+    if !platform_name.is_empty() {
+        validate_short_name(platform_name, "platform_name")?;
+    }
     // account + label optional but length/control capped
     if account.len() > NAME_MAX_LEN || account.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
         return Err("account invalid".into());
@@ -114,7 +116,10 @@ pub fn validate_port_mapping(
 /// privileged system port.
 pub fn validate_port_segments(port: u16) -> Result<(), String> {
     if port < resin_core::MIN_USER_PORT {
-        return Err(format!("port {port} is privileged (< {})", resin_core::MIN_USER_PORT));
+        return Err(format!(
+            "port {port} is privileged (< {})",
+            resin_core::MIN_USER_PORT
+        ));
     }
     // u16 upper bound is 65535, no range check needed above MIN_USER_PORT.
     Ok(())
@@ -130,11 +135,10 @@ pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapp
 /// probes each candidate with TcpListener::bind, returns first available.
 #[tauri::command]
 pub async fn port_suggest(db: State<'_, DbPool>) -> Result<u16, IpcError> {
-// the ADR-0031 algorithm now lives in resin-core so the
+    // the ADR-0031 algorithm now lives in resin-core so the
     // establish cascade's default-port tail and this command suggest
     // identically (one implementation, not two).
-    resin_core::subscription_pipeline::suggest_free_entry_port(&db)
-        .map_err(IpcError::from)
+    resin_core::subscription_pipeline::suggest_free_entry_port(&db).map_err(IpcError::from)
 }
 
 // ---------------------------------------------------------------------------
@@ -298,10 +302,9 @@ pub async fn port_remove_impl(
         .map_err(|e| l3_rejected("port_remove", port, &format!("list_endpoints: {e:?}")))?;
     match find_endpoint_id_by_port(&existing, port) {
         Some(ep_id) => {
-            client
-                .delete_endpoint(&ep_id)
-                .await
-                .map_err(|e| l3_rejected("port_remove", port, &format!("delete_endpoint: {e:?}")))?;
+            client.delete_endpoint(&ep_id).await.map_err(|e| {
+                l3_rejected("port_remove", port, &format!("delete_endpoint: {e:?}"))
+            })?;
         }
         None => {
             if was_configured {
@@ -322,7 +325,14 @@ pub async fn port_remove(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
     port: u16,
 ) -> Result<bool, IpcError> {
-    port_remove_impl(db.inner(), sidecar.inner(), forwarder.inner(), whitebox.inner(), port).await
+    port_remove_impl(
+        db.inner(),
+        sidecar.inner(),
+        forwarder.inner(),
+        whitebox.inner(),
+        port,
+    )
+    .await
 }
 
 /// ADR-0069 D1 / ADR-0042 S2: shared `port_toggle` implementation.
@@ -347,7 +357,11 @@ pub async fn port_toggle_impl(
             r.enabled = enabled;
             r.clone()
         }
-        None => return Err(IpcError::from(format!("port_toggle: port {port} not in whitebox"))),
+        None => {
+            return Err(IpcError::from(format!(
+                "port_toggle: port {port} not in whitebox"
+            )))
+        }
     };
     whitebox.apply(db, forwarder, next).await?;
     // Step 2 (L3): Resin endpoint PATCH {enabled} - find endpoint by port.
@@ -364,10 +378,9 @@ pub async fn port_toggle_impl(
     match find_endpoint_id_by_port(&existing, port) {
         Some(ep_id) => {
             let body = serde_json::json!({ "enabled": enabled });
-            client
-                .update_endpoint(&ep_id, body)
-                .await
-                .map_err(|e| l3_rejected("port_toggle", port, &format!("update_endpoint: {e:?}")))?;
+            client.update_endpoint(&ep_id, body).await.map_err(|e| {
+                l3_rejected("port_toggle", port, &format!("update_endpoint: {e:?}"))
+            })?;
             tracing::info!(target: "ipc.port_toggle", port, enabled, %ep_id, "endpoint patched");
         }
         None => {
@@ -393,7 +406,15 @@ pub async fn port_toggle(
     port: u16,
     enabled: bool,
 ) -> Result<resin_core::PortMapping, IpcError> {
-    port_toggle_impl(db.inner(), sidecar.inner(), forwarder.inner(), whitebox.inner(), port, enabled).await
+    port_toggle_impl(
+        db.inner(),
+        sidecar.inner(),
+        forwarder.inner(),
+        whitebox.inner(),
+        port,
+        enabled,
+    )
+    .await
 }
 
 /// (ADR-0029): Bind an entry-port to a platform WITHOUT touching
@@ -414,7 +435,9 @@ pub async fn port_bind_platform(
         validate_short_name(&platform_name, "platform_name")?;
         let forbidden = |s: &str| s.chars().any(|ch| ".:/\\@?#%~ ".contains(ch));
         if forbidden(&platform_name) {
-            return Err(IpcError::from("platform_name contains Resin-forbidden chars".to_string()));
+            return Err(IpcError::from(
+                "platform_name contains Resin-forbidden chars".to_string(),
+            ));
         }
     }
     let mut next = whitebox.snapshot();
@@ -425,7 +448,9 @@ pub async fn port_bind_platform(
             whitebox.apply(&db, &forwarder, next).await?;
             Ok(true)
         }
-        None => Err(IpcError::from(format!("port {port} not found in entry_ports"))),
+        None => Err(IpcError::from(format!(
+            "port {port} not found in entry_ports"
+        ))),
     }
 }
 
@@ -447,7 +472,10 @@ pub async fn whitebox_save_network(
 ) -> Result<usize, IpcError> {
     let mut current = whitebox.snapshot();
     current.network = network;
-    whitebox.apply(&db, &forwarder, current).await.map_err(IpcError::from)
+    whitebox
+        .apply(&db, &forwarder, current)
+        .await
+        .map_err(IpcError::from)
 }
 
 #[tauri::command]
@@ -470,7 +498,10 @@ pub async fn whitebox_reload(
     forwarder: State<'_, resin_core::PortForwarder>,
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
 ) -> Result<usize, IpcError> {
-    whitebox.reload_file(&db, &forwarder).await.map_err(IpcError::from)
+    whitebox
+        .reload_file(&db, &forwarder)
+        .await
+        .map_err(IpcError::from)
 }
 
 /// ADR-0021 Q1: return the SOCKS5 authentication credentials a gateway must
@@ -513,7 +544,7 @@ pub async fn port_auth_info(
     // arbitrary port number for a dial probe (Path-traversal safety:reuse the
     // same guard the whitebox config transaction already enforces).
     validate_port_segments(port)?;
-// Resin SOCKS5 requires `<Platform>.<Account>` format as the
+    // Resin SOCKS5 requires `<Platform>.<Account>` format as the
     // username. Without the platform prefix, SOCKS5 auth succeeds (password
     // = proxy_token validates) but CONNECT returns "General failure" because
     // Resin cannot determine which platform the traffic belongs to.
@@ -560,7 +591,10 @@ pub struct PortHealthCheck {
 }
 
 #[tauri::command]
-pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<PortHealthCheck, IpcError> {
+pub async fn port_health_check(
+    port: u16,
+    protocol: Option<String>,
+) -> Result<PortHealthCheck, IpcError> {
     tracing::info!(port, protocol = ?protocol, "port_health_check: probing port");
     validate_port_segments(port)?;
     // the default port protocol is `mixed`, so
@@ -607,7 +641,8 @@ pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<Po
         // HTTP GET probe. Resin's HTTP proxy does NOT support CONNECT
         // tunneling — CONNECT returns 404/error. A plain GET / gets any HTTP
         // response (200/404/400) which proves the port is alive.
-        format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n").into_bytes()
+        format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n")
+            .into_bytes()
     } else {
         vec![0x05, 0x02, 0x00, 0x02]
     };
@@ -625,32 +660,38 @@ pub async fn port_health_check(port: u16, protocol: Option<String>) -> Result<Po
     // Reply should be exactly 2 bytes: 0x05 0x00 (NoAuth) or 0x05 0x02 (UserPass). HTTP
     // listeners reply with an HTTP status line e.g. `HTTP/1.1 400...`.
     let mut buf = [0u8; 16];
-    let read = tokio::time::timeout(
-        std::time::Duration::from_millis(550),
-        stream.read(&mut buf),
-    )
-    .await;
+    let read =
+        tokio::time::timeout(std::time::Duration::from_millis(550), stream.read(&mut buf)).await;
     let elapsed = started.elapsed().as_millis() as u64;
     match read {
-        Ok(Ok(n)) if proto == "http" && n >= 12 && buf.starts_with(b"HTTP/") => Ok(PortHealthCheck {
-            port,
-            reachable: true,
-            socks5_ok: false,
-            protocol_mismatch: false,
-            latency_ms: elapsed,
-            reason: "ok".into(),
-        }),
+        Ok(Ok(n)) if proto == "http" && n >= 12 && buf.starts_with(b"HTTP/") => {
+            Ok(PortHealthCheck {
+                port,
+                reachable: true,
+                socks5_ok: false,
+                protocol_mismatch: false,
+                latency_ms: elapsed,
+                reason: "ok".into(),
+            })
+        }
         // `mixed` is probed with the SOCKS5 greeting
         // (the branch above), so a SOCKS5 method-selection reply is the expected
         // answer for BOTH `socks5` and `mixed`.
-        Ok(Ok(n)) if proto != "http" && n >= 2 && buf[0] == 0x05 && (buf[1] == 0x00 || buf[1] == 0x02) => Ok(PortHealthCheck {
-            port,
-            reachable: true,
-            socks5_ok: true,
-            protocol_mismatch: false,
-            latency_ms: elapsed,
-            reason: "ok".into(),
-        }),
+        Ok(Ok(n))
+            if proto != "http"
+                && n >= 2
+                && buf[0] == 0x05
+                && (buf[1] == 0x00 || buf[1] == 0x02) =>
+        {
+            Ok(PortHealthCheck {
+                port,
+                reachable: true,
+                socks5_ok: true,
+                protocol_mismatch: false,
+                latency_ms: elapsed,
+                reason: "ok".into(),
+            })
+        }
         Ok(Ok(n)) if n >= 4 => Ok(PortHealthCheck {
             // Has bytes but not a SOCKS5 shape: most likely an HTTP listener
             // replying with an error status line (`HTTP/1.1 ...`). Still
@@ -700,7 +741,12 @@ pub async fn watch_port_health(
     // without restarting the watcher). Disabled ports are filtered here.
     let db_clone: DbPool = db.inner().clone();
     let ports_fn = move || {
-        db_clone.list_ports().unwrap_or_default().into_iter().filter(|m| m.enabled).collect::<Vec<_>>()
+        db_clone
+            .list_ports()
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|m| m.enabled)
+            .collect::<Vec<_>>()
     };
     // Translate the Tauri Channel into the emit closure resin_core expects.
     let channel_clone = on_event.clone();
@@ -712,7 +758,6 @@ pub async fn watch_port_health(
     resin_core::port_health::spawn_watcher(ports_fn, emit, paused_arc);
     Ok(())
 }
-
 
 // ---------------------------------------------------------------------------
 // ADR-0054 section B: whitebox versioning - list + rollback IPC.
@@ -751,15 +796,12 @@ pub async fn whitebox_rollback(
         reason: None,
     };
     let restored = resin_core::audit::AUDIT_CTX
-        .scope(
-            audit_ctx,
-            async {
-                whitebox
-                    .rollback_to_backup(&db, &forwarder, &backup_name)
-                    .await
-                    .map_err(IpcError::from)
-            },
-        )
+        .scope(audit_ctx, async {
+            whitebox
+                .rollback_to_backup(&db, &forwarder, &backup_name)
+                .await
+                .map_err(IpcError::from)
+        })
         .await?;
     restore_ports_from_whitebox(&sidecar, &whitebox, &forwarder)
         .await

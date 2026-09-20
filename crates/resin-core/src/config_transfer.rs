@@ -174,7 +174,9 @@ mod tests {
     fn parse_rejects_non_object_and_missing_version() {
         assert!(parse_import_doc(&json!([])).unwrap_err().contains("object"));
         let no_version = json!({"strategy": sample_strategy(), "ports": sample_ports()});
-        assert!(parse_import_doc(&no_version).unwrap_err().contains("version"));
+        assert!(parse_import_doc(&no_version)
+            .unwrap_err()
+            .contains("version"));
     }
 
     #[test]
@@ -221,7 +223,7 @@ mod tests {
         // A v2-preview strategy doc with a `generation` field deserializes
         // without crashing (serde ignores unknown fields); the version gate is
         // the ONLY thing that rejects it. This locks the forward-compat
-// contract: when relaxes validate() to accept v2, this import path
+        // contract: when relaxes validate() to accept v2, this import path
         // keeps working unchanged.
         let doc = json!({
             "version": 1,
@@ -290,5 +292,4 @@ mod tests {
         assert!(!ports_path.with_extension("json.tmp").exists());
         let _ = std::fs::remove_dir_all(&dir);
     }
-
 }

@@ -164,7 +164,8 @@ impl AuditLog {
             .append(true)
             .open(&self.path)
             .map_err(|e| format!("open audit log: {e}"))?;
-        f.write_all(line).map_err(|e| format!("append audit log: {e}"))?;
+        f.write_all(line)
+            .map_err(|e| format!("append audit log: {e}"))?;
         // Best-effort fsync (issue F1); ignore failure rather than block.
         let _ = f.sync_data();
         Ok(())
@@ -196,15 +197,13 @@ impl AuditLog {
                 let _ = std::fs::remove_file(&from);
             } else if from.exists() {
                 let to = dir.join(format!("{AUDIT_LOG_FILE}.{}", i + 1));
-                std::fs::rename(&from, &to)
-                    .map_err(|e| format!("shift audit archive {i}: {e}"))?;
+                std::fs::rename(&from, &to).map_err(|e| format!("shift audit archive {i}: {e}"))?;
             }
         }
         // Slot `.1` is now free; move the live file there.
         if self.path.exists() {
             let target = dir.join(format!("{AUDIT_LOG_FILE}.1"));
-            std::fs::rename(&self.path, &target)
-                .map_err(|e| format!("archive audit log: {e}"))?;
+            std::fs::rename(&self.path, &target).map_err(|e| format!("archive audit log: {e}"))?;
         }
         // Fresh empty live file; byte accounting resets to 0.
         *self.written_bytes.lock().unwrap() = 0;
@@ -326,7 +325,8 @@ mod tests {
     use super::*;
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("egressapikey-audit-{tag}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("egressapikey-audit-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -450,9 +450,15 @@ mod tests {
         // forced rotation); exactly MAXBACKUP archives + the live file exist.
         assert_eq!(std::fs::read_to_string(&path).unwrap().lines().count(), 1);
         for i in 1..=AUDIT_LOG_MAXBACKUP {
-            assert!(path.with_file_name(format!("{AUDIT_LOG_FILE}.{i}")).exists(), "archive .{i} missing");
+            assert!(
+                path.with_file_name(format!("{AUDIT_LOG_FILE}.{i}"))
+                    .exists(),
+                "archive .{i} missing"
+            );
         }
-        assert!(!path.with_file_name(format!("{AUDIT_LOG_FILE}.{}", AUDIT_LOG_MAXBACKUP + 1)).exists());
+        assert!(!path
+            .with_file_name(format!("{AUDIT_LOG_FILE}.{}", AUDIT_LOG_MAXBACKUP + 1))
+            .exists());
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -486,7 +492,11 @@ mod tests {
         let line = raw.lines().next().unwrap();
         let parsed: AuditEvent = serde_json::from_str(line).unwrap();
         let re = serde_json::to_vec(&parsed).unwrap();
-        assert_eq!(&re[..], line.as_bytes(), "round-trip must be byte-identical");
+        assert_eq!(
+            &re[..],
+            line.as_bytes(),
+            "round-trip must be byte-identical"
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 }

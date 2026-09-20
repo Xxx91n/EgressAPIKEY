@@ -91,14 +91,18 @@ async fn import_creates_one_socks5_port_and_unbind_releases_it() {
         .match_header(BEARER.0, BEARER.1)
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(json!({"items": [{"id": "p1", "name": "e2e-sub", "region_filters": []}]}).to_string())
+        .with_body(
+            json!({"items": [{"id": "p1", "name": "e2e-sub", "region_filters": []}]}).to_string(),
+        )
         .expect(2)
         .create_async()
         .await;
     let m_patch = server
         .mock("PATCH", "/api/v1/platforms/p1")
         .match_header(BEARER.0, BEARER.1)
-        .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+        .match_body(mockito::Matcher::PartialJson(
+            json!({"region_filters": ["HK"]}),
+        ))
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(json!({"id": "p1"}).to_string())
@@ -137,8 +141,10 @@ async fn import_creates_one_socks5_port_and_unbind_releases_it() {
     let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
     let db = DbPool::open_in_memory().unwrap();
     let forwarder = PortForwarder::new(db.clone(), "127.0.0.1", 1, "");
-    let wb_path =
-        std::env::temp_dir().join(format!("sub-default-port-e2e-wb-{}.json", std::process::id()));
+    let wb_path = std::env::temp_dir().join(format!(
+        "sub-default-port-e2e-wb-{}.json",
+        std::process::id()
+    ));
     let _ = std::fs::remove_file(&wb_path);
     let whitebox = WhiteboxConfigStore::open(wb_path.clone(), WhiteboxConfig::from_ports(vec![]))
         .await
@@ -153,14 +159,20 @@ async fn import_creates_one_socks5_port_and_unbind_releases_it() {
 
     // Cascade end (D-C1.3): no binding target provided -> one default port.
     let status = ensure_default_port(&client, &db, &forwarder, &whitebox, "e2e-sub", None).await;
-    assert!(matches!(status, StepStatus::Written), "default port must be created: {status:?}");
+    assert!(
+        matches!(status, StepStatus::Written),
+        "default port must be created: {status:?}"
+    );
 
     // "导入 sub 后 1 个入口端口可用": exactly ONE default-protocol (mixed,
     // round-8 D-007) entry bound to the platform, enabled, present in BOTH
     // the whitebox and its SQLite sync partner.
     let rows = db.list_ports().unwrap();
     assert_eq!(rows.len(), 1, "exactly one default port: {rows:?}");
-    assert_eq!(rows[0].protocol, resin_core::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL);
+    assert_eq!(
+        rows[0].protocol,
+        resin_core::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL
+    );
     assert_eq!(rows[0].platform_name, "e2e-sub");
     assert!(rows[0].enabled);
     assert!(rows[0].port >= resin_core::MIN_USER_PORT);
@@ -193,8 +205,14 @@ async fn import_creates_one_socks5_port_and_unbind_releases_it() {
     next.entry_ports.retain(|row| row.port != created_port);
     whitebox.apply(&db, &forwarder, next).await.unwrap();
 
-    assert!(db.list_ports().unwrap().is_empty(), "port released from the DB partner");
-    assert!(whitebox.snapshot().entry_ports.is_empty(), "port released from the whitebox");
+    assert!(
+        db.list_ports().unwrap().is_empty(),
+        "port released from the DB partner"
+    );
+    assert!(
+        whitebox.snapshot().entry_ports.is_empty(),
+        "port released from the whitebox"
+    );
 
     m_subs_absent.assert_async().await;
     m_create_sub.assert_async().await;
@@ -282,18 +300,18 @@ async fn default_port_whitebox_failure_compensates_created_endpoint() {
     // hand-built "next" document holds MAX_ENTRY_PORTS + 1 rows and
     // validate() rejects it at the write entry — the same failure class a
     // real capacity race hits.
-    let seed: Vec<resin_core::db::PortMapping> =
-        (0..resin_core::port_forwarder::MAX_ENTRY_PORTS as u16)
-            .map(|i| resin_core::db::PortMapping {
-                port: 20000 + i,
-                protocol: "mixed".into(),
-                platform_name: format!("seed-{i}"),
-                account: format!("port-{}", 20000 + i),
-                label: String::new(),
-                enabled: true,
-                auth_required: true,
-            })
-            .collect();
+    let seed: Vec<resin_core::db::PortMapping> = (0..resin_core::port_forwarder::MAX_ENTRY_PORTS
+        as u16)
+        .map(|i| resin_core::db::PortMapping {
+            port: 20000 + i,
+            protocol: "mixed".into(),
+            platform_name: format!("seed-{i}"),
+            account: format!("port-{}", 20000 + i),
+            label: String::new(),
+            enabled: true,
+            auth_required: true,
+        })
+        .collect();
     whitebox
         .apply(&db, &forwarder, WhiteboxConfig::from_ports(seed))
         .await
@@ -301,22 +319,35 @@ async fn default_port_whitebox_failure_compensates_created_endpoint() {
 
     let base = server.url();
     let client = ResinClient::new(&base, "testtok".into()).unwrap();
-    let status = ensure_default_port(&client, &db, &forwarder, &whitebox, "orphan-sub", Some(24410)).await;
-    assert!(matches!(status, StepStatus::Failed(_)), "injected whitebox failure: {status:?}");
+    let status = ensure_default_port(
+        &client,
+        &db,
+        &forwarder,
+        &whitebox,
+        "orphan-sub",
+        Some(24410),
+    )
+    .await;
+    assert!(
+        matches!(status, StepStatus::Failed(_)),
+        "injected whitebox failure: {status:?}"
+    );
     // The write entry never accepted the row: the seed set survives and
     // no "orphan-sub" row landed anywhere.
     assert_eq!(
         whitebox.snapshot().entry_ports.len(),
         resin_core::port_forwarder::MAX_ENTRY_PORTS
     );
-    assert!(!db.list_ports().unwrap().iter().any(|r| r.platform_name == "orphan-sub"));
+    assert!(!db
+        .list_ports()
+        .unwrap()
+        .iter()
+        .any(|r| r.platform_name == "orphan-sub"));
 
     m_endpoints_empty.assert_async().await;
     m_create_endpoint.assert_async().await;
     m_list_one.assert_async().await;
-    m_delete_endpoint
-        .assert_async()
-        .await;
+    m_delete_endpoint.assert_async().await;
     let _ = std::fs::remove_file(&wb_path);
 }
 
@@ -396,7 +427,8 @@ async fn remove_default_port_if_orphaned_releases_only_the_bound_default_port() 
 
     let base = server.url();
     let client = ResinClient::new(&base, "testtok".into()).unwrap();
-    let removed = remove_default_port_if_orphaned(&client, &db, &forwarder, &whitebox, "gone-sub").await;
+    let removed =
+        remove_default_port_if_orphaned(&client, &db, &forwarder, &whitebox, "gone-sub").await;
     assert!(removed, "the bound default port must be released");
 
     // port_list filter check: only the OTHER platform's row survives, in both
@@ -428,7 +460,8 @@ async fn remove_default_port_if_orphaned_no_binding_is_a_no_op() {
         .unwrap();
     // Dead-socket client: any wire call would fail the call.
     let client = ResinClient::new("http://127.0.0.1:1", "testtok".into()).unwrap();
-    let removed = remove_default_port_if_orphaned(&client, &db, &forwarder, &whitebox, "stranger").await;
+    let removed =
+        remove_default_port_if_orphaned(&client, &db, &forwarder, &whitebox, "stranger").await;
     assert!(removed, "no binding must still report success");
     assert!(db.list_ports().unwrap().is_empty());
     assert!(whitebox.snapshot().entry_ports.is_empty());
@@ -479,7 +512,8 @@ async fn remove_default_port_if_orphaned_mode_a_skips_resin_delete() {
 
     let base = server.url();
     let client = ResinClient::new(&base, "testtok".into()).unwrap();
-    let removed = remove_default_port_if_orphaned(&client, &db, &forwarder, &whitebox, "mode-a-sub").await;
+    let removed =
+        remove_default_port_if_orphaned(&client, &db, &forwarder, &whitebox, "mode-a-sub").await;
     assert!(removed, "Mode A release succeeds without Resin");
     // The whitebox/DB release happened (the shell listener came down via
     // the whitebox apply); Resin was never contacted (the expect(0) tripwire

@@ -12,9 +12,9 @@ pub mod commands;
 pub mod headless_security;
 pub mod lightweight;
 pub mod sidecar;
+pub mod specta_bindings;
 pub mod trace;
 pub mod tray;
-pub mod specta_bindings;
 
 use std::sync::Arc;
 

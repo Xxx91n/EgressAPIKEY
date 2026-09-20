@@ -110,7 +110,7 @@ pub enum SubscriptionPhase {
     /// A cascade step failed persistently; `stage` says where and
     /// `phase_error` carries the KEP-1623-style reason.
     Failed,
-/// Reserved (owns the first producer): a default-port conflict or
+    /// Reserved (owns the first producer): a default-port conflict or
     /// similar needs explicit user consent before the cascade continues.
     NeedsApproval,
 }
@@ -210,7 +210,7 @@ pub struct StrategyConfig {
     /// (status subresource — no generation bump).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub subscriptions: Vec<SubscriptionStatus>,
-/// ADR-0058: write-authority generation counter. Bumped by
+    /// ADR-0058: write-authority generation counter. Bumped by
     /// EVERY sanctioned store-path write (service `store`, deep region edit,
     /// rollback) after validate, before the file lands. Absent in a v1 file
     /// = 0 = "never applied" (k8s habit: a fresh boot is not a fake alarm).
@@ -276,12 +276,17 @@ pub fn parse_nodes(v: &serde_json::Value) -> Vec<NodeSummary> {
     arr.iter()
         .filter_map(|n| {
             let node_hash = n.get("node_hash")?.as_str()?.to_string();
-            let region = n.get("region").and_then(|r| r.as_str()).unwrap_or("").to_string();
-            let has_outbound = n.get("has_outbound").and_then(|h| h.as_bool()).unwrap_or(false);
+            let region = n
+                .get("region")
+                .and_then(|r| r.as_str())
+                .unwrap_or("")
+                .to_string();
+            let has_outbound = n
+                .get("has_outbound")
+                .and_then(|h| h.as_bool())
+                .unwrap_or(false);
             let failure_count = n.get("failure_count").and_then(|f| f.as_i64()).unwrap_or(0);
-            let reference_latency_ms = n
-                .get("reference_latency_ms")
-                .and_then(|l| l.as_f64());
+            let reference_latency_ms = n.get("reference_latency_ms").and_then(|l| l.as_f64());
             // tags[] -> subscription_name (snake_case from Resin API)
             let subscription_name = n
                 .get("tags")
@@ -369,7 +374,8 @@ pub fn a_class_regions(strategy: &PlatformStrategy, healthy: &[&NodeSummary]) ->
         }
         AClassStrategy::Subscription => {
             // Collect regions of healthy nodes from specified subscriptions
-            let allowed: HashSet<&str> = strategy.subscriptions.iter().map(|s| s.as_str()).collect();
+            let allowed: HashSet<&str> =
+                strategy.subscriptions.iter().map(|s| s.as_str()).collect();
             let mut result: Vec<String> = healthy
                 .iter()
                 .filter_map(|n| {
@@ -448,7 +454,13 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    fn mk_node(hash: &str, region: &str, healthy: bool, latency: Option<f64>, sub: Option<&str>) -> NodeSummary {
+    fn mk_node(
+        hash: &str,
+        region: &str,
+        healthy: bool,
+        latency: Option<f64>,
+        sub: Option<&str>,
+    ) -> NodeSummary {
         NodeSummary {
             node_hash: hash.into(),
             region: region.into(),
@@ -512,9 +524,7 @@ mod tests {
     #[test]
     fn manual_strategy_empty_nodes_returns_empty() {
         // Manual mode with no manual_nodes selected returns empty vec.
-        let nodes = vec![
-            mk_node("h1", "HK", true, None, None),
-        ];
+        let nodes = vec![mk_node("h1", "HK", true, None, None)];
         let healthy: Vec<&NodeSummary> = nodes.iter().collect();
         let ps = PlatformStrategy {
             platform_name: "p1".into(),
@@ -544,7 +554,7 @@ mod tests {
             regions: vec!["HK".into(), "JP".into()],
             subscriptions: vec![],
             top_n: 10,
-                    manual_nodes: vec![],
+            manual_nodes: vec![],
         };
         let regions = a_class_regions(&ps, &healthy);
         assert!(regions.contains(&"HK".to_string()));
@@ -568,7 +578,7 @@ mod tests {
             regions: vec![],
             subscriptions: vec![],
             top_n: 2,
-                    manual_nodes: vec![],
+            manual_nodes: vec![],
         };
         let regions = a_class_regions(&ps, &healthy);
         // Top 2 by latency: HK (100ms) + JP (150ms)
@@ -592,7 +602,7 @@ mod tests {
             regions: vec![],
             subscriptions: vec!["alpha".into()],
             top_n: 10,
-                    manual_nodes: vec![],
+            manual_nodes: vec![],
         };
         let regions = a_class_regions(&ps, &healthy);
         assert!(regions.contains(&"HK".to_string()));
@@ -622,8 +632,8 @@ mod tests {
                 regions: vec!["HK".into()],
                 subscriptions: vec![],
                 top_n: 10,
-                        manual_nodes: vec![],
-        }],
+                manual_nodes: vec![],
+            }],
         };
         let plan = compute_plan(&config, &nodes);
         assert_eq!(plan.get("p1").unwrap(), &vec!["HK".to_string()]);
@@ -631,7 +641,12 @@ mod tests {
 
     #[test]
     fn a_class_strategy_parse_roundtrips() {
-        for s in [AClassStrategy::Manual, AClassStrategy::Region, AClassStrategy::Quality, AClassStrategy::Subscription] {
+        for s in [
+            AClassStrategy::Manual,
+            AClassStrategy::Region,
+            AClassStrategy::Quality,
+            AClassStrategy::Subscription,
+        ] {
             assert_eq!(AClassStrategy::parse(s.as_str()).unwrap(), s);
         }
         assert!(AClassStrategy::parse("unknown").is_err());
@@ -644,7 +659,6 @@ mod tests {
         assert_eq!(parse_nodes(&json!([])).len(), 0);
         assert_eq!(parse_nodes(&json!({})).len(), 0);
     }
-
 
     #[test]
     fn migrate_b_class_values_rewrites_the_six_withdrawn_tokens() {
@@ -747,5 +761,4 @@ mod tests {
         assert!(back.get("b_class_params").is_none(), "{back}");
         assert_eq!(back["b_class"], json!("BALANCED"));
     }
-
 }

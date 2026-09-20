@@ -15,13 +15,12 @@
 //! StrategyService; this module keeps the merge in resin-core so that move
 //! stays a pure relocation (AGENTS.md ADR-0036 write entry unchanged).
 
+use crate::strategy_engine::{
+    AClassStrategy, CascadeError, EstablishStep, PlatformStrategy, StrategyConfig,
+    SubscriptionPhase, SubscriptionStatus,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::strategy_engine::{
-    AClassStrategy, CascadeError, EstablishStep, PlatformStrategy, StrategyConfig, SubscriptionPhase,
-    SubscriptionStatus,
-};
-
 
 /// Per-platform agreement between the L2 whitebox strategy config and the
 /// L3 Resin runtime platform row. Serde is camelCase so the TS discriminated
@@ -200,8 +199,9 @@ impl PortSnapshot {
     /// accessor for the consumers.
     pub fn acknowledged(&self) -> bool {
         match self {
-            Self::Consistent { acknowledged, .. }
-            | Self::MissingOnResin { acknowledged, .. } => *acknowledged,
+            Self::Consistent { acknowledged, .. } | Self::MissingOnResin { acknowledged, .. } => {
+                *acknowledged
+            }
         }
     }
 }
@@ -249,7 +249,7 @@ pub struct AuthoritativeSnapshot {
     /// with `strategy_generation` is the `Converged` precondition.
     #[serde(default)]
     pub strategy_applied_generation: u64,
-/// ADR-0058: top-level convergence phase — the
+    /// ADR-0058: top-level convergence phase — the
     /// "wrote it, did it take effect?" axis, orthogonal to the per-entry
     /// three-state (ADR-0051). Derived by `derive_converge_phase`.
     pub converge_phase: ConvergePhase,
@@ -422,9 +422,15 @@ pub fn stamp_platform_acknowledged(platforms: &mut [StrategySnapshot], acknowled
         let key = p.platform_name().to_string();
         let flag = is_acknowledged(acknowledged, &key);
         match p {
-            StrategySnapshot::Consistent { acknowledged: a, .. }
-            | StrategySnapshot::Divergent { acknowledged: a, .. }
-            | StrategySnapshot::MissingOnResin { acknowledged: a, .. } => *a = flag,
+            StrategySnapshot::Consistent {
+                acknowledged: a, ..
+            }
+            | StrategySnapshot::Divergent {
+                acknowledged: a, ..
+            }
+            | StrategySnapshot::MissingOnResin {
+                acknowledged: a, ..
+            } => *a = flag,
         }
     }
 }
@@ -440,8 +446,12 @@ pub fn stamp_port_acknowledged(ports: &mut [PortSnapshot], acknowledged: &[Strin
         let key = p.port().to_string();
         let flag = is_acknowledged(acknowledged, &key);
         match p {
-            PortSnapshot::Consistent { acknowledged: a, .. }
-            | PortSnapshot::MissingOnResin { acknowledged: a, .. } => *a = flag,
+            PortSnapshot::Consistent {
+                acknowledged: a, ..
+            }
+            | PortSnapshot::MissingOnResin {
+                acknowledged: a, ..
+            } => *a = flag,
         }
     }
 }
@@ -496,8 +506,9 @@ impl ProcessRouteSnapshot {
 
     pub fn acknowledged(&self) -> bool {
         match self {
-            Self::Consistent { acknowledged, .. }
-            | Self::MissingOnResin { acknowledged, .. } => *acknowledged,
+            Self::Consistent { acknowledged, .. } | Self::MissingOnResin { acknowledged, .. } => {
+                *acknowledged
+            }
         }
     }
 }
@@ -546,13 +557,19 @@ pub fn stamp_route_acknowledged(routes: &mut [ProcessRouteSnapshot], acknowledge
     if acknowledged.is_empty() {
         return;
     }
-    let vocab: std::collections::HashSet<String> =
-        acknowledged.iter().map(|a| a.trim().to_lowercase()).collect();
+    let vocab: std::collections::HashSet<String> = acknowledged
+        .iter()
+        .map(|a| a.trim().to_lowercase())
+        .collect();
     for r in routes.iter_mut() {
         let flag = vocab.contains(&r.process().trim().to_lowercase());
         match r {
-            ProcessRouteSnapshot::Consistent { acknowledged: a, .. }
-            | ProcessRouteSnapshot::MissingOnResin { acknowledged: a, .. } => *a = flag,
+            ProcessRouteSnapshot::Consistent {
+                acknowledged: a, ..
+            }
+            | ProcessRouteSnapshot::MissingOnResin {
+                acknowledged: a, ..
+            } => *a = flag,
         }
     }
 }
@@ -584,7 +601,11 @@ pub fn parse_resin_platforms(v: &serde_json::Value) -> Vec<ResinPlatformRuntime>
             let region_filters = p
                 .get("region_filters")
                 .and_then(|r| r.as_array())
-                .map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|s| s.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default();
             let allocation_policy = p
                 .get("allocation_policy")
@@ -592,7 +613,11 @@ pub fn parse_resin_platforms(v: &serde_json::Value) -> Vec<ResinPlatformRuntime>
                 .unwrap_or("BALANCED")
                 .to_string();
             Some(ResinPlatformRuntime {
-                id: p.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string(),
+                id: p
+                    .get("id")
+                    .and_then(|i| i.as_str())
+                    .unwrap_or("")
+                    .to_string(),
                 name,
                 region_filters,
                 allocation_policy,
@@ -807,7 +832,12 @@ fn normalized(mut v: Vec<String>) -> Vec<String> {
 /// Region codes are case-insensitive labels (nodes report mixed case; the
 /// canvas groups them lowercased), so membership comparison normalizes case.
 fn same_region_set(a: &[String], b: &[String]) -> bool {
-    let lower = |v: &[String]| -> Vec<String> { normalized(v.to_vec()).iter().map(|s| s.to_lowercase()).collect() };
+    let lower = |v: &[String]| -> Vec<String> {
+        normalized(v.to_vec())
+            .iter()
+            .map(|s| s.to_lowercase())
+            .collect()
+    };
     lower(a) == lower(b)
 }
 
@@ -835,10 +865,7 @@ pub fn same_allocation_policy(whitebox: &str, resin: &str) -> bool {
 /// from `GET /api/v1/endpoints` by the caller (all endpoint kinds — the
 /// shell does not distinguish default/custom here; a listener exists or not).
 /// Disabled whitebox ports with no Resin endpoint are consistent by intent.
-pub fn merge_ports(
-    whitebox: &[crate::PortMapping],
-    resin_ports: &[u16],
-) -> Vec<PortSnapshot> {
+pub fn merge_ports(whitebox: &[crate::PortMapping], resin_ports: &[u16]) -> Vec<PortSnapshot> {
     let resin_set: std::collections::HashSet<u16> = resin_ports.iter().copied().collect();
     let mut out = Vec::with_capacity(whitebox.len());
     for m in whitebox {
@@ -1261,7 +1288,10 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
-            platforms: vec![strategy_entry("alpha", &["hk"]), strategy_entry("beta", &["us"])],
+            platforms: vec![
+                strategy_entry("alpha", &["hk"]),
+                strategy_entry("beta", &["us"]),
+            ],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
         let mut snap = AuthoritativeSnapshot {
@@ -1308,7 +1338,11 @@ mod tests {
 
     #[test]
     fn merge_routes_target_port_semantics() {
-        let rules = vec![wb_rule("Live.exe", 17990), wb_rule("Drift.exe", 17991), wb_rule("Inert.exe", 17992)];
+        let rules = vec![
+            wb_rule("Live.exe", 17990),
+            wb_rule("Drift.exe", 17991),
+            wb_rule("Inert.exe", 17992),
+        ];
         // 17990 live; 17991 enabled-but-listenerless => missing; 17992 not enabled => inert-consistent
         let snap = merge_routes(&rules, &[17990, 17991], &[17990]);
         assert_eq!(snap.len(), 3);
@@ -1393,7 +1427,10 @@ mod tests {
         // Whitebox: p1 consumes alpha + a dangling ghost; p2 also consumes
         // alpha (multi-consumer, sorted); p3 references beta.
         let refs = vec![
-            ("alpha".to_string(), vec!["p2".to_string(), "p1".to_string()]),
+            (
+                "alpha".to_string(),
+                vec!["p2".to_string(), "p1".to_string()],
+            ),
             ("ghost".to_string(), vec!["p1".to_string()]),
             ("beta".to_string(), vec!["p3".to_string()]),
         ];
@@ -1502,9 +1539,19 @@ mod tests {
         let mut merged = merge_strategies(&cfg, &resin, &HashMap::new(), true);
         let before_tag = merged[0].state_tag();
         stamp_platform_acknowledged(&mut merged, &["alpha".to_string()]);
-        assert_eq!(merged[0].state_tag(), before_tag, "stamping acknowledged must not change the state tag");
+        assert_eq!(
+            merged[0].state_tag(),
+            before_tag,
+            "stamping acknowledged must not change the state tag"
+        );
         match &merged[0] {
-            StrategySnapshot::Divergent { whitebox_regions, resin_regions, acknowledged, divergent_since, .. } => {
+            StrategySnapshot::Divergent {
+                whitebox_regions,
+                resin_regions,
+                acknowledged,
+                divergent_since,
+                ..
+            } => {
                 assert_eq!(whitebox_regions, &["jp".to_string()]);
                 assert_eq!(resin_regions, &["us".to_string()]);
                 assert!(acknowledged);
@@ -1526,24 +1573,52 @@ mod tests {
     #[test]
     fn divergent_since_semantics_hold_keep_clear() {
         // HOLD: an entity that stays drifting keeps its FIRST instant.
-        let mut mem = advance_drift_memory(&DriftMemory::default(), &[("alpha".into(), true), ("17990".into(), true)], 100);
+        let mut mem = advance_drift_memory(
+            &DriftMemory::default(),
+            &[("alpha".into(), true), ("17990".into(), true)],
+            100,
+        );
         assert_eq!(divergent_since_for(&mem, "alpha"), Some(100));
         mem = advance_drift_memory(&mem, &[("alpha".into(), true), ("17990".into(), true)], 250);
-        assert_eq!(divergent_since_for(&mem, "alpha"), Some(100), "still drifting: the first instant is kept");
+        assert_eq!(
+            divergent_since_for(&mem, "alpha"),
+            Some(100),
+            "still drifting: the first instant is kept"
+        );
         assert_eq!(divergent_since_for(&mem, "17990"), Some(100));
 
         // CLEAR: back to consistent => removed; a later re-drift re-times.
-        mem = advance_drift_memory(&mem, &[("alpha".into(), false), ("17990".into(), true)], 300);
-        assert_eq!(divergent_since_for(&mem, "alpha"), None, "consistent entity carries no drift instant");
+        mem = advance_drift_memory(
+            &mem,
+            &[("alpha".into(), false), ("17990".into(), true)],
+            300,
+        );
+        assert_eq!(
+            divergent_since_for(&mem, "alpha"),
+            None,
+            "consistent entity carries no drift instant"
+        );
         mem = advance_drift_memory(&mem, &[("alpha".into(), true)], 400);
-        assert_eq!(divergent_since_for(&mem, "alpha"), Some(400), "re-drift restarts the clock");
-        assert_eq!(divergent_since_for(&mem, "17990"), Some(100), "unrelated entities keep their instants");
+        assert_eq!(
+            divergent_since_for(&mem, "alpha"),
+            Some(400),
+            "re-drift restarts the clock"
+        );
+        assert_eq!(
+            divergent_since_for(&mem, "17990"),
+            Some(100),
+            "unrelated entities keep their instants"
+        );
 
         // RESTART: a fresh process starts from an empty memory.
         let fresh = DriftMemory::default();
         assert_eq!(divergent_since_for(&fresh, "17990"), None);
         let after_restart = advance_drift_memory(&fresh, &[("17990".into(), true)], 900);
-        assert_eq!(divergent_since_for(&after_restart, "17990"), Some(900), "first observation after restart re-times");
+        assert_eq!(
+            divergent_since_for(&after_restart, "17990"),
+            Some(900),
+            "first observation after restart re-times"
+        );
     }
 
     #[test]
@@ -1556,7 +1631,10 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
-            platforms: vec![strategy_entry("alpha", &["hk"]), strategy_entry("beta", &["us"])],
+            platforms: vec![
+                strategy_entry("alpha", &["hk"]),
+                strategy_entry("beta", &["us"]),
+            ],
             subscriptions: vec![],
         };
         let resin = vec![runtime("alpha", &["hk"], "BALANCED")];
@@ -1583,7 +1661,10 @@ mod tests {
             assert!(!ack, "non-matching list clears previous stamps");
         }
 
-        let mut ports = merge_ports(&[port_mapping(17990, true), port_mapping(17991, false)], &[17990]);
+        let mut ports = merge_ports(
+            &[port_mapping(17990, true), port_mapping(17991, false)],
+            &[17990],
+        );
         stamp_port_acknowledged(&mut ports, &["17991".to_string()]);
         for pp in &ports {
             let ack = match pp {
@@ -1838,7 +1919,11 @@ mod tests {
         // only through the read-side flag.
         stamp_platform_acknowledged(&mut platforms, &["alpha".to_string()]);
         assert!(platforms[0].acknowledged());
-        assert_eq!(platforms[0].state_tag(), "divergent", "acknowledged must not touch the three-state tag");
+        assert_eq!(
+            platforms[0].state_tag(),
+            "divergent",
+            "acknowledged must not touch the three-state tag"
+        );
         let unacknowledged_drift = platforms
             .iter()
             .any(|e| e.state_tag() != "consistent" && !e.acknowledged());
@@ -1899,20 +1984,31 @@ mod tests {
         };
         let v = serde_json::to_value(&snap).expect("serialize");
         // Parent field rides the camelCase convention (TS AuthoritativeSnapshot).
-        assert!(v.get("subscriptionPhases").is_some(), "parent field must be camelCase on the wire");
+        assert!(
+            v.get("subscriptionPhases").is_some(),
+            "parent field must be camelCase on the wire"
+        );
         // Row fields stay snake_case like every other per-variant payload.
         assert_eq!(v["subscriptionPhases"][0]["phase"], "Establishing");
         assert_eq!(v["subscriptionPhases"][0]["stage"], "platform");
         assert_eq!(v["subscriptionPhases"][1]["phase"], "Failed");
-        assert_eq!(v["subscriptionPhases"][1]["phase_error"], "PATCH failed: 500");
-// the cascade failure record rides the row with
+        assert_eq!(
+            v["subscriptionPhases"][1]["phase_error"],
+            "PATCH failed: 500"
+        );
+        // the cascade failure record rides the row with
         // its snake_case payload; sub-b carries it, sub-a drops it.
-        assert_eq!(v["subscriptionPhases"][1]["last_cascade_error"]["stage"], "apply");
+        assert_eq!(
+            v["subscriptionPhases"][1]["last_cascade_error"]["stage"],
+            "apply"
+        );
         assert_eq!(
             v["subscriptionPhases"][1]["last_cascade_error"]["rollback_actions"][1],
             "plat: deleted on Resin (cascade-created, apply failed)"
         );
-        assert!(v["subscriptionPhases"][0].get("last_cascade_error").is_none());
+        assert!(v["subscriptionPhases"][0]
+            .get("last_cascade_error")
+            .is_none());
         // None fields drop (skip_serializing_if).
         assert!(v["subscriptionPhases"][0].get("phase_error").is_none());
         // Round-trip stays equal (contract stability for the TS wrapper).

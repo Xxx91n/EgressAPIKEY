@@ -28,11 +28,11 @@
 //!     as a canonical UUID so encoding is a no-op in practice, but we encode
 //!     defensively in case a caller passes a non-canonical form.
 
-use std::sync::OnceLock;
+use crate::ipc_error::IpcError;
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
+use std::sync::OnceLock;
 use url::Url;
-use crate::ipc_error::IpcError;
 
 /// Loopback-only connection to the Resin sidecar admin REST API.
 ///
@@ -103,15 +103,12 @@ impl ResinClient {
     /// Send an authenticated admin request and return the parsed JSON body.
     /// For non-success (2xx) responses we surface the upstream status + a
     /// short body excerpt rather than swallowing the error.
-/// (ADR-0018): Read-only auto-retry wrapper. Calls send() and
+    /// (ADR-0018): Read-only auto-retry wrapper. Calls send() and
     /// retries up to READ_MAX_RETRIES times with READ_RETRY_DELAY_MS between
     /// attempts. Only for GET methods (read-only); write methods use send()
     /// directly. Retries on network error or 5xx (server transient failure);
     /// does NOT retry on 4xx (client error) or success.
-    async fn send_read(
-        &self,
-        path: &str,
-    ) -> Result<Value> {
+    async fn send_read(&self, path: &str) -> Result<Value> {
         let max_retries = 2u32;
         let delay = std::time::Duration::from_millis(500);
         let mut last_err = None;
@@ -124,7 +121,9 @@ impl ResinClient {
                     if attempt < max_retries && Self::is_transient_5xx(&e) {
                         tracing::warn!(
                             "resin_client: read retry {}/{} for {path} after: {}",
-                            attempt + 1, max_retries, e
+                            attempt + 1,
+                            max_retries,
+                            e
                         );
                         last_err = Some(e);
                         tokio::time::sleep(delay).await;
@@ -137,7 +136,7 @@ impl ResinClient {
         Err(last_err.unwrap_or_else(|| anyhow!("resin_client: exhausted read retries for {path}")))
     }
 
-/// transient-failure classifier shared by send_read and the
+    /// transient-failure classifier shared by send_read and the
     /// write-retry wrapper below. Matches network errors and the 500/502/503/504
     /// band rendered by send()'s error string; 4xx and parse errors never
     /// retry (a rejected body is not transient).
@@ -150,7 +149,7 @@ impl ResinClient {
             || s.contains("-> 504")
     }
 
-/// generic 5xx retry wrapper over send() for write verbs
+    /// generic 5xx retry wrapper over send() for write verbs
     /// (POST/PATCH/PUT/DELETE). Same rule as send_read: 2 retries, 500ms
     /// then 1000ms, no retry on 4xx, parse errors, or success. A retried
     /// POST that actually landed (response lost) can re-apply on Resin; the
@@ -173,10 +172,18 @@ impl ResinClient {
                     if attempt < max_retries && Self::is_transient_5xx(&e) {
                         tracing::warn!(
                             "resin_client: write retry {}/{} for {} {path} after: {}",
-                            attempt + 1, max_retries, method, e
+                            attempt + 1,
+                            max_retries,
+                            method,
+                            e
                         );
                         last_err = Some(e);
-                        tokio::time::sleep(std::time::Duration::from_millis(if attempt == 0 { 500 } else { 1000 })).await;
+                        tokio::time::sleep(std::time::Duration::from_millis(if attempt == 0 {
+                            500
+                        } else {
+                            1000
+                        }))
+                        .await;
                         continue;
                     }
                     return Err(e);
@@ -184,12 +191,14 @@ impl ResinClient {
             }
         }
         Err(last_err.unwrap_or_else(|| {
-            anyhow!("resin_client: exhausted write retries for {} {path}", method)
+            anyhow!(
+                "resin_client: exhausted write retries for {} {path}",
+                method
+            )
         }))
     }
 
     async fn send(
-
         &self,
         method: reqwest::Method,
         path: &str,
@@ -280,21 +289,20 @@ impl ResinClient {
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R12
     pub async fn delete_platform(&self, id: &str) -> Result<Value> {
         let path = format!("/platforms/{}", urlencoding(id));
-        self.send_with_retry(reqwest::Method::DELETE, &path, None).await
+        self.send_with_retry(reqwest::Method::DELETE, &path, None)
+            .await
     }
 
     /// GET /api/v1/metrics/realtime/leases — active-lease snapshot used by the
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R49
     /// desktop Topology view in place of the dead resin-core LeaseTable.
     pub async fn active_leases(&self) -> Result<Value> {
-        self.send_read("/metrics/realtime/leases")
-            .await
+        self.send_read("/metrics/realtime/leases").await
     }
 
     /// GET /api/v1/metrics/snapshots/node-pool — global node pool snapshot.
     pub async fn node_pool_snapshot(&self) -> Result<Value> {
-        self.send_read("/metrics/snapshots/node-pool")
-            .await
+        self.send_read("/metrics/snapshots/node-pool").await
     }
 
     /// POST /subscriptions - create a subscription. `source_type` is "remote"
@@ -308,16 +316,16 @@ impl ResinClient {
     /// GET /subscriptions - list all subscriptions (raw array).
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R25
     pub async fn list_subscriptions(&self) -> Result<Value> {
-        self.send_read("/subscriptions")
-            .await
+        self.send_read("/subscriptions").await
     }
 
-   /// DELETE /subscriptions/{id} - remove a subscription (204 -> Null).
-   /// @see docs/architecture/RESIN_API_COVERAGE.md #R29
-   pub async fn delete_subscription(&self, id: &str) -> Result<Value> {
-       let path = format!("/subscriptions/{}", urlencoding(id));
-       self.send_with_retry(reqwest::Method::DELETE, &path, None).await
-   }
+    /// DELETE /subscriptions/{id} - remove a subscription (204 -> Null).
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R29
+    pub async fn delete_subscription(&self, id: &str) -> Result<Value> {
+        let path = format!("/subscriptions/{}", urlencoding(id));
+        self.send_with_retry(reqwest::Method::DELETE, &path, None)
+            .await
+    }
 
     /// POST /api/v1/subscriptions/{id}/actions/refresh - trigger Resin-native
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R30
@@ -331,18 +339,19 @@ impl ResinClient {
     /// No request body is sent; Resin kicks its scheduler tick synchronously.
     pub async fn refresh_subscription_native(&self, id: &str) -> Result<Value> {
         let path = format!("/subscriptions/{}/actions/refresh", urlencoding(id));
-        self.send_with_retry(reqwest::Method::POST, &path, None).await
+        self.send_with_retry(reqwest::Method::POST, &path, None)
+            .await
     }
 
-
-   /// PATCH /api/v1/platforms/{id} - update platform fields (allocation_policy,
+    /// PATCH /api/v1/platforms/{id} - update platform fields (allocation_policy,
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R11
-   /// regex_filters, region_filters, sticky_ttl, etc). Resin validates the
-   /// body and returns 400 with a descriptive error for invalid enum values.
+    /// regex_filters, region_filters, sticky_ttl, etc). Resin validates the
+    /// body and returns 400 with a descriptive error for invalid enum values.
     /// Used by the topology canvas hot-switch (Phase R1/R2).
     pub async fn update_platform(&self, id: &str, body: Value) -> Result<Value> {
         let path = format!("/platforms/{}", urlencoding(id));
-        self.send_with_retry(reqwest::Method::PATCH, &path, Some(body)).await
+        self.send_with_retry(reqwest::Method::PATCH, &path, Some(body))
+            .await
     }
 
     /// GET /api/v1/nodes - list all proxy nodes (the "C category" ip channels).
@@ -352,41 +361,42 @@ impl ResinClient {
     /// snapshot grows. We pass an explicit limit (and optional offset) so the
     /// per-node table reflects the same count as the stats card.
     pub async fn list_nodes(&self) -> Result<Value> {
-        self.send_read("/nodes?limit=500")
+        self.send_read("/nodes?limit=500").await
+    }
+
+    /// GET /api/v1/nodes?platform_id=<id>&limit=500 - the routable node list
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R36
+    /// for a single platform (Resin DESIGN.md "list nodes" with platform_id filter).
+    pub async fn list_nodes_for_platform(&self, platform_id: &str) -> Result<Value> {
+        let path = format!("/nodes?limit=500&platform_id={}", platform_id);
+        self.send_read(&path).await
+    }
+
+    /// POST /api/v1/nodes/{hash}/actions/probe-egress - on-demand egress probe
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R38
+    /// (Resin v1.2.0 HandleProbeEgress). Requests cloudflare.com/cdn-cgi/trace
+    /// through the node, returns {egress_ip, region, latency_ewma_ms}. Resin
+    /// updates the node's egress_ip + TD-EWMA + routing as a side effect.
+    /// Used by node-pool per-card probe button.
+    pub async fn probe_node_egress(&self, node_hash: &str) -> Result<Value> {
+        let path = format!("/nodes/{}/actions/probe-egress", urlencoding(node_hash));
+        self.send_with_retry(reqwest::Method::POST, &path, None)
             .await
     }
 
-   /// GET /api/v1/nodes?platform_id=<id>&limit=500 - the routable node list
-   /// @see docs/architecture/RESIN_API_COVERAGE.md #R36
-   /// for a single platform (Resin DESIGN.md "list nodes" with platform_id filter).
-   pub async fn list_nodes_for_platform(&self, platform_id: &str) -> Result<Value> {
-       let path = format!("/nodes?limit=500&platform_id={}", platform_id);
-       self.send_read(&path).await
-   }
+    /// POST /api/v1/nodes/{hash}/actions/probe-latency - on-demand latency probe
+    /// @see docs/architecture/RESIN_API_COVERAGE.md #R39
+    /// (Resin v1.2.0 HandleProbeLatency). Requests latency_test_url (default
+    /// https://www.gstatic.com/generate_204) through the node, returns
+    /// {latency_ewma_ms}. Resin updates the node's TD-EWMA for that domain.
+    /// Used by node-pool per-card probe button.
+    pub async fn probe_node_latency(&self, node_hash: &str) -> Result<Value> {
+        let path = format!("/nodes/{}/actions/probe-latency", urlencoding(node_hash));
+        self.send_with_retry(reqwest::Method::POST, &path, None)
+            .await
+    }
 
-   /// POST /api/v1/nodes/{hash}/actions/probe-egress - on-demand egress probe
-   /// @see docs/architecture/RESIN_API_COVERAGE.md #R38
-   /// (Resin v1.2.0 HandleProbeEgress). Requests cloudflare.com/cdn-cgi/trace
-   /// through the node, returns {egress_ip, region, latency_ewma_ms}. Resin
-   /// updates the node's egress_ip + TD-EWMA + routing as a side effect.
-   /// Used by node-pool per-card probe button.
-   pub async fn probe_node_egress(&self, node_hash: &str) -> Result<Value> {
-       let path = format!("/nodes/{}/actions/probe-egress", urlencoding(node_hash));
-       self.send_with_retry(reqwest::Method::POST, &path, None).await
-   }
-
-   /// POST /api/v1/nodes/{hash}/actions/probe-latency - on-demand latency probe
-   /// @see docs/architecture/RESIN_API_COVERAGE.md #R39
-   /// (Resin v1.2.0 HandleProbeLatency). Requests latency_test_url (default
-   /// https://www.gstatic.com/generate_204) through the node, returns
-   /// {latency_ewma_ms}. Resin updates the node's TD-EWMA for that domain.
-   /// Used by node-pool per-card probe button.
-   pub async fn probe_node_latency(&self, node_hash: &str) -> Result<Value> {
-       let path = format!("/nodes/{}/actions/probe-latency", urlencoding(node_hash));
-       self.send_with_retry(reqwest::Method::POST, &path, None).await
-   }
-
-   /// POST /api/v1/platforms with the full create schema.
+    /// POST /api/v1/platforms with the full create schema.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R08
     /// Accepts a free-form body (serde_json::Value) so the GUI form can pass
     /// exactly the fields Resin DESIGN.md lists for platform creation:
@@ -423,7 +433,8 @@ impl ResinClient {
     /// POST /api/v1/endpoints — create + immediately start a custom listener.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R16
     pub async fn create_endpoint(&self, body: Value) -> Result<Value> {
-        self.send_with_retry(reqwest::Method::POST, "/endpoints", Some(body)).await
+        self.send_with_retry(reqwest::Method::POST, "/endpoints", Some(body))
+            .await
     }
 
     /// GET /api/v1/endpoints/{endpoint_id} — read a single endpoint.
@@ -437,14 +448,16 @@ impl ResinClient {
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R18
     pub async fn update_endpoint(&self, endpoint_id: &str, body: Value) -> Result<Value> {
         let path = format!("/endpoints/{}", urlencoding(endpoint_id));
-        self.send_with_retry(reqwest::Method::PATCH, &path, Some(body)).await
+        self.send_with_retry(reqwest::Method::PATCH, &path, Some(body))
+            .await
     }
 
     /// DELETE /api/v1/endpoints/{endpoint_id} — delete + close listener.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R19
     pub async fn delete_endpoint(&self, endpoint_id: &str) -> Result<Value> {
         let path = format!("/endpoints/{}", urlencoding(endpoint_id));
-        self.send_with_retry(reqwest::Method::DELETE, &path, None).await
+        self.send_with_retry(reqwest::Method::DELETE, &path, None)
+            .await
     }
 
     /// GET /api/v1/system/config — read the system-level configuration
@@ -452,14 +465,16 @@ impl ResinClient {
     /// (max_consecutive_failures, cache_flush_interval, probe_timeout, etc.).
     /// used by the circuit breaker Settings panel to display current values.
     pub async fn system_config_get(&self) -> Result<Value> {
-        self.send(reqwest::Method::GET, "/system/config", None).await
+        self.send(reqwest::Method::GET, "/system/config", None)
+            .await
     }
 
     /// PATCH /api/v1/system/config — update system-level configuration.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R06
     /// used to set max_consecutive_failures (circuit breaker threshold).
     pub async fn system_config_patch(&self, body: Value) -> Result<Value> {
-        self.send_with_retry(reqwest::Method::PATCH, "/system/config", Some(body)).await
+        self.send_with_retry(reqwest::Method::PATCH, "/system/config", Some(body))
+            .await
     }
 
     // ── Request logs (REST seam, replaces direct request_logs*.db read) ──
@@ -476,11 +491,7 @@ impl ResinClient {
     /// Query params beyond limit are appended only when Some.
     /// Fuzzy name filters (platform_name/account/target_host/egress_ip) are
     /// URL-encoded here; Resin matches them fuzzily server-side.
-    pub async fn request_logs(
-        &self,
-        limit: u32,
-        query: Option<&RequestLogQuery>,
-    ) -> Result<Value> {
+    pub async fn request_logs(&self, limit: u32, query: Option<&RequestLogQuery>) -> Result<Value> {
         let mut path = format!("/request-logs?limit={}", limit);
         if let Some(q) = query {
             if let Some(v) = q.platform_name.as_deref() {
@@ -555,7 +566,11 @@ impl ResinClient {
     /// body (handler_rules.go:75-78). 201 = created, 200 = updated. Header
     /// names are validated by Resin as RFC 7230 tokens; length/control-char
     /// caps here are the §7.5-style defensive mirror.
-    pub async fn put_account_header_rules(&self, url_prefix: &str, headers: &[String]) -> Result<Value> {
+    pub async fn put_account_header_rules(
+        &self,
+        url_prefix: &str,
+        headers: &[String],
+    ) -> Result<Value> {
         if url_prefix.trim().is_empty() {
             return Err(anyhow!("resin_client: url_prefix cannot be empty"));
         }
@@ -563,11 +578,14 @@ impl ResinClient {
             return Err(anyhow!("resin_client: url_prefix length > 253"));
         }
         if url_prefix.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-            return Err(anyhow!("resin_client: url_prefix contains control characters"));
+            return Err(anyhow!(
+                "resin_client: url_prefix contains control characters"
+            ));
         }
         let path = format!("/account-header-rules/{}", encode_uri_component(url_prefix));
         let body = serde_json::json!({ "headers": headers });
-        self.send_with_retry(reqwest::Method::PUT, &path, Some(body)).await
+        self.send_with_retry(reqwest::Method::PUT, &path, Some(body))
+            .await
     }
 
     /// POST /api/v1/account-header-rules:resolve — matcher debug aid.
@@ -586,7 +604,12 @@ impl ResinClient {
             return Err(anyhow!("resin_client: url contains control characters"));
         }
         let body = serde_json::json!({ "url": url });
-        self.send_with_retry(reqwest::Method::POST, "/account-header-rules:resolve", Some(body)).await
+        self.send_with_retry(
+            reqwest::Method::POST,
+            "/account-header-rules:resolve",
+            Some(body),
+        )
+        .await
     }
 
     /// DELETE /api/v1/account-header-rules/{url_prefix...} — remove one rule.
@@ -602,10 +625,13 @@ impl ResinClient {
             return Err(anyhow!("resin_client: url_prefix length > 253"));
         }
         if url_prefix.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-            return Err(anyhow!("resin_client: url_prefix contains control characters"));
+            return Err(anyhow!(
+                "resin_client: url_prefix contains control characters"
+            ));
         }
         let path = format!("/account-header-rules/{}", encode_uri_component(url_prefix));
-        self.send_with_retry(reqwest::Method::DELETE, &path, None).await
+        self.send_with_retry(reqwest::Method::DELETE, &path, None)
+            .await
     }
 
     /// GET /api/v1/metrics/realtime/throughput — realtime ingress/egress
@@ -842,9 +868,15 @@ mod tests {
 
     #[test]
     fn encode_uri_component_matches_js_unreserved_set() {
-        assert_eq!(encode_uri_component("api.example.com/v1"), "api.example.com%2Fv1");
+        assert_eq!(
+            encode_uri_component("api.example.com/v1"),
+            "api.example.com%2Fv1"
+        );
         // encodeURIComponent keeps - _ . ! ~ * ' ( ) literal.
-        assert_eq!(encode_uri_component("a-b_c.d!e~f*g'h(i)"), "a-b_c.d!e~f*g'h(i)");
+        assert_eq!(
+            encode_uri_component("a-b_c.d!e~f*g'h(i)"),
+            "a-b_c.d!e~f*g'h(i)"
+        );
         assert_eq!(encode_uri_component("a b"), "a%20b");
     }
 
@@ -857,7 +889,10 @@ mod tests {
         let m = server
             .mock("GET", "/api/v1/request-logs")
             .match_header("authorization", "Bearer testtok")
-            .match_query(mockito::Matcher::AllOf(vec![mockito::Matcher::UrlEncoded("limit".into(), "50".into())]))
+            .match_query(mockito::Matcher::AllOf(vec![mockito::Matcher::UrlEncoded(
+                "limit".into(),
+                "50".into(),
+            )]))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(body)
@@ -1079,7 +1114,10 @@ mod tests {
             "url": "https://example.com/sub",
             "update_interval": "30s",
         });
-        let out = c.create_subscription(body).await.expect("POST should succeed");
+        let out = c
+            .create_subscription(body)
+            .await
+            .expect("POST should succeed");
         assert_eq!(out["name"], "sub-R");
         m.assert_async().await;
     }
@@ -1204,7 +1242,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_subscription_update_interval_three_states_wire_contract() {
-// F3: Resin parses update_interval as a Go time.Duration and
+        // F3: Resin parses update_interval as a Go time.Duration and
         // enforces >= 30s (resin/internal/service/control_plane_subscription.go
         // minSubscriptionUpdateInterval, create AND PATCH paths). Wire contract
         // at the shell boundary: 30s and 1m pass through and are accepted; 5s
@@ -1214,7 +1252,9 @@ mod tests {
         let m30 = server
             .mock("POST", "/api/v1/subscriptions")
             .match_header("authorization", "Bearer testtok")
-            .match_body(mockito::Matcher::Regex(r#""update_interval":"30s""#.to_string()))
+            .match_body(mockito::Matcher::Regex(
+                r#""update_interval":"30s""#.to_string(),
+            ))
             .with_status(201)
             .with_header("content-type", "application/json")
             .with_body(r#"{"name":"sub-30s","id":"55555555-5555-5555-5555-555555555555"}"#)
@@ -1224,7 +1264,9 @@ mod tests {
         let m1m = server
             .mock("POST", "/api/v1/subscriptions")
             .match_header("authorization", "Bearer testtok")
-            .match_body(mockito::Matcher::Regex(r#""update_interval":"1m""#.to_string()))
+            .match_body(mockito::Matcher::Regex(
+                r#""update_interval":"1m""#.to_string(),
+            ))
             .with_status(201)
             .with_header("content-type", "application/json")
             .with_body(r#"{"name":"sub-1m","id":"66666666-6666-6666-6666-666666666666"}"#)
@@ -1234,7 +1276,9 @@ mod tests {
         let m5s = server
             .mock("POST", "/api/v1/subscriptions")
             .match_header("authorization", "Bearer testtok")
-            .match_body(mockito::Matcher::Regex(r#""update_interval":"5s""#.to_string()))
+            .match_body(mockito::Matcher::Regex(
+                r#""update_interval":"5s""#.to_string(),
+            ))
             .with_status(400)
             .with_header("content-type", "application/json")
             .with_body(r#"{"error":"update_interval: must be >= 30s"}"#)
@@ -1267,7 +1311,6 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_update_platform_patches_allocation_policy() {
-
         let mut server = mockito::Server::new_async().await;
         let body = r#"{"id":"11111111-1111-1111-1111-111111111111","name":"OpenAI","allocation_policy":"PREFER_LOW_LATENCY"}"#;
         let m = server
@@ -1396,7 +1439,6 @@ mod tests {
         m.assert_async().await;
     }
 
-
     // ── Endpoint API mockito tests (Resin v1.2.0) ────────────────────
 
     #[tokio::test]
@@ -1413,7 +1455,10 @@ mod tests {
             .await;
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
-        let out = c.list_endpoints().await.expect("list_endpoints should succeed");
+        let out = c
+            .list_endpoints()
+            .await
+            .expect("list_endpoints should succeed");
         assert!(out["items"].is_array());
         assert_eq!(out["items"][0]["id"], "default");
         assert_eq!(out["items"][0]["port"], 2260);
@@ -1436,7 +1481,10 @@ mod tests {
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
         let req = serde_json::json!({"port":17990,"allow_proxy":true,"allow_socks5":true});
-        let out = c.create_endpoint(req).await.expect("create_endpoint should succeed");
+        let out = c
+            .create_endpoint(req)
+            .await
+            .expect("create_endpoint should succeed");
         assert_eq!(out["id"], "abc123");
         assert_eq!(out["port"], 17990);
         m.assert_async().await;
@@ -1458,7 +1506,10 @@ mod tests {
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
         let req = serde_json::json!({"port":17991});
-        let out = c.update_endpoint("abc123", req).await.expect("update_endpoint should succeed");
+        let out = c
+            .update_endpoint("abc123", req)
+            .await
+            .expect("update_endpoint should succeed");
         assert_eq!(out["port"], 17991);
         m.assert_async().await;
     }
@@ -1474,7 +1525,10 @@ mod tests {
             .await;
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
-        let out = c.delete_endpoint("abc123").await.expect("delete_endpoint should succeed");
+        let out = c
+            .delete_endpoint("abc123")
+            .await
+            .expect("delete_endpoint should succeed");
         // 204 no content -> empty Value
         assert!(out.is_null() || out.is_object());
         m.assert_async().await;
@@ -1494,14 +1548,16 @@ mod tests {
             .await;
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
-        let out = c.get_endpoint("default").await.expect("get_endpoint should succeed");
+        let out = c
+            .get_endpoint("default")
+            .await
+            .expect("get_endpoint should succeed");
         assert_eq!(out["id"], "default");
         assert_eq!(out["port"], 2260);
         assert_eq!(out["source"], "environment");
         assert_eq!(out["read_only"], true);
         m.assert_async().await;
     }
-
 
     #[tokio::test]
     async fn mockito_read_retry_503_then_200() {
@@ -1528,13 +1584,14 @@ mod tests {
             .await;
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
-        let out = c.list_platforms().await.expect("list_platforms should succeed after retry");
+        let out = c
+            .list_platforms()
+            .await
+            .expect("list_platforms should succeed after retry");
         assert_eq!(out["items"][0]["name"], "retry-test");
         // First attempt (503) + second attempt (200) = 2 hits total
         m503.assert_async().await;
         m200.assert_async().await;
-
-
     }
 
     #[tokio::test]
@@ -1556,7 +1613,6 @@ mod tests {
         assert!(result.is_err(), "should error after exhausting retries");
         // 1 initial + 2 retries = 3 total attempts
         m.assert_async().await;
-
     }
 
     #[tokio::test]
@@ -1574,12 +1630,11 @@ mod tests {
             .await;
         let base = server.url();
         let c = ResinClient::new(&base, "testtok".into()).unwrap();
-       let result = c.list_platforms().await;
-       assert!(result.is_err(), "404 should error without retry");
-       // Should be called exactly once (no retry on 4xx)
-       m.assert_async().await;
-
-   }
+        let result = c.list_platforms().await;
+        assert!(result.is_err(), "404 should error without retry");
+        // Should be called exactly once (no retry on 4xx)
+        m.assert_async().await;
+    }
 
     #[tokio::test]
     async fn mockito_refresh_subscription_native_posts_actions_refresh() {
@@ -1600,57 +1655,60 @@ mod tests {
             .refresh_subscription_native("sub-uuid-1")
             .await
             .expect("refresh_subscription_native should succeed");
-        assert!(out.is_object() || out.is_null(), "200 with empty body is acceptable");
+        assert!(
+            out.is_object() || out.is_null(),
+            "200 with empty body is acceptable"
+        );
         m.assert_async().await;
     }
 
-   #[tokio::test]
-   async fn mockito_probe_node_egress_returns_egress_ip_region_latency() {
-       // POST /nodes/{hash}/actions/probe-egress -> {egress_ip, region, latency_ewma_ms}.
-       let mut server = mockito::Server::new_async().await;
-       let m = server
-           .mock("POST", "/api/v1/nodes/abc123/actions/probe-egress")
-           .match_header("authorization", "Bearer testtok")
-           .with_status(200)
-           .with_header("content-type", "application/json")
-           .with_body(r#"{"egress_ip":"203.0.113.1","region":"us","latency_ewma_ms":123.45}"#)
-           .expect(1)
-           .create_async()
-           .await;
-       let base = server.url();
-       let c = ResinClient::new(&base, "testtok".into()).unwrap();
-       let out = c
-           .probe_node_egress("abc123")
-           .await
-           .expect("probe_node_egress should succeed");
-       assert_eq!(out["egress_ip"], "203.0.113.1");
-       assert_eq!(out["region"], "us");
-       assert_eq!(out["latency_ewma_ms"], 123.45);
-       m.assert_async().await;
-   }
+    #[tokio::test]
+    async fn mockito_probe_node_egress_returns_egress_ip_region_latency() {
+        // POST /nodes/{hash}/actions/probe-egress -> {egress_ip, region, latency_ewma_ms}.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("POST", "/api/v1/nodes/abc123/actions/probe-egress")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"egress_ip":"203.0.113.1","region":"us","latency_ewma_ms":123.45}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .probe_node_egress("abc123")
+            .await
+            .expect("probe_node_egress should succeed");
+        assert_eq!(out["egress_ip"], "203.0.113.1");
+        assert_eq!(out["region"], "us");
+        assert_eq!(out["latency_ewma_ms"], 123.45);
+        m.assert_async().await;
+    }
 
-   #[tokio::test]
-   async fn mockito_probe_node_latency_returns_latency_ewma_ms() {
-       // POST /nodes/{hash}/actions/probe-latency -> {latency_ewma_ms}.
-       let mut server = mockito::Server::new_async().await;
-       let m = server
-           .mock("POST", "/api/v1/nodes/abc123/actions/probe-latency")
-           .match_header("authorization", "Bearer testtok")
-           .with_status(200)
-           .with_header("content-type", "application/json")
-           .with_body(r#"{"latency_ewma_ms":89.12}"#)
-           .expect(1)
-           .create_async()
-           .await;
-       let base = server.url();
-       let c = ResinClient::new(&base, "testtok".into()).unwrap();
-       let out = c
-           .probe_node_latency("abc123")
-           .await
-           .expect("probe_node_latency should succeed");
-       assert_eq!(out["latency_ewma_ms"], 89.12);
-       m.assert_async().await;
-   }
+    #[tokio::test]
+    async fn mockito_probe_node_latency_returns_latency_ewma_ms() {
+        // POST /nodes/{hash}/actions/probe-latency -> {latency_ewma_ms}.
+        let mut server = mockito::Server::new_async().await;
+        let m = server
+            .mock("POST", "/api/v1/nodes/abc123/actions/probe-latency")
+            .match_header("authorization", "Bearer testtok")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"latency_ewma_ms":89.12}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let base = server.url();
+        let c = ResinClient::new(&base, "testtok".into()).unwrap();
+        let out = c
+            .probe_node_latency("abc123")
+            .await
+            .expect("probe_node_latency should succeed");
+        assert_eq!(out["latency_ewma_ms"], 89.12);
+        m.assert_async().await;
+    }
 
     // ── Account header rules mockito tests ─────
 
@@ -1683,7 +1741,10 @@ mod tests {
         let mut server = mockito::Server::new_async().await;
         let body = r#"{"items":[{"url_prefix":"files.example.com/v2","headers":["X-Trace-Id"],"updated_at":"2026-09-04T00:00:00Z"}],"total":1,"limit":1000,"offset":0}"#;
         let m = server
-            .mock("GET", "/api/v1/account-header-rules?limit=1000&offset=0&keyword=trace")
+            .mock(
+                "GET",
+                "/api/v1/account-header-rules?limit=1000&offset=0&keyword=trace",
+            )
             .match_header("authorization", "Bearer testtok")
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -1743,7 +1804,10 @@ mod tests {
             .put_account_header_rules("api.example.com/v1", &["bad header".to_string()])
             .await
             .expect_err("invalid header name must surface the upstream 400");
-        assert!(err.to_string().contains("400"), "error carries status: {err}");
+        assert!(
+            err.to_string().contains("400"),
+            "error carries status: {err}"
+        );
         m.assert_async().await;
     }
 
@@ -1755,7 +1819,9 @@ mod tests {
             .mock("POST", "/api/v1/account-header-rules:resolve")
             .match_header("authorization", "Bearer testtok")
             .match_header("content-type", "application/json")
-            .match_body(mockito::Matcher::Regex(r#""url":"https://api.example.com/v1/chat".*"#.to_string()))
+            .match_body(mockito::Matcher::Regex(
+                r#""url":"https://api.example.com/v1/chat".*"#.to_string(),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(body)
@@ -1799,7 +1865,10 @@ mod tests {
     async fn mockito_delete_account_header_rule_204_null() {
         let mut server = mockito::Server::new_async().await;
         let m = server
-            .mock("DELETE", "/api/v1/account-header-rules/files.example.com%2Fv2")
+            .mock(
+                "DELETE",
+                "/api/v1/account-header-rules/files.example.com%2Fv2",
+            )
             .match_header("authorization", "Bearer testtok")
             .with_status(204)
             .create_async()
@@ -1831,17 +1900,23 @@ mod tests {
             .delete_account_header_rule("missing.example.com")
             .await
             .expect_err("unknown rule surfaces the upstream 404");
-        assert!(err.to_string().contains("404"), "error carries status: {err}");
+        assert!(
+            err.to_string().contains("404"),
+            "error carries status: {err}"
+        );
         m.assert_async().await;
     }
 
-   #[test]
-   fn shared_client_returns_same_instance() {
+    #[test]
+    fn shared_client_returns_same_instance() {
         // Two calls to shared_client() must return pointers to the same Client.
         let a = shared_client();
         let b = shared_client();
         // Pointer equality: same address = same Client
-        assert!(std::ptr::eq(a, b), "shared_client() returned different Client instances");
+        assert!(
+            std::ptr::eq(a, b),
+            "shared_client() returned different Client instances"
+        );
     }
 
     // ── name→UUID resolution helpers ──────────
@@ -2020,17 +2095,19 @@ mod tests {
             .unwrap();
         let c = ResinClient::new("http://127.0.0.1:1", "tok".into()).unwrap();
         for name in [
-            "",                                  // empty
-            &"a".repeat(254),                    // over the 253 cap
-            "bad\0nul",                          // NUL
-            "bad\nnewline",                      // control char
-            "bad\u{7f}del",                      // DEL
+            "",               // empty
+            &"a".repeat(254), // over the 253 cap
+            "bad\0nul",       // NUL
+            "bad\nnewline",   // control char
+            "bad\u{7f}del",   // DEL
         ] {
             for helper in ["platform", "subscription"] {
                 let err = if helper == "platform" {
                     rt.block_on(async { c.resolve_platform_id_by_name(name).await.err().unwrap() })
                 } else {
-                    rt.block_on(async { c.resolve_subscription_id_by_name(name).await.err().unwrap() })
+                    rt.block_on(async {
+                        c.resolve_subscription_id_by_name(name).await.err().unwrap()
+                    })
                 };
                 assert!(
                     matches!(&err, IpcError::InvalidInput { .. }),
@@ -2134,7 +2211,10 @@ mod tests {
         let m = server
             .mock("GET", mockito::Matcher::Any)
             .match_header("authorization", "Bearer testtok")
-            .match_query(mockito::Matcher::AllOf(vec![mockito::Matcher::UrlEncoded("from".into(), "2026-09-04T00:00:00Z".into())]))
+            .match_query(mockito::Matcher::AllOf(vec![mockito::Matcher::UrlEncoded(
+                "from".into(),
+                "2026-09-04T00:00:00Z".into(),
+            )]))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"bucket_seconds":60,"items":[]}"#)
@@ -2156,8 +2236,13 @@ mod tests {
         for ok in ["openai", "auto-ab12cd34", "p1"] {
             assert!(validate_platform_name(ok).is_ok(), "{ok} should pass");
         }
-        for bad in ["", "   ", "a b", "a.b", "a:b", "a|b", "a/b", "a\\b", "a@b", "a?b", "a#b", "a%b", "a~b"] {
-            assert!(validate_platform_name(bad).is_err(), "{bad:?} should be rejected");
+        for bad in [
+            "", "   ", "a b", "a.b", "a:b", "a|b", "a/b", "a\\b", "a@b", "a?b", "a#b", "a%b", "a~b",
+        ] {
+            assert!(
+                validate_platform_name(bad).is_err(),
+                "{bad:?} should be rejected"
+            );
         }
         let long = "a".repeat(254);
         assert!(validate_platform_name(&long).is_err(), "over 253 chars");

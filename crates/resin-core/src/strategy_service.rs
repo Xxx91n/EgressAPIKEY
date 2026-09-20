@@ -25,15 +25,15 @@ use std::sync::Mutex as StdMutex;
 
 use serde::Serialize;
 
+use crate::snapshot::{parse_resin_platforms, same_allocation_policy, ResinPlatformRuntime};
 use crate::strategy_engine::{
-    compute_plan, parse_nodes, CascadeError, EstablishStep, NodeSummary, PlatformStrategy, StrategyConfig,
-    SubscriptionPhase, SubscriptionStatus,
+    compute_plan, parse_nodes, CascadeError, EstablishStep, NodeSummary, PlatformStrategy,
+    StrategyConfig, SubscriptionPhase, SubscriptionStatus,
 };
 use crate::whitebox_backup::{
     atomic_write_bytes, backup_before_write, backup_list, now_unix, read_backup_parsed,
     WhiteboxBackupEntry,
 };
-use crate::snapshot::{parse_resin_platforms, same_allocation_policy, ResinPlatformRuntime};
 use crate::PortMapping;
 
 /// Bound defaults (validated by the tests at the bottom; the GUI is not the
@@ -127,7 +127,10 @@ impl ReconcileMemory {
         live_ports: &[u16],
         now: u64,
     ) -> Vec<crate::db::PortMapping> {
-        let guard = self.last.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let guard = self
+            .last
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         desired
             .iter()
             .filter(|m| m.enabled && !live_ports.contains(&m.port))
@@ -142,7 +145,10 @@ impl ReconcileMemory {
     /// Stamp a 409-conflict assertion (ADR-0069 D2) - the anti-hammer case.
     /// Successful assertions are deliberately NOT stamped: see the struct doc.
     pub fn stamp_asserted(&self, port: u16, now: u64) {
-        let mut guard = self.last.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut guard = self
+            .last
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         guard.insert(port, now);
     }
 }
@@ -306,8 +312,8 @@ fn same_region_set(a: &[String], b: &[String]) -> bool {
 }
 
 /// Where the whitebox strategy document lives and how it is read/written.
-    /// Abstracted behind a trait so apply/snapshot logic is unit-testable without
-    /// a filesystem.
+/// Abstracted behind a trait so apply/snapshot logic is unit-testable without
+/// a filesystem.
 pub trait StrategyConfigStore {
     /// Read the raw config. Missing file = `Ok(None)` (defaults apply).
     fn load(&self) -> Result<Option<StrategyConfig>, String>;
@@ -368,7 +374,11 @@ impl StrategyConfigStore for FsStrategyStore {
             ac.actor.as_deref().unwrap_or("gui:strategy_config_put"),
             before_hash,
             after_hash,
-            if write_result.is_ok() { "ok" } else { "error:write failed" },
+            if write_result.is_ok() {
+                "ok"
+            } else {
+                "error:write failed"
+            },
             Some(before_bytes),
             Some(after_bytes),
         );
@@ -392,7 +402,7 @@ impl FsStrategyStore {
     pub fn rollback(&self, backup_name: &str) -> Result<StrategyConfig, String> {
         let mut config: StrategyConfig = read_backup_parsed(&self.path, backup_name)?;
         validate(&config)?;
-// ADR-0058: a rollback IS a write-authority change — bump the
+        // ADR-0058: a rollback IS a write-authority change — bump the
         // generation here (the store trait's store() is a byte-dump and must
         // stay counter-agnostic; the service-level store() owns the bump for
         // the IPC put path, this is the store-adjacent rollback path).
@@ -467,11 +477,15 @@ pub fn validate(config: &StrategyConfig) -> Result<(), String> {
             return Err(format!("duplicate platform_name: {}", ps.platform_name));
         }
         if ps.regions.len() > MAX_REGIONS_PER_PLATFORM {
-            return Err(format!("regions list too long (max {MAX_REGIONS_PER_PLATFORM})"));
+            return Err(format!(
+                "regions list too long (max {MAX_REGIONS_PER_PLATFORM})"
+            ));
         }
         for r in &ps.regions {
             if r.is_empty() || r.len() > MAX_REGION_LEN {
-                return Err(format!("region code invalid (1..{MAX_REGION_LEN} chars): {r}"));
+                return Err(format!(
+                    "region code invalid (1..{MAX_REGION_LEN} chars): {r}"
+                ));
             }
         }
         if ps.subscriptions.len() > MAX_SUBSCRIPTIONS_PER_PLATFORM {
@@ -505,10 +519,14 @@ fn validate_subscription_statuses(rows: &[SubscriptionStatus]) -> Result<(), Str
     let mut seen = std::collections::HashSet::new();
     for (i, row) in rows.iter().enumerate() {
         if row.name.is_empty() || row.name.len() > MAX_PLATFORM_NAME_LEN {
-            return Err(format!("subscriptions[{i}].name must be 1..{MAX_PLATFORM_NAME_LEN} chars"));
+            return Err(format!(
+                "subscriptions[{i}].name must be 1..{MAX_PLATFORM_NAME_LEN} chars"
+            ));
         }
         if row.name.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-            return Err(format!("subscriptions[{i}].name contains control characters"));
+            return Err(format!(
+                "subscriptions[{i}].name contains control characters"
+            ));
         }
         if !seen.insert(row.name.clone()) {
             return Err(format!("duplicate subscriptions entry: {}", row.name));
@@ -518,18 +536,29 @@ fn validate_subscription_statuses(rows: &[SubscriptionStatus]) -> Result<(), Str
         match row.phase {
             SubscriptionPhase::Establishing | SubscriptionPhase::Failed => {
                 if !carrying_stage {
-                    return Err(format!("subscriptions[{i}] ({}) phase requires a stage", row.name));
+                    return Err(format!(
+                        "subscriptions[{i}] ({}) phase requires a stage",
+                        row.name
+                    ));
                 }
             }
             _ => {
                 if carrying_stage {
-                    return Err(format!("subscriptions[{i}] ({}) phase must not carry a stage", row.name));
+                    return Err(format!(
+                        "subscriptions[{i}] ({}) phase must not carry a stage",
+                        row.name
+                    ));
                 }
             }
         }
         if row.phase == SubscriptionPhase::Failed {
             match row.phase_error.as_deref() {
-                None => return Err(format!("subscriptions[{i}] ({}) Failed requires a phase_error", row.name)),
+                None => {
+                    return Err(format!(
+                        "subscriptions[{i}] ({}) Failed requires a phase_error",
+                        row.name
+                    ))
+                }
                 Some(e) => {
                     if e.is_empty() || e.len() > MAX_PHASE_ERROR_LEN {
                         return Err(format!(
@@ -542,7 +571,10 @@ fn validate_subscription_statuses(rows: &[SubscriptionStatus]) -> Result<(), Str
                 }
             }
         } else if carrying_error {
-            return Err(format!("subscriptions[{i}] ({}) phase must not carry a phase_error", row.name));
+            return Err(format!(
+                "subscriptions[{i}] ({}) phase must not carry a phase_error",
+                row.name
+            ));
         }
         // the cascade failure record validates like
         // every other persisted payload — reason NUL-checked + capped, the
@@ -594,12 +626,16 @@ fn validate_subscription_statuses(rows: &[SubscriptionStatus]) -> Result<(), Str
 /// members so the array cannot grow unbounded or smuggle junk.
 pub fn validate_acknowledged(list: &[String], field: &str) -> Result<(), String> {
     if list.len() > MAX_ACKNOWLEDGED_ENTRIES {
-        return Err(format!("{field} list too long (max {MAX_ACKNOWLEDGED_ENTRIES})"));
+        return Err(format!(
+            "{field} list too long (max {MAX_ACKNOWLEDGED_ENTRIES})"
+        ));
     }
     let mut seen = std::collections::HashSet::new();
     for (i, m) in list.iter().enumerate() {
         if m.is_empty() || m.len() > MAX_PLATFORM_NAME_LEN {
-            return Err(format!("{field}[{i}] must be 1..{MAX_PLATFORM_NAME_LEN} chars"));
+            return Err(format!(
+                "{field}[{i}] must be 1..{MAX_PLATFORM_NAME_LEN} chars"
+            ));
         }
         if m.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
             return Err(format!("{field}[{i}] contains control characters"));
@@ -639,7 +675,7 @@ impl<S: StrategyConfigStore> StrategyService<S> {
     }
 
     /// Validate + persist. The write entry for strategyConfig (ADR-0036).
-/// ADR-0058: the generation counter is bumped HERE — after
+    /// ADR-0058: the generation counter is bumped HERE — after
     /// validate, before the file lands — so every sanctioned write (IPC put,
     /// deep region edit, rollback, apply's own write-back) serially advances
     /// the write-authority generation. The caller passes its config by value
@@ -672,15 +708,23 @@ impl<S: StrategyConfigStore> StrategyService<S> {
             return Err("platform_name must be 1..128 chars".to_string());
         }
         if regions.len() > MAX_REGIONS_PER_PLATFORM {
-            return Err(format!("regions list too long (max {MAX_REGIONS_PER_PLATFORM})"));
+            return Err(format!(
+                "regions list too long (max {MAX_REGIONS_PER_PLATFORM})"
+            ));
         }
         for r in &regions {
             if r.is_empty() || r.len() > MAX_REGION_LEN {
-                return Err(format!("region code invalid (1..{MAX_REGION_LEN} chars): {r}"));
+                return Err(format!(
+                    "region code invalid (1..{MAX_REGION_LEN} chars): {r}"
+                ));
             }
         }
         let mut config = self.get()?;
-        match config.platforms.iter_mut().find(|ps| ps.platform_name == platform_name) {
+        match config
+            .platforms
+            .iter_mut()
+            .find(|ps| ps.platform_name == platform_name)
+        {
             Some(ps) => ps.regions = regions,
             None => config.platforms.push(PlatformStrategy {
                 platform_name: platform_name.to_string(),
@@ -721,7 +765,9 @@ impl<S: StrategyConfigStore> StrategyService<S> {
         }
         if let Some(err) = phase_error.as_deref() {
             if err.len() > MAX_PHASE_ERROR_LEN {
-                return Err(format!("phase_error too long (max {MAX_PHASE_ERROR_LEN} chars)"));
+                return Err(format!(
+                    "phase_error too long (max {MAX_PHASE_ERROR_LEN} chars)"
+                ));
             }
             if err.bytes().any(|b| b == 0) {
                 return Err("phase_error contains NUL".to_string());
@@ -893,10 +939,7 @@ impl StrategyService<FsStrategyStore> {
         let nodes_v = client.list_nodes().await.map_err(|e| e.to_string())?;
         let nodes = parse_nodes(&nodes_v);
 
-        let live_platforms_v = client
-            .list_platforms()
-            .await
-            .map_err(|e| e.to_string())?;
+        let live_platforms_v = client.list_platforms().await.map_err(|e| e.to_string())?;
         let live_names: std::collections::HashSet<String> = crate::items_arr(&live_platforms_v)
             .iter()
             .filter_map(|p| p.get("name").and_then(|n| n.as_str()).map(String::from))
@@ -908,19 +951,25 @@ impl StrategyService<FsStrategyStore> {
         // ADR-0057 wire shape (zero new requests). The dangling list is
         // merged into each platform's report row below; apply NEVER deletes
         // the whitebox entry for a dangling ref (ADR-0056 discipline).
-        let dangling_by_platform: HashMap<String, Vec<String>> =
-            if config.platforms.iter().any(|ps| !ps.subscriptions.is_empty()) {
-                let subs_v = client.list_subscriptions().await.map_err(|e| e.to_string())?;
-                let live_subs: std::collections::HashSet<String> = crate::items_arr(&subs_v)
-                    .iter()
-                    .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(String::from))
-                    .collect();
-                dangling_subscription_refs(&config, &live_subs)
-                    .into_iter()
-                    .collect()
-            } else {
-                HashMap::new()
-            };
+        let dangling_by_platform: HashMap<String, Vec<String>> = if config
+            .platforms
+            .iter()
+            .any(|ps| !ps.subscriptions.is_empty())
+        {
+            let subs_v = client
+                .list_subscriptions()
+                .await
+                .map_err(|e| e.to_string())?;
+            let live_subs: std::collections::HashSet<String> = crate::items_arr(&subs_v)
+                .iter()
+                .filter_map(|s| s.get("name").and_then(|n| n.as_str()).map(String::from))
+                .collect();
+            dangling_subscription_refs(&config, &live_subs)
+                .into_iter()
+                .collect()
+        } else {
+            HashMap::new()
+        };
 
         let plan = compute_plan(&config, &nodes);
         let mut platforms = Vec::new();
@@ -955,10 +1004,7 @@ impl StrategyService<FsStrategyStore> {
                     }
                 }
             }
-            let platforms_v = client
-                .list_platforms()
-                .await
-                .map_err(|e| e.to_string())?;
+            let platforms_v = client.list_platforms().await.map_err(|e| e.to_string())?;
             if let Some(id) = platform_id_for_name(&platforms_v, platform_name) {
                 // ADR-0057: diff-then-skip. Compare the computed
                 // region_filters against the live row we just read; PATCH
@@ -997,12 +1043,9 @@ impl StrategyService<FsStrategyStore> {
                 // The skip decision and the PATCH body are ONE decision: the
                 // body builder returns None exactly when nothing drifts, so
                 // "converged" and "zero bytes on the wire" can never disagree.
-                let Some(body) = strategy_patch_body(
-                    regions,
-                    regions_in_sync,
-                    &desired_policy,
-                    policy_in_sync,
-                ) else {
+                let Some(body) =
+                    strategy_patch_body(regions, regions_in_sync, &desired_policy, policy_in_sync)
+                else {
                     platforms.push(with_dangling_note(
                         AppliedPlatform {
                             platform: platform_name.clone(),
@@ -1070,7 +1113,11 @@ impl StrategyService<FsStrategyStore> {
             let failed = platforms
                 .iter()
                 .find(|p| !p.patched)
-                .map(|p| p.reason.clone().unwrap_or_else(|| "apply failed".to_string()))
+                .map(|p| {
+                    p.reason
+                        .clone()
+                        .unwrap_or_else(|| "apply failed".to_string())
+                })
                 .unwrap_or_else(|| "apply failed".to_string());
             let mut stale = self.get()?;
             stale.last_apply_error = Some(failed);
@@ -1114,8 +1161,8 @@ impl StrategyService<FsStrategyStore> {
         if !crate::strategy_engine::migrate_b_class_values(&mut raw) {
             return Ok(false);
         }
-        let config: StrategyConfig = serde_json::from_value(raw)
-            .map_err(|e| format!("strategy config parse error: {e}"))?;
+        let config: StrategyConfig =
+            serde_json::from_value(raw).map_err(|e| format!("strategy config parse error: {e}"))?;
         validate(&config)?;
         self.store_ref().store(&config)?;
         Ok(true)
@@ -1147,7 +1194,6 @@ impl StrategyService<FsStrategyStore> {
             ports_skipped: ports.skipped,
         })
     }
-
 }
 
 #[cfg(test)]
@@ -1339,7 +1385,9 @@ mod tests {
         let m_patch = server
             .mock("PATCH", "/api/v1/platforms/id-a")
             .match_header(bearer.0, bearer.1)
-            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .match_body(mockito::Matcher::PartialJson(
+                json!({"region_filters": ["HK"]}),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"id":"id-a"}"#)
@@ -1349,7 +1397,10 @@ mod tests {
 
         let base = server.url();
         let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
-        let report = svc.apply(&c, platform_id_for_name_fixture).await.expect("apply green");
+        let report = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("apply green");
         assert!(report.platforms[0].patched);
 
         // The write-back: applied_generation caught up, error slot cleared,
@@ -1357,8 +1408,14 @@ mod tests {
         // ConvergePhase derivation keys on (the write-back's own store()
         // bump means the landed file reads gen = N+1, applied = gen).
         let after = svc.get().unwrap();
-        assert_eq!(after.applied_generation, after.generation, "green pass must converge the counter pair");
-        assert!(after.applied_generation >= 1, "write-back went through store(): {after:?}");
+        assert_eq!(
+            after.applied_generation, after.generation,
+            "green pass must converge the counter pair"
+        );
+        assert!(
+            after.applied_generation >= 1,
+            "write-back went through store(): {after:?}"
+        );
         assert_eq!(after.last_apply_error, None);
         assert!(after.last_apply_at.is_some());
 
@@ -1376,8 +1433,7 @@ mod tests {
         let store_path = apply_fixture_store_path("gen-resync");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(cfg(vec![ps("alpha", &["HK"])]))
-            .unwrap();
+        svc.store(cfg(vec![ps("alpha", &["HK"])])).unwrap();
 
         let mut server = mockito::Server::new_async().await;
         let bearer = ("authorization", "Bearer testtok");
@@ -1410,11 +1466,17 @@ mod tests {
         let base = server.url();
         let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
         let before = svc.get().unwrap();
-        let report = svc.apply(&c, platform_id_for_name_fixture).await.expect("pass green");
+        let report = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("pass green");
         assert_eq!(report.platforms[0].reason.as_deref(), Some("in sync"));
         let after = svc.get().unwrap();
         assert_eq!(after.applied_generation, after.generation);
-        assert!(after.last_apply_at.is_some(), "zero-PATCH green pass still stamps apply time");
+        assert!(
+            after.last_apply_at.is_some(),
+            "zero-PATCH green pass still stamps apply time"
+        );
         assert!(after.last_apply_at >= before.last_apply_at);
         m_nodes.assert_async().await;
         m_platforms.assert_async().await;
@@ -1424,13 +1486,12 @@ mod tests {
 
     #[tokio::test]
     async fn apply_failure_keeps_old_applied_and_records_last_apply_error() {
-// failure path: anything not green keeps applied_generation at
+        // failure path: anything not green keeps applied_generation at
         // its old value (no fake convergence) and records the failure reason.
         let store_path = apply_fixture_store_path("gen-fail");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(cfg(vec![ps("alpha", &["HK"])]))
-            .unwrap();
+        svc.store(cfg(vec![ps("alpha", &["HK"])])).unwrap();
 
         let mut server = mockito::Server::new_async().await;
         let bearer = ("authorization", "Bearer testtok");
@@ -1466,13 +1527,23 @@ mod tests {
 
         let base = server.url();
         let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
-        let report = svc.apply(&c, platform_id_for_name_fixture).await.expect("apply reports per-platform");
+        let report = svc
+            .apply(&c, platform_id_for_name_fixture)
+            .await
+            .expect("apply reports per-platform");
         assert!(!report.platforms[0].patched);
 
         let after = svc.get().unwrap();
-        assert_eq!(after.applied_generation, 0, "failure must NOT converge the counter");
+        assert_eq!(
+            after.applied_generation, 0,
+            "failure must NOT converge the counter"
+        );
         assert!(
-            after.last_apply_error.as_deref().unwrap_or("").contains("PATCH failed"),
+            after
+                .last_apply_error
+                .as_deref()
+                .unwrap_or("")
+                .contains("PATCH failed"),
             "failure reason must be recorded: {after:?}"
         );
         // last_apply_at is untouched by a failed pass (only green passes
@@ -1487,17 +1558,21 @@ mod tests {
     // ---- set_platform_regions (deep edit for the canvas) ----
     #[test]
     fn set_platform_regions_updates_existing_entry() {
-        let svc = StrategyService::new(MemStore(
-            json!({"version": 1, "platforms": [
-                {"platform_name": "Anthropic", "a_class": "region", "b_class": "random", "regions": ["US"]}
-            ]}),
-        ));
+        let svc = StrategyService::new(MemStore(json!({"version": 1, "platforms": [
+            {"platform_name": "Anthropic", "a_class": "region", "b_class": "random", "regions": ["US"]}
+        ]})));
         let stored = svc
             .set_platform_regions("Anthropic", vec!["HK".to_string(), "SG".to_string()])
             .unwrap();
-        assert_eq!(stored.platforms[0].regions, vec!["HK".to_string(), "SG".to_string()]);
+        assert_eq!(
+            stored.platforms[0].regions,
+            vec!["HK".to_string(), "SG".to_string()]
+        );
         // a_class/b_class untouched
-        assert_eq!(stored.platforms[0].a_class, crate::strategy_engine::AClassStrategy::Region);
+        assert_eq!(
+            stored.platforms[0].a_class,
+            crate::strategy_engine::AClassStrategy::Region
+        );
     }
 
     #[test]
@@ -1507,7 +1582,10 @@ mod tests {
             .set_platform_regions("NewPlat", vec!["US".to_string()])
             .unwrap();
         assert_eq!(stored.platforms.len(), 1);
-        assert_eq!(stored.platforms[0].a_class, crate::strategy_engine::AClassStrategy::Region);
+        assert_eq!(
+            stored.platforms[0].a_class,
+            crate::strategy_engine::AClassStrategy::Region
+        );
         assert_eq!(stored.platforms[0].regions, vec!["US".to_string()]);
     }
 
@@ -1571,7 +1649,10 @@ mod tests {
             crate::whitebox_backup::backup_dir(&path).join(&backups[0].file_name),
         )
         .unwrap();
-        assert!(raw.contains("\"A\""), "backup must hold the PREVIOUS content");
+        assert!(
+            raw.contains("\"A\""),
+            "backup must hold the PREVIOUS content"
+        );
         assert!(!path.with_extension("json.tmp").exists());
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -1628,7 +1709,10 @@ mod tests {
         empty.acknowledged = vec![];
         fsvc.store(empty).unwrap();
         let raw = std::fs::read_to_string(&path).unwrap();
-        assert!(!raw.contains("acknowledged"), "empty exemption list must not appear in the file");
+        assert!(
+            !raw.contains("acknowledged"),
+            "empty exemption list must not appear in the file"
+        );
         let _ = std::fs::remove_file(&path);
         let _ = std::fs::remove_dir(&dir);
     }
@@ -1677,7 +1761,7 @@ mod tests {
         // missing -> None -> defaults
         let svc = StrategyService::new(store);
         assert!(svc.get().unwrap().platforms.is_empty());
-// store + reload ( store() bumps generation 0->1 and stamps
+        // store + reload ( store() bumps generation 0->1 and stamps
         // updated_at, so the reloaded doc differs from the input in exactly
         // those two write-authority fields).
         let c = cfg(vec![ps("Anthropic", &["US", "HK"])]);
@@ -1691,7 +1775,8 @@ mod tests {
         assert_eq!(reloaded.generation, 1);
         assert!(reloaded.updated_at.is_some());
         // set_platform_regions persists through the same file
-        svc.set_platform_regions("Anthropic", vec!["SG".to_string()]).unwrap();
+        svc.set_platform_regions("Anthropic", vec!["SG".to_string()])
+            .unwrap();
         let again = svc.get().unwrap();
         assert_eq!(again.platforms[0].regions, vec!["SG".to_string()]);
         let _ = std::fs::remove_file(&path);
@@ -1740,13 +1825,20 @@ mod tests {
         // live: alpha already patched to ["HK"] (order-insensitive equal),
         // beta live with the WRONG region -> patch_regions; "gamma" exists
         // only in the whitebox -> create_platform.
-        let live = vec![runtime("alpha", "id-a", &["HK"]), runtime("beta", "id-b", &["US"])];
+        let live = vec![
+            runtime("alpha", "id-a", &["HK"]),
+            runtime("beta", "id-b", &["US"]),
+        ];
         let plan = compute_reconcile_plan(&config, &nodes, &live, &[], &[]);
         // One-way semantics: the plan covers WHITEBOX entries only. alpha is
         // in sync (absent), beta drifted (patch_regions); runtime-only rows
         // are never "reconciled away" — they are snapshot drift, not plan rows.
         assert_eq!(plan.platforms.len(), 1, "{plan:?}");
-        let beta = plan.platforms.iter().find(|p| p.platform == "beta").unwrap();
+        let beta = plan
+            .platforms
+            .iter()
+            .find(|p| p.platform == "beta")
+            .unwrap();
         assert_eq!(beta.action, "patch_regions");
         assert_eq!(beta.desired_regions, vec!["HK".to_string()]);
         assert_eq!(beta.live_regions, vec!["US".to_string()]);
@@ -1756,7 +1848,11 @@ mod tests {
         // entry that Resin does not have:
         let config2 = cfg(vec![ps("alpha", &["HK"]), ps("gamma", &["HK"])]);
         let plan2 = compute_reconcile_plan(&config2, &nodes, &live, &[], &[]);
-        let g = plan2.platforms.iter().find(|p| p.platform == "gamma").unwrap();
+        let g = plan2
+            .platforms
+            .iter()
+            .find(|p| p.platform == "gamma")
+            .unwrap();
         assert_eq!(g.action, "create_platform");
         assert!(g.live_regions.is_empty());
     }
@@ -1777,7 +1873,10 @@ mod tests {
         // 17990 live; 17991 disabled -> no entry either way.
         let plan = compute_reconcile_plan(&cfg(vec![]), &[], &[], &[17990], &desired);
         assert!(plan.platforms.is_empty());
-        assert!(plan.ports.is_empty(), "disabled + already-live ports must not be listed: {plan:?}");
+        assert!(
+            plan.ports.is_empty(),
+            "disabled + already-live ports must not be listed: {plan:?}"
+        );
 
         let plan2 = compute_reconcile_plan(&cfg(vec![]), &[], &[], &[], &desired);
         assert_eq!(plan2.ports.len(), 1);
@@ -1799,10 +1898,15 @@ mod tests {
     #[test]
     fn endpoint_live_ports_parses_wrapper_and_dedups() {
         assert_eq!(
-            endpoint_live_ports(&json!({"items": [{"port": 17990}, {"port": 17100}, {"port": 17990}]})),
+            endpoint_live_ports(
+                &json!({"items": [{"port": 17990}, {"port": 17100}, {"port": 17990}]})
+            ),
             vec![17100, 17990]
         );
-        assert_eq!(endpoint_live_ports(&json!([{"port": 5}, {"port": 3}])), vec![3, 5]);
+        assert_eq!(
+            endpoint_live_ports(&json!([{"port": 5}, {"port": 3}])),
+            vec![3, 5]
+        );
         assert_eq!(endpoint_live_ports(&json!({})), Vec::<u16>::new());
     }
 
@@ -1818,10 +1922,16 @@ mod tests {
         // changes even though Resin still reports the port missing).
         mem.stamp_asserted(17990, 1_000);
         let second = mem.ports_to_assert(&desired, &[], 1_000 + 60);
-        assert!(second.is_empty(), "second reconcile must be a no-op: {second:?}");
+        assert!(
+            second.is_empty(),
+            "second reconcile must be a no-op: {second:?}"
+        );
         // Third pass after TTL expiry re-asserts (self-correction path).
         let third = mem.ports_to_assert(&desired, &[17990], 1_000 + RECONCILE_PORT_TTL_SECS);
-        assert!(third.is_empty(), "already-live port never re-asserts: {third:?}");
+        assert!(
+            third.is_empty(),
+            "already-live port never re-asserts: {third:?}"
+        );
         let fourth = mem.ports_to_assert(&desired, &[], 1_000 + RECONCILE_PORT_TTL_SECS);
         assert_eq!(fourth.len(), 1);
         // Disabled ports are never asserted at any point.
@@ -1881,7 +1991,9 @@ mod tests {
         let base = server.url();
         let c = crate::resin_client::ResinClient::new(&base, "testtok".into()).unwrap();
         let out = svc
-            .reconcile(&c, platform_id_for_name_fixture, async { Err("port restore boom".to_string()) })
+            .reconcile(&c, platform_id_for_name_fixture, async {
+                Err("port restore boom".to_string())
+            })
             .await;
         assert!(out.is_err());
         assert!(out.unwrap_err().contains("port restore boom"));
@@ -1892,7 +2004,11 @@ mod tests {
     // ---- apply: missing-on-resin platform semantics (ADR-0056) ----
 
     fn apply_fixture_store_path(tag: &str) -> std::path::PathBuf {
-        std::env::temp_dir().join(format!("strategy-apply-{}-{}.json", tag, std::process::id()))
+        std::env::temp_dir().join(format!(
+            "strategy-apply-{}-{}.json",
+            tag,
+            std::process::id()
+        ))
     }
 
     /// The preview promises "create_platform" for a whitebox platform absent
@@ -1904,8 +2020,7 @@ mod tests {
         let store_path = apply_fixture_store_path("create");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(cfg(vec![ps("alpha", &["HK"])]))
-            .unwrap();
+        svc.store(cfg(vec![ps("alpha", &["HK"])])).unwrap();
 
         let mut server = mockito::Server::new_async().await;
         let bearer = ("authorization", "Bearer testtok");
@@ -1953,7 +2068,9 @@ mod tests {
         let m_patch = server
             .mock("PATCH", "/api/v1/platforms/id-alpha")
             .match_header(bearer.0, bearer.1)
-            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .match_body(mockito::Matcher::PartialJson(
+                json!({"region_filters": ["HK"]}),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"id":"id-alpha"}"#)
@@ -1994,8 +2111,7 @@ mod tests {
         let store_path = apply_fixture_store_path("failcreate");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(cfg(vec![ps("alpha", &["HK"])]))
-            .unwrap();
+        svc.store(cfg(vec![ps("alpha", &["HK"])])).unwrap();
 
         let mut server = mockito::Server::new_async().await;
         let bearer = ("authorization", "Bearer testtok");
@@ -2064,8 +2180,7 @@ mod tests {
         let store_path = apply_fixture_store_path("live");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(cfg(vec![ps("alpha", &["HK"])]))
-            .unwrap();
+        svc.store(cfg(vec![ps("alpha", &["HK"])])).unwrap();
 
         let mut server = mockito::Server::new_async().await;
         let bearer = ("authorization", "Bearer testtok");
@@ -2099,7 +2214,9 @@ mod tests {
         let m_patch = server
             .mock("PATCH", "/api/v1/platforms/id-a")
             .match_header(bearer.0, bearer.1)
-            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .match_body(mockito::Matcher::PartialJson(
+                json!({"region_filters": ["HK"]}),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"id":"id-a"}"#)
@@ -2133,8 +2250,7 @@ mod tests {
         let store_path = apply_fixture_store_path("insync");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(cfg(vec![ps("alpha", &["HK"])]))
-            .unwrap();
+        svc.store(cfg(vec![ps("alpha", &["HK"])])).unwrap();
 
         let mut server = mockito::Server::new_async().await;
         let bearer = ("authorization", "Bearer testtok");
@@ -2195,8 +2311,7 @@ mod tests {
         let store_path = apply_fixture_store_path("twice");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(cfg(vec![ps("alpha", &["HK"])]))
-            .unwrap();
+        svc.store(cfg(vec![ps("alpha", &["HK"])])).unwrap();
 
         let mut server = mockito::Server::new_async().await;
         let bearer = ("authorization", "Bearer testtok");
@@ -2234,7 +2349,9 @@ mod tests {
         let m_patch = server
             .mock("PATCH", "/api/v1/platforms/id-a")
             .match_header(bearer.0, bearer.1)
-            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .match_body(mockito::Matcher::PartialJson(
+                json!({"region_filters": ["HK"]}),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"id":"id-a"}"#)
@@ -2265,7 +2382,7 @@ mod tests {
         let _ = std::fs::remove_file(&store_path);
     }
 
-/// pure lock: only the drifting axes are sent, and
+    /// pure lock: only the drifting axes are sent, and
     /// "nothing drifts" is the SAME value that means "write nothing".
     #[test]
     fn strategy_patch_body_sends_only_the_drifting_axes() {
@@ -2328,7 +2445,9 @@ mod tests {
         let m_patch = server
             .mock("PATCH", "/api/v1/platforms/id-a")
             .match_header(bearer.0, bearer.1)
-            .match_body(mockito::Matcher::PartialJson(json!({"allocation_policy": "PREFER_IDLE_IP"})))
+            .match_body(mockito::Matcher::PartialJson(
+                json!({"allocation_policy": "PREFER_IDLE_IP"}),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"id":"id-a"}"#)
@@ -2343,7 +2462,10 @@ mod tests {
             .await
             .expect("apply must succeed");
         assert!(report.platforms[0].patched, "{:?}", report.platforms[0]);
-        assert_eq!(report.platforms[0].reason, None, "a real write reports no reason");
+        assert_eq!(
+            report.platforms[0].reason, None,
+            "a real write reports no reason"
+        );
 
         m_nodes.assert_async().await;
         m_platforms.assert_async().await;
@@ -2351,7 +2473,7 @@ mod tests {
         let _ = std::fs::remove_file(&store_path);
     }
 
-/// the one-time whitebox migration rewrites the
+    /// the one-time whitebox migration rewrites the
     /// six withdrawn shell tokens to the three real policies, lands them on
     /// disk, leaves the generation pair alone, and then goes permanently quiet.
     #[test]
@@ -2371,7 +2493,10 @@ mod tests {
         std::fs::write(&store_path, serde_json::to_string_pretty(&legacy).unwrap()).unwrap();
 
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        assert!(svc.migrate_b_class_values_once().unwrap(), "first pass migrates");
+        assert!(
+            svc.migrate_b_class_values_once().unwrap(),
+            "first pass migrates"
+        );
 
         let after = svc.get().unwrap();
         let policy_of = |name: &str| {
@@ -2384,14 +2509,20 @@ mod tests {
         };
         assert_eq!(policy_of("alpha"), crate::strategy::StrategyId::Balanced);
         assert_eq!(policy_of("beta"), crate::strategy::StrategyId::PreferIdleIp);
-        assert_eq!(policy_of("gamma"), crate::strategy::StrategyId::PreferLowLatency);
+        assert_eq!(
+            policy_of("gamma"),
+            crate::strategy::StrategyId::PreferLowLatency
+        );
 
         // The FILE holds the canonical spelling, not just memory.
         let on_disk: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&store_path).unwrap()).unwrap();
         assert_eq!(on_disk["platforms"][0]["b_class"], json!("BALANCED"));
         assert_eq!(on_disk["platforms"][1]["b_class"], json!("PREFER_IDLE_IP"));
-        assert_eq!(on_disk["platforms"][2]["b_class"], json!("PREFER_LOW_LATENCY"));
+        assert_eq!(
+            on_disk["platforms"][2]["b_class"],
+            json!("PREFER_LOW_LATENCY")
+        );
 
         // Representation change, not a desired-state change: the generation
         // pair is untouched, so an already-converged runtime is not pushed
@@ -2400,7 +2531,10 @@ mod tests {
         assert_eq!(after.applied_generation, 3);
 
         // Second boot is quiet.
-        assert!(!svc.migrate_b_class_values_once().unwrap(), "second pass is a no-op");
+        assert!(
+            !svc.migrate_b_class_values_once().unwrap(),
+            "second pass is a no-op"
+        );
         let _ = std::fs::remove_file(&store_path);
     }
 
@@ -2485,7 +2619,9 @@ mod tests {
         let m_patch = server
             .mock("PATCH", "/api/v1/platforms/id-a")
             .match_header(bearer.0, bearer.1)
-            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .match_body(mockito::Matcher::PartialJson(
+                json!({"region_filters": ["HK"]}),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(r#"{"id":"id-a"}"#)
@@ -2528,8 +2664,7 @@ mod tests {
         let store_path = apply_fixture_store_path("nosubs");
         let _ = std::fs::remove_file(&store_path);
         let svc = StrategyService::new(FsStrategyStore::new(store_path.clone()));
-        svc.store(cfg(vec![ps("alpha", &["HK"])]))
-            .unwrap();
+        svc.store(cfg(vec![ps("alpha", &["HK"])])).unwrap();
 
         let mut server = mockito::Server::new_async().await;
         let bearer = ("authorization", "Bearer testtok");
@@ -2583,7 +2718,11 @@ mod tests {
             ps_sub("mixed", &["live-sub", "ghost-a", "ghost-b"]),
         ]);
         let out = dangling_subscription_refs(&config, &live);
-        assert_eq!(out.len(), 1, "clean + fully-resolvable platforms are absent: {out:?}");
+        assert_eq!(
+            out.len(),
+            1,
+            "clean + fully-resolvable platforms are absent: {out:?}"
+        );
         assert_eq!(out[0].0, "mixed");
         assert_eq!(out[0].1, vec!["ghost-a".to_string(), "ghost-b".to_string()]);
     }
@@ -2599,15 +2738,23 @@ mod tests {
         // No dangling refs: reason untouched (ADR-0057 "in sync" contract
         // stays byte-exact).
         assert_eq!(with_dangling_note(row.clone(), &[]).reason, None);
-        let in_sync = AppliedPlatform { reason: Some("in sync".into()), ..row.clone() };
+        let in_sync = AppliedPlatform {
+            reason: Some("in sync".into()),
+            ..row.clone()
+        };
         assert_eq!(
             with_dangling_note(in_sync, &[]).reason.as_deref(),
             Some("in sync"),
         );
         // Some + dangling: note appended after a "; " separator.
-        let in_sync = AppliedPlatform { reason: Some("in sync".into()), ..row.clone() };
+        let in_sync = AppliedPlatform {
+            reason: Some("in sync".into()),
+            ..row.clone()
+        };
         assert_eq!(
-            with_dangling_note(in_sync, &["g".to_string()]).reason.as_deref(),
+            with_dangling_note(in_sync, &["g".to_string()])
+                .reason
+                .as_deref(),
             Some("in sync; dangling subscription refs: g"),
         );
         // None + dangling: note stands alone with its own prefix.
@@ -2624,9 +2771,13 @@ mod tests {
     /// Phase tests persist across calls, so they use the REAL store (a temp
     /// file) — MemStore::store is a deliberate no-op fixture.
     fn fs_service(tag: &str) -> (StrategyService<FsStrategyStore>, PathBuf) {
-        let path = std::env::temp_dir().join(format!("phase-status-{tag}-{}.json", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("phase-status-{tag}-{}.json", std::process::id()));
         let _ = std::fs::remove_file(&path);
-        (StrategyService::new(FsStrategyStore::new(path.clone())), path)
+        (
+            StrategyService::new(FsStrategyStore::new(path.clone())),
+            path,
+        )
     }
 
     fn status(name: &str, phase: SubscriptionPhase) -> SubscriptionStatus {
@@ -2647,28 +2798,53 @@ mod tests {
         let (svc, _path) = fs_service("seq");
         // Never: only reachable as the ABSENCE of a row; recording it
         // explicitly is also legal (a cascade that resets a stale row).
-        let after = svc.record_subscription_phase("sub-a", SubscriptionPhase::Never, None, None).unwrap();
-        assert_eq!(after.subscriptions, vec![status("sub-a", SubscriptionPhase::Never)]);
+        let after = svc
+            .record_subscription_phase("sub-a", SubscriptionPhase::Never, None, None)
+            .unwrap();
+        assert_eq!(
+            after.subscriptions,
+            vec![status("sub-a", SubscriptionPhase::Never)]
+        );
 
-        let after = svc.record_subscription_phase("sub-a", SubscriptionPhase::Importing, None, None).unwrap();
+        let after = svc
+            .record_subscription_phase("sub-a", SubscriptionPhase::Importing, None, None)
+            .unwrap();
         assert_eq!(after.subscriptions[0].phase, SubscriptionPhase::Importing);
         assert!(after.subscriptions[0].stage.is_none());
 
         let after = svc
-            .record_subscription_phase("sub-a", SubscriptionPhase::Establishing, Some(EstablishStep::Platform), None)
+            .record_subscription_phase(
+                "sub-a",
+                SubscriptionPhase::Establishing,
+                Some(EstablishStep::Platform),
+                None,
+            )
             .unwrap();
-        assert_eq!(after.subscriptions[0].phase, SubscriptionPhase::Establishing);
+        assert_eq!(
+            after.subscriptions[0].phase,
+            SubscriptionPhase::Establishing
+        );
         assert_eq!(after.subscriptions[0].stage, Some(EstablishStep::Platform));
 
         let after = svc
-            .record_subscription_phase("sub-a", SubscriptionPhase::Establishing, Some(EstablishStep::Apply), None)
+            .record_subscription_phase(
+                "sub-a",
+                SubscriptionPhase::Establishing,
+                Some(EstablishStep::Apply),
+                None,
+            )
             .unwrap();
         assert_eq!(after.subscriptions[0].stage, Some(EstablishStep::Apply));
 
-        let after = svc.record_subscription_phase("sub-a", SubscriptionPhase::Converged, None, None).unwrap();
+        let after = svc
+            .record_subscription_phase("sub-a", SubscriptionPhase::Converged, None, None)
+            .unwrap();
         assert_eq!(after.subscriptions.len(), 1, "upsert, never duplicate");
         assert_eq!(after.subscriptions[0].phase, SubscriptionPhase::Converged);
-        assert!(after.subscriptions[0].stage.is_none(), "terminal green drops the stage");
+        assert!(
+            after.subscriptions[0].stage.is_none(),
+            "terminal green drops the stage"
+        );
         assert!(after.subscriptions[0].phase_error.is_none());
     }
 
@@ -2678,7 +2854,13 @@ mod tests {
     #[test]
     fn failed_phase_persists_stage_and_reason() {
         let (svc, _path) = fs_service("fail");
-        svc.record_subscription_phase("sub-x", SubscriptionPhase::Establishing, Some(EstablishStep::Bind), None).unwrap();
+        svc.record_subscription_phase(
+            "sub-x",
+            SubscriptionPhase::Establishing,
+            Some(EstablishStep::Bind),
+            None,
+        )
+        .unwrap();
         let after = svc
             .record_subscription_phase(
                 "sub-x",
@@ -2689,7 +2871,10 @@ mod tests {
             .unwrap();
         assert_eq!(after.subscriptions[0].phase, SubscriptionPhase::Failed);
         assert_eq!(after.subscriptions[0].stage, Some(EstablishStep::Bind));
-        assert_eq!(after.subscriptions[0].phase_error.as_deref(), Some("strategy apply: PATCH 500"));
+        assert_eq!(
+            after.subscriptions[0].phase_error.as_deref(),
+            Some("strategy apply: PATCH 500")
+        );
 
         // The status row survives an unrelated deep edit.
         svc.store(cfg(vec![ps("A", &["HK"])]));
@@ -2697,24 +2882,33 @@ mod tests {
         // store() replaced the whole document via cfg() — the status array
         // was reset by that DESIRED-state write. That is correct semantics:
         // a put is a full-document replace. Status writes never do this.
-        assert!(reread.subscriptions.is_empty(), "desired-state put is a full replace");
+        assert!(
+            reread.subscriptions.is_empty(),
+            "desired-state put is a full replace"
+        );
 
         // A fresh status row on the new document re-lands cleanly.
         let after2 = svc
-            .record_subscription_phase("sub-y", SubscriptionPhase::Failed, Some(EstablishStep::Resolve), Some("nodes not landed".to_string()))
+            .record_subscription_phase(
+                "sub-y",
+                SubscriptionPhase::Failed,
+                Some(EstablishStep::Resolve),
+                Some("nodes not landed".to_string()),
+            )
             .unwrap();
         assert_eq!(after2.subscriptions.len(), 1);
         assert_eq!(after2.subscriptions[0].stage, Some(EstablishStep::Resolve));
     }
 
-/// Checkpoint B: the status write is generation-aware in the
+    /// Checkpoint B: the status write is generation-aware in the
     /// ADR-0058 sense — it travels the ONE store entry (FsStrategyStore,
     /// validate + backup + audit) but does NOT bump the desired-state
     /// generation (k8s status-subresource rule). The pair stays converged
     /// across a cascade, so ADR-0058's top-level ConvergePhase cannot be
     /// flipped into a false PendingApply by a status write.
     #[test]
-    fn fs_status_write_keeps_generation_stable_and_lands_on_disk() -> Result<(), Box<dyn std::error::Error>> {
+    fn fs_status_write_keeps_generation_stable_and_lands_on_disk(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let dir = std::env::temp_dir().join(format!("phase-status-{}.json", std::process::id()));
         let _ = std::fs::remove_file(&dir);
         let svc = StrategyService::new(FsStrategyStore::new(dir.clone()));
@@ -2733,11 +2927,25 @@ mod tests {
 
         // The phase write: generation pair MUST NOT move.
         let after = svc
-            .record_subscription_phase("sub-a", SubscriptionPhase::Establishing, Some(EstablishStep::Platform), None)
+            .record_subscription_phase(
+                "sub-a",
+                SubscriptionPhase::Establishing,
+                Some(EstablishStep::Platform),
+                None,
+            )
             .unwrap();
-        assert_eq!(after.generation, converged.generation, "status write must not bump generation");
-        assert_eq!(after.applied_generation, converged.applied_generation, "status write must not fake convergence");
-        assert_eq!(after.updated_at, converged.updated_at, "status write is not a desired-state write");
+        assert_eq!(
+            after.generation, converged.generation,
+            "status write must not bump generation"
+        );
+        assert_eq!(
+            after.applied_generation, converged.applied_generation,
+            "status write must not fake convergence"
+        );
+        assert_eq!(
+            after.updated_at, converged.updated_at,
+            "status write is not a desired-state write"
+        );
 
         // ... and the row actually landed in the FILE (not just memory).
         let raw = std::fs::read_to_string(&dir).unwrap();
@@ -2748,16 +2956,23 @@ mod tests {
 
         // v1-file compat: a document WITHOUT the array still parses, and the
         // array is omitted on serialize while empty (skip_serializing_if).
-        let v1: StrategyConfig = serde_json::from_str(&json!({
-            "version": 1,
-            "platforms": []
-        }).to_string()).unwrap();
+        let v1: StrategyConfig = serde_json::from_str(
+            &json!({
+                "version": 1,
+                "platforms": []
+            })
+            .to_string(),
+        )
+        .unwrap();
         assert!(v1.subscriptions.is_empty());
         let ser = serde_json::to_string(&StrategyConfig::default()).unwrap();
-        assert!(!ser.contains("\"subscriptions\""), "empty status array must not serialize");
+        assert!(
+            !ser.contains("\"subscriptions\""),
+            "empty status array must not serialize"
+        );
 
         let _ = std::fs::remove_file(&dir);
-            Ok(())
+        Ok(())
     }
 
     /// Shape locks: stage/phase_error invariants + bounds are enforced by
@@ -2766,43 +2981,113 @@ mod tests {
     fn phase_row_shape_locks() {
         let (svc, _path) = fs_service("shape");
         // Establishing/Failed REQUIRE a stage...
-        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Establishing, None, None).is_err());
-        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Failed, None, Some("r".into())).is_err());
+        assert!(svc
+            .record_subscription_phase("s", SubscriptionPhase::Establishing, None, None)
+            .is_err());
+        assert!(svc
+            .record_subscription_phase("s", SubscriptionPhase::Failed, None, Some("r".into()))
+            .is_err());
         // ...but the data-landing phases never carry one...
-        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Importing, Some(EstablishStep::Import), None).is_err());
-        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Converged, Some(EstablishStep::Apply), None).is_err());
-        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Never, None, Some("r".into())).is_err());
+        assert!(svc
+            .record_subscription_phase(
+                "s",
+                SubscriptionPhase::Importing,
+                Some(EstablishStep::Import),
+                None
+            )
+            .is_err());
+        assert!(svc
+            .record_subscription_phase(
+                "s",
+                SubscriptionPhase::Converged,
+                Some(EstablishStep::Apply),
+                None
+            )
+            .is_err());
+        assert!(svc
+            .record_subscription_phase("s", SubscriptionPhase::Never, None, Some("r".into()))
+            .is_err());
         // ...Failed requires a reason; others never carry one.
-        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Failed, Some(EstablishStep::Platform), None).is_err());
+        assert!(svc
+            .record_subscription_phase(
+                "s",
+                SubscriptionPhase::Failed,
+                Some(EstablishStep::Platform),
+                None
+            )
+            .is_err());
         // Name hygiene (AGENTS 7.5): empty / oversized / control chars.
-        assert!(svc.record_subscription_phase("", SubscriptionPhase::Never, None, None).is_err());
-        assert!(svc.record_subscription_phase(&"x".repeat(129), SubscriptionPhase::Never, None, None).is_err());
-        assert!(svc.record_subscription_phase("a\u{0}b", SubscriptionPhase::Never, None, None).is_err());
+        assert!(svc
+            .record_subscription_phase("", SubscriptionPhase::Never, None, None)
+            .is_err());
+        assert!(svc
+            .record_subscription_phase(&"x".repeat(129), SubscriptionPhase::Never, None, None)
+            .is_err());
+        assert!(svc
+            .record_subscription_phase("a\u{0}b", SubscriptionPhase::Never, None, None)
+            .is_err());
         // Reason bounds.
         let long = "x".repeat(MAX_PHASE_ERROR_LEN + 1);
-        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Failed, Some(EstablishStep::Import), Some(long)).is_err());
+        assert!(svc
+            .record_subscription_phase(
+                "s",
+                SubscriptionPhase::Failed,
+                Some(EstablishStep::Import),
+                Some(long)
+            )
+            .is_err());
         let nul = "bad\u{0}reason".to_string();
-        assert!(svc.record_subscription_phase("s", SubscriptionPhase::Failed, Some(EstablishStep::Import), Some(nul)).is_err());
+        assert!(svc
+            .record_subscription_phase(
+                "s",
+                SubscriptionPhase::Failed,
+                Some(EstablishStep::Import),
+                Some(nul)
+            )
+            .is_err());
 
         // validate() rejects the same junk in a hand-edited document.
         let mut bad = cfg(vec![]);
-        bad.subscriptions = vec![SubscriptionStatus {
-            name: "dup".into(), phase: SubscriptionPhase::Never, stage: None, phase_error: None, last_cascade_error: None,
-        }, SubscriptionStatus {
-            name: "dup".into(), phase: SubscriptionPhase::Never, stage: None, phase_error: None, last_cascade_error: None,
-        }];
+        bad.subscriptions = vec![
+            SubscriptionStatus {
+                name: "dup".into(),
+                phase: SubscriptionPhase::Never,
+                stage: None,
+                phase_error: None,
+                last_cascade_error: None,
+            },
+            SubscriptionStatus {
+                name: "dup".into(),
+                phase: SubscriptionPhase::Never,
+                stage: None,
+                phase_error: None,
+                last_cascade_error: None,
+            },
+        ];
         assert!(validate(&bad).is_err(), "duplicate rows rejected");
         bad.subscriptions = vec![SubscriptionStatus {
-            name: "s".into(), phase: SubscriptionPhase::Converged, stage: Some(EstablishStep::Apply), phase_error: None, last_cascade_error: None,
+            name: "s".into(),
+            phase: SubscriptionPhase::Converged,
+            stage: Some(EstablishStep::Apply),
+            phase_error: None,
+            last_cascade_error: None,
         }];
         assert!(validate(&bad).is_err(), "Converged with a stage rejected");
         bad.subscriptions = vec![SubscriptionStatus {
-            name: "s".into(), phase: SubscriptionPhase::Failed, stage: Some(EstablishStep::Import), phase_error: None, last_cascade_error: None,
+            name: "s".into(),
+            phase: SubscriptionPhase::Failed,
+            stage: Some(EstablishStep::Import),
+            phase_error: None,
+            last_cascade_error: None,
         }];
         assert!(validate(&bad).is_err(), "Failed without a reason rejected");
         // A legal row passes.
         bad.subscriptions = vec![SubscriptionStatus {
-            name: "s".into(), phase: SubscriptionPhase::Failed, stage: Some(EstablishStep::Import), phase_error: Some("boom".into()), last_cascade_error: None,
+            name: "s".into(),
+            phase: SubscriptionPhase::Failed,
+            stage: Some(EstablishStep::Import),
+            phase_error: Some("boom".into()),
+            last_cascade_error: None,
         }];
         assert!(validate(&bad).is_ok());
     }
@@ -2819,7 +3104,12 @@ mod tests {
             "apply: failed on sub-a".to_string(),
         ];
         let after = svc
-            .record_cascade_failure("sub-a", EstablishStep::Apply, "PATCH failed: 500", actions.clone())
+            .record_cascade_failure(
+                "sub-a",
+                EstablishStep::Apply,
+                "PATCH failed: 500",
+                actions.clone(),
+            )
             .unwrap();
         let row = &after.subscriptions[0];
         assert_eq!(row.phase, SubscriptionPhase::Failed);
@@ -2839,38 +3129,75 @@ mod tests {
             .unwrap();
         let row = &green.subscriptions[0];
         assert_eq!(row.phase, SubscriptionPhase::Converged);
-        assert!(row.last_cascade_error.is_none(), "green cascade clears the record");
+        assert!(
+            row.last_cascade_error.is_none(),
+            "green cascade clears the record"
+        );
         // Non-terminal transitions keep it (the field is the LAST failure
         // by name until replaced or cleared).
         let _ = svc
-            .record_cascade_failure("sub-b", EstablishStep::Import, "create: 500", vec!["x".to_string()])
+            .record_cascade_failure(
+                "sub-b",
+                EstablishStep::Import,
+                "create: 500",
+                vec!["x".to_string()],
+            )
             .unwrap();
         let _ = svc
             .record_subscription_phase("sub-b", SubscriptionPhase::Importing, None, None)
             .unwrap();
         let cfg = svc.get().unwrap();
-        let row = cfg.subscriptions.iter().find(|r| r.name == "sub-b").unwrap();
-        assert!(row.last_cascade_error.is_some(), "Importing keeps the last failure record");
+        let row = cfg
+            .subscriptions
+            .iter()
+            .find(|r| r.name == "sub-b")
+            .unwrap();
+        assert!(
+            row.last_cascade_error.is_some(),
+            "Importing keeps the last failure record"
+        );
     }
 
     #[test]
     fn record_cascade_failure_bounds_rejected() {
         let (svc, _path) = fs_service("cascade-err-bounds");
         // Name hygiene (AGENTS 7.5).
-        assert!(svc.record_cascade_failure("", EstablishStep::Apply, "r", vec![]).is_err());
-        assert!(svc.record_cascade_failure("a\u{0}b", EstablishStep::Apply, "r", vec![]).is_err());
+        assert!(svc
+            .record_cascade_failure("", EstablishStep::Apply, "r", vec![])
+            .is_err());
+        assert!(svc
+            .record_cascade_failure("a\u{0}b", EstablishStep::Apply, "r", vec![])
+            .is_err());
         // Reason bounds.
-        assert!(svc.record_cascade_failure("s", EstablishStep::Apply, "", vec![]).is_err());
+        assert!(svc
+            .record_cascade_failure("s", EstablishStep::Apply, "", vec![])
+            .is_err());
         let long = "x".repeat(MAX_PHASE_ERROR_LEN + 1);
-        assert!(svc.record_cascade_failure("s", EstablishStep::Apply, &long, vec![]).is_err());
-        assert!(svc.record_cascade_failure("s", EstablishStep::Apply, "bad\u{0}reason", vec![]).is_err());
+        assert!(svc
+            .record_cascade_failure("s", EstablishStep::Apply, &long, vec![])
+            .is_err());
+        assert!(svc
+            .record_cascade_failure("s", EstablishStep::Apply, "bad\u{0}reason", vec![])
+            .is_err());
         // Rollback marking bounds (schema lock = bound, not extension point).
-        let too_many: Vec<String> = (0..MAX_ROLLBACK_ACTIONS + 1).map(|i| format!("a{i}")).collect();
-        assert!(svc.record_cascade_failure("s", EstablishStep::Apply, "r", too_many).is_err());
+        let too_many: Vec<String> = (0..MAX_ROLLBACK_ACTIONS + 1)
+            .map(|i| format!("a{i}"))
+            .collect();
+        assert!(svc
+            .record_cascade_failure("s", EstablishStep::Apply, "r", too_many)
+            .is_err());
         let too_long = "y".repeat(MAX_ROLLBACK_ACTION_LEN + 1);
-        assert!(svc.record_cascade_failure("s", EstablishStep::Apply, "r", vec![too_long]).is_err());
+        assert!(svc
+            .record_cascade_failure("s", EstablishStep::Apply, "r", vec![too_long])
+            .is_err());
         assert!(
-            svc.record_cascade_failure("s", EstablishStep::Apply, "r", vec!["nul\u{0}action".to_string()]).is_err(),
+            svc.record_cascade_failure(
+                "s",
+                EstablishStep::Apply,
+                "r",
+                vec!["nul\u{0}action".to_string()]
+            )
+            .is_err(),
             "NUL in a rollback action rejected"
         );
         // validate() rejects the same junk in a hand-edited document.

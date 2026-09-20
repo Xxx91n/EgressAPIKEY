@@ -2,13 +2,13 @@
 //!
 //! Extracted from the former commands/mod.rs monolith by
 //! pure mechanical move - no behavior, naming, or IPC-surface change.
-use serde::{Serialize};
-use tauri::{State};
+use super::common::{map_resin_error, resin_client};
+use super::ports::validate_port_segments;
 use crate::sidecar::SidecarHandle;
 use resin_core::DbPool;
 use resin_core::IpcError;
-use super::common::{map_resin_error, resin_client};
-use super::ports::{validate_port_segments};
+use serde::Serialize;
+use tauri::State;
 
 /// (ADR-0016 b): IPC snapshot of the sidecar stderr/stdout ring
 /// buffer. Returns the last N lines (oldest still in buffer first) for the
@@ -36,13 +36,21 @@ pub struct SidecarStatus {
 #[tauri::command]
 pub fn get_sidecar_status(sidecar: State<'_, SidecarHandle>) -> Result<SidecarStatus, IpcError> {
     let started = std::time::Instant::now();
-    let mode = sidecar.mode.read().map(|m| format!("{:?}", *m)).unwrap_or_else(|_| "Unknown".to_string());
+    let mode = sidecar
+        .mode
+        .read()
+        .map(|m| format!("{:?}", *m))
+        .unwrap_or_else(|_| "Unknown".to_string());
     // extract PID from the child process
-    let pid = sidecar.child.lock().map(|c| {
-        c.as_ref().map(|child| child.id()).unwrap_or(0)
-    }).unwrap_or(0);
+    let pid = sidecar
+        .child
+        .lock()
+        .map(|c| c.as_ref().map(|child| child.id()).unwrap_or(0))
+        .unwrap_or(0);
     // last healthz check timestamp
-    let healthz_last_check = sidecar.healthz_last_check.read()
+    let healthz_last_check = sidecar
+        .healthz_last_check
+        .read()
         .map(|g| g.clone())
         .unwrap_or_default();
     let ipc_latency_us = started.elapsed().as_micros() as u64;
@@ -102,12 +110,7 @@ pub fn format_log_ts(ts_ns: i64) -> String {
 pub fn request_log_entry_from_value(v: &serde_json::Value) -> RequestLogEntry {
     let ts_ns = v.get("ts_ns").and_then(|x| x.as_i64()).unwrap_or(0);
     let duration_ns = v.get("duration_ns").and_then(|x| x.as_i64()).unwrap_or(0);
-    let s = |k: &str| {
-        v.get(k)
-            .and_then(|x| x.as_str())
-            .unwrap_or("")
-            .to_string()
-    };
+    let s = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or("").to_string();
     RequestLogEntry {
         ts: format_log_ts(ts_ns),
         platform_name: s("platform_name"),
@@ -143,7 +146,10 @@ pub async fn request_log_tail(
             IpcError::internal("resin /api/v1/request-logs: response has no items array")
         })?;
     let entries: Vec<RequestLogEntry> = items.iter().map(request_log_entry_from_value).collect();
-    tracing::info!(count = entries.len(), "request_log_tail: read entries via REST");
+    tracing::info!(
+        count = entries.len(),
+        "request_log_tail: read entries via REST"
+    );
     Ok(entries)
 }
 
@@ -168,17 +174,17 @@ pub async fn check_firewall_status() -> Result<FirewallStatus, IpcError> {
         use tokio::process::Command;
 
         let mut cmd = Command::new("powershell");
-        cmd.args(["-NoProfile", "-Command",
-            "Get-NetFirewallProfile | Select-Object Name, Enabled | ConvertTo-Json"]);
+        cmd.args([
+            "-NoProfile",
+            "-Command",
+            "Get-NetFirewallProfile | Select-Object Name, Enabled | ConvertTo-Json",
+        ]);
         cmd.creation_flags(0x08000000u32); // CREATE_NO_WINDOW
 
-        let output = tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            cmd.output(),
-        )
-        .await
-        .map_err(|_| IpcError::internal("firewall check timed out (5s)"))?
-        .map_err(|e| IpcError::internal(&format!("firewall check: {e}")))?;
+        let output = tokio::time::timeout(std::time::Duration::from_secs(5), cmd.output())
+            .await
+            .map_err(|_| IpcError::internal("firewall check timed out (5s)"))?
+            .map_err(|e| IpcError::internal(&format!("firewall check: {e}")))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let firewall_on = stdout.contains("true");
@@ -203,29 +209,62 @@ pub async fn check_firewall_status() -> Result<FirewallStatus, IpcError> {
         async fn try_detect() -> Option<FirewallStatus> {
             let out = tokio::time::timeout(
                 std::time::Duration::from_secs(5),
-                Command::new("systemctl").args(["is-active", "ufw", "--quiet"]).output(),
-            ).await.ok()?.ok()?;
+                Command::new("systemctl")
+                    .args(["is-active", "ufw", "--quiet"])
+                    .output(),
+            )
+            .await
+            .ok()?
+            .ok()?;
             if String::from_utf8_lossy(&out.stdout).trim() == "active" {
-                return Some(FirewallStatus { platform: "linux".into(), firewall_on: true, inbound_blocked: true, detail: "UFW firewall is active.".into() });
+                return Some(FirewallStatus {
+                    platform: "linux".into(),
+                    firewall_on: true,
+                    inbound_blocked: true,
+                    detail: "UFW firewall is active.".into(),
+                });
             }
             let out = tokio::time::timeout(
                 std::time::Duration::from_secs(5),
-                Command::new("systemctl").args(["is-active", "firewalld", "--quiet"]).output(),
-            ).await.ok()?.ok()?;
+                Command::new("systemctl")
+                    .args(["is-active", "firewalld", "--quiet"])
+                    .output(),
+            )
+            .await
+            .ok()?
+            .ok()?;
             if String::from_utf8_lossy(&out.stdout).trim() == "active" {
-                return Some(FirewallStatus { platform: "linux".into(), firewall_on: true, inbound_blocked: true, detail: "firewalld is active.".into() });
+                return Some(FirewallStatus {
+                    platform: "linux".into(),
+                    firewall_on: true,
+                    inbound_blocked: true,
+                    detail: "firewalld is active.".into(),
+                });
             }
             if std::path::Path::new("/proc/net/ip_tables_names").exists() {
-                return Some(FirewallStatus { platform: "linux".into(), firewall_on: true, inbound_blocked: true, detail: "iptables tables detected.".into() });
+                return Some(FirewallStatus {
+                    platform: "linux".into(),
+                    firewall_on: true,
+                    inbound_blocked: true,
+                    detail: "iptables tables detected.".into(),
+                });
             }
             None
         }
         match try_detect().await {
             Some(status) => {
-                tracing::info!(firewall_on = status.firewall_on, "check_firewall_status: probed linux");
+                tracing::info!(
+                    firewall_on = status.firewall_on,
+                    "check_firewall_status: probed linux"
+                );
                 Ok(status)
             }
-            None => Ok(FirewallStatus { platform: "linux".into(), firewall_on: false, inbound_blocked: false, detail: "No firewall detected (or insufficient permissions).".into() }),
+            None => Ok(FirewallStatus {
+                platform: "linux".into(),
+                firewall_on: false,
+                inbound_blocked: false,
+                detail: "No firewall detected (or insufficient permissions).".into(),
+            }),
         }
     }
     #[cfg(target_os = "macos")]
@@ -239,17 +278,40 @@ pub async fn check_firewall_status() -> Result<FirewallStatus, IpcError> {
                 let stdout = String::from_utf8_lossy(&output.stdout).to_string();
                 let firewall_on = stdout.contains("enabled");
                 tracing::info!(firewall_on, "check_firewall_status: probed macos pfctl");
-                Ok(FirewallStatus { platform: "macos".into(), firewall_on, inbound_blocked: firewall_on, detail: if firewall_on { "pf firewall is enabled.".into() } else { "pf firewall appears disabled.".into() } })
+                Ok(FirewallStatus {
+                    platform: "macos".into(),
+                    firewall_on,
+                    inbound_blocked: firewall_on,
+                    detail: if firewall_on {
+                        "pf firewall is enabled.".into()
+                    } else {
+                        "pf firewall appears disabled.".into()
+                    },
+                })
             }
             _ => {
                 let pf_conf_exists = std::path::Path::new("/etc/pf.conf").exists();
-                Ok(FirewallStatus { platform: "macos".into(), firewall_on: pf_conf_exists, inbound_blocked: pf_conf_exists, detail: if pf_conf_exists { "/etc/pf.conf exists but status uncertain (pfctl needs root).".into() } else { "No pf.conf found; firewall likely disabled.".into() } })
+                Ok(FirewallStatus {
+                    platform: "macos".into(),
+                    firewall_on: pf_conf_exists,
+                    inbound_blocked: pf_conf_exists,
+                    detail: if pf_conf_exists {
+                        "/etc/pf.conf exists but status uncertain (pfctl needs root).".into()
+                    } else {
+                        "No pf.conf found; firewall likely disabled.".into()
+                    },
+                })
             }
         }
     }
     #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
     {
-        Ok(FirewallStatus { platform: std::env::consts::OS.into(), firewall_on: false, inbound_blocked: false, detail: "Firewall check not supported on this platform.".into() })
+        Ok(FirewallStatus {
+            platform: std::env::consts::OS.into(),
+            firewall_on: false,
+            inbound_blocked: false,
+            detail: "Firewall check not supported on this platform.".into(),
+        })
     }
 }
 
@@ -367,9 +429,7 @@ pub(crate) fn validate_metrics_range(
         }
         chrono::DateTime::parse_from_rfc3339(s)
             .map(|d| d.with_timezone(&chrono::Utc))
-            .map_err(|_| {
-                IpcError::invalid_input(&format!("metrics '{field}' must be RFC3339"))
-            })
+            .map_err(|_| IpcError::invalid_input(&format!("metrics '{field}' must be RFC3339")))
     };
     let from_dt = from.map(|s| parse(s, "from")).transpose()?;
     let to_dt = to.map(|s| parse(s, "to")).transpose()?;
@@ -389,16 +449,12 @@ pub(crate) fn validate_metrics_range(
                 ));
             }
             if t - f > window_cap {
-                return Err(IpcError::invalid_input(
-                    "metrics window exceeds 7 days",
-                ));
+                return Err(IpcError::invalid_input("metrics window exceeds 7 days"));
             }
         }
         (Some(f), None) => {
             if now - f > window_cap {
-                return Err(IpcError::invalid_input(
-                    "metrics window exceeds 7 days",
-                ));
+                return Err(IpcError::invalid_input("metrics window exceeds 7 days"));
             }
         }
         _ => {}
@@ -421,7 +477,11 @@ pub async fn metrics_probe_history(
 ) -> Result<serde_json::Value, IpcError> {
     let (from, to) = validate_metrics_range(from.as_deref(), to.as_deref())?;
     let client = resin_client(&sidecar)?;
-    tracing::debug!(?from, ?to, "metrics_probe_history: querying Resin history buckets");
+    tracing::debug!(
+        ?from,
+        ?to,
+        "metrics_probe_history: querying Resin history buckets"
+    );
     client
         .probe_history(from.as_deref(), to.as_deref())
         .await
@@ -522,11 +582,9 @@ mod t19_metrics_range_tests {
 
     #[test]
     fn accepts_valid_one_hour_window() {
-        let (from, to) = validate_metrics_range(
-            Some("2026-09-04T00:00:00Z"),
-            Some("2026-09-04T01:00:00Z"),
-        )
-        .expect("valid window must pass");
+        let (from, to) =
+            validate_metrics_range(Some("2026-09-04T00:00:00Z"), Some("2026-09-04T01:00:00Z"))
+                .expect("valid window must pass");
         assert_eq!(from.as_deref(), Some("2026-09-04T00:00:00Z"));
         assert_eq!(to.as_deref(), Some("2026-09-04T01:00:00Z"));
     }
@@ -542,16 +600,14 @@ mod t19_metrics_range_tests {
 
     #[test]
     fn rejects_from_after_to() {
-        assert!(validate_metrics_range(
-            Some("2026-09-04T01:00:00Z"),
-            Some("2026-09-04T00:00:00Z"),
-        )
-        .is_err());
-        assert!(validate_metrics_range(
-            Some("2026-09-04T01:00:00Z"),
-            Some("2026-09-04T01:00:00Z"),
-        )
-        .is_err());
+        assert!(
+            validate_metrics_range(Some("2026-09-04T01:00:00Z"), Some("2026-09-04T00:00:00Z"),)
+                .is_err()
+        );
+        assert!(
+            validate_metrics_range(Some("2026-09-04T01:00:00Z"), Some("2026-09-04T01:00:00Z"),)
+                .is_err()
+        );
     }
 
     #[test]
@@ -562,11 +618,10 @@ mod t19_metrics_range_tests {
 
     #[test]
     fn rejects_window_over_seven_days() {
-        assert!(validate_metrics_range(
-            Some("2026-08-01T00:00:00Z"),
-            Some("2026-09-04T00:00:00Z"),
-        )
-        .is_err());
+        assert!(
+            validate_metrics_range(Some("2026-08-01T00:00:00Z"), Some("2026-09-04T00:00:00Z"),)
+                .is_err()
+        );
         // from-only window (to defaults to now upstream) is capped the same.
         assert!(validate_metrics_range(Some("2026-08-01T00:00:00Z"), None).is_err());
     }

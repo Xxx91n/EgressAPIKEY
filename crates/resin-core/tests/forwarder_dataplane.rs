@@ -146,18 +146,16 @@ async fn spawn_origin(mode: OriginMode) -> (u16, OriginStats) {
 async fn handle_origin_conn(mut s: TcpStream, mode: OriginMode, st: OriginStats) {
     let mut buf = vec![0u8; 8192];
     match mode {
-        OriginMode::Echo => {
-            loop {
-                match s.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        if s.write_all(&buf[..n]).await.is_err() || s.flush().await.is_err() {
-                            break;
-                        }
+        OriginMode::Echo => loop {
+            match s.read(&mut buf).await {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    if s.write_all(&buf[..n]).await.is_err() || s.flush().await.is_err() {
+                        break;
                     }
                 }
             }
-        }
+        },
         OriginMode::HttpOnce => {
             if let Ok(n) = s.read(&mut buf).await {
                 *st.last_request.lock() = buf[..n].to_vec();
@@ -327,16 +325,22 @@ async fn engine_session(mut s: TcpStream, origin_port: u16, st: EngineState) {
             Some(v) => v,
             None => return,
         };
-        st.request_lines.lock().push(format!("SOCKS CONNECT {host}:{p}"));
+        st.request_lines
+            .lock()
+            .push(format!("SOCKS CONNECT {host}:{p}"));
         let _ = p; // (test-only shortcut: every CONNECT targets the loopback origin)
         match TcpStream::connect(("127.0.0.1", origin_port)).await {
             Ok(o) => {
-                let _ = s.write_all(&[0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await;
+                let _ = s
+                    .write_all(&[0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+                    .await;
                 st.tunnels.fetch_add(1, Ordering::SeqCst);
                 tunnel_copy(s, o).await;
             }
             Err(_) => {
-                let _ = s.write_all(&[0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await;
+                let _ = s
+                    .write_all(&[0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+                    .await;
             }
         }
         return;
@@ -414,14 +418,20 @@ async fn read_addr(s: &mut TcpStream, atyp: u8) -> Option<(String, u16)> {
             s.read_exact(&mut name).await.ok()?;
             let mut p = [0u8; 2];
             s.read_exact(&mut p).await.ok()?;
-            Some((String::from_utf8_lossy(&name).to_string(), u16::from_be_bytes(p)))
+            Some((
+                String::from_utf8_lossy(&name).to_string(),
+                u16::from_be_bytes(p),
+            ))
         }
         0x01 => {
             let mut ip = [0u8; 4];
             s.read_exact(&mut ip).await.ok()?;
             let mut p = [0u8; 2];
             s.read_exact(&mut p).await.ok()?;
-            Some((format!("{}.{}.{}.{}", ip[0], ip[1], ip[2], ip[3]), u16::from_be_bytes(p)))
+            Some((
+                format!("{}.{}.{}.{}", ip[0], ip[1], ip[2], ip[3]),
+                u16::from_be_bytes(p),
+            ))
         }
         _ => None,
     }
@@ -438,7 +448,11 @@ async fn socks_open(fwd_port: u16, host: &str, port: u16) -> TcpStream {
     s.write_all(&[0x05, 0x01, 0x02]).await.unwrap(); // offer UserPass only
     let mut rep = [0u8; 2];
     s.read_exact(&mut rep).await.unwrap();
-    assert_eq!(rep, [0x05, 0x00], "Mode A must select NoAuth credential-free");
+    assert_eq!(
+        rep,
+        [0x05, 0x00],
+        "Mode A must select NoAuth credential-free"
+    );
     let mut req = vec![0x05, 0x01, 0x00, 0x03, host.len() as u8];
     req.extend_from_slice(host.as_bytes());
     req.extend_from_slice(&port.to_be_bytes());
@@ -512,7 +526,10 @@ async fn mode_a_http_connect_injects_basic_and_shields_client_credential() {
     );
     let seen = es.auth_headers.lock();
     assert_eq!(seen.len(), 1);
-    assert_eq!(seen[0], want, "injected Basic identity, not the client credential");
+    assert_eq!(
+        seen[0], want,
+        "injected Basic identity, not the client credential"
+    );
     assert!(!seen[0].contains("c3VwZXJWaXNpb24"));
     assert_eq!(es.tunnels.load(Ordering::SeqCst), 1);
 }
@@ -555,9 +572,15 @@ async fn absolute_form_never_reaches_the_engine_forward_path() {
     );
     let lr = os.last_request.lock();
     let req_text = String::from_utf8_lossy(&lr).to_string();
-    assert!(req_text.starts_with("GET /ping HTTP/1.1"), "origin got {req_text}");
+    assert!(
+        req_text.starts_with("GET /ping HTTP/1.1"),
+        "origin got {req_text}"
+    );
     assert!(req_text.contains("Accept: text/event-stream"));
-    assert!(!req_text.contains("Proxy-Authorization"), "origin got {req_text}");
+    assert!(
+        !req_text.contains("Proxy-Authorization"),
+        "origin got {req_text}"
+    );
 }
 
 #[tokio::test]
@@ -578,8 +601,12 @@ async fn dialect_gate_mirrors_the_engine_refusals() {
     // header the D4 gate observed from Resin's socks5-only endpoint.
     let entry_socks = free_port().await;
     let _f2 = boot_shell_forwarder(entry_socks, engine_port, "socks5").await;
-    let mut s = TcpStream::connect(("127.0.0.1", entry_socks)).await.unwrap();
-    s.write_all(b"GET http://example.invalid/ HTTP/1.1\r\n\r\n").await.unwrap();
+    let mut s = TcpStream::connect(("127.0.0.1", entry_socks))
+        .await
+        .unwrap();
+    s.write_all(b"GET http://example.invalid/ HTTP/1.1\r\n\r\n")
+        .await
+        .unwrap();
     let mut head = Vec::new();
     for _ in 0..10 {
         let mut t = [0u8; 256];
@@ -594,7 +621,10 @@ async fn dialect_gate_mirrors_the_engine_refusals() {
     }
     let head = String::from_utf8_lossy(&head).to_string();
     assert!(head.contains("403"), "socks5-only port got {head}");
-    assert!(head.contains("ENDPOINT_CAPABILITY_DISABLED"), "socks5-only port got {head}");
+    assert!(
+        head.contains("ENDPOINT_CAPABILITY_DISABLED"),
+        "socks5-only port got {head}"
+    );
 }
 
 #[tokio::test]
@@ -658,10 +688,18 @@ async fn sse_flushes_per_event_through_the_forwarder() {
             seen += 1;
         }
     }
-    assert_eq!(arrivals.len(), 5, "five events must arrive individually, saw {}", arrivals.len());
+    assert_eq!(
+        arrivals.len(),
+        5,
+        "five events must arrive individually, saw {}",
+        arrivals.len()
+    );
     let spread = arrivals[4] - arrivals[0];
     // 4 gaps x 40 ms = 160 ms written; a batched relay would show ~0.
-    assert!(spread >= Duration::from_millis(80), "arrival spread {spread:?} proves batching");
+    assert!(
+        spread >= Duration::from_millis(80),
+        "arrival spread {spread:?} proves batching"
+    );
 }
 
 /// A complete event is the 10-byte frame "data: e<N>\n\n".
@@ -669,7 +707,10 @@ fn count_complete_events(buf: &[u8]) -> usize {
     let mut c = 0;
     let mut i = 0;
     while i + 10 <= buf.len() {
-        if &buf[i..i + 7] == b"data: e" && buf[i + 7].is_ascii_digit() && &buf[i + 8..i + 10] == b"\n\n" {
+        if &buf[i..i + 7] == b"data: e"
+            && buf[i + 7].is_ascii_digit()
+            && &buf[i + 8..i + 10] == b"\n\n"
+        {
             c += 1;
             i += 10;
         } else {
@@ -691,7 +732,11 @@ async fn client_abort_cascades_to_upstream_cancel() {
     let s = socks_open(entry, "127.0.0.1", origin_port).await;
     // Let the stream run briefly, then abort hard.
     tokio::time::sleep(Duration::from_millis(150)).await;
-    assert_eq!(os.accepted.load(Ordering::SeqCst), 1, "origin connected through the tunnel");
+    assert_eq!(
+        os.accepted.load(Ordering::SeqCst),
+        1,
+        "origin connected through the tunnel"
+    );
     drop(s);
 
     for _ in 0..150 {
@@ -719,7 +764,10 @@ async fn slow_client_backpressure_is_bounded() {
     let done = os.done_at.lock().is_some();
     // The 16 MiB body may not be "finished" into shell-side buffers while
     // the client read nothing: allow socket-sized slack only.
-    assert!(!done, "flood completed against an idle client - unbounded buffering");
+    assert!(
+        !done,
+        "flood completed against an idle client - unbounded buffering"
+    );
     assert!(
         written < 4 * 1024 * 1024,
         "idle-client chain absorbed {written} bytes (> 4 MiB is not socket-sized)"
@@ -808,5 +856,8 @@ async fn paired_request_added_latency_p95_under_5ms() {
     let p95 = deltas[(N as f64 * 0.95) as usize - 1];
     let median = deltas[N / 2];
     println!("paired added latency: median {median:.3} ms, p95 {p95:.3} ms over {N}");
-    assert!(p95 <= 5.0, "p95 added latency {p95:.3} ms exceeds the D-004 5 ms initial value");
+    assert!(
+        p95 <= 5.0,
+        "p95 added latency {p95:.3} ms exceeds the D-004 5 ms initial value"
+    );
 }

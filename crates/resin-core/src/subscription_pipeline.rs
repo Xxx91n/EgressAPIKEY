@@ -52,14 +52,14 @@ use std::sync::Mutex as StdMutex;
 
 use serde::{Deserialize, Serialize};
 
+use crate::db::{DbPool, PortMapping};
+use crate::port_forwarder::PortForwarder;
 use crate::resin_client::ResinClient;
+use crate::snapshot::ConvergePhase;
 use crate::strategy::StrategyId;
 use crate::strategy_engine::{AClassStrategy, PlatformStrategy};
 use crate::strategy_engine::{EstablishStep, SubscriptionPhase};
 use crate::strategy_service::{StrategyConfigStore, StrategyService};
-use crate::snapshot::ConvergePhase;
-use crate::db::{DbPool, PortMapping};
-use crate::port_forwarder::PortForwarder;
 use crate::whitebox_config::WhiteboxConfigStore;
 
 /// Retry budget per event. Exponential backoff base (seconds): 2, 4, 8, 16…
@@ -306,17 +306,16 @@ impl SubscriptionPipeline {
 /// Step 1: POST /subscriptions — skip when the name already exists on Resin
 /// (per-step idempotence; the name-keyed overwrite hazard makes re-POSTing
 /// a real hazard, not just a wasted write).
-pub async fn ensure_subscription(
-    client: &ResinClient,
-    name: &str,
-    url: &str,
-) -> StepStatus {
+pub async fn ensure_subscription(client: &ResinClient, name: &str, url: &str) -> StepStatus {
     let live = match client.list_subscriptions().await {
         Ok(v) => v,
         Err(e) => return StepStatus::Failed(format!("list subscriptions: {e}")),
     };
     let items = crate::items_arr(&live);
-    if items.iter().any(|s| s.get("name").and_then(|n| n.as_str()) == Some(name)) {
+    if items
+        .iter()
+        .any(|s| s.get("name").and_then(|n| n.as_str()) == Some(name))
+    {
         return StepStatus::AlreadyPresent;
     }
     let body = serde_json::json!({
@@ -371,17 +370,27 @@ pub async fn ensure_platform<S: StrategyConfigStore>(
     // ---- whitebox half (steps 3+4 of the spec's 5-step list) ----
     let config = match svc.get() {
         Ok(c) => c,
-        Err(e) => return (StepStatus::Failed(format!("whitebox read: {e}")), StepStatus::Failed("whitebox unreadable".to_string())),
+        Err(e) => {
+            return (
+                StepStatus::Failed(format!("whitebox read: {e}")),
+                StepStatus::Failed("whitebox unreadable".to_string()),
+            )
+        }
     };
     let whitebox_status = match config.platforms.iter().find(|ps| ps.platform_name == name) {
-        Some(ps) if ps.a_class == AClassStrategy::Subscription
-            && ps.subscriptions.iter().any(|s| s == name) =>
+        Some(ps)
+            if ps.a_class == AClassStrategy::Subscription
+                && ps.subscriptions.iter().any(|s| s == name) =>
         {
             StepStatus::AlreadyPresent
         }
         _ => {
             let mut next = config;
-            if let Some(ps) = next.platforms.iter_mut().find(|ps| ps.platform_name == name) {
+            if let Some(ps) = next
+                .platforms
+                .iter_mut()
+                .find(|ps| ps.platform_name == name)
+            {
                 ps.a_class = AClassStrategy::Subscription;
                 if !ps.subscriptions.iter().any(|s| s == name) {
                     ps.subscriptions.push(name.to_string());
@@ -407,13 +416,21 @@ pub async fn ensure_platform<S: StrategyConfigStore>(
     };
     if whitebox_status.is_failed() {
         // The Resin half cannot proceed without the whitebox intent.
-        return (whitebox_status, StepStatus::Failed("whitebox write failed; Resin half skipped".to_string()));
+        return (
+            whitebox_status,
+            StepStatus::Failed("whitebox write failed; Resin half skipped".to_string()),
+        );
     }
 
     // ---- Resin half (ADR-0056 create seam) ----
     let live = match client.list_platforms().await {
         Ok(v) => v,
-        Err(e) => return (whitebox_status, StepStatus::Failed(format!("list platforms: {e}"))),
+        Err(e) => {
+            return (
+                whitebox_status,
+                StepStatus::Failed(format!("list platforms: {e}")),
+            )
+        }
     };
     let items = crate::items_arr(&live);
     if items
@@ -424,7 +441,10 @@ pub async fn ensure_platform<S: StrategyConfigStore>(
     }
     match client.create_platform_from_name(name).await {
         Ok(_) => (whitebox_status, StepStatus::Written),
-        Err(e) => (whitebox_status, StepStatus::Failed(format!("create platform: {e}"))),
+        Err(e) => (
+            whitebox_status,
+            StepStatus::Failed(format!("create platform: {e}")),
+        ),
     }
 }
 
@@ -448,7 +468,10 @@ pub async fn apply_strategy(
                 let reason = failed
                     .and_then(|p| p.reason.clone())
                     .unwrap_or_else(|| "apply failed".to_string());
-                (StepStatus::Failed(reason), failed.map(|p| p.platform.clone()))
+                (
+                    StepStatus::Failed(reason),
+                    failed.map(|p| p.platform.clone()),
+                )
             }
         }
         Err(e) => (StepStatus::Failed(format!("strategy apply: {e}")), None),
@@ -488,7 +511,7 @@ pub async fn run_pipeline(
         // that produced it (Import/Resolve; steps after a failure are
         // skipped, so the FIRST failed step is the stage).
         let (stage, reason) = failed_stage(EstablishStep::Import, &[&s1, &s2]);
-// nothing past the subscription exists yet, so the
+        // nothing past the subscription exists yet, so the
         // compensation is a recorded no-op — the subscription itself (even
         // when this pass just created it) is the user's original data and
         // is NEVER deleted.
@@ -496,11 +519,22 @@ pub async fn run_pipeline(
         let _ = svc.record_cascade_failure(name, stage, &reason, actions);
         return PipelineReport {
             subscription: name.to_string(),
-            steps: [s1, s2, StepStatus::Failed("upstream step failed".to_string()), StepStatus::Failed("upstream step failed".to_string()), StepStatus::Failed("upstream step failed".to_string())],
+            steps: [
+                s1,
+                s2,
+                StepStatus::Failed("upstream step failed".to_string()),
+                StepStatus::Failed("upstream step failed".to_string()),
+                StepStatus::Failed("upstream step failed".to_string()),
+            ],
         };
     }
 
-    let _ = svc.record_subscription_phase(name, SubscriptionPhase::Establishing, Some(EstablishStep::Platform), None);
+    let _ = svc.record_subscription_phase(
+        name,
+        SubscriptionPhase::Establishing,
+        Some(EstablishStep::Platform),
+        None,
+    );
     let (s3, s4) = ensure_platform(client, svc, name).await;
     if s3.is_failed() || s4.is_failed() {
         let (stage, reason) = failed_stage(EstablishStep::Platform, &[&s3, &s4]);
@@ -514,27 +548,42 @@ pub async fn run_pipeline(
         let _ = svc.record_cascade_failure(name, stage, &reason, actions);
         return PipelineReport {
             subscription: name.to_string(),
-            steps: [s1, s2, s3, s4, StepStatus::Failed("upstream step failed".to_string())],
+            steps: [
+                s1,
+                s2,
+                s3,
+                s4,
+                StepStatus::Failed("upstream step failed".to_string()),
+            ],
         };
     }
 
-    let _ = svc.record_subscription_phase(name, SubscriptionPhase::Establishing, Some(EstablishStep::Apply), None);
+    let _ = svc.record_subscription_phase(
+        name,
+        SubscriptionPhase::Establishing,
+        Some(EstablishStep::Apply),
+        None,
+    );
     let (s5, failing_platform) = apply_strategy(client, svc).await;
     if let StepStatus::Failed(reason) = &s5 {
-// the platform row exists. Compensation deletes it
+        // the platform row exists. Compensation deletes it
         // ONLY when this pass created it (s4 Written) AND the apply failure
         // belongs to it — a failure owned by an unrelated platform must not
         // delete this cascade's resource (that platform may even be
         // already in sync).
         let created_this_pass = matches!(s4, StepStatus::Written);
         let actions =
-            compensate_failed_cascade(client, name, created_this_pass, failing_platform.as_deref()).await;
+            compensate_failed_cascade(client, name, created_this_pass, failing_platform.as_deref())
+                .await;
         let _ = svc.record_cascade_failure(name, EstablishStep::Apply, reason, actions);
     } else {
         // Converged also clears last_cascade_error (record_subscription_phase).
         let _ = svc.record_subscription_phase(name, SubscriptionPhase::Converged, None, None);
     }
-    PipelineReport { subscription: name.to_string(), steps: [s1, s2, s3, s4, s5] }
+    PipelineReport {
+        subscription: name.to_string(),
+        steps: [s1, s2, s3, s4, s5],
+    }
 }
 
 /// First failure in an ordered step run: its stage tag + KEP-1623-style
@@ -661,7 +710,11 @@ pub async fn ensure_default_port(
     // bound to this platform (ANY port). A pre-existing binding means the
     // user HAS a binding target — "only when the user did not provide one".
     let snapshot = whitebox.snapshot();
-    if let Some(existing) = snapshot.entry_ports.iter().find(|row| row.platform_name == platform_name) {
+    if let Some(existing) = snapshot
+        .entry_ports
+        .iter()
+        .find(|row| row.platform_name == platform_name)
+    {
         tracing::warn!(
             platform = %platform_name,
             port = existing.port,
@@ -715,7 +768,7 @@ pub async fn ensure_default_port(
         return StepStatus::AlreadyPresent;
     }
     // (e) Create the mixed listener — the exact endpoint body port_upsert
-// sends for a `mixed` mapping ( `socks5` no
+    // sends for a `mixed` mapping ( `socks5` no
     // longer implies HTTP forwarding, so the dual-flag default port declares
     // itself `mixed`). require_proxy_auth_info defaults on, matching the
     // GUI's default for new ports).
@@ -802,9 +855,8 @@ pub async fn ensure_default_port(
                             ep.get("id").and_then(|i| i.as_str()) != Some("default")
                                 && ep.get("port").and_then(|p| p.as_u64()) == Some(port as u64)
                         });
-                        if let Some(id) = target
-                            .and_then(|ep| ep.get("id"))
-                            .and_then(|i| i.as_str())
+                        if let Some(id) =
+                            target.and_then(|ep| ep.get("id")).and_then(|i| i.as_str())
                         {
                             if let Err(del_e) = client.delete_endpoint(id).await {
                                 tracing::warn!(
@@ -849,7 +901,13 @@ pub async fn ensure_default_port(
 /// validator rejects NUL) or a line break into a one-line UI hover.
 fn sanitize_action(s: String) -> String {
     s.chars()
-        .map(|c| if (c as u32) < 0x20 || (c as u32) == 0x7f { ' ' } else { c })
+        .map(|c| {
+            if (c as u32) < 0x20 || (c as u32) == 0x7f {
+                ' '
+            } else {
+                c
+            }
+        })
         .collect()
 }
 
@@ -876,9 +934,8 @@ pub async fn compensate_failed_cascade(
     if platform_created_this_pass {
         match failing_platform {
             Some(owner) if owner == name => match delete_cascade_platform(client, name).await {
-                Ok(()) => {
-                    actions.push("plat: deleted on Resin (cascade-created, apply failed)".to_string())
-                }
+                Ok(()) => actions
+                    .push("plat: deleted on Resin (cascade-created, apply failed)".to_string()),
                 Err(e) => actions.push(sanitize_action(format!("plat: delete failed ({e})"))),
             },
             Some(owner) => actions.push(sanitize_action(format!(
@@ -1017,10 +1074,19 @@ mod tests {
     use serde_json::json;
     use std::path::PathBuf;
 
-    fn temp_store(tag: &str) -> (StrategyService<crate::strategy_service::FsStrategyStore>, PathBuf) {
-        let path = std::env::temp_dir().join(format!("sub-pipeline-{tag}-{}.json", std::process::id()));
+    fn temp_store(
+        tag: &str,
+    ) -> (
+        StrategyService<crate::strategy_service::FsStrategyStore>,
+        PathBuf,
+    ) {
+        let path =
+            std::env::temp_dir().join(format!("sub-pipeline-{tag}-{}.json", std::process::id()));
         let _ = std::fs::remove_file(&path);
-        (StrategyService::new(crate::strategy_service::FsStrategyStore::new(path.clone())), path)
+        (
+            StrategyService::new(crate::strategy_service::FsStrategyStore::new(path.clone())),
+            path,
+        )
     }
 
     fn platform_id_for_name(v: &serde_json::Value, name: &str) -> Option<String> {
@@ -1046,13 +1112,20 @@ mod tests {
         for now in [0u64, 1, 1_000_000, u64::MAX] {
             let j = SubscriptionPipeline::retry_jitter("x", now);
             assert!(j < 30, "jitter stays inside its span: {j}");
-            assert_eq!(j, SubscriptionPipeline::retry_jitter("x", now), "deterministic for the same inputs");
+            assert_eq!(
+                j,
+                SubscriptionPipeline::retry_jitter("x", now),
+                "deterministic for the same inputs"
+            );
         }
         // Distinct names must spread out instead of all firing on one tick.
         let a = SubscriptionPipeline::retry_jitter("alpha", 1_000_000);
         let b = SubscriptionPipeline::retry_jitter("bravo", 1_000_000);
         let c = SubscriptionPipeline::retry_jitter("charlie", 1_000_000);
-        assert!(a != b || b != c, "jitter must not collapse every name onto one instant");
+        assert!(
+            a != b || b != c,
+            "jitter must not collapse every name onto one instant"
+        );
     }
 
     /// The driver tick: an empty queue is a true no-op (and NEVER enqueues a
@@ -1072,7 +1145,10 @@ mod tests {
         assert!(p.pending().is_empty(), "the driver must never enqueue");
         assert_eq!(p.failed_count(), 0, "the driver must never park anything");
 
-        assert!(p.enqueue(EstablishEvent { subscription: "x".into(), url: "https://u/x".into() }));
+        assert!(p.enqueue(EstablishEvent {
+            subscription: "x".into(),
+            url: "https://u/x".into()
+        }));
         // Freshly enqueued (next_retry_at = 0) => due at once.
         assert_eq!(p.due_count(now), 1);
         let reports = p.drive_due(&client, &svc, now).await;
@@ -1082,13 +1158,20 @@ mod tests {
         // Inside the backoff window: NOT due => untouched (no client call).
         assert_eq!(p.due_count(now + 1), 0, "re-queued behind backoff");
         let reports = p.drive_due(&client, &svc, now + 1).await;
-        assert!(reports.is_empty(), "a not-yet-due event must not be retried");
+        assert!(
+            reports.is_empty(),
+            "a not-yet-due event must not be retried"
+        );
 
         // Past the backoff plus the bounded jitter: due again.
         let later = now + 1 + SubscriptionPipeline::retry_delay(0) + 30;
         assert_eq!(p.due_count(later), 1, "backoff elapsed => due");
         let reports = p.drive_due(&client, &svc, later).await;
-        assert_eq!(reports.len(), 1, "the driver retries once the backoff elapsed");
+        assert_eq!(
+            reports.len(),
+            1,
+            "the driver retries once the backoff elapsed"
+        );
         let _ = std::fs::remove_file(path);
     }
 
@@ -1099,38 +1182,95 @@ mod tests {
         let (svc, path) = temp_store("drive-parked");
         let client = ResinClient::new("http://127.0.0.1:1", "t".into()).unwrap();
         let p = SubscriptionPipeline::new();
-        assert!(p.enqueue(EstablishEvent { subscription: "x".into(), url: "https://u/x".into() }));
+        assert!(p.enqueue(EstablishEvent {
+            subscription: "x".into(),
+            url: "https://u/x".into()
+        }));
 
         let now: u64 = 1_000_000;
         // MAX_ATTEMPTS driver ticks, each advancing past the jittered backoff.
         for attempt in 1..=MAX_ATTEMPTS {
-            let reports = p.drive_due(&client, &svc, now + u64::from(attempt) * 120).await;
-            assert_eq!(reports.len(), 1, "tick {attempt} must process the due event");
+            let reports = p
+                .drive_due(&client, &svc, now + u64::from(attempt) * 120)
+                .await;
+            assert_eq!(
+                reports.len(),
+                1,
+                "tick {attempt} must process the due event"
+            );
         }
         assert_eq!(p.failed_count(), 1, "parked after MAX_ATTEMPTS");
         assert_eq!(p.due_count(now + 999_999), 0, "a parked event is never due");
         let reports = p.drive_due(&client, &svc, now + 999_999).await;
-        assert!(reports.is_empty(), "the driver never retries a parked event");
+        assert!(
+            reports.is_empty(),
+            "the driver never retries a parked event"
+        );
         let _ = std::fs::remove_file(path);
     }
 
     #[test]
     fn terminal_state_requires_all_three_conditions() {
         let consumer = vec!["sub-x".to_string()];
-        assert!(is_terminal_state(&consumer, false, ConvergePhase::Converged, false));
+        assert!(is_terminal_state(
+            &consumer,
+            false,
+            ConvergePhase::Converged,
+            false
+        ));
         // consumed_by empty -> not terminal even when converged
-        assert!(!is_terminal_state(&[], false, ConvergePhase::Converged, false));
+        assert!(!is_terminal_state(
+            &[],
+            false,
+            ConvergePhase::Converged,
+            false
+        ));
         // platform missing -> not terminal
-        assert!(!is_terminal_state(&consumer, true, ConvergePhase::Converged, false));
+        assert!(!is_terminal_state(
+            &consumer,
+            true,
+            ConvergePhase::Converged,
+            false
+        ));
         // PendingApply / ApplyFailed / NeverApplied / Unknown -> not terminal
-        assert!(!is_terminal_state(&consumer, false, ConvergePhase::PendingApply, false));
-        assert!(!is_terminal_state(&consumer, false, ConvergePhase::ApplyFailed, false));
-        assert!(!is_terminal_state(&consumer, false, ConvergePhase::NeverApplied, false));
-        assert!(!is_terminal_state(&consumer, false, ConvergePhase::Unknown, false));
+        assert!(!is_terminal_state(
+            &consumer,
+            false,
+            ConvergePhase::PendingApply,
+            false
+        ));
+        assert!(!is_terminal_state(
+            &consumer,
+            false,
+            ConvergePhase::ApplyFailed,
+            false
+        ));
+        assert!(!is_terminal_state(
+            &consumer,
+            false,
+            ConvergePhase::NeverApplied,
+            false
+        ));
+        assert!(!is_terminal_state(
+            &consumer,
+            false,
+            ConvergePhase::Unknown,
+            false
+        ));
         // Drifted with acknowledged entries -> terminal (Drifted(ack))
-        assert!(is_terminal_state(&consumer, false, ConvergePhase::Drifted, true));
+        assert!(is_terminal_state(
+            &consumer,
+            false,
+            ConvergePhase::Drifted,
+            true
+        ));
         // Drifted with UNacknowledged drift -> not terminal
-        assert!(!is_terminal_state(&consumer, false, ConvergePhase::Drifted, false));
+        assert!(!is_terminal_state(
+            &consumer,
+            false,
+            ConvergePhase::Drifted,
+            false
+        ));
     }
 
     #[test]
@@ -1147,10 +1287,16 @@ mod tests {
         assert_eq!(reason, "resolve: nodes empty");
         // Whitebox section: platform beat then bind beat.
         let f_platform = StepStatus::Failed("create platform: 409".to_string());
-        let (stage, reason) = failed_stage(EstablishStep::Platform, &[&f_platform, &StepStatus::Failed("x".into())]);
+        let (stage, reason) = failed_stage(
+            EstablishStep::Platform,
+            &[&f_platform, &StepStatus::Failed("x".into())],
+        );
         assert_eq!(stage, EstablishStep::Platform);
         assert_eq!(reason, "create platform: 409");
-        let (stage, reason) = failed_stage(EstablishStep::Platform, &[&ok, &StepStatus::Failed("bind: 500".into())]);
+        let (stage, reason) = failed_stage(
+            EstablishStep::Platform,
+            &[&ok, &StepStatus::Failed("bind: 500".into())],
+        );
         assert_eq!(stage, EstablishStep::Bind);
         assert_eq!(reason, "bind: 500");
         // Apply section: single beat.
@@ -1165,16 +1311,37 @@ mod tests {
     #[test]
     fn enqueue_coalesces_per_name_and_respects_bound() {
         let p = SubscriptionPipeline::new();
-        assert!(p.enqueue(EstablishEvent { subscription: "a".into(), url: "https://u/a".into() }));
-        assert!(p.enqueue(EstablishEvent { subscription: "a".into(), url: "https://u/a2".into() }), "duplicate enqueue must coalesce, not duplicate");
-        assert!(p.enqueue(EstablishEvent { subscription: "b".into(), url: "https://u/b".into() }));
+        assert!(p.enqueue(EstablishEvent {
+            subscription: "a".into(),
+            url: "https://u/a".into()
+        }));
+        assert!(
+            p.enqueue(EstablishEvent {
+                subscription: "a".into(),
+                url: "https://u/a2".into()
+            }),
+            "duplicate enqueue must coalesce, not duplicate"
+        );
+        assert!(p.enqueue(EstablishEvent {
+            subscription: "b".into(),
+            url: "https://u/b".into()
+        }));
         assert_eq!(p.pending(), vec!["a".to_string(), "b".to_string()]);
         // Fill the remaining 62 slots (a+b already queued) to exactly MAX_QUEUE.
         for i in 0..(MAX_QUEUE - 2) {
-            assert!(p.enqueue(EstablishEvent { subscription: format!("n{i}"), url: String::new() }));
+            assert!(p.enqueue(EstablishEvent {
+                subscription: format!("n{i}"),
+                url: String::new()
+            }));
         }
         assert_eq!(p.pending().len(), MAX_QUEUE);
-        assert!(!p.enqueue(EstablishEvent { subscription: "overflow".into(), url: String::new() }), "queue must refuse beyond MAX_QUEUE");
+        assert!(
+            !p.enqueue(EstablishEvent {
+                subscription: "overflow".into(),
+                url: String::new()
+            }),
+            "queue must refuse beyond MAX_QUEUE"
+        );
     }
 
     // ---- THREE-STATE behavior locks against a mockito Resin ----
@@ -1187,7 +1354,9 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "sub-1", "name": name, "node_count": count}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "sub-1", "name": name, "node_count": count}]}).to_string(),
+            )
             .expect(3) // ensure read + resolve read + apply's dangling-ref read
             .create_async()
             .await
@@ -1217,7 +1386,9 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "sub-1", "name": "newsub", "node_count": 7}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "sub-1", "name": "newsub", "node_count": 7}]}).to_string(),
+            )
             .expect(2)
             .create_async()
             .await;
@@ -1252,7 +1423,10 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "id-newsub", "name": "newsub", "region_filters": []}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "id-newsub", "name": "newsub", "region_filters": []}]})
+                    .to_string(),
+            )
             .expect(2)
             .create_async()
             .await;
@@ -1280,7 +1454,9 @@ mod tests {
         let m_patch = server
             .mock("PATCH", "/api/v1/platforms/id-newsub")
             .match_header(BEARER.0, BEARER.1)
-            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .match_body(mockito::Matcher::PartialJson(
+                json!({"region_filters": ["HK"]}),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(json!({"id": "id-newsub"}).to_string())
@@ -1290,13 +1466,29 @@ mod tests {
 
         let base = server.url();
         let client = ResinClient::new(&base, "testtok".into()).unwrap();
-        let report = run_pipeline(&client, &svc, "newsub", "https://example.invalid/sub.yaml").await;
+        let report =
+            run_pipeline(&client, &svc, "newsub", "https://example.invalid/sub.yaml").await;
         assert!(report.all_ok(), "full pass must be green: {report:?}");
-        assert!(matches!(report.steps[0], StepStatus::Written), "sub create: {report:?}");
-        assert!(matches!(report.steps[1], StepStatus::AlreadyPresent), "resolve is a read: {report:?}");
-        assert!(matches!(report.steps[2], StepStatus::Written), "whitebox store: {report:?}");
-        assert!(matches!(report.steps[3], StepStatus::Written), "platform create: {report:?}");
-        assert!(matches!(report.steps[4], StepStatus::Written), "apply PATCH: {report:?}");
+        assert!(
+            matches!(report.steps[0], StepStatus::Written),
+            "sub create: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[1], StepStatus::AlreadyPresent),
+            "resolve is a read: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[2], StepStatus::Written),
+            "whitebox store: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[3], StepStatus::Written),
+            "platform create: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[4], StepStatus::Written),
+            "apply PATCH: {report:?}"
+        );
         // The whitebox entry exists with the subscription ref (step 3+4 fused).
         let cfg = svc.get().unwrap();
         assert!(cfg.platforms.iter().any(|ps| ps.platform_name == "newsub"
@@ -1336,7 +1528,8 @@ mod tests {
                 top_n: 10,
             }],
             ..Default::default()
-        }).unwrap();
+        })
+        .unwrap();
 
         let mut server = mockito::Server::new_async().await;
         // subscription list: already present (used by step 1 + step 2).
@@ -1352,7 +1545,10 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "id-newsub", "name": "newsub", "region_filters": ["HK"]}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "id-newsub", "name": "newsub", "region_filters": ["HK"]}]})
+                    .to_string(),
+            )
             .expect(3)
             .create_async()
             .await;
@@ -1372,11 +1568,24 @@ mod tests {
 
         let base = server.url();
         let client = ResinClient::new(&base, "testtok".into()).unwrap();
-        let report = run_pipeline(&client, &svc, "newsub", "https://example.invalid/sub.yaml").await;
-        assert!(report.all_ok(), "idempotent pass must be green with zero writes: {report:?}");
-        assert!(matches!(report.steps[0], StepStatus::AlreadyPresent), "sub already on Resin: {report:?}");
-        assert!(matches!(report.steps[2], StepStatus::AlreadyPresent), "whitebox ref already present: {report:?}");
-        assert!(matches!(report.steps[3], StepStatus::AlreadyPresent), "platform already on Resin: {report:?}");
+        let report =
+            run_pipeline(&client, &svc, "newsub", "https://example.invalid/sub.yaml").await;
+        assert!(
+            report.all_ok(),
+            "idempotent pass must be green with zero writes: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[0], StepStatus::AlreadyPresent),
+            "sub already on Resin: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[2], StepStatus::AlreadyPresent),
+            "whitebox ref already present: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[3], StepStatus::AlreadyPresent),
+            "platform already on Resin: {report:?}"
+        );
         // The PIPELINE's whitebox store entry did NOT run (ref already present,
         // platforms list unchanged). The generation DID advance 1->2 — that is
         // apply's OWN green write-back (ADR-0058 D3: a diff-then-skip zero-PATCH
@@ -1384,7 +1593,11 @@ mod tests {
         let cfg = svc.get().unwrap();
         assert_eq!(cfg.generation, 2, "only apply's green write-back may bump");
         assert_eq!(cfg.platforms.len(), 1, "no duplicate platform entry");
-        assert_eq!(cfg.platforms[0].subscriptions, vec!["newsub".to_string()], "ref not duplicated");
+        assert_eq!(
+            cfg.platforms[0].subscriptions,
+            vec!["newsub".to_string()],
+            "ref not duplicated"
+        );
 
         m_subs.assert_async().await;
         m_platforms.assert_async().await;
@@ -1420,7 +1633,9 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "s1", "name": "flaky", "node_count": 5}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "s1", "name": "flaky", "node_count": 5}]}).to_string(),
+            )
             .expect(2)
             .create_async()
             .await;
@@ -1447,7 +1662,10 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "id-flaky", "name": "flaky", "region_filters": []}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "id-flaky", "name": "flaky", "region_filters": []}]})
+                    .to_string(),
+            )
             .expect(3) // apply initial + apply per-platform re-read + compensation resolve read
             .create_async()
             .await;
@@ -1498,16 +1716,35 @@ mod tests {
 
         let base = server.url();
         let client = ResinClient::new(&base, "testtok".into()).unwrap();
-        let report = run_pipeline(&client, &svc, "flaky", "https://example.invalid/flaky.yaml").await;
-        assert!(!report.all_ok(), "apply failure must fail the pass: {report:?}");
-        assert!(matches!(report.steps[0], StepStatus::Written), "sub step green: {report:?}");
-        assert!(matches!(report.steps[3], StepStatus::Written), "platform step green: {report:?}");
-        assert!(matches!(report.steps[4], StepStatus::Failed(_)), "apply step failed: {report:?}");
-        assert!(report.first_error().unwrap().contains("PATCH failed"), "reason carries the upstream failure: {report:?}");
+        let report =
+            run_pipeline(&client, &svc, "flaky", "https://example.invalid/flaky.yaml").await;
+        assert!(
+            !report.all_ok(),
+            "apply failure must fail the pass: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[0], StepStatus::Written),
+            "sub step green: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[3], StepStatus::Written),
+            "platform step green: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[4], StepStatus::Failed(_)),
+            "apply step failed: {report:?}"
+        );
+        assert!(
+            report.first_error().unwrap().contains("PATCH failed"),
+            "reason carries the upstream failure: {report:?}"
+        );
         // ADR-0058: a failed apply keeps applied_generation at the old value
         // and records last_apply_error — no fake convergence.
         let cfg = svc.get().unwrap();
-        assert!(cfg.last_apply_error.is_some(), "failure must be persistent state");
+        assert!(
+            cfg.last_apply_error.is_some(),
+            "failure must be persistent state"
+        );
         // checkpoint B: the whitebox entry this cascade wrote is L2
         // desired state and SURVIVES the compensation (whitebox deletion is
         // another ticket's path).
@@ -1516,17 +1753,31 @@ mod tests {
                 && ps.a_class == AClassStrategy::Subscription),
             "whitebox entry must survive the compensation: {cfg:?}"
         );
-// checkpoint A branch 1: the failure record persists with the
+        // checkpoint A branch 1: the failure record persists with the
         // ordered sub/plat/port/apply marking; the cascade-created Resin
         // platform row was deleted.
-        let row = cfg.subscriptions.iter().find(|r| r.name == "flaky").expect("status row");
+        let row = cfg
+            .subscriptions
+            .iter()
+            .find(|r| r.name == "flaky")
+            .expect("status row");
         assert_eq!(row.phase, SubscriptionPhase::Failed);
         assert_eq!(row.stage, Some(EstablishStep::Apply));
-        let ce = row.last_cascade_error.as_ref().expect("cascade error record");
+        let ce = row
+            .last_cascade_error
+            .as_ref()
+            .expect("cascade error record");
         assert_eq!(ce.stage, EstablishStep::Apply);
-        assert_eq!(ce.rollback_actions.len(), 4, "strictly one entry per step: {ce:?}");
+        assert_eq!(
+            ce.rollback_actions.len(),
+            4,
+            "strictly one entry per step: {ce:?}"
+        );
         assert_eq!(ce.rollback_actions[0], "sub: kept (user data)");
-        assert_eq!(ce.rollback_actions[1], "plat: deleted on Resin (cascade-created, apply failed)");
+        assert_eq!(
+            ce.rollback_actions[1],
+            "plat: deleted on Resin (cascade-created, apply failed)"
+        );
         assert_eq!(ce.rollback_actions[2], "port: none (not run)");
         assert_eq!(ce.rollback_actions[3], "apply: failed on flaky");
 
@@ -1575,7 +1826,9 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "s1", "name": "platfail", "node_count": 2}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "s1", "name": "platfail", "node_count": 2}]}).to_string(),
+            )
             .expect(1)
             .create_async()
             .await;
@@ -1602,21 +1855,47 @@ mod tests {
 
         let base = server.url();
         let client = ResinClient::new(&base, "testtok".into()).unwrap();
-        let report = run_pipeline(&client, &svc, "platfail", "https://example.invalid/pf.yaml").await;
+        let report =
+            run_pipeline(&client, &svc, "platfail", "https://example.invalid/pf.yaml").await;
         assert!(!report.all_ok(), "{report:?}");
-        assert!(matches!(report.steps[0], StepStatus::Written), "sub green: {report:?}");
-        assert!(matches!(report.steps[2], StepStatus::Written), "whitebox half wrote: {report:?}");
-        assert!(matches!(report.steps[3], StepStatus::Failed(_)), "Resin create failed: {report:?}");
-        assert!(matches!(report.steps[4], StepStatus::Failed(_)), "apply never ran: {report:?}");
+        assert!(
+            matches!(report.steps[0], StepStatus::Written),
+            "sub green: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[2], StepStatus::Written),
+            "whitebox half wrote: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[3], StepStatus::Failed(_)),
+            "Resin create failed: {report:?}"
+        );
+        assert!(
+            matches!(report.steps[4], StepStatus::Failed(_)),
+            "apply never ran: {report:?}"
+        );
         let cfg = svc.get().unwrap();
         assert!(
-            cfg.platforms.iter().any(|ps| ps.platform_name == "platfail"),
+            cfg.platforms
+                .iter()
+                .any(|ps| ps.platform_name == "platfail"),
             "whitebox entry kept (checkpoint B): {cfg:?}"
         );
-        let row = cfg.subscriptions.iter().find(|r| r.name == "platfail").expect("row");
+        let row = cfg
+            .subscriptions
+            .iter()
+            .find(|r| r.name == "platfail")
+            .expect("row");
         assert_eq!(row.phase, SubscriptionPhase::Failed);
-        assert_eq!(row.stage, Some(EstablishStep::Bind), "Resin-create half maps to the bind beat (ORDER)");
-        let ce = row.last_cascade_error.as_ref().expect("cascade error record");
+        assert_eq!(
+            row.stage,
+            Some(EstablishStep::Bind),
+            "Resin-create half maps to the bind beat (ORDER)"
+        );
+        let ce = row
+            .last_cascade_error
+            .as_ref()
+            .expect("cascade error record");
         assert_eq!(ce.rollback_actions.len(), 4);
         assert_eq!(ce.rollback_actions[0], "sub: kept (user data)");
         assert_eq!(ce.rollback_actions[1], "plat: none (not created this pass)");
@@ -1651,18 +1930,35 @@ mod tests {
 
         let base = server.url();
         let client = ResinClient::new(&base, "testtok".into()).unwrap();
-        let report = run_pipeline(&client, &svc, "subfail", "https://example.invalid/sf.yaml").await;
+        let report =
+            run_pipeline(&client, &svc, "subfail", "https://example.invalid/sf.yaml").await;
         assert!(!report.all_ok(), "{report:?}");
-        assert!(matches!(report.steps[0], StepStatus::Failed(_)), "step 1 failed: {report:?}");
+        assert!(
+            matches!(report.steps[0], StepStatus::Failed(_)),
+            "step 1 failed: {report:?}"
+        );
         for (i, step) in report.steps.iter().enumerate().skip(1) {
-            assert!(matches!(step, StepStatus::Failed(_)), "step {i} skipped-failed: {step:?}");
+            assert!(
+                matches!(step, StepStatus::Failed(_)),
+                "step {i} skipped-failed: {step:?}"
+            );
         }
         let cfg = svc.get().unwrap();
-        assert!(cfg.platforms.is_empty(), "nothing written to the whitebox: {cfg:?}");
-        let row = cfg.subscriptions.iter().find(|r| r.name == "subfail").expect("row");
+        assert!(
+            cfg.platforms.is_empty(),
+            "nothing written to the whitebox: {cfg:?}"
+        );
+        let row = cfg
+            .subscriptions
+            .iter()
+            .find(|r| r.name == "subfail")
+            .expect("row");
         assert_eq!(row.phase, SubscriptionPhase::Failed);
         assert_eq!(row.stage, Some(EstablishStep::Import));
-        let ce = row.last_cascade_error.as_ref().expect("cascade error record");
+        let ce = row
+            .last_cascade_error
+            .as_ref()
+            .expect("cascade error record");
         assert_eq!(
             ce.rollback_actions,
             vec![
@@ -1715,7 +2011,9 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "s1", "name": "guarded", "node_count": 3}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "s1", "name": "guarded", "node_count": 3}]}).to_string(),
+            )
             .expect(2)
             .create_async()
             .await;
@@ -1729,7 +2027,7 @@ mod tests {
             .create_async()
             .await;
         // Platform reads: (1) ensure presence read — user-plat only;
-// (2..) apply initial + per-platform re-reads (2 platforms) + the
+        // (2..) apply initial + per-platform re-reads (2 platforms) + the
         // compensation resolve read — user-plat + guarded.
         let m_p_user = server
             .mock("GET", "/api/v1/platforms")
@@ -1745,10 +2043,13 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [
-                {"id": "id-user", "name": "user-plat", "region_filters": ["HK"]},
-                {"id": "id-guarded", "name": "guarded", "region_filters": []}
-            ]}).to_string())
+            .with_body(
+                json!({"items": [
+                    {"id": "id-user", "name": "user-plat", "region_filters": ["HK"]},
+                    {"id": "id-guarded", "name": "guarded", "region_filters": []}
+                ]})
+                .to_string(),
+            )
             .expect(4)
             .create_async()
             .await;
@@ -1795,20 +2096,41 @@ mod tests {
 
         let base = server.url();
         let client = ResinClient::new(&base, "testtok".into()).unwrap();
-        let report = run_pipeline(&client, &svc, "guarded", "https://example.invalid/guarded.yaml").await;
-        assert!(!report.all_ok(), "apply failure must fail the pass: {report:?}");
+        let report = run_pipeline(
+            &client,
+            &svc,
+            "guarded",
+            "https://example.invalid/guarded.yaml",
+        )
+        .await;
+        assert!(
+            !report.all_ok(),
+            "apply failure must fail the pass: {report:?}"
+        );
 
         let cfg = svc.get().unwrap();
         // Checkpoint B: BOTH whitebox entries survive — the user platform
         // verbatim, the cascade-created entry as desired state for a retry.
         assert!(
-            cfg.platforms.iter().any(|ps| ps.platform_name == "user-plat"),
+            cfg.platforms
+                .iter()
+                .any(|ps| ps.platform_name == "user-plat"),
             "user platform must survive: {cfg:?}"
         );
         assert!(cfg.platforms.iter().any(|ps| ps.platform_name == "guarded"));
-        let row = cfg.subscriptions.iter().find(|r| r.name == "guarded").expect("status row");
-        let ce = row.last_cascade_error.as_ref().expect("cascade error record");
-        assert_eq!(ce.rollback_actions[1], "plat: deleted on Resin (cascade-created, apply failed)");
+        let row = cfg
+            .subscriptions
+            .iter()
+            .find(|r| r.name == "guarded")
+            .expect("status row");
+        let ce = row
+            .last_cascade_error
+            .as_ref()
+            .expect("cascade error record");
+        assert_eq!(
+            ce.rollback_actions[1],
+            "plat: deleted on Resin (cascade-created, apply failed)"
+        );
         assert_eq!(ce.rollback_actions[3], "apply: failed on guarded");
 
         m_subs_absent.assert_async().await;
@@ -1861,7 +2183,9 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "s1", "name": "foreign-ok", "node_count": 3}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "s1", "name": "foreign-ok", "node_count": 3}]}).to_string(),
+            )
             .expect(2)
             .create_async()
             .await;
@@ -1879,7 +2203,10 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "id-user", "name": "user-plat", "region_filters": []}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "id-user", "name": "user-plat", "region_filters": []}]})
+                    .to_string(),
+            )
             .expect(1)
             .create_async()
             .await;
@@ -1891,10 +2218,13 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [
-                {"id": "id-user", "name": "user-plat", "region_filters": []},
-                {"id": "id-foreign", "name": "foreign-ok", "region_filters": []}
-            ]}).to_string())
+            .with_body(
+                json!({"items": [
+                    {"id": "id-user", "name": "user-plat", "region_filters": []},
+                    {"id": "id-foreign", "name": "foreign-ok", "region_filters": []}
+                ]})
+                .to_string(),
+            )
             .expect(3)
             .create_async()
             .await;
@@ -1931,7 +2261,9 @@ mod tests {
         let m_patch_foreign = server
             .mock("PATCH", "/api/v1/platforms/id-foreign")
             .match_header(BEARER.0, BEARER.1)
-            .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+            .match_body(mockito::Matcher::PartialJson(
+                json!({"region_filters": ["HK"]}),
+            ))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(json!({"id": "id-foreign"}).to_string())
@@ -1944,18 +2276,39 @@ mod tests {
 
         let base = server.url();
         let client = ResinClient::new(&base, "testtok".into()).unwrap();
-        let report = run_pipeline(&client, &svc, "foreign-ok", "https://example.invalid/fo.yaml").await;
+        let report = run_pipeline(
+            &client,
+            &svc,
+            "foreign-ok",
+            "https://example.invalid/fo.yaml",
+        )
+        .await;
         assert!(!report.all_ok(), "{report:?}");
 
         let cfg = svc.get().unwrap();
-        assert!(cfg.platforms.iter().any(|ps| ps.platform_name == "user-plat"));
+        assert!(cfg
+            .platforms
+            .iter()
+            .any(|ps| ps.platform_name == "user-plat"));
         assert!(
-            cfg.platforms.iter().any(|ps| ps.platform_name == "foreign-ok"),
+            cfg.platforms
+                .iter()
+                .any(|ps| ps.platform_name == "foreign-ok"),
             "cascade-created platform kept (no overreach): {cfg:?}"
         );
-        let row = cfg.subscriptions.iter().find(|r| r.name == "foreign-ok").expect("status row");
-        let ce = row.last_cascade_error.as_ref().expect("cascade error record");
-        assert_eq!(ce.rollback_actions[1], "plat: kept (apply failure owned by user-plat)");
+        let row = cfg
+            .subscriptions
+            .iter()
+            .find(|r| r.name == "foreign-ok")
+            .expect("status row");
+        let ce = row
+            .last_cascade_error
+            .as_ref()
+            .expect("cascade error record");
+        assert_eq!(
+            ce.rollback_actions[1],
+            "plat: kept (apply failure owned by user-plat)"
+        );
         assert_eq!(ce.rollback_actions[3], "apply: failed on user-plat");
 
         m_subs_absent.assert_async().await;
@@ -1980,7 +2333,10 @@ mod tests {
         let server_url = "http://127.0.0.1:1";
         let client = ResinClient::new(server_url, "t".into()).unwrap();
         let p = SubscriptionPipeline::new();
-        assert!(p.enqueue(EstablishEvent { subscription: "x".into(), url: "https://u/x".into() }));
+        assert!(p.enqueue(EstablishEvent {
+            subscription: "x".into(),
+            url: "https://u/x".into()
+        }));
 
         let now: u64 = 1_000_000;
         // MAX_ATTEMPTS consecutive drains, each advancing the clock past the backoff.
@@ -1989,17 +2345,27 @@ mod tests {
             assert_eq!(reports.len(), 1, "attempt {attempt} must process the event");
             assert!(!reports[0].all_ok());
             if attempt < MAX_ATTEMPTS {
-                assert_eq!(p.pending(), vec!["x".to_string()], "re-queued for backoff retry");
+                assert_eq!(
+                    p.pending(),
+                    vec!["x".to_string()],
+                    "re-queued for backoff retry"
+                );
                 assert_eq!(p.failed_count(), 0);
             }
         }
-        assert!(p.pending().is_empty() || p.failed_count() == 1, "after max attempts the event parks");
+        assert!(
+            p.pending().is_empty() || p.failed_count() == 1,
+            "after max attempts the event parks"
+        );
         assert_eq!(p.failed_count(), 1, "parked event is counted");
         // A parked event is NOT retried by later drains.
         let reports = p.drain(&client, &svc, now + 999_999).await;
         assert!(reports.is_empty(), "parked events never re-run");
         // A fresh user enqueue re-arms it (fresh action = fresh budget).
-        assert!(p.enqueue(EstablishEvent { subscription: "x".into(), url: "https://u/x".into() }));
+        assert!(p.enqueue(EstablishEvent {
+            subscription: "x".into(),
+            url: "https://u/x".into()
+        }));
         let reports = p.drain(&client, &svc, now + 1_000_000).await;
         assert_eq!(reports.len(), 1, "re-enqueued event runs again");
         let _ = std::fs::remove_file(path);
@@ -2017,7 +2383,10 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(json!({"items": [{"id": "id-conv", "name": "conv", "region_filters": ["HK"]}]}).to_string())
+            .with_body(
+                json!({"items": [{"id": "id-conv", "name": "conv", "region_filters": ["HK"]}]})
+                    .to_string(),
+            )
             .expect(3) // ensure read + apply initial + apply per-platform re-read
             .create_async()
             .await;
@@ -2043,15 +2412,23 @@ mod tests {
                 top_n: 10,
             }],
             ..Default::default()
-        }).unwrap();
+        })
+        .unwrap();
 
         let base = server.url();
         let client = ResinClient::new(&base, "testtok".into()).unwrap();
         let p = SubscriptionPipeline::new();
-        assert!(p.enqueue(EstablishEvent { subscription: "conv".into(), url: "https://u/conv".into() }));
+        assert!(p.enqueue(EstablishEvent {
+            subscription: "conv".into(),
+            url: "https://u/conv".into()
+        }));
         let reports = p.drain(&client, &svc, 1_700_000_000).await;
         assert_eq!(reports.len(), 1);
-        assert!(reports[0].all_ok(), "converged world must pass green: {:?}", reports[0]);
+        assert!(
+            reports[0].all_ok(),
+            "converged world must pass green: {:?}",
+            reports[0]
+        );
         assert!(p.pending().is_empty(), "successful drain removes the event");
         assert_eq!(p.failed_count(), 0);
 
@@ -2101,7 +2478,12 @@ mod tests {
 
     async fn port_fixture(
         tag: &str,
-    ) -> (DbPool, PortForwarder, WhiteboxConfigStore, std::path::PathBuf) {
+    ) -> (
+        DbPool,
+        PortForwarder,
+        WhiteboxConfigStore,
+        std::path::PathBuf,
+    ) {
         let db = DbPool::open_in_memory().unwrap();
         let forwarder = PortForwarder::new(db.clone(), "127.0.0.1", 1, "");
         let path = std::env::temp_dir().join(format!(
@@ -2158,11 +2540,17 @@ mod tests {
         let base = server.url();
         let client = ResinClient::new(&base, "testtok".into()).unwrap();
         let status = ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", None).await;
-        assert!(matches!(status, StepStatus::Written), "default port must be created: {status:?}");
+        assert!(
+            matches!(status, StepStatus::Written),
+            "default port must be created: {status:?}"
+        );
 
         let rows = db.list_ports().unwrap();
         assert_eq!(rows.len(), 1, "exactly one row: {rows:?}");
-        assert_eq!(rows[0].protocol, crate::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL);
+        assert_eq!(
+            rows[0].protocol,
+            crate::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL
+        );
         assert_eq!(rows[0].platform_name, "newsub");
         assert_eq!(rows[0].account, format!("port-{}", rows[0].port));
         assert!(rows[0].enabled);
@@ -2201,7 +2589,10 @@ mod tests {
         assert!(matches!(status, StepStatus::Written), "{status:?}");
         let rows = db.list_ports().unwrap();
         assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].port, 24310, "user-provided port must win over suggest");
+        assert_eq!(
+            rows[0].port, 24310,
+            "user-provided port must win over suggest"
+        );
 
         m_list.assert_async().await;
         m_create.assert_async().await;
@@ -2255,7 +2646,11 @@ mod tests {
         assert_eq!(rows.len(), 1, "no row added");
         assert_eq!(rows[0].platform_name, "other", "existing port untouched");
         assert_eq!(rows[0].port, 18500);
-        assert_eq!(whitebox.snapshot().entry_ports, vec![seeded], "whitebox untouched");
+        assert_eq!(
+            whitebox.snapshot().entry_ports,
+            vec![seeded],
+            "whitebox untouched"
+        );
         let _ = std::fs::remove_file(path);
     }
 
@@ -2284,7 +2679,10 @@ mod tests {
         let status =
             ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", Some(24311)).await;
         assert!(matches!(status, StepStatus::AlreadyPresent), "{status:?}");
-        assert!(db.list_ports().unwrap().is_empty(), "foreign listener must not be adopted");
+        assert!(
+            db.list_ports().unwrap().is_empty(),
+            "foreign listener must not be adopted"
+        );
         assert!(whitebox.snapshot().entry_ports.is_empty());
         m_list.assert_async().await;
         let _ = std::fs::remove_file(path);
@@ -2297,7 +2695,8 @@ mod tests {
     async fn default_port_privileged_user_port_skips() {
         let (db, forwarder, whitebox, path) = port_fixture("def-priv").await;
         let client = ResinClient::new("http://127.0.0.1:1", "t".into()).unwrap();
-        let status = ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", Some(80)).await;
+        let status =
+            ensure_default_port(&client, &db, &forwarder, &whitebox, "newsub", Some(80)).await;
         assert!(matches!(status, StepStatus::AlreadyPresent), "{status:?}");
         assert!(db.list_ports().unwrap().is_empty());
         assert!(whitebox.snapshot().entry_ports.is_empty());
@@ -2390,9 +2789,7 @@ mod tests {
             .match_header(BEARER.0, BEARER.1)
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(
-                json!({"items": [{"id": "ep-comp", "port": 24420}]}).to_string(),
-            )
+            .with_body(json!({"items": [{"id": "ep-comp", "port": 24420}]}).to_string())
             .expect(1)
             .create_async()
             .await;
@@ -2423,7 +2820,11 @@ mod tests {
             })
             .collect();
         whitebox
-            .apply(&db, &forwarder, crate::whitebox_config::WhiteboxConfig::from_ports(seed))
+            .apply(
+                &db,
+                &forwarder,
+                crate::whitebox_config::WhiteboxConfig::from_ports(seed),
+            )
             .await
             .unwrap();
 
@@ -2437,7 +2838,11 @@ mod tests {
         let wb_rows = whitebox.snapshot().entry_ports;
         assert_eq!(wb_rows.len(), crate::port_forwarder::MAX_ENTRY_PORTS);
         assert!(wb_rows.iter().all(|r| r.platform_name != "compsub"));
-        assert!(!db.list_ports().unwrap().iter().any(|r| r.platform_name == "compsub"));
+        assert!(!db
+            .list_ports()
+            .unwrap()
+            .iter()
+            .any(|r| r.platform_name == "compsub"));
 
         m_list_empty.assert_async().await;
         m_create.assert_async().await;

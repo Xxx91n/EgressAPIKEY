@@ -2,7 +2,7 @@
 //! Shared IPC-boundary helpers used by every command domain.
 
 use crate::sidecar::SidecarHandle;
-use resin_core::{ResinClient};
+use resin_core::ResinClient;
 
 pub const KEY_MAX_LEN: usize = 4096;
 
@@ -79,7 +79,9 @@ pub async fn restore_ports_from_whitebox(
         return Ok(());
     }
     let client = resin_client(sidecar)?;
-    let existing = client.list_endpoints().await
+    let existing = client
+        .list_endpoints()
+        .await
         .map_err(|e| format!("list_endpoints: {e:?}"))?;
     let mut restored = 0u32;
     let mut skipped = 0u32;
@@ -109,7 +111,8 @@ pub async fn restore_ports_from_whitebox(
             }
             Err(e) => {
                 let msg = format!("{e:?}");
-                if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage") {
+                if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage")
+                {
                     skipped += 1;
                     tracing::info!(port = m.port, "port already in Resin; skipping");
                 } else {
@@ -149,14 +152,21 @@ async fn restore_shell_listeners(
             _ => continue,
         };
         let ep_port = ep.get("port").and_then(|p| p.as_u64());
-        let shadowing = cfg.entry_ports.iter().any(|m| Some(m.port as u64) == ep_port);
+        let shadowing = cfg
+            .entry_ports
+            .iter()
+            .any(|m| Some(m.port as u64) == ep_port);
         if !shadowing {
             continue;
         }
         match client.delete_endpoint(id).await {
             Ok(_) => {
                 retired += 1;
-                tracing::info!(port = ep_port, endpoint = id, "retired stale Resin endpoint so the shell listener owns the entry port");
+                tracing::info!(
+                    port = ep_port,
+                    endpoint = id,
+                    "retired stale Resin endpoint so the shell listener owns the entry port"
+                );
             }
             Err(e) => {
                 tracing::warn!(port = ep_port, error = %format!("{e:?}"), "stale endpoint delete failed; shell bind will retry behind it");

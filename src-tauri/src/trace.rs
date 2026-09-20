@@ -35,7 +35,10 @@ fn is_uuid_v4(s: &str) -> bool {
     let bytes = s.as_bytes();
     // Format: xxxxxxxx-xxxx-Mxxx-Nxxx-xxxxxxxxxxxx
     // Positions 8,13,18,23 must be '-'. Position 14 (version) must be '4'.
-    bytes[8] == b'-' && bytes[13] == b'-' && bytes[18] == b'-' && bytes[23] == b'-'
+    bytes[8] == b'-'
+        && bytes[13] == b'-'
+        && bytes[18] == b'-'
+        && bytes[23] == b'-'
         && bytes[14] == b'4'
         && bytes[..8].iter().all(|b| b.is_ascii_hexdigit())
         && bytes[9..13].iter().all(|b| b.is_ascii_hexdigit())

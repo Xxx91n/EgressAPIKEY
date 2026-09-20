@@ -391,7 +391,10 @@ mod tests {
         );
         assert!(h.iter().any(|x| x.as_str() == "10.1.2.3"));
         assert!(h.iter().any(|x| x.as_str() == "egress.example.com"));
-        assert!(h.iter().any(|x| x.as_str() == "example.org"), "declared hosts lowercase");
+        assert!(
+            h.iter().any(|x| x.as_str() == "example.org"),
+            "declared hosts lowercase"
+        );
     }
 
     #[test]
@@ -399,7 +402,10 @@ mod tests {
         assert_eq!(hostname_of("127.0.0.1:14200"), "127.0.0.1");
         assert_eq!(hostname_of("[::1]:14200"), "::1");
         assert_eq!(hostname_of("::1"), "::1");
-        assert_eq!(hostname_of("http://egress.example.com:8443"), "egress.example.com");
+        assert_eq!(
+            hostname_of("http://egress.example.com:8443"),
+            "egress.example.com"
+        );
         assert_eq!(hostname_of("https://LOCALHOST"), "localhost");
         assert_eq!(hostname_of("localhost."), "localhost");
         assert_eq!(hostname_of(""), "");
@@ -409,11 +415,22 @@ mod tests {
     fn host_allowed_accepts_loopback_and_rejects_foreign() {
         let allowed = allowed_hosts("127.0.0.1", &[]);
         assert!(host_allowed(Some("127.0.0.1:14200"), None, &allowed).is_ok());
-        assert!(host_allowed(Some("localhost:14200"), Some("http://localhost:14200"), &allowed).is_ok());
+        assert!(host_allowed(
+            Some("localhost:14200"),
+            Some("http://localhost:14200"),
+            &allowed
+        )
+        .is_ok());
         assert!(host_allowed(Some("evil.example:14200"), None, &allowed).is_err());
-        assert!(host_allowed(None, None, &allowed).is_err(), "missing Host rejected");
+        assert!(
+            host_allowed(None, None, &allowed).is_err(),
+            "missing Host rejected"
+        );
         assert!(host_allowed(Some("127.0.0.1"), Some("http://evil.example"), &allowed).is_err());
-        assert!(host_allowed(Some("127.0.0.1"), Some("null"), &allowed).is_err(), "opaque Origin rejected");
+        assert!(
+            host_allowed(Some("127.0.0.1"), Some("null"), &allowed).is_err(),
+            "opaque Origin rejected"
+        );
     }
 
     #[test]
@@ -430,9 +447,15 @@ mod tests {
         assert_eq!(bearer_token("bearer abc123"), Some("abc123"));
         assert_eq!(bearer_token("Basic abc123"), None);
         assert_eq!(bearer_token("Bearer"), None);
-        assert_eq!(cookie_value("a=1; egressapikey_token=deadbeef; b=2", TOKEN_COOKIE), Some("deadbeef"));
+        assert_eq!(
+            cookie_value("a=1; egressapikey_token=deadbeef; b=2", TOKEN_COOKIE),
+            Some("deadbeef")
+        );
         assert_eq!(cookie_value("other=1", TOKEN_COOKIE), None);
-        assert_eq!(query_param("x=1&auth_token=cafe&y=2", TOKEN_QUERY), Some("cafe"));
+        assert_eq!(
+            query_param("x=1&auth_token=cafe&y=2", TOKEN_QUERY),
+            Some("cafe")
+        );
         assert_eq!(query_param("x=1", TOKEN_QUERY), None);
     }
 
@@ -441,9 +464,18 @@ mod tests {
         let g = HeadlessGuard::new(allowed_hosts("127.0.0.1", &[]), "tok".to_string());
         assert!(g.token_matches("tok"));
         assert!(!g.token_matches("nope"));
-        assert_eq!(g.extract_token(Some("Bearer tok"), None, None), Some(("tok", false)));
-        assert_eq!(g.extract_token(None, Some("egressapikey_token=tok"), None), Some(("tok", false)));
-        assert_eq!(g.extract_token(None, None, Some("auth_token=tok")), Some(("tok", true)));
+        assert_eq!(
+            g.extract_token(Some("Bearer tok"), None, None),
+            Some(("tok", false))
+        );
+        assert_eq!(
+            g.extract_token(None, Some("egressapikey_token=tok"), None),
+            Some(("tok", false))
+        );
+        assert_eq!(
+            g.extract_token(None, None, Some("auth_token=tok")),
+            Some(("tok", true))
+        );
         assert_eq!(g.extract_token(None, None, None), None);
     }
 
@@ -453,6 +485,9 @@ mod tests {
         assert!(c.starts_with("egressapikey_token=tok;"));
         assert!(c.contains("HttpOnly"));
         assert!(c.contains("SameSite=Strict"));
-        assert!(!c.contains("Secure"), "plain-HTTP LAN deployments must still receive the cookie");
+        assert!(
+            !c.contains("Secure"),
+            "plain-HTTP LAN deployments must still receive the cookie"
+        );
     }
 }

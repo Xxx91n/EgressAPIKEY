@@ -49,7 +49,10 @@ async fn test_probe_real_1_1_1_1() {
         .expect("failed to reach 1.1.1.1");
     let body = resp.text().await.expect("failed to read body");
     let ip = parse_trace_body_ip(&body);
-    assert!(!ip.is_empty(), "expected non-empty exit IP from 1.1.1.1/cdn-cgi/trace, got empty. Body: {body}");
+    assert!(
+        !ip.is_empty(),
+        "expected non-empty exit IP from 1.1.1.1/cdn-cgi/trace, got empty. Body: {body}"
+    );
 }
 
 // reqwest is a workspace dep, available in test scope.

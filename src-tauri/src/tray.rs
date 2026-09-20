@@ -11,11 +11,11 @@
 //! refocuses; this is the QoL fallback for users who minimized to tray.
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-use tauri_plugin_notification::NotificationExt;
 use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager,
 };
+use tauri_plugin_notification::NotificationExt;
 
 /// Supported tray label locales (18 base locales). MUST stay in lockstep with
 /// `src/locales/<lc>/common.json` keys `tray.*` and the `Locale` union in
@@ -322,9 +322,7 @@ pub fn should_fire_drift_notice(has_drift: bool, prev_has_drift: bool) -> bool {
 /// Count unacknowledged drift entries (strategy + ports halves of the
 /// snapshot). Acknowledged entities are exempt (ADR-0054 §D/§E): they stay
 /// visible in the view but never trigger the notice.
-pub fn count_unacknowledged_drift_entries(
-    snap: &resin_core::AuthoritativeSnapshot,
-) -> usize {
+pub fn count_unacknowledged_drift_entries(snap: &resin_core::AuthoritativeSnapshot) -> usize {
     let platforms = snap
         .platforms
         .iter()
@@ -335,7 +333,7 @@ pub fn count_unacknowledged_drift_entries(
         .iter()
         .filter(|pp| pp.state_tag() != "consistent" && !pp.acknowledged())
         .count();
-// ADR-0055 D6: route drift joins the same counter; the
+    // ADR-0055 D6: route drift joins the same counter; the
     // acknowledged exemption stays read-side (state tag untouched).
     let routes = snap
         .routes
@@ -513,21 +511,36 @@ pub fn apply_converge_mirror(
         }
         // Drifted / PendingApply: amber mirror (checkpoint C: drift is amber).
         resin_core::ConvergePhase::Drifted | resin_core::ConvergePhase::PendingApply => {
-            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase, gen, applied_gen);
+            let tip = converge_mirror_tooltip(
+                &labels(current_lang(app)).tooltip,
+                phase,
+                gen,
+                applied_gen,
+            );
             tray.set_icon(Some(solid_icon(0xf5, 0x9e, 0x0b)))
                 .and_then(|_| tray.set_tooltip(Some(tip)))
         }
         // ApplyFailed: solid red, held until the next GREEN apply flips the
         // phase (checkpoint C: long-lived visibility, not an edge toast).
         resin_core::ConvergePhase::ApplyFailed => {
-            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase, gen, applied_gen);
+            let tip = converge_mirror_tooltip(
+                &labels(current_lang(app)).tooltip,
+                phase,
+                gen,
+                applied_gen,
+            );
             tray.set_icon(Some(solid_icon(0xd8, 0x2c, 0x2c)))
                 .and_then(|_| tray.set_tooltip(Some(tip)))
         }
         // Unknown (sidecar unreachable) and NeverApplied (pre-apply baseline):
         // grey mirror — honest "cannot assert", a deviation but not a failure.
         resin_core::ConvergePhase::Unknown | resin_core::ConvergePhase::NeverApplied => {
-            let tip = converge_mirror_tooltip(&labels(current_lang(app)).tooltip, phase, gen, applied_gen);
+            let tip = converge_mirror_tooltip(
+                &labels(current_lang(app)).tooltip,
+                phase,
+                gen,
+                applied_gen,
+            );
             tray.set_icon(Some(solid_icon(0x9c, 0xa3, 0xaf)))
                 .and_then(|_| tray.set_tooltip(Some(tip)))
         }
@@ -577,7 +590,13 @@ pub fn apply_labels(app: &AppHandle) -> tauri::Result<()> {
     if let Some(tray) = app.tray_by_id("main") {
         let _ = tray.set_tooltip(Some(l.tooltip));
         let show = MenuItem::with_id(app, "show", l.show, true, None::<&str>)?;
-        let converge = MenuItem::with_id(app, "converge_status", l.converge_status, true, None::<&str>)?;
+        let converge = MenuItem::with_id(
+            app,
+            "converge_status",
+            l.converge_status,
+            true,
+            None::<&str>,
+        )?;
         let sep = PredefinedMenuItem::separator(app)?;
         let quit = MenuItem::with_id(app, "quit", l.quit, true, None::<&str>)?;
         let menu = Menu::with_items(app, &[&show, &converge, &sep, &quit])?;
@@ -596,7 +615,13 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let lc = current_lang(app);
     let l = labels(lc);
     let show = MenuItem::with_id(app, "show", l.show, true, None::<&str>)?;
-    let converge = MenuItem::with_id(app, "converge_status", l.converge_status, true, None::<&str>)?;
+    let converge = MenuItem::with_id(
+        app,
+        "converge_status",
+        l.converge_status,
+        true,
+        None::<&str>,
+    )?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", l.quit, true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &converge, &sep, &quit])?;
@@ -803,9 +828,24 @@ mod tests {
     #[test]
     fn drift_notice_all_variants_non_empty() {
         let all = [
-            TrayLang::En, TrayLang::Zh, TrayLang::Ja, TrayLang::Es, TrayLang::Fr, TrayLang::De,
-            TrayLang::Ko, TrayLang::Ru, TrayLang::Pt, TrayLang::Ar, TrayLang::It, TrayLang::Nl,
-            TrayLang::Pl, TrayLang::Tr, TrayLang::Vi, TrayLang::Th, TrayLang::Id, TrayLang::Hi,
+            TrayLang::En,
+            TrayLang::Zh,
+            TrayLang::Ja,
+            TrayLang::Es,
+            TrayLang::Fr,
+            TrayLang::De,
+            TrayLang::Ko,
+            TrayLang::Ru,
+            TrayLang::Pt,
+            TrayLang::Ar,
+            TrayLang::It,
+            TrayLang::Nl,
+            TrayLang::Pl,
+            TrayLang::Tr,
+            TrayLang::Vi,
+            TrayLang::Th,
+            TrayLang::Id,
+            TrayLang::Hi,
         ];
         for lc in all {
             let n = drift_notice(lc);
@@ -816,7 +856,11 @@ mod tests {
         let mut titles: Vec<&str> = all.iter().map(|lc| drift_notice(*lc).title).collect();
         titles.sort_unstable();
         titles.dedup();
-        assert_eq!(titles.len(), all.len(), "drift titles must be distinct per locale");
+        assert_eq!(
+            titles.len(),
+            all.len(),
+            "drift titles must be distinct per locale"
+        );
     }
 
     use super::*;
@@ -940,8 +984,14 @@ mod tests {
     fn converge_mirror_repaints_only_on_phase_change() {
         use resin_core::ConvergePhase;
         // Boot baseline paints once.
-        assert!(should_repaint_converge_mirror(None, ConvergePhase::Converged));
-        assert!(should_repaint_converge_mirror(None, ConvergePhase::ApplyFailed));
+        assert!(should_repaint_converge_mirror(
+            None,
+            ConvergePhase::Converged
+        ));
+        assert!(should_repaint_converge_mirror(
+            None,
+            ConvergePhase::ApplyFailed
+        ));
         // Plateau: silent (the 5s poll re-reports the same phase).
         assert!(!should_repaint_converge_mirror(
             Some(ConvergePhase::Converged),
@@ -979,7 +1029,10 @@ mod tests {
     #[test]
     fn converge_mirror_tooltip_suffix_rules() {
         use resin_core::ConvergePhase;
-        assert_eq!(converge_mirror_tooltip_suffix(ConvergePhase::Converged), None);
+        assert_eq!(
+            converge_mirror_tooltip_suffix(ConvergePhase::Converged),
+            None
+        );
         assert_eq!(
             converge_mirror_tooltip_suffix(ConvergePhase::Drifted),
             Some("drifted")
@@ -1035,14 +1088,17 @@ mod tests {
         );
     }
 
-/// Checkpoint C (TFC lesson): ApplyFailed is long-lived — the
+    /// Checkpoint C (TFC lesson): ApplyFailed is long-lived — the
     /// red icon stays across consecutive snapshots (plateau = no repaint)
     /// and only clears when a GREEN apply flips the phase to Converged.
     #[test]
     fn converge_mirror_apply_failed_long_lived() {
         use resin_core::ConvergePhase;
         // Episode: apply fails → first paint (red icon).
-        assert!(should_repaint_converge_mirror(None, ConvergePhase::ApplyFailed));
+        assert!(should_repaint_converge_mirror(
+            None,
+            ConvergePhase::ApplyFailed
+        ));
         // 5s later: same phase → no repaint (the red STAYS, no edge).
         assert!(!should_repaint_converge_mirror(
             Some(ConvergePhase::ApplyFailed),
@@ -1091,6 +1147,9 @@ mod tests {
         // Default: no phase yet, so the first snapshot always paints.
         let st = ConvergeMirrorState::default();
         assert_eq!(st.prev_phase, None);
-        assert!(should_repaint_converge_mirror(st.prev_phase, ConvergePhase::PendingApply));
+        assert!(should_repaint_converge_mirror(
+            st.prev_phase,
+            ConvergePhase::PendingApply
+        ));
     }
 }

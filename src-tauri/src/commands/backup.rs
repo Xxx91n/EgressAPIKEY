@@ -8,17 +8,17 @@
 //! ledger), and `backup_restore` adds download -> verify -> import through the
 //! EXISTING authoritative write entries. The request-log DBs can never enter a
 //! package, enforced on both the packing and the restore side.
+use super::common::{map_resin_error, resin_client};
+use super::strategy::{reconcile_ports_half, strategy_service};
+use crate::sidecar::SidecarHandle;
+use resin_core::backup as backup_model;
+use resin_core::resolve_id_in;
+use resin_core::IpcError;
 use std::collections::BTreeMap;
 use std::io::{Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_store::StoreExt;
-use crate::sidecar::SidecarHandle;
-use resin_core::IpcError;
-use resin_core::backup as backup_model;
-use resin_core::resolve_id_in;
-use super::common::{map_resin_error, resin_client};
-use super::strategy::{reconcile_ports_half, strategy_service};
 
 /// L1 store file name. The tauri-plugin-store document is the single L1
 /// authoritative write entry (the ADR-0036 discipline applied to the GUI
@@ -216,7 +216,11 @@ pub async fn backup_create(
     members.push((backup_model::CONFIG_ENTRY.to_string(), config_bytes));
 
     // L1 GUI preferences.
-    push_file(&mut members, &cfg.join(SETTINGS_STORE), backup_model::SETTINGS_ENTRY);
+    push_file(
+        &mut members,
+        &cfg.join(SETTINGS_STORE),
+        backup_model::SETTINGS_ENTRY,
+    );
 
     // L2 whitebox documents, port-mapping DB, audit chain, version history.
     push_file(
@@ -330,7 +334,9 @@ pub async fn backup_upload(
         return Err(IpcError::from("webdav url must not be empty".to_string()));
     }
     if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err(IpcError::from("webdav url must start with http:// or https://".to_string()));
+        return Err(IpcError::from(
+            "webdav url must start with http:// or https://".to_string(),
+        ));
     }
     if url.len() > 2048 {
         return Err(IpcError::from("webdav url too long".to_string()));
@@ -341,15 +347,20 @@ pub async fn backup_upload(
     // escapes and absolute paths outside app data. Prevents a compromised
     // webview from exfiltrating arbitrary files (e.g. the Resin admin token,
     // settings.json, or system files) to an attacker-controlled WebDAV URL.
-    let app_data = app.path().app_data_dir().map_err(|e| IpcError::from(e.to_string()))?;
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| IpcError::from(e.to_string()))?;
     let backups_dir = app_data.join("backups");
     std::fs::create_dir_all(&backups_dir).map_err(|e| IpcError::from(e.to_string()))?;
     let canon_backup = std::fs::canonicalize(&backups_dir)
         .map_err(|e| IpcError::from(format!("backups dir not accessible: {e}")))?;
-    let canon_zip =
-        std::fs::canonicalize(&zip_path).map_err(|e| IpcError::from(format!("zip path not accessible: {e}")))?;
+    let canon_zip = std::fs::canonicalize(&zip_path)
+        .map_err(|e| IpcError::from(format!("zip path not accessible: {e}")))?;
     if !canon_zip.starts_with(&canon_backup) {
-        return Err(IpcError::from("zip path must be inside the app backups directory".to_string()));
+        return Err(IpcError::from(
+            "zip path must be inside the app backups directory".to_string(),
+        ));
     }
     if !canon_zip.is_file() {
         return Err(IpcError::from("zip path is not a file".to_string()));
@@ -376,7 +387,10 @@ pub async fn backup_upload(
     if resp.status().is_success() {
         Ok(())
     } else {
-        Err(IpcError::from(format!("webdav upload failed: HTTP {}", resp.status())))
+        Err(IpcError::from(format!(
+            "webdav upload failed: HTTP {}",
+            resp.status()
+        )))
     }
 }
 
@@ -391,7 +405,9 @@ pub async fn backup_list(
         return Err(IpcError::from("webdav url must not be empty".to_string()));
     }
     if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err(IpcError::from("webdav url must start with http:// or https://".to_string()));
+        return Err(IpcError::from(
+            "webdav url must start with http:// or https://".to_string(),
+        ));
     }
 
     let client = reqwest::Client::builder()
@@ -413,9 +429,15 @@ pub async fn backup_list(
         .await
         .map_err(|e| map_resin_error(&e.to_string()))?;
     if !resp.status().is_success() {
-        return Err(IpcError::from(format!("webdav PROPFIND failed: HTTP {}", resp.status())));
+        return Err(IpcError::from(format!(
+            "webdav PROPFIND failed: HTTP {}",
+            resp.status()
+        )));
     }
-    let body = resp.text().await.map_err(|e| map_resin_error(&e.to_string()))?;
+    let body = resp
+        .text()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     // Parse <D:href> or <D:displayname> entries
     let mut names = Vec::new();
     for part in body.split("<D:href>").skip(1) {
@@ -445,7 +467,11 @@ pub async fn config_export(
     let strategy = svc.get().map_err(IpcError::from)?;
     let ports = whitebox.snapshot();
     let exported_at = chrono::Local::now().to_rfc3339();
-    Ok(resin_core::build_export_doc(&strategy, &ports, &exported_at))
+    Ok(resin_core::build_export_doc(
+        &strategy,
+        &ports,
+        &exported_at,
+    ))
 }
 
 /// ADR-0061: import a config document (from config_export).
@@ -471,7 +497,9 @@ pub async fn config_import(
     // Cap input size before any parse (AGENTS s7.5: 256KB max).
     let config_str = serde_json::to_string(&config).map_err(|e| IpcError::from(e.to_string()))?;
     if config_str.len() > 262_144 {
-        return Err(IpcError::from("config_import: config too large (max 256KB)".to_string()));
+        return Err(IpcError::from(
+            "config_import: config too large (max 256KB)".to_string(),
+        ));
     }
 
     // ADR-0069 D4 phase 1: parse + validate BOTH whitebox documents through
@@ -733,8 +761,7 @@ pub async fn backup_restore(
             )));
         }
     }
-    backup_model::verify_members(&manifest, |p| members.get(p).cloned())
-        .map_err(IpcError::from)?;
+    backup_model::verify_members(&manifest, |p| members.get(p).cloned()).map_err(IpcError::from)?;
 
     // ---- config half: the EXISTING authoritative write entries -----------
     let config_value: serde_json::Value = serde_json::from_slice(
@@ -814,9 +841,10 @@ pub async fn backup_restore(
     // ADR-0070 D6: derived runtime state is not replayed over live leases,
     // and the append-only audit chain is never rewritten. Both are extracted
     // next to the app so a human can inspect them, and the UI says so.
-    let evidence_dir = data_dir(&app)?
-        .join("restore-artifacts")
-        .join(format!("{}-{}", stamp(), random_suffix()));
+    let evidence_dir =
+        data_dir(&app)?
+            .join("restore-artifacts")
+            .join(format!("{}-{}", stamp(), random_suffix()));
     let mut evidence: Vec<String> = Vec::new();
     for (path, bytes) in &members {
         let evidence_only = match backup_model::classify_member(path) {

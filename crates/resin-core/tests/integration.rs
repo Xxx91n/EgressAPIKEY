@@ -33,7 +33,11 @@ fn weighted_pick_prefers_low_latency_account() {
     let plat = plat.read();
     // Cold lane wins while the other lane already has a (worse) sample.
     let cold = plat.pick_account_weighted(0, |a| {
-        if a.id == "acct-high" { Some(900.0) } else { None }
+        if a.id == "acct-high" {
+            Some(900.0)
+        } else {
+            None
+        }
     });
     assert_eq!(cold.unwrap().id, "acct-low");
 

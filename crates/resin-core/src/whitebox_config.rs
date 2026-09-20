@@ -19,12 +19,12 @@ use parking_lot::Mutex as SyncMutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex as AsyncMutex;
 
+use crate::entry_protocol::{
+    canonical_protocol, is_valid_protocol, DEFAULT_ENTRY_PORT_PROTOCOL, ENTRY_PORT_PROTOCOL_ERROR,
+};
 use crate::whitebox_backup::{
     atomic_write_bytes, backup_before_write, backup_list, now_unix, read_backup_parsed,
     WhiteboxBackupEntry,
-};
-use crate::entry_protocol::{
-    canonical_protocol, is_valid_protocol, DEFAULT_ENTRY_PORT_PROTOCOL, ENTRY_PORT_PROTOCOL_ERROR,
 };
 use crate::{DbPool, PortForwarder, PortMapping, MAX_ENTRY_PORTS, MIN_USER_PORT};
 
@@ -57,7 +57,7 @@ pub struct WhiteboxConfig {
     /// process_route_* commands.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub process_routes: Vec<ProcessRouteRule>,
-/// ADR-0055 D6: ADR-0054 §D exemption vocabulary for the
+    /// ADR-0055 D6: ADR-0054 §D exemption vocabulary for the
     /// route family (process names). Read-side presentation only.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub route_acknowledged: Vec<String>,
@@ -88,7 +88,6 @@ impl WhiteboxConfig {
         }
     }
 }
-
 
 /// ADR-0055: one process-routing rule (L2 whitebox family).
 /// This is the SINGLE wire shape — the former dual writers (webview
@@ -169,7 +168,9 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
     // one-port-one-process conflict rule so a hand-edited file cannot
     // smuggle two processes onto one port.
     if config.process_routes.len() > MAX_PROCESS_ROUTES {
-        return Err(format!("too many process routes (max {MAX_PROCESS_ROUTES})"));
+        return Err(format!(
+            "too many process routes (max {MAX_PROCESS_ROUTES})"
+        ));
     }
     let mut seen_processes = HashSet::with_capacity(config.process_routes.len());
     for r in &config.process_routes {
@@ -180,14 +181,20 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
             return Err("process route name contains control characters".into());
         }
         if r.target_port < MIN_USER_PORT {
-            return Err(format!("process route port {} is privileged", r.target_port));
+            return Err(format!(
+                "process route port {} is privileged",
+                r.target_port
+            ));
         }
         if !seen_processes.insert(r.process.trim().to_lowercase()) {
             return Err(format!("duplicate process route: {}", r.process));
         }
     }
     process_route_conflict_check(&config.process_routes)?;
-    crate::strategy_service::validate_acknowledged(&config.route_acknowledged, "route_acknowledged")?;
+    crate::strategy_service::validate_acknowledged(
+        &config.route_acknowledged,
+        "route_acknowledged",
+    )?;
     Ok(())
 }
 
@@ -265,8 +272,8 @@ pub fn migrate_entry_port_protocols_file_once(path: &Path) -> Result<bool, Strin
         return Ok(false);
     }
     let raw_text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let mut doc: WhiteboxConfig = serde_json::from_str(&raw_text)
-        .map_err(|e| format!("whitebox config parse error: {e}"))?;
+    let mut doc: WhiteboxConfig =
+        serde_json::from_str(&raw_text).map_err(|e| format!("whitebox config parse error: {e}"))?;
     if !migrate_entry_port_protocols(&mut doc) {
         return Ok(false);
     }
@@ -306,7 +313,9 @@ pub fn parse_legacy_l1_routes(v: &serde_json::Value) -> Vec<ProcessRouteRule> {
     };
     let mut out = Vec::new();
     for item in arr {
-        let Some(obj) = item.as_object() else { continue };
+        let Some(obj) = item.as_object() else {
+            continue;
+        };
         let Some(process) = obj
             .get("process")
             .and_then(|p| p.as_str())
@@ -393,13 +402,19 @@ fn validate_network(n: &NetworkConfig) -> Result<(), String> {
         }
     }
     if let Some(v) = n.max_idle_conns {
-        if v == 0 { return Err("max_idle_conns must be >= 1".into()); }
+        if v == 0 {
+            return Err("max_idle_conns must be >= 1".into());
+        }
     }
     if let Some(v) = n.max_idle_conns_per_host {
-        if v == 0 { return Err("max_idle_conns_per_host must be >= 1".into()); }
+        if v == 0 {
+            return Err("max_idle_conns_per_host must be >= 1".into());
+        }
     }
     if let Some(v) = n.probe_concurrency {
-        if v == 0 || v > 10000 { return Err("probe_concurrency must be 1..=10000".into()); }
+        if v == 0 || v > 10000 {
+            return Err("probe_concurrency must be 1..=10000".into());
+        }
     }
     for (i, b) in n.proxy_bypass.iter().enumerate() {
         if b.is_empty() {
@@ -632,7 +647,8 @@ async fn apply_ports(
     //     rows apply to the bound set atomically with the DB write, and a
     //     row that cannot bind shows up as drift in the snapshot instead
     //     of silently half-applying.
-    db.replace_ports(next).map_err(|e| format!("entry-port DB replace failed: {e}"))?;
+    db.replace_ports(next)
+        .map_err(|e| format!("entry-port DB replace failed: {e}"))?;
     forwarder.reload(next).await?;
     Ok(next.len())
 }
@@ -662,7 +678,11 @@ fn write_atomic(path: &Path, config: &WhiteboxConfig) -> Result<(), String> {
         ac.actor.as_deref().unwrap_or("whitebox:apply"),
         before_hash,
         after_hash,
-        if write_result.is_ok() { "ok" } else { "error:write failed" },
+        if write_result.is_ok() {
+            "ok"
+        } else {
+            "error:write failed"
+        },
         Some(before_bytes),
         Some(after_bytes),
     );
@@ -705,7 +725,9 @@ mod tests {
         assert!(err.contains("already bound to process"), "got: {err}");
 
         cfg.process_routes = vec![route("app.exe", 17990), route("APP.EXE", 17991)];
-        assert!(validate(&cfg).unwrap_err().contains("duplicate process route"));
+        assert!(validate(&cfg)
+            .unwrap_err()
+            .contains("duplicate process route"));
 
         cfg.process_routes = vec![route("app.exe", 80)];
         assert!(validate(&cfg).unwrap_err().contains("privileged"));
@@ -713,8 +735,12 @@ mod tests {
         cfg.process_routes = vec![route("", 17990)];
         assert!(validate(&cfg).unwrap_err().contains("1..128"));
 
-        cfg.process_routes = (0..257).map(|i| route(&format!("p{i}"), 20000 + i as u16)).collect();
-        assert!(validate(&cfg).unwrap_err().contains("too many process routes"));
+        cfg.process_routes = (0..257)
+            .map(|i| route(&format!("p{i}"), 20000 + i as u16))
+            .collect();
+        assert!(validate(&cfg)
+            .unwrap_err()
+            .contains("too many process routes"));
     }
 
     #[test]
@@ -742,12 +768,18 @@ mod tests {
             42
         ]);
         let rules = parse_legacy_l1_routes(&v);
-        let got: Vec<(String, u16)> = rules.iter().map(|r| (r.process.clone(), r.target_port)).collect();
-        assert_eq!(got, vec![
-            ("webview.exe".into(), 17990),
-            ("rust.exe".into(), 17991),
-            ("old.exe".into(), 17992),
-        ]);
+        let got: Vec<(String, u16)> = rules
+            .iter()
+            .map(|r| (r.process.clone(), r.target_port))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("webview.exe".into(), 17990),
+                ("rust.exe".into(), 17991),
+                ("old.exe".into(), 17992),
+            ]
+        );
         // non-array payloads yield empty
         assert!(parse_legacy_l1_routes(&serde_json::json!({"a": 1})).is_empty());
         assert!(parse_legacy_l1_routes(&serde_json::json!(null)).is_empty());
@@ -834,21 +866,27 @@ mod tests {
     fn network_validation_rejects_empty_dns_entry() {
         let mut cfg = WhiteboxConfig::from_ports(vec![]);
         cfg.network.dns_upstreams = vec!["".to_string()];
-        assert!(validate(&cfg).unwrap_err().contains("dns_upstreams[0] must not be empty"));
+        assert!(validate(&cfg)
+            .unwrap_err()
+            .contains("dns_upstreams[0] must not be empty"));
     }
 
     #[test]
     fn network_validation_rejects_zero_idle_conns() {
         let mut cfg = WhiteboxConfig::from_ports(vec![]);
         cfg.network.max_idle_conns = Some(0);
-        assert!(validate(&cfg).unwrap_err().contains("max_idle_conns must be >= 1"));
+        assert!(validate(&cfg)
+            .unwrap_err()
+            .contains("max_idle_conns must be >= 1"));
     }
 
     #[test]
     fn network_validation_rejects_probe_concurrency_out_of_range() {
         let mut cfg = WhiteboxConfig::from_ports(vec![]);
         cfg.network.probe_concurrency = Some(10001);
-        assert!(validate(&cfg).unwrap_err().contains("probe_concurrency must be 1..=10000"));
+        assert!(validate(&cfg)
+            .unwrap_err()
+            .contains("probe_concurrency must be 1..=10000"));
     }
 
     #[test]
@@ -947,8 +985,7 @@ mod tests {
     /// migration, and apply #1 lands at generation=1.
     #[tokio::test]
     async fn apply_bumps_generation_and_v1_file_loads_at_zero() {
-        let dir =
-            std::env::temp_dir().join(format!("egressapikey-wb-gen-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("egressapikey-wb-gen-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(WHITEBOX_CONFIG_FILE);
@@ -958,12 +995,18 @@ mod tests {
         let v1_doc: WhiteboxConfig =
             serde_json::from_str(r#"{"version":1,"entry_ports":[]}"#).unwrap();
         assert_eq!(v1_doc.generation, 0);
-        let store = WhiteboxConfigStore::open(path.clone(), v1_doc).await.unwrap();
+        let store = WhiteboxConfigStore::open(path.clone(), v1_doc)
+            .await
+            .unwrap();
         assert_eq!(store.snapshot().generation, 0);
         assert_eq!(store.snapshot().updated_at, None);
 
         store
-            .apply(&db, &forwarder, WhiteboxConfig::from_ports(vec![mapping(17990)]))
+            .apply(
+                &db,
+                &forwarder,
+                WhiteboxConfig::from_ports(vec![mapping(17990)]),
+            )
             .await
             .unwrap();
         let after1 = store.snapshot();
@@ -971,11 +1014,19 @@ mod tests {
         assert!(after1.updated_at.is_some());
 
         store
-            .apply(&db, &forwarder, WhiteboxConfig::from_ports(vec![mapping(17991)]))
+            .apply(
+                &db,
+                &forwarder,
+                WhiteboxConfig::from_ports(vec![mapping(17991)]),
+            )
             .await
             .unwrap();
         store
-            .apply(&db, &forwarder, WhiteboxConfig::from_ports(vec![mapping(17991)]))
+            .apply(
+                &db,
+                &forwarder,
+                WhiteboxConfig::from_ports(vec![mapping(17991)]),
+            )
             .await
             .unwrap();
         tokio::time::sleep(Duration::from_millis(600)).await;
@@ -988,7 +1039,7 @@ mod tests {
         );
         assert!(after2.updated_at.unwrap() >= after1.updated_at.unwrap());
 
-// NO applied_generation on the ports half ( local type is
+        // NO applied_generation on the ports half ( local type is
         // single-generation — the field must not exist on this struct).
         // Verified by compilation of the struct definition itself.
         let _ = std::fs::remove_dir_all(&dir);
@@ -1025,7 +1076,8 @@ mod tests {
         cfg2.acknowledged = vec!["17990".to_string()];
         assert!(validate(&cfg2).is_ok());
         write_atomic(&path, &cfg2).unwrap();
-        let loaded: WhiteboxConfig = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        let loaded: WhiteboxConfig =
+            serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
         assert_eq!(loaded.acknowledged, vec!["17990".to_string()]);
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1034,7 +1086,8 @@ mod tests {
     fn acknowledged_validate_rejects_bad_shapes() {
         let mut cfg = WhiteboxConfig::from_ports(vec![]);
         // non-string member is a deserialize error, not a validate pass-through
-        let raw = serde_json::json!({"version": 1, "entry_ports": [], "acknowledged": ["17990", 7]});
+        let raw =
+            serde_json::json!({"version": 1, "entry_ports": [], "acknowledged": ["17990", 7]});
         assert!(serde_json::from_value::<WhiteboxConfig>(raw).is_err());
         // empty member
         cfg.acknowledged = vec![String::new()];
@@ -1056,9 +1109,33 @@ mod tests {
     #[test]
     fn enabled_entries_for_restore_filters_disabled() {
         let ports = vec![
-            PortMapping { port: 17990, protocol: "socks5".into(), platform_name: "Default".into(), account: "".into(), label: "".into(), enabled: true, auth_required: true },
-            PortMapping { port: 17991, protocol: "http".into(), platform_name: "Default".into(), account: "".into(), label: "".into(), enabled: false, auth_required: true },
-            PortMapping { port: 17992, protocol: "socks5".into(), platform_name: "OpenAI".into(), account: "port-17992".into(), label: "".into(), enabled: true, auth_required: false },
+            PortMapping {
+                port: 17990,
+                protocol: "socks5".into(),
+                platform_name: "Default".into(),
+                account: "".into(),
+                label: "".into(),
+                enabled: true,
+                auth_required: true,
+            },
+            PortMapping {
+                port: 17991,
+                protocol: "http".into(),
+                platform_name: "Default".into(),
+                account: "".into(),
+                label: "".into(),
+                enabled: false,
+                auth_required: true,
+            },
+            PortMapping {
+                port: 17992,
+                protocol: "socks5".into(),
+                platform_name: "OpenAI".into(),
+                account: "port-17992".into(),
+                label: "".into(),
+                enabled: true,
+                auth_required: false,
+            },
         ];
         let enabled = enabled_entries_for_restore(&ports);
         assert_eq!(enabled.len(), 2);

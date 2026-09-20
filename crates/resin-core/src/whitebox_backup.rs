@@ -68,10 +68,9 @@ pub fn parse_backup_name(name: &str) -> Option<u64> {
         Some((left, suffix))
             if !suffix.is_empty()
                 && suffix.bytes().all(|b| b.is_ascii_digit())
-                && left
-                    .rsplit('.')
-                    .next()
-                    .is_some_and(|seg| !seg.is_empty() && seg.bytes().all(|b| b.is_ascii_digit())) =>
+                && left.rsplit('.').next().is_some_and(|seg| {
+                    !seg.is_empty() && seg.bytes().all(|b| b.is_ascii_digit())
+                }) =>
         {
             left
         }
@@ -127,8 +126,7 @@ pub fn backup_before_write(file_path: &Path, now: u64) -> Result<Option<String>,
         }
         let target = dir.join(&target_name);
         if !target.exists() {
-            std::fs::copy(file_path, &target)
-                .map_err(|e| format!("copy whitebox backup: {e}"))?;
+            std::fs::copy(file_path, &target).map_err(|e| format!("copy whitebox backup: {e}"))?;
             rotate_backups(file_path)?;
             return Ok(Some(target_name));
         }
@@ -172,7 +170,11 @@ pub fn backup_list(file_path: &Path) -> Result<Vec<WhiteboxBackupEntry>, String>
             size_bytes: size,
         });
     }
-    entries.sort_by(|a, b| b.unix_ts.cmp(&a.unix_ts).then(b.file_name.cmp(&a.file_name)));
+    entries.sort_by(|a, b| {
+        b.unix_ts
+            .cmp(&a.unix_ts)
+            .then(b.file_name.cmp(&a.file_name))
+    });
     Ok(entries)
 }
 
@@ -213,8 +215,7 @@ pub fn read_backup_parsed<T: serde::de::DeserializeOwned>(
     backup_name: &str,
 ) -> Result<T, String> {
     let bytes = read_backup(file_path, backup_name)?;
-    serde_json::from_slice(&bytes)
-        .map_err(|e| format!("whitebox backup content invalid: {e}"))
+    serde_json::from_slice(&bytes).map_err(|e| format!("whitebox backup content invalid: {e}"))
 }
 
 /// Single atomic write used by both whitebox stores: temp file + rename so a
@@ -235,7 +236,8 @@ mod tests {
     use crate::whitebox_config::WhiteboxConfig;
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("egressapikey-wbb-{tag}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("egressapikey-wbb-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -315,15 +317,21 @@ mod tests {
             // Rewrite the source so each backup has distinct content; the
             // -1 suffix path also gets exercised by the repeated second.
             std::fs::write(&file, format!("v{ts}")).unwrap();
-            backup_before_write(&file, ts * 1_000_000_000).unwrap().unwrap();
+            backup_before_write(&file, ts * 1_000_000_000)
+                .unwrap()
+                .unwrap();
         }
         let listed = backup_list(&file).unwrap();
         assert_eq!(listed.len(), WHITEBOX_BACKUP_KEEP);
         assert_eq!(listed[0].unix_ts, 12_000_000_000, "newest first");
         assert_eq!(listed[WHITEBOX_BACKUP_KEEP - 1].unix_ts, 3_000_000_000);
         // Oldest two evicted from disk, not just from the listing.
-        assert!(!backup_dir(&file).join("egressapikey-ports.json.1000000000.bak").exists());
-        assert!(!backup_dir(&file).join("egressapikey-ports.json.2000000000.bak").exists());
+        assert!(!backup_dir(&file)
+            .join("egressapikey-ports.json.1000000000.bak")
+            .exists());
+        assert!(!backup_dir(&file)
+            .join("egressapikey-ports.json.2000000000.bak")
+            .exists());
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -361,8 +369,7 @@ mod tests {
         assert!(read_backup(&file, "egressapikey-ports.json.999.bak").is_err());
         assert!(read_backup(&file, "").is_err());
         // A real listed name reads back the exact bytes.
-        let bytes =
-            read_backup(&file, "egressapikey-ports.json.100.bak").unwrap();
+        let bytes = read_backup(&file, "egressapikey-ports.json.100.bak").unwrap();
         assert_eq!(bytes, b"p");
         let _ = std::fs::remove_dir_all(dir);
     }

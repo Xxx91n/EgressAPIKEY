@@ -145,7 +145,9 @@ pub fn restore_action(class: BackupClass) -> RestoreAction {
 pub fn assert_no_forbidden(paths: &[String]) -> Result<(), String> {
     for p in paths {
         if is_forbidden_member(p) {
-            return Err(format!("backup member rejected (request-log leak line): {p}"));
+            return Err(format!(
+                "backup member rejected (request-log leak line): {p}"
+            ));
         }
     }
     Ok(())
@@ -196,7 +198,10 @@ pub fn build_manifest(
     assert_no_forbidden(&paths)?;
     for e in &entries {
         if classify_member(&e.path).is_none() {
-            return Err(format!("backup member is not part of any legislated class: {}", e.path));
+            return Err(format!(
+                "backup member is not part of any legislated class: {}",
+                e.path
+            ));
         }
         if !is_sha256_hex(&e.sha256) {
             return Err(format!("manifest entry has a malformed sha256: {}", e.path));
@@ -277,7 +282,10 @@ where
         }
         let actual = sha256_hex(&bytes);
         if actual != e.sha256 {
-            return Err(format!("member hash mismatch for {} (package corrupted or tampered)", e.path));
+            return Err(format!(
+                "member hash mismatch for {} (package corrupted or tampered)",
+                e.path
+            ));
         }
     }
     Ok(())
@@ -454,8 +462,8 @@ fn random_bytes(n: usize) -> Result<Vec<u8>, String> {
 }
 
 fn derive_kek(passphrase: &str, salt: &[u8], iterations: u32) -> Result<[u8; 32], String> {
-    let iters = NonZeroU32::new(iterations)
-        .ok_or_else(|| "kdf iterations must be non-zero".to_string())?;
+    let iters =
+        NonZeroU32::new(iterations).ok_or_else(|| "kdf iterations must be non-zero".to_string())?;
     let mut kek = [0u8; 32];
     pbkdf2::derive(
         pbkdf2::PBKDF2_HMAC_SHA256,
@@ -561,7 +569,10 @@ mod tests {
             RestoreAction::WriteThroughL1Entry
         );
         assert_eq!(restore_action(BackupClass::L3), RestoreAction::EvidenceOnly);
-        assert_eq!(restore_action(BackupClass::Audit), RestoreAction::EvidenceOnly);
+        assert_eq!(
+            restore_action(BackupClass::Audit),
+            RestoreAction::EvidenceOnly
+        );
     }
 
     // -- manifest ---------------------------------------------------------
@@ -590,19 +601,17 @@ mod tests {
         assert!(build_manifest("t", vec![entry("notes.txt", "x")])
             .unwrap_err()
             .contains("not part of any legislated class"));
-        assert!(build_manifest(
-            "t",
-            vec![entry(AUDIT_ENTRY, "a"), entry(AUDIT_ENTRY, "b")]
-        )
-        .unwrap_err()
-        .contains("duplicate manifest entry"));
+        assert!(
+            build_manifest("t", vec![entry(AUDIT_ENTRY, "a"), entry(AUDIT_ENTRY, "b")])
+                .unwrap_err()
+                .contains("duplicate manifest entry")
+        );
     }
 
     #[test]
     fn parse_manifest_rejects_wrong_tag_future_version_and_bad_hash() {
         let m = sample_manifest();
-        let mut v: serde_json::Value =
-            serde_json::from_slice(&manifest_json(&m).unwrap()).unwrap();
+        let mut v: serde_json::Value = serde_json::from_slice(&manifest_json(&m).unwrap()).unwrap();
 
         let mut wrong = v.clone();
         wrong["format"] = serde_json::json!("someone-elses-backup");
@@ -625,8 +634,7 @@ mod tests {
     #[test]
     fn parse_manifest_rejects_a_request_log_entry() {
         let m = sample_manifest();
-        let mut v: serde_json::Value =
-            serde_json::from_slice(&manifest_json(&m).unwrap()).unwrap();
+        let mut v: serde_json::Value = serde_json::from_slice(&manifest_json(&m).unwrap()).unwrap();
         v["entries"]
             .as_array_mut()
             .unwrap()
@@ -650,10 +658,7 @@ mod tests {
         // Rebuild the manifest so the recorded hashes match these bodies.
         let m2 = build_manifest(
             "2026-09-14T00:00:00Z",
-            bodies
-                .iter()
-                .map(|(p, b)| manifest_entry(p, b))
-                .collect(),
+            bodies.iter().map(|(p, b)| manifest_entry(p, b)).collect(),
         )
         .unwrap();
         let lookup = |path: &str| -> Option<Vec<u8>> {
@@ -671,7 +676,9 @@ mod tests {
                 lookup(path)
             }
         };
-        assert!(verify_members(&m2, tampered).unwrap_err().contains("mismatch"));
+        assert!(verify_members(&m2, tampered)
+            .unwrap_err()
+            .contains("mismatch"));
 
         let missing = |path: &str| -> Option<Vec<u8>> {
             if path == CACHE_DB_ENTRY {
@@ -695,12 +702,17 @@ mod tests {
         assert!(!is_encrypted(&plain));
         assert_eq!(sealed[8], ENVELOPE_VERSION);
         assert_eq!(sealed[9], KDF_PBKDF2_HMAC_SHA256);
-        assert_eq!(open_package(&sealed, "correct horse battery staple").unwrap(), plain);
+        assert_eq!(
+            open_package(&sealed, "correct horse battery staple").unwrap(),
+            plain
+        );
     }
 
     #[test]
     fn envelope_rejects_empty_passphrase_and_plaintext_input() {
-        assert!(seal_package(b"x", "").unwrap_err().contains("must not be empty"));
+        assert!(seal_package(b"x", "")
+            .unwrap_err()
+            .contains("must not be empty"));
         assert!(open_package(b"not-an-envelope", "pw")
             .unwrap_err()
             .contains("not an encrypted backup package"));

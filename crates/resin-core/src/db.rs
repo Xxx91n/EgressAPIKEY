@@ -207,8 +207,7 @@ pub fn snapshot_db_readonly(src: &Path, dst: &Path) -> Result<(), String> {
         return Err(format!("snapshot: source is not a file: {}", src.display()));
     }
     if dst.exists() {
-        std::fs::remove_file(dst)
-            .map_err(|e| format!("snapshot: clear {}: {e}", dst.display()))?;
+        std::fs::remove_file(dst).map_err(|e| format!("snapshot: clear {}: {e}", dst.display()))?;
     }
     let dst_str = dst.to_string_lossy().to_string();
     let conn = Connection::open_with_flags(src, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
@@ -272,9 +271,17 @@ mod tests {
                 .protocol
                 .clone()
         };
-        assert_eq!(protocol_of(17990), "mixed", "legacy socks5 is flag-preserving");
+        assert_eq!(
+            protocol_of(17990),
+            "mixed",
+            "legacy socks5 is flag-preserving"
+        );
         assert_eq!(protocol_of(17991), "http", "http keeps its meaning");
-        assert_eq!(protocol_of(17992), "mixed", "an already-mixed row is untouched");
+        assert_eq!(
+            protocol_of(17992),
+            "mixed",
+            "an already-mixed row is untouched"
+        );
 
         let ddl: String = pool
             .0
@@ -285,8 +292,14 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert!(ddl.contains("DEFAULT 'mixed'"), "column default moved to mixed: {ddl}");
-        assert!(!ddl.contains("DEFAULT 'socks5'"), "retired token must not survive: {ddl}");
+        assert!(
+            ddl.contains("DEFAULT 'mixed'"),
+            "column default moved to mixed: {ddl}"
+        );
+        assert!(
+            !ddl.contains("DEFAULT 'socks5'"),
+            "retired token must not survive: {ddl}"
+        );
 
         // Idempotent: a second pass at the already-current version is a no-op.
         DbPool::migrate(&pool.0.lock()).unwrap();

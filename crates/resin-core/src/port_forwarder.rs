@@ -170,7 +170,13 @@ impl PortForwarder {
         resin_port: u16,
         proxy_token: impl Into<String>,
     ) -> Self {
-        Self::with_mode(db, resin_host, resin_port, proxy_token, DataPlaneMode::Engine)
+        Self::with_mode(
+            db,
+            resin_host,
+            resin_port,
+            proxy_token,
+            DataPlaneMode::Engine,
+        )
     }
 
     /// Mode A constructor (desktop default): reload() binds one accept loop
@@ -182,7 +188,13 @@ impl PortForwarder {
         resin_port: u16,
         proxy_token: impl Into<String>,
     ) -> Self {
-        Self::with_mode(db, resin_host, resin_port, proxy_token, DataPlaneMode::Shell)
+        Self::with_mode(
+            db,
+            resin_host,
+            resin_port,
+            proxy_token,
+            DataPlaneMode::Shell,
+        )
     }
 
     fn with_mode(
@@ -263,7 +275,9 @@ impl PortForwarder {
             return Ok(0);
         }
         if rows.iter().filter(|m| m.enabled).count() > MAX_ENTRY_PORTS {
-            return Err(format!("too many enabled entry ports (max {MAX_ENTRY_PORTS})"));
+            return Err(format!(
+                "too many enabled entry ports (max {MAX_ENTRY_PORTS})"
+            ));
         }
         let enabled: HashMap<u16, PortMapping> = rows
             .iter()
@@ -273,7 +287,11 @@ impl PortForwarder {
 
         let to_stop: Vec<u16> = {
             let running = self.inner.running.lock();
-            running.keys().copied().filter(|p| !enabled.contains_key(p)).collect()
+            running
+                .keys()
+                .copied()
+                .filter(|p| !enabled.contains_key(p))
+                .collect()
         };
         for p in to_stop {
             let handle = self.inner.running.lock().remove(&p);
@@ -472,7 +490,9 @@ async fn handle_socks5(mut client: TcpStream, ctx: SessionCtx) -> Result<(), Str
     if hdr[1] != 0x01 {
         // CONNECT only: BIND (0x02) and UDP_ASSOCIATE (0x03) get the
         // command-unsupported reply. D-001 scope is the HTTPS+SSE workload.
-        let _ = client.write_all(&[0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await;
+        let _ = client
+            .write_all(&[0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+            .await;
         return Err("socks cmd not CONNECT".into());
     }
     let (host, port) = read_socks_addr(&mut client, hdr[3]).await?;
@@ -486,12 +506,16 @@ async fn handle_socks5(mut client: TcpStream, ctx: SessionCtx) -> Result<(), Str
         Ok(Ok(s)) => s,
         Ok(Err(e)) => {
             // In-band signalling: a general-failure reply, not a hang.
-            let _ = client.write_all(&[0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await;
+            let _ = client
+                .write_all(&[0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+                .await;
             let _ = client.flush().await;
             return Err(format!("socks upstream: {e}"));
         }
         Err(_) => {
-            let _ = client.write_all(&[0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await;
+            let _ = client
+                .write_all(&[0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+                .await;
             let _ = client.flush().await;
             return Err("socks upstream handshake timeout".into());
         }
@@ -511,16 +535,28 @@ async fn read_socks_addr(stream: &mut TcpStream, atyp: u8) -> Result<(String, u1
     match atyp {
         0x01 => {
             let mut ip = [0u8; 4];
-            stream.read_exact(&mut ip).await.map_err(|e| e.to_string())?;
+            stream
+                .read_exact(&mut ip)
+                .await
+                .map_err(|e| e.to_string())?;
             let mut p = [0u8; 2];
             stream.read_exact(&mut p).await.map_err(|e| e.to_string())?;
-            Ok((format!("{}.{}.{}.{}", ip[0], ip[1], ip[2], ip[3]), u16::from_be_bytes(p)))
+            Ok((
+                format!("{}.{}.{}.{}", ip[0], ip[1], ip[2], ip[3]),
+                u16::from_be_bytes(p),
+            ))
         }
         0x03 => {
             let mut len = [0u8; 1];
-            stream.read_exact(&mut len).await.map_err(|e| e.to_string())?;
+            stream
+                .read_exact(&mut len)
+                .await
+                .map_err(|e| e.to_string())?;
             let mut name = vec![0u8; len[0] as usize];
-            stream.read_exact(&mut name).await.map_err(|e| e.to_string())?;
+            stream
+                .read_exact(&mut name)
+                .await
+                .map_err(|e| e.to_string())?;
             let mut p = [0u8; 2];
             stream.read_exact(&mut p).await.map_err(|e| e.to_string())?;
             let host = String::from_utf8(name).map_err(|e| e.to_string())?;
@@ -528,7 +564,10 @@ async fn read_socks_addr(stream: &mut TcpStream, atyp: u8) -> Result<(String, u1
         }
         0x04 => {
             let mut ip = [0u8; 16];
-            stream.read_exact(&mut ip).await.map_err(|e| e.to_string())?;
+            stream
+                .read_exact(&mut ip)
+                .await
+                .map_err(|e| e.to_string())?;
             let mut p = [0u8; 2];
             stream.read_exact(&mut p).await.map_err(|e| e.to_string())?;
             let segs: Vec<String> = ip
@@ -543,7 +582,10 @@ async fn read_socks_addr(stream: &mut TcpStream, atyp: u8) -> Result<(String, u1
 
 async fn read_socks_reply_addr(stream: &mut TcpStream) -> Result<(), String> {
     let mut rh = [0u8; 4];
-    stream.read_exact(&mut rh).await.map_err(|e| e.to_string())?;
+    stream
+        .read_exact(&mut rh)
+        .await
+        .map_err(|e| e.to_string())?;
     if rh[1] != 0x00 {
         return Err(format!("upstream socks CONNECT failed status={}", rh[1]));
     }
@@ -564,7 +606,9 @@ async fn socks5_connect_authed(
         .await
         .map_err(|e| format!("socks offer: {e}"))?;
     let mut resp = [0u8; 2];
-    s.read_exact(&mut resp).await.map_err(|e| format!("socks method select: {e}"))?;
+    s.read_exact(&mut resp)
+        .await
+        .map_err(|e| format!("socks method select: {e}"))?;
     if resp[0] != 0x05 || resp[1] != 0x02 {
         return Err(format!("socks auth method rejected: {:02x?}", resp));
     }
@@ -579,9 +623,13 @@ async fn socks5_connect_authed(
     auth.extend_from_slice(user);
     auth.push(pass.len() as u8);
     auth.extend_from_slice(pass);
-    s.write_all(&auth).await.map_err(|e| format!("socks auth send: {e}"))?;
+    s.write_all(&auth)
+        .await
+        .map_err(|e| format!("socks auth send: {e}"))?;
     let mut auth_resp = [0u8; 2];
-    s.read_exact(&mut auth_resp).await.map_err(|e| format!("socks auth reply: {e}"))?;
+    s.read_exact(&mut auth_resp)
+        .await
+        .map_err(|e| format!("socks auth reply: {e}"))?;
     if auth_resp[1] != 0x00 {
         return Err(format!("socks auth failed: {:02x?}", auth_resp));
     }
@@ -593,7 +641,9 @@ async fn socks5_connect_authed(
     req.extend_from_slice(&[0x05, 0x01, 0x00, 0x03, host_b.len() as u8]);
     req.extend_from_slice(host_b);
     req.extend_from_slice(&dest_port.to_be_bytes());
-    s.write_all(&req).await.map_err(|e| format!("socks connect send: {e}"))?;
+    s.write_all(&req)
+        .await
+        .map_err(|e| format!("socks connect send: {e}"))?;
     read_socks_reply_addr(&mut s).await?;
     Ok(s)
 }
@@ -622,7 +672,10 @@ async fn handle_http(mut client: TcpStream, first: u8, ctx: SessionCtx) -> Resul
         .filter(|l| !l.is_empty())
         .map(|s| s.to_string())
         .collect();
-    let request_line = lines.first().ok_or_else(|| "empty http".to_string())?.clone();
+    let request_line = lines
+        .first()
+        .ok_or_else(|| "empty http".to_string())?
+        .clone();
     let mut parts = request_line.splitn(3, ' ');
     let (method, target) = match (parts.next(), parts.next()) {
         (Some(m), Some(t)) => (m.to_ascii_uppercase(), t.to_string()),
@@ -656,7 +709,10 @@ async fn handle_http(mut client: TcpStream, first: u8, ctx: SessionCtx) -> Resul
             .map_err(|e| format!("connect reply: {e}"))?;
         client.flush().await.map_err(|e| e.to_string())?;
         if !ok {
-            return Err(format!("engine refused CONNECT: {}", first_line(&resp_head)));
+            return Err(format!(
+                "engine refused CONNECT: {}",
+                first_line(&resp_head)
+            ));
         }
         relay_pair(client, upstream).await;
         return Ok(());
@@ -694,7 +750,10 @@ async fn handle_http(mut client: TcpStream, first: u8, ctx: SessionCtx) -> Resul
         if response_head_is_2xx(&resp_head) {
             Ok(())
         } else {
-            Err(format!("engine refused CONNECT: {}", first_line(&resp_head)))
+            Err(format!(
+                "engine refused CONNECT: {}",
+                first_line(&resp_head)
+            ))
         }
     }
     .await;
@@ -766,7 +825,9 @@ async fn handle_http(mut client: TcpStream, first: u8, ctx: SessionCtx) -> Resul
                 // frame, so emit one before closing.
                 if event_stream {
                     let _ = cl_w
-                        .write_all(b"event: error\r\ndata: {\"error\":\"upstream_aborted\"}\r\n\r\n")
+                        .write_all(
+                            b"event: error\r\ndata: {\"error\":\"upstream_aborted\"}\r\n\r\n",
+                        )
                         .await;
                     let _ = cl_w.flush().await;
                 }
@@ -784,7 +845,12 @@ async fn handle_http(mut client: TcpStream, first: u8, ctx: SessionCtx) -> Resul
 /// Rewrite the stored head into origin-form over the tunnel: replace the
 /// absolute target with the path, drop the client (and any injected)
 /// proxy-scope headers, and pin the exchange to one response per tunnel.
-fn build_replayed_head(lines: &mut Vec<String>, method: &str, path: &str, authority: &str) -> String {
+fn build_replayed_head(
+    lines: &mut Vec<String>,
+    method: &str,
+    path: &str,
+    authority: &str,
+) -> String {
     let mut out_lines = vec![format!("{method} {path} HTTP/1.1")];
     let has_host = lines
         .iter()
@@ -810,7 +876,11 @@ fn build_replayed_head(lines: &mut Vec<String>, method: &str, path: &str, author
 
 fn split_authority(target: &str) -> Result<(String, u16), String> {
     let (host, port) = match target.rsplit_once(':') {
-        Some((h, p)) => (h.to_string(), p.parse::<u16>().map_err(|_| "bad CONNECT port".to_string())?),
+        Some((h, p)) => (
+            h.to_string(),
+            p.parse::<u16>()
+                .map_err(|_| "bad CONNECT port".to_string())?,
+        ),
         None => (target.to_string(), 443),
     };
     if host.is_empty() {
@@ -835,14 +905,21 @@ fn split_absolute_form(target: &str) -> Result<Option<(String, u16, String)>, St
         (authority.to_string(), 80u16)
     } else {
         match authority.rsplit_once(':') {
-            Some((h, p)) => (h.to_string(), p.parse::<u16>().map_err(|_| "bad port".to_string())?),
+            Some((h, p)) => (
+                h.to_string(),
+                p.parse::<u16>().map_err(|_| "bad port".to_string())?,
+            ),
             None => (authority.to_string(), 80u16),
         }
     };
     if host.is_empty() {
         return Ok(None);
     }
-    let path = if path.is_empty() { "/".to_string() } else { path.to_string() };
+    let path = if path.is_empty() {
+        "/".to_string()
+    } else {
+        path.to_string()
+    };
     Ok(Some((host, port, path)))
 }
 
@@ -874,7 +951,13 @@ async fn http_error(client: &mut TcpStream, status: u16, reason: &str) -> Result
     // protocol characters so a hostile target cannot inject response heads.
     let safe: String = body
         .chars()
-        .map(|c| if matches!(c, '\r' | '\n' | '\0') { ' ' } else { c })
+        .map(|c| {
+            if matches!(c, '\r' | '\n' | '\0') {
+                ' '
+            } else {
+                c
+            }
+        })
         .collect();
     let head = format!(
         "HTTP/1.1 {status} {}\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{safe}",
@@ -922,8 +1005,12 @@ fn find_head_end(buf: &[u8]) -> Option<usize> {
 async fn relay_pair(client: TcpStream, upstream: TcpStream) {
     let (cr, cw) = client.into_split();
     let (ur, uw) = upstream.into_split();
-    let a = tokio::spawn(async move { pump_direction(cr, uw).await; });
-    let b = tokio::spawn(async move { pump_direction(ur, cw).await; });
+    let a = tokio::spawn(async move {
+        pump_direction(cr, uw).await;
+    });
+    let b = tokio::spawn(async move {
+        pump_direction(ur, cw).await;
+    });
     let _ = tokio::join!(a, b);
 }
 
@@ -1071,7 +1158,10 @@ mod tests {
             Some((("127.0.0.1".into()), 8080, ("/".into())))
         );
         // https absolute-form and origin-form are not tunnel-replayable here.
-        assert_eq!(split_absolute_form("https://api.example.com/v1").unwrap(), None);
+        assert_eq!(
+            split_absolute_form("https://api.example.com/v1").unwrap(),
+            None
+        );
         assert_eq!(split_absolute_form("/v1/chat").unwrap(), None);
     }
 
@@ -1097,7 +1187,10 @@ mod tests {
             split_authority("api.example.com:8443").unwrap(),
             (("api.example.com".into()), 8443)
         );
-        assert_eq!(split_authority("only.host").unwrap(), (("only.host".into()), 443));
+        assert_eq!(
+            split_authority("only.host").unwrap(),
+            (("only.host".into()), 443)
+        );
     }
 
     fn mapping(port: u16, protocol: &str, enabled: bool) -> PortMapping {
@@ -1131,7 +1224,10 @@ mod tests {
         let started = f.reload(&rows).await.expect("reload");
         assert_eq!(started, 1, "only the enabled row spawns");
         wait_bound(&f, 47991, true).await;
-        assert!(!f.running_ports().contains(&47992), "disabled must not bind");
+        assert!(
+            !f.running_ports().contains(&47992),
+            "disabled must not bind"
+        );
         // Idempotent reload adds nothing.
         let again = f.reload(&rows).await.expect("reload 2");
         assert_eq!(again, 0);
@@ -1164,9 +1260,14 @@ mod tests {
         let holder = std::net::TcpListener::bind("127.0.0.1:47995").expect("hold port");
         let db = crate::db::DbPool::open_in_memory().expect("mem db");
         let f = PortForwarder::shell(db, "127.0.0.1", 9, "tok");
-        f.reload(&[mapping(47995, "mixed", true)]).await.expect("reload");
+        f.reload(&[mapping(47995, "mixed", true)])
+            .await
+            .expect("reload");
         tokio::time::sleep(Duration::from_millis(150)).await;
-        assert!(!f.running_ports().contains(&47995), "held port must not read bound");
+        assert!(
+            !f.running_ports().contains(&47995),
+            "held port must not read bound"
+        );
         drop(holder);
         wait_bound(&f, 47995, true).await;
     }

@@ -2,12 +2,12 @@
 //!
 //! Extracted from the former commands/mod.rs monolith by
 //! pure mechanical move - no behavior, naming, or IPC-surface change.
-use tauri::{AppHandle, Manager, State};
-use tauri_plugin_store::StoreExt;
+use super::common::{map_resin_error, resin_client};
 use crate::sidecar::SidecarHandle;
 use resin_core::IpcError;
 use serde::{Deserialize, Serialize};
-use super::common::{map_resin_error, resin_client};
+use tauri::{AppHandle, Manager, State};
+use tauri_plugin_store::StoreExt;
 
 /// Runtime log level gate. 0=error, 1=warn, 2=info, 3=debug.
 /// Default is 2 (info). Use the set_log_level IPC command to change at runtime.
@@ -141,7 +141,8 @@ pub async fn sidecar_restart(
 
 #[tauri::command]
 pub fn tray_refresh_labels(app: AppHandle) -> Result<(), IpcError> {
-    crate::tray::apply_labels(&app).map_err(|e| IpcError::from(format!("tray_refresh_labels: {e:?}")))
+    crate::tray::apply_labels(&app)
+        .map_err(|e| IpcError::from(format!("tray_refresh_labels: {e:?}")))
 }
 
 #[tauri::command]
@@ -172,10 +173,14 @@ pub async fn export_audit_log(
     target_path: String,
 ) -> Result<serde_json::Value, IpcError> {
     if target_path.is_empty() || target_path.len() > 4096 {
-        return Err(IpcError::from("target_path must be 1..4096 chars".to_string()));
+        return Err(IpcError::from(
+            "target_path must be 1..4096 chars".to_string(),
+        ));
     }
     if target_path.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-        return Err(IpcError::from("target_path contains control characters".to_string()));
+        return Err(IpcError::from(
+            "target_path contains control characters".to_string(),
+        ));
     }
     let cfg_dir = app
         .path()
@@ -201,9 +206,18 @@ pub async fn export_audit_log(
 /// Reads from tauri-plugin-store settings.json — returns {enabled, delay_minutes}.
 #[tauri::command]
 pub async fn lightweight_get(app: AppHandle) -> Result<serde_json::Value, IpcError> {
-    let store = app.store("settings.json").map_err(|e| IpcError::from(e.to_string()))?;
-    let enabled: bool = store.get("lightweightEnabled").unwrap_or(serde_json::Value::Bool(true)).as_bool().unwrap_or(true);
-    let delay: u32 = store.get("lightweightDelayMinutes").and_then(|v| v.as_u64()).unwrap_or(10) as u32;
+    let store = app
+        .store("settings.json")
+        .map_err(|e| IpcError::from(e.to_string()))?;
+    let enabled: bool = store
+        .get("lightweightEnabled")
+        .unwrap_or(serde_json::Value::Bool(true))
+        .as_bool()
+        .unwrap_or(true);
+    let delay: u32 = store
+        .get("lightweightDelayMinutes")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(10) as u32;
     Ok(serde_json::json!({ "enabled": enabled, "delay_minutes": delay }))
 }
 
@@ -218,7 +232,9 @@ pub async fn lightweight_set(
     if delay_minutes == 0 || delay_minutes > 1440 {
         return Err(IpcError::from("delay_minutes must be 1..=1440".to_string()));
     }
-    let store = app.store("settings.json").map_err(|e| IpcError::from(e.to_string()))?;
+    let store = app
+        .store("settings.json")
+        .map_err(|e| IpcError::from(e.to_string()))?;
     store.set("lightweightEnabled", serde_json::Value::Bool(enabled));
     store.set("lightweightDelayMinutes", serde_json::json!(delay_minutes));
     store.save().map_err(|e| IpcError::from(e.to_string()))?;
@@ -254,7 +270,9 @@ fn validate_diag_poll_interval(interval_ms: u64) -> Result<(), IpcError> {
 /// unset or when the stored value is not a number.
 #[tauri::command]
 pub async fn get_diag_poll_interval(app: AppHandle) -> Result<u64, IpcError> {
-    let store = app.store("settings.json").map_err(|e| IpcError::from(e.to_string()))?;
+    let store = app
+        .store("settings.json")
+        .map_err(|e| IpcError::from(e.to_string()))?;
     Ok(store
         .get("diagPollInterval")
         .and_then(|v| v.as_u64())
@@ -266,7 +284,9 @@ pub async fn get_diag_poll_interval(app: AppHandle) -> Result<u64, IpcError> {
 #[tauri::command]
 pub async fn set_diag_poll_interval(app: AppHandle, interval_ms: u64) -> Result<(), IpcError> {
     validate_diag_poll_interval(interval_ms)?;
-    let store = app.store("settings.json").map_err(|e| IpcError::from(e.to_string()))?;
+    let store = app
+        .store("settings.json")
+        .map_err(|e| IpcError::from(e.to_string()))?;
     store.set("diagPollInterval", serde_json::json!(interval_ms));
     store.save().map_err(|e| IpcError::from(e.to_string()))?;
     Ok(())
@@ -276,7 +296,11 @@ pub async fn set_diag_poll_interval(app: AppHandle, interval_ms: u64) -> Result<
 #[specta::specta]
 pub async fn set_log_level(level: LogLevel) -> Result<String, IpcError> {
     LOG_LEVEL_GATE.store(level.gate(), std::sync::atomic::Ordering::Relaxed);
-    tracing::warn!("T15-2: log level set to {} (gate={})", level.as_str(), level.gate());
+    tracing::warn!(
+        "T15-2: log level set to {} (gate={})",
+        level.as_str(),
+        level.gate()
+    );
     Ok(level.as_str().to_string())
 }
 
@@ -360,7 +384,10 @@ mod diag_poll_interval_tests {
         for bad in [0u64, 99, DIAG_POLL_INTERVAL_MAX_MS + 1, u64::MAX] {
             match validate_diag_poll_interval(bad) {
                 Err(IpcError::InvalidInput { msg, i18n_key }) => {
-                    assert!(msg.contains("interval_ms must be 100..=86400000"), "msg: {msg}");
+                    assert!(
+                        msg.contains("interval_ms must be 100..=86400000"),
+                        "msg: {msg}"
+                    );
                     assert_eq!(i18n_key, "error.badRequest");
                 }
                 other => panic!("expected InvalidInput for {bad}, got {other:?}"),

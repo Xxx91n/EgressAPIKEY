@@ -2,13 +2,18 @@
 //!
 //! Extracted from the former commands/mod.rs monolith by
 //! pure mechanical move - no behavior, naming, or IPC-surface change.
+use super::common::{
+    items_arr, map_resin_error, resin_client, validate_ip, validate_short_name, KEY_MAX_LEN,
+};
+use crate::sidecar::SidecarHandle;
+use resin_core::{
+    parse_public_ips, resolve_id_in, ReputationClient, ReputationProvider, ReputationSnapshot,
+    MAX_LANES,
+};
+use resin_core::{DbPool, IpcError};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_store::StoreExt;
-use crate::sidecar::SidecarHandle;
-use resin_core::{DbPool, IpcError};
-use resin_core::{MAX_LANES, ReputationClient, ReputationProvider, ReputationSnapshot, parse_public_ips, resolve_id_in};
-use super::common::{KEY_MAX_LEN, items_arr, map_resin_error, resin_client, validate_ip, validate_short_name};
 
 #[tauri::command]
 pub async fn platform_add(sidecar: State<'_, SidecarHandle>, name: String) -> Result<(), IpcError> {
@@ -41,7 +46,10 @@ pub async fn platform_remove(
 #[tauri::command]
 pub async fn platform_list(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>, IpcError> {
     let client = resin_client(&sidecar)?;
-    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
+    let list = client
+        .list_platforms()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     Ok(platform_names(&list))
 }
 
@@ -53,7 +61,10 @@ pub async fn platform_list_full(
     sidecar: State<'_, SidecarHandle>,
 ) -> Result<serde_json::Value, IpcError> {
     let client = resin_client(&sidecar)?;
-    client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))
+    client
+        .list_platforms()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
 }
 
 /// @deprecated since ADR-0050: account semantics are owned by the Resin
@@ -71,7 +82,10 @@ pub async fn account_add(
     validate_short_name(&platform, "platform")?;
     validate_short_name(&id, "account")?;
     if lane >= MAX_LANES {
-        return Err(IpcError::from(format!("lane {lane} out of range (max {})", MAX_LANES - 1)));
+        return Err(IpcError::from(format!(
+            "lane {lane} out of range (max {})",
+            MAX_LANES - 1
+        )));
     }
     let _client = resin_client(&sidecar)?;
     Ok(())
@@ -318,13 +332,17 @@ pub async fn subscription_add(
 ) -> Result<(), IpcError> {
     validate_short_name(&name, "subscription")?;
     if url.trim().is_empty() {
-        return Err(IpcError::from("subscription url must be non-empty".to_string()));
+        return Err(IpcError::from(
+            "subscription url must be non-empty".to_string(),
+        ));
     }
     if url.len() > KEY_MAX_LEN {
         return Err(IpcError::from("subscription url out of range".to_string()));
     }
     if !url.starts_with("http://") && !url.starts_with("https://") {
-        return Err(IpcError::from("subscription url must start with http:// or https://".to_string()));
+        return Err(IpcError::from(
+            "subscription url must start with http:// or https://".to_string(),
+        ));
     }
     // validate update_interval Go duration format (default 30s).
     // 30s is Resin's enforced floor (>= 30s,
@@ -332,10 +350,16 @@ pub async fn subscription_add(
     // PATCH); a 5s default was investigated and rejected — a below-floor
     // value 400s on POST. Gap documented in docs/research/OPENAPI-GAP.md.
     let update_interval = update_interval.unwrap_or_else(|| "30s".to_string());
-    if update_interval.len() > 10 || update_interval.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-        return Err(IpcError::from("update_interval: invalid (max 10 chars, no control)".to_string()));
+    if update_interval.len() > 10
+        || update_interval
+            .bytes()
+            .any(|b| b == 0 || b < 0x20 || b == 0x7f)
+    {
+        return Err(IpcError::from(
+            "update_interval: invalid (max 10 chars, no control)".to_string(),
+        ));
     }
-// the user's explicit binding target for the
+    // the user's explicit binding target for the
     // cascade's optional default-port tail. Provided -> the suggest probe is
     // skipped. §7.5 numeric boundary: reject privileged ports here so a
     // hostile caller cannot burn the pipeline's retry budget on a
@@ -372,7 +396,7 @@ pub async fn subscription_add(
     match client.create_subscription(body).await {
         Ok(v) => {
             tracing::info!(?v, "subscription_add: Resin accepted subscription");
-// pipeline=establish opts INTO the
+            // pipeline=establish opts INTO the
             // five-step cascade (resolve -> whitebox platform -> apply).
             // The enqueue + drain is the user-triggered reconcile — no
             // background loop (ADR-0054 discipline). Without the parameter
@@ -442,7 +466,7 @@ pub async fn subscription_remove(
 ) -> Result<bool, IpcError> {
     validate_short_name(&name, "subscription")?;
     let client = resin_client(&sidecar)?;
-// name→UUID two-step hop centralized in ResinClient; the
+    // name→UUID two-step hop centralized in ResinClient; the
     // list GET count is unchanged and a miss resolves to typed NotFound.
     let id = client.resolve_subscription_id_by_name(&name).await?;
     client
@@ -455,11 +479,7 @@ pub async fn subscription_remove(
     // WARNING (the leftover surfaces as drift for port_remove), never an
     // error — the removal itself succeeded.
     let released = resin_core::subscription_pipeline::remove_default_port_if_orphaned(
-        &client,
-        &db,
-        &forwarder,
-        &whitebox,
-        &name,
+        &client, &db, &forwarder, &whitebox, &name,
     )
     .await;
     if !released {
@@ -634,12 +654,16 @@ pub async fn node_pool_snapshot(
     sidecar: State<'_, SidecarHandle>,
 ) -> Result<serde_json::Value, IpcError> {
     let client = resin_client(&sidecar)?;
-    client.node_pool_snapshot().await.map_err(|e| map_resin_error(&e.to_string()))
+    client
+        .node_pool_snapshot()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
 }
 
 /// The allocation_policy values Resin v1.1.2 actually accepts (probed
 /// 2026-07-31). The IPC layer rejects anything else before reaching Resin.
-pub const ALLOWED_ALLOCATION_POLICIES: &[&str] = &["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"];
+pub const ALLOWED_ALLOCATION_POLICIES: &[&str] =
+    &["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP"];
 
 /// PATCH a platform's fields (allocation_policy, regex_filters, region_filters, sticky_ttl).
 /// The webview identifies the platform by NAME; we resolve name->id then
@@ -679,7 +703,9 @@ pub async fn platform_update(
     }
     if let Some(ref filters) = regex_filters {
         if filters.len() > 64 {
-            return Err(IpcError::from("regex_filters: too many entries (max 64)".to_string()));
+            return Err(IpcError::from(
+                "regex_filters: too many entries (max 64)".to_string(),
+            ));
         }
         let arr: Vec<serde_json::Value> = filters
             .iter()
@@ -701,7 +727,9 @@ pub async fn platform_update(
     // — this is the B->C binding mechanism for the topology canvas.
     if let Some(ref filters) = region_filters {
         if filters.len() > 64 {
-            return Err(IpcError::from("region_filters: too many entries (max 64)".to_string()));
+            return Err(IpcError::from(
+                "region_filters: too many entries (max 64)".to_string(),
+            ));
         }
         let arr: Vec<serde_json::Value> = filters
             .iter()
@@ -722,7 +750,9 @@ pub async fn platform_update(
     if let Some(ref ttl) = sticky_ttl {
         // Go duration string; cap length to prevent abuse.
         if ttl.len() > 32 || ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-            return Err(IpcError::from("sticky_ttl: invalid (max 32 chars, no control)".to_string()));
+            return Err(IpcError::from(
+                "sticky_ttl: invalid (max 32 chars, no control)".to_string(),
+            ));
         }
         body.insert(
             "sticky_ttl".to_string(),
@@ -741,7 +771,9 @@ pub async fn platform_update(
         );
     }
     if body.is_empty() {
-        return Err(IpcError::from("platform_update: no fields to update".to_string()));
+        return Err(IpcError::from(
+            "platform_update: no fields to update".to_string(),
+        ));
     }
     client
         .update_platform(&id, serde_json::Value::Object(body))
@@ -754,7 +786,10 @@ pub async fn platform_update(
 #[tauri::command]
 pub async fn node_list(sidecar: State<'_, SidecarHandle>) -> Result<serde_json::Value, IpcError> {
     let client = resin_client(&sidecar)?;
-    client.list_nodes().await.map_err(|e| map_resin_error(&e.to_string()))
+    client
+        .list_nodes()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
 }
 
 /// pure input validation for node_probe. Exposed as a module-level
@@ -788,8 +823,7 @@ pub async fn node_probe(
     node_hash: String,
     kind: String,
 ) -> Result<serde_json::Value, IpcError> {
-    validate_node_probe_inputs(&node_hash, &kind)
-        .map_err(IpcError::from)?;
+    validate_node_probe_inputs(&node_hash, &kind).map_err(IpcError::from)?;
     let client = resin_client(&sidecar)?;
     let result = if kind == "egress" {
         client.probe_node_egress(&node_hash).await
@@ -831,13 +865,15 @@ pub async fn platform_create_with_fields(
     // If regex_filters present, cap count + per-entry length (mirrors platform_update).
     if let Some(arr) = obj.get("regex_filters").and_then(|v| v.as_array()) {
         if arr.len() > 64 {
-            return Err(IpcError::from("regex_filters: too many entries (max 64)".to_string()));
+            return Err(IpcError::from(
+                "regex_filters: too many entries (max 64)".to_string(),
+            ));
         }
         for f in arr {
             if let Some(s) = f.as_str() {
                 if s.len() > 253 || s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
                     return Err(IpcError::from(
-                        "regex_filters: entry invalid (max 253 chars, no control)".to_string()
+                        "regex_filters: entry invalid (max 253 chars, no control)".to_string(),
                     ));
                 }
             }
@@ -846,7 +882,9 @@ pub async fn platform_create_with_fields(
     // If region_filters present, cap each at 16 chars (ISO 3166-1 alpha-2 + negation).
     if let Some(arr) = obj.get("region_filters").and_then(|v| v.as_array()) {
         if arr.len() > 64 {
-            return Err(IpcError::from("region_filters: too many entries (max 64)".to_string()));
+            return Err(IpcError::from(
+                "region_filters: too many entries (max 64)".to_string(),
+            ));
         }
         for r in arr {
             if let Some(s) = r.as_str() {
@@ -854,7 +892,9 @@ pub async fn platform_create_with_fields(
                     || s.bytes()
                         .any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')
                 {
-                    return Err(IpcError::from("region_filter invalid (max 16, no control/space)".to_string()));
+                    return Err(IpcError::from(
+                        "region_filter invalid (max 16, no control/space)".to_string(),
+                    ));
                 }
             }
         }
@@ -862,7 +902,9 @@ pub async fn platform_create_with_fields(
     // If sticky_ttl present, cap at 32 chars + no control (mirrors platform_update).
     if let Some(ttl) = obj.get("sticky_ttl").and_then(|v| v.as_str()) {
         if ttl.len() > 32 || ttl.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
-            return Err(IpcError::from("sticky_ttl: invalid (max 32 chars, no control)".to_string()));
+            return Err(IpcError::from(
+                "sticky_ttl: invalid (max 32 chars, no control)".to_string(),
+            ));
         }
     }
     let client = resin_client(&sidecar)?;
@@ -886,7 +928,10 @@ pub async fn platform_leases(
     // name→UUID two-step hop centralized in ResinClient; miss
     // = typed IpcError::NotFound instead of a stringly error round-trip.
     let id = client.resolve_platform_id_by_name(&name).await?;
-    client.platform_leases(&id).await.map_err(|e| map_resin_error(&e.to_string()))
+    client
+        .platform_leases(&id)
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))
 }
 
 pub fn subscription_snapshot(v: &serde_json::Value) -> Vec<SubscriptionSnapshotEntry> {
@@ -956,7 +1001,10 @@ pub struct LeaseEntry {
 #[tauri::command]
 pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEntry>, IpcError> {
     let client = resin_client(&sidecar)?;
-    let raw = client.active_leases().await.map_err(|e| map_resin_error(&e.to_string()))?;
+    let raw = client
+        .active_leases()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     // Resin returns {"items":[{active_leases:N,"ts":"...","platform_id":""}]}
     // or a bare array. We use the shared items_arr helper to be robust.
     let items = items_arr(&raw);
@@ -1040,7 +1088,10 @@ pub async fn ip_reputation_snapshot(
         });
     }
     let client = resin_client(&sidecar)?;
-    let raw = client.active_leases().await.map_err(|e| map_resin_error(&e.to_string()))?;
+    let raw = client
+        .active_leases()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     let ips = parse_public_ips(
         items_arr(&raw)
             .iter()

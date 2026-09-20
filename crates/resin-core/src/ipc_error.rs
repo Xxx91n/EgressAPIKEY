@@ -15,10 +15,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "kind", content = "data")]
 pub enum IpcError {
     /// Port number already in use (EADDRINUSE / Resin 409 bind conflict).
-    BindConflict {
-        port: u16,
-        i18n_key: String,
-    },
+    BindConflict { port: u16, i18n_key: String },
     /// Strategy value rejected by the Rust-side catalog.
     InvalidStrategy {
         value: String,
@@ -35,24 +32,15 @@ pub enum IpcError {
     /// boundary. introduced by the diag-poll-interval command
     /// pair; msg carries the rejected bound for log display. Reuses the
     /// existing "error.badRequest" locale key (no new i18n key, 不做清单).
-    InvalidInput {
-        msg: String,
-        i18n_key: String,
-    },
-/// Name-based lookup miss: the typed face of the
+    InvalidInput { msg: String, i18n_key: String },
+    /// Name-based lookup miss: the typed face of the
     /// former stringly `format!("platform not found: {name}")` rejections the
     /// name→UUID call sites produced through `IpcError::from(String)`.
     /// Reuses the existing "error.notFound" locale key (already present in
     /// all 18 catalogs), so no new i18n key is added.
-    NotFound {
-        msg: String,
-        i18n_key: String,
-    },
+    NotFound { msg: String, i18n_key: String },
     /// Catch-all for internal errors (serde, IO, unexpected panic recovery).
-    Internal {
-        msg: String,
-        i18n_key: String,
-    },
+    Internal { msg: String, i18n_key: String },
 }
 
 impl IpcError {
@@ -121,7 +109,9 @@ impl std::fmt::Display for IpcError {
         match self {
             Self::BindConflict { port, .. } => write!(f, "bind conflict on port {port}"),
             Self::InvalidStrategy { value, .. } => write!(f, "invalid strategy: {value}"),
-            Self::ResinUpstream { status, excerpt, .. } => {
+            Self::ResinUpstream {
+                status, excerpt, ..
+            } => {
                 write!(f, "Resin upstream {status}: {excerpt}")
             }
             Self::InvalidInput { msg, .. } => write!(f, "invalid input: {msg}"),
@@ -143,7 +133,17 @@ impl From<String> for IpcError {
             }
         }
         if raw.contains("must be BALANCED") || raw.contains("InvalidStrategy") {
-            return IpcError::invalid_strategy(&raw, &["random","sequential","latency","quality","bandwidth","protocol_weight"]);
+            return IpcError::invalid_strategy(
+                &raw,
+                &[
+                    "random",
+                    "sequential",
+                    "latency",
+                    "quality",
+                    "bandwidth",
+                    "protocol_weight",
+                ],
+            );
         }
         IpcError::internal(&raw)
     }
@@ -154,7 +154,6 @@ impl From<serde_json::Error> for IpcError {
         IpcError::internal(&e.to_string())
     }
 }
-
 
 /// Single Resin error -> IpcError mapping
 /// the shell-side duplicate in src-tauri/src/commands/mod.rs was deleted; its
@@ -340,38 +339,51 @@ mod tests {
 
     #[test]
     fn map_resin_error_auth_required() {
-        let e = map_resin_error("resin_client: GET /platforms -> 407: AUTH_REQUIRED: missing token");
-        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.authRequired"));
+        let e =
+            map_resin_error("resin_client: GET /platforms -> 407: AUTH_REQUIRED: missing token");
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.authRequired")
+        );
     }
 
     #[test]
     fn map_resin_error_auth_failed() {
         let e = map_resin_error("AUTH_FAILED: bad token");
-        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.authFailed"));
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.authFailed")
+        );
     }
 
     #[test]
     fn map_resin_error_url_parse() {
         let e = map_resin_error("URL_PARSE_ERROR: invalid URL");
-        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.urlParse"));
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.urlParse")
+        );
     }
 
     #[test]
     fn map_resin_error_invalid_protocol() {
         let e = map_resin_error("INVALID_PROTOCOL: ftp not supported");
-        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.invalidProtocol"));
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.invalidProtocol")
+        );
     }
 
     #[test]
     fn map_resin_error_upstream_connect_failed() {
         let e = map_resin_error("502 UPSTREAM_CONNECT_FAILED: connection refused");
-        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.upstreamConnectFailed"));
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.upstreamConnectFailed")
+        );
     }
 
     #[test]
     fn map_resin_error_upstream_request_failed() {
         let e = map_resin_error("UPSTREAM_REQUEST_FAILED: 502 bad gateway");
-        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.upstreamRequestFailed"));
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.upstreamRequestFailed")
+        );
     }
 
     #[test]
@@ -400,31 +412,42 @@ mod tests {
         // regression: the bind guard must win before generic CONFLICT.
         let raw = "409 Conflict: listen on port 17999: bind: Only one usage of each socket address";
         let e = map_resin_error(raw);
-        assert!(matches!(e, IpcError::BindConflict { port: 17999, .. }), "got {e:?}");
+        assert!(
+            matches!(e, IpcError::BindConflict { port: 17999, .. }),
+            "got {e:?}"
+        );
     }
 
     #[test]
     fn map_resin_error_conflict() {
         let e = map_resin_error("409 CONFLICT: resource already exists");
-        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.conflict"));
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.conflict")
+        );
     }
 
     #[test]
     fn map_resin_error_not_found() {
         let e = map_resin_error("platform not found");
-        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.notFound"));
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.notFound")
+        );
     }
 
     #[test]
     fn map_resin_error_bad_request() {
         let e = map_resin_error("400 BAD_REQUEST: missing field");
-        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.badRequest"));
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.badRequest")
+        );
     }
 
     #[test]
     fn map_resin_error_unauthorized() {
         let e = map_resin_error("401 UNAUTHORIZED: no admin token");
-        assert!(matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.unauthorized"));
+        assert!(
+            matches!(e, IpcError::Internal { ref i18n_key, .. } if i18n_key == "error.unauthorized")
+        );
     }
 
     #[test]
@@ -437,7 +460,12 @@ mod tests {
             matches!(e, IpcError::ResinUpstream { status: 418, .. }),
             "got {e:?}"
         );
-        if let IpcError::ResinUpstream { status, excerpt, i18n_key } = e {
+        if let IpcError::ResinUpstream {
+            status,
+            excerpt,
+            i18n_key,
+        } = e
+        {
             assert_eq!(status, 418);
             assert!(excerpt.contains("teapot"), "excerpt: {excerpt}");
             assert_eq!(i18n_key, "error.resinUpstream");
@@ -447,13 +475,19 @@ mod tests {
     #[test]
     fn map_resin_error_403_forbidden_becomes_resin_upstream() {
         let e = map_resin_error("resin_client: GET /platforms -> 403 : forbidden");
-        assert!(matches!(e, IpcError::ResinUpstream { status: 403, .. }), "got {e:?}");
+        assert!(
+            matches!(e, IpcError::ResinUpstream { status: 403, .. }),
+            "got {e:?}"
+        );
     }
 
     #[test]
     fn map_resin_error_500_becomes_resin_upstream_regression() {
         let e = map_resin_error("resin_client: GET /leases -> 500 : internal server error");
-        assert!(matches!(e, IpcError::ResinUpstream { status: 500, .. }), "got {e:?}");
+        assert!(
+            matches!(e, IpcError::ResinUpstream { status: 500, .. }),
+            "got {e:?}"
+        );
     }
 
     #[test]
@@ -480,7 +514,10 @@ mod tests {
 
     #[test]
     fn embedded_status_parses_resin_client_shape_only() {
-        assert_eq!(embedded_status("resin_client: GET /x -> 404 : nope"), Some(404));
+        assert_eq!(
+            embedded_status("resin_client: GET /x -> 404 : nope"),
+            Some(404)
+        );
         assert_eq!(embedded_status("POST /y -> 503: down"), Some(503));
         // Numbers not directly after the last arrow are not statuses.
         assert_eq!(embedded_status("lease 17111 expired"), None);

@@ -53,7 +53,11 @@ use egressapikey_app::sidecar::boot_resin_standalone;
 use tower_http::services::{ServeDir, ServeFile};
 
 #[derive(Parser, Debug)]
-#[command(name = "egressapikey-headless", version, about = "EgressAPIKEY headless server (no Tauri webview).")]
+#[command(
+    name = "egressapikey-headless",
+    version,
+    about = "EgressAPIKEY headless server (no Tauri webview)."
+)]
 struct Cli {
     /// Bind address for the HTTP control surface.
     #[arg(long, default_value = "127.0.0.1")]
@@ -118,22 +122,26 @@ async fn main() -> Result<()> {
     std::mem::forget(_guard);
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "egressapikey=info,resin_core=info,egressapikey_app=info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "egressapikey=info,resin_core=info,egressapikey_app=info".into()
+            }),
         )
         .with_writer(std::io::stderr)
         .with_writer(non_blocking)
         .init();
     tracing::info!(
         "headless: starting (bind={}:{}, dist={:?}, state_root={:?})",
-        cli.bind, cli.port, cli.dist, state_root
+        cli.bind,
+        cli.port,
+        cli.dist,
+        state_root
     );
 
     // (A-007) startup gate: refuse to expose the admin control plane
     // off-host without a token; otherwise fall back to a CSPRNG token. Runs
     // BEFORE the resin sidecar is spawned so a refusal leaves no orphan child.
-    let resolved = headless_security::resolve_token(cli.auth_token.as_deref(), &cli.bind)
-        .map_err(|e| {
+    let resolved =
+        headless_security::resolve_token(cli.auth_token.as_deref(), &cli.bind).map_err(|e| {
             tracing::error!("{e}");
             anyhow::anyhow!(e)
         })?;
@@ -228,9 +236,12 @@ async fn main() -> Result<()> {
     let addr: SocketAddr = format!("{}:{}", cli.bind, cli.port)
         .parse()
         .with_context(|| format!("headless: invalid bind {:?}:{:?}", cli.bind, cli.port))?;
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .with_context(|| format!("headless: cannot bind {:?}:{:?} (already in use?)", cli.bind, cli.port))?;
+    let listener = tokio::net::TcpListener::bind(addr).await.with_context(|| {
+        format!(
+            "headless: cannot bind {:?}:{:?} (already in use?)",
+            cli.bind, cli.port
+        )
+    })?;
     let server_task = tokio::spawn(async move {
         tracing::info!("headless: control surface listening on http://{}", addr);
         if let Err(e) = axum::serve(listener, app).await {
@@ -269,7 +280,9 @@ async fn main() -> Result<()> {
     }
     #[cfg(not(unix))]
     {
-        tokio::signal::ctrl_c().await.expect("install ctrl_c handler");
+        tokio::signal::ctrl_c()
+            .await
+            .expect("install ctrl_c handler");
         tracing::info!("headless: received Ctrl+C");
     }
 
@@ -304,16 +317,22 @@ fn build_router(
     let api_base = Arc::new(api_base);
     let admin_token = Arc::new(admin_token);
     let proxy_state = Arc::new((api_base, admin_token));
-    let proxy_handler = move |method: Method,
-                              orig_uri: axum::http::Uri,
-                              headers: HeaderMap,
-                              body: Body| {
-        let proxy_state = proxy_state.clone();
-        async move {
-            let (api_base, admin_token) = (&proxy_state.0, &proxy_state.1);
-            proxy_to_resin(method, orig_uri, headers, body, api_base.clone(), admin_token.clone()).await
-        }
-    };
+    let proxy_handler =
+        move |method: Method, orig_uri: axum::http::Uri, headers: HeaderMap, body: Body| {
+            let proxy_state = proxy_state.clone();
+            async move {
+                let (api_base, admin_token) = (&proxy_state.0, &proxy_state.1);
+                proxy_to_resin(
+                    method,
+                    orig_uri,
+                    headers,
+                    body,
+                    api_base.clone(),
+                    admin_token.clone(),
+                )
+                .await
+            }
+        };
 
     // (option C): headless owns the same L2 stores the desktop shell
     // owns, so port management is not desktop-only (A-006). These are
@@ -400,7 +419,6 @@ fn build_router(
         .route("/api/v1/ports/{port}/health", get(r_health))
         .route("/api/v1/*path", any(proxy_handler.clone()))
         .route("/metrics/*path", any(proxy_handler))
-
         .fallback_service(serve_dir)
         // (A-007): the Host/Origin + token guard wraps every route and
         // the static fallback. Applied last so it also covers the fallback.
@@ -453,7 +471,11 @@ async fn security_guard(
             .and_then(|v| v.to_str().ok())
             .map(str::to_owned);
         let query = req.uri().query().map(str::to_owned);
-        match guard.extract_token(authorization.as_deref(), cookie.as_deref(), query.as_deref()) {
+        match guard.extract_token(
+            authorization.as_deref(),
+            cookie.as_deref(),
+            query.as_deref(),
+        ) {
             Some((candidate, from_query)) if guard.token_matches(candidate) => {
                 plant_cookie = from_query;
             }
@@ -467,10 +489,8 @@ async fn security_guard(
                     "headless: missing or invalid auth token",
                 )
                     .into_response();
-                resp.headers_mut().insert(
-                    header::WWW_AUTHENTICATE,
-                    HeaderValue::from_static("Bearer"),
-                );
+                resp.headers_mut()
+                    .insert(header::WWW_AUTHENTICATE, HeaderValue::from_static("Bearer"));
                 return resp;
             }
         }
@@ -510,11 +530,7 @@ async fn proxy_to_resin(
     let body_bytes = match axum::body::to_bytes(body, 64 * 1024 * 1024).await {
         Ok(b) => b,
         Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                format!("headless: read body: {e}"),
-            )
-                .into_response();
+            return (StatusCode::BAD_REQUEST, format!("headless: read body: {e}")).into_response();
         }
     };
 
@@ -590,7 +606,10 @@ async fn proxy_to_resin(
         }
     }
     let req = client
-        .request(reqwest::Method::from_bytes(method.as_str().as_bytes()).unwrap_or(reqwest::Method::GET), &upstream)
+        .request(
+            reqwest::Method::from_bytes(method.as_str().as_bytes()).unwrap_or(reqwest::Method::GET),
+            &upstream,
+        )
         .headers(req_headers)
         .body(final_body);
     match req.send().await {
@@ -607,7 +626,11 @@ async fn proxy_to_resin(
             *out.headers_mut() = out_headers;
             out
         }
-        Err(e) => (StatusCode::BAD_GATEWAY, format!("headless: upstream error: {e}")).into_response(),
+        Err(e) => (
+            StatusCode::BAD_GATEWAY,
+            format!("headless: upstream error: {e}"),
+        )
+            .into_response(),
     }
 }
 
@@ -694,9 +717,12 @@ fn rewrite_patch_body_snake_case(body: &serde_json::Value) -> Result<serde_json:
                 for r in arr.iter() {
                     if let Some(s) = r.as_str() {
                         if s.len() > 16
-                            || s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')
+                            || s.bytes()
+                                .any(|b| b == 0 || b < 0x20 || b == 0x7f || b == b' ')
                         {
-                            return Err("region_filter invalid (max 16, no control/space)".to_string());
+                            return Err(
+                                "region_filter invalid (max 16, no control/space)".to_string()
+                            );
                         }
                     }
                 }
@@ -838,7 +864,11 @@ async fn translate_request(
     {
         let body_val = parse_body(body_bytes)?;
         let name = read_name(&body_val)?;
-        let collection = if is_platforms { "platforms" } else { "subscriptions" };
+        let collection = if is_platforms {
+            "platforms"
+        } else {
+            "subscriptions"
+        };
         let id = resolve_id(client, upstream_base, admin_token, collection, &name).await?;
         let enc = url_encode_segment(&id);
         if method == Method::DELETE {
@@ -851,9 +881,12 @@ async fn translate_request(
         // Reuse the pure snake_case rewriter so unit tests can lock the
         // contract without spinning up reqwest.
         let new_body_val = rewrite_patch_body_snake_case(&body_val)?;
-        let new_body = serde_json::to_vec(&new_body_val)
-            .map_err(|e| format!("re-serialize body: {e}"))?;
-        return Ok((format!("/api/v1/platforms/{}", enc), reqwest::Body::from(new_body)));
+        let new_body =
+            serde_json::to_vec(&new_body_val).map_err(|e| format!("re-serialize body: {e}"))?;
+        return Ok((
+            format!("/api/v1/platforms/{}", enc),
+            reqwest::Body::from(new_body),
+        ));
     }
 
     // --- 2. GET /platforms?leases_for=<name> -> /platforms/{id}/leases ---
@@ -874,7 +907,10 @@ async fn translate_request(
             egressapikey_app::commands::validate_short_name(&name, "subscription")?;
             let id = resolve_id(client, upstream_base, admin_token, "subscriptions", &name).await?;
             return Ok((
-                format!("/api/v1/subscriptions/{}/actions/refresh", url_encode_segment(&id)),
+                format!(
+                    "/api/v1/subscriptions/{}/actions/refresh",
+                    url_encode_segment(&id)
+                ),
                 reqwest::Body::from(Vec::<u8>::new()),
             ));
         }
@@ -926,7 +962,10 @@ async fn translate_request(
         resin_core::validate_platform_name(name)
             .map_err(|e| format!("platform name rejected: {e}"))?;
     }
-    Ok((raw_path.to_string(), reqwest::Body::from(body_bytes.clone())))
+    Ok((
+        raw_path.to_string(),
+        reqwest::Body::from(body_bytes.clone()),
+    ))
 }
 
 /// Headless L2 context (option C). The desktop shell holds the same
@@ -987,10 +1026,12 @@ async fn ports_running_h(ctx: Arc<PortCtx>) -> Response {
 /// Read one port_mapping row, or a NOT_FOUND response.
 fn port_row(ctx: &PortCtx, port: u16) -> Result<resin_core::PortMapping, Response> {
     match ctx.db.list_ports() {
-        Ok(rows) => rows
-            .into_iter()
-            .find(|m| m.port == port)
-            .ok_or_else(|| port_err(StatusCode::NOT_FOUND, &format!("port {port} is not configured"))),
+        Ok(rows) => rows.into_iter().find(|m| m.port == port).ok_or_else(|| {
+            port_err(
+                StatusCode::NOT_FOUND,
+                &format!("port {port} is not configured"),
+            )
+        }),
         Err(e) => Err(port_err(StatusCode::INTERNAL_SERVER_ERROR, &e)),
     }
 }
@@ -1029,12 +1070,31 @@ async fn ports_upsert_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Response {
         Ok(v) => v,
         Err(e) => return port_err(StatusCode::BAD_REQUEST, &e),
     };
-    let protocol = v.get("protocol").and_then(|x| x.as_str()).unwrap_or("").to_string();
-    let platform_name = v.get("platform_name").and_then(|x| x.as_str()).unwrap_or("").to_string();
-    let account = v.get("account").and_then(|x| x.as_str()).unwrap_or("").to_string();
-    let label = v.get("label").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let protocol = v
+        .get("protocol")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
+    let platform_name = v
+        .get("platform_name")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
+    let account = v
+        .get("account")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
+    let label = v
+        .get("label")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
     let enabled = v.get("enabled").and_then(|x| x.as_bool()).unwrap_or(true);
-    let auth_required = v.get("auth_required").and_then(|x| x.as_bool()).unwrap_or(false);
+    let auth_required = v
+        .get("auth_required")
+        .and_then(|x| x.as_bool())
+        .unwrap_or(false);
     match egressapikey_app::commands::port_upsert_impl(
         &ctx.db,
         &*ctx,
@@ -1107,7 +1167,8 @@ async fn ports_bind_platform_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Res
         .and_then(|x| x.as_str())
         .unwrap_or("")
         .to_string();
-    if let Err(e) = egressapikey_app::commands::validate_short_name(&platform_name, "platform_name") {
+    if let Err(e) = egressapikey_app::commands::validate_short_name(&platform_name, "platform_name")
+    {
         return port_err(StatusCode::BAD_REQUEST, &e);
     }
     let mut next = ctx.whitebox.snapshot();
@@ -1116,7 +1177,12 @@ async fn ports_bind_platform_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Res
             row.platform_name = platform_name;
             row.clone()
         }
-        None => return port_err(StatusCode::NOT_FOUND, &format!("port {port} not in whitebox")),
+        None => {
+            return port_err(
+                StatusCode::NOT_FOUND,
+                &format!("port {port} not in whitebox"),
+            )
+        }
     };
     match ctx.whitebox.apply(&ctx.db, &ctx.forwarder, next).await {
         Ok(_) => axum::Json(out).into_response(),
@@ -1215,7 +1281,10 @@ mod bff_translate_tests {
         let out = rewrite_patch_body_snake_case(&body).unwrap();
         let obj = out.as_object().unwrap();
         assert!(obj.get("name").is_none(), "name was stripped");
-        assert_eq!(obj.get("allocation_policy").and_then(|v| v.as_str()), Some("BALANCED"));
+        assert_eq!(
+            obj.get("allocation_policy").and_then(|v| v.as_str()),
+            Some("BALANCED")
+        );
         assert!(obj.get("allocationPolicy").is_none());
         assert!(obj.get("regex_filters").is_some());
         assert!(obj.get("regexFilters").is_none());
@@ -1326,7 +1395,10 @@ mod bff_translate_tests {
             "openai"
         );
         assert!(read_name(&serde_json::json!({})).is_err(), "missing name");
-        assert!(read_name(&serde_json::json!({ "name": "" })).is_err(), "empty");
+        assert!(
+            read_name(&serde_json::json!({ "name": "" })).is_err(),
+            "empty"
+        );
         assert!(
             read_name(&serde_json::json!({ "name": "a".repeat(129) })).is_err(),
             "over the shared NAME_MAX bound"
@@ -1337,9 +1409,7 @@ mod bff_translate_tests {
     fn allocation_policy_allow_list_is_the_shared_command_constant() {
         // Locks the A-006 "one validation, two transports" contract: the BFF
         // rewriter must accept exactly what the Tauri command accepts.
-        assert!(
-            egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.contains(&"BALANCED")
-        );
+        assert!(egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.contains(&"BALANCED"));
         assert!(!egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.contains(&"random"));
         let body = serde_json::json!({ "name": "x", "allocationPolicy": "BALANCED" });
         assert!(rewrite_patch_body_snake_case(&body).is_ok());
@@ -1493,7 +1563,8 @@ mod guard_wiring_tests {
             "a tokenless control-plane call must be 401, got: {resp}"
         );
         assert!(
-            resp.to_ascii_lowercase().contains("www-authenticate: bearer"),
+            resp.to_ascii_lowercase()
+                .contains("www-authenticate: bearer"),
             "the 401 must advertise the Bearer scheme, got: {resp}"
         );
         let _ = std::fs::remove_dir_all(dir);

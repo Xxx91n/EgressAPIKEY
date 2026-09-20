@@ -58,7 +58,11 @@ impl HealthState {
     /// Map (reachable, fails) to the 4-state chip per ADR-0042 S1.
     pub fn classify(reachable: bool, fails: u32) -> Self {
         if reachable {
-            if fails > 0 { HealthState::Degraded } else { HealthState::Alive }
+            if fails > 0 {
+                HealthState::Degraded
+            } else {
+                HealthState::Alive
+            }
         } else if fails >= FAILS_TO_DEAD {
             HealthState::Dead
         } else {
@@ -98,7 +102,14 @@ struct PortHistory {
 }
 
 impl PortHistory {
-    fn new(base_interval: Duration) -> Self { Self { last_probe: Instant::now(), fails: 0, interval: base_interval, last_reachable: true } }
+    fn new(base_interval: Duration) -> Self {
+        Self {
+            last_probe: Instant::now(),
+            fails: 0,
+            interval: base_interval,
+            last_reachable: true,
+        }
+    }
 }
 
 /// Adaptive interval: max(MIN_INTERVAL_SECS, k·ln(1+N)) where k=2 (Cilium CFP-32820).
@@ -120,13 +131,15 @@ async fn probe_one(port: u16, protocol: &str) -> (bool, Option<u32>) {
     let connect = tokio::time::timeout(
         Duration::from_millis(CONNECT_TIMEOUT_MS),
         tokio::net::TcpStream::connect(&addr),
-    ).await;
+    )
+    .await;
     let mut stream = match connect {
         Ok(Ok(s)) => s,
         _ => return (false, None),
     };
     let greeting: Vec<u8> = if protocol == "http" {
-        format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n").into_bytes()
+        format!("GET / HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n")
+            .into_bytes()
     } else {
         vec![0x05, 0x02, 0x00, 0x02]
     };
@@ -134,15 +147,28 @@ async fn probe_one(port: u16, protocol: &str) -> (bool, Option<u32>) {
         return (true, Some(started.elapsed().as_millis() as u32));
     }
     let mut buf = [0u8; 16];
-    let read = tokio::time::timeout(Duration::from_millis(READ_TIMEOUT_MS), stream.read(&mut buf)).await;
+    let read = tokio::time::timeout(
+        Duration::from_millis(READ_TIMEOUT_MS),
+        stream.read(&mut buf),
+    )
+    .await;
     let elapsed = started.elapsed().as_millis() as u32;
     match read {
-        Ok(Ok(n)) if protocol == "http" && n >= 12 && buf.starts_with(b"HTTP/") => (true, Some(elapsed)),
+        Ok(Ok(n)) if protocol == "http" && n >= 12 && buf.starts_with(b"HTTP/") => {
+            (true, Some(elapsed))
+        }
         // `mixed` ports are probed with the SOCKS5 greeting (the branch
         // above), so a SOCKS5 method-selection reply is the expected answer for
         // BOTH `socks5` and `mixed`. Verified live against Resin: a dual-flag
         // port answers 05 00 (ADR-0068 D4 gate).
-        Ok(Ok(n)) if protocol != "http" && n >= 2 && buf[0] == 0x05 && (buf[1] == 0x00 || buf[1] == 0x02) => (true, Some(elapsed)),
+        Ok(Ok(n))
+            if protocol != "http"
+                && n >= 2
+                && buf[0] == 0x05
+                && (buf[1] == 0x00 || buf[1] == 0x02) =>
+        {
+            (true, Some(elapsed))
+        }
         Ok(Ok(n)) if n >= 4 => (true, Some(elapsed)), // protocol_mismatch but alive
         _ => (false, None),
     }
@@ -161,12 +187,14 @@ async fn run_tick(
     // Clone the due PortMapping so the async closure owns its inputs (no borrow
     // of the caller's ports slice — required to satisfy higher-ranked lifetime).
     let now = Instant::now();
-    let due: Vec<PortMapping> = ports.iter().filter(|p| {
-        match histories.get(&p.port) {
+    let due: Vec<PortMapping> = ports
+        .iter()
+        .filter(|p| match histories.get(&p.port) {
             Some(h) => now.duration_since(h.last_probe) >= h.interval,
             None => true,
-        }
-    }).cloned().collect();
+        })
+        .cloned()
+        .collect();
 
     let results: Vec<(u16, bool, Option<u32>)> = iter(due)
         .map(|p| async move {
@@ -179,16 +207,25 @@ async fn run_tick(
 
     let mut out: Vec<PortHealthEntry> = Vec::with_capacity(ports.len());
     for p in ports {
-        let h = histories.entry(p.port).or_insert_with(|| PortHistory::new(base_interval));
+        let h = histories
+            .entry(p.port)
+            .or_insert_with(|| PortHistory::new(base_interval));
         // Find this tick's result if it was due; else reuse prior state.
         let (reachable, latency) = match results.iter().find(|(port, _, _)| *port == p.port) {
             Some((_, r, lat)) => {
                 h.last_probe = now;
                 h.last_reachable = *r;
-                if *r { h.fails = 0; h.interval = base_interval; }
-                else {
+                if *r {
+                    h.fails = 0;
+                    h.interval = base_interval;
+                } else {
                     h.fails = h.fails.saturating_add(1);
-                    h.interval = throttle::backoff_interval(POLL_PARAMS, base_interval, h.fails, BACKOFF_EXPONENT_CAP);
+                    h.interval = throttle::backoff_interval(
+                        POLL_PARAMS,
+                        base_interval,
+                        h.fails,
+                        BACKOFF_EXPONENT_CAP,
+                    );
                 }
                 (*r, *lat)
             }
@@ -228,11 +265,8 @@ pub enum WatchCadence {
 /// Multiple concurrent callers (multiple watch_port_health clients) each get
 /// an independent task with its own revision counter and probe history; they
 /// share only the port source and the pause flag.
-pub fn spawn_watcher<F, E>(
-    ports_fn: F,
-    emit: E,
-    paused: Arc<AtomicBool>,
-) where
+pub fn spawn_watcher<F, E>(ports_fn: F, emit: E, paused: Arc<AtomicBool>)
+where
     F: Fn() -> Vec<PortMapping> + Send + Sync + 'static,
     E: Fn(PortHealthSnapshot) -> Result<(), ()> + Send + Sync + 'static,
 {
@@ -260,11 +294,15 @@ pub fn spawn_watcher_with<F, E>(
                 WatchCadence::Fixed(d) => d,
             };
             tokio::time::sleep(base).await;
-            if paused.load(Ordering::Relaxed) { continue; }
+            if paused.load(Ordering::Relaxed) {
+                continue;
+            }
             revision = revision.wrapping_add(1);
             let entries = run_tick(&ports, &mut histories, base).await;
             let snapshot = PortHealthSnapshot { revision, entries };
-            if emit(snapshot).is_err() { break; } // channel closed -> exit
+            if emit(snapshot).is_err() {
+                break;
+            } // channel closed -> exit
         }
     });
 }
@@ -335,9 +373,13 @@ mod tests {
     #[tokio::test]
     async fn run_tick_marks_unreachable_port_and_backoff_grows() {
         let ports = vec![PortMapping {
-            port: 1, protocol: "socks5".into(),
-            platform_name: "P".into(), account: "a".into(), label: "".into(),
-            enabled: true, auth_required: false,
+            port: 1,
+            protocol: "socks5".into(),
+            platform_name: "P".into(),
+            account: "a".into(),
+            label: "".into(),
+            enabled: true,
+            auth_required: false,
         }];
         let mut histories = HashMap::new();
         let base = Duration::from_secs(5);
@@ -354,9 +396,13 @@ mod tests {
     #[tokio::test]
     async fn run_tick_backoff_caps_at_5_minutes() {
         let ports = vec![PortMapping {
-            port: 1, protocol: "socks5".into(),
-            platform_name: "P".into(), account: "a".into(), label: "".into(),
-            enabled: true, auth_required: false,
+            port: 1,
+            protocol: "socks5".into(),
+            platform_name: "P".into(),
+            account: "a".into(),
+            label: "".into(),
+            enabled: true,
+            auth_required: false,
         }];
         let mut histories = HashMap::new();
         let base = Duration::from_secs(5);
@@ -369,16 +415,24 @@ mod tests {
             let _ = run_tick(&ports, &mut histories, base).await;
         }
         let h = histories.get(&1).unwrap();
-        assert!(h.interval.as_secs() <= BACKOFF_CAP_SECS, "interval capped: {}", h.interval.as_secs());
+        assert!(
+            h.interval.as_secs() <= BACKOFF_CAP_SECS,
+            "interval capped: {}",
+            h.interval.as_secs()
+        );
         assert!(h.fails >= 5, "reached Dead threshold: fails={}", h.fails);
     }
 
     #[tokio::test]
     async fn run_tick_ttl_skip_when_recently_probed() {
         let ports = vec![PortMapping {
-            port: 1, protocol: "socks5".into(),
-            platform_name: "P".into(), account: "a".into(), label: "".into(),
-            enabled: true, auth_required: false,
+            port: 1,
+            protocol: "socks5".into(),
+            platform_name: "P".into(),
+            account: "a".into(),
+            label: "".into(),
+            enabled: true,
+            auth_required: false,
         }];
         let mut histories = HashMap::new();
         let base = Duration::from_secs(5);
@@ -412,7 +466,11 @@ mod tests {
             sink.lock().unwrap().push(s);
             Ok(())
         };
-        spawn_watcher(|| Vec::<PortMapping>::new(), emit, Arc::new(AtomicBool::new(false)));
+        spawn_watcher(
+            || Vec::<PortMapping>::new(),
+            emit,
+            Arc::new(AtomicBool::new(false)),
+        );
         tokio::time::timeout(Duration::from_secs(60), async {
             while snaps.lock().unwrap().len() < 3 {
                 tokio::time::sleep(Duration::from_millis(100)).await;
@@ -421,7 +479,11 @@ mod tests {
         .await
         .expect("watcher did not emit 3 snapshots");
         let revs: Vec<u64> = snaps.lock().unwrap().iter().map(|s| s.revision).collect();
-        assert_eq!(revs, vec![1, 2, 3], "revisions strictly monotonic per client");
+        assert_eq!(
+            revs,
+            vec![1, 2, 3],
+            "revisions strictly monotonic per client"
+        );
         assert!(snaps.lock().unwrap().iter().all(|s| s.entries.is_empty()));
     }
 
@@ -457,14 +519,21 @@ mod tests {
         for client in [&a, &b] {
             let g = client.lock().unwrap();
             assert_eq!(g[0].revision, 1, "each client stream starts at revision 1");
-            assert_eq!(g[1].revision, 2, "revisions advance independently per client");
+            assert_eq!(
+                g[1].revision, 2,
+                "revisions advance independently per client"
+            );
         }
         paused.store(true, Ordering::Relaxed);
         tokio::time::sleep(Duration::from_millis(500)).await;
         let (la, lb) = (a.lock().unwrap().len(), b.lock().unwrap().len());
         tokio::time::sleep(Duration::from_secs(5)).await;
         assert_eq!(a.lock().unwrap().len(), la, "client A frozen while paused");
-        assert_eq!(b.lock().unwrap().len(), lb, "client B frozen while paused (shared flag)");
+        assert_eq!(
+            b.lock().unwrap().len(),
+            lb,
+            "client B frozen while paused (shared flag)"
+        );
         paused.store(false, Ordering::Relaxed);
         tokio::time::timeout(Duration::from_secs(60), async {
             while a.lock().unwrap().len() <= la || b.lock().unwrap().len() <= lb {

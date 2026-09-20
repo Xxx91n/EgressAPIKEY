@@ -36,7 +36,6 @@ pub use ports::*;
 #[cfg(test)]
 mod tests;
 
-
 // ---------------------------------------------------------------------------
 // Subscriptions - FORWARDED to Resin via ResinClient (DESIGN.md /subscriptions).
 

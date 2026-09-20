@@ -2,13 +2,13 @@
 //!
 //! Extracted from the former commands/mod.rs monolith by
 //! pure mechanical move - no behavior, naming, or IPC-surface change.
-use tauri::{AppHandle, Manager, State};
+use super::common::{items_arr, map_resin_error, resin_client, validate_short_name};
+use super::settings::get_config_dir;
 use crate::sidecar::SidecarHandle;
+use resin_core::resolve_id_in;
 use resin_core::DbPool;
 use resin_core::IpcError;
-use resin_core::resolve_id_in;
-use super::common::{items_arr, map_resin_error, resin_client, validate_short_name};
-use super::settings::{get_config_dir};
+use tauri::{AppHandle, Manager, State};
 
 /// ADR-0054 §C: process-local first-drift memory backing
 /// `divergentSince`. Keyed by entity id (platform name, or decimal port
@@ -18,7 +18,9 @@ use super::settings::{get_config_dir};
 /// "重启进程后清零"). Cleared per-entity when the snapshot reports the
 /// entity consistent; never enters the three-state merge itself.
 static DRIFT_MEMORY: once_cell::sync::Lazy<std::sync::Mutex<resin_core::snapshot::DriftMemory>> =
-    once_cell::sync::Lazy::new(|| std::sync::Mutex::new(resin_core::snapshot::DriftMemory::default()));
+    once_cell::sync::Lazy::new(|| {
+        std::sync::Mutex::new(resin_core::snapshot::DriftMemory::default())
+    });
 
 /// Strategy verification — send N probe requests through the Resin
 /// forward proxy entry port bound to a platform, collect the exit IP for
@@ -40,7 +42,10 @@ pub async fn strategy_verify(
     let client = resin_client(&sidecar)?;
 
     // Get the platform's allocation_policy for display.
-    let list = client.list_platforms().await.map_err(|e| map_resin_error(&e.to_string()))?;
+    let list = client
+        .list_platforms()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))?;
     let policy = items_arr(&list)
         .iter()
         .find(|p| p.get("name").and_then(|v| v.as_str()) == Some(&platform_name))
@@ -53,10 +58,7 @@ pub async fn strategy_verify(
     // The proxy_token for the shell is empty (no-auth), so the path is
     // just the protocol + host. But Resin forward proxy needs the account
     // header to identify the platform. We send X-Resin-Account = platform_name.
-    let proxy_url = format!(
-        "http://127.0.0.1:{}/https/api.ipify.org",
-        sidecar.api_port
-    );
+    let proxy_url = format!("http://127.0.0.1:{}/https/api.ipify.org", sidecar.api_port);
     tracing::info!(
         platform = %platform_name,
         proxy_url = %proxy_url,
@@ -160,9 +162,9 @@ pub async fn strategy_config_put(
     config: serde_json::Value,
 ) -> Result<(), IpcError> {
     let svc = strategy_service(&app)?;
-    let typed: resin_core::StrategyConfig =
-        serde_json::from_value(config).map_err(|e| IpcError::from(format!("strategy config invalid: {e}")))?;
-// ADR-0058: store() bumps generation and stamps updated_at.
+    let typed: resin_core::StrategyConfig = serde_json::from_value(config)
+        .map_err(|e| IpcError::from(format!("strategy config invalid: {e}")))?;
+    // ADR-0058: store() bumps generation and stamps updated_at.
     svc.store(typed).map_err(IpcError::from)?;
     Ok(())
 }
@@ -200,12 +202,15 @@ pub async fn strategy_platform_regions_set(
 
 /// Build the Service against the app config dir. The Service owns the only
 /// strategyConfig write path in the shell (ADR-0036 discipline).
-pub(crate) fn strategy_service(app: &AppHandle) -> Result<resin_core::StrategyService<resin_core::FsStrategyStore>, IpcError> {
+pub(crate) fn strategy_service(
+    app: &AppHandle,
+) -> Result<resin_core::StrategyService<resin_core::FsStrategyStore>, IpcError> {
     let dir = std::path::PathBuf::from(get_config_dir(app.clone())?);
     let path = dir.join("egressapikey-strategy.json");
-    Ok(resin_core::StrategyService::new(resin_core::FsStrategyStore::new(path)))
+    Ok(resin_core::StrategyService::new(
+        resin_core::FsStrategyStore::new(path),
+    ))
 }
-
 
 /// the authoritative effective-config
 /// snapshot (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config
@@ -229,8 +234,7 @@ pub async fn authoritative_snapshot(
     // L2 strategy whitebox: file is the truth (ADR-0036); missing file =
     // defaults. Read goes through the Service (ADR-0052).
     let svc = strategy_service(&app)?;
-    let config: resin_core::StrategyConfig =
-        svc.get().map_err(IpcError::from)?;
+    let config: resin_core::StrategyConfig = svc.get().map_err(IpcError::from)?;
     let strategy_path = svc.store_ref().path().clone();
     let strategy_path_exists = strategy_path.exists();
 
@@ -243,7 +247,11 @@ pub async fn authoritative_snapshot(
     let wb_port_set: std::collections::HashSet<u16> =
         whitebox_cfg.entry_ports.iter().map(|m| m.port).collect();
     let mut all_ports = whitebox_cfg.entry_ports.clone();
-    all_ports.extend(db_ports.into_iter().filter(|m| !wb_port_set.contains(&m.port)));
+    all_ports.extend(
+        db_ports
+            .into_iter()
+            .filter(|m| !wb_port_set.contains(&m.port)),
+    );
 
     // L3 Resin runtime. A sidecar that is not Running reports an empty,
     // unreachable runtime (resin_reachable=false) instead of failing the
@@ -259,7 +267,7 @@ pub async fn authoritative_snapshot(
             .list_endpoints()
             .await
             .map_err(|e| map_resin_error(&e.to_string()))?;
-// F4: one extra GET /api/v1/subscriptions so the
+        // F4: one extra GET /api/v1/subscriptions so the
         // reverse-lookup section can join Resin stats against the whitebox
         // references. Read-only cosmetic section: a failed read degrades to
         // an empty live list (whitebox refs still surface as dangling).
@@ -290,7 +298,12 @@ pub async fn authoritative_snapshot(
     };
     let plan = resin_core::compute_plan(&config, &nodes_v);
 
-    let mut platforms = resin_core::snapshot::merge_strategies(&config, &resin_platforms, &plan, strategy_path_exists);
+    let mut platforms = resin_core::snapshot::merge_strategies(
+        &config,
+        &resin_platforms,
+        &plan,
+        strategy_path_exists,
+    );
     // The listener set the three-state merge compares against is mode-aware
     // (ADR-0068 D1, ticket 17): Engine mode reads the Resin endpoint ports
     // (the L3 runtime truth); Mode A unions in the forwarder's bound entry
@@ -323,7 +336,7 @@ pub async fn authoritative_snapshot(
     resin_core::snapshot::stamp_platform_acknowledged(&mut platforms, &config.acknowledged);
     resin_core::snapshot::stamp_port_acknowledged(&mut ports, &whitebox_cfg.acknowledged);
 
-// ADR-0055 D3: route family merge — a route's live side IS
+    // ADR-0055 D3: route family merge — a route's live side IS
     // its target port. The live listener set and the enabled desired ports
     // are both already in hand; no extra request. Then the D6 stamp.
     let desired_enabled_ports: Vec<u16> = whitebox_cfg
@@ -363,11 +376,12 @@ pub async fn authoritative_snapshot(
     );
     // route drift keys are prefixed "route:" so a process name
     // can never collide with a platform name or a decimal port key.
-    entries.extend(
-        routes
-            .iter()
-            .map(|rr| (format!("route:{}", rr.process().to_lowercase()), rr.state_tag() != "consistent")),
-    );
+    entries.extend(routes.iter().map(|rr| {
+        (
+            format!("route:{}", rr.process().to_lowercase()),
+            rr.state_tag() != "consistent",
+        )
+    }));
     let memory = {
         let mut guard = DRIFT_MEMORY
             .lock()
@@ -380,8 +394,12 @@ pub async fn authoritative_snapshot(
         if p.state_tag() != "consistent" {
             let since = resin_core::snapshot::divergent_since_for(&memory, p.platform_name());
             match p {
-                resin_core::StrategySnapshot::Divergent { divergent_since, .. }
-                | resin_core::StrategySnapshot::MissingOnResin { divergent_since, .. } => {
+                resin_core::StrategySnapshot::Divergent {
+                    divergent_since, ..
+                }
+                | resin_core::StrategySnapshot::MissingOnResin {
+                    divergent_since, ..
+                } => {
                     *divergent_since = since;
                 }
                 _ => {}
@@ -392,7 +410,9 @@ pub async fn authoritative_snapshot(
         if pp.state_tag() != "consistent" {
             let since = resin_core::snapshot::divergent_since_for(&memory, &pp.port().to_string());
             match pp {
-                resin_core::PortSnapshot::MissingOnResin { divergent_since, .. } => {
+                resin_core::PortSnapshot::MissingOnResin {
+                    divergent_since, ..
+                } => {
                     *divergent_since = since;
                 }
                 _ => {}
@@ -406,7 +426,9 @@ pub async fn authoritative_snapshot(
                 &format!("route:{}", rr.process().to_lowercase()),
             );
             match rr {
-                resin_core::ProcessRouteSnapshot::MissingOnResin { divergent_since, .. } => {
+                resin_core::ProcessRouteSnapshot::MissingOnResin {
+                    divergent_since, ..
+                } => {
                     *divergent_since = since;
                 }
                 _ => {}
@@ -464,7 +486,7 @@ pub async fn authoritative_snapshot(
         last_apply_error: config.last_apply_error,
     };
 
-// ADR-0054 §E: one-shot drift notice. Hooked on the only
+    // ADR-0054 §E: one-shot drift notice. Hooked on the only
     // sanctioned merge point so every snapshot consumer (TopologyView 5s
     // poll, EffectiveConfigView open/re-check/reconcile/rollback re-verify)
     // feeds the same per-process notify-once state machine — no extra
@@ -501,7 +523,8 @@ pub async fn authoritative_snapshot(
     // swallowed — the queue keeps the event for the next tick, and a retry
     // problem must never break the snapshot read.
     if reachable {
-        if let Some(pipeline_state) = app.try_state::<super::platform::SubscriptionPipelineState>() {
+        if let Some(pipeline_state) = app.try_state::<super::platform::SubscriptionPipelineState>()
+        {
             if pipeline_state.0.due_count(now) > 0 {
                 if let Ok(client) = resin_client(&sidecar) {
                     let reports = pipeline_state.0.drive_due(&client, &svc, now).await;
@@ -546,7 +569,8 @@ fn parse_live_subscriptions(v: &serde_json::Value) -> Vec<(String, u64, u64)> {
 /// Extract the set of listener ports from a GET /api/v1/endpoints response.
 /// Both the {"items":[..]} wrapper and bare-array shapes are accepted; the
 /// read-only "default" endpoint is included because a listener exists there.
-pub fn endpoint_ports(existing: &serde_json::Value) -> Vec<u16> {    let arr = if let Some(a) = existing.get("items").and_then(|i| i.as_array()) {
+pub fn endpoint_ports(existing: &serde_json::Value) -> Vec<u16> {
+    let arr = if let Some(a) = existing.get("items").and_then(|i| i.as_array()) {
         a.as_slice()
     } else if let Some(a) = existing.as_array() {
         a.as_slice()
@@ -563,7 +587,6 @@ pub fn endpoint_ports(existing: &serde_json::Value) -> Vec<u16> {    let arr = i
     ports.dedup();
     ports
 }
-
 
 /// ADR-0054 section B: strategy whitebox versioning - list + rollback.
 // ---------------------------------------------------------------------------
@@ -601,14 +624,11 @@ pub async fn strategy_rollback(
         reason: None,
     };
     resin_core::audit::AUDIT_CTX
-        .scope(
-            audit_ctx,
-            async {
-                svc.store_ref()
-                    .rollback(&backup_name)
-                    .map_err(IpcError::from)
-            },
-        )
+        .scope(audit_ctx, async {
+            svc.store_ref()
+                .rollback(&backup_name)
+                .map_err(IpcError::from)
+        })
         .await?;
     let client = resin_client(&sidecar)?;
     let report = svc
@@ -697,7 +717,10 @@ pub(crate) async fn reconcile_ports_half(
                 outcome.skipped += 1;
             } else {
                 outcome.restored.push(p);
-                tracing::info!(port = p, "reconcile: mode A entry listener asserted from whitebox");
+                tracing::info!(
+                    port = p,
+                    "reconcile: mode A entry listener asserted from whitebox"
+                );
             }
         }
         return Ok(outcome);
@@ -735,18 +758,25 @@ pub(crate) async fn reconcile_ports_half(
                 // instead of after the 24h TTL window. Only the 409 conflict
                 // path stamps - that is the anti-hammer case.
                 outcome.restored.push(m.port);
-                tracing::info!(port = m.port, "reconcile: re-asserted Resin endpoint from whitebox");
+                tracing::info!(
+                    port = m.port,
+                    "reconcile: re-asserted Resin endpoint from whitebox"
+                );
             }
             Err(e) => {
                 let msg = format!("{e:?}");
-                if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage") {
+                if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage")
+                {
                     // ADR-0069 D2: this is the ONLY stamp site. 409 means the
                     // port is held by something Resin refuses to re-create
                     // (typically a listener Resin does not own), so the TTL
                     // window exists to stop the pass from hammering it.
                     RECONCILE_MEMORY.stamp_asserted(m.port, now);
                     outcome.skipped += 1;
-                    tracing::info!(port = m.port, "reconcile: endpoint already in Resin; satisfied");
+                    tracing::info!(
+                        port = m.port,
+                        "reconcile: endpoint already in Resin; satisfied"
+                    );
                 } else {
                     return Err(format!("create_endpoint {}: {msg}", m.port));
                 }

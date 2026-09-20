@@ -28,7 +28,7 @@
 
 use crate::commands;
 use tauri::Runtime;
-use tauri_specta::{Builder, collect_commands};
+use tauri_specta::{collect_commands, Builder};
 
 /// Pilot set: one enum-param (set_log_level), one rich-error-path
 /// mutation (port_toggle).

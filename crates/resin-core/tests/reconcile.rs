@@ -14,7 +14,10 @@ use resin_core::strategy_service::{
 use serde_json::json;
 
 fn platform_id_for_name(v: &serde_json::Value, name: &str) -> Option<String> {
-    let arr = v.get("items").and_then(|i| i.as_array()).or_else(|| v.as_array())?;
+    let arr = v
+        .get("items")
+        .and_then(|i| i.as_array())
+        .or_else(|| v.as_array())?;
     arr.iter()
         .find(|p| p.get("name").and_then(|n| n.as_str()) == Some(name))
         .and_then(|p| p.get("id").and_then(|i| i.as_str()))
@@ -78,7 +81,9 @@ async fn reconcile_twice_second_pass_zero_changes() {
         .match_header(bearer.0, bearer.1)
         .with_status(200)
         .with_header("content-type", "application/json")
-        .with_body(r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0}]}"#)
+        .with_body(
+            r#"{"items":[{"node_hash":"h1","region":"HK","has_outbound":true,"failure_count":0}]}"#,
+        )
         .expect_at_least(2)
         .create_async()
         .await;
@@ -117,7 +122,9 @@ async fn reconcile_twice_second_pass_zero_changes() {
     let m_patch = server
         .mock("PATCH", "/api/v1/platforms/id-a")
         .match_header(bearer.0, bearer.1)
-        .match_body(mockito::Matcher::PartialJson(json!({"region_filters": ["HK"]})))
+        .match_body(mockito::Matcher::PartialJson(
+            json!({"region_filters": ["HK"]}),
+        ))
         .with_status(200)
         .with_header("content-type", "application/json")
         .with_body(r#"{"id":"id-a"}"#)
@@ -136,7 +143,13 @@ async fn reconcile_twice_second_pass_zero_changes() {
     let live_platforms = resin_core::snapshot::parse_resin_platforms(
         &serde_json::json!({"items":[{"id":"id-a","name":"alpha","region_filters":["US"],"allocation_policy":"BALANCED"}]}),
     );
-    let plan = compute_reconcile_plan(&fixture_config(), &nodes, &live_platforms, &[], &fixture_ports());
+    let plan = compute_reconcile_plan(
+        &fixture_config(),
+        &nodes,
+        &live_platforms,
+        &[],
+        &fixture_ports(),
+    );
     assert_eq!(plan.platforms.len(), 1);
     assert_eq!(plan.platforms[0].platform, "alpha");
     assert_eq!(plan.platforms[0].action, "patch_regions");
@@ -149,7 +162,10 @@ async fn reconcile_twice_second_pass_zero_changes() {
     assert_eq!(desired.len(), 1);
     let report1 = svc
         .reconcile(&client, platform_id_for_name, async {
-            Ok(ReconcilePortsOutcome { restored: vec![17990], skipped: 0 })
+            Ok(ReconcilePortsOutcome {
+                restored: vec![17990],
+                skipped: 0,
+            })
         })
         .await
         .expect("pass 1 must succeed");
@@ -161,7 +177,10 @@ async fn reconcile_twice_second_pass_zero_changes() {
     // Ports: nothing left to assert (TTL window holds) even though Resin
     // still reports the endpoint list empty.
     let desired2 = memory.ports_to_assert(&fixture_ports(), &[], now + 60);
-    assert!(desired2.is_empty(), "second pass must re-assert nothing: {desired2:?}");
+    assert!(
+        desired2.is_empty(),
+        "second pass must re-assert nothing: {desired2:?}"
+    );
     // Strategy: after pass 1 the live row IS the plan, so a fresh preview
     // sees nothing to do — asserted here against the synced snapshot rows.
     // The wire-level proof is below: pass 2's reconcile reads the SYNCED
@@ -169,8 +188,17 @@ async fn reconcile_twice_second_pass_zero_changes() {
     let synced_live = resin_core::snapshot::parse_resin_platforms(
         &serde_json::json!({"items":[{"id":"id-a","name":"alpha","region_filters":["HK"],"allocation_policy":"BALANCED"}]}),
     );
-    let plan2 = compute_reconcile_plan(&fixture_config(), &nodes, &synced_live, &[17990], &fixture_ports());
-    assert!(plan2.is_empty(), "post-reconcile re-preview must be empty (zero changes): {plan2:?}");
+    let plan2 = compute_reconcile_plan(
+        &fixture_config(),
+        &nodes,
+        &synced_live,
+        &[17990],
+        &fixture_ports(),
+    );
+    assert!(
+        plan2.is_empty(),
+        "post-reconcile re-preview must be empty (zero changes): {plan2:?}"
+    );
 
     // Rebuild the mocks for a synced world and run pass 2 against it:
     // Resin now reports region_filters=["HK"] so apply's diff-then-skip
@@ -180,7 +208,10 @@ async fn reconcile_twice_second_pass_zero_changes() {
     // exactly the one drift-fixing write of pass 1.
     let report2 = svc
         .reconcile(&client, platform_id_for_name, async {
-            Ok(ReconcilePortsOutcome { restored: vec![], skipped: 0 })
+            Ok(ReconcilePortsOutcome {
+                restored: vec![],
+                skipped: 0,
+            })
         })
         .await
         .expect("pass 2 must succeed");
@@ -239,7 +270,10 @@ async fn reconcile_fails_fast_strategy_error_skips_ports() {
     assert!(out.is_err(), "strategy half must fail with all mocks 404");
     // The closure future is created but never awaited on the error path —
     // reconcile awaits it only after apply succeeds.
-    assert!(!ports_ran.get(), "ports half must NOT run after strategy failure");
+    assert!(
+        !ports_ran.get(),
+        "ports half must NOT run after strategy failure"
+    );
     let _ = std::fs::remove_file(&store_path);
     let _ = std::fs::remove_dir(&dir);
 }

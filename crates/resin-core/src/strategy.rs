@@ -120,18 +120,36 @@ mod tests {
     #[test]
     fn convergence_table_matches_the_withdrawn_shell_mapping() {
         for legacy in ["random", "bandwidth", "protocol_weight"] {
-            assert_eq!(StrategyId::parse(legacy), Some(StrategyId::Balanced), "{legacy}");
+            assert_eq!(
+                StrategyId::parse(legacy),
+                Some(StrategyId::Balanced),
+                "{legacy}"
+            );
         }
-        assert_eq!(StrategyId::parse("latency"), Some(StrategyId::PreferLowLatency));
+        assert_eq!(
+            StrategyId::parse("latency"),
+            Some(StrategyId::PreferLowLatency)
+        );
         for legacy in ["sequential", "quality"] {
-            assert_eq!(StrategyId::parse(legacy), Some(StrategyId::PreferIdleIp), "{legacy}");
+            assert_eq!(
+                StrategyId::parse(legacy),
+                Some(StrategyId::PreferIdleIp),
+                "{legacy}"
+            );
         }
-        for id in [StrategyId::Balanced, StrategyId::PreferLowLatency, StrategyId::PreferIdleIp] {
+        for id in [
+            StrategyId::Balanced,
+            StrategyId::PreferLowLatency,
+            StrategyId::PreferIdleIp,
+        ] {
             assert_eq!(StrategyId::parse(id.as_str()), Some(id), "{}", id.as_str());
         }
         // Case/whitespace tolerance for hand-edited files.
         assert_eq!(StrategyId::parse(" balanced "), Some(StrategyId::Balanced));
-        assert_eq!(StrategyId::parse("prefer_idle_ip"), Some(StrategyId::PreferIdleIp));
+        assert_eq!(
+            StrategyId::parse("prefer_idle_ip"),
+            Some(StrategyId::PreferIdleIp)
+        );
         // Unknown tokens are never coerced.
         assert_eq!(StrategyId::parse("p2c"), None);
         assert_eq!(StrategyId::parse(""), None);
@@ -184,7 +202,14 @@ mod tests {
         for token in LEGACY_B_CLASS_TOKENS {
             assert!(StrategyId::is_legacy_token(token), "{token}");
         }
-        for canonical in ["BALANCED", "PREFER_LOW_LATENCY", "PREFER_IDLE_IP", "balanced", "p2c", ""] {
+        for canonical in [
+            "BALANCED",
+            "PREFER_LOW_LATENCY",
+            "PREFER_IDLE_IP",
+            "balanced",
+            "p2c",
+            "",
+        ] {
             assert!(!StrategyId::is_legacy_token(canonical), "{canonical}");
         }
     }

@@ -15,9 +15,9 @@
 //! the single-owner resin_core::throttle model (DELAY_PARAMS below carries
 //! this site's values: 1-minute floor, no cap).
 
-use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
-use std::sync::Mutex;
 use resin_core::throttle::{self, ThrottleParams};
+use std::sync::atomic::{AtomicU32, AtomicU8, Ordering};
+use std::sync::Mutex;
 
 /// Lightweight controller state (CAS-guarded).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -99,7 +99,8 @@ impl LightweightController {
         if prev.is_err() {
             return false;
         }
-        let delay = throttle::delay_minutes(DELAY_PARAMS, self.delay_minutes.load(Ordering::Relaxed));
+        let delay =
+            throttle::delay_minutes(DELAY_PARAMS, self.delay_minutes.load(Ordering::Relaxed));
         let state_ptr = self as *const Self as usize;
         let handle = std::thread::spawn(move || {
             std::thread::sleep(delay);
@@ -183,11 +184,7 @@ pub fn trim_working_set() {
         // set to the minimum possible. GetCurrentProcess() returns -1
         // (a pseudo-handle), so we pass it directly as isize.
         let current_process: windows_sys::Win32::Foundation::HANDLE = -1isize as *mut _;
-        let _ = SetProcessWorkingSetSize(
-            current_process,
-            usize::MAX,
-            usize::MAX,
-        );
+        let _ = SetProcessWorkingSetSize(current_process, usize::MAX, usize::MAX);
     }
     tracing::debug!("T14-2: EmptyWorkingSet called (Windows)");
 }
@@ -214,9 +211,9 @@ pub fn trim_working_set() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
+    use std::time::Duration;
 
     #[test]
     fn default_state_is_normal() {
@@ -229,7 +226,9 @@ mod tests {
         let ctrl = LightweightController::new(1);
         let fired = Arc::new(AtomicBool::new(false));
         let f2 = fired.clone();
-        let ok = ctrl.try_enter_lightweight(move || { f2.store(true, Ordering::SeqCst); });
+        let ok = ctrl.try_enter_lightweight(move || {
+            f2.store(true, Ordering::SeqCst);
+        });
         assert!(ok, "should transition from Normal to EnteringLightweight");
         assert_eq!(ctrl.state(), LightweightState::EnteringLightweight);
         // Wait for timer (1 min = 60s too long for test; we test state, not timer)
@@ -240,36 +239,52 @@ mod tests {
         let ctrl = LightweightController::new(1);
         let _ = ctrl.try_enter_lightweight(|| {});
         let ok2 = ctrl.try_enter_lightweight(|| {});
-        assert!(!ok2, "second enter from EnteringLightweight should fail CAS");
+        assert!(
+            !ok2,
+            "second enter from EnteringLightweight should fail CAS"
+        );
     }
 
     #[test]
     fn try_cancel_from_entering_succeeds() {
         let ctrl = LightweightController::new(1);
         let _ = ctrl.try_enter_lightweight(|| {});
-        assert!(ctrl.try_cancel_lightweight(), "cancel from EnteringLightweight should succeed");
+        assert!(
+            ctrl.try_cancel_lightweight(),
+            "cancel from EnteringLightweight should succeed"
+        );
         assert_eq!(ctrl.state(), LightweightState::Normal);
     }
 
     #[test]
     fn try_cancel_from_normal_fails() {
         let ctrl = LightweightController::default();
-        assert!(!ctrl.try_cancel_lightweight(), "cancel from Normal should fail CAS");
+        assert!(
+            !ctrl.try_cancel_lightweight(),
+            "cancel from Normal should fail CAS"
+        );
     }
 
     #[test]
     fn try_exit_from_in_lightweight_succeeds() {
         let ctrl = LightweightController::new(1);
         // Force state to InLightweight for testing
-        ctrl.state.store(LightweightState::InLightweight as u8, Ordering::SeqCst);
-        assert!(ctrl.try_exit_lightweight(), "exit from InLightweight should succeed");
+        ctrl.state
+            .store(LightweightState::InLightweight as u8, Ordering::SeqCst);
+        assert!(
+            ctrl.try_exit_lightweight(),
+            "exit from InLightweight should succeed"
+        );
         assert_eq!(ctrl.state(), LightweightState::Normal);
     }
 
     #[test]
     fn try_exit_from_normal_fails() {
         let ctrl = LightweightController::default();
-        assert!(!ctrl.try_exit_lightweight(), "exit from Normal should fail CAS");
+        assert!(
+            !ctrl.try_exit_lightweight(),
+            "exit from Normal should fail CAS"
+        );
     }
 
     #[test]
@@ -297,10 +312,16 @@ mod tests {
     fn delay_rhythm_boundaries_floor_and_extremes() {
         // Floor: the shared model clamps a (unreachable-through-IPC) 0 to the
         // documented 60s minimum instead of an instant fire.
-        assert_eq!(throttle::delay_minutes(DELAY_PARAMS, 0), Duration::from_secs(60));
+        assert_eq!(
+            throttle::delay_minutes(DELAY_PARAMS, 0),
+            Duration::from_secs(60)
+        );
         // IPC ceiling and u32 extreme: no cap on this site's model, exact
         // minutes*60 conversion throughout.
-        assert_eq!(throttle::delay_minutes(DELAY_PARAMS, 1440), Duration::from_secs(86_400));
+        assert_eq!(
+            throttle::delay_minutes(DELAY_PARAMS, 1440),
+            Duration::from_secs(86_400)
+        );
         assert_eq!(
             throttle::delay_minutes(DELAY_PARAMS, u32::MAX),
             Duration::from_secs(u32::MAX as u64 * 60)

@@ -32,8 +32,8 @@ pub mod backup;
 pub mod config_transfer;
 pub mod db;
 pub mod entry_protocol;
-pub mod ipc_error;
 pub mod ip_reputation;
+pub mod ipc_error;
 pub mod platform;
 pub mod port_forwarder;
 pub mod port_health;
@@ -42,8 +42,8 @@ pub mod snapshot;
 pub mod strategy;
 pub mod strategy_engine;
 pub mod strategy_service;
-pub mod subscription_pipeline;
 pub mod stream_sensor;
+pub mod subscription_pipeline;
 pub mod throttle;
 pub mod whitebox_backup;
 pub mod whitebox_config;
@@ -52,9 +52,9 @@ pub use backup::{
     assert_no_forbidden, build_manifest, classify_member, is_encrypted, is_forbidden_member,
     manifest_entry, manifest_json, open_package, parse_manifest, restore_action, seal_package,
     verify_members, BackupClass, BackupManifest, ManifestEntry, RestoreAction,
-    BACKUP_FORMAT, BACKUP_FORMAT_VERSION, CONFIG_ENTRY, MANIFEST_ENTRY, SETTINGS_ENTRY,
-    STRATEGY_ENTRY, PORTS_ENTRY, PORT_DB_ENTRY, AUDIT_ENTRY, AUDIT_ARCHIVE_PREFIX,
-    WHITEBOX_HISTORY_DIR, STATE_DB_ENTRY, CACHE_DB_ENTRY, REQUEST_LOG_PREFIX,
+    AUDIT_ARCHIVE_PREFIX, AUDIT_ENTRY, BACKUP_FORMAT, BACKUP_FORMAT_VERSION, CACHE_DB_ENTRY,
+    CONFIG_ENTRY, MANIFEST_ENTRY, PORTS_ENTRY, PORT_DB_ENTRY, REQUEST_LOG_PREFIX, SETTINGS_ENTRY,
+    STATE_DB_ENTRY, STRATEGY_ENTRY, WHITEBOX_HISTORY_DIR,
 };
 pub use config_transfer::{
     build_export_doc, parse_import_doc, validate_import_pair, ConfigImportDoc,
@@ -64,18 +64,22 @@ pub use entry_protocol::{
     canonical_protocol, engine_flags, is_valid_protocol, DEFAULT_ENTRY_PORT_PROTOCOL,
     ENTRY_PORT_PROTOCOLS, ENTRY_PORT_PROTOCOL_ERROR,
 };
-pub use ipc_error::{map_resin_error, IpcError};
 pub use ip_reputation::{
     parse_public_ips, ReputationClient, ReputationProvider, ReputationSnapshot,
 };
-pub use port_forwarder::{parse_trace_body_ip, DataPlaneMode, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT};
+pub use ipc_error::{map_resin_error, IpcError};
+pub use port_forwarder::{
+    parse_trace_body_ip, DataPlaneMode, PortForwarder, MAX_ENTRY_PORTS, MIN_USER_PORT,
+};
 pub use port_health::PortHealthSnapshot;
 pub use resin_client::{items_arr, resolve_id_in, validate_platform_name, ResinClient};
 pub use snapshot::{
     AuthoritativeSnapshot, ConvergePhase, PortSnapshot, ProcessRouteSnapshot, StrategySnapshot,
     SubscriptionPhaseSnapshot, SubscriptionSnapshot,
 };
-pub use strategy_engine::{compute_plan, parse_nodes, EstablishStep, StrategyConfig, SubscriptionPhase};
+pub use strategy_engine::{
+    compute_plan, parse_nodes, EstablishStep, StrategyConfig, SubscriptionPhase,
+};
 pub use strategy_service::{
     endpoint_live_ports, FsStrategyStore, ReconcileMemory, ReconcilePortsOutcome, StrategyService,
 };
