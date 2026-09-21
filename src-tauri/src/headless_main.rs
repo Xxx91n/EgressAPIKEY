@@ -583,8 +583,7 @@ fn with_security_headers(mut resp: Response) -> Response {
 /// build-error surface: a failed init stores nothing and the next call
 /// retries, exactly like the old per-request build.
 fn proxy_client() -> Result<&'static reqwest::Client, reqwest::Error> {
-    static CLIENT: once_cell::sync::OnceCell<reqwest::Client> =
-        once_cell::sync::OnceCell::new();
+    static CLIENT: once_cell::sync::OnceCell<reqwest::Client> = once_cell::sync::OnceCell::new();
     CLIENT.get_or_try_init(|| {
         reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(300))
