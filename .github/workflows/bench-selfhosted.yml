@@ -1,0 +1,82 @@
+# Representative-hardware performance baseline (r11 wave-C D-004).
+#
+# Runs the same scripts/bench/run-bench.mjs suite as bench.yml, but on the
+# OPERATOR'S self-hosted runner registered on the representative machine
+# (target: a 1C1G Linux VPS; this Windows box is the documented fallback).
+# Numbers from this workflow are the ONLY basis for the absolute RSS /
+# latency gates in docs/how-to/PERF-BENCH.md — the github-hosted bench.yml
+# column is reference-only.
+#
+# SECURITY RAIL (public repo, GitHub's own self-hosted-runner warning):
+# this workflow is workflow_dispatch-ONLY and MUST NOT gain
+# pull_request/push triggers or fork contexts — a PR-triggered job on a
+# self-hosted label is a hijack vector. Keep `runs-on: [self-hosted, ...]`
+# confined to this file.
+name: bench-selfhosted
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: "Benchmark duration profile (short=~10min, long=30min soak)"
+        required: false
+        default: "short"
+        type: choice
+        options: [short, long]
+      runner_os:
+        description: "Self-hosted runner OS label (linux preferred)"
+        required: false
+        default: "linux"
+        type: choice
+        options: [linux, windows]
+
+permissions: {}
+
+jobs:
+  bench:
+    name: representative baseline (${{ inputs.runner_os || 'linux' }})
+    runs-on: [self-hosted, "${{ inputs.runner_os || 'linux' }}"]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Rust toolchain (host triple detection for fetch_resin.sh)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Fetch Resin sidecar binary
+        run: bash scripts/fetch_resin.sh
+        shell: bash
+
+      - name: Record host shape
+        run: |
+          mkdir -p bench-results
+          {
+            echo "runnerName=${RUNNER_NAME:-unknown}"
+            echo "runnerOs=${RUNNER_OS:-unknown}"
+            uname -a || true
+            nproc || true
+            (free -m | head -2) || true
+          } | tee bench-results/host-shape.env
+        shell: bash
+
+      - name: Run benchmark
+        run: >
+          node scripts/bench/run-bench.mjs
+          --duration "${{ inputs.duration || 'short' }}"
+          --gate warn
+        shell: bash
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results-selfhosted-${{ inputs.runner_os || 'linux' }}-${{ github.sha }}
+          path: |
+            bench-results/results.json
+            bench-results/SUMMARY.md
+            bench-results/host-shape.env
+          retention-days: 365

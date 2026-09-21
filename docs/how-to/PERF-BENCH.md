@@ -60,6 +60,34 @@ dead in `ensureRoutable` (the original fatal).
 - Windows WorkingSet of a just-started resin includes the mapped binary image;
   idle RSS ~73-79MB on this host.
 
+## Two-layer baseline (r11 wave-C D-004)
+
+Absolute gates are set only from representative hardware. The shared GitHub
+runner numbers are informational reference data — useful for spotting
+orders of magnitude, never a hard gate (hosted-runner variance is too high).
+
+| metric | shared-runner reference (`bench.yml`, `ubuntu-latest`, warn-only) | representative hardware (`bench-selfhosted.yml`, operator 1C1G VPS — authoritative) |
+| --- | --- | --- |
+| SSE first-token p99 delta | see latest artifact `bench-results-ubuntu-latest-*` | _pending first self-hosted run_ |
+| soak RSS @ 200 streams (MB) | see latest artifact | _pending; absolute gate ≤ 150 MB total / ≤ 80 MB idle_ |
+| paired latency p50/p95/p99 delta | see latest artifact | _pending_ |
+| cold-start p50 | see latest artifact | _pending_ |
+
+Rules (D-004):
+
+- `bench.yml` (github-hosted) records reference numbers — **no gate**.
+- `bench-selfhosted.yml` is `workflow_dispatch`-only and must run on the
+  operator's representative hardware (a self-hosted runner on the target
+  1C1G VPS preferred; this Windows box as fallback). Its numbers are the
+  **only** basis for tightening the absolute RSS / latency gates above.
+- Never let a `pull_request`- or `push`-triggered job reference the
+  `self-hosted` label (public-repo runner-hijack rail, GitHub's own warning).
+- wave-B calibration handover: SSE first-token p99 target was 1 ms and the
+  local Windows measurement was 1.14 ms — the Linux shared-runner number
+  must be recorded before the median ≤1 ms / p99 ≤3 ms assertion shape can
+  be tightened; the 512 KiB/conn buffer estimate and the 500-concurrency
+  RSS ceiling likewise wait on representative numbers.
+
 ## Sidecar-upgrade regression procedure
 
 1. `bash scripts/fetch_resin.sh` (or drop the new binary in `src-tauri/binaries/`).

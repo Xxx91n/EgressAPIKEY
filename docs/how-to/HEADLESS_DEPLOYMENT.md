@@ -204,6 +204,45 @@ reverse_proxy 127.0.0.1:14200 {
 The proxy's auth gate is defence in depth - the in-process token and Host
 allowlist are the actual boundary (see Security model).
 
+### Zero-trust overlay (recommended, not required)
+
+For admin access that never touches the public Internet at all, serve the
+control surface over a mesh VPN instead of exposing the port:
+
+- **Tailscale** - run the binary on `--bind=127.0.0.1`, install tailscaled on
+  the VPS, then reach `http://<vps-tailnet-ip>:14200` (with `--auth-token` and
+  `--allowed-host=<vps-tailnet-name>`). MagicDNS gives you a stable name for
+  the allowlist; Tailscale ACLs replace the proxy-auth layer entirely.
+- **WireGuard** - same shape: bind loopback (or the WG interface address),
+  allow only the tunnel subnet, pass `--allowed-host` for the WG-facing name.
+
+These are *recommendations*, not dependencies - nothing in the binary knows
+or cares which overlay is in front. The in-process token + Host allowlist
+remain the security boundary either way; the overlay removes the public
+attack surface (and the TLS-termination question) entirely.
+
+## Resource budget & sizing
+
+Minimum viable host: **1 vCPU / 1 GiB RAM** (1C1G). The headless binary is
+~4.4 MB and the Resin sidecar ~38 MB; a healthy idle stack (shell + sidecar)
+should stay well under ~80 MB RSS, and the current budget ceiling for the
+full stack under load is **150 MB** (see `docs/how-to/PERF-BENCH.md` — the
+representative-hardware column is the only source for tightening these).
+
+For sustained high fan-in (hundreds of concurrent entry-port connections),
+raise the descriptor limit — each client connection costs a few FDs
+(listener + upstream + timers):
+
+| Control | Target | How |
+| --- | --- | --- |
+| Open-file limit | **FD ≥ 8192** | systemd: `LimitNOFILE=8192` in the unit below; Docker: `--ulimit nofile=8192:8192` |
+| Socket buffers | ~174 KB per connection is a reasonable WAN budget (≈ 100 Mbps × ~14 ms RTT BDP, doubled); Linux autotuning covers it when `net.ipv4.tcp_rmem`/`wmem` max ≥ 4 MiB | `net.ipv4.tcp_rmem="4096 131072 4194304"` (and same for `tcp_wmem`) via sysctl; defaults on bookworm are already sufficient |
+| Ephemeral ports | defaults are fine | only raise `net.ipv4.ip_local_port_range` if you out-NAT the box |
+
+On 1C1G the shared GitHub-hosted numbers in `PERF-BENCH.md` are the
+informational reference; treat the representative-hardware column (your own
+1C1G VPS measurement via `bench-selfhosted.yml`) as the absolute floor.
+
 ## Logs
 
 - Logs land in `/var/log/egressapikey/` (systemd) or the OS log dir
