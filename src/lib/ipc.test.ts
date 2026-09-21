@@ -94,7 +94,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(invokeMock).toHaveBeenCalledWith("orchestration_config_put", expect.objectContaining({ params: { enabled: true, consecutive_failure_threshold: 4 } }));
     invokeMock.mockResolvedValue({ enabled: false, actions: [] });
     await ipcOrchestrationTick();
-    expect(invokeMock).toHaveBeenCalledWith("orchestration_tick");
+    expect(invokeMock).toHaveBeenCalledWith("orchestration_tick", expect.objectContaining({}));
     invokeMock.mockResolvedValue(undefined);
     await ipcOrchestrationApprove("Default");
     expect(invokeMock).toHaveBeenCalledWith("orchestration_approve", expect.objectContaining({ platformName: "Default" }));
