@@ -577,6 +577,21 @@ fn with_security_headers(mut resp: Response) -> Response {
     resp
 }
 
+/// Shared upstream client for every proxy hop. Building a reqwest::Client
+/// per request creates a fresh connection pool per call, losing keep-alive
+/// reuse to the Resin control plane. once_cell::OnceCell keeps the same
+/// build-error surface: a failed init stores nothing and the next call
+/// retries, exactly like the old per-request build.
+fn proxy_client() -> Result<&'static reqwest::Client, reqwest::Error> {
+    static CLIENT: once_cell::sync::OnceCell<reqwest::Client> =
+        once_cell::sync::OnceCell::new();
+    CLIENT.get_or_try_init(|| {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(300))
+            .build()
+    })
+}
+
 /// Pure-proxy to resin with a thin BFF translation layer for the three
 /// routes the SPA addresses by business `name` instead of Resin's UUID
 /// `{id}` path-param:
@@ -618,10 +633,7 @@ async fn proxy_to_resin(
     );
     headers.remove("host");
 
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(300))
-        .build()
-    {
+    let client = match proxy_client() {
         Ok(c) => c,
         Err(e) => {
             return (
@@ -647,7 +659,7 @@ async fn proxy_to_resin(
         &method,
         raw_path,
         &body_bytes,
-        &client,
+        client,
         &upstream_base,
         &admin_token,
     )
@@ -1500,6 +1512,15 @@ mod bff_translate_tests {
         assert!(rewrite_patch_body_snake_case(&body).is_ok());
         let bad = serde_json::json!({ "name": "x", "allocationPolicy": "random" });
         assert!(rewrite_patch_body_snake_case(&bad).is_err());
+    }
+
+    #[test]
+    fn proxy_client_is_one_shared_instance() {
+        // Regression pin: proxy_to_resin must reuse ONE pooled client for
+        // every upstream hop, not build a fresh pool per request.
+        let a = proxy_client().expect("reqwest client builds");
+        let b = proxy_client().expect("reqwest client builds");
+        assert!(std::ptr::eq(a, b));
     }
 }
 
