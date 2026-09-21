@@ -621,4 +621,34 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(names).toEqual(expect.arrayContaining(["Default", "Ghost"]));
     expect(putConfig.platforms).toHaveLength(2);
   });
+
+
+  // patchAndSync reads the ref mirror synchronously: two back-to-back
+  // patches must BOTH land in the put payload - the second update can
+  // never read an unflushed state or a stale closure and drop the first.
+  it("back-to-back patches both land in the config_put payload", async () => {
+    let putConfig: any = null;
+    invokeMock.mockImplementation((cmd: string, args: any) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "manual", b_class: "BALANCED" }] });
+      if (cmd === "strategy_config_put") { putConfig = args.config; return Promise.resolve(null); }
+      if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([{ display_tag: "HK-1", region: "HK", node_hash: "h1" }]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await expandPlatform("Default");
+    fireEvent.click(screen.getByTestId("strategy-aclass-region-Default"));
+    await waitFor(() => expect(screen.getByTestId("strategy-region-chips-Default")).toBeInTheDocument(), { timeout: 5000 });
+    fireEvent.click(screen.getByTestId("strategy-region-chip-HK"));
+    await waitFor(() => {
+      const entry = putConfig?.platforms?.find((x: any) => x.platform_name === "Default");
+      expect(entry?.a_class).toBe("region");
+      expect(entry?.regions).toContain("HK");
+    }, { timeout: 5000 });
+  });
 });

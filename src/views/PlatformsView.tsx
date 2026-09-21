@@ -91,6 +91,9 @@ export function PlatformsView() {
   const [expandedPortCards, setExpandedPortCards] = useState<Set<number>>(new Set());
   const [hoveredPort, setHoveredPort] = useState<number | null>(null);
   const [strategyConfig, setStrategyConfig] = useState<StrategyConfig>({ version: 1, platforms: [] });
+  /// Latest-config mirror: patchAndSync reads and writes this synchronously
+  /// so a queued React render can never make the sync path see stale state.
+  const strategyConfigRef = useRef(strategyConfig);
   const [strategyTopNInput, setStrategyTopNInput] = useState<Record<string, string>>({});
   const [nodeList, setNodeList] = useState<NodeEntry[]>([]);
   const [subList, setSubList] = useState<{ name: string; node_count: number }[]>([]);
@@ -101,7 +104,10 @@ export function PlatformsView() {
   const refreshStrategy = useCallback(async () => {
     try {
       const cfg = await ipcStrategyConfigGet();
-      if (cfg && cfg.version === 1 && Array.isArray(cfg.platforms)) setStrategyConfig(cfg);
+      if (cfg && cfg.version === 1 && Array.isArray(cfg.platforms)) {
+        strategyConfigRef.current = cfg;
+        setStrategyConfig(cfg);
+      }
     } catch { /* outside Tauri */ }
   }, []);
 
@@ -121,29 +127,24 @@ export function PlatformsView() {
 
 
   /// after updating a strategy field, sync to backend immediately.
-  /// Uses functional update so sync sees the latest state (not stale closure).
+  /// The patch is computed from the ref mirror synchronously, so a deferred
+  /// or double-invoked state update can never feed the sync stale state.
   const patchAndSync = (
     platformName: string,
     patch: Partial<PlatformStrategy>,
   ) => {
-    let latestConfig: StrategyConfig | null = null;
-    setStrategyConfig((prev) => {
-      let platforms = [...prev.platforms];
-      let idx = platforms.findIndex((p) => p.platform_name === platformName);
-      if (idx === -1) {
-        platforms.push({ platform_name: platformName, a_class: "manual", b_class: "BALANCED" });
-        idx = platforms.length - 1;
-      }
-      platforms[idx] = { ...platforms[idx], ...patch };
-      const next = { ...prev, platforms };
-      latestConfig = next;
-      return next;
-    });
-    // Defer sync so setStrategyConfig has flushed; pass latest config to avoid stale closure
-    void Promise.resolve().then(() => {
-      if (latestConfig) syncPlatformStrategy(platformName, latestConfig);
-      else syncPlatformStrategy(platformName);
-    });
+    const prev = strategyConfigRef.current;
+    const platforms = [...prev.platforms];
+    let idx = platforms.findIndex((p) => p.platform_name === platformName);
+    if (idx === -1) {
+      platforms.push({ platform_name: platformName, a_class: "manual", b_class: "BALANCED" });
+      idx = platforms.length - 1;
+    }
+    platforms[idx] = { ...platforms[idx], ...patch };
+    const next = { ...prev, platforms };
+    strategyConfigRef.current = next;
+    setStrategyConfig(next);
+    void syncPlatformStrategy(platformName, next);
   };
 
   /// after updating a strategy field, sync to backend immediately.
