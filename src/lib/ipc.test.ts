@@ -30,6 +30,8 @@ import {
   ipcPortToggle, ipcPortRemove, ipcPortRunning,
   ipcPortHealthCheck,
   ipcKeyAccountLookup,
+  ipcOrchestrationGet, ipcOrchestrationConfigPut, ipcOrchestrationTick,
+  ipcOrchestrationApprove, ipcOrchestrationDismiss,
   ipcProbeExitIp,
   ipcCheckFirewallStatus,
   ipcRequestLogTail,
@@ -81,6 +83,26 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockReset();
     await expect(ipcKeyAccountLookup("   ")).rejects.toThrow();
     await expect(ipcKeyAccountLookup("x".repeat(4097))).rejects.toThrow();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("orchestration wrappers dispatch + validate platform name", async () => {
+    invokeMock.mockResolvedValue({ orchestration: null, autonomy: "suggest" });
+    const st = await ipcOrchestrationGet();
+    expect(st.autonomy).toBe("suggest");
+    await ipcOrchestrationConfigPut({ enabled: true, consecutive_failure_threshold: 4 });
+    expect(invokeMock).toHaveBeenCalledWith("orchestration_config_put", expect.objectContaining({ params: { enabled: true, consecutive_failure_threshold: 4 } }));
+    invokeMock.mockResolvedValue({ enabled: false, actions: [] });
+    await ipcOrchestrationTick();
+    expect(invokeMock).toHaveBeenCalledWith("orchestration_tick");
+    invokeMock.mockResolvedValue(undefined);
+    await ipcOrchestrationApprove("Default");
+    expect(invokeMock).toHaveBeenCalledWith("orchestration_approve", expect.objectContaining({ platformName: "Default" }));
+    await ipcOrchestrationDismiss("Default");
+    expect(invokeMock).toHaveBeenCalledWith("orchestration_dismiss", expect.objectContaining({ platformName: "Default" }));
+    invokeMock.mockReset();
+    await expect(ipcOrchestrationApprove("")).rejects.toThrow();
+    await expect(ipcOrchestrationDismiss("x".repeat(200))).rejects.toThrow();
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
