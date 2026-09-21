@@ -241,7 +241,7 @@ describe("HeadlessStore: serialized saves (last writer wins)", () => {
           gates.push(() => {
             serverDoc = JSON.parse(String(init.body));
             putOrder.push(serverDoc.view);
-            resolve({ ok: true });
+            resolve({ ok: true } as Response);
           });
         }) as Promise<Response>;
       }
