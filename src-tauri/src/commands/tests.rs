@@ -401,8 +401,15 @@ fn t10_config_import_patch_failure_pushes_error() {
     assert!(errors[0].contains("timeout"));
 }
 
+/// Serializes the two tests that share the LOG_LEVEL_GATE atomic —
+/// without it, t15_2_validates_enum and t15_2_gate_round_trip race under
+/// cargo's parallel runner (observed CI flake: gate stored 3 then read as
+/// 2 mid-assertion).
+static LOG_GATE_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn t15_2_set_log_level_validates_enum() {
+    let _g = LOG_GATE_TEST_LOCK.lock().unwrap();
     // Validate that the level string maps correctly to the atomic gate.
     // We do not call the async command (requires Tauri runtime); instead
     // we test the gate logic directly.
@@ -415,6 +422,7 @@ fn t15_2_set_log_level_validates_enum() {
 
 #[test]
 fn t15_2_set_log_level_gate_round_trip() {
+    let _g = LOG_GATE_TEST_LOCK.lock().unwrap();
     // Set level to debug (3) and verify all levels pass
     super::LOG_LEVEL_GATE.store(3, std::sync::atomic::Ordering::Relaxed);
     assert!(super::log_level_enabled(0));
