@@ -767,3 +767,68 @@ fn body_of(src: &str, name: &str) -> String {
         .unwrap_or(rest.len());
     rest[..end].to_string()
 }
+
+#[test]
+fn key_account_lookup_matches_account_and_username_forms() {
+    let row = |port: u16, platform: &str, account: &str| resin_core::PortMapping {
+        port,
+        protocol: "socks5".into(),
+        platform_name: platform.into(),
+        account: account.into(),
+        label: String::new(),
+        enabled: true,
+        auth_required: true,
+    };
+    let rows = vec![row(17990, "Default", "sk-aaa"), row(17991, "Other", "sk-bbb")];
+    // bare account string
+    assert_eq!(
+        ports::key_account_match_rows(&rows, "sk-aaa")[0].port,
+        17990
+    );
+    // composed "<platform>.<account>" username form
+    assert_eq!(
+        ports::key_account_match_rows(&rows, "Other.sk-bbb")[0].port,
+        17991
+    );
+    // substring/prefix is NOT a match (no fuzzy key scan)
+    assert!(ports::key_account_match_rows(&rows, "sk-").is_empty());
+    assert!(ports::key_account_match_rows(&rows, "sk-aa").is_empty());
+    // a platform-prefixed string cannot hit another platform's account
+    assert!(ports::key_account_match_rows(&rows, "Default.sk-bbb").is_empty());
+}
+
+#[test]
+fn key_account_hits_joins_leases_platform_scoped() {
+    let row = resin_core::PortMapping {
+        port: 17990,
+        protocol: "mixed".into(),
+        platform_name: "A".into(),
+        account: "acct-1".into(),
+        label: "lbl".into(),
+        enabled: true,
+        auth_required: false,
+    };
+    let lease = |pid: &str, account: &str, ip: &str| LeaseEntry {
+        platform_id: pid.into(),
+        account: account.into(),
+        egress_ip: ip.into(),
+        node_tag: "n".into(),
+        target_domain: "t".into(),
+        ts: "ts".into(),
+    };
+    let leases = vec![
+        lease("pid-A", "acct-1", "1.2.3.4"),
+        // same account string under ANOTHER platform must not leak in
+        lease("pid-B", "acct-1", "9.9.9.9"),
+        lease("pid-A", "acct-2", "5.5.5.5"),
+    ];
+    let mut id_by_name = std::collections::HashMap::new();
+    id_by_name.insert("A".to_string(), "pid-A".to_string());
+    let hits = ports::key_account_match_rows(std::slice::from_ref(&row), "acct-1");
+    let out = ports::key_account_hits(hits, &leases, &id_by_name);
+    assert_eq!(out.len(), 1);
+    assert_eq!(out[0].port, 17990);
+    assert_eq!(out[0].leases.len(), 1);
+    assert_eq!(out[0].leases[0].egress_ip, "1.2.3.4");
+}
+

@@ -100,6 +100,11 @@
       "method": "GET",
       "path": "/api/v1/shell/ip-reputation"
     },
+    "key_account_lookup": {
+      "status": "enabled",
+      "method": "GET",
+      "path": "/api/v1/shell/key-lookup"
+    },
     "lease_map": {
       "status": "enabled",
       "method": "GET",

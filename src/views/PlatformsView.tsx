@@ -22,11 +22,13 @@ import {
   ipcPortAuthInfo,
   ipcPortHealthCheck,
   ipcPortSuggest,
+  ipcKeyAccountLookup,
   ipcNodeList,
   ipcSubscriptionList,
   type PortMapping,
   type PortAuthInfo,
   type PortHealthCheck,
+  type KeyAccountHit,
   extractIpcErr,
 } from "../lib/ipc";
 import { strategyToI18nKey, strategyToResinPolicy, mapResinToShell, STRATEGY_IDS, type StrategyId } from "../lib/strategy";
@@ -94,6 +96,8 @@ export function PlatformsView() {
   /// Latest-config mirror: patchAndSync reads and writes this synchronously
   /// so a queued React render can never make the sync path see stale state.
   const strategyConfigRef = useRef(strategyConfig);
+  const [keyLookup, setKeyLookup] = useState("");
+  const [keyHits, setKeyHits] = useState<KeyAccountHit[] | null>(null);
   const [strategyTopNInput, setStrategyTopNInput] = useState<Record<string, string>>({});
   const [nodeList, setNodeList] = useState<NodeEntry[]>([]);
   const [subList, setSubList] = useState<{ name: string; node_count: number }[]>([]);
@@ -230,6 +234,16 @@ export function PlatformsView() {
       }
     };
   }, []);
+
+  /// Key -> account reverse lookup (read-only): the Rust side joins the L2
+  /// port table with the L3 lease map and returns hits with live egress IPs.
+  const runKeyLookup = async () => {
+    try {
+      setKeyHits(await ipcKeyAccountLookup(keyLookup));
+    } catch (e) {
+      showToast("err", translateError(e, t));
+    }
+  };
 
   const copyCredentials = (port: number, auth: PortAuthInfo) => {
     const cred = auth.username + ":" + auth.password;
@@ -470,6 +484,21 @@ export function PlatformsView() {
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               </button>
             </div>
+            {/* key -> account reverse lookup (read-only) */}
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <input className="min-w-0 flex-1 rounded border bg-background px-2 py-1.5 text-sm" value={keyLookup} onChange={(e) => setKeyLookup(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void runKeyLookup(); }} placeholder={t("platform.keyLookupPlaceholder")} data-testid="key-lookup-input" />
+              <button type="button" onClick={() => void runKeyLookup()} className="inline-flex shrink-0 items-center rounded-md border px-3 py-1.5 text-sm" data-testid="key-lookup-btn">{t("platform.keyLookup")}</button>
+            </div>
+            {keyHits !== null && (
+              <div className="mt-1 space-y-0.5" data-testid="key-lookup-results">
+                {keyHits.length === 0 && <div className="text-[11px] text-muted-foreground">{t("platform.keyLookupNone")}</div>}
+                {keyHits.map((h) => (
+                  <div key={h.port} className="truncate text-[11px] text-muted-foreground" data-testid={"key-lookup-hit-" + h.port}>
+                    :{h.port} {h.platform_name || h.account}{h.leases.length > 0 ? " → " + h.leases.map((l) => l.egress_ip).join(", ") : ""}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <ul className="min-h-0 flex-1 space-y-1 overflow-auto p-2">
             {ports.length === 0 && <li className="text-xs text-muted-foreground">{t("platform.noPorts")}</li>}

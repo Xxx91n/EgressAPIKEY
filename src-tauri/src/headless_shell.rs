@@ -775,6 +775,20 @@ async fn capabilities_h() -> Response {
         .into_response()
 }
 
+/// GET /api/v1/shell/key-lookup?key=<k> - reverse lookup: the port rows a
+/// key/account binds, plus its live egress leases. Read-only (L2 port table
+/// + L3 lease map); request bodies are never parsed.
+async fn key_lookup_h(ctx: Arc<PortCtx>, key: String) -> Response {
+    let client = match ctx.client() {
+        Ok(c) => c,
+        Err(e) => return port_err(StatusCode::BAD_GATEWAY, &e),
+    };
+    match commands::key_account_lookup_impl(&client, &ctx.db, &key).await {
+        Ok(v) => axum::Json(v).into_response(),
+        Err(e) => port_ipc_err(&e),
+    }
+}
+
 /// All BFF-native shell routes, registered under /api/v1/shell/* plus the
 /// /api/v1/capabilities read. Merge order note: axum 0.7 matches static
 /// segments before the /api/v1/*path wildcard, so these shadow nothing that
@@ -808,6 +822,20 @@ pub fn shell_routes(ctx: Arc<PortCtx>) -> Router {
         .route(
             "/api/v1/shell/ip-reputation",
             get(h!(ip_reputation_h, no_body)),
+        )
+        .route(
+            "/api/v1/shell/key-lookup",
+            get({
+                let c = ctx.clone();
+                move |axum::extract::Query(q): axum::extract::Query<
+                    std::collections::HashMap<String, String>,
+                >| {
+                    let c = c.clone();
+                    async move {
+                        key_lookup_h(c, q.get("key").cloned().unwrap_or_default()).await
+                    }
+                }
+            }),
         )
         // L2 whitebox
         .route("/api/v1/shell/whitebox", get(h!(whitebox_get_h, no_body)))

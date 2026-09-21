@@ -165,6 +165,7 @@ fn main() {
             commands::port_remove,
             commands::port_bind_platform,
             commands::port_running,
+            commands::key_account_lookup,
             commands::port_auth_info,
             commands::port_health_check,
             commands::watch_port_health,

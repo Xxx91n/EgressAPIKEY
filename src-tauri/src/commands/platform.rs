@@ -1071,7 +1071,58 @@ pub async fn lease_map(sidecar: State<'_, SidecarHandle>) -> Result<Vec<LeaseEnt
             ts,
         });
     }
-    Ok(out)
+    Ok(lease_entries_of(&raw))
+}
+
+/// Shared projection: Resin lease items -> LeaseEntry rows. Used by
+/// the lease map and by the key->account lookup live-egress join so both
+/// read one parse contract.
+pub(crate) fn lease_entries_of(raw: &serde_json::Value) -> Vec<LeaseEntry> {
+    // Resin returns {"items":[{active_leases:N,"ts":"...","platform_id":""}]}
+    // or a bare array. We use the shared items_arr helper to be robust.
+    let items = items_arr(&raw);
+    let mut out = Vec::with_capacity(items.len());
+    for it in items {
+        let platform_id = it
+            .get("platform_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let account = it
+            .get("account")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let egress_ip = it
+            .get("egress_ip")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let node_tag = it
+            .get("node_tag")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let target_domain = it
+            .get("target_domain")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let ts = it
+            .get("ts")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        out.push(LeaseEntry {
+            platform_id,
+            account,
+            egress_ip,
+            node_tag,
+            target_domain,
+            ts,
+        });
+    }
+    out
 }
 
 /// Reputation only queries public egress IPs already reported by the local Resin

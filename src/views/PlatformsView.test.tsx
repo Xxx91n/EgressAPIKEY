@@ -651,4 +651,24 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
       expect(entry?.regions).toContain("HK");
     }, { timeout: 5000 });
   });
+
+  it("key lookup renders matched port + live egress", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "port_list") return Promise.resolve([samplePort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "key_account_lookup") return Promise.resolve([{ port: 17990, protocol: "socks5", platform_name: "Default", account: "sk-aaa", label: "", enabled: true, auth_required: true, leases: [{ egress_ip: "9.9.9.9", node_tag: "n1", target_domain: "api.x", ts: "t" }] }]);
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    const input = await screen.findByTestId("key-lookup-input");
+    fireEvent.change(input, { target: { value: "sk-aaa" } });
+    fireEvent.click(screen.getByTestId("key-lookup-btn"));
+    await waitFor(() => expect(screen.getByTestId("key-lookup-hit-17990")).toBeInTheDocument(), { timeout: 5000 });
+    expect(screen.getByTestId("key-lookup-hit-17990").textContent).toContain("9.9.9.9");
+  });
 });

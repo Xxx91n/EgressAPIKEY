@@ -6,12 +6,15 @@ use crate::sidecar::SidecarHandle;
 use serde::Serialize;
 use tauri::{Emitter, State};
 
+use std::collections::HashMap;
+
 use super::common::{
-    find_endpoint_id_by_port, resin_client, restore_ports_from_whitebox, validate_short_name,
-    NAME_MAX_LEN,
+    find_endpoint_id_by_port, items_arr, map_resin_error, resin_client, restore_ports_from_whitebox,
+    validate_short_name, KEY_MAX_LEN, NAME_MAX_LEN,
 };
 use resin_core::DbPool;
 use resin_core::IpcError;
+use resin_core::PortMapping;
 
 // ---------------------------------------------------------------------------
 // ADR-0069 D3: immediate snapshot refresh after an L2-persisted / L3-rejected
@@ -566,6 +569,131 @@ pub async fn port_auth_info(
         platform_name: mapping.platform_name,
         port,
     })
+}
+
+// ---------------------------------------------------------------------------
+// Key -> account reverse lookup (read-only).
+// ---------------------------------------------------------------------------
+
+/// One live egress binding observed for an account in the Resin lease map.
+#[derive(Debug, Serialize)]
+pub struct KeyLeaseHit {
+    pub egress_ip: String,
+    pub node_tag: String,
+    pub target_domain: String,
+    pub ts: String,
+}
+
+/// A port_mapping row matched by a key lookup plus its live egress bindings.
+/// The queried key is deliberately not echoed back - it is secret material.
+#[derive(Debug, Serialize)]
+pub struct KeyAccountHit {
+    pub port: u16,
+    pub protocol: String,
+    pub platform_name: String,
+    pub account: String,
+    pub label: String,
+    pub enabled: bool,
+    pub auth_required: bool,
+    pub leases: Vec<KeyLeaseHit>,
+}
+
+/// Pure match: a key hits a port row when it equals the row's 'account'
+/// string or the composed '<platform>.<account>' SOCKS5 username form
+/// (the credential shape the port_auth_info contract produces).
+pub(crate) fn key_account_match_rows<'a>(rows: &'a [PortMapping], key: &str) -> Vec<&'a PortMapping> {
+    rows.iter()
+        .filter(|m| m.account == key || format!("{}.{}", m.platform_name, m.account) == key)
+        .collect()
+}
+
+/// Pure join: matched rows + live leases -> hits. 'id_by_name' scopes the
+/// lease join to the hit's own platform so two platforms reusing one account
+/// string never cross-attribute an egress IP.
+pub(crate) fn key_account_hits(
+    hits: Vec<&PortMapping>,
+    leases: &[super::platform::LeaseEntry],
+    id_by_name: &HashMap<String, String>,
+) -> Vec<KeyAccountHit> {
+    hits.into_iter()
+        .map(|m| {
+            let pid = id_by_name
+                .get(&m.platform_name)
+                .map(String::as_str)
+                .unwrap_or("");
+            let leases = leases
+                .iter()
+                .filter(|l| l.account == m.account && (pid.is_empty() || l.platform_id == pid))
+                .map(|l| KeyLeaseHit {
+                    egress_ip: l.egress_ip.clone(),
+                    node_tag: l.node_tag.clone(),
+                    target_domain: l.target_domain.clone(),
+                    ts: l.ts.clone(),
+                })
+                .collect();
+            KeyAccountHit {
+                port: m.port,
+                protocol: m.protocol.clone(),
+                platform_name: m.platform_name.clone(),
+                account: m.account.clone(),
+                label: m.label.clone(),
+                enabled: m.enabled,
+                auth_required: m.auth_required,
+                leases,
+            }
+        })
+        .collect()
+}
+
+/// Transport-free body shared by the Tauri command and the headless BFF
+/// route (GET /api/v1/shell/key-lookup). Joins the L2 port table with the
+/// L3 lease map; both upstream fetches are skipped on a key miss.
+pub async fn key_account_lookup_impl(
+    client: &resin_core::ResinClient,
+    db: &DbPool,
+    key: &str,
+) -> Result<Vec<KeyAccountHit>, IpcError> {
+    let key = key.trim();
+    if key.is_empty() || key.chars().count() > KEY_MAX_LEN {
+        return Err(IpcError::invalid_input("key must be non-empty and within the length cap"));
+    }
+    let rows = db.list_ports()?;
+    let hits = key_account_match_rows(&rows, key);
+    if hits.is_empty() {
+        return Ok(Vec::new());
+    }
+    let platforms_raw = client
+        .list_platforms()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))?;
+    let mut id_by_name: HashMap<String, String> = HashMap::new();
+    for p in items_arr(&platforms_raw) {
+        let name = p.get("name").and_then(|v| v.as_str()).unwrap_or_default();
+        let id = p.get("id").and_then(|v| v.as_str()).unwrap_or_default();
+        if !name.is_empty() && !id.is_empty() {
+            id_by_name.insert(name.to_string(), id.to_string());
+        }
+    }
+    let leases_raw = client
+        .active_leases()
+        .await
+        .map_err(|e| map_resin_error(&e.to_string()))?;
+    let leases = super::platform::lease_entries_of(&leases_raw);
+    Ok(key_account_hits(hits, &leases, &id_by_name))
+}
+
+/// Read direction of the key identity: an upstream API key (the SOCKS5
+/// account string a gateway presents) maps to port_mapping rows; each hit is
+/// joined with its live egress leases. Read-only - never parses request
+/// bodies; the key itself is never echoed back or logged.
+#[tauri::command]
+pub async fn key_account_lookup(
+    sidecar: State<'_, SidecarHandle>,
+    db: State<'_, DbPool>,
+    key: String,
+) -> Result<Vec<KeyAccountHit>, IpcError> {
+    let client = resin_client(&sidecar)?;
+    key_account_lookup_impl(&client, &db, &key).await
 }
 
 /// ADR-0021 Q1: live TCP probe + minimal SOCKS5 method-negotiation so the GUI

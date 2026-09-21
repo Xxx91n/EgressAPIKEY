@@ -660,6 +660,49 @@ export async function ipcPortAuthInfo(port: number): Promise<PortAuthInfo> {
   return invoke<PortAuthInfo>("port_auth_info", { port });
 }
 
+/// Key -> account reverse lookup (read-only). The Rust side joins the L2
+/// port table with the L3 lease map; the key is never echoed back.
+export interface KeyLeaseHit {
+  egress_ip: string;
+  node_tag: string;
+  target_domain: string;
+  ts: string;
+}
+export interface KeyAccountHit {
+  port: number;
+  protocol: string;
+  platform_name: string;
+  account: string;
+  label: string;
+  enabled: boolean;
+  auth_required: boolean;
+  leases: KeyLeaseHit[];
+}
+export async function ipcKeyAccountLookup(key: string): Promise<KeyAccountHit[]> {
+  const k = (key ?? "").trim();
+  if (!k || k.length > 4096) throw new Error("key invalid (1..4096 chars)");
+  const raw = await invoke<KeyAccountHit[]>("key_account_lookup", { key: k });
+  if (!Array.isArray(raw)) return [];
+  const cap = (s: unknown): string => (typeof s === "string" ? s.slice(0, 253) : "");
+  return raw.map((h) => ({
+    port: typeof h?.port === "number" ? h.port : 0,
+    protocol: cap(h?.protocol),
+    platform_name: cap(h?.platform_name),
+    account: cap(h?.account),
+    label: cap(h?.label),
+    enabled: h?.enabled === true,
+    auth_required: h?.auth_required === true,
+    leases: Array.isArray(h?.leases)
+      ? h.leases.map((l) => ({
+          egress_ip: cap(l?.egress_ip),
+          node_tag: cap(l?.node_tag),
+          target_domain: cap(l?.target_domain),
+          ts: cap(l?.ts),
+        }))
+      : [],
+  }));
+}
+
 /// ADR-0021 Q1: live TCP probe + SOCKS5 method-negotiation so the GUI can
 /// show a green/red health chip per port (clash-verge-rev CoreManager mode).
 export interface PortHealthCheck {

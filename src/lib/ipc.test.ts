@@ -29,6 +29,7 @@ import {
   ipcPortList, ipcPortUpsert,
   ipcPortToggle, ipcPortRemove, ipcPortRunning,
   ipcPortHealthCheck,
+  ipcKeyAccountLookup,
   ipcProbeExitIp,
   ipcCheckFirewallStatus,
   ipcRequestLogTail,
@@ -69,6 +70,18 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     invokeMock.mockResolvedValue(["a", "b"]);
     const r = await ipcPlatformList();
     expect(r).toEqual(["a", "b"]);
+  });
+
+  it("key_account_lookup trims, forwards key, rejects empty/overlong", async () => {
+    invokeMock.mockResolvedValue([{ port: 17990, protocol: "socks5", platform_name: "Default", account: "sk-aaa", label: "", enabled: true, auth_required: true, leases: [{ egress_ip: "9.9.9.9", node_tag: "n1", target_domain: "api.x", ts: "t" }] }]);
+    const hits = await ipcKeyAccountLookup("  sk-aaa  ");
+    expect(invokeMock).toHaveBeenCalledWith("key_account_lookup", expect.objectContaining({ key: "sk-aaa" }));
+    expect(hits[0].port).toBe(17990);
+    expect(hits[0].leases[0].egress_ip).toBe("9.9.9.9");
+    invokeMock.mockReset();
+    await expect(ipcKeyAccountLookup("   ")).rejects.toThrow();
+    await expect(ipcKeyAccountLookup("x".repeat(4097))).rejects.toThrow();
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it("subscription_add validates URL shape (http prefix)", async () => {

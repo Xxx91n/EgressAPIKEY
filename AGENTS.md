@@ -173,13 +173,13 @@ Removal condition: drop these from the manifest + registry only when Resin's acc
 # Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):
 # entries must equal the #[tauri::command] set under src-tauri/src AND the
 # generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.
-# Do not hand-edit entries. Regenerated: 2026-09-14 (79 commands)
+# Do not hand-edit entries. Regenerated: 2026-09-21 (80 commands)
 backup_create = src-tauri/src/commands/backup.rs
 backup_upload = src-tauri/src/commands/backup.rs
 backup_list = src-tauri/src/commands/backup.rs
-backup_restore = src-tauri/src/commands/backup.rs
 config_export = src-tauri/src/commands/backup.rs
 config_import = src-tauri/src/commands/backup.rs
+backup_restore = src-tauri/src/commands/backup.rs
 get_sidecar_logs = src-tauri/src/commands/diagnostics.rs
 get_sidecar_status = src-tauri/src/commands/diagnostics.rs
 request_log_tail = src-tauri/src/commands/diagnostics.rs
@@ -226,6 +226,7 @@ whitebox_path = src-tauri/src/commands/ports.rs
 whitebox_get = src-tauri/src/commands/ports.rs
 whitebox_reload = src-tauri/src/commands/ports.rs
 port_auth_info = src-tauri/src/commands/ports.rs
+key_account_lookup = src-tauri/src/commands/ports.rs
 port_health_check = src-tauri/src/commands/ports.rs
 watch_port_health = src-tauri/src/commands/ports.rs
 whitebox_backup_list = src-tauri/src/commands/ports.rs
