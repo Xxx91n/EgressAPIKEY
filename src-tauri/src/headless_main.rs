@@ -857,8 +857,12 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// Read one query parameter from a raw query string.
-fn query_param(query: &str, key: &str) -> Option<String> {
+/// Read one query parameter from a raw query string, percent-decoding the
+/// key and value. Distinct from headless_security::query_param, which
+/// deliberately does NOT decode (the bootstrap token is hex and arrives
+/// verbatim, so decoding there would corrupt nothing but imply a contract
+/// the guard does not have).
+fn query_param_decoded(query: &str, key: &str) -> Option<String> {
     for pair in query.split('&') {
         let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
         if percent_decode(k) == key {
@@ -975,7 +979,7 @@ async fn translate_request(
 
     // --- 2. GET /platforms?leases_for=<name> -> /platforms/{id}/leases ---
     if method == Method::GET && is_platforms {
-        if let Some(name) = query_param(query, "leases_for") {
+        if let Some(name) = query_param_decoded(query, "leases_for") {
             egressapikey_app::commands::validate_short_name(&name, "platform")?;
             let id = resolve_id(client, upstream_base, admin_token, "platforms", &name).await?;
             return Ok((
@@ -987,7 +991,7 @@ async fn translate_request(
 
     // --- 3. POST /subscriptions?refresh=<name> -> actions/refresh ---
     if method == Method::POST && is_subscriptions {
-        if let Some(name) = query_param(query, "refresh") {
+        if let Some(name) = query_param_decoded(query, "refresh") {
             egressapikey_app::commands::validate_short_name(&name, "subscription")?;
             let id = resolve_id(client, upstream_base, admin_token, "subscriptions", &name).await?;
             return Ok((
@@ -1462,18 +1466,18 @@ mod bff_translate_tests {
     }
 
     #[test]
-    fn query_param_reads_and_percent_decodes() {
+    fn query_param_decoded_reads_and_percent_decodes() {
         assert_eq!(
-            query_param("leases_for=openai", "leases_for").as_deref(),
+            query_param_decoded("leases_for=openai", "leases_for").as_deref(),
             Some("openai")
         );
         assert_eq!(
-            query_param("a=1&refresh=my%20sub", "refresh").as_deref(),
+            query_param_decoded("a=1&refresh=my%20sub", "refresh").as_deref(),
             Some("my sub")
         );
-        assert_eq!(query_param("a=1", "missing"), None);
+        assert_eq!(query_param_decoded("a=1", "missing"), None);
         // A bare key (no "=") reads as the empty string, not a panic.
-        assert_eq!(query_param("flag", "flag").as_deref(), Some(""));
+        assert_eq!(query_param_decoded("flag", "flag").as_deref(), Some(""));
     }
 
     #[test]

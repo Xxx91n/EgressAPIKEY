@@ -234,6 +234,9 @@ pub fn cookie_value<'a>(cookie_header: &'a str, name: &str) -> Option<&'a str> {
 
 /// Extract a parameter from a raw query string (`a=1&b=2`). No percent-decoding:
 /// the generated token is hex, and the bootstrap URL is built by this process.
+/// Distinct from headless_main::query_param_decoded, which percent-decodes
+/// its matches for the BFF translation routes - the guard's token compare
+/// must see the raw bytes.
 pub fn query_param<'a>(query: &'a str, name: &str) -> Option<&'a str> {
     for pair in query.split('&') {
         if let Some((key, value)) = pair.split_once('=') {
