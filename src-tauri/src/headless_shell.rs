@@ -831,9 +831,7 @@ pub fn shell_routes(ctx: Arc<PortCtx>) -> Router {
                     std::collections::HashMap<String, String>,
                 >| {
                     let c = c.clone();
-                    async move {
-                        key_lookup_h(c, q.get("key").cloned().unwrap_or_default()).await
-                    }
+                    async move { key_lookup_h(c, q.get("key").cloned().unwrap_or_default()).await }
                 }
             }),
         )

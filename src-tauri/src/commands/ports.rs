@@ -9,8 +9,8 @@ use tauri::{Emitter, State};
 use std::collections::HashMap;
 
 use super::common::{
-    find_endpoint_id_by_port, items_arr, map_resin_error, resin_client, restore_ports_from_whitebox,
-    validate_short_name, KEY_MAX_LEN, NAME_MAX_LEN,
+    find_endpoint_id_by_port, items_arr, map_resin_error, resin_client,
+    restore_ports_from_whitebox, validate_short_name, KEY_MAX_LEN, NAME_MAX_LEN,
 };
 use resin_core::DbPool;
 use resin_core::IpcError;
@@ -601,7 +601,10 @@ pub struct KeyAccountHit {
 /// Pure match: a key hits a port row when it equals the row's 'account'
 /// string or the composed '<platform>.<account>' SOCKS5 username form
 /// (the credential shape the port_auth_info contract produces).
-pub(crate) fn key_account_match_rows<'a>(rows: &'a [PortMapping], key: &str) -> Vec<&'a PortMapping> {
+pub(crate) fn key_account_match_rows<'a>(
+    rows: &'a [PortMapping],
+    key: &str,
+) -> Vec<&'a PortMapping> {
     rows.iter()
         .filter(|m| m.account == key || format!("{}.{}", m.platform_name, m.account) == key)
         .collect()
@@ -655,7 +658,9 @@ pub async fn key_account_lookup_impl(
 ) -> Result<Vec<KeyAccountHit>, IpcError> {
     let key = key.trim();
     if key.is_empty() || key.chars().count() > KEY_MAX_LEN {
-        return Err(IpcError::invalid_input("key must be non-empty and within the length cap"));
+        return Err(IpcError::invalid_input(
+            "key must be non-empty and within the length cap",
+        ));
     }
     let rows = db.list_ports()?;
     let hits = key_account_match_rows(&rows, key);

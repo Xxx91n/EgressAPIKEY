@@ -779,7 +779,10 @@ fn key_account_lookup_matches_account_and_username_forms() {
         enabled: true,
         auth_required: true,
     };
-    let rows = vec![row(17990, "Default", "sk-aaa"), row(17991, "Other", "sk-bbb")];
+    let rows = vec![
+        row(17990, "Default", "sk-aaa"),
+        row(17991, "Other", "sk-bbb"),
+    ];
     // bare account string
     assert_eq!(
         ports::key_account_match_rows(&rows, "sk-aaa")[0].port,
@@ -831,4 +834,3 @@ fn key_account_hits_joins_leases_platform_scoped() {
     assert_eq!(out[0].leases.len(), 1);
     assert_eq!(out[0].leases[0].egress_ip, "1.2.3.4");
 }
-
