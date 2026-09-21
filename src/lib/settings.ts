@@ -74,7 +74,11 @@ class HeadlessStore implements StoreLike {
     // is cleared before the fetch so a set() during a flight re-dirties
     // and the next queued flush persists it instead of being swallowed.
     const run = (this.saving ?? Promise.resolve()).then(() => this.flush());
-    this.saving = run.catch(() => {});
+    // Keep the chain usable after a failed flush so later saves still run.
+    this.saving = run.then(
+      () => undefined,
+      () => undefined,
+    );
     return run;
   }
 
