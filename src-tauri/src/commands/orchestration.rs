@@ -15,7 +15,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Mutex, OnceLock};
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use super::common::{resin_client, validate_short_name};
 use super::strategy::strategy_service;
