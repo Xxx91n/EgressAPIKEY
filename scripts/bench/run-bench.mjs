@@ -359,4 +359,8 @@ main()
       } catch { }
     }
     await sleep(300);
+    // Hard exit: mock servers / SSE sockets / the detached sidecar keep
+    // handles alive past cleanup — without this the CI job hangs until the
+    // workflow timeout kills it (observed 2026-09-21, run 35619850050).
+    process.exit(process.exitCode ?? 0);
   });

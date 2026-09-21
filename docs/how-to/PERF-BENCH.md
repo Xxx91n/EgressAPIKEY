@@ -68,10 +68,20 @@ orders of magnitude, never a hard gate (hosted-runner variance is too high).
 
 | metric | shared-runner reference (`bench.yml`, `ubuntu-latest`, warn-only) | representative hardware (`bench-selfhosted.yml`, operator 1C1G VPS — authoritative) |
 | --- | --- | --- |
-| SSE first-token p99 delta | see latest artifact `bench-results-ubuntu-latest-*` | _pending first self-hosted run_ |
-| soak RSS @ 200 streams (MB) | see latest artifact | _pending; absolute gate ≤ 150 MB total / ≤ 80 MB idle_ |
-| paired latency p50/p95/p99 delta | see latest artifact | _pending_ |
-| cold-start p50 | see latest artifact | _pending_ |
+| SSE TTFB delta p95 (ms) | **26.153** (run 35619850050, resin e42f6ea2) | _pending first self-hosted run_ |
+| SSE event delta p99 (ms) | **4619** — proxy path buffered (`io.Copy`, no `Flush`; known behavior, 3/4 assertions) | _pending_ |
+| idle RSS (MB) | **95.6** — above the 60 MB warn threshold and the ≤80 MB idle budget line; wait on the representative column before retargeting | _pending; absolute budget ≤ 150 MB total / ≤ 80 MB idle_ |
+| soak RSS @ 200 streams (MB) | **85.9** (200/200 connected, 0 unexpected closes) | _pending_ |
+| paired latency delta p50/p95/p99 (ms) | **0.212 / 0.303 / 0.389** | _pending_ |
+| rps sustained / p99 latency | **499.9 req/s @ 1.053 ms p99** (driver not limited) | _pending_ |
+| cold-start / warm p50 (ms) | **170.8 / 206.9** | _pending_ |
+
+Numbers above are from `bench.yml` run `35619850050` (2026-09-21,
+`ubuntu-latest` 4-core, resin `e42f6ea2`, short profile). The wave-B
+calibration handover's "SSE first-token p99 = 1 ms" target does not hold on
+shared runners: the buffered forward path dominates event delivery
+(proxySpread 0 vs tunnelSpread ~1.0 — the same known behavior recorded in
+this file's "Known measured behavior" section).
 
 Rules (D-004):
 
