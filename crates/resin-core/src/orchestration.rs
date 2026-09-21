@@ -309,6 +309,13 @@ pub enum OrchAction {
         regions: Vec<String>,
         reason: String,
     },
+    /// A qualifying transition existed but a gate refused it (hourly
+    /// budget / round cap / min interval) — surfaced so the driver can log
+    /// gate pressure instead of silently dropping it.
+    Blocked {
+        platform_name: String,
+        reason: String,
+    },
     /// Pure bookkeeping: set the row's phase (no spec change).
     Bookkeep { platform_name: String },
 }

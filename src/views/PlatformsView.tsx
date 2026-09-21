@@ -39,6 +39,7 @@ import { strategyToI18nKey, strategyToResinPolicy, mapResinToShell, STRATEGY_IDS
 import { STRATEGY_PRESETS, type StrategyPreset } from "../lib/strategy-templates";
 import { loadSplitRatio, saveSplitRatio, loadPortAuthDefault, savePortAuthDefault } from "../lib/settings";
 import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
+import { usePoll } from "../hooks/usePoll";
 
 /** Phase 5 / ADR-0012: left = Entry Ports, right = Platforms. Port = identity. */
 interface PlatformInfoFull {
@@ -252,7 +253,8 @@ export function PlatformsView() {
 
   /// R11-06 suggest-tier gate: parked proposals surface here; approve
   /// executes through the authoritative write entry, dismiss cools the
-  /// platform down. Polls on a light cadence; hidden when disabled.
+  /// platform down. usePoll rides the shared cadence hook; the strip
+  /// stays hidden while the section is disabled.
   const refreshOrch = async () => {
     try {
       setOrch(await ipcOrchestrationGet());
@@ -260,19 +262,7 @@ export function PlatformsView() {
       setOrch(null);
     }
   };
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      if (cancelled) return;
-      await refreshOrch();
-    };
-    void load();
-    const timer = window.setInterval(() => void load(), 15000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, []);
+  usePoll(refreshOrch, { intervalMs: 15000, fireImmediately: true });
   const orchPending = (orch?.orchestration?.platforms ?? []).filter((r) => r.pending);
   const orchApprove = async (name: string) => {
     try {
