@@ -12,6 +12,7 @@
 > **构建纪律（ADR-0072）**：CI-only——本机零构建；交付证据＝CI 产物；verify job 每 push 必跑，release dispatch 按需。
 > **调研存档**（ctx_search 按 source 检索）：atomcode-q2-multistrategy / atomcode-q3-vps-mgmt / atomcode-q4-perf-budget / atomcode-q5-debt / atomcode-q6-governance。
 > **Wave 状态（2026-09-20 更新）**: Wave A（R11-00/02/04/10/11）已 landed origin/main @ 17866d37（verify 绿）。Wave B 执行任务书＝docs/agents/round11-wave-b-next-round.md（r11-wave-b grill D-001 拍板：wave B 照单全收 + 新增 R11-14「CI 门+卫生」，规格定义在 wave B 任务书）。
+> **Wave C 任务书（2026-09-20 定稿）**：docs/agents/round11-wave-c-next-round.md（r11-wave-c grill D-001..D-005：R11-06/07/12/13 照单全收 + 新增 R11-15 卫生 / R11-16 删 auto-clean（ADR-0073 删除权威）/ R11-17 治理减法；基线 origin/main @ 4b19d8fe）。
 
 ## 任务清单
 

@@ -723,6 +723,16 @@ inside its in-process TTL window; the snapshot re-check after either
 outcome is the evidence of convergence, not a promise.
 _Avoid_: self-heal, auto-sync, accept current state
 
+### Deletion Authority (删除权威)
+
+Desired-state (L2) entries may only be removed through an explicit
+deletion act - a hand edit to the whitebox or a confirmed cleanup
+action - never as a side effect of a save/sync path that reads the live
+(L3) state (r11-wave-c D-002, ADR-0073). "Missing on Resin" is a drift
+phase healed by re-assertion, not a deletion signal; a write-back fed by
+a live list must hard-reject when the list is empty.
+_Avoid_: auto-prune on save, trusting an empty live list
+
 ### Whitebox Versioning (白盒版本化)
 
 Every atomic write to either whitebox file first copies the current file to
@@ -900,7 +910,14 @@ risk signals (a burned or challenged exit IP) by probing candidates,
 switching region or strategy, holding an observation window, then
 committing or rolling back, with ejection-style cooldown to prevent
 flapping (round11 D-002). It reuses existing Resin probe and platform
-PATCH APIs and introduces no new data-plane behavior.
+PATCH APIs and introduces no new data-plane behavior. Automation is
+tiered on the same state machine (r11-wave-c D-003): reversible switching
+runs full-auto under a conservative parameter pack by default on
+unattended headless, or holds at a suggest gate presenting a diff for
+human approval by default on the attended desktop; large actions
+(deletion, backup rollback, cross-platform moves, account-binding
+changes) are never in its repertoire, and every transition is
+audit-logged.
 _Avoid_: per-request routing, content-aware switching (fork-line
 territory), silent lease restarts
 
