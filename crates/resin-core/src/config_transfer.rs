@@ -135,7 +135,6 @@ mod tests {
             subscriptions: vec![],
             updated_at: Some(1_700_000_100),
             orchestration: None,
-            orchestration: None,
         }
     }
 

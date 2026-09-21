@@ -1314,8 +1314,6 @@ mod tests {
             last_apply_error: None,
             updated_at: None,
             orchestration: None,
-            orchestration: None,
-            orchestration: None,
         }
     }
 
