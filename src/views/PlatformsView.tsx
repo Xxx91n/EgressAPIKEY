@@ -107,22 +107,13 @@ export function PlatformsView() {
 
   /// per-platform sync. Each chip change immediately PUTs config + PATCHes
   /// the specific platform's region_filters. No global Apply button.
-  /// per-platform sync. Each chip change immediately PUTs config + PATCHes
-  /// the specific platform's region_filters. No global Apply button.
-  /// Auto-clean: filter out stale platforms not in live Resin platform list.
+  /// ADR-0073: config_put takes the caller's complete desired state
+  /// verbatim - never pruned by a live (L3) list read. A whitebox entry
+  /// missing on live is a Drifted phase healed by apply / reconcile_now.
   const syncPlatformStrategy = async (_platformName?: string, configToSync?: StrategyConfig) => {
     try {
-      // Auto-clean stale platforms from strategyConfig
-      const livePlatforms = await ipcPlatformListFull();
-      const liveItems = (Array.isArray(livePlatforms) ? livePlatforms : ((livePlatforms as Record<string, unknown>)?.items ?? [])) as Record<string, unknown>[];
-      const liveNames = new Set(liveItems.map((p) => String(p.name ?? "")));
       const configBase = configToSync ?? strategyConfig;
-      const cleanedPlatforms = configBase.platforms.filter((p) => liveNames.has(p.platform_name));
-      const cleanedConfig = { ...configBase, platforms: cleanedPlatforms };
-      if (cleanedPlatforms.length !== configBase.platforms.length) {
-        setStrategyConfig(cleanedConfig);
-      }
-      await ipcStrategyConfigPut(cleanedConfig);
+      await ipcStrategyConfigPut(configBase);
       await ipcStrategyApply();
       await refreshPlatforms();
     } catch (e) { showToast("err", translateError(e, t)); }

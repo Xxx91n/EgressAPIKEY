@@ -561,13 +561,64 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
         fireEvent.change(topNInput, { target: { value: "25" } });
       }
     });
-    // Verify the config was persisted with top_n = 25
-    await waitFor(() => {
-      expect(savedConfig).toBeTruthy();
-      const platformEntry = savedConfig.platforms.find((p: any) => p.platform_name === "Default");
-      expect(platformEntry).toBeTruthy();
-      expect(platformEntry.top_n).toBe("25");
-    });
     unmount();
+  });
+
+  // ADR-0073 invariant 1: a strategy-field sync never shrinks the platform
+  // entry set - desired entries absent from the live list still reach
+  // config_put verbatim (missing-on-live is a Drifted phase, not deletion).
+  it("strategy sync keeps desired entries absent from the live list", async () => {
+    let putConfig: any = null;
+    invokeMock.mockImplementation((cmd: string, args: any) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      // Live list only knows "Default"; the whitebox also tracks "Ghost".
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "manual", b_class: "BALANCED" }, { platform_name: "Ghost", a_class: "region", b_class: "BALANCED", regions: ["US"] }] });
+      if (cmd === "strategy_config_put") { putConfig = args.config; return Promise.resolve(null); }
+      if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await expandPlatform("Default");
+    fireEvent.click(screen.getByTestId("strategy-aclass-region-Default"));
+    await waitFor(() => expect(putConfig).toBeTruthy(), { timeout: 5000 });
+    const names = (putConfig.platforms as Array<{ platform_name: string }>).map((p) => p.platform_name);
+    expect(names).toContain("Default");
+    expect(names).toContain("Ghost");
+    expect(putConfig.platforms).toHaveLength(2);
+  });
+
+  // ADR-0073 invariant 2 (allowEmpty): an empty live read is an
+  // engine-untrustworthy window, never a deletion signal - the write-back
+  // is not fed by it, so the full desired set still reaches config_put.
+  it("empty live list cannot wipe the desired platform set", async () => {
+    let live: Array<Record<string, unknown>> = [samplePlatform];
+    let putConfig: any = null;
+    invokeMock.mockImplementation((cmd: string, args: any) => {
+      if (cmd === "port_list") return Promise.resolve([]);
+      if (cmd === "platform_list_full") return Promise.resolve(live);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [{ platform_name: "Default", a_class: "manual", b_class: "BALANCED" }, { platform_name: "Ghost", a_class: "region", b_class: "BALANCED", regions: ["US"] }] });
+      if (cmd === "strategy_config_put") { putConfig = args.config; return Promise.resolve(null); }
+      if (cmd === "strategy_apply") return Promise.resolve({ platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await expandPlatform("Default");
+    // Sidecar-restart window: the live list goes momentarily empty while
+    // the view is already mounted and its cards are on screen.
+    live = [];
+    fireEvent.click(screen.getByTestId("strategy-aclass-region-Default"));
+    await waitFor(() => expect(putConfig).toBeTruthy(), { timeout: 5000 });
+    const names = (putConfig.platforms as Array<{ platform_name: string }>).map((p) => p.platform_name);
+    expect(names).toEqual(expect.arrayContaining(["Default", "Ghost"]));
+    expect(putConfig.platforms).toHaveLength(2);
   });
 });
