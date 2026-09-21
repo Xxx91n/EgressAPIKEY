@@ -56,19 +56,11 @@ EgressAPIKEY is a Tauri 2 + React 19 desktop app: an L7 proxy gateway specialize
 
 The app stores user data in OS-standard dirs (resolved by Tauri's `app.path()`). On Windows these land under `%APPDATA%`; on macOS under `~/Library/Application Support`; on Linux under `~/.config` / `~/.local/share`. The authoritative three-layer model is legislated in `docs/architecture/ARCHITECTURE.md` §「配置权威」(Config Authority); the layers here are L1 GUI preferences / L2 whitebox user-editable config / L3 Resin runtime — an agent must not add a config key without classifying it into one of the three.
 
-- **L1 GUI preferences (`settings.json`)**: `app_config_dir()` — written by `tauri-plugin-store` (webview `src/lib/settings.ts`) plus six Rust commands (`lightweight_get/set`, `get/set_diag_poll_interval` (Round 5 T05), `get/set_log_level`, all in `src-tauri/src/commands/settings.rs`) for keys the webview cannot own. Keys: `lang`, `theme`, `view`, WebDAV credentials (`webdavUrl`/`webdavUsername`/`webdavPassword`), IP-reputation credentials (`ipReputationProvider`/`ipQualityScoreApiKey`/`abuseIpDbApiKey`; note: these third-party providers supply fraud scoring + abuse history — Resin's built-in GeoIP (`/api/v1/geoip/*`) is deliberately NOT consumed, see ADR-0065), `ipChannelPolicyMap`, `keyCandidates`, `nodeProbe`, `portAuthDefault`, `splitRatio`, `lightweightEnabled`/`lightweightDelayMinutes`, `diagPollInterval` (T05; set via `set_diag_poll_interval`, §7.5 range 100..=24h enforced on both the Rust and TS boundaries), `topologyState`/`localSubOrder`, `view` (last-active tab; `effectiveConfig` is the one-level Effective Config view, architecture-recovery ticket 13). Only the Rust tray reads `lang` directly; no other Rust component consumes L1 keys (see §7.6). Dead pre-T3-A network keys (`gatewayBind`, `mihomoApi`) are purged once at startup (arch/02). The legacy `processRoutes` key was migrated into the L2 whitebox and purged once at startup (arch/17, ADR-0055). L1 keys never influence proxy behavior — if a key changes what the proxy does, it belongs in L2.
-- **L2 whitebox user-editable config (authoritative write entry)**: two files in `app_config_dir()`, each with exactly one writing module —
-  - `egressapikey-strategy.json` (`resin_core::StrategyConfig`, version 1): shell strategy identity (`a_class`, `b_class`, `manual_nodes`, `subscriptions`, `top_n` per platform; since round8 ticket 01 / D-002 `b_class` holds the Resin `allocation_policy` value verbatim — the six display-only shell options were withdrawn, legacy tokens are accepted on read and rewritten once at boot by `StrategyService::migrate_b_class_values_once` with the generation untouched, and `b_class_params` is gone from both the UI and the API surface). Written only by `resin_core::StrategyService` (`strategy_config_put` + the deep `strategy_platform_regions_set` are its thin IPC facades; ADR-0052); applied to Resin only by `strategy_apply` (which fulfills the reconcile preview's promises: creates missing-on-resin platforms via `ResinClient::create_platform_from_name` per ADR-0056 and PATCHes only the axes that actually drift — `region_filters` and the desired `allocation_policy` (round8 ticket 01 added the policy axis; only drifting axes are sent) — diff-then-skip per ADR-0057, so a converged platform takes zero writes; it never deletes whitebox entries — the former auto-clean of stale platform entries was removed by ADR-0056 as the "said establish, actually deleted" contradiction; on an ALL-GREEN pass it writes back `applied_generation = generation` + `last_apply_at` and clears `last_apply_error` inside the same store entry, keeping the old applied value + recording the failure reason on any non-green pass per ADR-0058). Every write bumps the `generation` write-authority counter inside the write entry (v1 files deserialize with generation 0 = NeverApplied, serde-default zero migration; the ports sibling carries a single-generation `generation` only — no applied_generation, D-27). GUI edits and external file edits converge here (ADR-0036, read side per ADR-0039 SS2). The authoritative snapshot derives the top-level `ConvergePhase` (NeverApplied/Unknown/ApplyFailed/PendingApply/Drifted/Converged) from the pair and EffectiveConfigView surfaces it as the header chip; adding a config key to this file means updating that derivation story too (ADR-0058). The global converge loop (architecture-recovery 07, D-C2.2) lives in `src/store/appStore.ts`: one `subscribeToConverge()` subscription (mounted once in `App.tsx`) owns the `authoritative_snapshot` cadence — 5s foreground polling, 30s backoff once Converged AND `lastApplyAt` >60s old, immediate refresh on the existing `sidecar-status` G4 event (payload untrusted/unused), visibility-API pause while hidden; the tray mirrors the phase edge-driven from the `authoritative_snapshot` tail (`tray.rs apply_converge_mirror`: Converged silent / Drifted+PendingApply amber / ApplyFailed red until the next green apply / Unknown+NeverApplied grey; tooltip shows `{Phase} · rev {N}/{M}` for non-silent phases where N = strategy_generation and M = strategy_applied_generation; a "Converge status" menu item emits the `tray://converge-status` Tauri event to the frontend, which navigates to EffectiveConfigView) — no new IPC command, no new config key. Subscription establish-phase STATUS rows (round7 T02, D-C1.2): the top-level `subscriptions` array (each row = `name` + `phase` + `stage` + `phase_error`; the per-platform `PlatformStrategy::subscriptions` NAME refs are a different field) records where the establish cascade is for each subscription — written ONLY by `StrategyService::record_subscription_phase` (status subresource: same store entry, backup ring, audit row, but NO generation bump — a status write is not a desired-state write, k8s status-subresource rule; bumping would flip the top-level ConvergePhase into a false PendingApply after every cascade). `authoritative_snapshot` projects these rows as `subscriptionPhases` (camelCase parent, snake_case rows) and SubscriptionsView renders the 6-phase chip per subscription row. Every write is versioned: the previous file is copied to the sibling `backup/` dir (10 kept) and `strategy_backup_list`/`strategy_rollback` re-enter this same write entry for rollback (ADR-0054 §B).
-  - `egressapikey-ports.json` (`resin_core::WhiteboxConfig`, version 2: `entry_ports` + `network` + `process_routes` + `route_acknowledged`; each `entry_ports` row declares exactly one of `http` / `socks5` / `mixed`, with `mixed` the default - round8 ticket 13 / D-007 closed the enum at three values and tightened the engine flag mapping, so `socks5` is SOCKS5-only and `mixed` is the only value that opens both capabilities; the closed set and the single flag derivation live in `crates/resin-core/src/entry_protocol.rs`, and a version-1 document is upgraded once at boot by `whitebox_config::migrate_entry_port_protocols`, which rewrites the flag-preserving `socks5` -> `mixed` and stamps version 2): written only by `crates/resin-core/src/whitebox_config.rs` `WhiteboxConfigStore` (hotswap-config atomic write + validate-before-swap + file watch). `port_upsert`/`port_remove`/`port_toggle`/`whitebox_save_network` and — since arch/17 (ADR-0055) — the process-route family `process_route_add`/`process_route_remove`/`process_route_list` (the ONLY writers for routes; the former L1 settings.json dual-write and the webview `saveProcessRoutes`/`loadProcessRoutes` pair are deleted, one-time boot migration purges the legacy L1 key) all funnel into it; its `watch_apply` applies accepted files to SQLite + listeners as one transaction (invalid files never trigger the callback). `egressapikey.db` (`DbPool`, `port_mappings` table, hand-written `PRAGMA user_version`, currently v4) is the SQLite sync partner seeded from the whitebox JSON at boot (`main.rs` seeds `WhiteboxConfigStore` from `db.list_ports()`; on corrupt JSON it quarantines and reseeds from DB) — the whitebox file, not the DB, is the truth source (ADR-0042 S2/S6). Writes are versioned the same way (sibling `backup/`, 10 kept; `whitebox_backup_list`/`whitebox_rollback` re-enter `WhiteboxConfigStore::apply` + `restore_ports_from_whitebox`, ADR-0054 §B). The reconciliation loop is closed (ADR-0054 ACCEPTED): one-shot drift tray notification is wired to the `authoritative_snapshot` command tail (`src-tauri/src/tray.rs` state machine; notify once per process, re-arm on zero unacknowledged drift, acknowledged entries exempt); user-facing troubleshooting table at `docs/how-to/WHY-NOT-EFFECTIVE.md`.
-- **L3 Resin runtime (derived, rebuildable)**: the sidecar's own state under the per-user Resin state dir (`state.db`/`cache.db`/`request_logs*.db`) plus live leases/listeners. Execute-only authority: reachable exclusively through the ResinClient REST seam (`crates/resin-core/src/resin_client.rs`); rebuildable from L2 at any time (`strategy_apply` PATCHes `region_filters`, `restore_ports_from_whitebox` re-POSTs `/api/v1/endpoints` after a Resin restart in Mode B - in Mode A it retires stale per-port endpoints and reloads the shell listener set instead, ADR-0042 S6). Former seam exception CLOSED by architecture-recovery ticket 11 (2026-08-30): `request_log_tail` now reads via ResinClient `GET /api/v1/request-logs`; Resin v1.2.0 does expose this endpoint. No shell code may read Resin's private `request_logs*.db` files — a direct read reintroduced anywhere is a review blocker. Declared exception: `backup_create` reads `state.db`/`cache.db` read-only for zip packaging only (never writes; Resin's own mutex guards backup-time consistency) — listed alongside the `request_logs*.db` prohibition as the complete read-exception ledger (ARCHITECTURE.md config-authority known exception; ADR-0050-bis).
+- **L1 `settings.json`** (`app_config_dir()`): GUI preferences (lang/theme/view, credentials, poll intervals); never influences proxy behavior.
+- **L2 whitebox**: `egressapikey-strategy.json` + `egressapikey-ports.json` (+ `egressapikey.db` SQLite sync partner); written only via `resin_core::StrategyService` / `WhiteboxConfigStore` with backup rings + audit rows.
+- **L3 Resin runtime**: sidecar state + live leases/listeners - execute-only via ResinClient, rebuildable from L2.
 
-**Data-Plane Mode (ADR-0068 D1, round8 ticket 17 / A-001)**: the entry-port listener is realised per mode - desktop GUI = Mode A (shell forwarder), headless = Mode B (engine-direct), and the mode is a property of the binary, NOT a config key (no new L1/L2 keys; vocabulary: CONTEXT.md Data-Plane Mode). In Mode A `resin_core::PortForwarder` binds one tokio `TcpListener` per enabled whitebox `entry_ports` row (loopback-only, capped at `MAX_ENTRY_PORTS`; a held port retries with capped backoff and reads as drift meanwhile), sniffs the connection's first byte for the dialect (0x05 = SOCKS5, otherwise HTTP - `detect_protocol`), refuses a dialect the port's declared protocol does not include with the same protocol-faithful answers the engine gives (`05 FF` / 403 `ENDPOINT_CAPABILITY_DISABLED`), and relays to the Resin consolidated port with the port's `Platform.Account` credential injected in the connection's own dialect (SOCKS5: RFC 1929 username-password subnegotiation, username = identity, password = proxy token; HTTP: `Proxy-Authorization: Basic`). Absolute-form HTTP requests are re-tunnelled through CONNECT so relayed bytes never traverse the engine's buffered forward path - the ticket-04 SSE flush defect (`forward.go io.Copy` without flush) is neutralised on the whole Mode A path, and an event-stream that breaks abnormally (upstream reset) is terminated in-band with an `event: error` frame. Because the shell listener IS the port's L3 realisation in Mode A, the `port_upsert`/`port_remove`/`port_toggle` family skips the Resin endpoint CRUD step, `subscription_pipeline::ensure_default_port` skips `create_endpoint` (the whitebox write binds via the same apply transaction), the `authoritative_snapshot` ports half compares against Resin endpoint ports UNION the forwarder's bound ports (`merge_ports` unchanged), `reconcile_now`'s ports half re-asserts the shell listeners instead of re-POSTing endpoints (bound set = the liveness filter; the 409 stamp is Engine-path only), and `restore_ports_from_whitebox` retires stale per-port Resin endpoints (B-era rows persisted in Resin state.db that would EADDRINUSE the shell bind; the read-only default endpoint is never touched) before reloading the bound set. Tests: `crates/resin-core/tests/forwarder_dataplane.rs` - real-socket end-to-end chain (client -> forwarder -> mock consolidated port -> mock origin) covering the D-004 SSE four hard behavioural assertions (per-event flush / disconnect cancel cascade / bounded backpressure / in-band error), the per-dialect injection contract, the dialect gate, the CONNECT-only forward-path invariant, and the p95 <=5ms added-latency initial check (paired, mock upstream); plus unit tests in `port_forwarder.rs` (mode table, dialect gate, replayed-head rewrite, bind retry, reload lifecycle).
-
-Logs are storage, not config: `app_log_dir()` — `tauri-plugin-tracing` daily-rotating file appender for all `tracing::` output; Resin request logs are L3 runtime data, not a config layer.
-
-**Write-audit log (`audit.jsonl`)**: append-only JSONL in `app_config_dir()` recording every accepted L2 mutation (one row per user-visible write, op `put`/`apply`/`rollback`), written ONLY by `resin_core::audit` at the two authoritative write entries (`strategy_service::FsStrategyStore::store` + `whitebox_config::write_atomic`; rollback provenance via the `AUDIT_CTX` task-local) per ADR-0059. Eight required fields per row + per-row SHA-256 `prev_hash` chain; 100MB/10-archive rotation (`audit.jsonl.1..10`). Best-effort by law (ADR-0059 D7): a failed append degrades to `tracing::warn!` and never blocks the write or app startup. It is a log, not config — not part of any L1/L2/L3 authority layer. Settings > Storage exposes `Export audit log` (`export_audit_log` in settings.rs, copy-to-save-dialog; the TS wrapper in `src/lib/ipc.ts` validates the target path). Never rewrite/truncate the file in code; rotation is the only shrink path.
-
-The Settings > Storage card exposes `Open config directory` and `Open log directory` buttons (commands `get_config_dir` / `get_log_dir` in `src-tauri/src/commands/settings.rs`, scoped `opener:allow-open-path` capability) so a user can reach these paths from inside the GUI.
+Full per-layer detail (key inventory, write entries, backup rings, Mode A/B dataplane, audit log): `docs/agents/storage-locations.md`.
 
 ## /init conventions (enforced from P0)
 
@@ -159,7 +151,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
   `.layer(...)` call, and never add a route that bypasses the guard. Primitives +
   unit tests: `src-tauri/src/headless_security.rs`. Operator threat model:
   `docs/how-to/HEADLESS_DEPLOYMENT.md`.
-- Frontend `invoke()` surface (authoritative manifest, architecture-recovery ticket 03): the full command set lives in the `ipc-manifest` fenced block below. It is REGENERATED from the `#[tauri::command]` definitions under `src-tauri/src` by `node scripts/ipc-manifest-check.cjs --write`, and machine-checked on every build (`pnpm ipc:check`, `scripts/verify-build.sh`, and the CI verify job via verify-build.sh). The check fails the build when a command is added/removed/renamed, when the `generate_handler!` registry in `src-tauri/src/main.rs` drifts from the definition set, when this manifest drifts from either, or when a definition-file attribution goes stale (ticket 08 domain split will be caught automatically). Do not hand-edit entries: run the regenerator. The pre-ticket-03 list of 9 commands was a stale leftover from the removed SharedGateway path (ADR-0024); those four phantom names no longer appear anywhere in this file. Each TS wrapper in `src/lib/ipc.ts` validates input at the TS boundary (assertShortName/assertAuthority/assertIp, length caps, lane range `0..MAX_LANES=50`, latency cap, URL `http(s)://` prefix) BEFORE invoking, and treats the Rust response (`reason`, `lane`, `account`) as untrusted — never piped into another URL or command. The Rust side re-validates the same bounds in `commands/` domain modules (settings.rs for log level / lightweight, ports.rs for port and whitebox inputs). When wiring any new IPC command, the TS wrapper MUST follow this same validate-then-invoke contract.
+- Frontend `invoke()` surface (authoritative manifest, architecture-recovery ticket 03): the command list lives in `docs/agents/ipc-manifest.md` (the `ipc-manifest` fence below is a pointer only). It is REGENERATED by `node scripts/ipc-manifest-check.cjs --write` and machine-checked on every build (`pnpm ipc:check`, `scripts/verify-build.sh`, CI); the check fails on command add/remove/rename, `generate_handler!` registry drift, manifest drift, or stale file attribution. Do not hand-edit: run the regenerator. Each TS wrapper in `src/lib/ipc.ts` validates input at the TS boundary (assertShortName/assertAuthority/assertIp, length caps, lane range `0..MAX_LANES=50`, latency cap, URL `http(s)://` prefix) BEFORE invoking, and treats the Rust response (`reason`, `lane`, `account`) as untrusted — never piped into another URL or command. The Rust side re-validates the same bounds in `commands/` domain modules. When wiring any new IPC command, the TS wrapper MUST follow this same validate-then-invoke contract.
 
 **Echo command list (kept for IPC contract compatibility; the shell does not implement their semantics — ADR-0050 deleted the kernel face)**:
 
@@ -169,91 +161,8 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 Removal condition: drop these from the manifest + registry only when Resin's account REST surface changes shape (T16 owns the account header-rules integration; do not delete in a docs round).
 
 ```ipc-manifest
-# Tauri IPC command manifest - REGENERATED by scripts/ipc-manifest-check.cjs --write.
-# Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):
-# entries must equal the #[tauri::command] set under src-tauri/src AND the
-# generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.
-# Do not hand-edit entries. Regenerated: 2026-09-21 (80 commands)
-backup_create = src-tauri/src/commands/backup.rs
-backup_upload = src-tauri/src/commands/backup.rs
-backup_list = src-tauri/src/commands/backup.rs
-config_export = src-tauri/src/commands/backup.rs
-config_import = src-tauri/src/commands/backup.rs
-backup_restore = src-tauri/src/commands/backup.rs
-get_sidecar_logs = src-tauri/src/commands/diagnostics.rs
-get_sidecar_status = src-tauri/src/commands/diagnostics.rs
-request_log_tail = src-tauri/src/commands/diagnostics.rs
-check_firewall_status = src-tauri/src/commands/diagnostics.rs
-probe_exit_ip = src-tauri/src/commands/diagnostics.rs
-metrics_probe_history = src-tauri/src/commands/diagnostics.rs
-metrics_realtime_throughput = src-tauri/src/commands/diagnostics.rs
-request_log_detail = src-tauri/src/commands/diagnostics.rs
-request_log_payloads = src-tauri/src/commands/diagnostics.rs
-platform_add = src-tauri/src/commands/platform.rs
-platform_remove = src-tauri/src/commands/platform.rs
-platform_list = src-tauri/src/commands/platform.rs
-platform_list_full = src-tauri/src/commands/platform.rs
-account_add = src-tauri/src/commands/platform.rs
-account_bind_ip = src-tauri/src/commands/platform.rs
-process_route_add = src-tauri/src/commands/platform.rs
-process_route_remove = src-tauri/src/commands/platform.rs
-process_route_list = src-tauri/src/commands/platform.rs
-list_account_header_rules = src-tauri/src/commands/platform.rs
-put_account_header_rules = src-tauri/src/commands/platform.rs
-resolve_account_header_rule = src-tauri/src/commands/platform.rs
-delete_account_header_rule = src-tauri/src/commands/platform.rs
-subscription_add = src-tauri/src/commands/platform.rs
-subscription_remove = src-tauri/src/commands/platform.rs
-subscription_refresh = src-tauri/src/commands/platform.rs
-subscription_list = src-tauri/src/commands/platform.rs
-node_pool_snapshot = src-tauri/src/commands/platform.rs
-platform_update = src-tauri/src/commands/platform.rs
-node_list = src-tauri/src/commands/platform.rs
-node_probe = src-tauri/src/commands/platform.rs
-platform_create_with_fields = src-tauri/src/commands/platform.rs
-platform_leases = src-tauri/src/commands/platform.rs
-lease_map = src-tauri/src/commands/platform.rs
-ip_reputation_snapshot = src-tauri/src/commands/platform.rs
-port_list = src-tauri/src/commands/ports.rs
-port_suggest = src-tauri/src/commands/ports.rs
-port_upsert = src-tauri/src/commands/ports.rs
-port_remove = src-tauri/src/commands/ports.rs
-port_toggle = src-tauri/src/commands/ports.rs
-port_bind_platform = src-tauri/src/commands/ports.rs
-port_running = src-tauri/src/commands/ports.rs
-whitebox_save_network = src-tauri/src/commands/ports.rs
-whitebox_path = src-tauri/src/commands/ports.rs
-whitebox_get = src-tauri/src/commands/ports.rs
-whitebox_reload = src-tauri/src/commands/ports.rs
-port_auth_info = src-tauri/src/commands/ports.rs
-key_account_lookup = src-tauri/src/commands/ports.rs
-port_health_check = src-tauri/src/commands/ports.rs
-watch_port_health = src-tauri/src/commands/ports.rs
-whitebox_backup_list = src-tauri/src/commands/ports.rs
-whitebox_rollback = src-tauri/src/commands/ports.rs
-system_config_get = src-tauri/src/commands/settings.rs
-system_config_patch = src-tauri/src/commands/settings.rs
-close_all_connections = src-tauri/src/commands/settings.rs
-reset_kernel = src-tauri/src/commands/settings.rs
-tray_refresh_labels = src-tauri/src/commands/settings.rs
-get_config_dir = src-tauri/src/commands/settings.rs
-get_log_dir = src-tauri/src/commands/settings.rs
-export_audit_log = src-tauri/src/commands/settings.rs
-lightweight_get = src-tauri/src/commands/settings.rs
-lightweight_set = src-tauri/src/commands/settings.rs
-get_diag_poll_interval = src-tauri/src/commands/settings.rs
-set_diag_poll_interval = src-tauri/src/commands/settings.rs
-set_log_level = src-tauri/src/commands/settings.rs
-get_log_level = src-tauri/src/commands/settings.rs
-strategy_verify = src-tauri/src/commands/strategy.rs
-strategy_config_get = src-tauri/src/commands/strategy.rs
-strategy_config_put = src-tauri/src/commands/strategy.rs
-strategy_apply = src-tauri/src/commands/strategy.rs
-strategy_platform_regions_set = src-tauri/src/commands/strategy.rs
-authoritative_snapshot = src-tauri/src/commands/strategy.rs
-strategy_backup_list = src-tauri/src/commands/strategy.rs
-strategy_rollback = src-tauri/src/commands/strategy.rs
-reconcile_now = src-tauri/src/commands/strategy.rs
+# Moved to docs/agents/ipc-manifest.md - regenerate with
+# node scripts/ipc-manifest-check.cjs --write. Commands: 80
 ```
 
 - If mihomo REST control is ever reintroduced (ADR-0050 is the authoritative record of the `mihomo.rs` deletion): never expose `MihomoController`, `CoreConfig.mihomo_api`, or `CoreConfig.mihomo_secret` through a `#[tauri::command]` that takes a raw `String` and constructs the controller from it; `api_base` must pass the loopback-only validation described above (non-loopback targets are rejected); and config must come from `tauri-plugin-store` settings.json (server-side trust), not from the webview.
@@ -297,12 +206,7 @@ Single-context layout: root `CONTEXT.md` glossary + `docs/adr/`. See `docs/agent
 
 ### Community & contribution files
 
-- `CONTRIBUTING.md` is the contributor entry: desktop dev-environment setup, verify-build usage, convention pointers, and the contribution-licensing statement (inbound = outbound GPL-3.0-or-later, no CLA — lands the ADR-0067 D5 decision).
-- `.github/ISSUE_TEMPLATE/`: bug + feature markdown templates whose `name`/`about` frontmatter must stay legal (non-empty) — GitHub community-profile checklist is a hard condition on it; `config.yml` disables blank issues and routes questions to Discussions.
-- `PULL_REQUEST_TEMPLATE.md` (root): PR verification checklist (verify-build, tests-per-behavior, i18n x18, license-field-check, docs same-commit).
-- `SECURITY.md`: supported versions (latest `main`) + GitHub private vulnerability reporting — never public issues.
-- `CODE_OF_CONDUCT.md`: Contributor Covenant 2.1 verbatim; enforcement contact = maintainer via GitHub profile.
-- GitHub Discussions enabled (`has_discussions=true`, gh api). GOVERNANCE / FUNDING / SUPPORT stay deferred (spec D-07 P2).
+Moved to [docs/agents/community-files.md](docs/agents/community-files.md) (CONTRIBUTING / ISSUE_TEMPLATE / PR_TEMPLATE / SECURITY / CODE_OF_CONDUCT inventory).
 
 ### Architecture & Phase History (externalized)
 

@@ -1,14 +1,16 @@
 // ipc-manifest-check.cjs - IPC manifest guard (architecture-recovery ticket 03).
-// Keeps the AGENTS.md command manifest equal to code truth:
+// Keeps the generated command manifest equal to code truth:
 //   1. extracts every #[tauri::command] fn name under src-tauri/src (CRLF/LF safe),
 //   2. reconciles them against the generate_handler! registry in src-tauri/src/main.rs,
-//   3. diffs both against the ipc-manifest fenced block in AGENTS.md section 7.6
-//      (command name + definition-file attribution).
+//   3. diffs both against the ipc-manifest fenced block in
+//      docs/agents/ipc-manifest.md (command name + definition-file
+//      attribution); AGENTS.md keeps only a pointer fence with the command
+//      count, which this check verifies too.
 // Any drift exits non-zero. Style aligned with scripts/i18n-check.cjs (no deps).
 //
 // Usage:
 //   node scripts/ipc-manifest-check.cjs            # check (build gate)
-//   node scripts/ipc-manifest-check.cjs --write    # regenerate the AGENTS.md block
+//   node scripts/ipc-manifest-check.cjs --write    # regenerate manifest file + AGENTS.md pointer
 //   node scripts/ipc-manifest-check.cjs --self-test
 
 const fs = require("node:fs");
@@ -18,6 +20,7 @@ const ROOT = path.join(__dirname, "..");
 const SRC_DIR = path.join(ROOT, "src-tauri", "src");
 const MAIN_RS = path.join(SRC_DIR, "main.rs");
 const AGENTS_MD = path.join(ROOT, "AGENTS.md");
+const MANIFEST_MD = path.join(ROOT, "docs", "agents", "ipc-manifest.md");
 const FENCE_LANG = "ipc-manifest";
 const FENCE = "\x60\x60\x60";
 
@@ -127,8 +130,21 @@ function check() {
   const { defined, dups } = collectDefined();
   const regNames = parseRegistry(fs.readFileSync(MAIN_RS, "utf8"));
   if (regNames === null) codeErrors.push("generate_handler![...] not found in src-tauri/src/main.rs");
-  const manifest = parseManifest(fs.readFileSync(AGENTS_MD, "utf8"));
-  if (manifest === null) manifestErrors.push("ipc-manifest fence missing or malformed in AGENTS.md section 7.6");
+  const agentsSrc = fs.readFileSync(AGENTS_MD, "utf8");
+  const agentsFence = agentsSrc.match(manifestRe());
+  const agentsEntries = parseManifest(agentsSrc);
+  if (agentsFence === null || agentsEntries === null) {
+    manifestErrors.push("ipc-manifest pointer fence missing or malformed in AGENTS.md section 7.6");
+  } else if (agentsEntries.length > 0) {
+    manifestErrors.push("AGENTS.md ipc-manifest fence must hold only the pointer - the command list lives in docs/agents/ipc-manifest.md");
+  } else {
+    const cm = agentsFence[1].match(/commands?:\s*(\d+)/i);
+    if (!cm || Number(cm[1]) !== defined.length) {
+      manifestErrors.push("AGENTS.md pointer count is stale (fence says " + (cm ? cm[1] : "none") + ", code defines " + defined.length + ") - run --write");
+    }
+  }
+  const manifest = parseManifest(fs.existsSync(MANIFEST_MD) ? fs.readFileSync(MANIFEST_MD, "utf8") : "");
+  if (manifest === null) manifestErrors.push("ipc-manifest fence missing or malformed in docs/agents/ipc-manifest.md");
   for (const d of dups) codeErrors.push("duplicate command name: " + d);
   const definedNames = defined.map((c) => c.name);
   if (regNames !== null) {
@@ -137,8 +153,8 @@ function check() {
   }
   if (regNames !== null && manifest !== null) {
     const manifestNames = manifest.map((e) => e.name);
-    for (const n of diff(definedNames, manifestNames)) manifestErrors.push("missing from AGENTS.md manifest: " + n);
-    for (const n of diff(manifestNames, definedNames)) manifestErrors.push("phantom in AGENTS.md manifest (no such command in src-tauri): " + n);
+    for (const n of diff(definedNames, manifestNames)) manifestErrors.push("missing from docs/agents/ipc-manifest.md: " + n);
+    for (const n of diff(manifestNames, definedNames)) manifestErrors.push("phantom in docs/agents/ipc-manifest.md (no such command in src-tauri): " + n);
     const fileOf = {};
     for (const c of defined) fileOf[c.name] = c.file;
     for (const e of manifest) {
@@ -165,13 +181,29 @@ function buildBlock(defined) {
 }
 
 function writeManifest(defined) {
+  const block = FENCE + FENCE_LANG + "\n" + buildBlock(defined) + "\n" + FENCE;
+  const md = [
+    "# IPC command manifest",
+    "",
+    "Machine-checked on every build (`pnpm ipc:check` / `scripts/verify-build.sh` / CI):",
+    "entries must equal the `#[tauri::command]` set under `src-tauri/src` AND the",
+    "`generate_handler!` registry in `src-tauri/src/main.rs`. Do not hand-edit;",
+    "regenerate via `node scripts/ipc-manifest-check.cjs --write`.",
+    "",
+    block,
+    "",
+  ].join("\n");
+  fs.writeFileSync(MANIFEST_MD, md);
   let agentsSrc = fs.readFileSync(AGENTS_MD, "utf8");
   const re = new RegExp("(" + FENCE + FENCE_LANG + "\\r?\\n)([\\s\\S]*?)(?=" + FENCE + ")");
   if (!re.test(agentsSrc)) {
     console.error("--write failed: no ipc-manifest fence in AGENTS.md");
     process.exit(1);
   }
-  agentsSrc = agentsSrc.replace(re, (whole, open) => open + buildBlock(defined) + "\n");
+  agentsSrc = agentsSrc.replace(re, (whole, open) =>
+    open +
+    "# Moved to docs/agents/ipc-manifest.md - regenerate with\n" +
+    "# node scripts/ipc-manifest-check.cjs --write. Commands: " + defined.length + "\n");
   fs.writeFileSync(AGENTS_MD, agentsSrc);
 }
 
@@ -261,7 +293,7 @@ function main() {
       process.exit(1);
     }
     writeManifest(res.defined);
-    console.log("AGENTS.md ipc-manifest block regenerated (" + res.defined.length + " commands)");
+    console.log("ipc-manifest regenerated: docs/agents/ipc-manifest.md + AGENTS.md pointer (" + res.defined.length + " commands)");
     return;
   }
   const errors = res.codeErrors.concat(res.manifestErrors);
@@ -271,7 +303,7 @@ function main() {
     console.error("Fix the drift, or regenerate the manifest: node scripts/ipc-manifest-check.cjs --write");
     process.exit(1);
   }
-  console.log("IPC manifest OK: " + res.defined.length + " commands; defined = registered = AGENTS.md manifest");
+  console.log("IPC manifest OK: " + res.defined.length + " commands; defined = registered = docs/agents/ipc-manifest.md = AGENTS.md pointer");
 }
 
 main();

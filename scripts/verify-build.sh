@@ -78,6 +78,13 @@ npx vitest run
 
 echo "[verify] i18n coverage"
 node scripts/i18n-check.cjs
+echo "[verify] AGENTS.md size guard (32KiB budget)"
+agents_bytes=$(wc -c < AGENTS.md)
+if [ "$agents_bytes" -gt 32768 ]; then
+  echo "FAIL: AGENTS.md is ${agents_bytes}B - over the 32KiB project_doc_max_bytes budget; move detail into docs/agents/ and keep a pointer"
+  exit 1
+fi
+echo "[verify] AGENTS.md size OK: ${agents_bytes}B <= 32768B"
 echo "[verify] ipc manifest guard"
 node scripts/ipc-manifest-check.cjs
 echo "[verify] vitest isolation guard (ticket 18)"
