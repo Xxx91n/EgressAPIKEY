@@ -40,6 +40,7 @@ class HeadlessStore implements StoreLike {
   private doc: Record<string, unknown> | null = null;
   private dirty = false;
   private loading: Promise<void> | null = null;
+  private saving: Promise<void> | null = null;
 
   private ensure(): Promise<void> {
     this.loading ??= (async () => {
@@ -67,14 +68,30 @@ class HeadlessStore implements StoreLike {
     this.dirty = true;
   }
   async save(): Promise<void> {
+    // Serialize saves: overlapping PUTs can land out of order, letting a
+    // stale snapshot clobber a newer write (last-arriver wins). Chaining
+    // through `saving` makes the LAST caller flush the final write. dirty
+    // is cleared before the fetch so a set() during a flight re-dirties
+    // and the next queued flush persists it instead of being swallowed.
+    const run = (this.saving ?? Promise.resolve()).then(() => this.flush());
+    this.saving = run.catch(() => {});
+    return run;
+  }
+
+  private async flush(): Promise<void> {
     if (!this.dirty) return;
-    const r = await fetch("/api/v1/shell/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(this.doc ?? {}),
-    });
-    if (!r.ok) throw new Error(`settings PUT -> ${r.status}`);
     this.dirty = false;
+    try {
+      const r = await fetch("/api/v1/shell/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(this.doc ?? {}),
+      });
+      if (!r.ok) throw new Error(`settings PUT -> ${r.status}`);
+    } catch (e) {
+      this.dirty = true;
+      throw e;
+    }
   }
 }
 

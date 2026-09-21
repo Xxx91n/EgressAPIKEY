@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // C2-3: keyCandidates survives an app restart because they are persisted in
 // settings.json#keyCandidates via tauri-plugin-store's LazyStore. The shared
@@ -33,7 +33,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 // Import AFTER the mock so the module reads the mocked LazyStore.
-import { loadKeyCandidates, saveKeyCandidates, type KeyCandidate, loadNodeProbe, saveNodeProbe, batchChunkSize, type NodeProbeConfig, purgeLegacyDeadKeys, getDiagPollInterval, setDiagPollInterval } from "./settings";
+import { loadKeyCandidates, saveKeyCandidates, type KeyCandidate, loadNodeProbe, saveNodeProbe, batchChunkSize, type NodeProbeConfig, purgeLegacyDeadKeys, getDiagPollInterval, setDiagPollInterval, saveView } from "./settings";
 import * as settingsModule from "./settings";
 
 beforeEach(() => { backing.clear(); saveCalls = 0; });
@@ -201,5 +201,66 @@ describe("T05: diagPollInterval typed L1 wrapper pair (bare store invoke elimina
     }
     // §7.5 contract: the out-of-range value never reaches the IPC layer.
     expect(invokeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("HeadlessStore: serialized saves (last writer wins)", () => {
+  // ADR-0071 headless store: overlapping save() calls must PUT in call
+  // order - the LAST writer's snapshot must be the final write on the wire.
+  // The Tauri injection flags are cleared so store() selects HeadlessStore,
+  // and fetch is stubbed with deferred PUT gates to control the wire order.
+  type FlagBag = { __TAURI_INTERNALS__?: unknown; isTauri?: unknown };
+  const flagBags = () => [globalThis as unknown as FlagBag, window as unknown as FlagBag];
+  let savedFlags: { i: unknown; f: unknown }[] = [];
+  let realFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    savedFlags = flagBags().map((b) => ({ i: b.__TAURI_INTERNALS__, f: b.isTauri }));
+    for (const b of flagBags()) {
+      b.__TAURI_INTERNALS__ = undefined;
+      b.isTauri = undefined;
+    }
+    realFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    flagBags().forEach((b, i) => {
+      b.__TAURI_INTERNALS__ = savedFlags[i]?.i;
+      b.isTauri = savedFlags[i]?.f;
+    });
+    globalThis.fetch = realFetch;
+  });
+
+  it("an in-flight save blocks the next PUT until it resolves", async () => {
+    let serverDoc: Record<string, unknown> = {};
+    const putOrder: unknown[] = [];
+    const gates: Array<() => void> = [];
+    globalThis.fetch = (async (_input: unknown, init?: { method?: string; body?: unknown }) => {
+      if (init?.method === "PUT") {
+        return new Promise((resolve) => {
+          gates.push(() => {
+            serverDoc = JSON.parse(String(init.body));
+            putOrder.push(serverDoc.view);
+            resolve({ ok: true });
+          });
+        }) as Promise<Response>;
+      }
+      return { ok: true, json: async () => serverDoc } as Response;
+    }) as typeof fetch;
+
+    const p1 = saveView("alpha");
+    await vi.waitFor(() => expect(gates.length).toBe(1)); // GET resolved, PUT1 in flight
+    const p2 = saveView("beta");
+    // Give the second save's microtasks room: an unserialized save would
+    // already have its PUT in flight here (gates.length === 2).
+    await new Promise((r) => setTimeout(r, 20));
+    expect(gates.length).toBe(1);
+    gates[0](); // PUT1 resolves -> server applies {view:"alpha"}
+    await p1;
+    await vi.waitFor(() => expect(gates.length).toBe(2));
+    gates[1](); // PUT2 resolves last -> {view:"beta"} is the final write
+    await p2;
+    expect(putOrder).toEqual(["alpha", "beta"]);
+    expect(serverDoc.view).toBe("beta");
   });
 });
