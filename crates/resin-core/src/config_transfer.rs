@@ -134,6 +134,8 @@ mod tests {
             last_apply_error: None,
             subscriptions: vec![],
             updated_at: Some(1_700_000_100),
+            orchestration: None,
+            orchestration: None,
         }
     }
 

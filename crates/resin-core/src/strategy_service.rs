@@ -501,7 +501,74 @@ pub fn validate(config: &StrategyConfig) -> Result<(), String> {
         }
     }
     validate_acknowledged(&config.acknowledged, "acknowledged")?;
-    validate_subscription_statuses(&config.subscriptions)
+    validate_subscription_statuses(&config.subscriptions)?;
+    validate_orchestration(config.orchestration.as_ref())
+}
+
+/// bounds for the optional orchestration section (R11-06): same discipline
+/// as the subscription status rows — serde handles types; here we cap the
+/// row count, key lengths and string fields so a hand-edited file cannot
+/// smuggle junk through ANY store path.
+fn validate_orchestration(
+    sec: Option<&crate::orchestration::OrchestrationSection>,
+) -> Result<(), String> {
+    use crate::orchestration as o;
+    let Some(sec) = sec else {
+        return Ok(());
+    };
+    if sec.platforms.len() > o::MAX_ORCH_PLATFORMS {
+        return Err(format!(
+            "orchestration.platforms too long (max {})",
+            o::MAX_ORCH_PLATFORMS
+        ));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for row in &sec.platforms {
+        if row.platform_name.is_empty() || row.platform_name.len() > MAX_PLATFORM_NAME_LEN {
+            return Err(format!(
+                "orchestration platform_name must be 1..{MAX_PLATFORM_NAME_LEN} chars"
+            ));
+        }
+        if !seen.insert(row.platform_name.clone()) {
+            return Err(format!(
+                "duplicate orchestration row: {}",
+                row.platform_name
+            ));
+        }
+        if row.switch_log.len() > o::MAX_SWITCH_LOG {
+            return Err(format!(
+                "orchestration switch_log too long (max {})",
+                o::MAX_SWITCH_LOG
+            ));
+        }
+        if let Some(b) = &row.baseline {
+            if b.regions.len() > o::MAX_REGIONS_PER_SWITCH {
+                return Err("orchestration baseline regions too long".to_string());
+            }
+        }
+        if let Some(p) = &row.pending {
+            if p.regions.len() > o::MAX_REGIONS_PER_SWITCH
+                || p.reason.len() > o::MAX_PROPOSAL_REASON
+                || p.diff.len() > o::MAX_PROPOSAL_DIFF
+            {
+                return Err("orchestration pending proposal field too long".to_string());
+            }
+        }
+    }
+    let p = &sec.params;
+    if !(0.0 < p.failure_rate_threshold && p.failure_rate_threshold <= 1.0) {
+        return Err("orchestration failure_rate_threshold must be in (0, 1]".to_string());
+    }
+    if p.improvement_ratio < 1.0 || p.error_ratio < 1.0 {
+        return Err("orchestration tolerance ratios must be >= 1".to_string());
+    }
+    if p.cooldown_max_secs < p.cooldown_base_secs {
+        return Err("orchestration cooldown_max_secs must be >= cooldown_base_secs".to_string());
+    }
+    if !(0.0 < p.max_switch_ratio && p.max_switch_ratio <= 1.0) {
+        return Err("orchestration max_switch_ratio must be in (0, 1]".to_string());
+    }
+    Ok(())
 }
 
 /// shape checks for the per-subscription establish-
@@ -833,6 +900,28 @@ impl<S: StrategyConfigStore> StrategyService<S> {
             ));
         }
         // Landed generation stays at the CURRENT value: status, not spec.
+        self.store.store(&config)?;
+        Ok(config)
+    }
+
+    /// Orchestration bookkeeping write (R11-06): the caller mutates the
+    /// optional `orchestration` section inside a closure; the document lands
+    /// through the same store entry (validate + backup ring + audit row) but
+    /// the generation counter does NOT move — phase rows, cooldowns and
+    /// parked proposals are status, not desired state (the
+    /// record_subscription_phase precedent). Desired-state changes a
+    /// transition needs (region PATCHes) go through `set_platform_regions`
+    /// + `apply` separately — never through this path.
+    pub fn orchestration_mutate(
+        &self,
+        f: impl FnOnce(&mut crate::orchestration::OrchestrationSection),
+    ) -> Result<StrategyConfig, String> {
+        let mut config = self.get()?;
+        let sec = config
+            .orchestration
+            .get_or_insert_with(crate::orchestration::OrchestrationSection::default);
+        f(sec);
+        validate(&config)?;
         self.store.store(&config)?;
         Ok(config)
     }
@@ -1224,6 +1313,9 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
+            orchestration: None,
+            orchestration: None,
         }
     }
 
@@ -3232,5 +3324,41 @@ mod tests {
             }),
         }];
         assert!(validate(&bad).is_ok());
+    }
+
+    // ---- R11-06 orchestration section ----
+
+    #[test]
+    fn orchestration_mutate_is_status_write_no_generation_bump() {
+        let dir = std::env::temp_dir().join(format!("strategy-svc-orch-{}", std::process::id()));
+        let _ = std::fs::remove_file(&dir);
+        let svc = StrategyService::new(FsStrategyStore::new(dir.clone()));
+        svc.store(cfg(vec![ps("P1", &["HK"])])).unwrap();
+        let g1 = svc.get().unwrap().generation;
+        // bookkeeping write persists through the same store entry but must
+        // NOT bump the desired-state generation (status-subresource rule).
+        svc.orchestration_mutate(|s| {
+            s.params.enabled = true;
+            s.platforms
+                .push(crate::orchestration::PlatformOrch::new("P1"));
+        })
+        .unwrap();
+        let after = svc.get().unwrap();
+        assert_eq!(after.generation, g1);
+        let sec = after.orchestration.unwrap();
+        assert!(sec.params.enabled);
+        assert_eq!(sec.platforms[0].platform_name, "P1");
+        // and a malformed section is rejected through the SPEC write path
+        // too (validate() bounds cover it).
+        let mut bad = svc.get().unwrap();
+        bad.orchestration = Some(crate::orchestration::OrchestrationSection {
+            params: crate::orchestration::OrchestrationParams {
+                failure_rate_threshold: 2.0, // outside (0, 1]
+                ..Default::default()
+            },
+            platforms: vec![],
+        });
+        assert!(svc.store(bad).is_err());
+        let _ = std::fs::remove_file(&dir);
     }
 }

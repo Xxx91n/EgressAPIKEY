@@ -1026,6 +1026,7 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![strategy_entry("alpha", &["us", "hk"])],
         };
         let resin = vec![runtime("alpha", &["hk", "us"], "BALANCED")];
@@ -1072,6 +1073,7 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![strategy_entry("alpha", &["jp"])],
         };
         let resin = vec![runtime("alpha", &["us"], "PREFER_LOW_LATENCY")];
@@ -1108,6 +1110,7 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![strategy_entry("alpha", &["hk"])],
             subscriptions: vec![],
         };
@@ -1169,6 +1172,7 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![strategy_entry("ghost", &["hk"])],
             subscriptions: vec![],
         };
@@ -1192,6 +1196,7 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![strategy_entry("alpha", &["us", "hk", "us"])],
             subscriptions: vec![],
         };
@@ -1218,6 +1223,7 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![strategy_entry("alpha", &[])],
             subscriptions: vec![],
         };
@@ -1289,6 +1295,7 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![
                 strategy_entry("alpha", &["hk"]),
                 strategy_entry("beta", &["us"]),
@@ -1533,6 +1540,7 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![strategy_entry("alpha", &["jp"])],
             subscriptions: vec![],
         };
@@ -1632,6 +1640,7 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![
                 strategy_entry("alpha", &["hk"]),
                 strategy_entry("beta", &["us"]),
@@ -1886,6 +1895,7 @@ mod tests {
             last_apply_at: Some(1_700_000_000),
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![strategy_entry("alpha", &["us", "hk"])],
             subscriptions: vec![],
         };

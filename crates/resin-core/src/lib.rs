@@ -34,6 +34,7 @@ pub mod db;
 pub mod entry_protocol;
 pub mod ip_reputation;
 pub mod ipc_error;
+pub mod orchestration;
 pub mod platform;
 pub mod port_forwarder;
 pub mod port_health;

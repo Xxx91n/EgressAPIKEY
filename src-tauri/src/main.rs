@@ -166,6 +166,11 @@ fn main() {
             commands::port_bind_platform,
             commands::port_running,
             commands::key_account_lookup,
+            commands::orchestration_get,
+            commands::orchestration_config_put,
+            commands::orchestration_tick,
+            commands::orchestration_approve,
+            commands::orchestration_dismiss,
             commands::port_auth_info,
             commands::port_health_check,
             commands::watch_port_health,
@@ -408,6 +413,10 @@ fn main() {
             // is emitted. Spawn AFTER app.manage so the poll can resolve
             // State<SidecarHandle> immediately on its first iteration.
             spawn_health_poll(app.handle().clone());
+            // R11-06 orchestration driver: 60s tick cadence; the tick is
+            // inert unless the strategy whitebox's orchestration section is
+            // enabled (D-003 default for desktop = suggest).
+            commands::spawn_orchestration_driver(app.handle().clone());
 
             Ok(())
         })

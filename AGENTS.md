@@ -162,7 +162,7 @@ Removal condition: drop these from the manifest + registry only when Resin's acc
 
 ```ipc-manifest
 # Moved to docs/agents/ipc-manifest.md - regenerate with
-# node scripts/ipc-manifest-check.cjs --write. Commands: 80
+# node scripts/ipc-manifest-check.cjs --write. Commands: 85
 ```
 
 - If mihomo REST control is ever reintroduced (ADR-0050 is the authoritative record of the `mihomo.rs` deletion): never expose `MihomoController`, `CoreConfig.mihomo_api`, or `CoreConfig.mihomo_secret` through a `#[tauri::command]` that takes a raw `String` and constructs the controller from it; `api_base` must pass the loopback-only validation described above (non-loopback targets are rejected); and config must come from `tauri-plugin-store` settings.json (server-side trust), not from the webview.

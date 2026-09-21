@@ -14,7 +14,7 @@ use std::sync::Arc;
 use axum::body::Bytes;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, patch, post};
+use axum::routing::{get, patch, post, put};
 use axum::Router;
 
 use egressapikey_app::commands;
@@ -789,6 +789,90 @@ async fn key_lookup_h(ctx: Arc<PortCtx>, key: String) -> Response {
     }
 }
 
+// ── Orchestration controller (R11-06; headless default tier = auto, D-003) ──
+
+/// GET /api/v1/shell/orchestration - section + resolved autonomy.
+async fn orchestration_get_h(ctx: Arc<PortCtx>) -> Response {
+    match commands::orchestration_get_impl(&ctx.strategy, resin_core::orchestration::Autonomy::Auto)
+    {
+        Ok(v) => axum::Json(v).into_response(),
+        Err(e) => port_ipc_err(&e),
+    }
+}
+
+/// PUT /api/v1/shell/orchestration/config - replace the parameter pack.
+async fn orchestration_config_put_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
+    let v = match json_body(&body).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    match commands::orchestration_config_put_impl(
+        &ctx.strategy,
+        v.get("params").cloned().unwrap_or(v),
+    ) {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => port_ipc_err(&e),
+    }
+}
+
+/// POST /api/v1/shell/orchestration/tick - manual evaluation pass (the
+/// driver loop calls the same impl).
+async fn orchestration_tick_h(ctx: Arc<PortCtx>) -> Response {
+    let client = match ctx.client() {
+        Ok(c) => c,
+        Err(e) => return port_err(StatusCode::BAD_GATEWAY, &e),
+    };
+    match commands::orchestration_tick_impl(
+        &ctx.strategy,
+        &client,
+        &ctx.db,
+        resin_core::orchestration::Autonomy::Auto,
+    )
+    .await
+    {
+        Ok(v) => axum::Json(v).into_response(),
+        Err(e) => port_ipc_err(&e),
+    }
+}
+
+/// POST /api/v1/shell/orchestration/approve {platform_name} - execute a
+/// parked suggest-tier proposal through the authoritative write entry.
+async fn orchestration_approve_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
+    let v = match json_body(&body).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    let name = match str_arg(&v, "platform_name") {
+        Ok(s) => s,
+        Err(r) => return r,
+    };
+    let client = match ctx.client() {
+        Ok(c) => c,
+        Err(e) => return port_err(StatusCode::BAD_GATEWAY, &e),
+    };
+    match commands::orchestration_approve_impl(&ctx.strategy, &client, &name).await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => port_ipc_err(&e),
+    }
+}
+
+/// POST /api/v1/shell/orchestration/dismiss {platform_name} - drop a parked
+/// proposal and cool the platform down.
+async fn orchestration_dismiss_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
+    let v = match json_body(&body).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    let name = match str_arg(&v, "platform_name") {
+        Ok(s) => s,
+        Err(r) => return r,
+    };
+    match commands::orchestration_dismiss_impl(&ctx.strategy, &name) {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => port_ipc_err(&e),
+    }
+}
+
 /// All BFF-native shell routes, registered under /api/v1/shell/* plus the
 /// /api/v1/capabilities read. Merge order note: axum 0.7 matches static
 /// segments before the /api/v1/*path wildcard, so these shadow nothing that
@@ -834,6 +918,26 @@ pub fn shell_routes(ctx: Arc<PortCtx>) -> Router {
                     async move { key_lookup_h(c, q.get("key").cloned().unwrap_or_default()).await }
                 }
             }),
+        )
+        .route(
+            "/api/v1/shell/orchestration",
+            get(h!(orchestration_get_h, no_body)),
+        )
+        .route(
+            "/api/v1/shell/orchestration/config",
+            put(h!(orchestration_config_put_h)),
+        )
+        .route(
+            "/api/v1/shell/orchestration/tick",
+            post(h!(orchestration_tick_h, no_body)),
+        )
+        .route(
+            "/api/v1/shell/orchestration/approve",
+            post(h!(orchestration_approve_h)),
+        )
+        .route(
+            "/api/v1/shell/orchestration/dismiss",
+            post(h!(orchestration_dismiss_h)),
         )
         // L2 whitebox
         .route("/api/v1/shell/whitebox", get(h!(whitebox_get_h, no_body)))

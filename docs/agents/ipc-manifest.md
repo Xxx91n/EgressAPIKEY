@@ -10,7 +10,7 @@ regenerate via `node scripts/ipc-manifest-check.cjs --write`.
 # Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):
 # entries must equal the #[tauri::command] set under src-tauri/src AND the
 # generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.
-# Do not hand-edit entries. Regenerated: 2026-09-21 (80 commands)
+# Do not hand-edit entries. Regenerated: 2026-09-21 (85 commands)
 backup_create = src-tauri/src/commands/backup.rs
 backup_upload = src-tauri/src/commands/backup.rs
 backup_list = src-tauri/src/commands/backup.rs
@@ -26,6 +26,11 @@ metrics_probe_history = src-tauri/src/commands/diagnostics.rs
 metrics_realtime_throughput = src-tauri/src/commands/diagnostics.rs
 request_log_detail = src-tauri/src/commands/diagnostics.rs
 request_log_payloads = src-tauri/src/commands/diagnostics.rs
+orchestration_get = src-tauri/src/commands/orchestration.rs
+orchestration_config_put = src-tauri/src/commands/orchestration.rs
+orchestration_tick = src-tauri/src/commands/orchestration.rs
+orchestration_approve = src-tauri/src/commands/orchestration.rs
+orchestration_dismiss = src-tauri/src/commands/orchestration.rs
 platform_add = src-tauri/src/commands/platform.rs
 platform_remove = src-tauri/src/commands/platform.rs
 platform_list = src-tauri/src/commands/platform.rs

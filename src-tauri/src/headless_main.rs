@@ -281,6 +281,29 @@ async fn main() -> Result<()> {
         }
     });
 
+    // R11-06 orchestration driver: 60s tick cadence; inert unless the
+    // strategy whitebox's orchestration section is enabled. Headless is the
+    // unattended transport, so its resolved default tier is auto (D-003).
+    let orch_ctx = port_ctx.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            let Ok(client) = orch_ctx.client() else {
+                continue;
+            };
+            if let Err(e) = egressapikey_app::commands::orchestration_tick_impl(
+                &orch_ctx.strategy,
+                &client,
+                &orch_ctx.db,
+                resin_core::orchestration::Autonomy::Auto,
+            )
+            .await
+            {
+                tracing::warn!(error = %e, "orchestration tick failed");
+            }
+        }
+    });
+
     if !cli.no_browser {
         // The control plane now requires the token, so the launch URL carries it
         // once; the guard plants the session cookie on that first request.

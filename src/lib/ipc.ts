@@ -694,13 +694,77 @@ export async function ipcKeyAccountLookup(key: string): Promise<KeyAccountHit[]>
     auth_required: h?.auth_required === true,
     leases: Array.isArray(h?.leases)
       ? h.leases.map((l) => ({
-          egress_ip: cap(l?.egress_ip),
-          node_tag: cap(l?.node_tag),
-          target_domain: cap(l?.target_domain),
-          ts: cap(l?.ts),
-        }))
+        egress_ip: cap(l?.egress_ip),
+        node_tag: cap(l?.node_tag),
+        target_domain: cap(l?.target_domain),
+        ts: cap(l?.ts),
+      }))
       : [],
   }));
+}
+
+/// R11-06 orchestration controller (wave-C D-003 graded autonomy): the
+/// Rust state machine only ever emits reversible PATCHes (region_filters);
+/// the suggest tier parks transitions as pending proposals that land only
+/// via orchestration_approve through the same authoritative write entry.
+export interface OrchProposal {
+  regions: string[];
+  reason: string;
+  diff: string;
+  created_at: number;
+  is_rollback: boolean;
+}
+
+export interface OrchPlatformRow {
+  platform_name: string;
+  phase: "healthy" | "degraded" | "observing" | "cooldown";
+  good_cycles: number;
+  cooldown_until: number;
+  cooldown_streak: number;
+  last_switch_at: number;
+  pending: OrchProposal | null;
+}
+
+export interface OrchestrationState {
+  orchestration: {
+    params: {
+      enabled: boolean;
+      autonomy?: "auto" | "suggest" | null;
+      [k: string]: unknown;
+    };
+    platforms: OrchPlatformRow[];
+  } | null;
+  autonomy: "auto" | "suggest";
+}
+
+export async function ipcOrchestrationGet(): Promise<OrchestrationState> {
+  return invoke<OrchestrationState>("orchestration_get");
+}
+
+/// Replace the parameter pack (validated at the Rust boundary; the write
+/// rides the strategy store entry - backup ring + audit, no generation
+/// bump since params never map to Resin desired state).
+export async function ipcOrchestrationConfigPut(params: Record<string, unknown>): Promise<void> {
+  await invoke("orchestration_config_put", { params });
+}
+
+/// Manual evaluation pass (the in-shell driver also ticks every 60s).
+export async function ipcOrchestrationTick(): Promise<{ enabled: boolean; actions: unknown[] }> {
+  return invoke("orchestration_tick");
+}
+
+/// Suggest-tier gate: execute a parked proposal (forward switch enters the
+/// Observing window; a rollback proposal returns the platform to Healthy).
+export async function ipcOrchestrationApprove(platformName: string): Promise<void> {
+  assertShortName(platformName, "platform");
+  await invoke("orchestration_approve", { platformName });
+}
+
+/// Suggest-tier gate: drop a parked proposal and park the platform in
+/// cooldown so the machine does not re-propose on the next tick.
+export async function ipcOrchestrationDismiss(platformName: string): Promise<void> {
+  assertShortName(platformName, "platform");
+  await invoke("orchestration_dismiss", { platformName });
 }
 
 /// ADR-0021 Q1: live TCP probe + SOCKS5 method-negotiation so the GUI can

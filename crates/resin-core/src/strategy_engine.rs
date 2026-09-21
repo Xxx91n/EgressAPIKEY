@@ -234,6 +234,13 @@ pub struct StrategyConfig {
     /// including non-apply edits). Pure metadata.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<u64>,
+    /// Optional orchestration controller section (round 11 R11-06, wave-C
+    /// D-003 graded autonomy). Absent = controller off; `params.enabled`
+    /// false = inert. Rows are status-subresource bookkeeping — mutations
+    /// ride the same store entry (validated, backup-ringed, audited) but
+    /// never bump the desired-state generation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub orchestration: Option<crate::orchestration::OrchestrationSection>,
 }
 
 impl Default for StrategyConfig {
@@ -248,6 +255,7 @@ impl Default for StrategyConfig {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
         }
     }
 }
@@ -625,6 +633,7 @@ mod tests {
             last_apply_at: None,
             last_apply_error: None,
             updated_at: None,
+            orchestration: None,
             platforms: vec![PlatformStrategy {
                 platform_name: "p1".into(),
                 a_class: AClassStrategy::Region,

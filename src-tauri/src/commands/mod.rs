@@ -33,6 +33,9 @@ pub use diagnostics::*;
 mod ports;
 pub use ports::*;
 
+mod orchestration;
+pub use orchestration::*;
+
 #[cfg(test)]
 mod tests;
 

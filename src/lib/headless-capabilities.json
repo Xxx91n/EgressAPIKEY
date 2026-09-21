@@ -148,6 +148,11 @@
       "method": "POST",
       "path": "/api/v1/nodes/{nodeHash}/actions/probe-{kind}"
     },
+    "orchestration_approve": { "status": "enabled", "method": "POST", "path": "/api/v1/shell/orchestration/approve" },
+    "orchestration_config_put": { "status": "enabled", "method": "PUT", "path": "/api/v1/shell/orchestration/config" },
+    "orchestration_dismiss": { "status": "enabled", "method": "POST", "path": "/api/v1/shell/orchestration/dismiss" },
+    "orchestration_get": { "status": "enabled", "method": "GET", "path": "/api/v1/shell/orchestration" },
+    "orchestration_tick": { "status": "enabled", "method": "POST", "path": "/api/v1/shell/orchestration/tick" },
     "platform_add": {
       "status": "enabled",
       "method": "POST",

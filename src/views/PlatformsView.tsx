@@ -23,12 +23,16 @@ import {
   ipcPortHealthCheck,
   ipcPortSuggest,
   ipcKeyAccountLookup,
+  ipcOrchestrationGet,
+  ipcOrchestrationApprove,
+  ipcOrchestrationDismiss,
   ipcNodeList,
   ipcSubscriptionList,
   type PortMapping,
   type PortAuthInfo,
   type PortHealthCheck,
   type KeyAccountHit,
+  type OrchestrationState,
   extractIpcErr,
 } from "../lib/ipc";
 import { strategyToI18nKey, strategyToResinPolicy, mapResinToShell, STRATEGY_IDS, type StrategyId } from "../lib/strategy";
@@ -98,6 +102,7 @@ export function PlatformsView() {
   const strategyConfigRef = useRef(strategyConfig);
   const [keyLookup, setKeyLookup] = useState("");
   const [keyHits, setKeyHits] = useState<KeyAccountHit[] | null>(null);
+  const [orch, setOrch] = useState<OrchestrationState | null>(null);
   const [strategyTopNInput, setStrategyTopNInput] = useState<Record<string, string>>({});
   const [nodeList, setNodeList] = useState<NodeEntry[]>([]);
   const [subList, setSubList] = useState<{ name: string; node_count: number }[]>([]);
@@ -240,6 +245,49 @@ export function PlatformsView() {
   const runKeyLookup = async () => {
     try {
       setKeyHits(await ipcKeyAccountLookup(keyLookup));
+    } catch (e) {
+      showToast("err", translateError(e, t));
+    }
+  };
+
+  /// R11-06 suggest-tier gate: parked proposals surface here; approve
+  /// executes through the authoritative write entry, dismiss cools the
+  /// platform down. Polls on a light cadence; hidden when disabled.
+  const refreshOrch = async () => {
+    try {
+      setOrch(await ipcOrchestrationGet());
+    } catch {
+      setOrch(null);
+    }
+  };
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (cancelled) return;
+      await refreshOrch();
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+  const orchPending = (orch?.orchestration?.platforms ?? []).filter((r) => r.pending);
+  const orchApprove = async (name: string) => {
+    try {
+      await ipcOrchestrationApprove(name);
+      await refreshOrch();
+      showToast("ok", t("platform.orchApproved"));
+    } catch (e) {
+      showToast("err", translateError(e, t));
+    }
+  };
+  const orchDismiss = async (name: string) => {
+    try {
+      await ipcOrchestrationDismiss(name);
+      await refreshOrch();
+      showToast("ok", t("platform.orchDismissed"));
     } catch (e) {
       showToast("err", translateError(e, t));
     }
@@ -574,6 +622,21 @@ export function PlatformsView() {
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-testid="platforms-pane" onPointerUp={() => { if (draggingPort != null) { document.body.style.userSelect = ""; setDraggingPort(null); setDragOverPlatform(null); } }}>
           <div className="border-b px-3 py-2 text-sm font-medium">{t("platform.activated")}</div>
+          {/* R11-06: parked suggest-tier orchestration proposals (the
+              approve/dismiss human gate; auto tier never parks) */}
+          {orchPending.length > 0 && (
+            <div className="space-y-1 border-b px-3 py-1.5" data-testid="orch-pending">
+              {orchPending.map((r) => (
+                <div key={r.platform_name} className="flex items-center gap-2 text-[11px]" data-testid={"orch-pending-" + r.platform_name}>
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                    {r.pending?.is_rollback ? t("platform.orchRollbackTag") + " " : ""}{r.pending?.diff}
+                  </span>
+                  <button type="button" className="shrink-0 rounded border px-2 py-0.5 text-[10px]" onClick={() => void orchApprove(r.platform_name)} data-testid={"orch-approve-" + r.platform_name}>{t("platform.orchApprove")}</button>
+                  <button type="button" className="shrink-0 rounded border px-2 py-0.5 text-[10px] text-muted-foreground" onClick={() => void orchDismiss(r.platform_name)} data-testid={"orch-dismiss-" + r.platform_name}>{t("platform.orchDismiss")}</button>
+                </div>
+              ))}
+            </div>
+          )}
           <ul className="min-h-0 flex-1 space-y-1 overflow-auto p-2">
             {platforms.length === 0 && <li className="text-xs text-muted-foreground">{t("platform.empty")}</li>}
             {platforms.map((p) => {

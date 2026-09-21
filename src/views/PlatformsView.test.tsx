@@ -671,4 +671,31 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     await waitFor(() => expect(screen.getByTestId("key-lookup-hit-17990")).toBeInTheDocument(), { timeout: 5000 });
     expect(screen.getByTestId("key-lookup-hit-17990").textContent).toContain("9.9.9.9");
   });
+
+  it("orchestration pending proposal renders and approve dispatches", async () => {
+    let approved: string | null = null;
+    invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "port_list") return Promise.resolve([samplePort]);
+      if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
+      if (cmd === "platform_leases") return Promise.resolve({ items: [] });
+      if (cmd === "port_suggest") return Promise.resolve(17990);
+      if (cmd === "strategy_config_get") return Promise.resolve({ version: 1, platforms: [] });
+      if (cmd === "node_list") return Promise.resolve([]);
+      if (cmd === "subscription_list") return Promise.resolve([]);
+      if (cmd === "orchestration_get") return Promise.resolve({
+        orchestration: {
+          params: { enabled: true },
+          platforms: [{ platform_name: "Default", phase: "degraded", good_cycles: 0, cooldown_until: 0, cooldown_streak: 0, last_switch_at: 0, pending: { regions: ["SG"], reason: "r", diff: "Default: regions [HK] -> [SG]", created_at: 1, is_rollback: false } }],
+        },
+        autonomy: "suggest",
+      });
+      if (cmd === "orchestration_approve") { approved = String(args?.platformName); return Promise.resolve(undefined); }
+      return Promise.resolve(undefined);
+    });
+    render(<PlatformsView />);
+    await waitFor(() => expect(screen.getByTestId("orch-pending-Default")).toBeInTheDocument(), { timeout: 5000 });
+    expect(screen.getByTestId("orch-pending-Default").textContent).toContain("HK");
+    fireEvent.click(screen.getByTestId("orch-approve-Default"));
+    await waitFor(() => expect(approved).toBe("Default"), { timeout: 5000 });
+  });
 });
