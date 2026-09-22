@@ -15,7 +15,7 @@
     "memUnitWindows": "WorkingSet64 descendant-tree sum from the spawned app PID (never process-name matching - WebView2 is a shared runtime)",
     "loadContext": "200 concurrent SSE streams through one mixed entry endpoint",
     "sharedRunnerRule": "windows-latest/ubuntu-latest numbers are warn-only reference columns; absolute gates activate on the self-hosted representative run only",
-    "sutScope": "the bench spawns the data-plane set only (resin sidecar + bench-forwarder when --forwarder resolves). VPS-profile full tree (egressapikey-headless) and desktop tree (Tauri+WebView2) idle/startup numbers are covered by phaseApp/appstart on the windows leg and by deployment smoke, not by phases.idle"
+    "sutScope": "phases.idle/soak measure the bench SUT data-plane set (resin sidecar + bench-forwarder when --forwarder resolves). The VPS-profile full tree (egressapikey-headless + sidecar) is measured by phases.headless/headlessstart when --headless-exe resolves (self-hosted representative run; skipped otherwise), and the desktop tree by phases.app/appstart on the windows leg"
   },
   "items": [
     {
@@ -202,6 +202,27 @@
       "measure": "phases.appstart.titleMatch"
     },
     {
+      "id": "headless-idle-tree-mb",
+      "kind": "measure",
+      "desc": "idle RSS of the FULL headless process tree (egressapikey-headless + resin sidecar + descendants) — descendant-boundary sum: /proc PPid BFS on Linux, CIM descendant walk on Windows (same caliber as the desktop app tree). Closes the acceptance-line idle-tree boundary for the vps-headless profile; provisional until the representative-hardware run",
+      "op": "<=",
+      "target": 80,
+      "danger": 120,
+      "unit": "MB",
+      "scope": "vps-headless",
+      "measure": "phases.headless.totalMB.p95"
+    },
+    {
+      "id": "headless-coldstart-ready-ms",
+      "kind": "measure",
+      "desc": "headless cold start -> control surface TCP-ready, N fresh launches (the sidecar boots inside the timed span; the headless analogue of the desktop MainWindowTitle liveness caliber). Measure-only: no legislated headless startup threshold this round",
+      "op": "measure-only",
+      "target": null,
+      "unit": "ms",
+      "scope": "vps-headless",
+      "measure": "phases.headlessstart.coldStartMs.p95"
+    },
+    {
       "id": "healthz-startup-ms",
       "kind": "measure",
       "desc": "sidecar spawn to first /healthz 200 (recorded; gate pending)",
@@ -222,7 +243,7 @@
     "decisions": [
       "assert rows beyond the legislated set are implementation decisions, registered here: appstart-title-match (every cold-start launch reaches the window title - the acceptance line's own smoke semantics), soak-200-streams-alive (all streams connected + zero unexpected closes), rps-error-rate (kind=measure, never hard-fails). They hard-fail only under --gate enforce; the default warn gate keeps them as recorded evidence.",
       "sse-eventgap-goodratio expresses the legislated single-metric two-layer caliber via dangerMeasure (same ratio, wider 500ms window for the danger layer)",
-      "idle-rss-mb/soak-rss-mb scope = bench SUT process set (sidecar + forwarder); the full VPS deployment tree (headless shell + sidecar) is outside this component-level harness - recorded as env.sutScope"
+      "idle-rss-mb/soak-rss-mb scope = bench SUT process set (sidecar + forwarder). The full VPS deployment tree moved IN scope in r12-wave-b: headless-idle-tree-mb + headless-coldstart-ready-ms measure egressapikey-headless + sidecar via descendant-tree sampling (same caliber as the desktop tree) when --headless-exe resolves"
     ]
   }
 }

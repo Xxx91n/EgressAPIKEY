@@ -6,6 +6,7 @@
 // Usage:
 //   node scripts/bench/run-bench.mjs [--duration short|long]
 //     [--gate warn|enforce] [--resin <path>] [--app-exe <path>]
+//     [--headless-exe <path>]  (vps-headless profile: whole-tree idle + cold start)
 //     [--out <dir>] [--phases idle,paired,rps,sse,soak,healthz,app]
 // Env: RESIN_BIN, VEGETA, BENCH_OUT
 
@@ -43,6 +44,7 @@ const arg = (name, def) => {
 const DURATION = arg("duration", process.env.BENCH_DURATION || "short");
 const GATE = arg("gate", process.env.BENCH_GATE || "warn");
 const APP_EXE = arg("app-exe", null);
+const HEADLESS_EXE = arg("headless-exe", process.env.HEADLESS_BIN || null);
 const FORWARDER_BIN = arg("forwarder", process.env.FORWARDER_BIN || null);
 // The workspace .cargo/config.toml pins target=x86_64-pc-windows-msvc, so a
 // Windows build lands under target/<triple>/release while a Linux
@@ -63,8 +65,9 @@ function resolveForwarder() {
   return cands.find((c) => fs.existsSync(c)) ?? null;
 }
 const APPSTART_N = Number(process.env.BENCH_APPSTART_N || 5);
+const HEADLESS_N = Number(process.env.BENCH_HEADLESS_N || 5);
 const OUT = arg("out", process.env.BENCH_OUT || path.join(root, "bench-results"));
-const PHASES = (arg("phases", "idle,paired,rps,sse,soak,healthz") + (APP_EXE ? ",app,appstart" : ""))
+const PHASES = (arg("phases", "idle,paired,rps,sse,soak,healthz") + (APP_EXE ? ",app,appstart" : "") + (HEADLESS_EXE ? ",headless,headlessstart" : ""))
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
@@ -247,6 +250,141 @@ async function phaseAppStart(ctx) {
     titles,
     titleMatch: titles.filter((t) => t === "EgressAPIKEY").length,
     coldStartMs: roundStats(st),
+  };
+}
+
+// ---- headless (vps-headless profile) ---------------------------------------
+
+// TCP-connectable readiness: the headless control surface binds ONLY after
+// the resin sidecar has booted (headless_main.rs binds post-boot), so a
+// connect() on bind:port is the "tree is up" signal - the headless
+// analogue of MainWindowTitle liveness.
+async function waitTcpReady(port, deadlineMs, t0 = nowMs()) {
+  for (;;) {
+    const ok = await new Promise((res) => {
+      const sk = net.connect(port, "127.0.0.1", () => {
+        sk.destroy();
+        res(true);
+      });
+      sk.on("error", () => res(false));
+      sk.setTimeout(400, () => {
+        sk.destroy();
+        res(false);
+      });
+    });
+    if (ok) return nowMs() - t0;
+    if (nowMs() - t0 > deadlineMs) return null;
+    await sleep(150);
+  }
+}
+
+// Kill a spawned headless process AND its whole tree: taskkill /T on
+// Windows, the detached process group (kill -pid) elsewhere. Descendant
+// boundary matches the sampling caliber exactly (R12-B2).
+function killTree(child) {
+  try {
+    if (process.platform === "win32") {
+      spawn("taskkill", ["/F", "/T", "/PID", String(child.pid)]);
+    } else if (child.exitCode === null) {
+      try {
+        process.kill(-child.pid, "SIGKILL");
+      } catch {
+        child.kill("SIGKILL");
+      }
+    }
+  } catch { }
+}
+
+function spawnHeadless(port, token, stateDir, ctx) {
+  return spawn(
+    HEADLESS_EXE,
+    [
+      "--bind", "127.0.0.1",
+      "--port", String(port),
+      "--auth-token", token,
+      "--no-browser",
+      "--state-root", stateDir,
+      "--log-root", path.join(stateDir, "logs"),
+      // the resin-* sidecar glob resolves inside the bench resin dir
+      "--binary-dir", path.dirname(ctx.bin),
+    ],
+    // detached -> own process group on POSIX so killTree can signal the
+    // whole descendant set (headless + sidecar) with kill(-pid).
+    { stdio: "ignore", detached: true },
+  );
+}
+
+// VPS profile whole-tree idle (R12-B2): spawn egressapikey-headless, wait
+// for its control surface (sidecar already up by then), settle, then sum
+// RSS over the DESCENDANT TREE every 2s for 60s - same attribution caliber
+// as the desktop app phase (PPid BFS on Linux, CIM descendant walk on
+// Windows; a cgroup boundary was considered and rejected: the bench spawns
+// ad-hoc children without a dedicated cgroup, and PPid-BFS needs no root).
+async function phaseHeadless(ctx) {
+  if (!HEADLESS_EXE || !fs.existsSync(HEADLESS_EXE)) {
+    return { skipped: "--headless-exe missing or not found: " + HEADLESS_EXE };
+  }
+  const port = await pickFreePort();
+  const token = crypto.randomBytes(16).toString("hex");
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-headless-"));
+  const t0 = nowMs();
+  const child = spawnHeadless(port, token, stateDir, ctx);
+  children.push(child);
+  const readyMs = await waitTcpReady(port, 90000, t0);
+  if (readyMs == null) {
+    killTree(child);
+    return { skipped: "headless control surface never bound in 90s", port };
+  }
+  await sleep(15000); // settle past boot churn (same caliber as phases.idle)
+  const samples = [];
+  let lastProcs = null;
+  for (let i = 0; i < 30; i++) {
+    const tree = await sampleDescendantTreeMB(child.pid);
+    if (tree != null && tree.totalMB > 0) {
+      samples.push(tree.totalMB);
+      lastProcs = tree.procs;
+    }
+    await sleep(2000);
+  }
+  killTree(child);
+  const st = summarize(samples);
+  return {
+    headlessExe: HEADLESS_EXE,
+    port,
+    readyMs: round(readyMs, 1),
+    attribution: "descendant-tree",
+    n: samples.length,
+    totalMB: roundStats(st),
+    procs: lastProcs,
+  };
+}
+
+// VPS profile cold start (R12-B2): N fresh headless launches -> control
+// surface TCP-ready (sidecar boot included inside the timed span).
+async function phaseHeadlessStart(ctx) {
+  if (!HEADLESS_EXE || !fs.existsSync(HEADLESS_EXE)) {
+    return { skipped: "--headless-exe missing or not found: " + HEADLESS_EXE };
+  }
+  const token = crypto.randomBytes(16).toString("hex");
+  const samples = [];
+  for (let i = 0; i < HEADLESS_N; i++) {
+    const port = await pickFreePort();
+    const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "bench-headless-hz-"));
+    const t0 = nowMs();
+    const child = spawnHeadless(port, token, stateDir, ctx);
+    children.push(child);
+    const ms = await waitTcpReady(port, 90000, t0);
+    samples.push(ms == null ? null : round(ms, 1));
+    killTree(child);
+    await sleep(1500); // settle between cold launches
+  }
+  const ok = samples.filter((v) => v != null);
+  return {
+    headlessExe: HEADLESS_EXE,
+    n: ok.length,
+    attempted: HEADLESS_N,
+    samples,
+    coldStartMs: roundStats(summarize(ok)),
   };
 }
 
@@ -442,6 +580,8 @@ async function main() {
   await runPhase("healthz", (c) => phaseHealthz(c));
   await runPhase("app", (c) => phaseApp(c));
   await runPhase("appstart", (c) => phaseAppStart(c));
+  await runPhase("headless", (c) => phaseHeadless(c));
+  await runPhase("headlessstart", (c) => phaseHeadlessStart(c));
 
   // gates
   const acc = JSON.parse(fs.readFileSync(path.join(root, "scripts/bench/acceptance.json"), "utf8"));

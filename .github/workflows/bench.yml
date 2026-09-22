@@ -83,7 +83,7 @@ jobs:
 
       - name: Build portable app exe (windows, no bundle)
         if: matrix.os == 'windows-latest' && inputs.with_app == 'true'
-        run: npx --no-install tauri build --no-bundle --features custom-protocol
+        run: npx --no-install tauri build --no-bundle --features "custom-protocol headless"
         shell: bash
 
       - name: Run benchmark
@@ -93,6 +93,7 @@ jobs:
           --gate "${{ inputs.gate || 'warn' }}"
           --forwarder "${{ matrix.os == 'windows-latest' && 'target/x86_64-pc-windows-msvc/release/bench-forwarder.exe' || 'target/x86_64-unknown-linux-gnu/release/bench-forwarder' }}"
           ${{ (matrix.os == 'windows-latest' && inputs.with_app == 'true') && '--app-exe target/x86_64-pc-windows-msvc/release/EgressAPIKEY.exe' || '' }}
+          ${{ (matrix.os == 'windows-latest' && inputs.with_app == 'true') && '--headless-exe target/x86_64-pc-windows-msvc/release/egressapikey-headless.exe' || '' }}
         shell: bash
 
       - name: Upload results

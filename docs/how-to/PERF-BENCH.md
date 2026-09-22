@@ -22,6 +22,8 @@ numbers are **warn-only reference columns** — never gate evidence.
 | throughput | achieved/offered ratio + error rate | ≥99% @500 rps, ≤1% errors | ≥95%, ≤5% errors | both |
 | cold start → `MainWindowTitle` ready | N=5 launches, p50/p95 | ≤500 ms | ≤1 s | desktop |
 | Windows desktop full process tree | WorkingSet64 incl. WebView2 subgroup | ≤128 MB † | — | desktop |
+| headless idle RSS, whole process tree | VmRSS/WorkingSet64 descendant sum p95 | ≤80 MB † | ≤120 MB † | vps-headless |
+| headless cold start → control surface ready | N=5 launches, p50/p95 | measure-only | — | vps-headless |
 
 Registered exemption: **Mode B forward-GET SSE buffering** — see
 *Known measured behavior*. The exemption is deleted when upstream adds
@@ -40,6 +42,8 @@ per-event flush to the forward path; until then the event-gap line gates the
 | healthz | cold start + 5 warm respawns | startup ms p50/p95/max |
 | app | `--app-exe`: steady-state descendant-tree WorkingSet | total + `webview2MB` subgroup + per-process list |
 | appstart | `--app-exe`: N=5 cold launches → `MainWindowTitle` ready | p50/p95 + title-match count |
+| headless | `--headless-exe`: egressapikey-headless + sidecar descendant tree, 60s idle | total + per-process list |
+| headlessstart | `--headless-exe`: N=5 cold launches → control-surface TCP-ready | p50/p95 + ready count |
 
 ## Run
 
@@ -55,11 +59,16 @@ node scripts/bench/run-bench.mjs --forwarder target/release/bench-forwarder.exe
 node scripts/bench/run-bench.mjs --forwarder target/release/bench-forwarder.exe \
   --app-exe target/x86_64-pc-windows-msvc/release/EgressAPIKEY.exe
 
+# with the vps-headless phases (needs a built egressapikey-headless bin;
+# cargo build --release -p egressapikey-app --bin egressapikey-headless --features headless)
+node scripts/bench/run-bench.mjs --headless-exe target/release/egressapikey-headless
+
 # single phase, custom output dir
 node scripts/bench/run-bench.mjs --phases soak --out bench-results/diag
 
 # knobs (env): BENCH_SOAK_STREAMS / BENCH_SOAK_SECONDS / BENCH_SOAK_INTERVAL_MS
-#              BENCH_APPSTART_N / RESIN_BIN / FORWARDER_BIN / BENCH_OUT
+#              BENCH_APPSTART_N / BENCH_HEADLESS_N / HEADLESS_BIN
+#              RESIN_BIN / FORWARDER_BIN / BENCH_OUT
 #              BENCH_DURATION / BENCH_GATE / BENCH_CPU_PIN
 ```
 
@@ -94,7 +103,7 @@ requires real egress (`cloudflare.com/cdn-cgi/trace`, `gstatic.com/generate_204`
 before a node becomes routable — a loopback-only mock node leaves the bench
 dead in `ensureRoutable`.
 
-## Process-tree attribution (Windows)
+## Process-tree attribution (Windows + Linux)
 
 `--app-exe` steady-state memory walks the **descendant tree** of the spawned
 PID (`Get-CimInstance Win32_Process` ParentProcessId BFS, re-walked every
@@ -102,6 +111,16 @@ sample). Process-name matching is banned: WebView2 (`msedgewebview2`) is a
 shared runtime pooled per user-data-dir and re-parents across apps, so a name
 glob would count foreign webview processes. The `webview2MB` subgroup is
 reported separately from the app total.
+
+`--headless-exe` (vps-headless profile) uses the SAME descendant-tree caliber
+on both platforms: Linux walks `/proc/<pid>/stat` PPid links (VmRSS sum),
+Windows walks the same CIM descendant BFS (WorkingSet64 sum). A cgroup
+boundary was considered and rejected: the bench spawns ad-hoc children
+without wrapping them in a dedicated cgroup, and PPid-BFS needs no root —
+the descendant semantics match the desktop tree exactly (R12-B2). The
+headless readiness signal is TCP-connectable on `--bind:--port`, which the
+binary only binds AFTER the sidecar has booted — the headless analogue of
+`MainWindowTitle` liveness.
 
 ## Known measured behavior
 
@@ -132,6 +151,8 @@ of magnitude, never a hard gate.
 | paired latency delta p50/p95/p99 (ms) | 0.212 / 0.303 / 0.389 | *pending* |
 | rps achieved ratio / δp99 | 499.9 req/s; δp99 caliber added this round | *pending* |
 | cold-start→title p50/p95 (ms) | *pending (new phase, windows leg)* | *pending* |
+| headless idle tree RSS p95 (MB) | *pending (windows leg when `--app-exe` builds the bin; authoritative on self-hosted)* | *pending; line ≤80/≤120 †* |
+| headless cold-start→ready p50/p95 (ms) | *pending (new phase)* | *pending* |
 
 Rules:
 

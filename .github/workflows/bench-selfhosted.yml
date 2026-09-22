@@ -60,6 +60,35 @@ jobs:
           ${{ (inputs.runner_os || 'linux') == 'linux' && '--target x86_64-unknown-linux-gnu' || '' }}
         shell: bash
 
+      # vps-headless profile: build the headless binary so the whole-tree
+      # idle/startup phases produce numbers on the representative host.
+      # Same recipe as ci.yml's backend matrix (tauri-build embeds
+      # frontendDist, so pnpm build precedes cargo). continue-on-error: a
+      # runner without the deps records the phases as skipped instead of
+      # losing the whole run's evidence.
+      - uses: pnpm/action-setup@v4
+        if: (inputs.runner_os || 'linux') == 'linux'
+        with:
+          version: 9
+      - name: Linux tauri deps for headless build
+        if: (inputs.runner_os || 'linux') == 'linux'
+        continue-on-error: true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential curl wget file
+      - name: Install frontend deps (headless dist embed)
+        if: (inputs.runner_os || 'linux') == 'linux'
+        continue-on-error: true
+        run: pnpm install --frozen-lockfile
+      - name: Build frontend dist
+        if: (inputs.runner_os || 'linux') == 'linux'
+        continue-on-error: true
+        run: pnpm build
+      - name: Build egressapikey-headless
+        if: (inputs.runner_os || 'linux') == 'linux'
+        continue-on-error: true
+        run: cargo build --release --target x86_64-unknown-linux-gnu -p egressapikey-app --bin egressapikey-headless --features headless
+
       - name: Record host shape
         run: |
           mkdir -p bench-results
@@ -78,6 +107,7 @@ jobs:
           --duration "${{ inputs.duration || 'short' }}"
           --gate warn
           --forwarder "${{ (inputs.runner_os || 'linux') == 'windows' && 'target/x86_64-pc-windows-msvc/release/bench-forwarder.exe' || 'target/x86_64-unknown-linux-gnu/release/bench-forwarder' }}"
+          --headless-exe "${{ (inputs.runner_os || 'linux') == 'windows' && 'target/x86_64-pc-windows-msvc/release/egressapikey-headless.exe' || 'target/x86_64-unknown-linux-gnu/release/egressapikey-headless' }}"
         shell: bash
 
       - name: Upload results
