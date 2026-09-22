@@ -119,7 +119,9 @@ export function SettingsView() {
     // RISK-4: debounce 500ms so rapid keystrokes don't each trigger an IPC + file save
     if (lightweightSaveRef.current) clearTimeout(lightweightSaveRef.current);
     lightweightSaveRef.current = setTimeout(() => {
-      ipcLightweightSet(lightweightEnabled, lightweightDelay);
+      // fire-and-forget save: a rejection (sidecar busy / not-in-tauri) must
+      // be contained here or it surfaces as an unhandledRejection in the webview
+      ipcLightweightSet(lightweightEnabled, lightweightDelay).catch(() => { /* not in tauri */ });
     }, 500);
     return () => { if (lightweightSaveRef.current) clearTimeout(lightweightSaveRef.current); };
   }, [lightweightEnabled, lightweightDelay]);

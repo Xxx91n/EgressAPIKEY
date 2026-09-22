@@ -110,6 +110,14 @@ node scripts/mode-a-contract-check.cjs
 echo "[verify] headless capability registry contract"
 node scripts/headless-capability-check.cjs
 
+# C7 (r12-wave-b): markdownlint coverage in the PRE-MERGE gate. docs-lint.yml
+# fires on pull_request + push-to-main only; GitButler branch merges never
+# open a PR, so doc changes previously got their first lint on main. Run the
+# same markdownlint-cli2 (pinned devDep 0.14.0) with the same config + glob
+# set here so verify is the single pre-merge gate.
+echo "[verify] markdownlint (same config+globs as docs-lint.yml)"
+npx markdownlint-cli2 "AGENTS.md" "README.md" "README_CN.md" "CHANGELOG.md" "CONTRIBUTING.md" "SECURITY.md" "CODE_OF_CONDUCT.md" "PULL_REQUEST_TEMPLATE.md" ".github/ISSUE_TEMPLATE/*.md" "docs/**/*.md"
+
 # Live-process smoke for the headless transport (验收闭环: 启动并
 # 测活软件进程). The script resolves the bin under target/<triple>/debug or
 # target/debug itself; it fails hard in CI when no binary exists and skips

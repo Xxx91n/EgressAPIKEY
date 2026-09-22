@@ -205,3 +205,41 @@ describe("SettingsView T11 export audit log button (ADR-0059)", () => {
   });
 });
 
+// R12-B4 C4: the debounced ipcLightweightSet call is fire-and-forget inside
+// a setTimeout - a rejecting invoke (sidecar busy, not-in-tauri) previously
+// escaped as an unhandledRejection in the webview. The .catch contains it;
+// this test pins that containment so a future refactor cannot silently drop it.
+describe("SettingsView R12-B4 lightweight_set rejection containment", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "lightweight_get") return Promise.resolve({ enabled: true, delay_minutes: 10 });
+      if (cmd === "lightweight_set") return Promise.reject(new Error("sidecar busy"));
+      if (cmd === "whiteboard_get") return Promise.resolve({ version: 1, entry_ports: [], network: {} });
+      if (cmd === "whiteboard_path") return Promise.resolve("/tmp/test.json");
+      if (cmd === "get_sidecar_status") return Promise.resolve({ api_port: 12345, mode: "running" });
+      return Promise.resolve(undefined);
+    });
+  });
+
+  it("a rejected lightweight_set never surfaces as an unhandled rejection", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (e: unknown) => { unhandled.push(e); };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      render(<SettingsView />);
+      const toggle = await screen.findByTestId("lightweight-enabled");
+      fireEvent.click(toggle);
+      // the save is debounced 500ms - waitFor polls until the invoke fires
+      await waitFor(() => {
+        const calls = invokeMock.mock.calls.filter(([cmd]) => cmd === "lightweight_set");
+        expect(calls.length).toBeGreaterThanOrEqual(1);
+      }, { timeout: 3000 });
+      // let the rejection settle through the microtask queue before asserting
+      await new Promise((r) => setTimeout(r, 100));
+      expect(unhandled).toHaveLength(0);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+});
