@@ -125,13 +125,13 @@ of magnitude, never a hard gate.
 
 | metric | shared-runner reference (`bench.yml`, warn-only) | representative hardware (`bench-selfhosted.yml` — authoritative) |
 | --- | --- | --- |
-| SSE TTFB delta p95 (ms) | 26.153 (run 35619850050, Mode B leg) | _pending first self-hosted run with the new harness_ |
-| SSE event-gap good-ratio @10ms | _pending (new caliber, Mode A leg)_ | _pending_ |
-| idle RSS (MB) | 95.6 | _pending; line ≤80/≤120 †_ |
-| soak RSS @200 streams (MB) | 85.9 (200/200 connected) | _pending; ≤128/≤250 †_ |
-| paired latency delta p50/p95/p99 (ms) | 0.212 / 0.303 / 0.389 | _pending_ |
-| rps achieved ratio / δp99 | 499.9 req/s; δp99 caliber added this round | _pending_ |
-| cold-start→title p50/p95 (ms) | _pending (new phase, windows leg)_ | _pending_ |
+| SSE TTFB delta p95 (ms) | 26.153 (run 35619850050, Mode B leg) | *pending first self-hosted run with the new harness* |
+| SSE event-gap good-ratio @10ms | *pending (new caliber, Mode A leg)* | *pending* |
+| idle RSS (MB) | 95.6 | *pending; line ≤80/≤120 †* |
+| soak RSS @200 streams (MB) | 85.9 (200/200 connected) | *pending; ≤128/≤250 †* |
+| paired latency delta p50/p95/p99 (ms) | 0.212 / 0.303 / 0.389 | *pending* |
+| rps achieved ratio / δp99 | 499.9 req/s; δp99 caliber added this round | *pending* |
+| cold-start→title p50/p95 (ms) | *pending (new phase, windows leg)* | *pending* |
 
 Rules:
 
