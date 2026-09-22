@@ -690,7 +690,8 @@ pub async fn key_account_lookup_impl(
 /// Read direction of the key identity: an upstream API key (the SOCKS5
 /// account string a gateway presents) maps to port_mapping rows; each hit is
 /// joined with its live egress leases. Read-only - never parses request
-/// bodies; the key itself is never echoed back or logged.
+/// bodies. The hit's `account` field echoes the matched account verbatim
+/// (a bare-account query therefore echoes itself); the key is never logged.
 #[tauri::command]
 pub async fn key_account_lookup(
     sidecar: State<'_, SidecarHandle>,

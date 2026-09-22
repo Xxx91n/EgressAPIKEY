@@ -789,7 +789,7 @@ async fn key_lookup_h(ctx: Arc<PortCtx>, key: String) -> Response {
     }
 }
 
-// ── Orchestration controller (R11-06; headless default tier = auto, D-003) ──
+// ── Orchestration controller (headless default tier = auto) ──
 
 /// GET /api/v1/shell/orchestration - section + resolved autonomy.
 async fn orchestration_get_h(ctx: Arc<PortCtx>) -> Response {

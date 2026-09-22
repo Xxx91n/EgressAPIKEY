@@ -53,6 +53,13 @@
 
 现状：`src-tauri/src/tray.rs` 静态表覆盖 18 locale，靠「同一 commit 同步 + i18n-check 门」手工 lockstep（tray.rs:60-62 注释约束）。构建期从 frontend catalog 生成的方案**继续挂起**——当前双目录（JSON catalog × Rust 表）靠门控守住一致性，零事故记录；触发条件维持不变（下一次 i18n 需求或 lockstep 事故）。
 
+## R12-03 — 编排信号面补全（审计 F-1）
+
+- **现状弱化**：tick verdict 仅由 `port_health_check`（loopback TCP+SOCKS5 greeting）推导——不过真实出口，上游烧号/风控挑战（D-003 的动机场景）对控制器不可见；`probe_exit_ip`/`probe_node_egress`/`probe_node_latency`/metrics-history 均已存在但未接入信号面。
+- **范围**：把端到端出口探针接入 collect_verdict（bound port → 经该 port 的 exit probe，慢调用/超时算失败——风控常以挑战/超时呈现）；复核 `list_nodes` 的 `failure_count==0` 判 ok 口径（若为累计值会永久惩罚有史 region、粉饰未用 region——需要窗口化或 EWMA 口径）。
+- **约束**：不引入新数据面行为；复用既有 ResinClient 方法；信号环仍进程内内存；每 tick 探针数有界（按 bound port 数封顶）。
+- **工作量**：1-2 天；**风险**：中（探针成本×tick 频率的乘积要有界）。
+
 ## 移交项（非立票，记录）
 
 - `strategy_service.rs` ~2900 行 7 职责——R11-06 只加了 `orchestration_mutate` 状态写，未拆职责（任务书范围外）。

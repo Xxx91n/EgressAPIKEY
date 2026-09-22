@@ -43,7 +43,7 @@ echo "[verify] cargo test"
 if [ "$IS_CI" = "true" ]; then
   if [ "$(uname -s 2>/dev/null)" = "Linux" ] || [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
     cargo test -p resin-core --quiet
-    # round10 ticket 04 (A-005 / D-004 B'): run the app-crate lib tests
+    # run the app-crate lib tests
     # on CI so the restart_into_slot regression lock (sidecar.rs
     # #[cfg(test)]) produces real evidence. Scoped to --lib to avoid the
     # specta bindings integration test (tests/bindings_export.rs).
@@ -95,7 +95,7 @@ echo "[verify] bilingual README alignment (ticket 03, spec D-06)"
 node scripts/readme-lang-check.cjs
 echo "[verify] upstream router integrity (ticket 14, spec D-C3.9)"
 node scripts/upstream-router-check.cjs
-echo "[verify] contracts (mode-a contract gate, ADR-0068 D4 / round9 D-001)"
+echo "[verify] contracts (mode-a contract gate, ADR-0068)"
 node scripts/mode-a-contract-check.cjs
 
 # The headless capability registry must cover every registered

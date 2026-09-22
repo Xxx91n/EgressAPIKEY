@@ -561,6 +561,11 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
         fireEvent.change(topNInput, { target: { value: "25" } });
       }
     });
+    // The change rides updateAndSync -> patchAndSync -> strategy_config_put;
+    // assert the persisted whitebox actually carries the new top_n.
+    await waitFor(() => {
+      expect(savedConfig?.platforms?.[0]?.top_n).toBe(25);
+    });
     unmount();
   });
 

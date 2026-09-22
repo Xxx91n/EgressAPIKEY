@@ -505,7 +505,7 @@ pub fn validate(config: &StrategyConfig) -> Result<(), String> {
     validate_orchestration(config.orchestration.as_ref())
 }
 
-/// bounds for the optional orchestration section (R11-06): same discipline
+/// bounds for the optional orchestration section: same discipline
 /// as the subscription status rows — serde handles types; here we cap the
 /// row count, key lengths and string fields so a hand-edited file cannot
 /// smuggle junk through ANY store path.
@@ -556,6 +556,17 @@ fn validate_orchestration(
         }
     }
     let p = &sec.params;
+    // Zero floors: a 0 trigger field makes its condition vacuously true
+    // (instant degrade / every call counts as slow) — the opposite of the
+    // conservative factory posture these defaults encode.
+    if p.consecutive_failure_threshold == 0
+        || p.window_min_samples == 0
+        || p.observe_good_cycles == 0
+        || p.slow_call_ms == 0
+        || p.cooldown_base_secs == 0
+    {
+        return Err("orchestration trigger params must be >= 1".to_string());
+    }
     if !(0.0 < p.failure_rate_threshold && p.failure_rate_threshold <= 1.0) {
         return Err("orchestration failure_rate_threshold must be in (0, 1]".to_string());
     }
@@ -904,7 +915,7 @@ impl<S: StrategyConfigStore> StrategyService<S> {
         Ok(config)
     }
 
-    /// Orchestration bookkeeping write (R11-06): the caller mutates the
+    /// Orchestration bookkeeping write: the caller mutates the
     /// optional `orchestration` section inside a closure; the document lands
     /// through the same store entry (validate + backup ring + audit row) but
     /// the generation counter does NOT move — phase rows, cooldowns and
@@ -3324,7 +3335,7 @@ mod tests {
         assert!(validate(&bad).is_ok());
     }
 
-    // ---- R11-06 orchestration section ----
+    // ---- orchestration section ----
 
     #[test]
     fn orchestration_mutate_is_status_write_no_generation_bump() {
@@ -3357,6 +3368,42 @@ mod tests {
             platforms: vec![],
         });
         assert!(svc.store(bad).is_err());
+        let _ = std::fs::remove_file(&dir);
+    }
+
+    #[test]
+    fn orchestration_validate_rejects_zero_floors() {
+        let dir = std::env::temp_dir().join(format!("strategy-svc-orchz-{}", std::process::id()));
+        let _ = std::fs::remove_file(&dir);
+        let svc = StrategyService::new(FsStrategyStore::new(dir.clone()));
+        svc.store(cfg(vec![ps("P1", &["HK"])])).unwrap();
+        for (field, val) in [
+            ("consecutive_failure_threshold", 0u32),
+            ("window_min_samples", 0),
+            ("observe_good_cycles", 0),
+        ] {
+            let mut c = svc.get().unwrap();
+            let mut p = crate::orchestration::OrchestrationParams::default();
+            match field {
+                "consecutive_failure_threshold" => p.consecutive_failure_threshold = val,
+                "window_min_samples" => p.window_min_samples = val,
+                "observe_good_cycles" => p.observe_good_cycles = val,
+                _ => unreachable!(),
+            }
+            c.orchestration = Some(crate::orchestration::OrchestrationSection {
+                params: p,
+                platforms: vec![],
+            });
+            assert!(svc.store(c).is_err(), "{field}=0 must be rejected");
+        }
+        let mut c = svc.get().unwrap();
+        let mut p = crate::orchestration::OrchestrationParams::default();
+        p.slow_call_ms = 0;
+        c.orchestration = Some(crate::orchestration::OrchestrationSection {
+            params: p,
+            platforms: vec![],
+        });
+        assert!(svc.store(c).is_err(), "slow_call_ms=0 must be rejected");
         let _ = std::fs::remove_file(&dir);
     }
 }

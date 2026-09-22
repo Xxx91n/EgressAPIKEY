@@ -1,5 +1,4 @@
-//! Platform-level strategy orchestration controller (round 11 ticket
-//! R11-06, wave-C grill D-003 — graded hybrid autonomy).
+//! Platform-level strategy orchestration controller (graded hybrid autonomy).
 //!
 //! ONE state machine drives both autonomy tiers; the tier only decides
 //! whether a proposed transition executes (auto) or parks as a pending
@@ -43,7 +42,7 @@ pub const MAX_PROPOSAL_DIFF: usize = 1024;
 pub const MAX_REGIONS_PER_SWITCH: usize = 64;
 
 /// Autonomy tier. `None` in the persisted params resolves per transport
-/// (D-003: headless default = auto, desktop default = suggest); an explicit
+/// headless default = auto, desktop default = suggest; an explicit
 /// value always wins.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -65,7 +64,7 @@ pub struct OrchestrationParams {
     /// Master switch. Absent section or false = controller fully inert.
     #[serde(default)]
     pub enabled: bool,
-    /// Explicit autonomy override; None = transport default (D-003).
+    /// Explicit autonomy override; None = transport default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub autonomy: Option<Autonomy>,
     /// Fast trip: this many consecutively failed tick verdicts degrade a
@@ -320,6 +319,20 @@ pub enum OrchAction {
     Bookkeep { platform_name: String },
 }
 
+/// Cap a human-readable proposal diff at MAX_PROPOSAL_DIFF bytes (char
+/// boundary-safe). A 64-region platform's full region list can exceed the
+/// cap; without this the bookkeeping write fails validation every tick.
+fn bounded_diff(s: String) -> String {
+    if s.len() <= MAX_PROPOSAL_DIFF {
+        return s;
+    }
+    let mut end = MAX_PROPOSAL_DIFF;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}…(+{}B)", &s[..end], s.len() - end)
+}
+
 /// One tick of the controller over the whole orchestration section.
 /// `verdicts`/`regions` are keyed by platform name; `current_regions`
 /// supplies each orchestrated platform's live desired `regions` (the
@@ -398,7 +411,7 @@ pub fn evaluate_section(
                         if !allowed {
                             // Gate-blocked transitions stay visible: the
                             // driver records every emitted action to the
-                            // audit surface (D-003 "gates block & log").
+                            // audit surface — gates block and log.
                             actions.push(OrchAction::Blocked {
                                 platform_name: row.platform_name.clone(),
                                 reason: "switch gates: hourly budget / round cap / min interval"
@@ -451,12 +464,12 @@ pub fn evaluate_section(
                             row.pending = Some(OrchProposal {
                                 regions: vec![region.clone()],
                                 reason: reason.clone(),
-                                diff: format!(
+                                diff: bounded_diff(format!(
                                     "{}: regions [{}] -> [{}]",
                                     row.platform_name,
                                     cur_regions.join(","),
                                     region
-                                ),
+                                )),
                                 created_at: now,
                                 is_rollback: false,
                             });
@@ -499,11 +512,11 @@ pub fn evaluate_section(
                             row.pending = Some(OrchProposal {
                                 regions: b.regions.clone(),
                                 reason: "observation regressed".to_string(),
-                                diff: format!(
+                                diff: bounded_diff(format!(
                                     "{}: rollback regions -> [{}]",
                                     row.platform_name,
                                     b.regions.join(",")
-                                ),
+                                )),
                                 created_at: now,
                                 is_rollback: true,
                             });
@@ -976,5 +989,47 @@ mod tests {
             1000,
         );
         assert_eq!(s.platforms[0].phase, OrchPhase::Healthy);
+    }
+
+    #[test]
+    fn proposal_diff_is_capped() {
+        let big = format!("P: regions [{}] -> [US]", "R".repeat(MAX_PROPOSAL_DIFF * 3));
+        let capped = bounded_diff(big);
+        assert!(capped.len() <= MAX_PROPOSAL_DIFF + 16);
+        assert!(capped.contains("(+"));
+        let small = "x: regions [HK] -> [SG]".to_string();
+        assert_eq!(bounded_diff(small.clone()), small);
+    }
+
+    #[test]
+    fn oversized_region_list_proposal_still_validates() {
+        // A platform with a huge current region set must not produce a
+        // pending proposal that fails validation on the next persist.
+        let (mut s, _) = degraded_platform();
+        s.platforms[0].phase = OrchPhase::Degraded;
+        let mut cur = HashMap::new();
+        cur.insert(
+            "P1".to_string(),
+            (0..64)
+                .map(|i| format!("REGION-{i:02}-aaaaaaaaaaaaaaaaaaaa"))
+                .collect(),
+        );
+        let mut metrics = HashMap::new();
+        metrics.insert(
+            "P1".to_string(),
+            HashMap::from([(
+                "SG".to_string(),
+                RegionMetric {
+                    ok_share: 1.0,
+                    err_share: 0.0,
+                    node_count: 4,
+                },
+            )]),
+        );
+        let mut v = HashMap::new();
+        v.insert("P1".to_string(), verdict(10, 3, 3, true));
+        evaluate_section(&mut s, &v, &metrics, &cur, Autonomy::Suggest, 1000);
+        let p = s.platforms[0].pending.as_ref().expect("proposal parked");
+        assert!(p.diff.len() <= MAX_PROPOSAL_DIFF + 16);
     }
 }

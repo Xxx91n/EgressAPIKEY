@@ -495,7 +495,7 @@ pub async fn subscription_remove(
         .delete_subscription(&id)
         .await
         .map_err(|e| map_resin_error(&e.to_string()))?;
-    // Reverse tail (ticket 05, A-008 / Round 9 D-007): release the default
+    // Reverse tail: release the default
     // entry port the establish cascade bound to this subscription's
     // platform. The subscription is already deleted; a failed release is a
     // WARNING (the leftover surfaces as drift for port_remove), never an

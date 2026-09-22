@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Perf baseline orchestrator — ticket 04 (A-015 / D-004).
+// Perf baseline orchestrator.
 // CI-only evidence path: .github/workflows/bench.yml runs this on pinned
 // runners; local runs are dev aids, not acceptance evidence.
 //
@@ -144,7 +144,7 @@ async function phaseHealthz(ctx) {
 }
 
 async function phaseApp(ctx) {
-  // Whole-app steady state (D-004 row 2): launch the built exe, let it reach
+  // Whole-app steady state: launch the built exe, let it reach
   // steady state, then sum WorkingSet64 over the app + resin + webview procs.
   if (process.platform !== "win32") {
     return { skipped: "whole-app steady-state is measured on the windows job" };

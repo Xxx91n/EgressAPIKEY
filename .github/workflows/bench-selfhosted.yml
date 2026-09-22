@@ -1,4 +1,4 @@
-# Representative-hardware performance baseline (r11 wave-C D-004).
+# Representative-hardware performance baseline (dual-layer perf bench).
 #
 # Runs the same scripts/bench/run-bench.mjs suite as bench.yml, but on the
 # OPERATOR'S self-hosted runner registered on the representative machine

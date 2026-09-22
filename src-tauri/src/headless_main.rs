@@ -220,7 +220,7 @@ async fn main() -> Result<()> {
     )
     .await
     .map_err(|e| anyhow::anyhow!("headless: open whitebox store: {e}"))?;
-    // Mode B (D-001): Resin listens natively, so this forwarder binds no
+    // Mode B: Resin listens natively, so this forwarder binds no
     // listener; it carries the sidecar proxy token and the running-port view the
     // shared write path expects.
     let port_forwarder = resin_core::PortForwarder::new(
@@ -281,9 +281,9 @@ async fn main() -> Result<()> {
         }
     });
 
-    // R11-06 orchestration driver: 60s tick cadence; inert unless the
-    // strategy whitebox's orchestration section is enabled. Headless is the
-    // unattended transport, so its resolved default tier is auto (D-003).
+    // Orchestration driver: 60s tick cadence; inert unless the strategy
+    // whitebox's orchestration section is enabled. Headless is the
+    // unattended transport, so its resolved default tier is auto.
     let orch_ctx = port_ctx.clone();
     tokio::spawn(async move {
         loop {
@@ -1313,7 +1313,7 @@ async fn ports_bind_platform_h(ctx: Arc<PortCtx>, port: u16, body: Bytes) -> Res
     }
 }
 
-/// Mode B (D-001): headless has no shell-side credential injection -
+/// Mode B: headless has no shell-side credential injection -
 /// Resin listens natively and the CLIENT supplies the Platform.Account
 /// credential once. The field shape stays identical to the desktop answer
 /// (PortAuthInfo) so the view needs no branch; `data_plane_mode` tells the

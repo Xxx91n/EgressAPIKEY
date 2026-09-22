@@ -251,7 +251,7 @@ export function PlatformsView() {
     }
   };
 
-  /// R11-06 suggest-tier gate: parked proposals surface here; approve
+  /// Suggest-tier gate: parked proposals surface here; approve
   /// executes through the authoritative write entry, dismiss cools the
   /// platform down. usePoll rides the shared cadence hook; the strip
   /// stays hidden while the section is disabled.
@@ -589,7 +589,7 @@ export function PlatformsView() {
                           </button>
                         )}
                       </div>
-                      {/* D-007: a `mixed` port answers BOTH
+                      {/* A `mixed` port answers BOTH
                           dialects, so it advertises both credential forms. */}
                       {a && (p.protocol === "socks5" || p.protocol === "mixed") && a.auth_required && (
                         <div className="break-all text-[10px] text-muted-foreground/80">{t("platform.socks5Auth")}: {a.username} · {t("platform.passwordMasked")}</div>
@@ -612,8 +612,8 @@ export function PlatformsView() {
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-testid="platforms-pane" onPointerUp={() => { if (draggingPort != null) { document.body.style.userSelect = ""; setDraggingPort(null); setDragOverPlatform(null); } }}>
           <div className="border-b px-3 py-2 text-sm font-medium">{t("platform.activated")}</div>
-          {/* R11-06: parked suggest-tier orchestration proposals (the
-              approve/dismiss human gate; auto tier never parks) */}
+          {/* Parked suggest-tier orchestration proposals (the approve/
+              dismiss human gate; auto tier never parks) */}
           {orchPending.length > 0 && (
             <div className="space-y-1 border-b px-3 py-1.5" data-testid="orch-pending">
               {orchPending.map((r) => (
@@ -714,7 +714,7 @@ export function PlatformsView() {
                             </button>
                           ))}
                         </div>
-                        {/* (D-002): honest
+                        {/* Honest
                             semantics. Top-N and manual node selection both land
                             on Resin as the SELECTED NODES' REGION SET — a
                             region filter, never per-node pinning (Resin v1.2.0

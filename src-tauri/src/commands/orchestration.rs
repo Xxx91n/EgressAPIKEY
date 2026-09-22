@@ -1,4 +1,4 @@
-//! Orchestration controller shell seam (round 11 R11-06, wave-C D-003).
+//! Orchestration controller shell seam.
 //!
 //! The state machine itself is pure and lives in
 //! `resin_core::orchestration`; this module owns the IO: per-tick signal
@@ -39,7 +39,7 @@ fn rings() -> &'static Mutex<HashMap<String, VecDeque<bool>>> {
 }
 
 /// Resolve the effective autonomy tier: explicit config wins; otherwise the
-/// transport default (desktop = suggest, headless = auto — D-003).
+/// transport default (desktop = suggest, headless = auto).
 pub fn effective_autonomy(
     sec: &orch::OrchestrationSection,
     transport_default: orch::Autonomy,

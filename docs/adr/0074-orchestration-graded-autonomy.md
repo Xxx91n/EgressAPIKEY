@@ -2,7 +2,7 @@
 
 Status: ACCEPTED
 - **Date**: 2026-09-21 (r11-wave-c grill D-003; execution ticket R11-06)
-- **Extends**: [ADR-0052](0052*), ADR-0056/0057/0058 (authoritative write entry + converge phases), [ADR-0073](0073-deletion-authority-explicit-paths-only.md) (deletion authority)
+- **Extends**: [ADR-0052](0052-strategy-service-module.md), ADR-0056/0057/0058 (authoritative write entry + converge phases), [ADR-0073](0073-deletion-authority-explicit-paths-only.md) (deletion authority)
 - **Research basis**: wave-C grill atomcode session (Envoy outlier-ejection cooldowns, Resilience4j sliding-window breakers, K8s HPA stabilization, SRE L2→L3 gating — cross-verified at source)
 
 ## Context

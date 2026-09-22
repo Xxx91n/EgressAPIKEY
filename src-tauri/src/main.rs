@@ -413,9 +413,9 @@ fn main() {
             // is emitted. Spawn AFTER app.manage so the poll can resolve
             // State<SidecarHandle> immediately on its first iteration.
             spawn_health_poll(app.handle().clone());
-            // R11-06 orchestration driver: 60s tick cadence; the tick is
-            // inert unless the strategy whitebox's orchestration section is
-            // enabled (D-003 default for desktop = suggest).
+            // Orchestration driver: 60s tick cadence; the tick is inert
+            // unless the strategy whitebox's orchestration section is
+            // enabled (desktop default tier = suggest).
             commands::spawn_orchestration_driver(app.handle().clone());
 
             Ok(())
@@ -448,7 +448,7 @@ fn main() {
                         // observed when the GUI exe runs tasklist at quit. Without
                         // this flag, Windows briefly allocates a console for the
                         // child even though stdout/stderr are captured.
-                        // (round10 closeout: cfg-guarded so Linux CI can compile the GUI bin -- os::windows::process::CommandExt is Windows-only)
+                        // (cfg-guarded so Linux CI can compile the GUI bin -- os::windows::process::CommandExt is Windows-only)
                         #[cfg(target_os = "windows")]
                         let alive = {
                             use std::os::windows::process::CommandExt;

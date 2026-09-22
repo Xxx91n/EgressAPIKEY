@@ -661,7 +661,9 @@ export async function ipcPortAuthInfo(port: number): Promise<PortAuthInfo> {
 }
 
 /// Key -> account reverse lookup (read-only). The Rust side joins the L2
-/// port table with the L3 lease map; the key is never echoed back.
+/// port table with the L3 lease map. The hit row echoes the matched
+/// `account` field verbatim — so a bare-account query echoes itself; a
+/// `platform.account`-form query never echoes the key portion.
 export interface KeyLeaseHit {
   egress_ip: string;
   node_tag: string;
@@ -703,7 +705,7 @@ export async function ipcKeyAccountLookup(key: string): Promise<KeyAccountHit[]>
   }));
 }
 
-/// R11-06 orchestration controller (wave-C D-003 graded autonomy): the
+/// Orchestration controller (graded autonomy): the
 /// Rust state machine only ever emits reversible PATCHes (region_filters);
 /// the suggest tier parks transitions as pending proposals that land only
 /// via orchestration_approve through the same authoritative write entry.
@@ -745,6 +747,14 @@ export async function ipcOrchestrationGet(): Promise<OrchestrationState> {
 /// rides the strategy store entry - backup ring + audit, no generation
 /// bump since params never map to Resin desired state).
 export async function ipcOrchestrationConfigPut(params: Record<string, unknown>): Promise<void> {
+  for (const [k, v] of Object.entries(params)) {
+    if (typeof v === "number" && !Number.isFinite(v)) {
+      throw new Error(`orchestration param ${k} not finite`);
+    }
+    if (typeof v === "string" && /[\x00-\x1f\x7f]/.test(v)) {
+      throw new Error(`orchestration param ${k} has control chars`);
+    }
+  }
   await invoke("orchestration_config_put", { params });
 }
 
