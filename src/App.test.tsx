@@ -1,9 +1,26 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import App from "./App";
 import { useAppStore } from "./store/appStore";
 
 afterEach(() => cleanup());
+
+// jsdom does not implement window.matchMedia; App's theme bootstrap calls it.
+if (!window.matchMedia) {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener() { },
+      removeListener() { },
+      addEventListener() { },
+      removeEventListener() { },
+      dispatchEvent: () => false,
+    })),
+  );
+}
 
 // webview-smoke contract (R12-B3): the e2e harness navigates via
 // button[data-testid="nav-<view>"]. The side rail is icon-only - the label
