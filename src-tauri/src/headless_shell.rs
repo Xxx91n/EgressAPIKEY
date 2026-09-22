@@ -780,7 +780,7 @@ async fn capabilities_h() -> Response {
 /// + L3 lease map); request bodies are never parsed.
 async fn key_lookup_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     // POST body (not a query param): the key is credential material and a
-    // `?key=` URL would land in reverse-proxy access logs (F-7).
+    // `?key=` URL would land in reverse-proxy access logs.
     let v = match json_body(&body).await {
         Ok(v) => v,
         Err(r) => return r,

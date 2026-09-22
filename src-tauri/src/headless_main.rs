@@ -22,7 +22,7 @@
 //! 4. Two-phase shutdown: on Ctrl+C/SIGTERM, kills the resin child and
 //!    exits. Logs the full sequence via `tracing` to the OS log dir.
 //!
-//! 5. Enforces the (A-007) control-surface security gate: a shared
+//! 5. Enforces the control-surface security gate: a shared
 //!    `--auth-token` on `/api/v1/*` + `/metrics/*`, and a `Host`/`Origin`
 //!    allowlist on every request (DNS-rebinding mitigation). The primitives live
 //!    in `headless_security`; the operator-facing threat model is
@@ -139,7 +139,7 @@ async fn main() -> Result<()> {
         state_root
     );
 
-    // (A-007) startup gate: refuse to expose the admin control plane
+    // startup gate: refuse to expose the admin control plane
     // off-host without a token; otherwise fall back to a CSPRNG token. Runs
     // BEFORE the resin sidecar is spawned so a refusal leaves no orphan child.
     let resolved =
@@ -391,7 +391,7 @@ fn build_router(
         };
 
     // (option C): headless owns the same L2 stores the desktop shell
-    // owns, so port management is not desktop-only (A-006). These are
+    // owns, so port management is not desktop-only. These are
     // BFF-native routes: Resin has no /ports resource (its listener face is
     // /api/v1/endpoints, driven here as a side effect exactly as
     // commands/ports.rs does).
@@ -482,12 +482,12 @@ fn build_router(
         .route("/api/v1/*path", any(proxy_handler.clone()))
         .route("/metrics/*path", any(proxy_handler))
         .fallback_service(serve_dir)
-        // (A-007): the Host/Origin + token guard wraps every route and
+        // The Host/Origin + token guard wraps every route and
         // the static fallback. Applied last so it also covers the fallback.
         .layer(middleware::from_fn_with_state(guard, security_guard))
 }
 
-/// (A-007) request guard. Two ordered checks:
+/// request guard. Two ordered checks:
 ///
 /// 1. Host / Origin allowlist - rejects DNS-rebinding style requests whose
 ///    `Host` names a domain that merely resolves to this machine. Applies to
@@ -793,7 +793,7 @@ fn rewrite_patch_body_snake_case(body: &serde_json::Value) -> Result<serde_json:
         };
         if mapped == "allocation_policy" {
             if let Some(s) = v.as_str() {
-                // (A-006): reuse the SAME allow-list the Tauri command
+                // Reuse the SAME allow-list the Tauri command
                 // validates against (commands/platform.rs ALLOWED_ALLOCATION_POLICIES)
                 // so the enum has ONE definition for both transports.
                 if !egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.contains(&s) {
@@ -901,7 +901,7 @@ fn parse_body(body_bytes: &bytes::Bytes) -> Result<serde_json::Value, String> {
 }
 
 /// Read + validate the business name shared by every name-keyed route.
-/// (A-006): reuses the SAME validator the Tauri commands use, so
+/// Reuses the SAME validator the Tauri commands use, so
 /// the bound is defined once and effective on both transports.
 fn read_name(body_val: &serde_json::Value) -> Result<String, String> {
     let name = body_val
@@ -1062,7 +1062,7 @@ async fn translate_request(
     // The desktop command (create_platform_from_name) rejects names containing
     // . : | / \ @ ? # % ~ or any whitespace; the BFF must enforce the SAME rule
     // or a browser caller could create a name the desktop would have refused
-    // (A-006: one validation, effective in both places). Validates only -
+    // One validation, effective in both places). Validates only -
     // the body still passes through unchanged below.
     if method == Method::POST && is_platforms {
         let body_val = parse_body(body_bytes)?;
@@ -1346,7 +1346,7 @@ async fn ports_auth_info_h(ctx: Arc<PortCtx>, port: u16) -> Response {
 async fn ports_health_h(_ctx: Arc<PortCtx>, port: u16, protocol: Option<String>) -> Response {
     // commands::port_health_check takes NO Tauri State, so headless calls the
     // SAME function the desktop IPC uses - one implementation, two transports
-    // (A-006 "one validation effective in both places"). It probes
+    // ("one validation effective in both places"). It probes
     // 127.0.0.1:{port}, the same host this process runs on.
     match egressapikey_app::commands::port_health_check(port, protocol).await {
         Ok(v) => axum::Json(v).into_response(),
@@ -1531,7 +1531,7 @@ mod bff_translate_tests {
 
     #[test]
     fn allocation_policy_allow_list_is_the_shared_command_constant() {
-        // Locks the A-006 "one validation, two transports" contract: the BFF
+        // Locks the "one validation, two transports" contract: the BFF
         // rewriter must accept exactly what the Tauri command accepts.
         assert!(egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.contains(&"BALANCED"));
         assert!(!egressapikey_app::commands::ALLOWED_ALLOCATION_POLICIES.contains(&"random"));

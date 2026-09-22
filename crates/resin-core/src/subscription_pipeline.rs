@@ -694,7 +694,7 @@ fn custom_endpoint_ports(v: &serde_json::Value) -> Vec<u16> {
 /// subscription_add invokes it right after a green establish pass; the step
 /// is idempotent (a re-invocation after a retried pass writes nothing), so
 /// the level-triggered re-run discipline holds without owning queue state.
-/// (A-008): a whitebox-write failure after a successful Mode B
+/// A whitebox-write failure after a successful Mode B
 /// create compensates by DELETE-ing exactly the endpoint this step created,
 /// and subscription_remove's reverse tail (below) releases the bound row
 /// with the subscription — an engine listener never outlives its intent.
@@ -778,7 +778,7 @@ pub async fn ensure_default_port(
     // endpoint_created_this_pass: true only when THIS step's create_endpoint
     // returned Ok — compensation at the (f) failure branch deletes exactly
     // that row, never a pre-existing engine listener (D-C1.4 compensate-
-    // only-what-this-pass-created discipline; A-008 / D-007).
+    // only-what-this-pass-created discipline; D-007).
     let mut endpoint_created_this_pass = false;
     if !forwarder.is_shell() {
         let (allow_socks5, allow_http_forward) =
@@ -841,7 +841,7 @@ pub async fn ensure_default_port(
             StepStatus::Written
         }
         Err(e) => {
-            // (g) Compensation (A-008 / D-007, Mode B residue):
+            // (g) Compensation (D-007, Mode B residue):
             // this pass created the engine endpoint but the L2 row never
             // landed — delete exactly that row so no orphan listener
             // survives the step. Fresh live read: an already-deleted row is
@@ -977,7 +977,7 @@ async fn delete_cascade_platform(client: &ResinClient, name: &str) -> Result<(),
 }
 
 // ---------------------------------------------------------------------------
-// Reverse tail (spec IMP-5 / A-008 / D-007
+// Reverse tail (D-007
 // D-007 option B): subscription_remove releases the default entry port the
 // establish cascade bound to the subscription's platform. Same three-layer
 // order as port_remove (ADR-0069 D1): L2 whitebox retain -> apply (DB +
@@ -2760,7 +2760,7 @@ mod tests {
         assert!(got >= crate::port_forwarder::MIN_USER_PORT, "got {got}");
     }
 
-    // ---- (A-008 / D-007): orphan-cleanup + idempotence ----
+    // ---- (D-007): orphan-cleanup + idempotence ----
 
     /// The (e)->(f) window (Mode B): create_endpoint succeeded, the
     /// whitebox apply failed -> the step compensates by DELETE-ing exactly

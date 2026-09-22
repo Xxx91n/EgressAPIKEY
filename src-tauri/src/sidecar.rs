@@ -1394,7 +1394,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn restart_into_slot_kills_mock_child_and_respawns_to_running() {
-        // Regression lock (A-005 / D-004 B'): after killing
+        // Regression lock (D-004 B'): after killing
         // a mock child, restart_into_slot must respawn the real resin binary
         // on the SAME port, flip mode back to Running, and keep api_port
         // unchanged. Requires the real resin binary (CI fetches it via

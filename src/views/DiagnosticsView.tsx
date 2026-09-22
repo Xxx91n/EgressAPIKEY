@@ -602,7 +602,7 @@ export function DiagnosticsView() {
         {t("diagnostics.openLogDir")}
       </button>
 
-      {/* T19 (ADR-0064): Resin metrics minimal set — realtime throughput +
+ {/* (ADR-0064): Resin metrics minimal set — realtime throughput +
           probe history. Pull model; rides the diagnostics poll cycle. */}
       <DiagCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("metrics.title")}>
         <div className="space-y-3">

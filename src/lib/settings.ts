@@ -170,7 +170,7 @@ export async function purgeLegacyDeadKeys(): Promise<void> {
       if ((await store().get<string>(key)) != null) {
         await store().delete(key);
         removed = true;
-        console.info(`[settings] removed legacy dead key "${key}" (never effective since T3-A)`);
+ console.info(`[settings] removed legacy dead key "${key}" (never effective)`);
       }
     }
     if (removed) await store().save();

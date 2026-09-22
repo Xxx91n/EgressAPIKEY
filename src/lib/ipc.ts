@@ -1513,7 +1513,7 @@ export interface ProcessRouteSnapshotMissingOnResin {
 }
 export type ProcessRouteSnapshot = ProcessRouteSnapshotConsistent | ProcessRouteSnapshotMissingOnResin;
 
-/** (F4): per-subscription reverse lookup — the Gateway
+/** per-subscription reverse lookup — the Gateway
  *  API attachedRoutes analog. consumed_by lists the whitebox platforms whose
  *  `subscriptions` array names this subscription; empty = unbound. A row
  *  with resolvable=false means the whitebox references a subscription Resin
@@ -1642,7 +1642,7 @@ export interface AuthoritativeSnapshot {
   ports: PortSnapshot[];
   /** (ADR-0055 D3): route family; empty when the whitebox has none. */
   routes: ProcessRouteSnapshot[];
-  /** (F4): subscription reverse lookup; empty when Resin is
+ /** subscription reverse lookup; empty when Resin is
    *  unreachable and the whitebox references nothing. */
   subscriptions: SubscriptionReverseRow[];
   /** per-subscription establish-phase STATUS rows (whitebox
@@ -1792,7 +1792,7 @@ function snapRoute(v: unknown): ProcessRouteSnapshot | null {
   return null;
 }
 
-/** (F4): sanitize one subscription reverse-lookup row (untrusted). */
+/** sanitize one subscription reverse-lookup row (untrusted). */
 function snapSubscriptionRow(v: unknown): SubscriptionReverseRow | null {
   if (!v || typeof v !== "object") return null;
   const r = v as Record<string, unknown>;

@@ -14,7 +14,7 @@ body,
   flex-direction: column;
 }
 
-/* T12-1: WebView2 context menu suppression — disable text selection globally,
+/* WebView2 context menu suppression — disable text selection globally,
    exempt input/textarea/select so forms still work. */
 body {
   -webkit-user-select: none;
@@ -73,7 +73,7 @@ input, textarea, select, [contenteditable] {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* ---- Thin transparent scrollbar (Codex app / env-manager style, ADR-0031 T10-4) ---- */
+/* ---- Thin transparent scrollbar (Codex app / env-manager style, ADR-0031) ---- */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;

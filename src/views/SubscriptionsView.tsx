@@ -15,7 +15,7 @@ import { loadSubOrder, saveSubOrder } from "../lib/settings";
 import { usePoll } from "../hooks/usePoll";
 import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
-/// (F1): state of the INLINE (never a modal) bind
+/// State of the INLINE (never a modal) bind
 /// step. After a successful import the form area switches to a second step
 /// where the user optionally binds the new subscription to platforms (and,
 /// when entry ports exist, to ports). null = no active bind step.
@@ -68,7 +68,7 @@ export function SubscriptionsView() {
   // reorder. Reset (item 4) clears this to [] and re-renders from server only.
   const [localOrder, setLocalOrder] = useState<string[]>([]);
 
-  // (F1): the optional inline bind step. bindCreate
+ // The optional inline bind step. bindCreate
   // pre-selects "auto-create the same-name platform" ONLY when no
   // a_class=subscription platform already consumes the sub (issue: "若
   // a_class=subscription 已有则不重复").
@@ -83,7 +83,7 @@ export function SubscriptionsView() {
   const [bindCreate, setBindCreate] = useState(false);
   const [bindPorts, setBindPorts] = useState<number[]>([]);
   const [bindPortOptions, setBindPortOptions] = useState<number[]>([]);
-// (F4): subscription -> reverse-lookup row from the
+// Subscription -> reverse-lookup row from the
   // authoritative snapshot (consumed_by + resolvable), keyed by name.
   const [subRows, setSubRows] = useState<Map<string, { consumed_by: string[]; resolvable: boolean }>>(new Map());
 
@@ -243,7 +243,7 @@ export function SubscriptionsView() {
       void saveSubOrder(newOrder).catch((e) => console.warn("[SubscriptionsView] saveSubOrder failed", e));
       await new Promise((r) => setTimeout(r, 50));
       const finalList = await refreshWithRetry();
-// (F1): open the INLINE bind step right here in the
+// Open the INLINE bind step right here in the
       // form card (non-modal). A fresh import is by definition unbound; the
       // step offers chips + optional auto-create + optional ports.
       setBind({ subName: n, nodeCount: finalList.find((x) => x.name === n)?.node_count ?? 0 });
@@ -601,7 +601,7 @@ export function SubscriptionsView() {
         </div>
         <div className="p-4 space-y-3">
           {bind ? (
-            // ---- (F1): the INLINE optional second step.
+ // ---- The INLINE optional second step.
             // Non-modal by decision: the import form above stays reachable
             // through "Cancel", no dialog blocks the flow.
             <div data-testid="bind-step" className="rounded-md border border-blue-200 dark:border-blue-900 bg-blue-50/40 dark:bg-blue-950/20 p-3 space-y-2">
@@ -784,7 +784,7 @@ export function SubscriptionsView() {
                 </span>
                 <span className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-2">
                   {t("subscription.imported", { count: s.node_count })}
-                  {/* Round 5 T01 (F4): reverse-lookup badge — "bound to N
+ {/* Reverse-lookup badge — "bound to N
                       platforms / unbound", fed by the authoritative snapshot
                       section. Dangling (resolvable=false) gets its own tint. */}
                   {(() => {
@@ -808,7 +808,7 @@ export function SubscriptionsView() {
                       </span>
                     );
                   })()}
-                  {/* Round 7 T02 (D-C1.2): establish-phase chip — Never when the
+ {/* (D-C1.2): establish-phase chip — Never when the
                       whitebox has no status row for this subscription yet. */}
                   {(() => {
                     const prow = phaseRowMap.get(s.name);

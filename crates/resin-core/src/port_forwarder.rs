@@ -1,5 +1,5 @@
 //! Multi-port identity layer - the ADR-0012 listener surface, re-materialised
-//! as Data-Plane Mode A (ADR-0068 D1/D3; ledger A-001).
+//! as Data-Plane Mode A (ADR-0068 D1/D3).
 //!
 //! Each Entry Port is an identity. The mode decides which process realises it:
 //!

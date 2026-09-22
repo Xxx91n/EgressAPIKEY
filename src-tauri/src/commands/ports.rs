@@ -206,7 +206,7 @@ pub async fn port_upsert_impl(
     // Step 2 (L3): Resin endpoint API CRUD (owns listener lifecycle). A
     // disabled port is a whitebox-only record - no listener to manage, so
     // Resin is not contacted at all. In Mode A (shell forwarder, ADR-0068
-    // D1 / ticket 17) the shell's own accept loop bound by step 1 IS the
+    // D1) the shell's own accept loop bound by step 1 IS the
     // entry-port listener: creating a Resin endpoint on the same port would
     // EADDRINUSE-collide with it, so the engine is not contacted either way.
     if enabled && !forwarder.is_shell() {

@@ -186,7 +186,7 @@ pub fn trim_working_set() {
         let current_process: windows_sys::Win32::Foundation::HANDLE = -1isize as *mut _;
         let _ = SetProcessWorkingSetSize(current_process, usize::MAX, usize::MAX);
     }
-    tracing::debug!("T14-2: EmptyWorkingSet called (Windows)");
+    tracing::debug!("EmptyWorkingSet called (Windows)");
 }
 
 #[cfg(target_os = "linux")]
@@ -197,7 +197,7 @@ pub fn trim_working_set() {
     unsafe {
         malloc_trim(0);
     }
-    tracing::debug!("T14-2: malloc_trim(0) called (Linux)");
+    tracing::debug!("malloc_trim(0) called (Linux)");
 }
 
 #[cfg(target_os = "macos")]
@@ -205,7 +205,7 @@ pub fn trim_working_set() {
     // macOS does not have malloc_trim; malloc_zone_pressure_relief is the
     // closest equivalent. We skip it to avoid linking against malloc/malloc.h.
     // The OS will reclaim pages under pressure anyway.
-    tracing::debug!("T14-2: trim_working_set no-op (macOS)");
+    tracing::debug!("trim_working_set no-op (macOS)");
 }
 
 #[cfg(test)]

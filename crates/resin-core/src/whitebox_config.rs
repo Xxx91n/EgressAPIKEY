@@ -637,7 +637,7 @@ async fn apply_ports(
     validate(&WhiteboxConfig::from_ports(next.to_vec()))?;
     let _previous = db.list_ports()?;
     // Data-plane mode decides what "applying the rows to the listeners"
-    // means (ADR-0068 D1, ticket 17):
+    // means (ADR-0068 D1):
     //   Engine (Mode B): Resin v1.2.0 owns the per-entry-port listeners;
     //     endpoint CRUD happens through the command layer's ResinClient
     //     step (port_upsert/port_remove), so the hot-swap of shell

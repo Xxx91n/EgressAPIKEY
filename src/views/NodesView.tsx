@@ -361,7 +361,7 @@ export function NodesView() {
         <StatCard icon={<Activity size={16} />} label={t("nodes.healthy")} value={pool?.healthy_nodes ?? healthyCount} accent="green" />
         <StatCard icon={<Globe size={16} />} label={t("nodes.egressIps")} value={pool?.egress_ip_count ?? 0} />
         <StatCard icon={<Globe size={16} />} label={t("nodes.healthyEgress")} value={pool?.healthy_egress_ip_count ?? 0} accent="green" />
-        {/* T21-P4: egressPolicyNote + protocolWeights crumbed into Info popover on StatCard corner */}
+ {/* egressPolicyNote + protocolWeights crumbed into Info popover on StatCard corner */}
         <div className="absolute top-0 right-0 group">
           <Info size={13} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-help" />
           <div className="hidden group-hover:block absolute right-0 top-5 z-50 w-72 p-2 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-lg whitespace-pre-line text-xs text-zinc-600 dark:text-zinc-400">
@@ -398,7 +398,7 @@ export function NodesView() {
               className="w-full pl-9 pr-3 py-1.5 text-sm rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
-          {/* T19-P1 — hide-unhealthy toggle (HeartPulse icon, clash-verge-style) */}
+ {/* hide-unhealthy toggle (HeartPulse icon, clash-verge-style) */}
           <button
             onClick={() => setHideUnhealthy((v) => !v)}
             title={t("nodes.hideUnhealthy")}
@@ -411,7 +411,7 @@ export function NodesView() {
             <HeartPulse size={13} />
             {t("nodes.hideUnhealthy")}
           </button>
-          {/* T19-P1 — 3-state latency sort (ArrowUp/Down/Default) */}
+ {/* 3-state latency sort (ArrowUp/Down/Default) */}
           <button
             onClick={cycleSort}
             title={sortMode === "default" ? t("nodes.sortDefault") : sortMode === "asc" ? t("nodes.sortLatencyAsc") : t("nodes.sortLatencyDesc")}

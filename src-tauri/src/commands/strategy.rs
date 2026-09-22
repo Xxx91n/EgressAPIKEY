@@ -72,11 +72,11 @@ pub async fn strategy_verify_impl(
     // header to identify the platform. We send X-Resin-Account = platform_name.
     let proxy_url = format!("http://127.0.0.1:{}/https/api.ipify.org", api_port);
     tracing::info!(
-        platform = %platform_name,
-        proxy_url = %proxy_url,
-        samples = n,
-        "T8-2: strategy_verify starting probes"
-    );
+           platform = %platform_name,
+           proxy_url = %proxy_url,
+           samples = n,
+    "strategy_verify starting probes"
+       );
 
     let http = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -127,7 +127,7 @@ pub async fn strategy_verify_impl(
                 }
             }
             Err(e) => {
-                tracing::warn!(attempt = i, error = %e, "T8-2: probe failed");
+                tracing::warn!(attempt = i, error = %e, "probe failed");
                 samples.push(serde_json::json!({
                     "ip": "",
                     "latency_ms": latency_ms,
@@ -141,11 +141,11 @@ pub async fn strategy_verify_impl(
     let avg_latency_ms = if n > 0 { total_latency / n as u64 } else { 0 };
 
     tracing::info!(
-        platform = %platform_name,
-        unique_ips,
-        avg_latency_ms,
-        "T8-2: strategy_verify complete"
-    );
+           platform = %platform_name,
+           unique_ips,
+           avg_latency_ms,
+    "strategy_verify complete"
+       );
 
     Ok(serde_json::json!({
         "platform": platform_name,
@@ -311,7 +311,7 @@ pub async fn authoritative_snapshot(
 /// Transport-free core of `authoritative_snapshot` — the L2+L3 merge every
 /// consumer shares. The Tauri command wraps it with tray/pipeline hooks;
 /// the headless BFF wraps it with its own ctx (same deps, no AppHandle).
-/// Same split discipline as the port_*_impl family (A-006).
+/// Same split discipline as the port_*_impl family.
 pub async fn authoritative_snapshot_core(
     svc: &resin_core::StrategyService<resin_core::FsStrategyStore>,
     sidecar: &SidecarHandle,
@@ -392,7 +392,7 @@ pub async fn authoritative_snapshot_core(
         strategy_path_exists,
     );
     // The listener set the three-state merge compares against is mode-aware
-    // (ADR-0068 D1, ticket 17): Engine mode reads the Resin endpoint ports
+    // (ADR-0068 D1): Engine mode reads the Resin endpoint ports
     // (the L3 runtime truth); Mode A unions in the forwarder's bound entry
     // ports, because there the shell listener IS the realisation of the row
     // and must read Consistent. The forwarder only ever binds whitebox rows,
@@ -432,7 +432,7 @@ pub async fn authoritative_snapshot_core(
         .filter(|m| m.enabled)
         .map(|m| m.port)
         .collect();
-    // Mode-aware like the ports half above (ticket 17): a route's live side
+    // Mode-aware like the ports half above: a route's live side
     // is the listener on its target port, and in Mode A that listener is
     // the shell forwarder's - so the union set is the right live view.
     let mut routes = resin_core::snapshot::merge_routes(
@@ -745,7 +745,7 @@ pub(crate) async fn reconcile_ports_half(
 ) -> Result<resin_core::ReconcilePortsOutcome, String> {
     let cfg = whitebox.snapshot();
     if forwarder.is_shell() {
-        // Mode A (ticket 17): the assertion target is the shell's own accept
+        // Mode A: the assertion target is the shell's own accept
         // loops, not Resin endpoints. reload() is level-triggered (enabled
         // rows already serving are skipped, missing ones spawn, stale ones
         // stop), so the bound set is the liveness filter and the 409

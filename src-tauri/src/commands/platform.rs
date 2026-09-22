@@ -703,7 +703,7 @@ pub async fn platform_update(
 ) -> Result<serde_json::Value, IpcError> {
     validate_short_name(&name, "platform")?;
     let client = resin_client(&sidecar)?;
-    // name→UUID resolution centralized in ResinClient (F2);
+    // name→UUID resolution centralized in ResinClient;
     // same single list_platforms GET as before, miss = typed NotFound.
     let id = client.resolve_platform_id_by_name(&name).await?;
 

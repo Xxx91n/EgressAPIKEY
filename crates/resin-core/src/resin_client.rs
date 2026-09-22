@@ -266,7 +266,7 @@ impl ResinClient {
     pub async fn create_platform_from_name(&self, name: &str) -> Result<Value> {
         // The Resin V1 name rule lives in `validate_platform_name` so the headless
         // BFF enforces the identical bound on POST /api/v1/platforms (
-        // A-006: one validation, effective in both places).
+        // One validation, effective in both places).
         validate_platform_name(name).map_err(|e| anyhow!("resin_client: {e}"))?;
         self.create_platform(serde_json::json!({ "name": name }))
             .await
@@ -710,7 +710,7 @@ impl ResinClient {
     }
 }
 
-/// §7.5 boundary validation for name→UUID resolution (F3): the
+/// §7.5 boundary validation for name→UUID resolution: the
 /// name is a DNS-host-scale identifier, so cap it at 253 chars and reject
 /// NUL/control characters. Returns `IpcError::InvalidInput` — never panics,
 /// mirroring the per-endpoint guards above (create_platform_from_name etc.).
@@ -741,8 +741,8 @@ pub fn items_arr(v: &Value) -> &[Value] {
     &[]
 }
 
-/// Resin V1 platform-name rule, shared by every transport (
-/// A-006: one validation, effective in both places). `create_platform_from_name`
+/// Resin V1 platform-name rule, shared by every transport: one
+/// validation, effective in both places. `create_platform_from_name`
 /// applies it before the POST, and the headless BFF applies the SAME function to
 /// `POST /api/v1/platforms`, so a browser caller cannot create a name the desktop
 /// command would have refused.
@@ -2232,7 +2232,7 @@ mod tests {
     }
     #[test]
     fn validate_platform_name_mirrors_the_resin_v1_rule() {
-        // (A-006): the shared rule the headless BFF also applies.
+        // The shared rule the headless BFF also applies.
         for ok in ["openai", "auto-ab12cd34", "p1"] {
             assert!(validate_platform_name(ok).is_ok(), "{ok} should pass");
         }

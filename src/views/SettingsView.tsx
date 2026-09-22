@@ -667,7 +667,7 @@ export function SettingsView() {
             <ScrollText size={14} strokeWidth={1.75} />
             {t("settings.openLogDir")}
           </button>
-          {/* Round 5 T11 / ADR-0059: Export audit log button */}
+ {/* ADR-0059: Export audit log button */}
           <button
             onClick={() => void doExportAuditLog()}
             disabled={auditBusy || commandBlocked("export_audit_log")}
@@ -691,7 +691,7 @@ export function SettingsView() {
             {t("settings.whiteboxPath")}: {whiteboxPath}
           </p>
         ) : null}
-        {/* Round 5 T11 / ADR-0059: audit export result message */}
+ {/* ADR-0059: audit export result message */}
         {auditMsg ? (
           <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400" data-testid="settings-audit-msg">
             {auditMsg.includes("failed") || auditMsg.includes("error") ? (
@@ -791,7 +791,7 @@ export function SettingsView() {
           {configMsg ? <span className="text-xs text-zinc-500">{configMsg}</span> : null}
         </div>
       </SectionCard>
-      {/* Ticket 13: the read-only effective-config card became a jump entry.
+ {/* The read-only effective-config card became a jump entry.
           The full desired|live comparison lives in EffectiveConfigView (one-level
           nav); this card no longer fetches the snapshot - the view is the single
           consumer of authoritative_snapshot. Still zero write paths. */}
@@ -808,7 +808,7 @@ export function SettingsView() {
         </div>
       </SectionCard>
 
-      {/* T15-v3-4: Strategy config reload surface (ADR-0039 SS5) */}
+ {/* Strategy config reload surface (ADR-0039 SS5) */}
       <SectionCard icon={<RefreshCw size={16} strokeWidth={1.75} />} title={t("settings.strategyConfig")}>
         <div className="flex flex-col gap-2">
           {strategyConfigPath && (

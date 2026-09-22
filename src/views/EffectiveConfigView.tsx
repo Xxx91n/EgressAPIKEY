@@ -272,7 +272,7 @@ export function EffectiveConfigView() {
       <div className="flex items-center gap-2 flex-wrap">
         <ClipboardCheck size={16} strokeWidth={1.75} />
         <h2 className="text-sm font-semibold tracking-tight">{t("nav.effectiveConfig")}</h2>
-        {/* Round 5 T09 / ADR-0058: top-level convergence chip (green
+ {/* ADR-0058: top-level convergence chip (green
             Converged / red ApplyFailed / amber PendingApply-reconcile). */}
         {snap ? <ConvergeChip snap={snap} onReconcile={() => setPreviewOpen(true)} /> : null}
         <span className="text-xs text-zinc-500 dark:text-zinc-400" data-testid="ec-last-checked">
@@ -287,7 +287,7 @@ export function EffectiveConfigView() {
           {busy ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} strokeWidth={1.75} />}
           {t("effectiveConfig.refresh")}
         </button>
-        {/* Ticket 14 §A: one-way sync-to-desired entry. Disabled while any
+ {/* §A: one-way sync-to-desired entry. Disabled while any
             snapshot fetch OR reconcile is in flight (no re-entry); hidden
             until the first snapshot exists (nothing to preview from). */}
         {snap ? (

@@ -104,7 +104,7 @@ pub async fn close_all_connections(
     app: tauri::AppHandle,
     sidecar: State<'_, SidecarHandle>,
 ) -> Result<(), IpcError> {
-    tracing::info!("T8-6: user-initiated close-all-connections");
+    tracing::info!("user-initiated close-all-connections");
     sidecar_restart(&app, &sidecar).await
 }
 
@@ -116,13 +116,13 @@ pub async fn reset_kernel(
     app: tauri::AppHandle,
     sidecar: State<'_, SidecarHandle>,
 ) -> Result<(), IpcError> {
-    tracing::info!("T8-6: user-initiated kernel-reset");
+    tracing::info!("user-initiated kernel-reset");
     sidecar_restart(&app, &sidecar).await
 }
 
 /// shared kill+restart helper. Delegates to the Ghost-tested restart seam
 /// `crate::sidecar::restart_resin` (ADR-0016 Q5 two-phase shutdown +
-/// RespawnSlot-preserving respawn, round8-07 / round9 D-004 B'). BLOCKING by
+/// RespawnSlot-preserving respawn, D-004 B'). BLOCKING by
 /// contract — restart_resin parks on std::process + blocking reqwest healthz
 /// polls, so it runs on the blocking pool, never on the async runtime
 /// directly (mirrors the Ghost caller in sidecar.rs). Failure surfaces as
@@ -297,7 +297,7 @@ pub async fn set_diag_poll_interval(app: AppHandle, interval_ms: u64) -> Result<
 pub async fn set_log_level(level: LogLevel) -> Result<String, IpcError> {
     LOG_LEVEL_GATE.store(level.gate(), std::sync::atomic::Ordering::Relaxed);
     tracing::warn!(
-        "T15-2: log level set to {} (gate={})",
+        "log level set to {} (gate={})",
         level.as_str(),
         level.gate()
     );

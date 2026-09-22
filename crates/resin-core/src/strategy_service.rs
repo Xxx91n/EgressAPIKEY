@@ -1401,7 +1401,7 @@ mod tests {
         assert!(svc.store(bad).is_err());
     }
 
-    // ---- ADR-0058: generation counter (F2) ----
+    // ---- ADR-0058: generation counter ----
     #[test]
     fn store_bumps_generation_serially_and_stamps_updated_at() {
         let dir = std::env::temp_dir().join(format!("strategy-svc-gen-{}", std::process::id()));
