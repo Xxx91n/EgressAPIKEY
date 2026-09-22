@@ -786,8 +786,9 @@ export function buildEdges(
             break;
           }
           case "quality": {
+            // Unconditional selection carries no label (same convention as
+            // empty-subscription: default flows stay unlabeled).
             edgeMatched = true;
-            edgeLabel = "quality:all";
             break;
           }
           case "region": {
@@ -870,7 +871,7 @@ export function buildRegionViewEdges(
       const allRegions = new Set<string>();
       for (const g of subGroups) for (const r of g.regions) allRegions.add(r.toLowerCase());
       for (const r of allRegions) {
-        list.push({ id: "e-reg-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, label: "quality:all", deletable: false });
+        list.push({ id: "e-reg-" + p.name + "-r-" + r, source: "platform-" + p.name, target: "regiongroup-" + r, deletable: false });
       }
     } else if (rAclass === "subscription") {
       const subs = p.subscriptionNames ?? [];
@@ -1191,7 +1192,7 @@ function TopologyCanvas() {
 // (ADR-0041 S1): C-column subscriptionGroup/regionGroup nodes are built by the
     // extracted `buildCColumnGroups` helper so a vitest can assert the viewMode guard directly
     // without driving jsdom-rendered ReactFlow custom-node DOM (which does not stamp C-column
-    // nodes reliably). See docs/adr/0041-canvas-v4-node-pool-toolbars-merge.md §S1 + GRILL_T17_CANVAS_V4_PLAN.md.
+ // nodes reliably). See docs/adr/0041-canvas-v4-node-pool-toolbars-merge.md §S1.
     const cNodes = buildCColumnGroups(viewMode, subGroups, platforms, t);
     list.push(...cNodes);
     return list;

@@ -54,8 +54,12 @@ carry no label; only conditional/exception edges are labeled):
 - Empty `subscriptions` -> edge exists with **no label** (was
   `"subscription:all"`)
 - Specific `subscriptions` -> label `"subscription:<name>"`
+- `quality` carries no user-specified condition in `PlatformStrategy` ->
+  unconditional -> **no label** (was `"quality:all"`; adjudicated in the
+  r12-wave-a audit rework: the invariant covers every unconditional edge,
+  not just subscription ones)
 
-All `"subscription:all"` literals removed from `buildEdges` and
+All `*:all` unconditional literals removed from `buildEdges` and
 `buildRegionViewEdges`.
 
 ### 3. Edge id viewMode prefix

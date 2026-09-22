@@ -593,7 +593,8 @@ describe("T15-3: React.memo canvas node optimization", () => {
       const edges = buildEdges(platforms as any, subGroups as any, []);
       const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
       expect(bcEdges).toHaveLength(2);
-      expect(bcEdges[0].label).toBe("quality:all");
+      // unconditional edges carry no label (ADR-0075 convention)
+      expect(bcEdges[0].label === undefined || bcEdges[0].label === "").toBe(true);
     });
   });
 
