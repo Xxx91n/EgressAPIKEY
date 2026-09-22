@@ -50,8 +50,8 @@ way. `environment_suspect` is never produced by the join; it is stamped
 by the suppressor (§3).
 
 Every verdict MAY carry `detail` — a ≤64-byte operator-facing note
-(char-boundary-safe truncation, NUL/control rejected, same discipline as
-`bounded_diff` / the §7.5 IPC caps). Remote-fail rows carry the observed
+(char-boundary-safe truncation with a trailing `…` marker, same byte-cap
+discipline as `bounded_diff` / the §7.5 IPC caps). Remote-fail rows carry the observed
 egress latency/status; contradictions record both probe outcomes. Detail
 enters the IPC return surface and audit rows only — **never the ring**.
 
@@ -110,9 +110,12 @@ ring (the evidence gap is real history) but the evaluator never counts
 them — `WindowStats.samples` = valid verdicts (ok/local_fail/
 remote_fail), `fails` = the two fail classes, `consecutive_fails` =
 the trailing fail run truncated at any non-fail entry, `tick_failed` =
-this tick ∈ fail classes. `evaluate_section` and every ADR-0074
-threshold are untouched — suppression works by starving evidence, not by
-retuning gates.
+this tick ∈ fail classes, `tick_valid` = this tick ∈ valid classes.
+A barrier tick (`tick_valid == false`) makes `evaluate_section` skip the
+row entirely — no Degraded self-heal, no Observing good-cycle advance,
+no cooldown exit: "not failed" is never read as "healthy". The ADR-0074
+thresholds themselves are untouched — suppression works by withholding
+evidence, not by retuning gates.
 
 ### 6. Return surface — additive only
 

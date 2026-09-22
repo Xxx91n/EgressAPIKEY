@@ -3590,4 +3590,47 @@ mod tests {
         assert!(svc.store(c).is_err(), "slow_call_ms=0 must be rejected");
         let _ = std::fs::remove_file(&dir);
     }
+
+    #[test]
+    fn orchestration_validate_rejects_oversized_signal_verdicts() {
+        // ADR-0080: the persisted projection shares the section's bounds -
+        // an unbounded map or key must be rejected through validate(), not
+        // just truncated at write time.
+        let dir = std::env::temp_dir().join(format!("strategy-svc-orchsv-{}", std::process::id()));
+        let _ = std::fs::remove_file(&dir);
+        let svc = StrategyService::new(FsStrategyStore::new(dir.clone()));
+        svc.store(cfg(vec![ps("P1", &["HK"])])).unwrap();
+        for (name, fill) in [
+            (
+                "too many entries",
+                crate::orchestration::MAX_ORCH_PLATFORMS + 1,
+            ),
+            ("in-bounds sanity", 1usize),
+        ] {
+            let mut c = svc.get().unwrap();
+            let mut sec = crate::orchestration::OrchestrationSection::default();
+            for i in 0..fill {
+                sec.signal_verdicts
+                    .insert(format!("P{i}"), crate::orchestration::ProbeVerdict::Ok);
+            }
+            c.orchestration = Some(sec);
+            if name == "in-bounds sanity" {
+                assert!(svc.store(c).is_ok(), "in-bounds map must pass");
+            } else {
+                assert!(svc.store(c).is_err(), "{name} must be rejected");
+            }
+        }
+        for (name, key) in [
+            ("empty key", String::new()),
+            ("oversized key", "x".repeat(MAX_PLATFORM_NAME_LEN + 1)),
+        ] {
+            let mut c = svc.get().unwrap();
+            let mut sec = crate::orchestration::OrchestrationSection::default();
+            sec.signal_verdicts
+                .insert(key, crate::orchestration::ProbeVerdict::Ok);
+            c.orchestration = Some(sec);
+            assert!(svc.store(c).is_err(), "{name} must be rejected");
+        }
+        let _ = std::fs::remove_file(&dir);
+    }
 }

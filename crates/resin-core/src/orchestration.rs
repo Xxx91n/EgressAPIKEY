@@ -294,6 +294,10 @@ pub struct WindowStats {
     /// This tick's own verdict (already pushed into the window by the
     /// caller before evaluation).
     pub tick_failed: bool,
+    /// ADR-0080 barrier: false when this tick's verdict is Skipped or
+    /// EnvironmentSuspect — evidence-free ticks skip row evaluation
+    /// entirely (no heal, no good-cycle advance, no breach check).
+    pub tick_valid: bool,
 }
 
 /// Typed per-port probe outcome (ADR-0080). The join matrix classifies
@@ -394,6 +398,7 @@ pub fn window_stats(ring: &VecDeque<ProbeVerdict>, tick: ProbeVerdict) -> Window
         fails,
         consecutive_fails,
         tick_failed: tick.is_fail(),
+        tick_valid: tick.is_valid(),
     }
 }
 
@@ -540,6 +545,14 @@ pub fn evaluate_section(
             Some(s) => *s,
             None => continue, // no signal source this tick — no evidence, no action
         };
+        // ADR-0080 barrier tick: Skipped/EnvironmentSuspect carry no
+        // platform evidence — "not failed" is NOT "healthy". The evaluator
+        // skips the row entirely: no Degraded self-heal, no Observing
+        // good-cycle advance (rollback baseline kept), no breach eval, no
+        // cooldown exit. Evaluation resumes on the next valid tick.
+        if !stats.tick_valid {
+            continue;
+        }
 
         match row.phase {
             OrchPhase::Cooldown => {
@@ -808,6 +821,7 @@ mod tests {
             fails,
             consecutive_fails: streak,
             tick_failed,
+            tick_valid: true,
         }
     }
 
@@ -1336,6 +1350,97 @@ mod tests {
         assert_eq!(ok_share(&ring), Some(0.5));
         let empty = ring_of(&[PV::EnvironmentSuspect, PV::Skipped]);
         assert_eq!(ok_share(&empty), None);
+    }
+
+    /// Synthetic evidence-free tick (Skipped / EnvironmentSuspect) — the
+    /// barrier shape the evaluator must skip entirely.
+    fn invalid_tick(samples: u32, fails: u32, streak: u32) -> WindowStats {
+        WindowStats {
+            samples,
+            fails,
+            consecutive_fails: streak,
+            tick_failed: false,
+            tick_valid: false,
+        }
+    }
+
+    #[test]
+    fn barrier_tick_never_heals_degraded() {
+        // F1 regression lock: a barrier tick is not positive evidence — the
+        // Degraded else-branch must not read "not failed" as "healthy" and
+        // bounce the row back to Healthy.
+        for name in ["suspect", "skipped"] {
+            let (mut s, _) = degraded_platform();
+            let mut v = HashMap::new();
+            v.insert("P1".to_string(), invalid_tick(10, 0, 0));
+            let mut cur = HashMap::new();
+            cur.insert("P1".to_string(), vec!["HK".to_string()]);
+            let acts = evaluate_section(&mut s, &v, &region_metrics(), &cur, Autonomy::Auto, 1000);
+            assert_eq!(s.platforms[0].phase, OrchPhase::Degraded, "{name}");
+            assert!(acts.is_empty(), "{name}: barrier emits no actions");
+        }
+    }
+
+    #[test]
+    fn barrier_tick_never_advances_observing() {
+        // F1 regression lock: an Observing row must not accumulate
+        // good_cycles — or cement + drop its rollback baseline — on
+        // evidence-free ticks.
+        let (mut s, v) = degraded_platform();
+        let mut cur = HashMap::new();
+        cur.insert("P1".to_string(), vec!["HK".to_string()]);
+        let metrics = region_metrics();
+        evaluate_section(&mut s, &v, &metrics, &cur, Autonomy::Auto, 1000);
+        assert_eq!(s.platforms[0].phase, OrchPhase::Observing);
+        assert!(s.platforms[0].baseline.is_some());
+        for _ in 0..5 {
+            let mut v2 = HashMap::new();
+            v2.insert("P1".to_string(), invalid_tick(10, 0, 0));
+            let acts = evaluate_section(&mut s, &v2, &metrics, &cur, Autonomy::Auto, 2000);
+            assert!(acts.is_empty());
+        }
+        assert_eq!(s.platforms[0].phase, OrchPhase::Observing);
+        assert_eq!(s.platforms[0].good_cycles, 0);
+        assert!(s.platforms[0].baseline.is_some());
+        // a real healthy tick resumes normal evaluation
+        let mut v3 = HashMap::new();
+        v3.insert("P1".to_string(), verdict(10, 0, 0, false));
+        evaluate_section(&mut s, &v3, &metrics, &cur, Autonomy::Auto, 3000);
+        assert_eq!(s.platforms[0].good_cycles, 1);
+    }
+
+    #[test]
+    fn barrier_tick_defers_breach_and_cooldown() {
+        // Uniform barrier semantics: even a window that already breaches is
+        // not evaluated on an evidence-free tick, and the cooldown timer is
+        // deferred rather than expired mid-barrier (it still catches up on
+        // the next valid tick — no evidence is required for the timer, but
+        // evaluation itself is skipped).
+        let mut s = sec_with(&["P1"]);
+        let mut v = HashMap::new();
+        v.insert("P1".to_string(), invalid_tick(10, 6, 3)); // window breaches, tick invalid
+        let acts = evaluate_section(
+            &mut s,
+            &v,
+            &HashMap::new(),
+            &HashMap::new(),
+            Autonomy::Auto,
+            1000,
+        );
+        assert!(acts.is_empty());
+        assert_eq!(s.platforms[0].phase, OrchPhase::Healthy);
+        s.platforms[0].phase = OrchPhase::Cooldown;
+        s.platforms[0].cooldown_until = 500; // already expired at now=1000
+        let acts = evaluate_section(
+            &mut s,
+            &v,
+            &HashMap::new(),
+            &HashMap::new(),
+            Autonomy::Auto,
+            1000,
+        );
+        assert!(acts.is_empty());
+        assert_eq!(s.platforms[0].phase, OrchPhase::Cooldown);
     }
 
     #[test]
