@@ -20,6 +20,7 @@ use tauri::{AppHandle, Manager, State};
 use super::common::{resin_client, validate_short_name};
 use super::strategy::strategy_service;
 use crate::sidecar::SidecarHandle;
+use resin_core::db::PortMapping;
 use resin_core::orchestration as orch;
 use resin_core::resolve_id_in;
 use resin_core::DbPool;
@@ -38,6 +39,16 @@ fn rings() -> &'static Mutex<HashMap<String, VecDeque<bool>>> {
     SIGNALS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Per-node engine `failure_count` rings: node_hash -> recent samples (one
+/// per region-metrics pass). The engine counter is cumulative, so the
+/// ok/err caliber windows it on the caller side (R12-03): a node is err only
+/// when the counter GREW inside the window.
+static NODE_FC: OnceLock<Mutex<HashMap<String, VecDeque<i64>>>> = OnceLock::new();
+
+fn fc_rings() -> &'static Mutex<HashMap<String, VecDeque<i64>>> {
+    NODE_FC.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 /// Resolve the effective autonomy tier: explicit config wins; otherwise the
 /// transport default (desktop = suggest, headless = auto).
 pub fn effective_autonomy(
@@ -51,36 +62,67 @@ pub fn effective_autonomy(
 /// push it into the sliding window. Returns the WindowStats for the
 /// evaluator, or None when the platform has no enabled bound ports (no
 /// signal source -> no evidence -> no action).
+///
+/// Per port the verdict joins TWO independent SLI probes (R12-03):
+///   loopback `port_health_check` - the shell listener is up and dialect-
+///   coherent (cheap, no dataplane);
+///   `probe_exit_ip` through the port - the real end-to-end egress path
+///   (port -> engine -> node -> Cloudflare trace). A port whose listener is
+///   healthy but whose egress is dead is a real failure the loopback probe
+///   alone could not see.
+/// The probe count is bounded by the platform's bound-port count (one per
+/// port, concurrently) and neither probe consults or mutates any engine-side
+/// orchestration switch - pure measurement.
 async fn collect_verdict(
     db: &DbPool,
     platform_name: &str,
     slow_call_ms: u64,
+    proxy_token: &str,
 ) -> Option<orch::WindowStats> {
     let rows = db.list_ports().ok()?;
-    let ports: Vec<u16> = rows
-        .iter()
+    let ports: Vec<PortMapping> = rows
+        .into_iter()
         .filter(|p| p.platform_name == platform_name && p.enabled)
-        .map(|p| p.port)
         .collect();
     if ports.is_empty() {
         return None;
     }
     let total = ports.len() as u32;
+    let mut set = tokio::task::JoinSet::new();
+    for p in ports {
+        let db2 = db.clone();
+        let token = proxy_token.to_string();
+        set.spawn(async move {
+            let port = p.port;
+            let h = super::ports::port_health_check(port, None)
+                .await
+                .unwrap_or_else(|_| super::ports::PortHealthCheck {
+                    port,
+                    reachable: false,
+                    socks5_ok: false,
+                    protocol_mismatch: false,
+                    latency_ms: slow_call_ms + 1,
+                    reason: "error".into(),
+                });
+            // `mixed` listeners probe via the SOCKS5 dialect (the same rule
+            // probe_exit_ip applies); declared http/socks5 ports use theirs.
+            let proto = p.protocol.to_ascii_lowercase();
+            let egress = super::diagnostics::probe_exit_ip_impl(&token, &db2, port, proto).await;
+            (port, h, egress)
+        });
+    }
     let mut bad = 0u32;
-    for port in ports {
-        // End-to-end entry-port probe: connect + dialect greeting against
-        // the shell's own listener — no Resin dataplane impact.
-        let h = super::ports::port_health_check(port, None)
-            .await
-            .unwrap_or_else(|_| super::ports::PortHealthCheck {
-                port,
-                reachable: false,
-                socks5_ok: false,
-                protocol_mismatch: false,
-                latency_ms: slow_call_ms + 1,
-                reason: "error".into(),
-            });
-        if !h.reachable || h.protocol_mismatch || h.latency_ms > slow_call_ms {
+    while let Some(res) = set.join_next().await {
+        let Ok((_port, h, egress)) = res else {
+            bad += 1;
+            continue;
+        };
+        let health_bad = !h.reachable || h.protocol_mismatch || h.latency_ms > slow_call_ms;
+        let egress_bad = match &egress {
+            Err(_) => true,
+            Ok(ep) => ep.status != 200 || ep.exit_ip.is_empty() || ep.latency_ms > slow_call_ms,
+        };
+        if health_bad || egress_bad {
             bad += 1;
         }
     }
@@ -107,23 +149,42 @@ async fn collect_verdict(
 }
 
 /// Aggregate the node pool into per-region ok/err shares (candidate
-/// metrics): ok = has_outbound && failure_count==0.
+/// metrics). ok = has_outbound && the engine failure_count did not grow
+/// inside the caller-side window (NODE_FC ring; the engine counter is
+/// cumulative, so failure_count==0 would permanently disqualify recovered
+/// nodes - R12-03 caliber fix). `window` is the ring cap in samples.
 fn region_metrics(
     nodes: &[resin_core::strategy_engine::NodeSummary],
+    window: usize,
 ) -> HashMap<String, orch::RegionMetric> {
     let mut acc: HashMap<String, (u32, u32, u32)> = HashMap::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut rings = match fc_rings().lock() {
+        Ok(g) => g,
+        Err(e) => e.into_inner(),
+    };
     for n in nodes {
         if n.region.is_empty() {
             continue;
         }
+        seen.insert(n.node_hash.clone());
+        let delta = orch::failure_count_window_delta(
+            rings.entry(n.node_hash.clone()).or_default(),
+            n.failure_count,
+            window.max(1),
+        );
         let e = acc.entry(n.region.clone()).or_insert((0, 0, 0));
         e.0 += 1; // nodes
-        if n.has_outbound && n.failure_count == 0 {
+        if n.has_outbound && delta <= 0 {
             e.1 += 1; // ok
         } else {
             e.2 += 1; // err
         }
     }
+    // Bound the ring map to nodes still present (a vanished node's ring is
+    // stale evidence and would leak memory otherwise).
+    rings.retain(|k, _| seen.contains(k));
+    drop(rings);
     acc.into_iter()
         .map(|(r, (nodes, ok, err))| {
             (
@@ -147,6 +208,7 @@ pub async fn orchestration_tick_impl(
     client: &resin_core::ResinClient,
     db: &DbPool,
     transport_default: orch::Autonomy,
+    proxy_token: &str,
 ) -> Result<serde_json::Value, IpcError> {
     let config = svc.get().map_err(IpcError::from)?;
     let Some(mut sec) = config.orchestration.clone() else {
@@ -189,7 +251,9 @@ pub async fn orchestration_tick_impl(
     // Signals: one verdict per managed platform (end-to-end port probes).
     let mut verdicts = HashMap::new();
     for p in &desired {
-        if let Some(stats) = collect_verdict(db, &p.platform_name, params.slow_call_ms).await {
+        if let Some(stats) =
+            collect_verdict(db, &p.platform_name, params.slow_call_ms, proxy_token).await
+        {
             verdicts.insert(p.platform_name.clone(), stats);
         }
     }
@@ -208,7 +272,7 @@ pub async fn orchestration_tick_impl(
             .await
             .map_err(|e| IpcError::from(format!("orchestration: list_nodes failed: {e}")))?;
         let nodes = resin_core::parse_nodes(&nodes_v);
-        let m = region_metrics(&nodes);
+        let m = region_metrics(&nodes, params.window_min_samples as usize);
         for p in &desired {
             region_metrics_map.insert(p.platform_name.clone(), m.clone());
         }
@@ -353,7 +417,14 @@ pub async fn orchestration_tick(
 ) -> Result<serde_json::Value, IpcError> {
     let svc = strategy_service(&app)?;
     let client = resin_client(&sidecar).map_err(IpcError::from)?;
-    orchestration_tick_impl(&svc, &client, &db, orch::Autonomy::Suggest).await
+    orchestration_tick_impl(
+        &svc,
+        &client,
+        &db,
+        orch::Autonomy::Suggest,
+        &sidecar.proxy_token,
+    )
+    .await
 }
 
 /// Suggest-tier gate: execute a parked proposal through the authoritative
@@ -481,8 +552,14 @@ pub fn spawn_orchestration_driver(app: AppHandle) {
             let Ok(client) = resin_client(&sidecar) else {
                 continue;
             };
-            if let Err(e) =
-                orchestration_tick_impl(&svc, &client, &db, orch::Autonomy::Suggest).await
+            if let Err(e) = orchestration_tick_impl(
+                &svc,
+                &client,
+                &db,
+                orch::Autonomy::Suggest,
+                &sidecar.proxy_token,
+            )
+            .await
             {
                 tracing::warn!(error = %e, "orchestration tick failed");
             }

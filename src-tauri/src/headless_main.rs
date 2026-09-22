@@ -296,6 +296,7 @@ async fn main() -> Result<()> {
                 &client,
                 &orch_ctx.db,
                 resin_core::orchestration::Autonomy::Auto,
+                &orch_ctx.sidecar.proxy_token,
             )
             .await
             {

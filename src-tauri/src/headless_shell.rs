@@ -827,6 +827,7 @@ async fn orchestration_tick_h(ctx: Arc<PortCtx>) -> Response {
         &client,
         &ctx.db,
         resin_core::orchestration::Autonomy::Auto,
+        &ctx.sidecar.proxy_token,
     )
     .await
     {

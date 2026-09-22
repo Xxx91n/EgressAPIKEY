@@ -31,7 +31,7 @@
 //! this module is pure: serde types + one evaluation pass per tick.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 /// Hard caps (validator + ingest) — the section is user-editable whitebox
 /// content so every array/string needs a bound (ADR-0059 audit discipline).
@@ -278,6 +278,27 @@ pub struct WindowStats {
     /// This tick's own verdict (already pushed into the window by the
     /// caller before evaluation).
     pub tick_failed: bool,
+}
+
+/// Push this tick's `failure_count` sample into the node's ring and return
+/// the in-window delta (now - oldest retained sample). The engine counter is
+/// cumulative across process lifetime, so a node that recovered long ago
+/// still reports failure_count>0 and would poison `ok_share` forever; the
+/// delta isolates failures INSIDE the caller's evidence window (R12-03
+/// caliber review). `ring` is caller-owned (process-local per node_hash);
+/// `cap` is the window length in samples. Returns 0 on first sight (the
+/// sighting establishes the baseline rather than penalizing pre-observation
+/// history).
+pub fn failure_count_window_delta(ring: &mut VecDeque<i64>, now: i64, cap: usize) -> i64 {
+    let oldest = ring.front().copied();
+    ring.push_back(now);
+    while ring.len() > cap {
+        ring.pop_front();
+    }
+    match oldest {
+        Some(o) => now - o,
+        None => 0,
+    }
 }
 
 /// Aggregated node-pool quality for one region (caller computes from
@@ -650,6 +671,24 @@ mod tests {
             err_share: err,
             node_count: 10,
         }
+    }
+
+    #[test]
+    fn failure_count_window_delta_isolates_recent_failures() {
+        // cumulative counter: first sight establishes baseline
+        let mut ring = VecDeque::new();
+        assert_eq!(failure_count_window_delta(&mut ring, 100, 8), 0);
+        // static counter (recovered node) -> zero delta, not "err"
+        assert_eq!(failure_count_window_delta(&mut ring, 100, 8), 0);
+        // counter grows inside the window -> positive delta = failing now
+        assert_eq!(failure_count_window_delta(&mut ring, 103, 8), 3);
+        // counter stops again -> delta stays positive while the growth
+        // sample is inside the window, then ages out
+        for _ in 0..7 {
+            failure_count_window_delta(&mut ring, 103, 8);
+        }
+        // ring now holds [103;8] - the 100-sample aged out, delta back to 0
+        assert_eq!(failure_count_window_delta(&mut ring, 103, 8), 0);
     }
 
     #[test]
