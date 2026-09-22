@@ -193,7 +193,14 @@
     "portEnabled": "Cổng đã bật",
     "portDisabled": "Cổng đã tắt",
     "enablePort": "Bật cổng",
-    "disablePort": "Tắt cổng"
+    "disablePort": "Tắt cổng",
+    "verdict": {
+      "ok": "ok",
+      "localFail": "lỗi cục bộ",
+      "remoteFail": "lỗi từ xa",
+      "skipped": "đã bỏ qua",
+      "environmentSuspect": "nghi môi trường"
+    }
   },
   "policy": {
     "balanced": "Can bang",

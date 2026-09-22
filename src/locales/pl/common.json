@@ -193,7 +193,14 @@
     "portEnabled": "Port włączony",
     "portDisabled": "Port wyłączony",
     "enablePort": "Włącz port",
-    "disablePort": "Wyłącz port"
+    "disablePort": "Wyłącz port",
+    "verdict": {
+      "ok": "ok",
+      "localFail": "błąd lokalny",
+      "remoteFail": "błąd zdalny",
+      "skipped": "pominięto",
+      "environmentSuspect": "podejrzane środowisko"
+    }
   },
   "policy": {
     "balanced": "Zrownowazony",

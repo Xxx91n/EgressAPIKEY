@@ -193,7 +193,14 @@
     "portEnabled": "Poort ingeschakeld",
     "portDisabled": "Poort uitgeschakeld",
     "enablePort": "Poort inschakelen",
-    "disablePort": "Poort uitschakelen"
+    "disablePort": "Poort uitschakelen",
+    "verdict": {
+      "ok": "ok",
+      "localFail": "lokale fout",
+      "remoteFail": "externe fout",
+      "skipped": "overgeslagen",
+      "environmentSuspect": "omgeving verdacht"
+    }
   },
   "policy": {
     "balanced": "Gebalanceerd",

@@ -193,7 +193,14 @@
     "portEnabled": "Port enabled",
     "portDisabled": "Port disabled",
     "enablePort": "Enable port",
-    "disablePort": "Disable port"
+    "disablePort": "Disable port",
+    "verdict": {
+      "ok": "ok",
+      "localFail": "local fail",
+      "remoteFail": "remote fail",
+      "skipped": "skipped",
+      "environmentSuspect": "environment suspect"
+    }
   },
   "policy": {
     "balanced": "Balanced",

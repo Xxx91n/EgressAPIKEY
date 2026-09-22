@@ -193,7 +193,14 @@
     "portEnabled": "포트 활성화",
     "portDisabled": "포트 비활성화",
     "enablePort": "포트 활성화",
-    "disablePort": "포트 비활성화"
+    "disablePort": "포트 비활성화",
+    "verdict": {
+      "ok": "정상",
+      "localFail": "로컬 장애",
+      "remoteFail": "원격 장애",
+      "skipped": "건너뜀",
+      "environmentSuspect": "환경 의심"
+    }
   },
   "policy": {
     "balanced": "균형",

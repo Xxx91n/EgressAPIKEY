@@ -193,7 +193,14 @@
     "portEnabled": "端口已启用",
     "portDisabled": "端口已停用",
     "enablePort": "启用端口",
-    "disablePort": "停用端口"
+    "disablePort": "停用端口",
+    "verdict": {
+      "ok": "正常",
+      "localFail": "本地故障",
+      "remoteFail": "远端故障",
+      "skipped": "已跳过",
+      "environmentSuspect": "环境存疑"
+    }
   },
   "policy": {
     "balanced": "均衡",

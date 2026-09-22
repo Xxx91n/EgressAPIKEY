@@ -193,7 +193,14 @@
     "portEnabled": "ポート有効",
     "portDisabled": "ポート無効",
     "enablePort": "ポートを有効化",
-    "disablePort": "ポートを無効化"
+    "disablePort": "ポートを無効化",
+    "verdict": {
+      "ok": "正常",
+      "localFail": "ローカル障害",
+      "remoteFail": "リモート障害",
+      "skipped": "スキップ",
+      "environmentSuspect": "環境異常の疑い"
+    }
   },
   "policy": {
     "balanced": "バランス",

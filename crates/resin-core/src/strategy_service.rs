@@ -555,6 +555,22 @@ fn validate_orchestration(
             }
         }
     }
+    // ADR-0080 signal-plane bookkeeping: bounded by the platform cap,
+    // keys bounded by the platform-name limit (a hand-edited file cannot
+    // smuggle oversized verdict maps through the store).
+    if sec.signal_verdicts.len() > o::MAX_ORCH_PLATFORMS {
+        return Err(format!(
+            "orchestration signal_verdicts too long (max {})",
+            o::MAX_ORCH_PLATFORMS
+        ));
+    }
+    for k in sec.signal_verdicts.keys() {
+        if k.is_empty() || k.len() > MAX_PLATFORM_NAME_LEN {
+            return Err(format!(
+                "orchestration signal_verdicts key must be 1..{MAX_PLATFORM_NAME_LEN} chars"
+            ));
+        }
+    }
     let p = &sec.params;
     // Zero floors: a 0 trigger field makes its condition vacuously true
     // (instant degrade / every call counts as slow) — the opposite of the
@@ -3531,6 +3547,7 @@ mod tests {
                 ..Default::default()
             },
             platforms: vec![],
+            ..Default::default()
         });
         assert!(svc.store(bad).is_err());
         let _ = std::fs::remove_file(&dir);
@@ -3558,6 +3575,7 @@ mod tests {
             c.orchestration = Some(crate::orchestration::OrchestrationSection {
                 params: p,
                 platforms: vec![],
+                ..Default::default()
             });
             assert!(svc.store(c).is_err(), "{field}=0 must be rejected");
         }
@@ -3567,6 +3585,7 @@ mod tests {
         c.orchestration = Some(crate::orchestration::OrchestrationSection {
             params: p,
             platforms: vec![],
+            ..Default::default()
         });
         assert!(svc.store(c).is_err(), "slow_call_ms=0 must be rejected");
         let _ = std::fs::remove_file(&dir);

@@ -193,7 +193,14 @@
     "portEnabled": "เปิดการใช้งานพอร์ต",
     "portDisabled": "ปิดการใช้งานพอร์ต",
     "enablePort": "เปิดพอร์ต",
-    "disablePort": "ปิดพอร์ต"
+    "disablePort": "ปิดพอร์ต",
+    "verdict": {
+      "ok": "ปกติ",
+      "localFail": "ข้อผิดพลาดภายใน",
+      "remoteFail": "ข้อผิดพลาดระยะไกล",
+      "skipped": "ข้าม",
+      "environmentSuspect": "สงสัยสภาพแวดล้อม"
+    }
   },
   "policy": {
     "balanced": "สมดุล",

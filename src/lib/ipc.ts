@@ -727,6 +727,15 @@ export interface OrchPlatformRow {
   pending: OrchProposal | null;
 }
 
+/// ADR-0080 signal-plane verdict classes (serde snake_case mirror of
+/// resin_core::orchestration::ProbeVerdict).
+export type ProbeVerdict =
+  | "ok"
+  | "local_fail"
+  | "remote_fail"
+  | "skipped"
+  | "environment_suspect";
+
 export interface OrchestrationState {
   orchestration: {
     params: {
@@ -735,6 +744,10 @@ export interface OrchestrationState {
       [k: string]: unknown;
     };
     platforms: OrchPlatformRow[];
+    /// Latest tick verdict per probed platform (ADR-0080 §7 bookkeeping).
+    signal_verdicts?: Record<string, ProbeVerdict>;
+    /// Consecutive environment-suspect ticks (common-mode suppressor).
+    suspect_streak?: number;
   } | null;
   autonomy: "auto" | "suggest";
 }
@@ -759,7 +772,19 @@ export async function ipcOrchestrationConfigPut(params: Record<string, unknown>)
 }
 
 /// Manual evaluation pass (the in-shell driver also ticks every 60s).
-export async function ipcOrchestrationTick(): Promise<{ enabled: boolean; actions: unknown[] }> {
+export async function ipcOrchestrationTick(): Promise<{
+  enabled: boolean;
+  actions: unknown[];
+  signals?: number;
+  platform_verdicts?: Array<{
+    platform: string;
+    verdict: ProbeVerdict;
+    ok_share: number | null;
+    streak: number;
+  }>;
+  verdict_details?: Array<{ platform: string; detail: string }>;
+  environment_status?: { suspect_streak: number };
+}> {
   return invoke("orchestration_tick");
 }
 

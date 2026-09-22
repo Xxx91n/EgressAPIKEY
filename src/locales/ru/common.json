@@ -193,7 +193,14 @@
     "portEnabled": "Порт включён",
     "portDisabled": "Порт отключён",
     "enablePort": "Включить порт",
-    "disablePort": "Отключить порт"
+    "disablePort": "Отключить порт",
+    "verdict": {
+      "ok": "ok",
+      "localFail": "локальный сбой",
+      "remoteFail": "удалённый сбой",
+      "skipped": "пропущено",
+      "environmentSuspect": "среда под подозрением"
+    }
   },
   "policy": {
     "balanced": "Сбалансированный",

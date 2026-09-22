@@ -33,6 +33,7 @@ import {
   type PortHealthCheck,
   type KeyAccountHit,
   type OrchestrationState,
+  type ProbeVerdict,
   extractIpcErr,
 } from "../lib/ipc";
 import { strategyToI18nKey, strategyToResinPolicy, mapResinToShell, STRATEGY_IDS, type StrategyId } from "../lib/strategy";
@@ -670,6 +671,33 @@ export function PlatformsView() {
                       )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      {(() => {
+                        const verdict = orch?.orchestration?.signal_verdicts?.[p.name];
+                        const i18nKey: Partial<Record<ProbeVerdict, string>> = {
+                          ok: "platform.verdict.ok",
+                          local_fail: "platform.verdict.localFail",
+                          remote_fail: "platform.verdict.remoteFail",
+                          skipped: "platform.verdict.skipped",
+                          environment_suspect: "platform.verdict.environmentSuspect",
+                        };
+                        const key = verdict ? i18nKey[verdict] : undefined;
+                        if (!key) return null;
+                        const cls =
+                          verdict === "ok"
+                            ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                            : verdict === "local_fail"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                              : verdict === "remote_fail"
+                                ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                : verdict === "environment_suspect"
+                                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400"
+                                  : "border border-dashed border-zinc-300 text-zinc-400 italic dark:border-zinc-600";
+                        return (
+                          <span className={"rounded-full px-2 py-0.5 text-[10px] " + cls} data-testid={"platform-verdict-" + p.name}>
+                            {t(key)}
+                          </span>
+                        );
+                      })()}
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground" data-testid={"platform-stats-pill-" + p.name}>
                         {t("platform.leases") + ": " + leases.length + " · " + t("platform.routableNodes") + ": " + p.routableNodeCount}
                       </span>

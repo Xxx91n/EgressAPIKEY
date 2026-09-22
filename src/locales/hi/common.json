@@ -193,7 +193,14 @@
     "portEnabled": "पोर्ट सक्रिय",
     "portDisabled": "पोर्ट अक्षम",
     "enablePort": "पोर्ट सक्रिय करें",
-    "disablePort": "पोर्ट अक्षम करें"
+    "disablePort": "पोर्ट अक्षम करें",
+    "verdict": {
+      "ok": "ठीक",
+      "localFail": "स्थानीय विफलता",
+      "remoteFail": "दूरस्थ विफलता",
+      "skipped": "छोड़ा गया",
+      "environmentSuspect": "परिवेश संदिग्ध"
+    }
   },
   "policy": {
     "balanced": "संतुलित",

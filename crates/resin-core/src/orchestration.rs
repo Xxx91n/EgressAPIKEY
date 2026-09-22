@@ -40,6 +40,9 @@ pub const MAX_SWITCH_LOG: usize = 64;
 pub const MAX_PROPOSAL_REASON: usize = 512;
 pub const MAX_PROPOSAL_DIFF: usize = 1024;
 pub const MAX_REGIONS_PER_SWITCH: usize = 64;
+/// Cap on a verdict detail string (ADR-0080) — operator-facing evidence
+/// carried on the IPC/audit surface only, never into the ring.
+pub const MAX_VERDICT_DETAIL: usize = 64;
 
 /// Autonomy tier. `None` in the persisted params resolves per transport
 /// headless default = auto, desktop default = suggest; an explicit
@@ -253,6 +256,13 @@ pub struct OrchestrationSection {
     pub params: OrchestrationParams,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub platforms: Vec<PlatformOrch>,
+    /// Latest signal verdict per probed platform (ADR-0080 §7): persisted
+    /// bookkeeping so consumers project verdicts without riding a tick.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub signal_verdicts: HashMap<String, ProbeVerdict>,
+    /// Consecutive environment-suspect ticks (common-mode suppressor).
+    #[serde(default, skip_serializing_if = "u32_is_zero")]
+    pub suspect_streak: u32,
 }
 
 impl Default for OrchestrationSection {
@@ -260,8 +270,14 @@ impl Default for OrchestrationSection {
         Self {
             params: OrchestrationParams::default(),
             platforms: Vec::new(),
+            signal_verdicts: HashMap::new(),
+            suspect_streak: 0,
         }
     }
+}
+
+fn u32_is_zero(v: &u32) -> bool {
+    *v == 0
 }
 
 /// This tick's aggregated end-to-end verdict for one platform, computed by
@@ -278,6 +294,136 @@ pub struct WindowStats {
     /// This tick's own verdict (already pushed into the window by the
     /// caller before evaluation).
     pub tick_failed: bool,
+}
+
+/// Typed per-port probe outcome (ADR-0080). The join matrix classifies
+/// WHERE a failure lives so a local outage is never rewritten as N remote
+/// platform failures.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProbeVerdict {
+    /// Loopback + egress both healthy.
+    Ok,
+    /// Loopback probe failed (listener down / protocol mismatch / slow) —
+    /// the shell-side entry is broken regardless of egress.
+    LocalFail,
+    /// Loopback ok but the end-to-end egress probe failed.
+    RemoteFail,
+    /// The port produced no evidence this tick (probe task failure) — an
+    /// explicit no-evidence slot, never silently counted either way.
+    Skipped,
+    /// Stamped by the common-mode suppressor (never by the join): this
+    /// tick's failures are attributed to the environment, not the platform.
+    EnvironmentSuspect,
+}
+
+impl ProbeVerdict {
+    /// Counted as a failure by the evaluator's window/streak gates.
+    pub fn is_fail(self) -> bool {
+        matches!(self, Self::LocalFail | Self::RemoteFail)
+    }
+    /// Counted in window denominators (real evidence — suspect/skipped are
+    /// time barriers, not samples).
+    pub fn is_valid(self) -> bool {
+        matches!(self, Self::Ok | Self::LocalFail | Self::RemoteFail)
+    }
+}
+
+/// Per-port join matrix (ADR-0080 §1). The contradiction case (loopback
+/// fail + egress ok) classifies as LocalFail; the caller records it in the
+/// ≤64B detail field.
+pub fn join_probe(loopback_ok: bool, egress_ok: bool) -> ProbeVerdict {
+    match (loopback_ok, egress_ok) {
+        (true, true) => ProbeVerdict::Ok,
+        (true, false) => ProbeVerdict::RemoteFail,
+        (false, _) => ProbeVerdict::LocalFail,
+    }
+}
+
+/// Aggregate one platform's per-port verdicts into its tick verdict
+/// (ADR-0080 §2 — supersedes the typeless majority count): skipped holds
+/// no evidence and leaves the denominator; a strict majority of fail-class
+/// ports over the valid set yields the dominant class (ties → RemoteFail,
+/// the actionable class); otherwise Ok.
+pub fn aggregate_platform_verdict(verdicts: &[ProbeVerdict]) -> ProbeVerdict {
+    let (mut valid, mut local, mut remote) = (0u32, 0u32, 0u32);
+    for v in verdicts {
+        match v {
+            ProbeVerdict::Skipped | ProbeVerdict::EnvironmentSuspect => {}
+            ProbeVerdict::Ok => valid += 1,
+            ProbeVerdict::LocalFail => {
+                valid += 1;
+                local += 1;
+            }
+            ProbeVerdict::RemoteFail => {
+                valid += 1;
+                remote += 1;
+            }
+        }
+    }
+    if valid == 0 {
+        return ProbeVerdict::Skipped;
+    }
+    if (local + remote) * 2 > valid {
+        if local > remote {
+            ProbeVerdict::LocalFail
+        } else {
+            ProbeVerdict::RemoteFail
+        }
+    } else {
+        ProbeVerdict::Ok
+    }
+}
+
+/// Common-mode suppressor (ADR-0080 §3): >=80% of ALL probed bound ports
+/// failing loopback in one tick means the environment broke, not the
+/// platforms. Denominator = attempted probes (skipped attempts included).
+pub fn common_mode_suspect(local_fail_ports: u32, probed_ports: u32) -> bool {
+    probed_ports > 0 && local_fail_ports.saturating_mul(5) >= probed_ports.saturating_mul(4)
+}
+
+/// Recompute WindowStats from a typed verdict ring. Denominators count
+/// valid verdicts only; suspect/skipped entries are time barriers that
+/// truncate streaks without entering any rate.
+pub fn window_stats(ring: &VecDeque<ProbeVerdict>, tick: ProbeVerdict) -> WindowStats {
+    let samples = ring.iter().filter(|v| v.is_valid()).count() as u32;
+    let fails = ring.iter().filter(|v| v.is_fail()).count() as u32;
+    let consecutive_fails = ring.iter().rev().take_while(|v| v.is_fail()).count() as u32;
+    WindowStats {
+        samples,
+        fails,
+        consecutive_fails,
+        tick_failed: tick.is_fail(),
+    }
+}
+
+/// Trailing run of entries equal to `v` — suspect/skipped entries
+/// truncate the run (ADR-0080 streak semantics).
+pub fn verdict_streak(ring: &VecDeque<ProbeVerdict>, v: ProbeVerdict) -> u32 {
+    ring.iter().rev().take_while(|&&x| x == v).count() as u32
+}
+
+/// ok / valid share of the ring window; None when no valid samples exist
+/// (honest absence beats a fabricated 0 or 1).
+pub fn ok_share(ring: &VecDeque<ProbeVerdict>) -> Option<f64> {
+    let valid = ring.iter().filter(|v| v.is_valid()).count() as f64;
+    if valid == 0.0 {
+        None
+    } else {
+        Some(ring.iter().filter(|&&v| v == ProbeVerdict::Ok).count() as f64 / valid)
+    }
+}
+
+/// Cap a verdict detail at MAX_VERDICT_DETAIL bytes, char-boundary safe.
+pub fn bounded_detail(s: &str) -> String {
+    if s.len() <= MAX_VERDICT_DETAIL {
+        return s.to_string();
+    }
+    let mut end = MAX_VERDICT_DETAIL;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}…", &s[..end])
 }
 
 /// Push this tick's `failure_count` sample into the node's ring and return
@@ -1070,5 +1216,154 @@ mod tests {
         evaluate_section(&mut s, &v, &metrics, &cur, Autonomy::Suggest, 1000);
         let p = s.platforms[0].pending.as_ref().expect("proposal parked");
         assert!(p.diff.len() <= MAX_PROPOSAL_DIFF + 16);
+    }
+
+    // ---- ADR-0080 signal-plane verdicts ----
+
+    use ProbeVerdict as PV;
+
+    fn ring_of(vs: &[PV]) -> VecDeque<PV> {
+        vs.iter().copied().collect()
+    }
+
+    #[test]
+    fn join_probe_matrix() {
+        // legislated join: loopback x egress -> typed verdict
+        assert_eq!(join_probe(true, true), PV::Ok);
+        assert_eq!(join_probe(true, false), PV::RemoteFail);
+        assert_eq!(join_probe(false, false), PV::LocalFail);
+        // contradiction (loopback dead but egress flowed) classifies local
+        assert_eq!(join_probe(false, true), PV::LocalFail);
+    }
+
+    #[test]
+    fn aggregate_platform_verdict_dominant_class_and_valid_denominator() {
+        // fail majority over VALID ports -> dominant fail class
+        assert_eq!(
+            aggregate_platform_verdict(&[PV::RemoteFail, PV::RemoteFail, PV::Ok]),
+            PV::RemoteFail
+        );
+        assert_eq!(
+            aggregate_platform_verdict(&[PV::LocalFail, PV::LocalFail, PV::RemoteFail]),
+            PV::LocalFail
+        );
+        // fail classes tie -> remote_fail (the actionable class)
+        assert_eq!(
+            aggregate_platform_verdict(&[PV::LocalFail, PV::RemoteFail]),
+            PV::RemoteFail
+        );
+        // no strict majority -> ok (one bad port must not trip a platform)
+        assert_eq!(
+            aggregate_platform_verdict(&[PV::RemoteFail, PV::Ok, PV::Ok]),
+            PV::Ok
+        );
+        // skipped ports leave the denominator: 1 skipped + 1 fail =
+        // 1/1 valid failing -> fail
+        assert_eq!(
+            aggregate_platform_verdict(&[PV::Skipped, PV::RemoteFail]),
+            PV::RemoteFail
+        );
+        // all-skipped = no evidence at all
+        assert_eq!(
+            aggregate_platform_verdict(&[PV::Skipped, PV::Skipped]),
+            PV::Skipped
+        );
+    }
+
+    #[test]
+    fn common_mode_suspect_threshold_table() {
+        // n<=4 requires unanimity (integer behavior of the >=80% rule)
+        for n in 1..=4u32 {
+            assert!(!common_mode_suspect(n - 1, n), "n={n} at n-1");
+            assert!(common_mode_suspect(n, n), "n={n} unanimous");
+        }
+        // n=5: 4/5 = 80% fires, 3/5 does not
+        assert!(common_mode_suspect(4, 5));
+        assert!(!common_mode_suspect(3, 5));
+        // n=10: 8/10 fires, 7/10 does not
+        assert!(common_mode_suspect(8, 10));
+        assert!(!common_mode_suspect(7, 10));
+        // no probed ports -> never suspect
+        assert!(!common_mode_suspect(0, 0));
+    }
+
+    #[test]
+    fn window_stats_valid_denominators_and_suspect_truncation() {
+        // ring: ok, local_fail, suspect, remote_fail, local_fail
+        let ring = ring_of(&[
+            PV::Ok,
+            PV::LocalFail,
+            PV::EnvironmentSuspect,
+            PV::RemoteFail,
+            PV::LocalFail,
+        ]);
+        let st = window_stats(&ring, PV::LocalFail);
+        assert_eq!(st.samples, 4, "suspect excluded from denominator");
+        assert_eq!(st.fails, 3);
+        assert_eq!(st.consecutive_fails, 2, "suspect truncates the run");
+        assert!(st.tick_failed);
+        let st2 = window_stats(&ring, PV::EnvironmentSuspect);
+        assert!(!st2.tick_failed, "a suspect tick is never a platform fail");
+        // all-barrier window: zero valid evidence
+        let ring2 = ring_of(&[PV::EnvironmentSuspect, PV::Skipped]);
+        let st3 = window_stats(&ring2, PV::Skipped);
+        assert_eq!(st3.samples, 0);
+        assert_eq!(st3.fails, 0);
+        assert_eq!(st3.consecutive_fails, 0);
+    }
+
+    #[test]
+    fn verdict_streak_truncates_at_suspect() {
+        let ring = ring_of(&[PV::LocalFail, PV::EnvironmentSuspect, PV::LocalFail, PV::LocalFail]);
+        assert_eq!(verdict_streak(&ring, PV::LocalFail), 2);
+        assert_eq!(verdict_streak(&ring, PV::EnvironmentSuspect), 0);
+        let ring2 = ring_of(&[PV::LocalFail, PV::EnvironmentSuspect, PV::EnvironmentSuspect]);
+        assert_eq!(verdict_streak(&ring2, PV::EnvironmentSuspect), 2);
+    }
+
+    #[test]
+    fn ok_share_uses_valid_denominator_or_none() {
+        let ring = ring_of(&[PV::Ok, PV::EnvironmentSuspect, PV::RemoteFail]);
+        assert_eq!(ok_share(&ring), Some(0.5));
+        let empty = ring_of(&[PV::EnvironmentSuspect, PV::Skipped]);
+        assert_eq!(ok_share(&empty), None);
+    }
+
+    #[test]
+    fn bounded_detail_caps_at_64_bytes_char_safe() {
+        let long = "x".repeat(200);
+        let d = bounded_detail(&long);
+        assert!(d.len() <= MAX_VERDICT_DETAIL + 4);
+        assert!(d.ends_with('…'));
+        // multibyte boundary: 64B cut inside a char must step back
+        let mb = "a".repeat(63) + "中中";
+        let d2 = bounded_detail(&mb);
+        assert!(d2.len() <= MAX_VERDICT_DETAIL + 4);
+        assert!(d2.is_char_boundary(d2.len() - '…'.len_utf8()));
+        let short = "p18080 eg st=200 lat=812ms";
+        assert_eq!(bounded_detail(short), short);
+    }
+
+    #[test]
+    fn signal_verdicts_serde_roundtrip() {
+        let mut sec = OrchestrationSection::default();
+        sec.signal_verdicts
+            .insert("P1".to_string(), ProbeVerdict::EnvironmentSuspect);
+        sec.suspect_streak = 3;
+        let v = serde_json::to_value(&sec).unwrap();
+        assert_eq!(
+            v["signal_verdicts"]["P1"],
+            serde_json::json!("environment_suspect")
+        );
+        assert_eq!(v["suspect_streak"], serde_json::json!(3));
+        let back: OrchestrationSection = serde_json::from_value(v).unwrap();
+        assert_eq!(
+            back.signal_verdicts["P1"],
+            ProbeVerdict::EnvironmentSuspect
+        );
+        // absent fields default clean (zero-migration discipline)
+        let bare: OrchestrationSection = serde_json::from_str("{}").unwrap();
+        assert!(bare.signal_verdicts.is_empty());
+        assert_eq!(bare.suspect_streak, 0);
     }
 }

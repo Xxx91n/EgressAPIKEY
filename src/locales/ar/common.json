@@ -193,7 +193,14 @@
     "portEnabled": "تمكين المنفذ",
     "portDisabled": "تعطيل المنفذ",
     "enablePort": "تمكين المنفذ",
-    "disablePort": "تعطيل المنفذ"
+    "disablePort": "تعطيل المنفذ",
+    "verdict": {
+      "ok": "سليم",
+      "localFail": "فشل محلي",
+      "remoteFail": "فشل بعيد",
+      "skipped": "تم تخطيه",
+      "environmentSuspect": "اشتباه في البيئة"
+    }
   },
   "policy": {
     "balanced": "متوازن",

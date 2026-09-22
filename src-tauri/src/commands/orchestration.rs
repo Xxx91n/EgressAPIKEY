@@ -13,6 +13,7 @@
 //! can never trigger a switch on boot.
 
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use tauri::{AppHandle, Manager, State};
@@ -31,13 +32,23 @@ const TICK_INTERVAL_SECS: u64 = 60;
 /// Max retained per-platform tick verdicts (sliding window bound).
 const RING_CAP: usize = 64;
 
-/// Process-local verdict rings: platform_name -> recent tick verdicts
-/// (true = failed). In-memory by design; see module docs.
-static SIGNALS: OnceLock<Mutex<HashMap<String, VecDeque<bool>>>> = OnceLock::new();
+/// Process-local verdict rings: platform_name -> recent typed tick
+/// verdicts (ADR-0080). In-memory by design; see module docs.
+static SIGNALS: OnceLock<Mutex<HashMap<String, VecDeque<orch::ProbeVerdict>>>> =
+    OnceLock::new();
 
-fn rings() -> &'static Mutex<HashMap<String, VecDeque<bool>>> {
+fn rings() -> &'static Mutex<HashMap<String, VecDeque<orch::ProbeVerdict>>> {
     SIGNALS.get_or_init(|| Mutex::new(HashMap::new()))
 }
+
+/// Tick-level environment-suspect streak (ADR-0080 §4): consecutive
+/// common-mode-suspect ticks, reset by any clean tick. Deliberately
+/// independent of the per-platform rings.
+static SUSPECT_STREAK: AtomicU32 = AtomicU32::new(0);
+
+/// Suspect ticks in a row that emit an environment audit row — hardwired,
+/// not a parameter (anti-Goodhart).
+const SUSPECT_STREAK_AUDIT: u32 = 3;
 
 /// Per-node engine `failure_count` rings: node_hash -> recent samples (one
 /// per region-metrics pass). The engine counter is cumulative, so the
@@ -58,6 +69,24 @@ pub fn effective_autonomy(
     sec.params.autonomy.unwrap_or(transport_default)
 }
 
+/// Per-port joined probe outcomes for one platform in one tick.
+struct PortProbeBatch {
+    verdicts: Vec<orch::ProbeVerdict>,
+    /// ≤64B operator-facing evidence per non-ok port (IPC/audit only).
+    details: Vec<String>,
+    local_fails: u32,
+}
+
+/// One tick's signal plane (ADR-0080): the evaluator-facing window stats,
+/// the typed per-platform verdicts, and the environment streak.
+struct TickSignals {
+    verdicts: HashMap<String, orch::WindowStats>,
+    signal_map: HashMap<String, orch::ProbeVerdict>,
+    platform_verdicts: Vec<serde_json::Value>,
+    verdict_details: Vec<serde_json::Value>,
+    suspect_streak: u32,
+}
+
 /// Collect SLI probe verdicts for EVERY platform owning >=1 enabled bound
 /// port, independent of the orchestration section: a disabled or absent
 /// controller must not blind the signal plane (the acceptance line reads
@@ -65,11 +94,16 @@ pub fn effective_autonomy(
 /// the pass is bounded by bound-port count. Rings for platforms that no
 /// longer own an enabled bound port are evicted here (rename/remove would
 /// otherwise leak them in-process forever).
+///
+/// The common-mode suppressor runs at TICK level (ADR-0080 §3): when
+/// >=80% of all probed bound ports fail loopback, the tick is stamped
+/// environment_suspect for every probed platform — a local outage is one
+/// environmental event, never N platform failures.
 async fn collect_all_verdicts(
     db: &DbPool,
     slow_call_ms: u64,
     proxy_token: &str,
-) -> HashMap<String, orch::WindowStats> {
+) -> TickSignals {
     let rows = db.list_ports().unwrap_or_default();
     let mut by_platform: HashMap<String, Vec<PortMapping>> = HashMap::new();
     for p in rows.into_iter().filter(|p| p.enabled) {
@@ -78,26 +112,90 @@ async fn collect_all_verdicts(
             .or_default()
             .push(p);
     }
-    let mut out = HashMap::new();
+
+    let mut batches: HashMap<String, PortProbeBatch> = HashMap::new();
+    let (mut probed, mut local_fails) = (0u32, 0u32);
     for (name, ports) in &by_platform {
-        if let Some(v) = verdict_for_ports(name, ports, slow_call_ms, proxy_token, db).await {
-            out.insert(name.clone(), v);
+        if let Some(b) = probe_platform_ports(ports, slow_call_ms, proxy_token, db).await {
+            probed += b.verdicts.len() as u32;
+            local_fails += b.local_fails;
+            batches.insert(name.clone(), b);
         }
     }
-    match rings().lock() {
-        Ok(mut m) => m.retain(|k, _| by_platform.contains_key(k)),
-        Err(e) => {
-            let mut g = e.into_inner();
-            g.retain(|k, _| by_platform.contains_key(k));
+
+    let suspect = orch::common_mode_suspect(local_fails, probed);
+    let suspect_streak = if suspect {
+        SUSPECT_STREAK.fetch_add(1, Ordering::Relaxed) + 1
+    } else {
+        SUSPECT_STREAK.store(0, Ordering::Relaxed);
+        0
+    };
+    if suspect_streak == SUSPECT_STREAK_AUDIT {
+        // One audit row per crossing (tick-dimension environment event).
+        let mut ev = resin_core::audit::event(
+            "signal-plane",
+            "environment_suspect",
+            "orchestration:tick",
+            String::new(),
+            String::new(),
+            "suspect",
+            None,
+            None,
+        );
+        ev.reason = Some(orch::bounded_detail(&format!(
+            "streak={SUSPECT_STREAK_AUDIT} local_fail={local_fails}/{probed}"
+        )));
+        let _ = resin_core::audit::append(&ev);
+    }
+
+    let mut sig = TickSignals {
+        verdicts: HashMap::new(),
+        signal_map: HashMap::new(),
+        platform_verdicts: Vec::new(),
+        verdict_details: Vec::new(),
+        suspect_streak,
+    };
+    let mut names: Vec<&String> = batches.keys().collect();
+    names.sort();
+    let mut guard = match rings().lock() {
+        Ok(g) => g,
+        Err(e) => e.into_inner(),
+    };
+    for name in names {
+        let batch = &batches[name];
+        let verdict = if suspect {
+            orch::ProbeVerdict::EnvironmentSuspect
+        } else {
+            orch::aggregate_platform_verdict(&batch.verdicts)
+        };
+        let ring = guard.entry(name.clone()).or_insert_with(VecDeque::new);
+        ring.push_back(verdict);
+        while ring.len() > RING_CAP {
+            ring.pop_front();
+        }
+        sig.verdicts
+            .insert(name.clone(), orch::window_stats(ring, verdict));
+        sig.signal_map.insert(name.clone(), verdict);
+        sig.platform_verdicts.push(serde_json::json!({
+            "platform": name,
+            "verdict": verdict,
+            "ok_share": orch::ok_share(ring),
+            "streak": orch::verdict_streak(ring, verdict),
+        }));
+        if !batch.details.is_empty() {
+            sig.verdict_details.push(serde_json::json!({
+                "platform": name,
+                "detail": orch::bounded_detail(&batch.details.join("; ")),
+            }));
         }
     }
-    out
+    guard.retain(|k, _| by_platform.contains_key(k));
+    sig
 }
 
-/// Aggregate one platform's bound-port probes into this tick's verdict and
-/// push it into the sliding window. Returns the WindowStats for the
-/// evaluator, or None when the platform has no enabled bound ports (no
-/// signal source -> no evidence -> no action).
+/// Probe one platform's bound ports and return the per-port joined
+/// verdicts (ADR-0080 §1 join matrix). Returns None when the platform has
+/// no enabled bound ports (no signal source -> no evidence -> no action).
 ///
 /// Per port the verdict joins TWO independent SLI probes:
 ///   loopback `port_health_check` - the shell listener is up and dialect-
@@ -109,17 +207,15 @@ async fn collect_all_verdicts(
 /// The probe count is bounded by the platform's bound-port count (one per
 /// port, concurrently) and neither probe consults or mutates any engine-side
 /// orchestration switch - pure measurement.
-async fn verdict_for_ports(
-    platform_name: &str,
+async fn probe_platform_ports(
     ports: &[PortMapping],
     slow_call_ms: u64,
     proxy_token: &str,
     db: &DbPool,
-) -> Option<orch::WindowStats> {
+) -> Option<PortProbeBatch> {
     if ports.is_empty() {
         return None;
     }
-    let total = ports.len() as u32;
     let mut set = tokio::task::JoinSet::new();
     for p in ports.iter().cloned() {
         let db2 = db.clone();
@@ -143,41 +239,45 @@ async fn verdict_for_ports(
             (port, h, egress)
         });
     }
-    let mut bad = 0u32;
+    let mut batch = PortProbeBatch {
+        verdicts: Vec::new(),
+        details: Vec::new(),
+        local_fails: 0,
+    };
     while let Some(res) = set.join_next().await {
-        let Ok((_port, h, egress)) = res else {
-            bad += 1;
+        let Ok((port, h, egress)) = res else {
+            batch.verdicts.push(orch::ProbeVerdict::Skipped);
             continue;
         };
-        let health_bad = !h.reachable || h.protocol_mismatch || h.latency_ms > slow_call_ms;
-        let egress_bad = match &egress {
-            Err(_) => true,
-            Ok(ep) => ep.status != 200 || ep.exit_ip.is_empty() || ep.latency_ms > slow_call_ms,
+        let loopback_ok =
+            h.reachable && !h.protocol_mismatch && h.latency_ms <= slow_call_ms;
+        let (egress_ok, egress_note) = match &egress {
+            Ok(ep) => (
+                ep.status == 200 && !ep.exit_ip.is_empty() && ep.latency_ms <= slow_call_ms,
+                format!("eg st={} lat={}ms", ep.status, ep.latency_ms),
+            ),
+            Err(_) => (false, "eg err".to_string()),
         };
-        if health_bad || egress_bad {
-            bad += 1;
+        let v = orch::join_probe(loopback_ok, egress_ok);
+        if v == orch::ProbeVerdict::LocalFail {
+            batch.local_fails += 1;
         }
+        if v != orch::ProbeVerdict::Ok {
+            // <=64B operator evidence (ADR-0080 §1): the egress latency
+            // reading is what tells a half-dead WAN apart from a dead
+            // platform on the remote_fail rows.
+            let note = if !loopback_ok && egress_ok {
+                format!("p{port} contradiction lb_fail+eg_ok")
+            } else if !loopback_ok {
+                format!("p{port} lb_fail:{} {}", h.reason, egress_note)
+            } else {
+                format!("p{port} {egress_note}")
+            };
+            batch.details.push(orch::bounded_detail(&note));
+        }
+        batch.verdicts.push(v);
     }
-    // Majority rule: the tick fails when MORE THAN HALF the platform's
-    // bound ports are unreachable / mismatched / slow — one bad port must
-    // not trip a whole platform.
-    let tick_failed = bad * 2 > total.max(1);
-    let mut guard = rings().lock().ok()?;
-    let ring = guard
-        .entry(platform_name.to_string())
-        .or_insert_with(VecDeque::new);
-    ring.push_back(tick_failed);
-    while ring.len() > RING_CAP {
-        ring.pop_front();
-    }
-    let fails = ring.iter().filter(|&&f| f).count() as u32;
-    let consecutive = ring.iter().rev().take_while(|&&f| f).count() as u32;
-    Some(orch::WindowStats {
-        samples: ring.len() as u32,
-        fails,
-        consecutive_fails: consecutive,
-        tick_failed,
-    })
+    Some(batch)
 }
 
 /// Aggregate the node pool into per-region ok/err shares (candidate
@@ -253,16 +353,36 @@ pub async fn orchestration_tick_impl(
         .as_ref()
         .map(|s| s.params.slow_call_ms)
         .unwrap_or_else(|| orch::OrchestrationParams::default().slow_call_ms);
-    let verdicts = collect_all_verdicts(db, probe_slow_ms, proxy_token).await;
+    let sig = collect_all_verdicts(db, probe_slow_ms, proxy_token).await;
+    let verdicts = &sig.verdicts;
 
     let Some(mut sec) = config.orchestration.clone() else {
+        // Absent section: never created just to hold signals (zero
+        // migration); the tick still reports the live verdicts.
         return Ok(serde_json::json!({
-            "enabled": false, "actions": [], "signals": verdicts.len()
+            "enabled": false, "actions": [],
+            "signals": sig.signal_map.len(),
+            "platform_verdicts": sig.platform_verdicts,
+            "verdict_details": sig.verdict_details,
+            "environment_status": { "suspect_streak": sig.suspect_streak },
         }));
     };
     if !sec.params.enabled {
+        // Disabled-but-present section: persist the signal projection so
+        // the UI reflects evidence even with the controller parked.
+        let map = sig.signal_map.clone();
+        let streak = sig.suspect_streak;
+        svc.orchestration_mutate(|s| {
+            s.signal_verdicts = map;
+            s.suspect_streak = streak;
+        })
+        .map_err(IpcError::from)?;
         return Ok(serde_json::json!({
-            "enabled": false, "actions": [], "signals": verdicts.len()
+            "enabled": false, "actions": [],
+            "signals": sig.signal_map.len(),
+            "platform_verdicts": sig.platform_verdicts,
+            "verdict_details": sig.verdict_details,
+            "environment_status": { "suspect_streak": sig.suspect_streak },
         }));
     };
     let params = sec.params.clone();
@@ -323,13 +443,17 @@ pub async fn orchestration_tick_impl(
 
     let actions = orch::evaluate_section(
         &mut sec,
-        &verdicts,
+        verdicts,
         &region_metrics_map,
         &current_regions,
         autonomy,
         now,
     );
 
+    // Signal-plane bookkeeping rides the same per-tick status write
+    // (ADR-0080 §7): latest verdicts + suspect streak, no generation bump.
+    sec.signal_verdicts = sig.signal_map.clone();
+    sec.suspect_streak = sig.suspect_streak;
     // Persist bookkeeping once per tick (status-subresource write: no
     // generation bump, same store entry / backup ring / audit row).
     let sec_snapshot = sec.clone();
@@ -393,6 +517,10 @@ pub async fn orchestration_tick_impl(
         "enabled": true,
         "autonomy": format!("{autonomy:?}").to_lowercase(),
         "actions": executed,
+        "signals": sig.signal_map.len(),
+        "platform_verdicts": sig.platform_verdicts,
+        "verdict_details": sig.verdict_details,
+        "environment_status": { "suspect_streak": sig.suspect_streak },
     }))
 }
 

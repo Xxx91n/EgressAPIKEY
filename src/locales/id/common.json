@@ -193,7 +193,14 @@
     "portEnabled": "Port diaktifkan",
     "portDisabled": "Port dinonaktifkan",
     "enablePort": "Aktifkan port",
-    "disablePort": "Nonaktifkan port"
+    "disablePort": "Nonaktifkan port",
+    "verdict": {
+      "ok": "ok",
+      "localFail": "kegagalan lokal",
+      "remoteFail": "kegagalan jarak jauh",
+      "skipped": "dilewati",
+      "environmentSuspect": "lingkungan dicurigai"
+    }
   },
   "policy": {
     "balanced": "Seimbang",

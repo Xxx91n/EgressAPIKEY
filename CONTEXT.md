@@ -1002,3 +1002,26 @@ delta <=10ms in >=99% of events". It separates an occasional tail spike
 from systemic degradation and feeds error-budget accounting directly.
 _Avoid_: bare p99 as a gate, averaged latencies, thresholds on absolute WAN
 latency instead of added delta
+
+### Probe Verdict (探针裁决)
+
+The typed per-port/tick signal-plane outcome (ADR-0080):
+**ok | local_fail | remote_fail | skipped | environment_suspect**. Each
+probed Entry Port joins its loopback health check with the end-to-end
+egress probe; the join classifies WHERE a failure lives (shell-side entry
+vs egress path vs environment) instead of collapsing to a boolean. A
+verdict may carry a <=64-byte detail for IPC/audit surfaces; the ring
+stores the enum only.
+_Avoid_: boolean health flags, majority-rule port counts, unclassified "fail"
+
+### Common-mode Suppressor (共模抑制器)
+
+The tick-level guard (ADR-0080) that stamps an entire tick
+**environment_suspect** when >=80% of all probed enabled bound ports fail
+loopback in the same tick — one local outage is one environmental event,
+never N platform failures. Suspect ticks enter the platform rings as time
+barriers (evaluators skip them; denominators count valid verdicts only),
+and three consecutive suspect ticks emit an audit row plus the
+tick-level environment_status field.
+_Avoid_: per-platform quorum tricks, suppressing partial-failure ticks,
+user-tunable suppression thresholds

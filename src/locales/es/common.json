@@ -193,7 +193,14 @@
     "portEnabled": "Puerto activado",
     "portDisabled": "Puerto desactivado",
     "enablePort": "Activar puerto",
-    "disablePort": "Desactivar puerto"
+    "disablePort": "Desactivar puerto",
+    "verdict": {
+      "ok": "ok",
+      "localFail": "fallo local",
+      "remoteFail": "fallo remoto",
+      "skipped": "omitido",
+      "environmentSuspect": "entorno sospechoso"
+    }
   },
   "policy": {
     "balanced": "Equilibrado",

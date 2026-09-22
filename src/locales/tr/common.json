@@ -193,7 +193,14 @@
     "portEnabled": "Port etkin",
     "portDisabled": "Port devre dışı",
     "enablePort": "Portu etkinleştir",
-    "disablePort": "Portu devre dışı bırak"
+    "disablePort": "Portu devre dışı bırak",
+    "verdict": {
+      "ok": "tamam",
+      "localFail": "yerel hata",
+      "remoteFail": "uzak hata",
+      "skipped": "atlandı",
+      "environmentSuspect": "ortam şüpheli"
+    }
   },
   "policy": {
     "balanced": "Dengeli",

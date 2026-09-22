@@ -881,6 +881,24 @@ async fn orchestration_tick_collects_probe_signals_when_controller_disabled() {
     .unwrap();
     assert_eq!(out["enabled"], serde_json::json!(false));
     assert_eq!(out["signals"], serde_json::json!(1));
+    // ADR-0080: one dead port = 100% local_fail -> the common-mode
+    // suppressor stamps the tick environment_suspect (n=1 degenerate).
+    assert_eq!(
+        out["platform_verdicts"][0]["platform"],
+        serde_json::json!("ProbeP")
+    );
+    assert_eq!(
+        out["platform_verdicts"][0]["verdict"],
+        serde_json::json!("environment_suspect")
+    );
+    assert!(out["environment_status"]["suspect_streak"].is_number());
+    // disabled-but-present section: the verdict projection is persisted
+    // for consumers (status write, no generation bump).
+    let sec = svc.get().unwrap().orchestration.unwrap();
+    assert_eq!(
+        sec.signal_verdicts["ProbeP"],
+        resin_core::orchestration::ProbeVerdict::EnvironmentSuspect
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -918,5 +936,12 @@ async fn orchestration_tick_collects_probe_signals_without_section() {
     .unwrap();
     assert_eq!(out["enabled"], serde_json::json!(false));
     assert_eq!(out["signals"], serde_json::json!(1));
+    assert_eq!(
+        out["platform_verdicts"][0]["verdict"],
+        serde_json::json!("environment_suspect")
+    );
+    assert!(out["verdict_details"].is_array());
+    // absent section is NOT created just to hold signals
+    assert!(svc.get().unwrap().orchestration.is_none());
     let _ = std::fs::remove_dir_all(&dir);
 }
