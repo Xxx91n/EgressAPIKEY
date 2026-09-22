@@ -96,6 +96,7 @@ function SideRail({ railConverge, railError }: { railConverge?: ConvergePhase; r
             key={item.key}
             onClick={() => setView(item.key)}
             aria-pressed={active}
+            data-testid={"nav-" + item.key}
             aria-label={t(`nav.${item.key}`)}
             title={t(`nav.${item.key}`)}
             className={

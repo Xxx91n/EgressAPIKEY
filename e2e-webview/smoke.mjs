@@ -157,14 +157,13 @@ try {
   {
     let ok = false;
     try {
-      // Click the nav button whose text matches /settings/i via the page DOM -
-      // locale-independent enough for the smoke (default locale is en).
-      await browser.execute(() => {
-        const b = [...document.querySelectorAll("button")].find((x) =>
-          /settings/i.test(x.textContent ?? ""),
-        );
-        b?.click();
-      });
+      // Side-rail nav buttons are icon-only (label lives on aria-label),
+      // so the smoke drives navigation via the stable nav-<view> testid.
+      {
+        const navBtn = await browser.$('button[data-testid="nav-settings"]');
+        await navBtn.waitForExist({ timeout: 8000 });
+        await navBtn.click();
+      }
       const el = await browser.$('[data-testid="net-save-btn"]');
       ok = await el.waitForExist({ timeout: 8000 });
     } catch (e) {
@@ -190,12 +189,11 @@ try {
     try {
       await invoke(browser, "platform_add", { name });
       // render check: the card appears after refreshPlatforms
-      await browser.execute(() => {
-        const b = [...document.querySelectorAll("button")].find((x) =>
-          /platforms/i.test(x.textContent ?? ""),
-        );
-        b?.click();
-      });
+      {
+        const navBtn = await browser.$('button[data-testid="nav-platforms"]');
+        await navBtn.waitForExist({ timeout: 8000 });
+        await navBtn.click();
+      }
       const card = await browser.$(`[data-testid="platform-card-${name}"]`);
       const shown = await card.waitForExist({ timeout: 10000 }).then(() => true).catch(() => false);
       const del = await browser.$(`[data-testid="platform-delete-${name}"]`);
@@ -222,12 +220,11 @@ try {
 
   // ---- S5: ar/hi/th glyph non-overflow ---------------------------------------
   {
-    await browser.execute(() => {
-      const b = [...document.querySelectorAll("button")].find((x) =>
-        /settings/i.test(x.textContent ?? ""),
-      );
-      b?.click();
-    });
+    {
+      const navBtn = await browser.$('button[data-testid="nav-settings"]');
+      await navBtn.waitForExist({ timeout: 8000 });
+      await navBtn.click();
+    }
     const per = {};
     let allOk = true;
     for (const loc of ["ar", "hi", "th"]) {
