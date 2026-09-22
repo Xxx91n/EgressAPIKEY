@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * vitest-isolation-guard.cjs (architecture-recovery ticket 18; scope and
- * pattern generalized by ticket 06 / spec IMP-6 #8)
+ * vitest-isolation-guard.cjs (scope and
+ * generalized beyond its original single-view pin)
  *
  * Scannable regression guard for the view-test isolation pattern.
  *
@@ -14,7 +14,7 @@
  * Full-suite CPU contention widens the commit-to-effect gap, making the flake
  * full-run-only (standalone always green).
  *
- * Ticket 06 generalization: the rule is no longer pinned to NodesView.
+ * The rule is no longer pinned to NodesView.
  *   1. Every src/views/*.test.tsx file is scanned (targets discovered, not
  *      hardcoded), so a new view test that introduces the pattern is covered
  *      the day it lands.

@@ -3,7 +3,7 @@
 # into src-tauri/binaries/resin-<triple> so Tauri can bundle it as a sidecar.
 # See docs/MEMORY_REUSE_DECISION.md path A.
 set -euo pipefail
-# Read version + repo from docs/RESIN_UPSTREAM_MANIFEST.yaml (ADR-0017 T2-6)
+# Read version + repo from docs/RESIN_UPSTREAM_MANIFEST.yaml (ADR-0017)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MANIFEST="$REPO_ROOT/docs/RESIN_UPSTREAM_MANIFEST.yaml"

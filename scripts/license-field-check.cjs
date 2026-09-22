@@ -1,5 +1,5 @@
 // license-field-check.cjs - license field consistency guard
-// (architecture-recovery ticket 01, ADR-0067 D4).
+// ADR-0067 D4.
 //
 // Keeps the three declared license fields equal to the repo-wide value:
 //   1. package.json "license"
@@ -15,7 +15,7 @@
 // Usage:
 //   node scripts/license-field-check.cjs            # check (exit 0 = green)
 //
-// Self-test recipe (used at ticket 01 close-out, evidence in the ticket
+// Self-test recipe (close-out evidence in the
 // report): break one field -> expect exit 1 + FAIL lines; restore -> exit 0.
 
 const fs = require("node:fs");

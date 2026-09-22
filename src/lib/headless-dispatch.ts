@@ -73,7 +73,7 @@ export async function invokeHttp<T>(route: HttpRoute, args?: Record<string, unkn
   }
   if (r.status === 204) return undefined as T;
   const json = await r.json();
-  // T22: Resin wraps list reads as { items: [...], total, limit, offset }.
+ // Resin wraps list reads as { items: [...], total, limit, offset}.
   // Unwrap ONLY where the caller expects a bare array - an object-returning
   // read (metrics_probe_history carries bucket_seconds beside items) must keep
   // the wrapper, otherwise the sibling fields are silently dropped.

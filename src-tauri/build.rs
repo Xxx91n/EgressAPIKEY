@@ -6,7 +6,7 @@ fn main() {
     embed_test_manifest();
 }
 
-// Ticket 09 (tauri-specta pilot): the bindings export integration test
+// tauri-specta pilot: the bindings export integration test
 // links the shell lib, whose tauri dependency statically imports comctl32
 // v6 entrypoints (SetWindowSubclass / TaskDialogIndirect via muda). The
 // main bin gets its SxS manifest from tauri_build, but a TEST binary does

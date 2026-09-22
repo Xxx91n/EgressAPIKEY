@@ -25,7 +25,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The legacy six-option shell catalog (pre-round-8). Accepted as INPUT only;
+/// The legacy six-option shell catalog (pre-migration). Accepted as INPUT only;
 /// NEVER produced by serialization. Kept as a named list so the one-time
 /// migration and its tests share ONE source of truth for "what counts as a
 /// legacy token".
@@ -95,7 +95,7 @@ impl StrategyId {
             "BALANCED" => Some(Self::Balanced),
             "PREFER_LOW_LATENCY" => Some(Self::PreferLowLatency),
             "PREFER_IDLE_IP" => Some(Self::PreferIdleIp),
-            // Withdrawn shell catalog (pre-round-8 whitebox files).
+            // Withdrawn shell catalog (pre-migration whitebox files).
             "RANDOM" | "BANDWIDTH" | "PROTOCOL_WEIGHT" => Some(Self::Balanced),
             "LATENCY" => Some(Self::PreferLowLatency),
             "SEQUENTIAL" | "QUALITY" => Some(Self::PreferIdleIp),

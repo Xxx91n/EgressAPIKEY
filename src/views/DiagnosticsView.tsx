@@ -93,7 +93,7 @@ function MetricsSparkline({
   );
 }
 
-export /** T21: one collapsible payload half (headers/body). b64 decoded via
+export /** one collapsible payload half (headers/body). b64 decoded via
  *  decodePayloadPart — 1 MB display cap enforced there, flag drives the label. */
   function PayloadPart({ label, b64, truncatedUpstream, testId }: {
     label: string;

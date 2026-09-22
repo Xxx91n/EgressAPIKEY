@@ -5,9 +5,9 @@
  * mode-a-contract-check.cjs - ADR-0068 D4 four-scenario contract gate, live
  * black-box against the real Resin sidecar binary.
  *
- * Evidence lineage: round8 ticket 17 landed data-plane Mode A with the
+ * Evidence lineage: the original Mode A landing data-plane Mode A with the
  * byte-level D4 gate table verified live against the bundled Resin binary
- * (.scratch/architecture-recovery-closed-2026-09-16/repro/{d4-mixed,t17-contract}).
+ * (.scratch/-closed-2026-09-16/repro/{d4-mixed,t17-contract}).
  * This script re-establishes the same evidence on every CI run so a Resin
  * upgrade that silently changes the engine contract fails the build instead
  * of surfacing as a user-visible regression. Hand recipe + baseline table:

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# T9-8: CI/local test split — CI runs full workspace, local skips app crate
+# CI/local test split — CI runs full workspace, local skips app crate
 IS_CI="${CI:-false}"
 
 # CI gates:
@@ -19,7 +19,7 @@ if [ "$IS_CI" = "true" ]; then
   if [ "$(uname -s 2>/dev/null)" = "Linux" ] || [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
     echo "[verify] NOTE: non-Windows CI - GUI app crate LINK skipped (GUI jobs cover it)"
     cargo build -p resin-core --quiet
-    # f682940e-class guard (architecture-recovery ticket 03 / IMP-3): the
+ # f682940e-class guard: the
     # headless bin lives in src-tauri, which this branch never compiled, so a
     # bin that no longer builds still passed the push gate. `cargo check` needs
     # no linker, so it can run here; --all-targets also type-checks the test
@@ -59,8 +59,8 @@ echo "[verify] pnpm build (tsc + vite)"
 npx tsc -b
 npx vite build
 
-# GUI half of the f682940e-class guard (architecture-recovery ticket 06 /
-# IMP-6 #1+#2). Ticket 03 closed the headless-bin hole; this closes the GUI
+# GUI half of the f682940e-class guard (
+# The earlier pass closed the headless-bin hole; this closes the GUI
 # path that actually ships to users: custom-protocol is the ONLY feature that
 # embeds dist/ into the GUI exe. It MUST run AFTER `vite build` - with
 # custom-protocol on, tauri::generate_context! resolves frontendDist (../dist)
@@ -94,13 +94,13 @@ fi
 echo "[verify] strategy_service.rs size OK: ${ssvc_lines} lines <= 4000"
 echo "[verify] ipc manifest guard"
 node scripts/ipc-manifest-check.cjs
-echo "[verify] vitest isolation guard (ticket 18)"
+echo "[verify] vitest isolation guard"
 node scripts/vitest-isolation-guard.cjs
-echo "[verify] license field consistency (ticket 01, spec D-06)"
+echo "[verify] license field consistency (spec D-06)"
 node scripts/license-field-check.cjs
-echo "[verify] bilingual README alignment (ticket 03, spec D-06)"
+echo "[verify] bilingual README alignment (spec D-06)"
 node scripts/readme-lang-check.cjs
-echo "[verify] upstream router integrity (ticket 14, spec D-C3.9)"
+echo "[verify] upstream router integrity (spec D-C3.9)"
 node scripts/upstream-router-check.cjs
 echo "[verify] contracts (mode-a contract gate, ADR-0068)"
 node scripts/mode-a-contract-check.cjs

@@ -1,6 +1,6 @@
 name: ci
 
-# Dual trigger (ADR-0010 + its 2026-09-14 revision note; round-8 ticket 06 / A-016).
+# Dual trigger (ADR-0010 + its 2026-09-14 revision note).
 #   push / pull_request -> ONLY the `verify` job runs: cargo test + frontend build
 #     (tsc + vite) + vitest + every guard script (scripts/verify-build.sh) + the
 #     line-ending guard. This is the push->verify gate: no green verify, no merge.
@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
-  # 1. push->verify gate (round-8 ticket 06 / A-016): the ONLY job that runs on push
+ # 1. push->verify gate: the ONLY job that runs on push
   #    and pull_request. cargo test + frontend build (tsc + vite) + vitest + every
   #    guard script + the line-ending guard. Guard scripts are enumerated in
   #    scripts/verify-build.sh (i18n x18 / ipc-manifest / vitest-isolation /

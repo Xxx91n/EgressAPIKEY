@@ -211,7 +211,7 @@ mod tests {
     #[test]
     fn parse_rejects_invalid_ports_schema() {
         let mut p = sample_ports();
-        // version 2 is the CURRENT ports schema since the round-8 mixed-protocol
+        // version 2 is the CURRENT ports schema since the mixed-protocol
         // migration; the future schema (3) is what must be rejected.
         p.version = 3;
         let doc = json!({"version": 1, "strategy": sample_strategy(), "ports": p});

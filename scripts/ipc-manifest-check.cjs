@@ -1,4 +1,4 @@
-// ipc-manifest-check.cjs - IPC manifest guard (architecture-recovery ticket 03).
+// ipc-manifest-check.cjs - IPC manifest guard.
 // Keeps the generated command manifest equal to code truth:
 //   1. extracts every #[tauri::command] fn name under src-tauri/src (CRLF/LF safe),
 //   2. reconciles them against the generate_handler! registry in src-tauri/src/main.rs,

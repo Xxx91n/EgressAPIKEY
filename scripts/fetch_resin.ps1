@@ -2,7 +2,7 @@
 # into src-tauri/binaries/resin-<triple>{.exe} so Tauri can bundle it as a
 # sidecar. We download from the upstream GitHub release tag.
 # See docs/MEMORY_REUSE_DECISION.md path A.
-# Read version + repo from docs/RESIN_UPSTREAM_MANIFEST.yaml (ADR-0017 T2-6)
+# Read version + repo from docs/RESIN_UPSTREAM_MANIFEST.yaml (ADR-0017)
 $ErrorActionPreference="Stop"
 $ProgressPreference="SilentlyContinue"
 $MANIFEST="$PSScriptRoot\..\docs\RESIN_UPSTREAM_MANIFEST.yaml"

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // upstream-router-check.cjs - upstream-router link-integrity gate
-// (architecture-recovery ticket 14, spec D-C3.9).
+// Spec D-C3.9.
 //
 // Locks the upstream-documentation router to reality:
 //
@@ -18,7 +18,7 @@
 // Style follows scripts/license-field-check.cjs / readme-lang-check.cjs:
 // zero deps, "OK/FAIL" lines, non-zero exit on any failure.
 //
-// Mounted by scripts/verify-build.sh (ticket 14) - any failure here fails
+// Mounted by scripts/verify-build.sh - any failure here fails
 // the whole gate.
 //
 // Usage:

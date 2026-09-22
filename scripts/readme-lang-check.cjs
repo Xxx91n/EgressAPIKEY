@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // readme-lang-check.cjs - bilingual README alignment guard
-// (architecture-recovery ticket 03, spec D-06).
+// Spec D-06.
 //
-// Locks README_CN.md to the EN-final structure of README.md (the ticket 02
+// Locks README_CN.md to the EN-final structure of README.md (the
 // product): section headings must correspond 1:1 through the explicit
 // mapping table below (same order, no extras on either side), the License
 // anchor body must equal the repo-wide license value in BOTH files, the
@@ -15,7 +15,7 @@
 // mirror, not a byte copy. The mapping table is the lock: adding, removing,
 // renaming or reordering a section on one side without the other fails here.
 //
-// Mounted by scripts/verify-build.sh (ticket 03) alongside ticket 01's
+// Mounted by scripts/verify-build.sh alongside the
 // license-field-check.cjs - any failure here fails the whole gate.
 //
 // Usage:
@@ -52,7 +52,7 @@ const SECTION_MAP = [
 // Drift tokens that must never reappear on either homepage (spec D-05,
 // ADR-0050: axum + mihomo deleted; @egressapikey/server is not on npm).
 const FORBIDDEN = [
-  [/mihomo/i, "mihomo (ADR-0050 deleted the sidecar; CN cleanup ticket 03)"],
+  [/mihomo/i, "mihomo (ADR-0050 deleted the sidecar; CN cleanup)"],
   [/axum/i, "axum (ADR-0050 removed the dependency)"],
   [/npm install -g @egressapikey\/server/, "npm global install of @egressapikey/server (not published; use the source-run wording)"],
 ];
@@ -169,7 +169,7 @@ function diffDetail(side, got, want) {
 }
 
 
-// 7 (ticket 10). Sync-comment format on both homepages: first line must be
+// 7. Sync-comment format on both homepages: first line must be
 // "<!-- synced-with: <counterpart> @ <40-hex sha> -->" (spec D-C3.2).
 const SYNC_RE = /^<!-- synced-with: (README\.md|README_CN\.md) @ ([0-9a-f]{40}) -->$/;
 for (const pair of [["README.md", en, "README_CN.md"], ["README_CN.md", cn, "README.md"]]) {
@@ -182,9 +182,9 @@ for (const pair of [["README.md", en, "README_CN.md"], ["README_CN.md", cn, "REA
   );
 }
 
-// 9 (ticket 14, spec D-C3.9). Homepage Documentation-table coverage for the
+// 9 (spec D-C3.9). Homepage Documentation-table coverage for the
 // upstream-router pair: both homepages must link docs/architecture/UPSTREAM.md
-// and docs/RELEASE_NOTES.md (the ticket 14 products) so the router page and
+// and docs/RELEASE_NOTES.md (the products) so the router page and
 // the per-release notes stay reachable from the front doors.
 const REQUIRED_DOC_LINKS = [
   "docs/architecture/UPSTREAM.md",
@@ -199,7 +199,7 @@ for (const pair of [["README.md", en], ["README_CN.md", cn]]) {
   );
 }
 
-// 8 (ticket 10). Mirror coverage: assets/readme hero + architecture + 3 screenshot
+// 8. Mirror coverage: assets/readme hero + architecture + 3 screenshot
 // slots must be referenced in BOTH homepages (same relative paths, D-C3.1/D-C3.2).
 const REQUIRED_ASSETS = [
   "assets/readme/hero.svg",
@@ -218,7 +218,7 @@ for (const pair of [["README.md", en], ["README_CN.md", cn]]) {
   );
 }
 
-// 18 (ticket 06, spec IMP-6 #5). Fenced-code info-string mirror. The CN page
+// 18. Fenced-code info-string mirror. The CN page
 // is a translated mirror, so every fenced block must carry the SAME info
 // string (mermaid / bash / ...), in the SAME order, on both sides - a
 // translation that drops or renames a fence silently breaks Mermaid rendering
@@ -245,9 +245,9 @@ const cnFences = fenceInfoStrings(cn.lines);
 record(
   "code fence info strings mirror EN<->CN (same order, fences balanced)",
   enFences.balanced && cnFences.balanced &&
-    JSON.stringify(enFences.fences) === JSON.stringify(cnFences.fences),
+  JSON.stringify(enFences.fences) === JSON.stringify(cnFences.fences),
   "EN " + JSON.stringify(enFences.fences) + (enFences.balanced ? "" : " [unclosed]") +
-    " vs CN " + JSON.stringify(cnFences.fences) + (cnFences.balanced ? "" : " [unclosed]")
+  " vs CN " + JSON.stringify(cnFences.fences) + (cnFences.balanced ? "" : " [unclosed]")
 );
 
 // Report (style matches scripts/license-field-check.cjs).

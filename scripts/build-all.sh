@@ -18,7 +18,7 @@ set -euo pipefail
 # here once so every later use is a read, not a first assignment.
 TRIPLE="$(rustc -vV | sed -n 's/^host: //p')"
 
-# T9-2: Anchor to script location
+# Anchor to script location
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -113,7 +113,7 @@ for f in $BUNDLES; do cp "$f" "$GUI_STAGE/" 2>/dev/null || true; done
 PORT_BIN="$(find src-tauri/target target -maxdepth 5 -type f \( -name 'EgressAPIKEY' -o -name 'EgressAPIKEY.exe' \) -path '*/release/*' ! -path '*/bundle/*' 2>/dev/null | xargs -r ls -t 2>/dev/null | head -n1 || true)"
 if [ -z "$PORT_BIN" ]; then echo "[build-all] ERROR: portable GUI binary not found (searched src-tauri/target and target)"; exit 1; fi
 # Newest-wins: the backend step flattens the PRE-build exe to target/release/,
-# so find order alone can stage a stale binary (bit ticket 19: guard caught
+# so find order alone can stage a stale binary (guard caught
 # chunk-hash MISMATCH); ls -t picks the just-linked fresh exe instead.
 PORT_NAME=EgressAPIKEY
 case $NAME in windows) PORT_NAME=EgressAPIKEY.exe ;; esac
