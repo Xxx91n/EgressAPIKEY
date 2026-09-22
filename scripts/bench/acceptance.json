@@ -1,5 +1,5 @@
 {
-  "_comment": "r12-wave-a acceptance line (D-001/D-002): dual threshold (target/danger) per deployment profile. kind=measure rows are RECORDED-ONLY - a breach is evidence, never a job failure; kind=assert/smoke rows are the only hard-fails under --gate enforce. Absolute-memory rows carry dagger-provisional values until the self-hosted representative run locks them. Mode B SSE buffering is a Registered Exemption, not a failure.",
+ "_comment": " acceptance line (D-001/D-002): dual threshold (target/danger) per deployment profile. kind=measure rows are RECORDED-ONLY - a breach is evidence, never a job failure; kind=assert/smoke rows are the only hard-fails under --gate enforce. Absolute-memory rows carry dagger-provisional values until the self-hosted representative run locks them. Mode B SSE buffering is a Registered Exemption, not a failure.",
   "schema": 2,
   "basis": "decision-ledger D-001/D-002 (+D-005 fix-1); supersedes the prior D-004 single-threshold budget table",
   "state": "legislated-provisional",

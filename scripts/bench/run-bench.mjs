@@ -448,7 +448,7 @@ async function main() {
   results.gates = evalGates(acc);
   results.acceptance = acc;
 
-  // Failure semantics (r12 D-002): measurement numbers are always RECORDED -
+ // Failure semantics (D-002): measurement numbers are always RECORDED -
   // a breach is evidence, not a job failure, until representative-hardware
   // pins activate. Only assertion/smoke rows hard-fail under --gate enforce.
   const fails = results.gates.filter((g) => g.status === "breach");

@@ -35,7 +35,7 @@ async function openLoop({ epPort, upstreamPort, identity, rate, durationS }) {
   let carry = 0;
   let lastTick = nowMs();
   const end = lastTick + durationS * 1000;
-  // Concurrent direct-baseline sampler (r12 acceptance line): low-rate (~1 rps)
+ // Concurrent direct-baseline sampler (acceptance line): low-rate (~1 rps)
   // unpinned probes of the same upstream while the load leg runs, so the p99
   // delta is the PROXY-ADDED component, not absolute latency contaminated by
   // shared-runner jitter.

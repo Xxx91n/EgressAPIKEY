@@ -1,4 +1,4 @@
-# Performance baseline benchmark (ticket 04 / D-004 / A-015).
+# Performance baseline benchmark (D-004).
 #
 # Runs scripts/bench/run-bench.mjs against a REAL Resin sidecar binary on both
 # Windows and Linux runners. The harness reads GITHUB_RUN_ID /
@@ -19,7 +19,7 @@ on:
         type: choice
         options: [short, long]
       gate:
-        description: "Gate mode: warn never fails; enforce hard-fails on assertion/smoke breaches only (measurement rows are recorded, never fatal - r12 D-002)"
+ description: "Gate mode: warn never fails; enforce hard-fails on assertion/smoke breaches only (measurement rows are recorded, never fatal - D-002)"
         required: false
         default: "warn"
         type: choice
