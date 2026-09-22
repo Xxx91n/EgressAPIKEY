@@ -284,7 +284,7 @@ pub struct WindowStats {
 /// the in-window delta (now - oldest retained sample). The engine counter is
 /// cumulative across process lifetime, so a node that recovered long ago
 /// still reports failure_count>0 and would poison `ok_share` forever; the
-/// delta isolates failures INSIDE the caller's evidence window (R12-03
+/// delta isolates failures INSIDE the caller's evidence window
 /// caliber review). `ring` is caller-owned (process-local per node_hash);
 /// `cap` is the window length in samples. Returns 0 on first sight (the
 /// sighting establishes the baseline rather than penalizing pre-observation

@@ -842,3 +842,81 @@ fn key_account_hits_joins_leases_platform_scoped() {
     assert_eq!(out[0].leases.len(), 1);
     assert_eq!(out[0].leases[0].egress_ip, "1.2.3.4");
 }
+
+// The SLI probe pass is independent of the orchestration enabled switch:
+// with the controller disabled and one platform owning a bound enabled
+// port, the tick must still collect a signal verdict (a failed probe is
+// still a collected sample — evidence of collection, not absence of it).
+#[tokio::test]
+async fn orchestration_tick_collects_probe_signals_when_controller_disabled() {
+    let dir = std::env::temp_dir().join(format!("orch-signal-off-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("egressapikey-strategy.json");
+    let svc = resin_core::StrategyService::new(resin_core::FsStrategyStore::new(path.clone()));
+    svc.orchestration_mutate(|s| s.params.enabled = false)
+        .unwrap();
+
+    let db = resin_core::DbPool::open_in_memory().unwrap();
+    db.upsert_port(&resin_core::PortMapping {
+        port: 39901,
+        protocol: "mixed".into(),
+        platform_name: "ProbeP".into(),
+        account: "acct".into(),
+        label: "lbl".into(),
+        enabled: true,
+        auth_required: false,
+    })
+    .unwrap();
+
+    let client = resin_core::ResinClient::new("http://127.0.0.1:1", "t".into()).unwrap();
+    let out = orchestration_tick_impl(
+        &svc,
+        &client,
+        &db,
+        resin_core::orchestration::Autonomy::Auto,
+        "tok",
+    )
+    .await
+    .unwrap();
+    assert_eq!(out["enabled"], serde_json::json!(false));
+    assert_eq!(out["signals"], serde_json::json!(1));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// Same guarantee when the orchestration section is entirely absent:
+// signal collection is bound to bound ports, not to controller config.
+#[tokio::test]
+async fn orchestration_tick_collects_probe_signals_without_section() {
+    let dir = std::env::temp_dir().join(format!("orch-signal-nosec-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("egressapikey-strategy.json");
+    let svc = resin_core::StrategyService::new(resin_core::FsStrategyStore::new(path.clone()));
+
+    let db = resin_core::DbPool::open_in_memory().unwrap();
+    db.upsert_port(&resin_core::PortMapping {
+        port: 39902,
+        protocol: "mixed".into(),
+        platform_name: "ProbeQ".into(),
+        account: "acct".into(),
+        label: "lbl".into(),
+        enabled: true,
+        auth_required: false,
+    })
+    .unwrap();
+
+    let client = resin_core::ResinClient::new("http://127.0.0.1:1", "t".into()).unwrap();
+    let out = orchestration_tick_impl(
+        &svc,
+        &client,
+        &db,
+        resin_core::orchestration::Autonomy::Auto,
+        "tok",
+    )
+    .await
+    .unwrap();
+    assert_eq!(out["enabled"], serde_json::json!(false));
+    assert_eq!(out["signals"], serde_json::json!(1));
+    let _ = std::fs::remove_dir_all(&dir);
+}

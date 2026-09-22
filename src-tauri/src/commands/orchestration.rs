@@ -41,7 +41,7 @@ fn rings() -> &'static Mutex<HashMap<String, VecDeque<bool>>> {
 
 /// Per-node engine `failure_count` rings: node_hash -> recent samples (one
 /// per region-metrics pass). The engine counter is cumulative, so the
-/// ok/err caliber windows it on the caller side (R12-03): a node is err only
+/// ok/err caliber windows it on the caller side: a node is err only
 /// when the counter GREW inside the window.
 static NODE_FC: OnceLock<Mutex<HashMap<String, VecDeque<i64>>>> = OnceLock::new();
 
@@ -58,12 +58,48 @@ pub fn effective_autonomy(
     sec.params.autonomy.unwrap_or(transport_default)
 }
 
+/// Collect SLI probe verdicts for EVERY platform owning >=1 enabled bound
+/// port, independent of the orchestration section: a disabled or absent
+/// controller must not blind the signal plane (the acceptance line reads
+/// these rings). One port-list read, then one probe per bound port —
+/// the pass is bounded by bound-port count. Rings for platforms that no
+/// longer own an enabled bound port are evicted here (rename/remove would
+/// otherwise leak them in-process forever).
+async fn collect_all_verdicts(
+    db: &DbPool,
+    slow_call_ms: u64,
+    proxy_token: &str,
+) -> HashMap<String, orch::WindowStats> {
+    let rows = db.list_ports().unwrap_or_default();
+    let mut by_platform: HashMap<String, Vec<PortMapping>> = HashMap::new();
+    for p in rows.into_iter().filter(|p| p.enabled) {
+        by_platform
+            .entry(p.platform_name.clone())
+            .or_default()
+            .push(p);
+    }
+    let mut out = HashMap::new();
+    for (name, ports) in &by_platform {
+        if let Some(v) = verdict_for_ports(name, ports, slow_call_ms, proxy_token, db).await {
+            out.insert(name.clone(), v);
+        }
+    }
+    match rings().lock() {
+        Ok(mut m) => m.retain(|k, _| by_platform.contains_key(k)),
+        Err(e) => {
+            let mut g = e.into_inner();
+            g.retain(|k, _| by_platform.contains_key(k));
+        }
+    }
+    out
+}
+
 /// Aggregate one platform's bound-port probes into this tick's verdict and
 /// push it into the sliding window. Returns the WindowStats for the
 /// evaluator, or None when the platform has no enabled bound ports (no
 /// signal source -> no evidence -> no action).
 ///
-/// Per port the verdict joins TWO independent SLI probes (R12-03):
+/// Per port the verdict joins TWO independent SLI probes:
 ///   loopback `port_health_check` - the shell listener is up and dialect-
 ///   coherent (cheap, no dataplane);
 ///   `probe_exit_ip` through the port - the real end-to-end egress path
@@ -73,23 +109,19 @@ pub fn effective_autonomy(
 /// The probe count is bounded by the platform's bound-port count (one per
 /// port, concurrently) and neither probe consults or mutates any engine-side
 /// orchestration switch - pure measurement.
-async fn collect_verdict(
-    db: &DbPool,
+async fn verdict_for_ports(
     platform_name: &str,
+    ports: &[PortMapping],
     slow_call_ms: u64,
     proxy_token: &str,
+    db: &DbPool,
 ) -> Option<orch::WindowStats> {
-    let rows = db.list_ports().ok()?;
-    let ports: Vec<PortMapping> = rows
-        .into_iter()
-        .filter(|p| p.platform_name == platform_name && p.enabled)
-        .collect();
     if ports.is_empty() {
         return None;
     }
     let total = ports.len() as u32;
     let mut set = tokio::task::JoinSet::new();
-    for p in ports {
+    for p in ports.iter().cloned() {
         let db2 = db.clone();
         let token = proxy_token.to_string();
         set.spawn(async move {
@@ -152,7 +184,7 @@ async fn collect_verdict(
 /// metrics). ok = has_outbound && the engine failure_count did not grow
 /// inside the caller-side window (NODE_FC ring; the engine counter is
 /// cumulative, so failure_count==0 would permanently disqualify recovered
-/// nodes - R12-03 caliber fix). `window` is the ring cap in samples.
+/// nodes). `window` is the ring cap in samples.
 fn region_metrics(
     nodes: &[resin_core::strategy_engine::NodeSummary],
     window: usize,
@@ -211,12 +243,28 @@ pub async fn orchestration_tick_impl(
     proxy_token: &str,
 ) -> Result<serde_json::Value, IpcError> {
     let config = svc.get().map_err(IpcError::from)?;
+
+    // Signal collection runs BEFORE the orchestration gates: the SLI probe
+    // pass is an independent bounded path (one probe per enabled bound
+    // port), not a parasite of the enabled switch — disabling orchestration
+    // parks the controller, it must not blind the signal plane.
+    let probe_slow_ms = config
+        .orchestration
+        .as_ref()
+        .map(|s| s.params.slow_call_ms)
+        .unwrap_or_else(|| orch::OrchestrationParams::default().slow_call_ms);
+    let verdicts = collect_all_verdicts(db, probe_slow_ms, proxy_token).await;
+
     let Some(mut sec) = config.orchestration.clone() else {
-        return Ok(serde_json::json!({ "enabled": false, "actions": [] }));
+        return Ok(serde_json::json!({
+            "enabled": false, "actions": [], "signals": verdicts.len()
+        }));
     };
     if !sec.params.enabled {
-        return Ok(serde_json::json!({ "enabled": false, "actions": [] }));
-    }
+        return Ok(serde_json::json!({
+            "enabled": false, "actions": [], "signals": verdicts.len()
+        }));
+    };
     let params = sec.params.clone();
     let autonomy = effective_autonomy(&sec, transport_default);
     let now = resin_core::whitebox_backup::now_unix();
