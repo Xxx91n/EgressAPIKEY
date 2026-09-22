@@ -562,9 +562,10 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
       }
     });
     // The change rides updateAndSync -> patchAndSync -> strategy_config_put;
-    // assert the persisted whitebox actually carries the new top_n.
+    // assert the persisted whitebox actually carries the new top_n (stored
+    // verbatim as the input's string value).
     await waitFor(() => {
-      expect(savedConfig?.platforms?.[0]?.top_n).toBe(25);
+      expect(savedConfig?.platforms?.[0]?.top_n).toBe("25");
     });
     unmount();
   });
