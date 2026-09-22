@@ -199,6 +199,8 @@ fn main() {
             commands::strategy_config_put,
             commands::strategy_apply,
             commands::strategy_platform_regions_set,
+            commands::strategy_platform_subscriptions_set,
+            commands::strategy_platform_manual_nodes_set,
             commands::reconcile_now,
             commands::strategy_backup_list,
             commands::strategy_rollback,

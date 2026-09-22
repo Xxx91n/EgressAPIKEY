@@ -10,7 +10,7 @@ regenerate via `node scripts/ipc-manifest-check.cjs --write`.
 # Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):
 # entries must equal the #[tauri::command] set under src-tauri/src AND the
 # generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.
-# Do not hand-edit entries. Regenerated: 2026-09-21 (85 commands)
+# Do not hand-edit entries. Regenerated: 2026-09-22 (87 commands)
 backup_create = src-tauri/src/commands/backup.rs
 backup_upload = src-tauri/src/commands/backup.rs
 backup_list = src-tauri/src/commands/backup.rs
@@ -92,6 +92,8 @@ strategy_config_get = src-tauri/src/commands/strategy.rs
 strategy_config_put = src-tauri/src/commands/strategy.rs
 strategy_apply = src-tauri/src/commands/strategy.rs
 strategy_platform_regions_set = src-tauri/src/commands/strategy.rs
+strategy_platform_subscriptions_set = src-tauri/src/commands/strategy.rs
+strategy_platform_manual_nodes_set = src-tauri/src/commands/strategy.rs
 authoritative_snapshot = src-tauri/src/commands/strategy.rs
 strategy_backup_list = src-tauri/src/commands/strategy.rs
 strategy_rollback = src-tauri/src/commands/strategy.rs

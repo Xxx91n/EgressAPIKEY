@@ -324,6 +324,16 @@
       "method": "PATCH",
       "path": "/api/v1/shell/strategy/regions"
     },
+    "strategy_platform_subscriptions_set": {
+      "status": "enabled",
+      "method": "PATCH",
+      "path": "/api/v1/shell/strategy/subscriptions"
+    },
+    "strategy_platform_manual_nodes_set": {
+      "status": "enabled",
+      "method": "PATCH",
+      "path": "/api/v1/shell/strategy/manual-nodes"
+    },
     "strategy_rollback": {
       "status": "enabled",
       "method": "POST",

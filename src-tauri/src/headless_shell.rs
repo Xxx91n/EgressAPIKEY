@@ -318,6 +318,72 @@ async fn strategy_regions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     }
 }
 
+/// PATCH /api/v1/shell/strategy/subscriptions {platform_name, subscriptions} -
+/// subscription-intent deep edit (ADR-0075), same sanctioned service write.
+async fn strategy_subscriptions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
+    let v = match json_body(&body).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    let platform_name = match str_arg(&v, "platform_name") {
+        Ok(s) => s,
+        Err(r) => return r,
+    };
+    let subscriptions: Vec<String> = match v.get("subscriptions") {
+        None => Vec::new(),
+        Some(r) => match serde_json::from_value(r.clone()) {
+            Ok(rs) => rs,
+            Err(_) => {
+                return port_err(
+                    StatusCode::BAD_REQUEST,
+                    "subscriptions must be an array of strings",
+                )
+            }
+        },
+    };
+    match ctx
+        .strategy
+        .set_platform_subscriptions(&platform_name, subscriptions)
+        .map_err(IpcError::from)
+    {
+        Ok(cfg) => axum::Json(cfg).into_response(),
+        Err(e) => port_ipc_err(&e),
+    }
+}
+
+/// PATCH /api/v1/shell/strategy/manual-nodes {platform_name, manual_nodes} -
+/// manual_nodes deep edit (ADR-0076 delete-projection write path).
+async fn strategy_manual_nodes_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
+    let v = match json_body(&body).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    let platform_name = match str_arg(&v, "platform_name") {
+        Ok(s) => s,
+        Err(r) => return r,
+    };
+    let manual_nodes: Vec<String> = match v.get("manual_nodes") {
+        None => Vec::new(),
+        Some(r) => match serde_json::from_value(r.clone()) {
+            Ok(rs) => rs,
+            Err(_) => {
+                return port_err(
+                    StatusCode::BAD_REQUEST,
+                    "manual_nodes must be an array of strings",
+                )
+            }
+        },
+    };
+    match ctx
+        .strategy
+        .set_platform_manual_nodes(&platform_name, manual_nodes)
+        .map_err(IpcError::from)
+    {
+        Ok(cfg) => axum::Json(cfg).into_response(),
+        Err(e) => port_ipc_err(&e),
+    }
+}
+
 async fn strategy_backups_h(ctx: Arc<PortCtx>) -> Response {
     match ctx
         .strategy
@@ -965,6 +1031,14 @@ pub fn shell_routes(ctx: Arc<PortCtx>) -> Router {
         .route(
             "/api/v1/shell/strategy/regions",
             patch(h!(strategy_regions_h)),
+        )
+        .route(
+            "/api/v1/shell/strategy/subscriptions",
+            patch(h!(strategy_subscriptions_h)),
+        )
+        .route(
+            "/api/v1/shell/strategy/manual-nodes",
+            patch(h!(strategy_manual_nodes_h)),
         )
         .route(
             "/api/v1/shell/strategy/backups",

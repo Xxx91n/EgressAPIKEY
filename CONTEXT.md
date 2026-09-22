@@ -569,14 +569,35 @@ ArgoCD notifications `when` + `oncePer`, AWS Config compliance-state
 transition SNS. Sidecar-down absence never notifies (ADR-0051).
 _Avoid_: one-shot notify, armed/re-arm, once per process
 
+### Subscription Intent
+
+The declaration "this platform routes through this subscription". Binding a
+platform to a subscription on the canvas (or via
+`strategy_platform_subscriptions_set`) records the subscription itself as
+the chosen strategy; the set of regions the subscription covers is a
+DERIVED PROJECTION computed by the strategy engine at apply time. A platform
+with a subscription bound draws unlabeled unconditional edges (see
+Strategy-Labeled Edge). Rejected the older "subscription group = a bundle of
+regions" reading, where dragging a subscription silently expanded into a
+hand-written region list: it desynchronized the recorded intent from the
+applied projection (ADR-0075).
+_Avoid_: region bundle, subscription expansion, subscription group drag-fill
+
 ### Strategy-Labeled Edge
 
 A topology canvas edge (B->C) annotated with the A-class strategy name that
-caused the connection: "manual", "region:US", "quality>75". Multiple edges
+caused the connection, in strategy:value form: "manual:N", "region:US",
+"quality>75", "subscription:subA". Labels mark the CONDITION that made the
+connection; an UNCONDITIONAL edge (platform with no subscription restriction)
+carries NO label, per the Kiali/Grafana/LangGraph convention that default
+flows stay unlabeled and only exceptions get annotated. For manual aClass,
+N = total manual_nodes on the platform; the edge targets every
+subscription/region group containing >=1 selected node_hash. Multiple edges
 from one platform to different nodes indicate multiple strategies coexist.
 Inspired by Kiali's edge labels for Istio routing rules. Auto-strategy edges
 are non-deletable; only manual edges can be dragged/deleted.
-_Avoid_: routing line, connection tag, policy edge
+_Avoid_: routing line, connection tag, policy edge, "all allowed" label
+(the all-allowed state renders as an unlabeled edge, not a label)
 
 ### Trace ID
 

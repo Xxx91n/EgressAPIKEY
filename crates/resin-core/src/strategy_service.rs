@@ -817,6 +817,108 @@ impl<S: StrategyConfigStore> StrategyService<S> {
         self.store(config)
     }
 
+    /// Deep edit used by the topology canvas: set (or create) one platform's
+    /// subscription-intent list in the whitebox, preserving every other
+    /// entry verbatim, and stamp a_class=Subscription (ADR-0075): the canvas
+    /// writes subscription INTENT; the engine derives the region projection
+    /// via a_class_regions at apply time - the view never expands
+    /// subscriptions into regions itself. Returns the stored document.
+    /// This is the sanctioned single-write path behind the
+    /// `strategy_platform_subscriptions_set` IPC.
+    pub fn set_platform_subscriptions(
+        &self,
+        platform_name: &str,
+        subscriptions: Vec<String>,
+    ) -> Result<StrategyConfig, String> {
+        if platform_name.is_empty() || platform_name.len() > MAX_PLATFORM_NAME_LEN {
+            return Err("platform_name must be 1..128 chars".to_string());
+        }
+        if subscriptions.len() > MAX_SUBSCRIPTIONS_PER_PLATFORM {
+            return Err(format!(
+                "subscriptions list too long (max {MAX_SUBSCRIPTIONS_PER_PLATFORM})"
+            ));
+        }
+        for s in &subscriptions {
+            if s.is_empty() || s.len() > MAX_PLATFORM_NAME_LEN {
+                return Err(format!(
+                    "subscription name invalid (1..{MAX_PLATFORM_NAME_LEN} chars): {s}"
+                ));
+            }
+            if s.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+                return Err("subscription name contains control characters".to_string());
+            }
+        }
+        let mut config = self.get()?;
+        match config
+            .platforms
+            .iter_mut()
+            .find(|ps| ps.platform_name == platform_name)
+        {
+            Some(ps) => {
+                ps.subscriptions = subscriptions;
+                ps.a_class = crate::strategy_engine::AClassStrategy::Subscription;
+            }
+            None => config.platforms.push(PlatformStrategy {
+                platform_name: platform_name.to_string(),
+                a_class: crate::strategy_engine::AClassStrategy::Subscription,
+                b_class: crate::strategy::StrategyId::Balanced,
+                manual_nodes: vec![],
+                regions: vec![],
+                subscriptions,
+                top_n: 10,
+            }),
+        }
+        self.store(config)
+    }
+
+    /// Deep edit used by the topology canvas: set one platform's
+    /// `manual_nodes` (selected node hashes) in the whitebox (ADR-0076).
+    /// Unlike the subscription path this does NOT re-stamp a_class on an
+    /// existing entry - manual_nodes only has meaning under a_class=Manual;
+    /// a newly created entry defaults to Manual. Returns the stored
+    /// document; sanctioned write path behind
+    /// `strategy_platform_manual_nodes_set`.
+    pub fn set_platform_manual_nodes(
+        &self,
+        platform_name: &str,
+        manual_nodes: Vec<String>,
+    ) -> Result<StrategyConfig, String> {
+        if platform_name.is_empty() || platform_name.len() > MAX_PLATFORM_NAME_LEN {
+            return Err("platform_name must be 1..128 chars".to_string());
+        }
+        if manual_nodes.len() > MAX_PLATFORMS {
+            return Err(format!("manual_nodes list too long (max {MAX_PLATFORMS})"));
+        }
+        for h in &manual_nodes {
+            if h.is_empty() || h.len() > MAX_PLATFORM_NAME_LEN {
+                return Err(format!(
+                    "manual node hash invalid (1..{MAX_PLATFORM_NAME_LEN} chars): {h}"
+                ));
+            }
+            if h.bytes().any(|b| b == 0 || b < 0x20 || b == 0x7f) {
+                return Err("manual node hash contains control characters".to_string());
+            }
+        }
+        let mut config = self.get()?;
+        match config
+            .platforms
+            .iter_mut()
+            .find(|ps| ps.platform_name == platform_name)
+        {
+            Some(ps) => ps.manual_nodes = manual_nodes,
+            None => config.platforms.push(PlatformStrategy {
+                platform_name: platform_name.to_string(),
+                a_class: crate::strategy_engine::AClassStrategy::Manual,
+                b_class: crate::strategy::StrategyId::Balanced,
+                manual_nodes,
+                regions: vec![],
+                subscriptions: vec![],
+                top_n: 10,
+            }),
+        }
+        self.store(config)
+    }
+
     /// record ONE subscription's establish-phase
     /// STATUS row (upsert by name). This is the sanctioned write path for the
     /// whitebox `subscriptions` status array — it re-enters `store` so the
@@ -1654,6 +1756,69 @@ mod tests {
         m_platforms.assert_async().await;
         m_patch.assert_async().await;
         let _ = std::fs::remove_file(&store_path);
+    }
+
+    // ---- set_platform_subscriptions / set_platform_manual_nodes (ADR-0075/0076) ----
+
+    #[test]
+    fn set_platform_subscriptions_writes_intent_and_stamps_class() {
+        let svc = StrategyService::new(FsStrategyStore::new(
+            std::env::temp_dir().join(format!("svc-subs-{}.json", std::process::id())),
+        ));
+        svc.set_platform_regions("Anthropic", vec!["HK".to_string()])
+            .unwrap();
+        svc.set_platform_subscriptions("Anthropic", vec!["sub-a".to_string()])
+            .unwrap();
+        let stored = svc.get().unwrap();
+        let p = &stored.platforms[0];
+        assert_eq!(
+            p.a_class,
+            crate::strategy_engine::AClassStrategy::Subscription
+        );
+        assert_eq!(p.subscriptions, vec!["sub-a".to_string()]);
+        // the write does NOT expand intent into a region projection
+        assert_eq!(p.regions, vec!["HK".to_string()]);
+    }
+
+    #[test]
+    fn set_platform_subscriptions_creates_entry_and_rejects_bad_inputs() {
+        let svc = StrategyService::new(FsStrategyStore::new(
+            std::env::temp_dir().join(format!("svc-subs2-{}.json", std::process::id())),
+        ));
+        svc.set_platform_subscriptions("NewPlat", vec!["s1".to_string()])
+            .unwrap();
+        assert_eq!(
+            svc.get().unwrap().platforms[0].a_class,
+            crate::strategy_engine::AClassStrategy::Subscription
+        );
+        assert!(svc.set_platform_subscriptions("", vec![]).is_err());
+        assert!(svc
+            .set_platform_subscriptions("A", vec!["bad".into()])
+            .is_err());
+        let many: Vec<String> = (0..65).map(|i| format!("s{i}")).collect();
+        assert!(svc.set_platform_subscriptions("A", many).is_err());
+    }
+
+    #[test]
+    fn set_platform_manual_nodes_preserves_existing_a_class() {
+        let svc = StrategyService::new(FsStrategyStore::new(
+            std::env::temp_dir().join(format!("svc-manual-{}.json", std::process::id())),
+        ));
+        svc.set_platform_regions("Anthropic", vec!["HK".to_string()])
+            .unwrap();
+        svc.set_platform_manual_nodes("Anthropic", vec!["h1".to_string(), "h2".to_string()])
+            .unwrap();
+        let p = svc.get().unwrap().platforms[0].clone();
+        assert_eq!(p.a_class, crate::strategy_engine::AClassStrategy::Region);
+        assert_eq!(p.manual_nodes, vec!["h1".to_string(), "h2".to_string()]);
+        // missing entry -> created with Manual
+        svc.set_platform_manual_nodes("Fresh", vec!["h9".to_string()])
+            .unwrap();
+        let f = svc.get().unwrap().platforms[1].clone();
+        assert_eq!(f.a_class, crate::strategy_engine::AClassStrategy::Manual);
+        assert!(svc
+            .set_platform_manual_nodes("A", vec!["x\x00".into()])
+            .is_err());
     }
 
     // ---- set_platform_regions (deep edit for the canvas) ----

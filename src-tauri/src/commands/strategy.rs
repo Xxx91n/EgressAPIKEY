@@ -212,6 +212,39 @@ pub async fn strategy_platform_regions_set(
     serde_json::to_value(&stored).map_err(|e| IpcError::from(e.to_string()))
 }
 
+/// deep edit: set one platform's subscription-intent list + stamp
+/// a_class=subscription (ADR-0075: the canvas writes subscription INTENT;
+/// the engine derives the region projection at apply time).
+#[tauri::command]
+pub async fn strategy_platform_subscriptions_set(
+    app: AppHandle,
+    platform_name: String,
+    subscriptions: Vec<String>,
+) -> Result<serde_json::Value, IpcError> {
+    validate_short_name(&platform_name, "platform")?;
+    let svc = strategy_service(&app)?;
+    let stored = svc
+        .set_platform_subscriptions(&platform_name, subscriptions)
+        .map_err(IpcError::from)?;
+    serde_json::to_value(&stored).map_err(|e| IpcError::from(e.to_string()))
+}
+
+/// deep edit: set one platform's manual_nodes list (ADR-0076 manual group
+/// edges delete-projection write path).
+#[tauri::command]
+pub async fn strategy_platform_manual_nodes_set(
+    app: AppHandle,
+    platform_name: String,
+    manual_nodes: Vec<String>,
+) -> Result<serde_json::Value, IpcError> {
+    validate_short_name(&platform_name, "platform")?;
+    let svc = strategy_service(&app)?;
+    let stored = svc
+        .set_platform_manual_nodes(&platform_name, manual_nodes)
+        .map_err(IpcError::from)?;
+    serde_json::to_value(&stored).map_err(|e| IpcError::from(e.to_string()))
+}
+
 /// Build the Service against the app config dir. The Service owns the only
 /// strategyConfig write path in the shell (ADR-0036 discipline).
 pub(crate) fn strategy_service(

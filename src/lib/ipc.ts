@@ -1407,6 +1407,55 @@ export async function ipcStrategyPlatformRegionsSet(
   return doc as StrategyConfig;
 }
 
+/// (ADR-0075): deep edit — set one platform's subscription-intent list
+/// through the StrategyService (stamps a_class=subscription server-side;
+/// the engine derives the region projection at apply time — the view never
+/// expands subscriptions into regions itself).
+export async function ipcStrategyPlatformSubscriptionsSet(
+  platformName: string,
+  subscriptions: string[],
+): Promise<StrategyConfig> {
+  assertShortName(platformName, "platform");
+  if (!Array.isArray(subscriptions) || subscriptions.length > 64) {
+    throw new Error("subscriptions list too long (max 64)");
+  }
+  for (const s of subscriptions) {
+    if (typeof s !== "string" || s.length === 0 || s.length > 128) {
+      throw new Error("subscription name invalid (1..128 chars)");
+    }
+  }
+  const raw = await invoke<unknown>("strategy_platform_subscriptions_set", { platformName, subscriptions });
+  const doc = raw as { version?: unknown; platforms?: unknown };
+  if (doc.version !== 1 || !Array.isArray(doc.platforms)) {
+    throw new Error("strategy_platform_subscriptions_set: unexpected response shape");
+  }
+  return doc as StrategyConfig;
+}
+
+/// (ADR-0076): deep edit — set one platform's manual_nodes (selected node
+/// hashes) through the StrategyService; used by the manual group-edge
+/// delete projection.
+export async function ipcStrategyPlatformManualNodesSet(
+  platformName: string,
+  manualNodes: string[],
+): Promise<StrategyConfig> {
+  assertShortName(platformName, "platform");
+  if (!Array.isArray(manualNodes) || manualNodes.length > 256) {
+    throw new Error("manual_nodes list too long (max 256)");
+  }
+  for (const h of manualNodes) {
+    if (typeof h !== "string" || h.length === 0 || h.length > 128) {
+      throw new Error("manual node hash invalid (1..128 chars)");
+    }
+  }
+  const raw = await invoke<unknown>("strategy_platform_manual_nodes_set", { platformName, manualNodes });
+  const doc = raw as { version?: unknown; platforms?: unknown };
+  if (doc.version !== 1 || !Array.isArray(doc.platforms)) {
+    throw new Error("strategy_platform_manual_nodes_set: unexpected response shape");
+  }
+  return doc as StrategyConfig;
+}
+
 // ---------------------------------------------------------------------------
 // authoritative effective-config snapshot
 // (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config Authority).

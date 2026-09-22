@@ -175,6 +175,8 @@ export const CMD_TO_HTTP: Record<string, HttpRoute> = {
   strategy_config_get: { method: "GET", path: "/api/v1/shell/strategy/config" },
   strategy_config_put: { method: "PUT", path: "/api/v1/shell/strategy/config", bodyArg: "config" },
   strategy_platform_regions_set: { method: "PATCH", path: "/api/v1/shell/strategy/regions", bodyKeys: { platformName: "platform_name" } },
+  strategy_platform_subscriptions_set: { method: "PATCH", path: "/api/v1/shell/strategy/subscriptions", bodyKeys: { platformName: "platform_name" } },
+  strategy_platform_manual_nodes_set: { method: "PATCH", path: "/api/v1/shell/strategy/manual-nodes", bodyKeys: { platformName: "platform_name", manualNodes: "manual_nodes" } },
   strategy_rollback: { method: "POST", path: "/api/v1/shell/strategy/rollback", bodyKeys: { backupName: "backup_name" } },
   strategy_verify: { method: "POST", path: "/api/v1/shell/strategy/verify", bodyKeys: { platformName: "platform_name", sampleCount: "sample_count" } },
   whitebox_backup_list: { method: "GET", path: "/api/v1/shell/whitebox/backups" },
