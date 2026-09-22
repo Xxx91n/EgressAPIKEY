@@ -34,8 +34,7 @@ const RING_CAP: usize = 64;
 
 /// Process-local verdict rings: platform_name -> recent typed tick
 /// verdicts (ADR-0080). In-memory by design; see module docs.
-static SIGNALS: OnceLock<Mutex<HashMap<String, VecDeque<orch::ProbeVerdict>>>> =
-    OnceLock::new();
+static SIGNALS: OnceLock<Mutex<HashMap<String, VecDeque<orch::ProbeVerdict>>>> = OnceLock::new();
 
 fn rings() -> &'static Mutex<HashMap<String, VecDeque<orch::ProbeVerdict>>> {
     SIGNALS.get_or_init(|| Mutex::new(HashMap::new()))
@@ -99,11 +98,7 @@ struct TickSignals {
 /// >=80% of all probed bound ports fail loopback, the tick is stamped
 /// environment_suspect for every probed platform — a local outage is one
 /// environmental event, never N platform failures.
-async fn collect_all_verdicts(
-    db: &DbPool,
-    slow_call_ms: u64,
-    proxy_token: &str,
-) -> TickSignals {
+async fn collect_all_verdicts(db: &DbPool, slow_call_ms: u64, proxy_token: &str) -> TickSignals {
     let rows = db.list_ports().unwrap_or_default();
     let mut by_platform: HashMap<String, Vec<PortMapping>> = HashMap::new();
     for p in rows.into_iter().filter(|p| p.enabled) {
@@ -249,8 +244,7 @@ async fn probe_platform_ports(
             batch.verdicts.push(orch::ProbeVerdict::Skipped);
             continue;
         };
-        let loopback_ok =
-            h.reachable && !h.protocol_mismatch && h.latency_ms <= slow_call_ms;
+        let loopback_ok = h.reachable && !h.protocol_mismatch && h.latency_ms <= slow_call_ms;
         let (egress_ok, egress_note) = match &egress {
             Ok(ep) => (
                 ep.status == 200 && !ep.exit_ip.is_empty() && ep.latency_ms <= slow_call_ms,

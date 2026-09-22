@@ -1314,10 +1314,19 @@ mod tests {
 
     #[test]
     fn verdict_streak_truncates_at_suspect() {
-        let ring = ring_of(&[PV::LocalFail, PV::EnvironmentSuspect, PV::LocalFail, PV::LocalFail]);
+        let ring = ring_of(&[
+            PV::LocalFail,
+            PV::EnvironmentSuspect,
+            PV::LocalFail,
+            PV::LocalFail,
+        ]);
         assert_eq!(verdict_streak(&ring, PV::LocalFail), 2);
         assert_eq!(verdict_streak(&ring, PV::EnvironmentSuspect), 0);
-        let ring2 = ring_of(&[PV::LocalFail, PV::EnvironmentSuspect, PV::EnvironmentSuspect]);
+        let ring2 = ring_of(&[
+            PV::LocalFail,
+            PV::EnvironmentSuspect,
+            PV::EnvironmentSuspect,
+        ]);
         assert_eq!(verdict_streak(&ring2, PV::EnvironmentSuspect), 2);
     }
 
@@ -1357,10 +1366,7 @@ mod tests {
         );
         assert_eq!(v["suspect_streak"], serde_json::json!(3));
         let back: OrchestrationSection = serde_json::from_value(v).unwrap();
-        assert_eq!(
-            back.signal_verdicts["P1"],
-            ProbeVerdict::EnvironmentSuspect
-        );
+        assert_eq!(back.signal_verdicts["P1"], ProbeVerdict::EnvironmentSuspect);
         // absent fields default clean (zero-migration discipline)
         let bare: OrchestrationSection = serde_json::from_str("{}").unwrap();
         assert!(bare.signal_verdicts.is_empty());
