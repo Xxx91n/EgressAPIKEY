@@ -20,7 +20,7 @@ import {
   ipcWatchPortHealth, type PortHealthEntry,
   ipcAuthoritativeSnapshot, type AuthoritativeSnapshot,
 } from "../lib/ipc";
-import { loadTopologyState, saveTopologyState, type TopologyState as T15TopologyState } from "../lib/settings";
+import { loadTopologyState, saveTopologyState, type TopologyState as PersistedTopologyState } from "../lib/settings";
 import { mapResinToShell, bClassLabel as bClassLabelFn, type StrategyId, type AllocationPolicy } from "../lib/strategy";
 import { listen } from "@tauri-apps/api/event";
 import type { ColorMode } from "@xyflow/react";
@@ -224,7 +224,7 @@ export function buildCColumnGroups(
   t: (key: string, opts?: Record<string, unknown>) => string,
 ): Node[] {
   const list: Node[] = [];
-// (ADR-0041 S1): viewMode guard — only push subscriptionGroup nodes when
+  // (ADR-0041 S1): viewMode guard — only push subscriptionGroup nodes when
   // viewMode === "subscription". In region viewMode they would be edgeless and
   // dagre would scatter them near the entry-port column (the "port column stray
   // nodes" bug). Region viewMode builds its own regionGroup nodes below.
@@ -1080,7 +1080,7 @@ function TopologyCanvas() {
     if (!ready) return;
     void (async () => {
       try {
-        const ts = await loadTopologyState() as T15TopologyState | null;
+        const ts = await loadTopologyState() as PersistedTopologyState | null;
         await saveTopologyState({ x: ts?.x ?? 0, y: ts?.y ?? 0, zoom: ts?.zoom ?? 1, viewMode, locked });
       } catch { /* vitest */ }
     })();
@@ -1189,10 +1189,10 @@ function TopologyCanvas() {
         },
       });
     });
-// (ADR-0041 S1): C-column subscriptionGroup/regionGroup nodes are built by the
+    // (ADR-0041 S1): C-column subscriptionGroup/regionGroup nodes are built by the
     // extracted `buildCColumnGroups` helper so a vitest can assert the viewMode guard directly
     // without driving jsdom-rendered ReactFlow custom-node DOM (which does not stamp C-column
- // nodes reliably). See docs/adr/0041-canvas-v4-node-pool-toolbars-merge.md §S1.
+    // nodes reliably). See docs/adr/0041-canvas-v4-node-pool-toolbars-merge.md §S1.
     const cNodes = buildCColumnGroups(viewMode, subGroups, platforms, t);
     list.push(...cNodes);
     return list;
@@ -1219,8 +1219,8 @@ function TopologyCanvas() {
     return layoutNodesViaDagre(rawNodes, edges);
   }, [rawNodes, edges]);
 
-  
-// (ADR-0052): update platform region_filters through the
+
+  // (ADR-0052): update platform region_filters through the
   // StrategyService deep IPC (strategy_platform_regions_set). The view no
   // longer reads/edits/derives the strategyConfig JSON shape itself — one
   // call sets regions whitebox-side, then strategy_apply enforces it on Resin.
