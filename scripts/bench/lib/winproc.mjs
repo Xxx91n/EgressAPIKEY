@@ -1,6 +1,6 @@
 // Whole-process-tree WorkingSet/RSS sampler rooted at a spawned PID.
 //
-// Attribution model (r12-wave-a D-002 / R12-00): the desktop app's process
+// Attribution model (D-002): the desktop app's process
 // tree is bounded by DESCENDANCY from the spawned root PID - never by
 // process-name globbing. WebView2 ships a shared runtime (msedgewebview2)
 // whose processes are pooled per user-data-dir and can be re-parented across

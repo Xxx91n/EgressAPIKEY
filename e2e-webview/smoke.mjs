@@ -1,18 +1,19 @@
-// Real-WebView smoke (R12-02, merged into R12-00): drives the CI-built
+// Real-WebView smoke: drives the CI-built
 // portable exe through the embedded WebDriver server compiled in by
 // --features "custom-protocol wdio-smoke" (tauri-plugin-wdio-webdriver listens
 // on TAURI_WEBDRIVER_PORT; tauri-plugin-wdio backs browser.tauri.execute).
 //
 // Report-only harness: assertions are recorded into smoke-results.json and
-// printed; the process exits non-zero on failure so the CI step reports it,
-// but the workflow marks the job continue-on-error (never a PR gate).
+// printed; the process exits non-zero on failure. Report-only semantics come
+// from the trigger design, not a job flag: the workflow runs on post-merge
+// pushes and nightly only, so a failure is evidence on main, never a PR gate.
 //
 //   S1 window up     - webview session opens + document title == EgressAPIKEY
 //                      (+ MainWindowTitle on win32 - the ADR-0072 liveness)
 //   S2 nav switch    - Topology -> Settings renders the network save control
 //   S3 ipc roundtrip - port_list returns an array through the real IPC bridge
 //   S4 remove path   - platform_add -> card renders -> UI delete -> gone
-//                      (F-11: the weakened e2e remove assertion, restored)
+//                      (the previously weakened e2e remove assertion, restored)
 //   S5 glyph matrix  - ar/hi/th locales: no horizontal overflow, nav intact,
 //                      one screenshot per locale (uploaded as CI artifact)
 //
@@ -102,7 +103,7 @@ const killTree = () => {
     } else {
       child.kill("SIGKILL");
     }
-  } catch {}
+  } catch { }
 };
 
 let browser = null;
@@ -183,7 +184,7 @@ try {
     }
   }
 
-  // ---- S4: platform remove path (F-11 restore) -------------------------------
+  // ---- S4: platform remove path -------------------------------
   {
     const name = `smoke-${Date.now().toString(36)}`;
     try {
@@ -258,7 +259,7 @@ try {
         const shot = path.join(OUT_DIR, `locale-${loc}.png`);
         try {
           fs.writeFileSync(shot, await browser.takeScreenshot(), "base64");
-        } catch {}
+        } catch { }
       } catch (e) {
         per[loc] = { ok: false, error: String(e).slice(0, 200) };
         allOk = false;
@@ -272,7 +273,7 @@ try {
         Object.getOwnPropertyDescriptor(proto, "value").set.call(sel, "en");
         sel.dispatchEvent(new Event("change", { bubbles: true }));
       });
-    } catch {}
+    } catch { }
     record("s5-glyph-matrix", allOk, per);
   }
 } catch (e) {
@@ -281,7 +282,7 @@ try {
 } finally {
   try {
     await browser?.deleteSession();
-  } catch {}
+  } catch { }
   killTree();
   results.meta.finishedAt = new Date().toISOString();
   results.passed = Object.values(results.assertions).filter((a) => a.pass).length;

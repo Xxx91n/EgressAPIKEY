@@ -1,4 +1,4 @@
-# Real-WebView smoke (R12-02, merged into R12-00) — drives the CI-built
+# Real-WebView smoke — drives the CI-built
 # portable exe through the embedded WebDriver server (tauri-plugin-wdio-
 # webdriver, feature wdio-smoke). Triggered post-merge + nightly + manual;
 # NEVER a PR gate — assertion failures turn the run red as the report.

@@ -1,7 +1,7 @@
 {
   "_comment": "r12-wave-a acceptance line (D-001/D-002): dual threshold (target/danger) per deployment profile. kind=measure rows are RECORDED-ONLY - a breach is evidence, never a job failure; kind=assert/smoke rows are the only hard-fails under --gate enforce. Absolute-memory rows carry dagger-provisional values until the self-hosted representative run locks them. Mode B SSE buffering is a Registered Exemption, not a failure.",
   "schema": 2,
-  "basis": "r12-wave-a-grill decision-ledger D-001/D-002 (+D-005 fix-1); supersedes round8 D-004 single-threshold budget table",
+  "basis": "decision-ledger D-001/D-002 (+D-005 fix-1); supersedes the prior D-004 single-threshold budget table",
   "state": "legislated-provisional",
   "measuredAt": null,
   "ciRun": null,
@@ -14,7 +14,8 @@
     "memUnitLinux": "VmRSS (peak + p95 over steady window, warmup excluded)",
     "memUnitWindows": "WorkingSet64 descendant-tree sum from the spawned app PID (never process-name matching - WebView2 is a shared runtime)",
     "loadContext": "200 concurrent SSE streams through one mixed entry endpoint",
-    "sharedRunnerRule": "windows-latest/ubuntu-latest numbers are warn-only reference columns; absolute gates activate on the self-hosted representative run only"
+    "sharedRunnerRule": "windows-latest/ubuntu-latest numbers are warn-only reference columns; absolute gates activate on the self-hosted representative run only",
+    "sutScope": "the bench spawns the data-plane set only (resin sidecar + bench-forwarder when --forwarder resolves). VPS-profile full tree (egressapikey-headless) and desktop tree (Tauri+WebView2) idle/startup numbers are covered by phaseApp/appstart on the windows leg and by deployment smoke, not by phases.idle"
   },
   "items": [
     {
@@ -32,28 +33,16 @@
       "lockedState": "fail"
     },
     {
-      "id": "sse-eventgap-goodratio-10ms",
+      "id": "sse-eventgap-goodratio",
       "kind": "measure",
-      "desc": "SSE event-gap added delta: good-event ratio @10ms (Mode A shell CONNECT tunnel; Mode B exempt)",
+      "desc": "SSE event-gap added delta: good-event ratio, single metric two layers - target @10ms window (warn), danger @500ms window (breach). Mode A shell CONNECT tunnel; Mode B exempt.",
       "op": ">=",
       "target": 0.99,
-      "danger": null,
+      "danger": 0.99,
+      "dangerMeasure": "phases.sse.modeA.goodEventRatio500ms",
       "unit": "ratio",
       "scope": "desktop",
       "measure": "phases.sse.modeA.goodEventRatio10ms",
-      "locked": null,
-      "lockedState": "pending"
-    },
-    {
-      "id": "sse-eventgap-goodratio-500ms",
-      "kind": "measure",
-      "desc": "SSE event-gap added delta: good-event ratio @500ms danger line (Mode A)",
-      "op": ">=",
-      "target": 0.99,
-      "danger": null,
-      "unit": "ratio",
-      "scope": "desktop",
-      "measure": "phases.sse.modeA.goodEventRatio500ms",
       "locked": null,
       "lockedState": "pending"
     },
@@ -133,7 +122,7 @@
     {
       "id": "idle-rss-mb",
       "kind": "measure",
-      "desc": "sidecar idle RSS steady state (provisional until representative hardware)",
+      "desc": "idle RSS of the bench SUT process set (sidecar + shell forwarder when the Mode A leg ran) steady state - provisional until representative hardware; the VPS deployment tree (egressapikey-headless + sidecar) is out of this harness's spawn scope, caliber recorded in env.sutScope",
       "op": "<=",
       "target": 80,
       "danger": 120,
@@ -146,7 +135,7 @@
     {
       "id": "soak-rss-mb",
       "kind": "measure",
-      "desc": "sidecar RSS at 200 concurrent SSE streams (provisional)",
+      "desc": "SUT process set RSS at 200 concurrent SSE streams (sidecar + forwarder; provisional)",
       "op": "<=",
       "target": 128,
       "danger": 250,
@@ -180,6 +169,16 @@
       "measure": "phases.app.totalMB.p95",
       "locked": 567.77,
       "lockedState": "fail"
+    },
+    {
+      "id": "appstart-title-p50-ms",
+      "kind": "measure",
+      "desc": "cold start -> MainWindowTitle ready, N runs p50 (median, same distribution as the p95 row)",
+      "op": "measure-only",
+      "target": null,
+      "unit": "ms",
+      "scope": "desktop",
+      "measure": "phases.appstart.coldStartMs.p50"
     },
     {
       "id": "appstart-title-p95-ms",
@@ -219,6 +218,11 @@
     "state": "legislated-provisional",
     "measuredAt": "2026-09-22",
     "evidence": "locks carried from bench-results/results.json local run 2026-09-14 (results.ci=null); first CI bench.yml dispatch with the new harness supersedes them",
-    "resinSha256": "b76dbab7c505d959d5fc52368ccafa96b4e76c9b240382bef5df5e993c032ecc"
+    "resinSha256": "b76dbab7c505d959d5fc52368ccafa96b4e76c9b240382bef5df5e993c032ecc",
+    "decisions": [
+      "assert rows beyond the legislated set are implementation decisions, registered here: appstart-title-match (every cold-start launch reaches the window title - the acceptance line's own smoke semantics), soak-200-streams-alive (all streams connected + zero unexpected closes), rps-error-rate (kind=measure, never hard-fails). They hard-fail only under --gate enforce; the default warn gate keeps them as recorded evidence.",
+      "sse-eventgap-goodratio expresses the legislated single-metric two-layer caliber via dangerMeasure (same ratio, wider 500ms window for the danger layer)",
+      "idle-rss-mb/soak-rss-mb scope = bench SUT process set (sidecar + forwarder); the full VPS deployment tree (headless shell + sidecar) is outside this component-level harness - recorded as env.sutScope"
+    ]
   }
 }

@@ -70,7 +70,7 @@ fn main() {
                 .with_default_subscriber()
                 .build(),
         );
-    // R12-00: embedded WebDriver server for the webview-smoke CI harness.
+    // Embedded WebDriver server for the webview-smoke CI harness.
     // Feature-gated - shipped builds never carry a remote-control surface.
     #[cfg(feature = "wdio-smoke")]
     let builder = builder
@@ -96,7 +96,7 @@ fn main() {
                 if let Some(ctrl) = window.app_handle().try_state::<LightweightController>() {
                     let app = window.app_handle().clone();
                     ctrl.try_enter_lightweight(move || {
-                        tracing::info!("T14-2: lightweight timer fired; destroying webview");
+ tracing::info!("lightweight timer fired; destroying webview");
                         if let Some(w) = app.get_webview_window("main") {
                             let _ = w.destroy();
                         }
@@ -273,7 +273,7 @@ fn main() {
             };
             app.manage(db.clone());
             // Phase 2: multi-port forwarder (ADR-0012, re-materialised by
-            // ADR-0068 D1 / ticket 17). Port = identity: the desktop shell
+ // ADR-0068 D1). Port = identity: the desktop shell
             // runs Data-Plane Mode A - it binds each enabled entry port,
             // sniffs the dialect, and injects Platform.Account:proxy_token
             // toward the Resin consolidated port. headless stays Mode B.
@@ -347,7 +347,7 @@ fn main() {
                     tauri::async_runtime::spawn(async move {
                         if let Some(sidecar) = handle_restore.try_state::<SidecarHandle>() {
                             if let Err(e) = commands::restore_ports_from_whitebox(&sidecar, &store_restore, &fwd_restore).await {
-                                tracing::warn!(error = %e, "T18-6: Resin port restore from whitebox failed; endpoints may be missing until user re-saves");
+ tracing::warn!(error = %e, "Resin port restore from whitebox failed; endpoints may be missing until user re-saves");
                             }
                         }
                     });

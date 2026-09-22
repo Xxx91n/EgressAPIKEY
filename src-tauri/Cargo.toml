@@ -40,7 +40,7 @@ http-body-util = { workspace = true }
 bytes = { workspace = true }
 clap = { workspace = true }
 dirs = { workspace = true }
-# (A-007): OS CSPRNG for the headless --auth-token and the sidecar admin
+# OS CSPRNG for the headless --auth-token and the sidecar admin
 # token. getrandom 0.2.17 is already present in Cargo.lock as a transitive
 # dependency, so this adds no new crate to the dependency tree.
 getrandom = "0.2"
@@ -75,8 +75,7 @@ tauri-plugin-single-instance = "2"
 # appender to the OS log dir (Re7) + stdout. Replaces tauri-plugin-log so the
 # whole codebase (resin-core + shell) uses one `tracing` pipeline (Re7/Re6).
 tauri-plugin-tracing = "0.3"
-# Embedded WebDriver server for the webview-smoke CI harness (R12-02, merged
-# into R12-00). Optional + feature-gated: release builds never carry a
+# Embedded WebDriver server for the webview-smoke CI harness. Optional + feature-gated: release builds never carry a
 # remote-control surface. The capability file that references it
 # (wdio-webdriver:default) is copied into capabilities/ by the smoke workflow
 # only - a normal build never sees an unknown permission.

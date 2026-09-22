@@ -34,7 +34,7 @@ function readWindowsProc(pid) {
         "-NoProfile",
         "-Command",
         `$p=Get-Process -Id ${pid} -ErrorAction SilentlyContinue;` +
-          `if($p){($p.WorkingSet64,$p.CPU) -join ','}`,
+        `if($p){($p.WorkingSet64,$p.CPU) -join ','}`,
       ],
       { timeout: 5000 },
       (err, stdout) => {
@@ -48,8 +48,11 @@ function readWindowsProc(pid) {
 }
 
 export class Sampler {
-  constructor(pid, intervalMs = 1000) {
-    this.pid = pid;
+  // Accepts a single pid or an array of pids (the bench SUT process set).
+  // With multiple pids each tick sums RSS and jiffies across the set —
+  // the "whole process tree" caliber for the idle/load windows.
+  constructor(pids, intervalMs = 1000) {
+    this.pids = (Array.isArray(pids) ? pids : [pids]).filter((p) => p != null);
     this.intervalMs = intervalMs;
     this.samples = []; // {t, rssBytes, cpuCores}
     this.timer = null;
@@ -62,25 +65,48 @@ export class Sampler {
     const t = Date.now();
     try {
       if (process.platform === "win32") {
-        const r = await readWindowsProc(this.pid);
-        if (!r) return;
+        let rssBytes = 0;
+        let cpuSeconds = 0;
+        let live = 0;
+        for (const pid of this.pids) {
+          const r = await readWindowsProc(pid);
+          if (!r) continue;
+          live++;
+          rssBytes += r.rssBytes;
+          cpuSeconds += r.cpuSeconds;
+        }
+        if (live === 0) return;
         let cpuCores = 0;
         if (this._prevCpu != null) {
-          cpuCores = Math.max(0, (r.cpuSeconds - this._prevCpu) / ((t - this._prevT) / 1000));
+          cpuCores = Math.max(0, (cpuSeconds - this._prevCpu) / ((t - this._prevT) / 1000));
         }
-        this._prevCpu = r.cpuSeconds;
+        this._prevCpu = cpuSeconds;
         this._prevT = t;
-        this.samples.push({ t, rssBytes: r.rssBytes, cpuCores });
+        this.samples.push({ t, rssBytes, cpuCores });
       } else {
-        const rssBytes = readLinuxRss(this.pid);
-        const jif = readLinuxJiffies(this.pid);
+        let rssBytes = 0;
+        let jif = 0;
+        let live = 0;
+        for (const pid of this.pids) {
+          try {
+            const r = readLinuxRss(pid);
+            const j = readLinuxJiffies(pid);
+            if (r != null) {
+              live++;
+              rssBytes += r;
+            }
+            if (j != null) jif += j;
+          } catch {
+            // dead pid inside the set — excluded from this tick
+          }
+        }
         let cpuCores = 0;
         if (this._prevCpu != null) {
           cpuCores = Math.max(0, (jif - this._prevCpu) / CLK_TCK / ((t - this._prevT) / 1000));
         }
         this._prevCpu = jif;
         this._prevT = t;
-        if (rssBytes != null) this.samples.push({ t, rssBytes, cpuCores });
+        if (live > 0) this.samples.push({ t, rssBytes, cpuCores });
       }
     } catch {
       this.errors++;
@@ -149,7 +175,7 @@ export function sampleProcessTreeMB(namePatterns, opts = {}) {
               const m = /VmRSS:\s*(\d+)\s*kB/.exec(s);
               if (m) total += Number(m[1]) / 1024;
             }
-          } catch {}
+          } catch { }
         }
         resolve(total ? { totalMB: total, perName: null } : null);
       } catch {

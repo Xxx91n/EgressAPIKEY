@@ -84,7 +84,7 @@ const children = [];
 const results = {
   meta: {
     tool: "scripts/bench/run-bench.mjs",
-    basis: "r12-wave-a D-002 acceptance line (supersedes round8 D-004)",
+ basis: "D-002 acceptance line (supersedes D-004)",
     startedAt: new Date().toISOString(),
     duration: DURATION,
     gate: GATE,
@@ -134,11 +134,15 @@ async function resinRssMB(pid) {
 // ---- phases ---------------------------------------------------------------
 
 async function phaseIdle(ctx) {
+  // Whole-SUT idle caliber: every data-plane process the bench spawned —
+  // sidecar + shell forwarder when present (the VPS profile's real tree is
+  // egressapikey-headless + sidecar; this harness measures the data-plane
+  // set it actually drives, see acceptance.json env note).
   await sleep(15000); // settle past startup churn
-  const s = new Sampler(ctx.resinPid, 2000).start();
+  const s = new Sampler(ctx.sutPids ?? [ctx.resinPid], 2000).start();
   await sleep(60000);
   const st = await s.stop();
-  return { windowS: 60, rssMB: st.rssMB, cpuCores: st.cpuCores, cpuPct: st.cpuPctOfOneCore, n: st.n };
+  return { windowS: 60, rssMB: st.rssMB, cpuCores: st.cpuCores, cpuPct: st.cpuPctOfOneCore, n: st.n, pids: ctx.sutPids ?? [ctx.resinPid] };
 }
 
 async function phaseHealthz(ctx) {
@@ -171,7 +175,7 @@ async function phaseApp(ctx) {
   // Attribution is parentage, never process-name matching: WebView2
   // (msedgewebview2) is a shared runtime whose processes pool per
   // user-data-dir and re-parent across app boundaries, so a name glob would
-  // count other apps' webview processes (r12-wave-a D-002).
+ // count other apps' webview processes (D-002).
   if (process.platform !== "win32") {
     return { skipped: "whole-app steady-state is measured on the windows job" };
   }
@@ -258,6 +262,12 @@ function evalGates(acc) {
     const measured =
       resolvePath(results, item.measure) ??
       (item.measureAlt ? resolvePath(results, item.measureAlt) : undefined);
+    // Two-layer single-metric calibers may carry a separate measure path
+    // for the danger layer (e.g. the same good-event ratio evaluated at a
+    // wider threshold window).
+    const dangerMeasured = item.dangerMeasure
+      ? resolvePath(results, item.dangerMeasure) ?? measured
+      : measured;
     const kind = item.kind ?? "measure";
     const target = item.target ?? item.threshold;
     const danger = item.danger ?? null;
@@ -277,7 +287,7 @@ function evalGates(acc) {
       status = "n/a";
     } else if (cmp(measured, target)) {
       status = "pass";
-    } else if (danger != null && cmp(measured, danger)) {
+    } else if (danger != null && dangerMeasured != null && cmp(dangerMeasured, danger)) {
       status = "degraded"; // between target and danger line
     } else {
       status = "breach";
@@ -393,6 +403,7 @@ async function main() {
     upStatsUrl: `http://127.0.0.1:${up.port}/__stats`,
     resinPid: resin.pid,
     resin,
+    sutPids: [resin.pid, forwarder?.pid].filter((p) => p != null),
     apiPort,
     bin,
     cpuPin,

@@ -1,4 +1,4 @@
-// SSE measurement + the four hard behavior assertions (r12-wave-a D-002):
+// SSE measurement + the four hard behavior assertions (D-002):
 //   TTFB added latency (paired direct vs proxied first-event delta) p95 <=5ms
 //   event-gap added delta as a GOOD-EVENT RATIO (<=10ms @>=99% target /
 //     <=500ms @>=99% danger) - Mode A shell CONNECT tunnel only; the Mode B

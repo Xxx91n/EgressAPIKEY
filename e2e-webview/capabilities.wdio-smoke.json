@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "wdio-smoke",
-  "description": "Webview-smoke CI capability (R12-00/R12-02): copied into src-tauri/capabilities/ by webview-smoke.yml ONLY, so release builds never reference the wdio plugins' ACL entries. Grants the embedded WebDriver server's manifest (no IPC perms) plus the wdio plugin's execute surface.",
+  "description": "Webview-smoke CI capability: copied into src-tauri/capabilities/ by webview-smoke.yml ONLY, so release builds never reference the wdio plugins' ACL entries. Grants the embedded WebDriver server's manifest (no IPC perms) plus the wdio plugin's execute surface.",
   "windows": ["main"],
   "permissions": [
     "wdio-webdriver:default",
