@@ -33,7 +33,7 @@ Re-open the trim adjudication when ANY line fires:
 | pending.diff/reason English strings in UI (F-10) | orchestration pending payloads render Rust English text raw — i18n-ify when a second consumer or a locale-quality complaint lands | recorded observation |
 | NODE_FC counter-window semantics (C8, r12-wave-b D-003) | Degraded platform finds ZERO candidates because every node flagged err >=1 occurrence -> rework to timestamped fixed-duration sliding window; verdict: tolerable-with-hole (conservative over-exclusion, no wrong switches). NOTE: no node-level self-heal path exists (cooldown is platform-level; unlike Envoy max_ejection_percent there is no evacuation floor) - the trigger IS the safety net | registered-exemption, armed |
 | strategy_service split preemption (r12-wave-b D-001, extends wave-a D-003-7) | line-count headroom < 200 (currently 3575/4000) OR a feature ticket must touch the file -> split ticket preempts the feature ticket | parked, armed |
-| paired_request_added_latency_p95 flake (C9) | empirical count: >=2 observed flakes in CI -> promote to fix ticket (isolated passes; timing-sensitive under parallel load) | observing |
+| paired_request_added_latency_p95 flake (C9) | empirical count: >=2 observed flakes in CI -> promote to fix ticket (isolated passes; timing-sensitive under parallel load) | observing (0 confirmed hits this round as of 2026-09-22 - the only observed CI failure was webview-smoke, a distinct harness defect fixed under R12-B3) |
 
 ## R12-04 closed observations (verdicts, no trigger line needed)
 
