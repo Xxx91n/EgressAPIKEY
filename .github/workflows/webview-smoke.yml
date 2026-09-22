@@ -1,0 +1,113 @@
+# Real-WebView smoke (R12-02, merged into R12-00) — drives the CI-built
+# portable exe through the embedded WebDriver server (tauri-plugin-wdio-
+# webdriver, feature wdio-smoke). Triggered post-merge + nightly + manual;
+# NEVER a PR gate — assertion failures turn the run red as the report.
+#
+# Matrix: windows-latest (WebView2) + ubuntu-latest (WebKitGTK under xvfb).
+# macOS gap is documented in docs/how-to/PERF-BENCH.md (the embedded provider
+# technically supports it; runner cost keeps it out of this round's matrix).
+name: webview-smoke
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "30 3 * * *" # nightly
+  workflow_dispatch: {}
+
+# Post-merge/nightly evidence runner: superseded runs on the same ref cancel,
+# but never cancel a manual dispatch.
+concurrency:
+  group: webview-smoke-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+permissions: {}
+
+jobs:
+  smoke:
+    name: webview smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: EgressAPIKEY.exe
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin: EgressAPIKEY
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          key: webview-smoke-${{ matrix.os }}
+
+      - name: install Linux GUI deps (build-time link + xvfb display)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential xvfb
+
+      - name: fetch Resin sidecar binary (externalBin prereq)
+        shell: bash
+        run: bash scripts/fetch_resin.sh
+
+      - name: frontend deps + dist
+        run: pnpm install --frozen-lockfile && pnpm build
+
+      # The wdio capability file lives in e2e-webview/ and is copied in ONLY
+      # for this build - a release build never references the plugins' ACL.
+      - name: stage wdio-smoke capability
+        shell: bash
+        run: cp e2e-webview/capabilities.wdio-smoke.json src-tauri/capabilities/
+
+      - name: build portable exe (custom-protocol + embedded webdriver)
+        shell: bash
+        run: npx --no-install tauri build --no-bundle --features "custom-protocol wdio-smoke" --target ${{ matrix.target }}
+
+      - name: run smoke (report-only)
+        id: smoke
+        shell: bash
+        env:
+          APP_EXE: target/${{ matrix.target }}/release/${{ matrix.bin }}
+          TAURI_WEBDRIVER_PORT: "4445"
+          OUT_DIR: webview-smoke-results
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            xvfb-run -a node e2e-webview/smoke.mjs
+          else
+            node e2e-webview/smoke.mjs
+          fi
+
+      - name: smoke summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## webview-smoke (${{ matrix.os }})" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f webview-smoke-results/smoke-results.json ]; then
+            node -e 'const r=require("./webview-smoke-results/smoke-results.json");console.log("\n**"+r.passed+"/"+r.total+" assertions passed**\n");console.log("| assertion | result | detail |\n|---|---|---|");for(const [k,v] of Object.entries(r.assertions))console.log(`| ${k} | ${v.pass?"✅":"❌"} | ${JSON.stringify(v).slice(0,140).replaceAll("|","/")} |`);console.log("");' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "no smoke-results.json (harness died before writing)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webview-smoke-${{ matrix.os }}-${{ github.sha }}
+          path: webview-smoke-results/
+          retention-days: 30

@@ -38,3 +38,20 @@ assets:
   darwin-amd64: "resin-darwin-amd64.tar.gz"
   linux-arm64: "resin-linux-arm64.tar.gz"
   linux-amd64: "resin-linux-amd64.tar.gz"
+# ---------------------------------------------------------------------------
+# Registered Exemption (r12-wave-a D-002 / R12-00; removal condition required):
+#   id:      mode-b-sse-buffering
+#   scope:   forward-GET response path (resin/internal/proxy/forward.go) -
+#            io.Copy(w, resp.Body) without a Flush, so SSE over the Mode B
+#            forward path is buffered in ~2-4KB windows (measured:
+#            proxySpread~0 vs CONNECT-tunnel spread~1.0).
+#   gate:    the SSE event-gap acceptance line gates the Mode A shell CONNECT
+#            tunnel only; the Mode B numbers are recorded as evidence, never
+#            asserted.
+#   removal: upstream implements per-event flush on the forward path -> delete
+#            this note, the acceptance.json exempt row, and the PERF-BENCH.md
+#            Known-measured-behavior paragraph together.
+known_exemptions:
+  - id: mode-b-sse-buffering
+    since: "r12-wave-a (2026-09-22)"
+    removal_condition: "upstream per-event flush on the forward-GET path"

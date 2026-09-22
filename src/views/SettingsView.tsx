@@ -500,6 +500,7 @@ export function SettingsView() {
             value={locale}
             onChange={(e) => void changeLocale(e.target.value as Locale)}
             className={selectCls}
+            data-testid="settings-locale-select"
           >
             {LOCALES.map((lc) => (
               <option key={lc} value={lc}>

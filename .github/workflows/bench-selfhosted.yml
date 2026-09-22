@@ -51,6 +51,15 @@ jobs:
         run: bash scripts/fetch_resin.sh
         shell: bash
 
+      # Mode A shell forwarder (desktop-profile SSE legs); skipped silently
+      # by the harness if the build is unavailable on the runner.
+      - name: Build bench-forwarder (Mode A entry listener)
+        run: >
+          cargo build --release -p resin-core --features bench
+          --bin bench-forwarder
+          ${{ (inputs.runner_os || 'linux') == 'linux' && '--target x86_64-unknown-linux-gnu' || '' }}
+        shell: bash
+
       - name: Record host shape
         run: |
           mkdir -p bench-results
@@ -68,6 +77,7 @@ jobs:
           node scripts/bench/run-bench.mjs
           --duration "${{ inputs.duration || 'short' }}"
           --gate warn
+          --forwarder "${{ (inputs.runner_os || 'linux') == 'windows' && 'target/x86_64-pc-windows-msvc/release/bench-forwarder.exe' || 'target/x86_64-unknown-linux-gnu/release/bench-forwarder' }}"
         shell: bash
 
       - name: Upload results

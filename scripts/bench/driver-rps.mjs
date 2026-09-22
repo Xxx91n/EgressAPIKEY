@@ -35,6 +35,25 @@ async function openLoop({ epPort, upstreamPort, identity, rate, durationS }) {
   let carry = 0;
   let lastTick = nowMs();
   const end = lastTick + durationS * 1000;
+  // Concurrent direct-baseline sampler (r12 acceptance line): low-rate (~1 rps)
+  // unpinned probes of the same upstream while the load leg runs, so the p99
+  // delta is the PROXY-ADDED component, not absolute latency contaminated by
+  // shared-runner jitter.
+  const directLat = [];
+  let baselineStop = false;
+  const baseline = (async () => {
+    while (!baselineStop) {
+      const bt0 = nowMs();
+      try {
+        const r = await fetch(`http://127.0.0.1:${upstreamPort}/echo`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        await r.arrayBuffer();
+        directLat.push(nowMs() - bt0);
+      } catch {}
+      await sleep(1000);
+    }
+  })();
   const sendOne = () => {
     sent++;
     inFlight++;
@@ -73,9 +92,14 @@ async function openLoop({ epPort, upstreamPort, identity, rate, durationS }) {
   // drain in-flight
   const drainEnd = nowMs() + 20000;
   while (inFlight > 0 && nowMs() < drainEnd) await sleep(100);
+  baselineStop = true;
+  await baseline;
   agent.destroy();
   const elapsedS = durationS;
   const offeredRate = sent / elapsedS;
+  const achievedRate = done / elapsedS;
+  const latStats = roundStats(summarize(lats));
+  const directStats = roundStats(summarize(directLat));
   return {
     engine: "openLoop",
     targetRate: rate,
@@ -87,10 +111,17 @@ async function openLoop({ epPort, upstreamPort, identity, rate, durationS }) {
     statusHist,
     timeouts,
     offeredRate: round(offeredRate, 1),
-    achievedRate: round(done / elapsedS, 1),
+    achievedRate: round(achievedRate, 1),
+    achievedRatio: round(achievedRate / rate, 4),
+    errorRate: round((errors + non200) / Math.max(sent, 1), 4),
     driverLimited: offeredRate < rate * 0.97,
     maxInFlight,
-    latencyMs: roundStats(summarize(lats)),
+    latencyMs: latStats,
+    directLatencyMs: directStats,
+    deltaP99:
+      latStats.p99 != null && directStats.p99 != null
+        ? round(latStats.p99 - directStats.p99, 3)
+        : null,
   };
 }
 
@@ -98,6 +129,22 @@ function vegetaRun(bin, { epPort, upstreamPort, identity, rate, durationS, workD
   return new Promise((resolve) => {
     const binFile = path.join(workDir, "vegeta-attack.bin");
     const reportFile = path.join(workDir, "vegeta-report.json");
+    // Same concurrent direct-baseline caliber as the openLoop engine.
+    const directLat = [];
+    let baselineStop = false;
+    const baseline = (async () => {
+      while (!baselineStop) {
+        const bt0 = nowMs();
+        try {
+          const r = await fetch(`http://127.0.0.1:${upstreamPort}/echo`, {
+            signal: AbortSignal.timeout(5000),
+          });
+          await r.arrayBuffer();
+          directLat.push(nowMs() - bt0);
+        } catch {}
+        await sleep(1000);
+      }
+    })();
     // Reverse-proxy path form: /token/Platform.Account/protocol/host/path.
     // Empty RESIN_PROXY_TOKEN means any dummy token segment is accepted.
     const target = `http://127.0.0.1:${epPort}/bench/${identity}/http/127.0.0.1:${upstreamPort}/echo`;
@@ -123,6 +170,8 @@ function vegetaRun(bin, { epPort, upstreamPort, identity, rate, durationS, workD
       if (code !== 0 || !fs.existsSync(binFile)) {
         return resolve({ engine: "vegeta", error: `attack exit=${code} ${stderr.slice(-400)}` });
       }
+      baselineStop = true;
+      baseline.then(() => {});
       const rep = spawn(bin, ["report", "-type=json", binFile], { stdio: ["ignore", "pipe", "pipe"] });
       let out = "";
       rep.stdout.on("data", (d) => (out += d));
@@ -133,20 +182,33 @@ function vegetaRun(bin, { epPort, upstreamPort, identity, rate, durationS, workD
           fs.writeFileSync(reportFile, out);
           const j = JSON.parse(out);
           const ns = j.latencies ?? {};
+          const achieved = j.rate ?? 0;
+          const p99 = round((ns["99th"] ?? 0) / 1e6);
+          const directStats = roundStats(summarize(directLat));
+          const totalReq = j.requests ?? 0;
+          const failReq = Math.round((1 - (j.success ?? 0)) * totalReq);
           resolve({
             engine: "vegeta",
             targetRate: rate,
             durationS,
             requests: j.requests,
-            achievedRate: round(j.rate ?? 0, 1),
+            achievedRate: round(achieved, 1),
+            achievedRatio: round(achieved / rate, 4),
             successRatio: j.success,
+            errorRate: round(1 - (j.success ?? 0), 4),
+            non200: failReq,
             latencyMs: {
               mean: round((ns.mean ?? 0) / 1e6),
               p50: round((ns["50th"] ?? 0) / 1e6),
               p95: round((ns["95th"] ?? 0) / 1e6),
-              p99: round((ns["99th"] ?? 0) / 1e6),
+              p99,
               max: round((ns.max ?? 0) / 1e6),
             },
+            directLatencyMs: directStats,
+            deltaP99:
+              p99 != null && directStats.p99 != null
+                ? round(p99 - directStats.p99, 3)
+                : null,
           });
         } catch (e) {
           resolve({ engine: "vegeta", error: `parse: ${e}` });
@@ -181,12 +243,13 @@ export async function runRps(ctx, { rate = 500, durationS = 60 } = {}) {
   }
   // Gate values: prefer vegeta when it ran clean, else openLoop.
   const v = out.vegeta;
-  if (v && !v.error && !v.skipped && (v.successRatio ?? 0) > 0.99) {
-    out.achievedRate = v.achievedRate;
-    out.latencyP99 = v.latencyMs.p99;
-  } else {
-    out.achievedRate = out.openLoop.achievedRate;
-    out.latencyP99 = out.openLoop.latencyMs.p99;
-  }
+  const src = v && !v.error && !v.skipped && (v.successRatio ?? 0) > 0.99 ? v : out.openLoop;
+  out.achievedRate = src.achievedRate;
+  out.latencyP99 = src.latencyMs?.p99 ?? src.latencyP99;
+  out.achievedRatio = src.achievedRatio;
+  out.errorRate = src.errorRate;
+  out.deltaP99 = src.deltaP99;
+  out.directLatencyMs = src.directLatencyMs;
+  out.gateSource = src.engine;
   return out;
 }

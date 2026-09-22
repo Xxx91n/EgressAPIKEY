@@ -26,7 +26,7 @@ fn main() {
     }));
     let registry = build_shared_registry();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         // Re9: Single-instance must be the FIRST plugin registered (Tauri 2
         // requirement). When a second GUI exe is launched, this plugin kills
         // the new process and runs the closure in the already-running instance:
@@ -69,7 +69,14 @@ fn main() {
                 .with_rotation_strategy(tauri_plugin_tracing::RotationStrategy::KeepSome(7))
                 .with_default_subscriber()
                 .build(),
-        )
+        );
+    // R12-00: embedded WebDriver server for the webview-smoke CI harness.
+    // Feature-gated - shipped builds never carry a remote-control surface.
+    #[cfg(feature = "wdio-smoke")]
+    let builder = builder
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+    builder
         .manage(registry)
         .manage(commands::SubscriptionPipelineState::default())
         .manage(LightweightController::default())

@@ -10,6 +10,7 @@
 // Env: RESIN_BIN, VEGETA, BENCH_OUT
 
 import { spawn } from "node:child_process";
+import net from "node:net";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -26,7 +27,8 @@ import {
   resinApi,
   ensureRoutable,
 } from "./lib/resin.mjs";
-import { Sampler, sampleProcessTreeMB } from "./lib/sampler.mjs";
+import { Sampler } from "./lib/sampler.mjs";
+import { sampleDescendantTreeMB, waitMainWindowTitle } from "./lib/winproc.mjs";
 import { runLatency } from "./driver-latency.mjs";
 import { runSse } from "./driver-sse.mjs";
 import { runRps } from "./driver-rps.mjs";
@@ -41,8 +43,28 @@ const arg = (name, def) => {
 const DURATION = arg("duration", process.env.BENCH_DURATION || "short");
 const GATE = arg("gate", process.env.BENCH_GATE || "warn");
 const APP_EXE = arg("app-exe", null);
+const FORWARDER_BIN = arg("forwarder", process.env.FORWARDER_BIN || null);
+// The workspace .cargo/config.toml pins target=x86_64-pc-windows-msvc, so a
+// Windows build lands under target/<triple>/release while a Linux
+// --target-override build lands under its own triple dir. Resolve the first
+// existing candidate instead of hardcoding a path per-runner.
+function resolveForwarder() {
+  const cands = [];
+  if (FORWARDER_BIN) cands.push(FORWARDER_BIN);
+  const rel = path.join(root, "target");
+  try {
+    for (const d of fs.readdirSync(rel)) {
+      for (const n of ["bench-forwarder.exe", "bench-forwarder"]) {
+        cands.push(path.join(rel, d, "release", n));
+      }
+    }
+    cands.push(path.join(rel, "release", process.platform === "win32" ? "bench-forwarder.exe" : "bench-forwarder"));
+  } catch {}
+  return cands.find((c) => fs.existsSync(c)) ?? null;
+}
+const APPSTART_N = Number(process.env.BENCH_APPSTART_N || 5);
 const OUT = arg("out", process.env.BENCH_OUT || path.join(root, "bench-results"));
-const PHASES = (arg("phases", "idle,paired,rps,sse,soak,healthz") + (APP_EXE ? ",app" : ""))
+const PHASES = (arg("phases", "idle,paired,rps,sse,soak,healthz") + (APP_EXE ? ",app,appstart" : ""))
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
@@ -62,7 +84,7 @@ const children = [];
 const results = {
   meta: {
     tool: "scripts/bench/run-bench.mjs",
-    basis: "D-004 / A-015",
+    basis: "r12-wave-a D-002 acceptance line (supersedes round8 D-004)",
     startedAt: new Date().toISOString(),
     duration: DURATION,
     gate: GATE,
@@ -144,37 +166,31 @@ async function phaseHealthz(ctx) {
 }
 
 async function phaseApp(ctx) {
-  // Whole-app steady state: launch the built exe, let it reach
-  // steady state, then sum WorkingSet64 over the app + resin + webview procs.
+  // Whole-app steady state: launch the built exe, let it reach steady state,
+  // then sum WorkingSet64 over the DESCENDANT TREE rooted at the spawned PID.
+  // Attribution is parentage, never process-name matching: WebView2
+  // (msedgewebview2) is a shared runtime whose processes pool per
+  // user-data-dir and re-parent across app boundaries, so a name glob would
+  // count other apps' webview processes (r12-wave-a D-002).
   if (process.platform !== "win32") {
     return { skipped: "whole-app steady-state is measured on the windows job" };
   }
   if (!APP_EXE || !fs.existsSync(APP_EXE)) {
     return { skipped: `--app-exe missing or not found: ${APP_EXE}` };
   }
-  const launchAt = Date.now();
   const child = spawn(APP_EXE, [], { stdio: "ignore", detached: true });
   children.push(child);
   await sleep(25000); // boot + first paint + settle
   const appAlive = child.exitCode === null;
   const samples = [];
-  let lastPerName = null;
-  let filtered = true;
+  const wv2Samples = [];
+  let lastProcs = null;
   for (let i = 0; i < 30; i++) {
-    let mb = await sampleProcessTreeMB(["EgressAPIKEY*", "resin*", "msedgewebview2*"], {
-      minStartEpochMs: launchAt - 2000,
-    });
-    if (mb == null || mb.totalMB <= 0) {
-      // fallback: unfiltered sum; flagged so the report knows attribution is loose
-      const raw = await sampleProcessTreeMB(["EgressAPIKEY*", "resin*", "msedgewebview2*"]);
-      if (raw != null && raw.totalMB > 0) {
-        filtered = false;
-        mb = raw;
-      }
-    }
-    if (mb != null && mb.totalMB > 0) {
-      samples.push(mb.totalMB);
-      lastPerName = mb.perName;
+    const tree = await sampleDescendantTreeMB(child.pid);
+    if (tree != null && tree.totalMB > 0) {
+      samples.push(tree.totalMB);
+      wv2Samples.push(tree.webview2MB);
+      lastProcs = tree.procs;
     }
     await sleep(2000);
   }
@@ -182,14 +198,51 @@ async function phaseApp(ctx) {
     spawn("taskkill", ["/F", "/T", "/PID", String(child.pid)]);
   } catch { }
   const st = summarize(samples);
+  const wv2 = summarize(wv2Samples);
   return {
     appExe: APP_EXE,
     appAlive,
     childPid: child.pid,
-    filtered,
+    attribution: "descendant-tree",
     n: samples.length,
     totalMB: roundStats(st),
-    perNameMB: lastPerName,
+    webview2MB: roundStats(wv2),
+    procs: lastProcs,
+  };
+}
+
+// Acceptance-line metric ⑦: cold start -> MainWindowTitle ready, N fresh
+// launches, p50/p95. Windows-only (MainWindowTitle is a Win32 property);
+// Defender/cold-disk variance is why the gate is a distribution, not one run.
+async function phaseAppStart(ctx) {
+  if (process.platform !== "win32") {
+    return { skipped: "MainWindowTitle liveness is a windows-desktop metric" };
+  }
+  if (!APP_EXE || !fs.existsSync(APP_EXE)) {
+    return { skipped: `--app-exe missing or not found: ${APP_EXE}` };
+  }
+  const samples = [];
+  const titles = [];
+  for (let i = 0; i < APPSTART_N; i++) {
+    const child = spawn(APP_EXE, [], { stdio: "ignore", detached: true });
+    children.push(child);
+    const ready = await waitMainWindowTitle(child.pid, 30000);
+    samples.push(ready ? ready.ms : null);
+    titles.push(ready ? ready.title : null);
+    try {
+      spawn("taskkill", ["/F", "/T", "/PID", String(child.pid)]);
+    } catch { }
+    await sleep(1500); // settle between cold launches (Defender / disk cache)
+  }
+  const ok = samples.filter((v) => v != null);
+  const st = summarize(ok);
+  return {
+    appExe: APP_EXE,
+    n: ok.length,
+    attempted: APPSTART_N,
+    titles,
+    titleMatch: titles.filter((t) => t === "EgressAPIKEY").length,
+    coldStartMs: roundStats(st),
   };
 }
 
@@ -202,22 +255,46 @@ function resolvePath(obj, dotted) {
 function evalGates(acc) {
   const gates = [];
   for (const item of acc.items) {
-    const measured = resolvePath(results, item.measure);
+    const measured =
+      resolvePath(results, item.measure) ??
+      (item.measureAlt ? resolvePath(results, item.measureAlt) : undefined);
+    const kind = item.kind ?? "measure";
+    const target = item.target ?? item.threshold;
+    const danger = item.danger ?? null;
+    const cmp = (v, th) =>
+      item.op === "<=" ? v <= th
+        : item.op === "<" ? v < th
+          : item.op === ">=" ? v >= th
+            : item.op === "==" ? v === th
+              : false;
     let status;
-    if (item.op === "measure-only") {
+    if (item.exempt) {
+      // Registered Exemption row: the measurement is evidence, not a verdict.
+      status = "exempt";
+    } else if (item.op === "measure-only") {
       status = measured == null ? "pending" : "measured";
     } else if (measured == null || !Number.isFinite(measured)) {
       status = "n/a";
+    } else if (cmp(measured, target)) {
+      status = "pass";
+    } else if (danger != null && cmp(measured, danger)) {
+      status = "degraded"; // between target and danger line
     } else {
-      const ok =
-        item.op === "<=" ? measured <= item.threshold
-          : item.op === "<" ? measured < item.threshold
-            : item.op === ">=" ? measured >= item.threshold
-              : item.op === "==" ? measured === item.threshold
-                : false;
-      status = ok ? "pass" : "fail";
+      status = "breach";
     }
-    gates.push({ id: item.id, desc: item.desc, op: item.op, threshold: item.threshold, unit: item.unit, scope: item.scope, measured: measured ?? null, status });
+    gates.push({
+      id: item.id,
+      desc: item.desc,
+      kind,
+      op: item.op,
+      target,
+      danger,
+      unit: item.unit,
+      scope: item.scope,
+      measured: measured ?? null,
+      status,
+      exempt: item.exempt ? item.exemption ?? true : undefined,
+    });
   }
   return gates;
 }
@@ -256,6 +333,48 @@ async function main() {
   const coldStartMs = await waitHealthz(apiPort, 30000, t0);
   log(`healthz ready in ${round(coldStartMs, 1)}ms (cold)`);
 
+  // Mode A shell forwarder (bench-forwarder bin): the desktop data-plane path
+  // the acceptance line gates. Absent binary -> Mode A phases record skipped.
+  let forwarder = null;
+  let modeAPort = null;
+  const fwdBin = resolveForwarder();
+  if (fwdBin) {
+    modeAPort = await pickFreePort();
+    forwarder = spawn(fwdBin, [], {
+      env: {
+        ...process.env,
+        BENCH_FWD_PORT: String(modeAPort),
+        BENCH_FWD_ENGINE_PORT: String(epPort),
+        BENCH_FWD_PLATFORM: "bench",
+        BENCH_FWD_ACCOUNT: "bench",
+        BENCH_FWD_PROXY_TOKEN: "",
+        RUST_LOG: "warn",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    children.push(forwarder);
+    forwarder.stdout.on("data", (d) => log(`forwarder: ${String(d).trim()}`));
+    forwarder.stderr.on("data", (d) => log(`forwarder-err: ${String(d).trim()}`));
+    // readiness: TCP connectable
+    const tF = nowMs();
+    for (;;) {
+      try {
+        await new Promise((res, rej) => {
+          const sk = net.connect(modeAPort, "127.0.0.1", () => { sk.destroy(); res(); });
+          sk.on("error", rej);
+          sk.setTimeout(500, () => sk.destroy());
+        });
+        break;
+      } catch {
+        if (nowMs() - tF > 15000) { modeAPort = null; break; }
+        await sleep(100);
+      }
+    }
+    log(modeAPort ? `mode-A forwarder on :${modeAPort}` : "forwarder never bound - modeA skipped");
+  } else {
+    log(`no bench-forwarder under target/**/release (FORWARDER_BIN=${FORWARDER_BIN}) - modeA legs skipped`);
+  }
+
   const api = resinApi(apiPort, adminToken);
   log("configuring platform+subscription+endpoint + node probes...");
   const setup = await ensureRoutable({
@@ -281,6 +400,7 @@ async function main() {
     outDir: OUT,
     resinAlive: async () => resin.child.exitCode === null,
     resinRssMB: () => resinRssMB(resin.pid),
+    modeAPort,
   };
 
   const runPhase = async (name, fn) => {
@@ -310,17 +430,23 @@ async function main() {
   );
   await runPhase("healthz", (c) => phaseHealthz(c));
   await runPhase("app", (c) => phaseApp(c));
+  await runPhase("appstart", (c) => phaseAppStart(c));
 
   // gates
   const acc = JSON.parse(fs.readFileSync(path.join(root, "scripts/bench/acceptance.json"), "utf8"));
   results.gates = evalGates(acc);
   results.acceptance = acc;
 
-  const fails = results.gates.filter((g) => g.status === "fail");
+  // Failure semantics (r12 D-002): measurement numbers are always RECORDED -
+  // a breach is evidence, not a job failure, until representative-hardware
+  // pins activate. Only assertion/smoke rows hard-fail under --gate enforce.
+  const fails = results.gates.filter((g) => g.status === "breach");
+  const hardFails = fails.filter((g) => g.kind !== "measure");
   const measured = results.gates.filter((g) => g.status === "measured");
-  log(`gates: ${results.gates.filter((g) => g.status === "pass").length} pass, ${fails.length} fail, ${measured.length} measured-only`);
-  if (GATE === "enforce" && fails.length > 0) {
-    fatal(`${fails.length} gate(s) breached`);
+  const exempt = results.gates.filter((g) => g.status === "exempt");
+  log(`gates: ${results.gates.filter((g) => g.status === "pass").length} pass, ${fails.length} breach (${hardFails.length} assert/smoke), ${results.gates.filter((g) => g.status === "degraded").length} degraded, ${exempt.length} exempt, ${measured.length} measured-only`);
+  if (GATE === "enforce" && hardFails.length > 0) {
+    fatal(`${hardFails.length} assertion/smoke gate(s) breached: ${hardFails.map((g) => g.id).join(", ")}`);
     process.exitCode = 1;
   }
 
@@ -333,11 +459,31 @@ async function main() {
     `- cpuPin: ${JSON.stringify(cpuPin)}  duration=${DURATION} gate=${GATE}`,
     `- ci run: ${results.meta.ci.runUrl ?? "(local)"}`,
     ``,
-    `| item | op | threshold | measured | unit | status |`,
-    `|---|---|---|---|---|---|`,
-    ...results.gates.map(
-      (g) => `| ${g.id} | ${g.op} | ${g.threshold ?? "-"} | ${g.measured ?? "n/a"} | ${g.unit} | ${g.status} |`,
+    `## Measurements (recorded; breaches are warn-only until representative-hardware pins activate)`,
+    ``,
+    `| item | op | target | danger | measured | unit | status |`,
+    `|---|---|---|---|---|---|---|`,
+    ...results.gates.filter((g) => g.kind === "measure").map(
+      (g) => `| ${g.id} | ${g.op} | ${g.target ?? "-"} | ${g.danger ?? "-"} | ${g.measured ?? "n/a"} | ${g.unit} | ${g.status} |`,
     ),
+    ``,
+    `## Assertions & smoke (the only rows that hard-fail under --gate enforce)`,
+    ``,
+    `| item | op | target | measured | unit | status |`,
+    `|---|---|---|---|---|---|`,
+    ...results.gates.filter((g) => g.kind !== "measure").map(
+      (g) => `| ${g.id} | ${g.op} | ${g.target ?? "-"} | ${g.measured ?? "n/a"} | ${g.unit} | ${g.status} |`,
+    ),
+    ``,
+    ...(results.phases.sse?.exemptions?.length
+      ? [
+          `## Registered exemptions`,
+          ``,
+          ...results.phases.sse.exemptions.map(
+            (x) => `- **${x.id}** (${x.scope}) — removal: ${x.removalCondition}`,
+          ),
+        ]
+      : []),
   ];
   fs.writeFileSync(path.join(OUT, "SUMMARY.md"), lines.join("\n") + "\n");
   fs.writeFileSync(path.join(OUT, "results.json"), JSON.stringify(results, null, 2));

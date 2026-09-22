@@ -19,11 +19,17 @@ on:
         type: choice
         options: [short, long]
       gate:
-        description: "Gate mode: warn never fails the job; fail turns measured regressions red"
+        description: "Gate mode: warn never fails; enforce hard-fails on assertion/smoke breaches only (measurement rows are recorded, never fatal - r12 D-002)"
         required: false
         default: "warn"
         type: choice
-        options: [warn, fail]
+        options: [warn, enforce]
+      with_app:
+        description: "windows leg only: build the portable exe in-job so the whole-process-tree + cold-start phases produce numbers"
+        required: false
+        default: "true"
+        type: choice
+        options: ["true", "false"]
   schedule:
     - cron: "0 2 * * 1" # Mondays 02:00 UTC
 
@@ -33,7 +39,7 @@ jobs:
   bench:
     name: bench (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -52,11 +58,42 @@ jobs:
         run: bash scripts/fetch_resin.sh
         shell: bash
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./crates/resin-core -> target"
+          key: bench-forwarder-${{ runner.os }}
+
+      # Mode A shell forwarder for the desktop-profile SSE legs. Feature-gated
+      # bin: cargo build -p resin-core --features bench --bin bench-forwarder.
+      - name: Build bench-forwarder (Mode A entry listener)
+        run: >
+          cargo build --release -p resin-core --features bench
+          --bin bench-forwarder
+          ${{ matrix.os == 'ubuntu-latest' && '--target x86_64-unknown-linux-gnu' || '' }}
+        shell: bash
+
+      - uses: pnpm/action-setup@v4
+        if: matrix.os == 'windows-latest' && inputs.with_app == 'true'
+        with:
+          version: 9
+
+      - name: Install frontend deps (windows app phases)
+        if: matrix.os == 'windows-latest' && inputs.with_app == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build portable app exe (windows, no bundle)
+        if: matrix.os == 'windows-latest' && inputs.with_app == 'true'
+        run: npx --no-install tauri build --no-bundle --features custom-protocol
+        shell: bash
+
       - name: Run benchmark
         run: >
           node scripts/bench/run-bench.mjs
           --duration "${{ inputs.duration || 'short' }}"
           --gate "${{ inputs.gate || 'warn' }}"
+          --forwarder "${{ matrix.os == 'windows-latest' && 'target/x86_64-pc-windows-msvc/release/bench-forwarder.exe' || 'target/x86_64-unknown-linux-gnu/release/bench-forwarder' }}"
+          ${{ (matrix.os == 'windows-latest' && inputs.with_app == 'true') && '--app-exe target/x86_64-pc-windows-msvc/release/EgressAPIKEY.exe' || '' }}
+        shell: bash
 
       - name: Upload results
         if: always()

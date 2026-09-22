@@ -75,6 +75,14 @@ tauri-plugin-single-instance = "2"
 # appender to the OS log dir (Re7) + stdout. Replaces tauri-plugin-log so the
 # whole codebase (resin-core + shell) uses one `tracing` pipeline (Re7/Re6).
 tauri-plugin-tracing = "0.3"
+# Embedded WebDriver server for the webview-smoke CI harness (R12-02, merged
+# into R12-00). Optional + feature-gated: release builds never carry a
+# remote-control surface. The capability file that references it
+# (wdio-webdriver:default) is copied into capabilities/ by the smoke workflow
+# only - a normal build never sees an unknown permission.
+tauri-plugin-wdio-webdriver = { version = "1.4", optional = true }
+# Same gate: execute/mocking API surface used by browser.tauri.execute().
+tauri-plugin-wdio = { version = "1.4", optional = true }
 parking_lot = { workspace = true }
 once_cell = { workspace = true }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking", "socks"] }
@@ -105,6 +113,9 @@ default = []
 # the Vite dev server running.
 custom-protocol = ["tauri/custom-protocol"]
 headless = []
+# webview-smoke CI build only: compiles the embedded WebDriver server so
+# @wdio/tauri-service (driverProvider: "embedded") can drive the real webview.
+wdio-smoke = ["dep:tauri-plugin-wdio-webdriver", "dep:tauri-plugin-wdio"]
 
 # Windows Job Object for sidecar orphan prevention (clash-verge-rev PR #6853 pattern).
 # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE ensures the OS kills resin.exe even if the

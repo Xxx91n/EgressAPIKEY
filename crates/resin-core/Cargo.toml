@@ -51,6 +51,9 @@ chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 hex = "0.4"
 # (tauri-specta pilot): optional, enabled only by the Tauri shell.
 specta = { version = "=2.0.0-rc.25", optional = true }
+# bench-forwarder bin only: stdout logging for the harness run log.
+# Optional so the library dep surface is unchanged.
+tracing-subscriber = { workspace = true, optional = true }
 
 [dev-dependencies]
 mockito = "1"
@@ -60,8 +63,16 @@ tokio = { workspace = true, features = ["test-util"] }
 name = "integration"
 path = "tests/integration.rs"
 
+[[bin]]
+name = "bench-forwarder"
+path = "src/bin/bench-forwarder.rs"
+required-features = ["bench"]
+
 [features]
 default = []
+# Perf-bench Mode-A entry listener (scripts/bench). Optional so workspace
+# builds and the push gate never compile the harness binary.
+bench = ["dep:tracing-subscriber"]
 # TS type export for the IPC error contract. The Tauri shell
 # (src-tauri) enables this so IpcError/PortMapping can enter bindings.ts;
 # headless-only resin-core builds stay lean.
