@@ -170,7 +170,7 @@ function liveRegions(p: StrategySnapshot): string {
   return ""; // missingOnResin: no live value exists.
 }
 
-// A-002 (round9 ticket 02): the Consistent row also surfaces the live
+// The Consistent row also surfaces the live
 // allocation_policy Resin reported for the platform — the D-002 two-axis
 // reconcile already keeps it equal to the whitebox, so this is the visible
 // proof of the policy axis on the converged row. Divergent rows keep the

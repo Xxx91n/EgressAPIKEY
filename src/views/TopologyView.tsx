@@ -52,7 +52,7 @@ interface PlatformFull {
   bClass?: string;             // strategyConfig b_class == the Resin allocation_policy value
   subscriptionNames?: string[]; // strategyConfig subscriptions
   topN?: number;               // strategyConfig top_n
-  manualNodes?: string[];        // T18-4: strategyConfig manual_nodes
+  manualNodes?: string[];        // strategyConfig manual_nodes
 }
 
 interface NodeItem {
@@ -560,7 +560,7 @@ const SubscriptionGroupNode = memo(function SubscriptionGroupNode({ data }: Node
         )}
       </div>
       {typeof d.sub === "string" && d.sub && <div className="text-emerald-600/70 dark:text-emerald-400/70 mt-1 text-[10px]">{d.sub}</div>}
-      {/* T14-3: region stats summary (collapsed view) */}
+      {/* region stats summary (collapsed view) */}
       {regionStats.length > 0 && !expanded && (
         <div className="mt-1.5 flex flex-wrap gap-1">
           {regionStats.map((rs, i) => (
@@ -570,7 +570,7 @@ const SubscriptionGroupNode = memo(function SubscriptionGroupNode({ data }: Node
           ))}
         </div>
       )}
-      {/* T14-3: expanded node list (max 10) */}
+      {/* expanded node list (max 10) */}
       {expanded && visibleNodes.length > 0 && (
         <div className="mt-2 flex flex-col gap-0.5">
           {visibleNodes.map((n, i) => (
@@ -779,7 +779,7 @@ function CanvasControls({ viewMode, setViewMode, locked, setLocked }: { viewMode
   const reactFlow = useReactFlow();
   return (
     <div className="absolute bottom-2 left-2 z-10 flex flex-col gap-1">
-      {/* T14-5: segmented toggle for C column view mode */}
+      {/* segmented toggle for C column view mode */}
       <div className="flex gap-0.5 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-0.5">
         <button
           title={t("topology.viewSubscription")}
@@ -805,7 +805,7 @@ function CanvasControls({ viewMode, setViewMode, locked, setLocked }: { viewMode
       <button title={t("topology.fitView")} onClick={() => reactFlow.fitView({ maxZoom: 1 })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
         <Maximize size={14} />
       </button>
-      {/* T14-5: reset to world center {x:0, y:0, zoom:1} */}
+      {/* reset to world center {x:0, y:0, zoom:1} */}
       <button title={t("topology.resetCenter")} onClick={() => reactFlow.setViewport({ x: 0, y: 0, zoom: 1 })} className="rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 w-fit self-center">
         <Home size={14} />
       </button>
@@ -905,7 +905,7 @@ function TopologyCanvas() {
       setLeases(lRaw as LeaseEntry[]);
       setPorts(snapshotToPortMappings(snap));
     } catch { /* vitest or sidecar not ready */ }
-    setReady(true); // T13-4: setReady after sync so data is present before show
+    setReady(true); // setReady after sync so data is present before show
   }, [setPlatforms, setSubGroups, setLeases, setPorts]);
 
   // usePoll replaces setInterval + visibilitychange boilerplate
@@ -1213,7 +1213,7 @@ function TopologyCanvas() {
       <div className="mb-2 px-1">
         <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("topology.dragHint")}</span>
       </div>
-      {/* T13-4: empty-state messages inside opacity gate so they don't flash before sync */}
+      {/* empty-state messages inside opacity gate so they don't flash before sync */}
       <div className={"flex-1 min-h-[400px] transition-opacity duration-200 " + (ready ? "opacity-100" : "opacity-0")}>
         {subGroups.length === 0 && (
           <div className="px-1 pb-2 text-xs text-zinc-400">{t("topology.noNodes")}</div>

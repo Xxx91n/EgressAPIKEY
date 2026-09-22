@@ -102,7 +102,7 @@
     },
     "key_account_lookup": {
       "status": "enabled",
-      "method": "GET",
+      "method": "POST",
       "path": "/api/v1/shell/key-lookup"
     },
     "lease_map": {

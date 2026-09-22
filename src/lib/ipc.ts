@@ -877,7 +877,7 @@ export function ipcCheckFirewallStatus(): Promise<FirewallStatus> {
   return invoke<FirewallStatus>("check_firewall_status");
 }
 
-// T6-5 (ticket 11): Request log tail via Resin GET /api/v1/request-logs.
+// Request log tail via Resin GET /api/v1/request-logs.
 export interface RequestLogEntry {
   /** Resin row UUID — key for the detail drawer; "" on old wire shapes. */
   id: string;
@@ -2052,12 +2052,12 @@ export function ipcErrI18nKey(e: unknown): string {
   return extractIpcErr(e).data.i18n_key || "error.internal";
 }
 
-/// T8-1: GET /api/v1/system/config — read system-level config.
+/// GET /api/v1/system/config — read system-level config.
 export async function ipcSystemConfigGet(): Promise<unknown> {
   return invoke("system_config_get");
 }
 
-/// T8-1: PATCH /api/v1/system/config — update system-level config.
+/// PATCH /api/v1/system/config — update system-level config.
 export async function ipcSystemConfigPatch(body: {
   max_consecutive_failures?: number;
   [key: string]: unknown;

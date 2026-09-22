@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { usePoll } from "../hooks/usePoll";
 import { useTranslation } from "react-i18next";
-import { Activity, Stethoscope, Flame, Globe, Server, Loader2, FolderOpen, ArrowRight, Zap } from "lucide-react"; // T8-2/T8-3 added Zap for verify button
+import { Activity, Stethoscope, Flame, Globe, Server, Loader2, FolderOpen, ArrowRight, Zap } from "lucide-react";
 import { openPath } from "@tauri-apps/plugin-opener";
 import {
   getDiagPollInterval,
@@ -654,7 +654,7 @@ export function DiagnosticsView() {
         </div>
       </DiagCard>
 
-      {/* T8-2: Strategy verification */}
+      {/* Strategy verification */}
       <DiagCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("strategyVerify.title")}>
         <div className="flex flex-col gap-3">
           <div className="flex gap-2 items-end">
@@ -718,7 +718,7 @@ export function DiagnosticsView() {
         </div>
       </DiagCard>
 
-      {/* T8-6: Connection control */}
+      {/* Connection control */}
       <DiagCard icon={<Flame size={16} strokeWidth={1.75} />} title={t("connectionControl.title")}>
         <div className="flex gap-2">
           <button disabled={commandBlocked("close_all_connections")}

@@ -85,6 +85,13 @@ if [ "$agents_bytes" -gt 32768 ]; then
   exit 1
 fi
 echo "[verify] AGENTS.md size OK: ${agents_bytes}B <= 32768B"
+echo "[verify] strategy_service.rs line guard (4000-line budget)"
+ssvc_lines=$(wc -l < crates/resin-core/src/strategy_service.rs)
+if [ "$ssvc_lines" -gt 4000 ]; then
+  echo "FAIL: strategy_service.rs is ${ssvc_lines} lines - over the 4000-line module budget; split write-surface or read-surface helpers into a sibling module before growing further"
+  exit 1
+fi
+echo "[verify] strategy_service.rs size OK: ${ssvc_lines} lines <= 4000"
 echo "[verify] ipc manifest guard"
 node scripts/ipc-manifest-check.cjs
 echo "[verify] vitest isolation guard (ticket 18)"

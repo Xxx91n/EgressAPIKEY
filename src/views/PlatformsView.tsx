@@ -504,7 +504,7 @@ export function PlatformsView() {
       <div ref={containerRef} className="flex min-h-0 flex-1 overflow-hidden rounded-lg border">
         <div className="flex min-h-0 flex-col overflow-hidden" style={{ width: (splitRatio * 100) + "%" }} data-testid="ports-pane">
           <div className="border-b px-3 py-2 text-sm font-medium">{t("platform.entryPorts")}</div>
-          {/* T11-7: compact inline port form — single row */}
+          {/* compact inline port form — single row */}
           <div className="border-b p-2">
             <div className="flex items-center gap-1.5">
               <input className="w-20 rounded border bg-background px-2 py-1.5 text-sm" value={newPort} onChange={(e) => setNewPort(e.target.value)} placeholder={t("platform.port")} data-testid="port-input" />
@@ -547,7 +547,7 @@ export function PlatformsView() {
               const healthDot = h ? (h.reachable && h.reason === "ok" || (h.reachable && h.reason === "ok") ? "bg-emerald-500" : "bg-red-500") : "bg-muted-foreground/30";
               return (
                 <li key={p.port} className={"cursor-grab rounded-md border bg-card text-sm transition " + (draggingPort === p.port ? "opacity-50 cursor-grabbing " : "") + (isExpanded ? "p-2" : "p-1.5")} onPointerDown={(e) => { dragStartRef.current = { x: e.clientX, y: e.clientY }; didDragRef.current = false; }} onPointerMove={(e) => { if (dragStartRef.current && !didDragRef.current) { const dx = e.clientX - dragStartRef.current.x; const dy = e.clientY - dragStartRef.current.y; if (Math.hypot(dx, dy) > 5) { didDragRef.current = true; document.body.style.userSelect = "none"; setDraggingPort(p.port); } } }} onPointerUp={() => { document.body.style.userSelect = ""; dragStartRef.current = null; if (didDragRef.current) { setDraggingPort(null); setDragOverPlatform(null); } }} onMouseEnter={() => setHoveredPort(p.port)} onMouseLeave={() => setHoveredPort(null)} data-testid={"port-row-" + p.port}>
-                  {/* T11-8: collapsed = single row, expanded = details */}
+                  {/* collapsed = single row, expanded = details */}
                   <div className="flex items-center gap-2">
                     <button type="button" className="shrink-0 rounded p-0.5 hover:bg-muted" onClick={(e) => { e.stopPropagation(); togglePortCard(p.port); }} data-testid={"port-chevron-" + p.port}>
                       {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
@@ -575,7 +575,7 @@ export function PlatformsView() {
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  {/* T11-8: expanded details */}
+                  {/* expanded details */}
                   {isExpanded && (
                     <div className="mt-1.5 space-y-1 border-t pt-1.5">
                       <div className="flex items-center gap-2 text-[11px] text-muted-foreground" data-testid={"port-auth-" + p.port}>
@@ -648,7 +648,7 @@ export function PlatformsView() {
               const search = manualSearch[p.name] ?? "";
               return (
                 <li key={p.name} className={"rounded-md border bg-card " + (dragOverPlatform === p.name ? "ring-2 ring-offset-2 ring-primary scale-[1.02] transition " : "") + (isExpanded ? "p-2.5" : "p-2")} onPointerEnter={() => { if (draggingPort != null) setDragOverPlatform(p.name); }} onPointerLeave={() => { if (dragOverPlatform === p.name) setDragOverPlatform(null); }} onPointerUp={() => { if (draggingPort != null) void bindPortToPlatform(draggingPort, p.name); }} data-testid={"platform-card-" + p.name}>
-                  {/* T11-1: collapsed = summary row with A/B badges + chevron */}
+                  {/* collapsed = summary row with A/B badges + chevron */}
                   <div className="flex items-start justify-between gap-2" onClick={() => togglePlatformCard(p.name)} role="button" data-testid={"platform-card-header-" + p.name}>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
@@ -678,7 +678,7 @@ export function PlatformsView() {
                       </button>
                     </div>
                   </div>
-                  {/* T11-1: expanded = full A/B split selectors */}
+                  {/* expanded = full A/B split selectors */}
                   {isExpanded && (
                     <div className="mt-2 border-t pt-2 flex gap-3" data-testid={"strategy-split-" + p.name}>
                       {/* Left: A-class strategy (50%) */}
@@ -703,7 +703,7 @@ export function PlatformsView() {
                             </button>
                           ))}
                         </div>
-                        {/* A-class type selector chips with T11-2 ring feedback */}
+                        {/* A-class type selector chips with ring feedback */}
                         <div className="flex flex-wrap gap-1" data-testid={"strategy-aclass-chips-" + p.name}>
                           {["manual", "region", "quality", "subscription"].map((mode) => (
                             <button key={mode} type="button"
@@ -724,7 +724,7 @@ export function PlatformsView() {
                             {t("strategy.aClassRegionFilterSemantics")}
                           </div>
                         )}
-                        {/* T11-3: Manual mode with search + hybrid selected-first */}
+                        {/* Manual mode with search + hybrid selected-first */}
                         {aClass === "manual" && (
                           <div className="mt-1.5 space-y-1" data-testid={"strategy-manual-chips-" + p.name}>
                             <div className="flex items-center gap-1">
@@ -733,7 +733,7 @@ export function PlatformsView() {
                             </div>
                             {nodeList.length === 0 && <span className="text-[10px] text-muted-foreground">{t("strategy.manualSelect")}</span>}
                             <div className="max-h-32 overflow-auto">
-                              {/* T12-3: subscription-folded node list — replaces T11-3 flat Selected/unselected split */}
+                              {/* subscription-folded node list */}
                               {(() => {
                                 const searchLower = search.toLowerCase();
                                 const filtered = nodeList.filter((n) => n.display_tag.toLowerCase().includes(searchLower) || n.region.toLowerCase().includes(searchLower));

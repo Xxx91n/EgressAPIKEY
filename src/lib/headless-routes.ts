@@ -156,7 +156,7 @@ export const CMD_TO_HTTP: Record<string, HttpRoute> = {
   get_sidecar_logs: { method: "GET", path: "/api/v1/shell/sidecar/logs" },
   get_sidecar_status: { method: "GET", path: "/api/v1/shell/sidecar/status" },
   ip_reputation_snapshot: { method: "GET", path: "/api/v1/shell/ip-reputation" },
-  key_account_lookup: { method: "GET", path: "/api/v1/shell/key-lookup", query: { key: "key" } },
+  key_account_lookup: { method: "POST", path: "/api/v1/shell/key-lookup", bodyKeys: { key: "key" } },
   orchestration_get: { method: "GET", path: "/api/v1/shell/orchestration" },
   orchestration_config_put: { method: "PUT", path: "/api/v1/shell/orchestration/config", bodyArg: "params" },
   orchestration_tick: { method: "POST", path: "/api/v1/shell/orchestration/tick" },

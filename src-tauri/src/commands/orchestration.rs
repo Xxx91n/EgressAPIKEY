@@ -258,6 +258,16 @@ pub async fn orchestration_tick_impl(
         }
     }
 
+    // Evict per-platform rings for rows no longer configured (rename/remove
+    // would otherwise leak them forever in-process — F-8).
+    match rings().lock() {
+        Ok(mut m) => m.retain(|k, _| sec.platforms.iter().any(|r| &r.platform_name == k)),
+        Err(e) => {
+            let mut g = e.into_inner();
+            g.retain(|k, _| sec.platforms.iter().any(|r| &r.platform_name == k));
+        }
+    }
+
     // Candidate metrics only when something could act on them (a Degraded
     // row without a parked proposal) — zero extra Resin calls otherwise.
     let need_metrics = sec
@@ -462,7 +472,13 @@ pub async fn orchestration_approve_impl(
 
     svc.set_platform_regions(platform_name, proposal.regions.clone())
         .map_err(IpcError::from)?;
-    let _ = svc.apply(client, resolve_id_in).await;
+    // Propagate apply failure: the whitebox write landed but the engine was
+    // not applied — surface the error so the proposal stays parked (the
+    // caller can retry approve) instead of silently advancing the phase
+    // with a divergent live state (F-9).
+    svc.apply(client, resolve_id_in)
+        .await
+        .map_err(IpcError::from)?;
 
     let now = resin_core::whitebox_backup::now_unix();
     let is_rollback = proposal.is_rollback;

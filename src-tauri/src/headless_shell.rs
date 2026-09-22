@@ -775,10 +775,20 @@ async fn capabilities_h() -> Response {
         .into_response()
 }
 
-/// GET /api/v1/shell/key-lookup?key=<k> - reverse lookup: the port rows a
+/// POST /api/v1/shell/key-lookup {key} - reverse lookup: the port rows a
 /// key/account binds, plus its live egress leases. Read-only (L2 port table
 /// + L3 lease map); request bodies are never parsed.
-async fn key_lookup_h(ctx: Arc<PortCtx>, key: String) -> Response {
+async fn key_lookup_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
+    // POST body (not a query param): the key is credential material and a
+    // `?key=` URL would land in reverse-proxy access logs (F-7).
+    let v = match json_body(&body).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    let key = match str_arg(&v, "key") {
+        Ok(s) => s,
+        Err(r) => return r,
+    };
     let client = match ctx.client() {
         Ok(c) => c,
         Err(e) => return port_err(StatusCode::BAD_GATEWAY, &e),
@@ -908,18 +918,7 @@ pub fn shell_routes(ctx: Arc<PortCtx>) -> Router {
             "/api/v1/shell/ip-reputation",
             get(h!(ip_reputation_h, no_body)),
         )
-        .route(
-            "/api/v1/shell/key-lookup",
-            get({
-                let c = ctx.clone();
-                move |axum::extract::Query(q): axum::extract::Query<
-                    std::collections::HashMap<String, String>,
-                >| {
-                    let c = c.clone();
-                    async move { key_lookup_h(c, q.get("key").cloned().unwrap_or_default()).await }
-                }
-            }),
-        )
+        .route("/api/v1/shell/key-lookup", post(h!(key_lookup_h)))
         .route(
             "/api/v1/shell/orchestration",
             get(h!(orchestration_get_h, no_body)),
