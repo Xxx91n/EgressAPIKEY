@@ -87,17 +87,17 @@ describe("SettingsView P25-item4 tray i18n refresh closed-loop", () => {
 // enterprise-pattern dirty-tracking gate (minimal baseline + JSON.stringify diff).
 describe("SettingsView P4 IP reputation settings", () => {
   beforeEach(() => {
-  invokeMock.mockReset();
-  invokeMock.mockImplementation((cmd: string) => {
-    if (cmd === "lightweight_get") return Promise.resolve({ enabled: true, delay_minutes: 10 });
-    if (cmd === "lightweight_set") return Promise.resolve(undefined);
-    if (cmd === "whiteboard_get") return Promise.resolve({ version: 1, entry_ports: [], network: {} });
-    if (cmd === "whiteboard_path") return Promise.resolve("/tmp/test.json");
-    if (cmd === "whiteboard_save_network") return Promise.resolve(0);
-    if (cmd === "get_sidecar_status") return Promise.resolve({ api_port: 12345, mode: "running" });
-    return Promise.resolve(undefined);
+    invokeMock.mockReset();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "lightweight_get") return Promise.resolve({ enabled: true, delay_minutes: 10 });
+      if (cmd === "lightweight_set") return Promise.resolve(undefined);
+      if (cmd === "whiteboard_get") return Promise.resolve({ version: 1, entry_ports: [], network: {} });
+      if (cmd === "whiteboard_path") return Promise.resolve("/tmp/test.json");
+      if (cmd === "whiteboard_save_network") return Promise.resolve(0);
+      if (cmd === "get_sidecar_status") return Promise.resolve({ api_port: 12345, mode: "running" });
+      return Promise.resolve(undefined);
+    });
   });
-});
   it("provider selection participates in the unified settings save transaction", async () => {
     render(<SettingsView />);
     const provider = await screen.findByLabelText(/Provider|服务商/);
@@ -229,6 +229,10 @@ describe("SettingsView R12-B4 lightweight_set rejection containment", () => {
     try {
       render(<SettingsView />);
       const toggle = await screen.findByTestId("lightweight-enabled");
+      // lightweightLoadedRef is armed via setTimeout(0) after lightweight_get
+      // resolves - let that macrotask land before toggling, else the RISK-5
+      // first-cycle skip swallows our save (the effect returns early).
+      await new Promise((r) => setTimeout(r, 20));
       fireEvent.click(toggle);
       // the save is debounced 500ms - waitFor polls until the invoke fires
       await waitFor(() => {
