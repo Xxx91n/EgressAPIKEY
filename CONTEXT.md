@@ -951,3 +951,54 @@ inside one account; node-level pinning also lives here. Until the
 trigger fires the fork line must not start, and the shell line must
 not re-enter the kernel (ADR-0050).
 _Avoid_: patching Resin casually, shell-side kernel forks
+
+### Deployment Profile (部署剖面)
+
+A named runtime context the product must satisfy (r12-wave-a D-002):
+**low-end VPS headless** (1C1G-class Linux, egressapikey-headless + sidecar,
+unattended) and **ordinary Windows desktop** (Tauri GUI + WebView2 process
+tree + sidecar). Acceptance-line numbers are legislated per profile;
+shared-runner measurements are warn-only reference columns and absolute
+pins wait on representative hardware.
+_Avoid_: benchmarking CI runners as if they were target hardware, one
+profile silently covering both form factors
+
+### Acceptance Line (验收线)
+
+The legislated dual-threshold (target / danger) performance bar, per
+deployment profile, that arbitrates ticket priority (r12-wave-a
+D-001/D-002): tickets protecting or advancing a line upgrade; orthogonal
+work must justify itself against the line or defer. Lines gate added-latency
+deltas and good-event ratios rather than raw absolutes, and their domain is
+deliberately narrow (no competitor benchmarking; Mode B data-plane
+performance is Resin's domain).
+_Avoid_: vanity metrics, throughput gates without latency/error caliber,
+silently widening the domain
+
+### Registered Exemption (登记型豁免)
+
+A Known Exemption carrying a written removal condition and a named
+registration point (r12-wave-a D-002): the defect stays visible and the
+exemption is deleted when its condition fires (Mode B SSE buffering is
+exempt only until upstream implements per-event flush). What separates it
+from a silent waiver is the revocation path.
+_Avoid_: permanent unowned exemptions, exemptions with no removal condition
+
+### Trigger Line (触发线)
+
+The suspension mechanism for deferred work (r12-wave-a D-003/D-005): an
+item parks until a machine-checkable condition fires, then re-enters
+adjudication (⑤c churn trigger, R12-01 unblock conditions, the four i18n
+revisit lines). Every trigger line is covered by the per-round grill
+inspection obligation so parked items cannot become orphans.
+_Avoid_: "later" without a named condition, suspended items with no
+inspector
+
+### Good-Event Ratio (好事件占比)
+
+The preferred SLI expression over bare percentiles (r12-wave-a D-002):
+events meeting threshold / total valid events — e.g. "SSE per-event added
+delta <=10ms in >=99% of events". It separates an occasional tail spike
+from systemic degradation and feeds error-budget accounting directly.
+_Avoid_: bare p99 as a gate, averaged latencies, thresholds on absolute WAN
+latency instead of added delta
