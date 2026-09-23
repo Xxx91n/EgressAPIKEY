@@ -113,7 +113,7 @@ jobs:
 
       - name: Run benchmark
         env:
-          PHASES_ARG: ${{ inputs.phases != '' && concat('--phases ', inputs.phases) || '' }}
+          PHASES_ARG: ${{ inputs.phases != '' && format('--phases {0}', inputs.phases) || '' }}
           HEADLESS_ARG: ${{ (matrix.os == 'windows-latest' && (inputs.with_app == 'true' || contains(inputs.phases, 'faultinject'))) && '--headless-exe target/x86_64-pc-windows-msvc/release/egressapikey-headless.exe' || (matrix.os == 'ubuntu-latest' && contains(inputs.phases, 'faultinject')) && '--headless-exe target/x86_64-unknown-linux-gnu/release/egressapikey-headless' || '' }}
         run: >
           node scripts/bench/run-bench.mjs
