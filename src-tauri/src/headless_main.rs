@@ -40,7 +40,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use axum::{
     body::{Body, Bytes},
-    extract::{Path, Query, State},
+    extract::{ConnectInfo, Path, Query, State},
     http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -94,6 +94,23 @@ struct Cli {
     /// address, e.g. a TLS reverse proxy in front of `--bind=0.0.0.0`.
     #[arg(long = "allowed-host", value_name = "HOST")]
     allowed_host: Vec<String>,
+    /// Reverse-proxy peer trusted to assert X-Forwarded-Proto (repeatable;
+    /// exact IP or CIDR, e.g. 127.0.0.1 or 10.8.0.0/16). Without this flag
+    /// XFP is ignored entirely - it is a client-writable header (R12-D1).
+    /// 0.0.0.0/0 disables the boundary; see docs/how-to/HEADLESS_DEPLOYMENT.md.
+    #[arg(long = "trusted-proxy", value_name = "IP_OR_CIDR", value_parser = parse_trusted_proxy)]
+    trusted_proxy: Vec<ipnet::IpNet>,
+}
+
+/// clap value parser for --trusted-proxy: an exact IP becomes a host net
+/// (/32 or /128); a CIDR is taken verbatim.
+fn parse_trusted_proxy(s: &str) -> Result<ipnet::IpNet, String> {
+    if let Ok(net) = s.parse::<ipnet::IpNet>() {
+        return Ok(net);
+    }
+    s.parse::<std::net::IpAddr>()
+        .map(ipnet::IpNet::from)
+        .map_err(|_| format!("not an IP or CIDR: {s}"))
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -150,6 +167,7 @@ async fn main() -> Result<()> {
     let guard = Arc::new(HeadlessGuard::new(
         headless_security::allowed_hosts(&cli.bind, &cli.allowed_host),
         resolved.token.clone(),
+        cli.trusted_proxy.clone(),
     ));
     if resolved.source == headless_security::TokenSource::Generated {
         tracing::info!("headless: generated a CSPRNG --auth-token for this session");
@@ -167,6 +185,10 @@ async fn main() -> Result<()> {
     tracing::info!(
         "headless: Host/Origin allowlist = {:?}",
         guard.allowed_hosts()
+    );
+    tracing::info!(
+        "headless: trusted-proxy peers = {} (--trusted-proxy)",
+        cli.trusted_proxy.len()
     );
 
     let binary_dir = cli.binary_dir.unwrap_or_else(|| {
@@ -281,7 +303,12 @@ async fn main() -> Result<()> {
     })?;
     let server_task = tokio::spawn(async move {
         tracing::info!("headless: control surface listening on http://{}", addr);
-        if let Err(e) = axum::serve(listener, app).await {
+        if let Err(e) = axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        {
             tracing::error!("headless: axum server error: {e}");
         }
     });
@@ -503,18 +530,10 @@ fn build_router(
 ///    authenticate without ever holding the token in JS.
 async fn security_guard(
     State(guard): State<Arc<HeadlessGuard>>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     req: Request<Body>,
     next: Next,
 ) -> Response {
-    // ADR-0071 D3: behind a TLS-terminating reverse proxy the browser leg is
-    // HTTPS even though our inbound socket is plain HTTP; the trusted-hop
-    // X-Forwarded-Proto marker then upgrades the session cookie to Secure.
-    let forwarded_https = req
-        .headers()
-        .get("x-forwarded-proto")
-        .and_then(|v| v.to_str().ok())
-        .map(|v| v.trim().eq_ignore_ascii_case("https"))
-        .unwrap_or(false);
     let host = req
         .headers()
         .get(header::HOST)
@@ -574,10 +593,23 @@ async fn security_guard(
         }
     }
 
+    // R12-D1 (ADR-0071 errata): the XFP read lives next to the cookie plant
+    // that consumes it - next.run consumes the request, so the header value
+    // is captured here and the trust decision (socket peer vs the
+    // --trusted-proxy set) is evaluated at plant time.
+    let x_forwarded_proto = req
+        .headers()
+        .get("x-forwarded-proto")
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned);
     let mut resp = next.run(req).await;
     if plant_cookie {
         let mut cookie = guard.session_cookie();
-        if forwarded_https {
+        if headless_security::trusted_forwarded_https(
+            peer.ip(),
+            guard.trusted_proxies(),
+            x_forwarded_proto.as_deref(),
+        ) {
             cookie.push_str("; Secure");
         }
         if let Ok(value) = HeaderValue::from_str(&cookie) {
@@ -1645,6 +1677,7 @@ mod guard_wiring_tests {
         let guard = Arc::new(HeadlessGuard::new(
             headless_security::allowed_hosts("127.0.0.1", &[]),
             TEST_TOKEN.to_string(),
+            Vec::new(),
         ));
         let app = build_router(
             &dir.join("dist"),
@@ -1658,7 +1691,11 @@ mod guard_wiring_tests {
             .expect("bind ephemeral port");
         let addr = listener.local_addr().expect("local_addr");
         tokio::spawn(async move {
-            let _ = axum::serve(listener, app).await;
+            let _ = axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await;
         });
         (format!("http://{addr}"), dir)
     }

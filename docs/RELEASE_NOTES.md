@@ -8,6 +8,17 @@ machine-checks the alignment: every release section here must exist in the
 CHANGELOG with the same version and date, and every CHANGELOG version must
 have a section here.
 
+## Unreleased
+
+### Upgrade notes
+
+- **Headless behind a TLS-terminating proxy** (R12-D1): the headless server
+  now ignores `X-Forwarded-Proto` unless the socket peer is declared via the
+  new repeatable `--trusted-proxy <ip-or-cidr>` flag. If your proxy
+  terminates TLS and forwards plain HTTP to the binary, add
+  `--trusted-proxy=<proxy address>` to keep the `Secure` session cookie;
+  direct/plain-HTTP deployments need no change.
+
 ## 0.2.0 (2026-09-23)
 
 Second public release. The headline is the strategy orchestration

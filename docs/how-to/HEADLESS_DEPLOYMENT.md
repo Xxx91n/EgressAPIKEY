@@ -16,6 +16,7 @@ itself is the trust boundary. Three controls protect it:
 | --- | --- | --- |
 | Shared-secret token | `--auth-token` | Required on every control-plane request. |
 | Host / Origin allowlist | `--allowed-host` | Rejects requests whose `Host` / `Origin` is not an accepted name. |
+| Trusted proxy set | `--trusted-proxy` | Repeatable IP/CIDR; only requests arriving from these peers may assert `X-Forwarded-Proto` (the bootstrap cookie gains `; Secure`). The header is ignored entirely when the set is empty. |
 | Startup refusal | - | A non-loopback `--bind` without `--auth-token` refuses to start. |
 
 ### Token lifecycle
@@ -47,6 +48,7 @@ start window. Comparison against the expected token is constant-time.
 - **TLS is not terminated by this binary.** Over plain HTTP the token crosses
   the wire in cleartext. Put TLS (Caddy / nginx) in front, or keep the bind on a
   trusted loopback / LAN segment.
+
 - **`--auth-token` is visible in the process arguments** (`ps`, container
   inspect). Prefer the auto-generated token on a loopback bind; when a
   non-loopback bind is unavoidable, restrict who can read process state.
@@ -200,6 +202,21 @@ reverse_proxy 127.0.0.1:14200 {
   header_up Host 127.0.0.1:14200
 }
 ```
+
+**Declare the proxy as a trusted peer.** Caddy and nginx set
+`X-Forwarded-Proto: https` on the browser leg while forwarding plain HTTP
+to this binary. The header is client-writable, so it is ignored unless the
+socket peer is declared via the repeatable flag:
+
+```bash
+--trusted-proxy=127.0.0.1            # exact IP; a CIDR like 10.8.0.0/16 also works
+```
+
+Only then does `X-Forwarded-Proto: https` add `; Secure` to the bootstrap
+session cookie (the first list value wins; anything else fails closed;
+forged headers are dropped silently). `--trusted-proxy=0.0.0.0/0` disables
+the boundary entirely - list only the addresses your proxy can actually
+arrive from.
 
 The proxy's auth gate is defence in depth - the in-process token and Host
 allowlist are the actual boundary (see Security model).

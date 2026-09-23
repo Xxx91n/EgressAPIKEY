@@ -20,3 +20,24 @@ D4 - Security micro-hardening: X-Forwarded-Proto scheme detection and CSP frame-
 - The round11 headless completion ticket (R11-03) implements D2/D3/D4 including the ports-route fix; R11-04 performs the preparatory ipc.ts boundary split first (D-005 5b).
 - The trust boundary is unchanged: token bootstrap + Host/Origin allowlist + reverse-proxy TLS remains the boundary (validated as the industry convergence point).
 - Known trade-off (r11-wave-b grill D-002-2, 2026-09-20): the BFF translate_request name-to-id resolution costs one extra control-plane RTT (list-then-act) per name-addressed mutation. Accepted as a consequence of the same-SPA BFF design; name-addressed Resin routes belong to the Resin fork line, not the shell.
+
+## Errata (2026-09-23, r12 wave-d R12-D1)
+
+D4's X-Forwarded-Proto handling is corrected to a trust boundary (amend-not-
+rewrite): XFP is ignored by default and honoured only when the socket peer
+is inside the operator-declared `--trusted-proxy` set (repeatable IP/CIDR
+clap flag; `ipnet` direct dep). Previously any client could forge the header
+and pin `Secure` onto the session cookie on a plain-HTTP deployment.
+
+Why the socket-peer model over the XFF chain: the guard's question is only
+"did a trusted proxy relay this request" - the session cookie's `Secure`
+suffix needs relay trust, not the real client IP. Parsing the XFF list would
+be adjudicating a client-forgeable chain for a datum the guard never uses;
+the socket peer is unfalsifiable at L7 and costs one
+`ConnectInfo<SocketAddr>` extractor. List values still take the FIRST scheme
+(client-nearest, ASP.NET convention) and everything else fails closed.
+Forged XFP is dropped silently (per-request warnings would be a log-flood
+vector). `--trusted-proxy 0.0.0.0/0` is a documented operator footgun (docs
+warning, not a hard block).
+
+Deployment doc: `docs/how-to/HEADLESS_DEPLOYMENT.md` gains the flag.

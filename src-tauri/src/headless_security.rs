@@ -255,24 +255,71 @@ pub fn token_cookie(token: &str) -> String {
     format!("{TOKEN_COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict")
 }
 
+/// True only when the socket peer is a declared `--trusted-proxy` AND the
+/// `X-Forwarded-Proto` header's FIRST list value is `https` (fail-closed).
+///
+/// XFP is a client-writable header: trusting it unconditionally let any
+/// caller forge the `Secure` suffix onto the session cookie on a plain-HTTP
+/// deployment (r12 wave-d R12-D1, ADR-0071 errata). The socket peer - not
+/// the XFF chain - is the trust anchor: the guard only needs "did a trusted
+/// proxy relay this request", never the real client IP. IPv4-mapped-IPv6
+/// peers (`::ffff:a.b.c.d`) normalize via `to_ipv4_mapped()` - NOT
+/// `to_ipv4()`, which also maps `::1` -> `0.0.0.1` and would break the v6
+/// loopback peer.
+pub fn trusted_forwarded_https(
+    peer: std::net::IpAddr,
+    trusted: &[ipnet::IpNet],
+    x_forwarded_proto: Option<&str>,
+) -> bool {
+    let peer = match peer {
+        std::net::IpAddr::V6(v6) => v6
+            .to_ipv4_mapped()
+            .map(std::net::IpAddr::V4)
+            .unwrap_or(std::net::IpAddr::V6(v6)),
+        v4 => v4,
+    };
+    if !trusted.iter().any(|net| net.contains(&peer)) {
+        return false;
+    }
+    x_forwarded_proto
+        .and_then(|v| v.split(',').next())
+        .map(|v| v.trim().eq_ignore_ascii_case("https"))
+        .unwrap_or(false)
+}
+
 /// Token + Host allowlist, evaluated per request by the axum guard in
 /// `headless_main.rs`.
 #[derive(Debug, Clone)]
 pub struct HeadlessGuard {
     allowed_hosts: Vec<String>,
     token: String,
+    /// Peers trusted to speak for the client's real scheme (the
+    /// `--trusted-proxy` set). `X-Forwarded-Proto` is honoured only when the
+    /// socket peer is inside this set - it is never trusted from an
+    /// arbitrary client (the header is client-writable).
+    trusted_proxies: Vec<ipnet::IpNet>,
 }
 
 impl HeadlessGuard {
-    pub fn new(allowed_hosts: Vec<String>, token: String) -> Self {
+    pub fn new(
+        allowed_hosts: Vec<String>,
+        token: String,
+        trusted_proxies: Vec<ipnet::IpNet>,
+    ) -> Self {
         Self {
             allowed_hosts,
             token,
+            trusted_proxies,
         }
     }
 
     pub fn allowed_hosts(&self) -> &[String] {
         &self.allowed_hosts
+    }
+
+    /// The `--trusted-proxy` peer set, consulted by `trusted_forwarded_https`.
+    pub fn trusted_proxies(&self) -> &[ipnet::IpNet] {
+        &self.trusted_proxies
     }
 
     /// `Set-Cookie` value that plants the session cookie during the bootstrap
@@ -464,7 +511,11 @@ mod tests {
 
     #[test]
     fn guard_token_precedence_and_match() {
-        let g = HeadlessGuard::new(allowed_hosts("127.0.0.1", &[]), "tok".to_string());
+        let g = HeadlessGuard::new(
+            allowed_hosts("127.0.0.1", &[]),
+            "tok".to_string(),
+            Vec::new(),
+        );
         assert!(g.token_matches("tok"));
         assert!(!g.token_matches("nope"));
         assert_eq!(
@@ -492,5 +543,99 @@ mod tests {
             !c.contains("Secure"),
             "plain-HTTP LAN deployments must still receive the cookie"
         );
+    }
+
+    // -- R12-D1: X-Forwarded-Proto trust boundary (ADR-0071 errata) --
+
+    fn v4(s: &str) -> std::net::IpAddr {
+        s.parse().expect("v4 addr")
+    }
+    fn net(s: &str) -> ipnet::IpNet {
+        s.parse().expect("cidr")
+    }
+
+    #[test]
+    fn xfp_ignored_when_no_trusted_proxy_declared() {
+        // No --trusted-proxy flag -> XFP fully ignored even from loopback.
+        assert!(!trusted_forwarded_https(
+            v4("127.0.0.1"),
+            &[],
+            Some("https")
+        ));
+    }
+
+    #[test]
+    fn xfp_ignored_for_untrusted_peer() {
+        let trusted = vec![net("127.0.0.1/32")];
+        assert!(!trusted_forwarded_https(
+            v4("10.0.0.9"),
+            &trusted,
+            Some("https")
+        ));
+    }
+
+    #[test]
+    fn trusted_peer_asserting_https_marks_secure() {
+        let trusted = vec![net("127.0.0.1/32")];
+        assert!(trusted_forwarded_https(
+            v4("127.0.0.1"),
+            &trusted,
+            Some("https")
+        ));
+    }
+
+    #[test]
+    fn trusted_peer_without_xfp_gets_no_secure() {
+        let trusted = vec![net("127.0.0.1/32")];
+        assert!(!trusted_forwarded_https(v4("127.0.0.1"), &trusted, None));
+    }
+
+    #[test]
+    fn trusted_peer_xfp_http_gets_no_secure() {
+        let trusted = vec![net("127.0.0.1/32")];
+        assert!(!trusted_forwarded_https(
+            v4("127.0.0.1"),
+            &trusted,
+            Some("http")
+        ));
+    }
+
+    #[test]
+    fn xfp_list_uses_first_scheme_fail_closed() {
+        let trusted = vec![net("127.0.0.1/32")];
+        // First list value = client-nearest scheme; later entries never
+        // rescue a non-https first value.
+        assert!(trusted_forwarded_https(
+            v4("127.0.0.1"),
+            &trusted,
+            Some("https,http")
+        ));
+        assert!(!trusted_forwarded_https(
+            v4("127.0.0.1"),
+            &trusted,
+            Some("http,https")
+        ));
+    }
+
+    #[test]
+    fn v6_mapped_peer_hits_v4_trusted_entry() {
+        let trusted = vec![net("127.0.0.1/32")];
+        let peer: std::net::IpAddr = "::ffff:127.0.0.1".parse().expect("v6-mapped");
+        assert!(trusted_forwarded_https(peer, &trusted, Some("https")));
+    }
+
+    #[test]
+    fn cidr_trusted_entry_hit_and_miss() {
+        let trusted = vec![net("10.8.0.0/16")];
+        assert!(trusted_forwarded_https(
+            v4("10.8.3.4"),
+            &trusted,
+            Some("https")
+        ));
+        assert!(!trusted_forwarded_https(
+            v4("10.9.0.1"),
+            &trusted,
+            Some("https")
+        ));
     }
 }

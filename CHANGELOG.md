@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- (r12 wave-d, R12-D1) headless `X-Forwarded-Proto` trust boundary: XFP is
+  now ignored by default; the `; Secure` suffix on the bootstrap session
+  cookie is applied only when the socket peer matches the new repeatable
+  `--trusted-proxy <ip-or-cidr>` flag (ipnet; an exact IP becomes a
+  /32-or-/128 host net, CIDR is taken verbatim; IPv4-mapped-IPv6 peers
+  normalize via `to_ipv4_mapped()`; first XFP list value wins; fail-closed;
+  forged headers dropped silently). Previously any client could forge the
+  header and pin `Secure` on a plain-HTTP deployment. Documented in
+  `docs/how-to/HEADLESS_DEPLOYMENT.md` + the ADR-0071 errata.
+
 ## [0.2.0] - 2026-09-23
 
 ### Security
