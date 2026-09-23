@@ -212,14 +212,14 @@ export function PlatformsView() {
     if (list.length === 0) return;
     // Per-port gather: each entry maps port -> result or null on failure
     // (the auth and health passes share this shape).
-    const gather = async <T>(f: (p: PortMapping) => Promise<T>) => {
+    async function gather<T>(f: (p: PortMapping) => Promise<T>) {
       const rows = await Promise.all(list.map(async (p) => {
         try { return [p.port, await f(p)] as const; } catch { return null; }
       }));
       const out: Record<number, T> = {};
       for (const r of rows) if (r) out[r[0]] = r[1];
       return out;
-    };
+    }
     const [authMap, healthMap] = await Promise.all([
       gather((p) => ipcPortAuthInfo(p.port)),
       gather((p) => ipcPortHealthCheck(p.port, p.protocol)),
