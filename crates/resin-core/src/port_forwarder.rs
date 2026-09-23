@@ -484,13 +484,32 @@ async fn handle_socks5(mut client: TcpStream, ctx: SessionCtx) -> Result<(), Str
             .await
             .map_err(|e| format!("socks methods: {e}"))?;
     }
-    // Mode A: the client presents NO credential - the port is the identity.
-    // Reply NoAuth regardless of the offered methods (0x00 is always a
-    // selection this listener honours).
-    client
-        .write_all(&[0x05, 0x00])
-        .await
-        .map_err(|e| format!("socks method reply: {e}"))?;
+    // Mode A is credential-free: the port IS the identity, so credential
+    // content is never checked. The method reply must still pick from the
+    // offered list (RFC 1928): a client that carries userinfo in the proxy
+    // URL - reqwest/hyper-util send a UserPass-ONLY offer, which is exactly
+    // what probe_exit_ip builds for non-http rows - dies on a method
+    // mismatch against a NoAuth-only reply, so every egress probe through a
+    // shell entry failed before CONNECT (R12-C1 finding). Prefer NoAuth
+    // when offered (zero-RTT credential-free path), else accept-and-ignore
+    // UserPass.
+    if methods.contains(&0x00) {
+        client
+            .write_all(&[0x05, 0x00])
+            .await
+            .map_err(|e| format!("socks method reply: {e}"))?;
+    } else if methods.contains(&0x02) {
+        client
+            .write_all(&[0x05, 0x02])
+            .await
+            .map_err(|e| format!("socks method reply: {e}"))?;
+        client.flush().await.map_err(|e| e.to_string())?;
+        consume_socks5_userpass(&mut client).await?;
+    } else {
+        // No method this listener honours: RFC 1928 refusal.
+        let _ = client.write_all(&[0x05, 0xFF]).await;
+        return Err("socks: no acceptable auth method offered".into());
+    }
     client.flush().await.map_err(|e| e.to_string())?;
 
     // Request: VER CMD RSV ATYP DST.ADDR DST.PORT
@@ -543,6 +562,41 @@ async fn handle_socks5(mut client: TcpStream, ctx: SessionCtx) -> Result<(), Str
         .map_err(|e| format!("socks connect reply: {e}"))?;
     client.flush().await.map_err(|e| e.to_string())?;
     relay_pair(client, upstream).await;
+    Ok(())
+}
+
+/// RFC 1929 username/password subnegotiation, accept-any: the bytes are
+/// consumed so the stream is positioned at the CONNECT request, but the
+/// credential itself is never validated - Mode A is credential-free, the
+/// entry port is the identity (ADR-0068 D3).
+async fn consume_socks5_userpass(client: &mut TcpStream) -> Result<(), String> {
+    let mut hdr = [0u8; 2];
+    client
+        .read_exact(&mut hdr)
+        .await
+        .map_err(|e| format!("socks auth header: {e}"))?;
+    if hdr[0] != 0x01 {
+        return Err(format!("socks auth bad ver {:#04x}", hdr[0]));
+    }
+    let mut uname = vec![0u8; hdr[1] as usize];
+    client
+        .read_exact(&mut uname)
+        .await
+        .map_err(|e| format!("socks auth uname: {e}"))?;
+    let mut plen = [0u8; 1];
+    client
+        .read_exact(&mut plen)
+        .await
+        .map_err(|e| format!("socks auth plen: {e}"))?;
+    let mut passwd = vec![0u8; plen[0] as usize];
+    client
+        .read_exact(&mut passwd)
+        .await
+        .map_err(|e| format!("socks auth passwd: {e}"))?;
+    client
+        .write_all(&[0x01, 0x00])
+        .await
+        .map_err(|e| format!("socks auth reply: {e}"))?;
     Ok(())
 }
 
@@ -1285,6 +1339,53 @@ mod tests {
         );
         drop(holder);
         wait_bound(&f, 47995, true).await;
+    }
+
+    #[tokio::test]
+    async fn socks5_userpass_only_offer_is_accepted() {
+        // R12-C1 finding: clients that carry userinfo in the proxy URL
+        // (reqwest/hyper-util - what probe_exit_ip builds for non-http rows)
+        // send a UserPass-ONLY method offer. A NoAuth reply is then an
+        // RFC 1928 method mismatch; the credential-free shell entry must
+        // select UserPass and accept any credential (port = identity).
+        let db = crate::db::DbPool::open_in_memory().expect("mem db");
+        let f = PortForwarder::shell(db, "127.0.0.1", 9, "tok");
+        f.reload(&[mapping(47996, "mixed", true)])
+            .await
+            .expect("reload");
+        wait_bound(&f, 47996, true).await;
+        let mut s = TcpStream::connect("127.0.0.1:47996").await.expect("dial");
+        // VER=5 NMETHODS=1 METHODS=[UserPass]
+        s.write_all(&[0x05, 0x01, 0x02]).await.expect("offer");
+        let mut sel = [0u8; 2];
+        s.read_exact(&mut sel).await.expect("method reply");
+        assert_eq!(sel, [0x05, 0x02], "UserPass-only offer must select 0x02");
+        // RFC 1929 auth request: VER=1 ULEN UNAME PLEN PASSWD -> accept-any.
+        s.write_all(&[0x01, 0x01, b'a', 0x01, b'b'])
+            .await
+            .expect("auth req");
+        let mut auth = [0u8; 2];
+        s.read_exact(&mut auth).await.expect("auth reply");
+        assert_eq!(auth, [0x01, 0x00], "credential-free entry accepts any");
+        f.reload(&[]).await.expect("unload");
+    }
+
+    #[tokio::test]
+    async fn socks5_noauth_still_preferred_when_offered() {
+        // Dual-method offer keeps the zero-RTT credential-free path: the
+        // loopback health probe sends exactly [0x00, 0x02].
+        let db = crate::db::DbPool::open_in_memory().expect("mem db");
+        let f = PortForwarder::shell(db, "127.0.0.1", 9, "tok");
+        f.reload(&[mapping(47997, "mixed", true)])
+            .await
+            .expect("reload");
+        wait_bound(&f, 47997, true).await;
+        let mut s = TcpStream::connect("127.0.0.1:47997").await.expect("dial");
+        s.write_all(&[0x05, 0x02, 0x00, 0x02]).await.expect("offer");
+        let mut sel = [0u8; 2];
+        s.read_exact(&mut sel).await.expect("method reply");
+        assert_eq!(sel, [0x05, 0x00], "NoAuth stays the preferred pick");
+        f.reload(&[]).await.expect("unload");
     }
 }
 

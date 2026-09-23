@@ -1,5 +1,8 @@
 // Mock upstream target + mock outbound node for the perf baseline harness.
 // All loopback, zero external deps, zero internet requirement on the data path.
+// EXCEPTION: the opt-in faultinject phase (R12-C1) egresses for real -
+// probe_exit_ip is hardcoded to 1.1.1.1/cdn-cgi/trace through this node and
+// Resin node health probes need live WAN reachability to flip routable.
 //
 // mock upstream (HTTP server):
 //   GET /health          -> 200 "ok"
@@ -190,5 +193,17 @@ export function startMockNode(port = 0) {
     });
     client.on("error", () => {});
   });
-  return listen(server, port).then((r) => ({ ...r, stats }));
+  // Track every accepted socket so a fault-injection kill can actually drop
+  // live tunnels: server.close() alone hangs on open CONNECT pipes, which
+  // would hold the port and keep the node partially alive.
+  const sockets = new Set();
+  server.on("connection", (s) => {
+    sockets.add(s);
+    s.on("close", () => sockets.delete(s));
+  });
+  const kill = async () => {
+    for (const s of sockets) s.destroy();
+    await new Promise((res) => server.close(() => res()));
+  };
+  return listen(server, port).then((r) => ({ ...r, stats, sockets, kill }));
 }

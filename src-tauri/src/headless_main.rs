@@ -209,6 +209,11 @@ async fn main() -> Result<()> {
     // given host runs either the shell or the headless server, never both.
     std::fs::create_dir_all(&state_root)
         .with_context(|| format!("headless: cannot create state_root {:?}", state_root))?;
+    // Same audit sink as the GUI shell (main.rs) rooted at state_root: the
+    // orchestration driver's signal-plane bookkeeping appends through the
+    // global sink and is a silent no-op until this init lands - on headless
+    // the environment-suspect evidence row was being dropped entirely.
+    resin_core::audit::init(state_root.join(resin_core::audit::AUDIT_LOG_FILE));
     let port_db = resin_core::DbPool::open(&state_root.join("egressapikey.db"))
         .map_err(|e| anyhow::anyhow!("headless: open egressapikey.db: {e}"))?;
     let initial_ports = port_db

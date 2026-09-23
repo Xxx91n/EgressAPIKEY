@@ -89,6 +89,42 @@ Two disjoint planes, never mixed:
   hard-fail a run under `--gate enforce` (bench) or turn the smoke workflow
   red. The webview smoke itself is report-only this round.
 
+## Fault-injection evidence (`faultinject` phase, R12-C1)
+
+Opt-in only: `--phases faultinject` (an explicit `--phases` list is EXACT - no
+exe-gated appends). Never in the default set and never in the verify gate.
+**Real WAN egress required**: probes hit the hardcoded `1.1.1.1/cdn-cgi/trace`
+endpoint through the mock node, so this phase cannot run air-gapped. When the
+prerequisites are missing (no `--headless-exe`, no bench-forwarder binary) the
+phase records `skipped` - it never fails on a missing prerequisite.
+
+SUT = `egressapikey-headless` (Mode B transport) with a fresh state root per
+run. The fixture writes `egressapikey.db` directly (5 platforms x 1 enabled
+`mixed` port each - the probe plane enumerates `list_ports()`, not a whitebox
+shortcut) plus `egressapikey-strategy.json` with orchestration
+`{ enabled:true, autonomy:suggest }` so every transition is parked and no
+platform can migrate mid-evidence. n=5 is the minimum non-trivial suppressor
+cell: `ceil(0.8*5)=4` local fails trip the common-mode suppressor.
+
+Dataplane provenance: each row port is materialised by a `bench-forwarder`
+child (a real Mode A shell-side entry) relaying into an endpoint on the SUT's
+own resin sidecar - configured through the headless admin-proxy surface -
+exiting via the shared mock CONNECT node. Injection semantics (D-002):
+
+- `kill-forwarder` = bind-refusal / Mode A entry failure class -> loopback
+  dead -> `local_fail` common-mode -> `environment_suspect`, suspect streak
+  monotonically non-decreasing, one `signal-plane/environment_suspect/
+  orchestration:tick` audit row at the crossing tick (streak 3).
+- `kill-node` = egress-path failure behind a live entry -> loopback ok +
+  egress dead -> `remote_fail`; the suppressor must NOT engage.
+- `kill-sidecar` is deliberately NOT the injection - both probes would die
+  together and the classifier would stamp `local_fail`.
+
+Assertions are hard evidence (a breach fails the phase via `fatal`), not
+warn-only measurements. Evidence lands in `bench-results/results.json
+.phases.faultinject` (timeline + suspect streaks + the audit row) - the
+results artifact is the rerunnable proof.
+
 ## Topology under test
 
 ```text

@@ -30,6 +30,11 @@ on:
         default: "true"
         type: choice
         options: ["true", "false"]
+      phases:
+        description: 'Comma-separated phase list; empty = default set + exe-gated app/headless phases. An explicit list is EXACT. "faultinject" (R12-C1) is opt-in evidence: needs real WAN egress to 1.1.1.1 and builds the headless SUT on both legs.'
+        required: false
+        default: ""
+        type: string
   schedule:
     - cron: "0 2 * * 1" # Mondays 02:00 UTC
 
@@ -86,14 +91,37 @@ jobs:
         run: npx --no-install tauri build --no-bundle --features "custom-protocol headless"
         shell: bash
 
+      # faultinject SUT = egressapikey-headless. The windows tauri build
+      # (with_app=true) already emits it; everywhere else the feature-gated
+      # cargo build produces it directly (no dist/ needed - the headless bin
+      # never expands generate_context!).
+      - name: Linux GUI-stack deps (faultinject headless build)
+        if: matrix.os == 'ubuntu-latest' && contains(inputs.phases, 'faultinject')
+        run: >
+          sudo apt-get update && sudo apt-get install -y
+          libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          libxdo-dev libssl-dev build-essential curl wget file
+        shell: bash
+
+      - name: Build headless SUT (faultinject)
+        if: contains(inputs.phases, 'faultinject') && !(matrix.os == 'windows-latest' && inputs.with_app == 'true')
+        run: >
+          cargo build --release -p egressapikey-app
+          --bin egressapikey-headless --features headless
+          ${{ matrix.os == 'ubuntu-latest' && '--target x86_64-unknown-linux-gnu' || '' }}
+        shell: bash
+
       - name: Run benchmark
+        env:
+          PHASES_ARG: ${{ inputs.phases != '' && concat('--phases ', inputs.phases) || '' }}
+          HEADLESS_ARG: ${{ (matrix.os == 'windows-latest' && (inputs.with_app == 'true' || contains(inputs.phases, 'faultinject'))) && '--headless-exe target/x86_64-pc-windows-msvc/release/egressapikey-headless.exe' || (matrix.os == 'ubuntu-latest' && contains(inputs.phases, 'faultinject')) && '--headless-exe target/x86_64-unknown-linux-gnu/release/egressapikey-headless' || '' }}
         run: >
           node scripts/bench/run-bench.mjs
           --duration "${{ inputs.duration || 'short' }}"
           --gate "${{ inputs.gate || 'warn' }}"
           --forwarder "${{ matrix.os == 'windows-latest' && 'target/x86_64-pc-windows-msvc/release/bench-forwarder.exe' || 'target/x86_64-unknown-linux-gnu/release/bench-forwarder' }}"
           ${{ (matrix.os == 'windows-latest' && inputs.with_app == 'true') && '--app-exe target/x86_64-pc-windows-msvc/release/EgressAPIKEY.exe' || '' }}
-          ${{ (matrix.os == 'windows-latest' && inputs.with_app == 'true') && '--headless-exe target/x86_64-pc-windows-msvc/release/egressapikey-headless.exe' || '' }}
+          $PHASES_ARG $HEADLESS_ARG
         shell: bash
 
       - name: Upload results

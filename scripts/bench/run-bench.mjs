@@ -7,7 +7,12 @@
 //   node scripts/bench/run-bench.mjs [--duration short|long]
 //     [--gate warn|enforce] [--resin <path>] [--app-exe <path>]
 //     [--headless-exe <path>]  (vps-headless profile: whole-tree idle + cold start)
-//     [--out <dir>] [--phases idle,paired,rps,sse,soak,healthz,app]
+//     [--out <dir>]
+//     [--phases <csv>]  an explicit list is EXACT (no exe-gated appends).
+//                       Default: idle,paired,rps,sse,soak,healthz plus
+//                       app/appstart (--app-exe) + headless/headlessstart
+//                       (--headless-exe). "faultinject" is opt-in evidence:
+//                       real WAN egress required, never in the default set.
 // Env: RESIN_BIN, VEGETA, BENCH_OUT
 
 import { spawn } from "node:child_process";
@@ -67,7 +72,8 @@ function resolveForwarder() {
 const APPSTART_N = Number(process.env.BENCH_APPSTART_N || 5);
 const HEADLESS_N = Number(process.env.BENCH_HEADLESS_N || 5);
 const OUT = arg("out", process.env.BENCH_OUT || path.join(root, "bench-results"));
-const PHASES = (arg("phases", "idle,paired,rps,sse,soak,healthz") + (APP_EXE ? ",app,appstart" : "") + (HEADLESS_EXE ? ",headless,headlessstart" : ""))
+const PHASES = (arg("phases", null) ??
+  "idle,paired,rps,sse,soak,healthz" + (APP_EXE ? ",app,appstart" : "") + (HEADLESS_EXE ? ",headless,headlessstart" : ""))
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
@@ -447,6 +453,375 @@ function evalGates(acc) {
   return gates;
 }
 
+// ---- faultinject (R12-C1): opt-in evidence phase ---------------------------
+
+// SUT = egressapikey-headless (Mode B transport) driving the ADR-0080
+// signal-plane common-mode suppressor under REAL fault injection. The
+// assertions ARE the evidence: a breach is a hard fail (fatal), never a
+// warn-only measurement. Opt-in only - never in the default phase set or
+// the verify gate.
+//
+// Fixture (fresh state root per run, seeded BEFORE the SUT spawns):
+//   egressapikey.db - written directly, bypassing the establish cascade
+//     (the legal fixture path): 5 platforms x 1 enabled `mixed` port each.
+//     The probe plane enumerates from DbPool::list_ports(), not a whitebox
+//     shortcut. n=5 is the minimum non-trivial suppressor cell
+//     (ceil(0.8*5)=4 local fails needed to trip it).
+//   egressapikey-strategy.json - orchestration { enabled, autonomy:suggest,
+//     slow_call_ms:9000 }: suggest parks every transition so Auto-tier
+//     migration stays outside the assertion surface; the inflated
+//     slow_call_ms absorbs shared-runner WAN jitter (the probe client
+//     timeout is 10s).
+//
+// Dataplane provenance (D-002): each row port is materialised by a
+// bench-forwarder child - a real Mode A shell-side entry - relaying into an
+// endpoint on the SUT's OWN resin sidecar (configured through the headless
+// admin-proxy surface), exiting via the shared mock CONNECT node to the
+// real WAN (probe_exit_ip is hardcoded to 1.1.1.1/cdn-cgi/trace). The
+// mock.mjs "zero internet" carve-out does NOT apply to this phase.
+//
+// Injection semantics (D-002):
+//   kill-forwarder == bind-refusal / Mode A entry failure class: loopback
+//     dead -> local_fail common-mode -> EnvironmentSuspect (suppressor on).
+//   kill-node == egress-path failure behind a live entry: loopback ok +
+//     egress dead -> remote_fail; the suppressor must stay OFF.
+//   kill-sidecar is NOT a valid injection: both probes die together and it
+//     would stamp local_fail (rejected in the ticket provenance).
+
+// Write the fixture state root (db rows + strategy whitebox). The db is
+// created at user_version=4 so the SUT's migrator sees the shipping schema.
+function writeFaultFixture(stateDir, ports, platformNames, DatabaseSync) {
+  const db = new DatabaseSync(path.join(stateDir, "egressapikey.db"));
+  db.exec(
+    "CREATE TABLE port_mappings (" +
+      "port INTEGER PRIMARY KEY, protocol TEXT NOT NULL DEFAULT 'mixed'," +
+      " platform_name TEXT NOT NULL, account TEXT NOT NULL," +
+      " label TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1," +
+      " auth_required INTEGER NOT NULL DEFAULT 1);",
+  );
+  const ins = db.prepare(
+    "INSERT INTO port_mappings" +
+      " (port, protocol, platform_name, account, label, enabled, auth_required)" +
+      " VALUES (?, 'mixed', ?, 'fi', 'faultinject', 1, 0)",
+  );
+  ports.forEach((p, i) => ins.run(p, platformNames[i]));
+  db.exec("PRAGMA user_version = 4;");
+  db.close();
+  fs.writeFileSync(
+    path.join(stateDir, "egressapikey-strategy.json"),
+    JSON.stringify(
+      {
+        version: 1,
+        platforms: platformNames.map((n) => ({
+          platform_name: n,
+          a_class: "region",
+          b_class: "BALANCED",
+          regions: ["us"],
+        })),
+        orchestration: {
+          params: { enabled: true, autonomy: "suggest", slow_call_ms: 9000 },
+        },
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+}
+
+// Poll until every port REFUSES a loopback connect, so the first injected
+// tick cannot observe a half-dead window (kill signals are async).
+async function waitAllClosed(ports, deadlineMs, t0 = nowMs()) {
+  for (;;) {
+    const states = await Promise.all(
+      ports.map(
+        (p) =>
+          new Promise((res) => {
+            const sk = net.connect(p, "127.0.0.1", () => {
+              sk.destroy();
+              res(true);
+            });
+            sk.on("error", () => res(false));
+            sk.setTimeout(800, () => {
+              sk.destroy();
+              res(true); // a hung dial is not evidence of refusal
+            });
+          }),
+      ),
+    );
+    if (states.every((open) => !open)) return nowMs() - t0;
+    if (nowMs() - t0 > deadlineMs) return null;
+    await sleep(150);
+  }
+}
+
+async function phaseFaultInject(ctx) {
+  const fwdBin = resolveForwarder();
+  if (!fwdBin) {
+    return {
+      skipped:
+        "bench-forwarder binary not found (FORWARDER_BIN or target/**/release) - faultinject skipped",
+    };
+  }
+  if (!HEADLESS_EXE || !fs.existsSync(HEADLESS_EXE)) {
+    return { skipped: `--headless-exe missing or not found: ${HEADLESS_EXE ?? "(unset)"}` };
+  }
+  let DatabaseSync;
+  try {
+    ({ DatabaseSync } = await import("node:sqlite"));
+  } catch (e) {
+    return { skipped: `node:sqlite unavailable (${e.message}) - faultinject skipped` };
+  }
+
+  const failures = [];
+  const assert = (cond, msg) => {
+    if (!cond) {
+      failures.push(msg);
+      log(`faultinject ASSERT-FAIL: ${msg}`);
+    }
+    return cond;
+  };
+
+  // n=5: ceil(0.8*5)=4 -> the minimum cell where the suppressor is non-trivial.
+  const PLATFORM_NAMES = ["fi-p1", "fi-p2", "fi-p3", "fi-p4", "fi-p5"];
+  const rowPorts = [];
+  for (let i = 0; i < PLATFORM_NAMES.length; i++) rowPorts.push(await pickFreePort());
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "egressapikey-fi-"));
+  writeFaultFixture(stateDir, rowPorts, PLATFORM_NAMES, DatabaseSync);
+
+  const hp = await pickFreePort();
+  const token = crypto.randomBytes(12).toString("hex");
+  const sut = spawnHeadless(hp, token, stateDir, ctx);
+  children.push(sut);
+
+  const t0 = nowMs();
+  const timeline = [];
+  const verdictMap = (r) =>
+    Object.fromEntries((r?.platform_verdicts ?? []).map((v) => [v.platform, v.verdict]));
+  const allAre = (r, want) => PLATFORM_NAMES.every((n) => verdictMap(r)[n] === want);
+  const tick = async () => {
+    const res = await fetch(`http://127.0.0.1:${hp}/api/v1/shell/orchestration/tick`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`tick http ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    return res.json();
+  };
+  const snap = (tag, r) =>
+    timeline.push({
+      tag,
+      tMs: nowMs() - t0,
+      streak: r?.environment_status?.suspect_streak ?? null,
+      verdicts: verdictMap(r),
+      details: r?.verdict_details ?? [],
+      executedActions: (r?.actions ?? []).filter((a) => a.ok),
+    });
+
+  // The control surface binds only after the SUT's sidecar boots
+  // (headless_main binds post-boot), so connectable == whole tree up.
+  const readyMs = await waitTcpReady(hp, 90000);
+  if (readyMs == null) {
+    killTree(sut);
+    return { skipped: "headless control surface never bound within 90s", stateDir };
+  }
+
+  // Wire the SUT's own sidecar dataplane through the shared mock node via
+  // the headless admin-proxy surface (Bearer <auth-token>; the proxy injects
+  // the resin admin token). Probe path: row port -> forwarder -> SUT resin
+  // endpoint -> mock CONNECT node -> 1.1.1.1 (real egress).
+  const sutApi = resinApi(hp, token);
+  const sutEpPort = await pickFreePort();
+  const route = await ensureRoutable({
+    api: sutApi,
+    nodePort: ctx.mockNode.port,
+    epPort: sutEpPort,
+    upstreamPort: ctx.upstreamPort,
+  });
+
+  // Materialise the five row ports as killable Mode A shell-side entries.
+  const spawnEntries = async () => {
+    const procs = rowPorts.map((p) => {
+      const c = spawn(fwdBin, [], {
+        env: {
+          ...process.env,
+          BENCH_FWD_PORT: String(p),
+          BENCH_FWD_ENGINE_PORT: String(sutEpPort),
+          BENCH_FWD_PLATFORM: "bench",
+          BENCH_FWD_ACCOUNT: "bench",
+          BENCH_FWD_PROXY_TOKEN: "",
+          RUST_LOG: "warn",
+        },
+        stdio: "ignore",
+      });
+      children.push(c);
+      return c;
+    });
+    for (const p of rowPorts) {
+      if ((await waitTcpReady(p, 15000)) == null) {
+        throw new Error(`entry forwarder :${p} never bound`);
+      }
+    }
+    return procs;
+  };
+  let entries = await spawnEntries();
+
+  // 1. baseline: all platforms ok (one retry - WAN jitter is the documented
+  //    flake source; the retry is the ticket's mitigation).
+  let r = await tick();
+  snap("baseline-1", r);
+  if (!allAre(r, "ok")) {
+    await sleep(4000);
+    r = await tick();
+    snap("baseline-2", r);
+  }
+  assert(allAre(r, "ok"), `baseline not all ok: ${JSON.stringify(verdictMap(r))}`);
+
+  // 2. kill-forwarder -> three manual ticks. Dead entries refuse the
+  //    loopback probe -> local_fail common-mode -> suppressor stamps
+  //    environment_suspect; the streak must climb monotonically to >=3 (the
+  //    audit row fires at the crossing tick). The 60s driver cannot produce
+  //    a clean tick inside this window, so driver interleavings only ever
+  //    add suspect ticks - the assertions stay monotonic-safe.
+  for (const c of entries) killTree(c);
+  await waitAllClosed(rowPorts, 15000);
+  const suspectTicks = [];
+  for (let i = 0; i < 3; i++) {
+    const t = await tick();
+    snap(`suspect-${i + 1}`, t);
+    suspectTicks.push(t);
+  }
+  const streaks = suspectTicks.map((t) => t?.environment_status?.suspect_streak ?? -1);
+  assert(
+    streaks.every((s, i) => s >= 1 && (i === 0 || s >= streaks[i - 1])),
+    `suspect streak not monotonic non-decreasing >=1: ${streaks.join(",")}`,
+  );
+  assert(
+    streaks.at(-1) >= 3,
+    `suspect streak did not cross 3 within 3 injected ticks: ${streaks.join(",")}`,
+  );
+  suspectTicks.forEach((t, i) =>
+    assert(
+      allAre(t, "environment_suspect"),
+      `suspect tick ${i + 1} verdicts not all environment_suspect: ${JSON.stringify(verdictMap(t))}`,
+    ),
+  );
+
+  // 3. restore entries -> poll until probes go ok again (forwarder bind is
+  //    near-instant; the first clean tick resets the streak to 0).
+  entries = await spawnEntries();
+  let restored = null;
+  for (let i = 0; i < 15; i++) {
+    const t = await tick();
+    snap(`restore-${i}`, t);
+    if (allAre(t, "ok")) {
+      restored = t;
+      break;
+    }
+    await sleep(4000);
+  }
+  assert(restored != null, "entries restored but probes never went ok within ~60s");
+  assert(
+    (restored?.environment_status?.suspect_streak ?? -1) === 0,
+    `suspect streak did not reset on the clean tick: ${restored?.environment_status?.suspect_streak}`,
+  );
+
+  // 4. kill-node -> one tick. Entries stay up (loopback ok) but the egress
+  //    path dies at the CONNECT hop -> remote_fail; the suppressor must NOT
+  //    engage and the streak must stay 0.
+  await ctx.mockNode.kill();
+  const rr = await tick();
+  snap("remote-fail", rr);
+  assert(
+    allAre(rr, "remote_fail"),
+    `node kill must stamp remote_fail on every platform, got ${JSON.stringify(verdictMap(rr))}`,
+  );
+  assert(
+    (rr?.environment_status?.suspect_streak ?? -1) === 0,
+    `remote_fail must not move the suspect streak: ${rr?.environment_status?.suspect_streak}`,
+  );
+
+  // 5. restart the node on the same port and drive Resin's own health
+  //    probes until the endpoint is routable again (the external probe
+  //    cadence is engine-side - the tick verdict is the truth source).
+  ctx.mockNode = await startMockNode(ctx.mockNode.port);
+  let recovered = null;
+  for (let i = 0; i < 24; i++) {
+    for (const act of ["probe-egress", "probe-latency"]) {
+      try {
+        await sutApi.post(`/nodes/${route.nodeHash}/actions/${act}`, {});
+      } catch {}
+    }
+    const t = await tick();
+    snap(`recover-${i}`, t);
+    if (allAre(t, "ok")) {
+      recovered = t;
+      break;
+    }
+    await sleep(5000);
+  }
+  assert(recovered != null, "node restarted but never routable again within ~120s");
+  assert(
+    (recovered?.environment_status?.suspect_streak ?? -1) === 0,
+    `final clean tick must keep suspect streak at 0: ${recovered?.environment_status?.suspect_streak}`,
+  );
+
+  // 6. no migration may have executed anywhere in the run: under suggest the
+  //    evaluator parks every transition, so an ok:true switch row would mean
+  //    a real set_platform_regions+apply landed mid-evidence.
+  const migrated = timeline
+    .flatMap((s) => s.executedActions)
+    .filter((a) => a.action === "switch" && a.ok === true);
+  assert(migrated.length === 0, `executed migrations during evidence run: ${JSON.stringify(migrated)}`);
+
+  // 7. audit.jsonl: exactly one signal-plane/environment_suspect/orchestration:tick
+  //    row for the whole crossing (streak 4/5 must NOT re-emit). Other audit
+  //    rows (per-tick strategy status writes) are expected and ignored.
+  let envRows = [];
+  try {
+    envRows = fs
+      .readFileSync(path.join(stateDir, "audit.jsonl"), "utf8")
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch {
+          return null;
+        }
+      })
+      .filter(
+        (r) =>
+          r?.target === "signal-plane" &&
+          r?.op === "environment_suspect" &&
+          r?.actor === "orchestration:tick",
+      );
+  } catch {}
+  assert(
+    envRows.length === 1,
+    `expected exactly 1 signal-plane/environment_suspect/orchestration:tick audit row, got ${envRows.length}`,
+  );
+
+  killTree(sut);
+  const evidence = {
+    sut: "egressapikey-headless",
+    probePath:
+      "row-port -> bench-forwarder (Mode A entry) -> SUT resin endpoint -> mock CONNECT node -> 1.1.1.1/cdn-cgi/trace (real WAN)",
+    platforms: PLATFORM_NAMES,
+    rowPorts,
+    stateDir,
+    headlessReadyMs: readyMs,
+    sutEndpointPort: sutEpPort,
+    sutNodeHash: route.nodeHash,
+    timeline,
+    envAuditRow: envRows[0] ?? null,
+    failures,
+    pass: failures.length === 0,
+  };
+  if (failures.length) {
+    fatal(`faultinject: ${failures.length} assertion(s) failed -> ${failures.join(" | ")}`);
+  }
+  return evidence;
+}
+
 // ---- main -----------------------------------------------------------------
 
 async function main() {
@@ -550,6 +925,7 @@ async function main() {
     resinAlive: async () => resin.child.exitCode === null,
     resinRssMB: () => resinRssMB(resin.pid),
     modeAPort,
+    mockNode: node,
   };
 
   const runPhase = async (name, fn) => {
@@ -560,6 +936,9 @@ async function main() {
       log(`phase ${name} done: ${JSON.stringify(results.phases[name]).slice(0, 300)}`);
     } catch (e) {
       results.phases[name] = { error: String(e?.stack ?? e) };
+      // faultinject assertions are evidence, not measurements: an unexpected
+      // throw (e.g. ensureRoutable timing out) must turn the job red.
+      if (name === "faultinject") fatal(`phase ${name} threw: ${String(e?.message ?? e)}`);
       console.error(`[bench ERROR] phase ${name}:`, e);
     }
   };
@@ -582,6 +961,7 @@ async function main() {
   await runPhase("appstart", (c) => phaseAppStart(c));
   await runPhase("headless", (c) => phaseHeadless(c));
   await runPhase("headlessstart", (c) => phaseHeadlessStart(c));
+  await runPhase("faultinject", (c) => phaseFaultInject(c));
 
   // gates
   const acc = JSON.parse(fs.readFileSync(path.join(root, "scripts/bench/acceptance.json"), "utf8"));
