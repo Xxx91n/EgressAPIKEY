@@ -9,6 +9,7 @@
 Wave-d = critique-adjudication round, complete. Output = four implementation tickets (R12-D1..D4) + register write-backs (applied at consolidation, see §5).
 
 Carried negatives (binding):
+
 - No armed/parked register line fires without new machine-checkable evidence; an external critique mentioning line counts is evidence logged, not a trigger.
 - W8 product increment stays deferred (r12-wave-a D-003⑨ defer clause; bench-selfhosted fallback 2026-10-20 not reached).
 - No unmeasured migrations: r2d2/deadpool, React Query, converge rewrite — measurement lines exist, tickets do not.
@@ -21,6 +22,7 @@ Carried negatives (binding):
 Surface: `src-tauri/src/headless_main.rs` `security_guard` unconditionally trusts `X-Forwarded-Proto` -> forgeable `; Secure` cookie suffix on plain-HTTP VPS profile.
 
 Spec:
+
 - Default: XFP fully ignored; `forwarded_https` true only when peer IP ∈ trusted set AND XFP first scheme == https.
 - `--trusted-proxy <ip-or-cidr>` repeatable clap flag -> `Vec<IpNet>`; **`ipnet` declared as direct dependency** (lockfile-transitive does not excuse declaration). Exact IP covers loopback proxies; CIDR covers docker/k8s dynamic peer ranges.
 - `axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())`; `security_guard` gains `ConnectInfo<SocketAddr>` extractor.
@@ -37,6 +39,7 @@ Negatives: no deps beyond ipnet; desktop IPC/manifest/`session_cookie()` untouch
 Surface: `ip_reputation.rs:137` builds IPQS URL `.../api/json/ip/{key}/{ip}` with `form_urlencoded::byte_serialize` — space->`+` is literal `+` inside a path segment -> auth fails on space-bearing keys.
 
 Spec (one ticket, TWO commits):
+
 - New module `crates/resin-core/src/encoding.rs` exports `encode_path_segment()` (strict set) + `encode_uri_component()` (JS-parity set, name retained — account-header-rule contract tests already prove that set). Name `urlencoding` is BANNED (its form-vs-path ambiguity caused this bug).
 - commit-1 (minimal fix): ip_reputation -> `encode_path_segment` + IPQS URL-construction regression assertions.
 - commit-2 (byte-equivalent mechanical migration): the three named path-segment sites (resin_client `urlencoding`, headless_main `url_encode_segment`) -> `encode_path_segment` + `encode_uri_component` moved into the module. Query-value call sites KEEP the strict set (over-encoding always safe; byte change deferred to a real caller).
@@ -50,6 +53,7 @@ Negatives: zero new deps; AbuseIpDb `parse_with_params` / raw `Key` header / `pe
 Surface: `crates/resin-core/src/audit.rs`. Two critique claims disproven at code read (field-order fragility — chain hashes STORED bytes not reserialized events; `.tmp` residue — none exists; `written_bytes` already seeds from `metadata.len()` at open). Real residue below.
 
 Spec:
+
 - Tail adoption: `last_line_hash` candidate check `from_str::<Value>` -> `from_str::<AuditEvent>` (valid-JSON-but-not-an-event no longer becomes chain tail).
 - Optional single-link back-verify warn: adopted tail's `prev_hash` recomputed against the preceding complete event row; mismatch -> still adopt (forward continuity) + `tracing::warn!` (ADR-0059 D7: warn never blocks).
 - `written_bytes`: re-seed from `metadata.len()` after EVERY append; on stat failure keep old value (no zero, no error). Rotation sets 0 -> next append re-seeds (self-consistent).
@@ -62,6 +66,7 @@ Negatives: no marker rows; no serialization change; no streaming/incremental wri
 ## §4 R12-D4 — closing batch: hygiene + faultinject monthly + dev counter [covers D-005]
 
 ### 4a Hygiene items
+
 - `PlatformsView.tsx` A||A dead disjuncts :554/:589/:590 — pure deletion; verified :590 `protocol_mismatch` lives in the else chain and stays reachable. Ticket keeps an else-chain reachability check with ceiling = no ternary refactor.
 - `" selected"` hardcode (:784) -> i18n key added to ALL 18 locale dirs.
 - `manualSubExpanded`/`setManualSubCollapsed` name-value mismatch (:120) — rename only.
@@ -72,6 +77,7 @@ Negatives: no marker rows; no serialization change; no streaming/incremental wri
 - Exemptions recorded IN the ticket file (prevents critique re-surfacing): obs 3 (Toxiproxy comment absence), obs 4 (BENCH_FWD_* env dup), obs 6 (third bare unwrap) — tolerated per audit recommendation.
 
 ### 4b faultinject monthly schedule (legislation)
+
 - bench.yml gains second cron `0 3 1 * *`; schedules cannot pass inputs, so:
   - `PHASES_ARG: ${{ github.event_name == 'schedule' && '--phases <explicit full default set>,faultinject' || (inputs.phases != '' && format('--phases {0}', inputs.phases) || '') }}` — verbatim into the ticket; phase list resolved from `run-bench.mjs:75` PHASES default at implementation. EXACT semantics: explicit full list + faultinject (harness additive semantics REJECTED — would violate the phase-registry freeze).
   - Build-step `if:` at :99/:107 gain `|| github.event_name == 'schedule'`; windows leg `with_app` is empty under schedule — same treatment.
@@ -81,6 +87,7 @@ Negatives: no marker rows; no serialization change; no streaming/incremental wri
 - faultinject numbers NEVER flow into acceptance.json pin columns (suppressor survival evidence, not perf baseline).
 
 ### 4c converge measure-first counter
+
 - Permanent dev-only counter: monotonic-timestamp marks at both `ipcAuthoritativeSnapshot` trigger-path entries; duplicate criterion = in-flight overlap ONLY (second mark lands while first invoke unresolved; sequential triggers explicitly not counted — ADR-0069 D3 drift-visibility design). `import.meta.env.DEV` compile-time elimination, ~10 lines.
 - Positive: >=1 measured in-flight overlap -> React Query arm (a) fires naturally. Negative closure: two observation cycles (two release cycles) at zero -> register records "measurement complete, negative, stays SUSPENDED".
 
