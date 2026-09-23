@@ -140,6 +140,29 @@ async function resinRssMB(pid) {
   return last ? last.rssBytes / 1048576 : null;
 }
 
+// Shared whole-tree sampling caliber for the app/headless steady-state
+// phases: settleMs settle -> 30 x 2s descendant-tree samples -> kill.
+// Attribution is parentage, never name-matching (D-002); same caliber on
+// both OSes (CIM descendant walk on Windows, /proc PPid BFS on Linux).
+async function sampleTreeWindow(child, settleMs) {
+  await sleep(settleMs);
+  const alive = child.exitCode === null;
+  const samples = [];
+  const wv2Samples = [];
+  let lastProcs = null;
+  for (let i = 0; i < 30; i++) {
+    const tree = await sampleDescendantTreeMB(child.pid);
+    if (tree != null && tree.totalMB > 0) {
+      samples.push(tree.totalMB);
+      wv2Samples.push(tree.webview2MB);
+      lastProcs = tree.procs;
+    }
+    await sleep(2000);
+  }
+  killTree(child);
+  return { alive, samples, wv2Samples, lastProcs };
+}
+
 // ---- phases ---------------------------------------------------------------
 
 async function phaseIdle(ctx) {
@@ -193,34 +216,19 @@ async function phaseApp(ctx) {
   }
   const child = spawn(APP_EXE, [], { stdio: "ignore", detached: true });
   children.push(child);
-  await sleep(25000); // boot + first paint + settle
-  const appAlive = child.exitCode === null;
-  const samples = [];
-  const wv2Samples = [];
-  let lastProcs = null;
-  for (let i = 0; i < 30; i++) {
-    const tree = await sampleDescendantTreeMB(child.pid);
-    if (tree != null && tree.totalMB > 0) {
-      samples.push(tree.totalMB);
-      wv2Samples.push(tree.webview2MB);
-      lastProcs = tree.procs;
-    }
-    await sleep(2000);
-  }
-  try {
-    spawn("taskkill", ["/F", "/T", "/PID", String(child.pid)]);
-  } catch { }
-  const st = summarize(samples);
-  const wv2 = summarize(wv2Samples);
+  // 25s = boot + first paint + settle
+  const win = await sampleTreeWindow(child, 25000);
+  const st = summarize(win.samples);
+  const wv2 = summarize(win.wv2Samples);
   return {
     appExe: APP_EXE,
-    appAlive,
+    appAlive: win.alive,
     childPid: child.pid,
     attribution: "descendant-tree",
-    n: samples.length,
+    n: win.samples.length,
     totalMB: roundStats(st),
     webview2MB: roundStats(wv2),
-    procs: lastProcs,
+    procs: win.lastProcs,
   };
 }
 
@@ -242,9 +250,7 @@ async function phaseAppStart(ctx) {
     const ready = await waitMainWindowTitle(child.pid, 30000);
     samples.push(ready ? ready.ms : null);
     titles.push(ready ? ready.title : null);
-    try {
-      spawn("taskkill", ["/F", "/T", "/PID", String(child.pid)]);
-    } catch { }
+    killTree(child);
     await sleep(1500); // settle between cold launches (Defender / disk cache)
   }
   const ok = samples.filter((v) => v != null);
@@ -341,27 +347,16 @@ async function phaseHeadless(ctx) {
     killTree(child);
     return { skipped: "headless control surface never bound in 90s", port };
   }
-  await sleep(15000); // settle past boot churn (same caliber as phases.idle)
-  const samples = [];
-  let lastProcs = null;
-  for (let i = 0; i < 30; i++) {
-    const tree = await sampleDescendantTreeMB(child.pid);
-    if (tree != null && tree.totalMB > 0) {
-      samples.push(tree.totalMB);
-      lastProcs = tree.procs;
-    }
-    await sleep(2000);
-  }
-  killTree(child);
-  const st = summarize(samples);
+  const win = await sampleTreeWindow(child, 15000); // settle past boot churn (same caliber as phases.idle)
+  const st = summarize(win.samples);
   return {
     headlessExe: HEADLESS_EXE,
     port,
     readyMs: round(readyMs, 1),
     attribution: "descendant-tree",
-    n: samples.length,
+    n: win.samples.length,
     totalMB: roundStats(st),
-    procs: lastProcs,
+    procs: win.lastProcs,
   };
 }
 
@@ -878,21 +873,9 @@ async function main() {
     children.push(forwarder);
     forwarder.stdout.on("data", (d) => log(`forwarder: ${String(d).trim()}`));
     forwarder.stderr.on("data", (d) => log(`forwarder-err: ${String(d).trim()}`));
-    // readiness: TCP connectable
-    const tF = nowMs();
-    for (;;) {
-      try {
-        await new Promise((res, rej) => {
-          const sk = net.connect(modeAPort, "127.0.0.1", () => { sk.destroy(); res(); });
-          sk.on("error", rej);
-          sk.setTimeout(500, () => sk.destroy());
-        });
-        break;
-      } catch {
-        if (nowMs() - tF > 15000) { modeAPort = null; break; }
-        await sleep(100);
-      }
-    }
+    // readiness: TCP connectable (same waitTcpReady caliber as headless)
+    const boundMs = await waitTcpReady(modeAPort, 15000);
+    if (boundMs == null) modeAPort = null;
     log(modeAPort ? `mode-A forwarder on :${modeAPort}` : "forwarder never bound - modeA skipped");
   } else {
     log(`no bench-forwarder under target/**/release (FORWARDER_BIN=${FORWARDER_BIN}) - modeA legs skipped`);
