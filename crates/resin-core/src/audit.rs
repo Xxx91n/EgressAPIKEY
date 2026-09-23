@@ -110,6 +110,13 @@ pub fn new_audit_id() -> String {
 /// on-disk size so we rotate at AUDIT_LOG_MAXSIZE; it is re-seeded from the
 /// real file at construction so a size already past the threshold rotates on
 /// the first append.
+///
+/// Single-writer invariant: `append` performs the `prev_hash`
+/// read-modify-write across the row I/O in two separate critical sections.
+/// That is safe only because every production caller funnels through the
+/// process-global `AUDIT` Mutex (tests use a private `AuditLog`). Before
+/// any future multi-writer wiring, the chain read + write must move into ONE
+/// critical section.
 pub struct AuditLog {
     path: PathBuf,
     last_hash: Mutex<Option<String>>,
@@ -148,7 +155,14 @@ impl AuditLog {
 
         // Commit the chain + byte accounting only after the row lands.
         *self.last_hash.lock().unwrap() = Some(row_hash);
-        *self.written_bytes.lock().unwrap() += line.len() as u64;
+        // Re-seed the byte counter from the real file size after EVERY append
+        // so drift between the counter and on-disk bytes self-corrects
+        // (rotation fidelity). A stat failure keeps the previous value -
+        // never zeroed, never an error (D7).
+        let mut written = self.written_bytes.lock().unwrap();
+        if let Ok(m) = std::fs::metadata(&self.path) {
+            *written = m.len();
+        }
         Ok(())
     }
 
@@ -211,23 +225,53 @@ impl AuditLog {
     }
 }
 
+/// sha256 of a stored line's raw bytes + the '\n' terminator - a row's OWN
+/// hash. Verifiers hash the stored bytes directly; a parsed `AuditEvent` is
+/// never re-serialized for verification (ADR-0059 D3 errata).
+fn row_own_hash(line: &[u8]) -> String {
+    let mut bytes = Vec::with_capacity(line.len() + 1);
+    bytes.extend_from_slice(line);
+    bytes.push(b'\n');
+    sha256_hex(&bytes)
+}
+
 /// Read the trailing row's OWN hash (the chain tail) from an existing audit
-/// file, or None on a missing/empty/unparseable log. A row's own hash is
-/// `sha256_hex(canonical bytes + '\n')`; the canonical bytes are reproduced
-/// by re-serializing the parsed line (serde_json serialization is
-/// deterministic for this struct). Walks backward over lines to tolerate a
-/// torn final line left by a crash.
+/// file, or None on a missing/empty/unparseable log. Walks backward over the
+/// stored bytes: the FIRST line that parses as a complete `AuditEvent` is the
+/// adopted tail; blank and unparseable lines - a torn final line left by a
+/// crash, a well-formed foreign JSON object, mid-stream garbage - are skipped
+/// forensically preserved (never truncated or rewritten).
 fn last_line_hash(path: &Path) -> Option<String> {
     let bytes = std::fs::read(path).ok()?;
-    let text = String::from_utf8_lossy(&bytes);
-    for line in text.lines().rev() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
+    let lines: Vec<&[u8]> = bytes.split(|&b| b == b'\n').collect();
+    for (idx, &line) in lines.iter().enumerate().rev() {
+        if line.iter().all(|b| b.is_ascii_whitespace()) {
             continue;
         }
-        if serde_json::from_str::<serde_json::Value>(trimmed).is_ok() {
-            return Some(sha256_hex(format!("{trimmed}\n").as_bytes()));
+        // The tail candidate must parse as a complete audit event, not merely
+        // as valid JSON - a foreign object is mid-stream garbage, not a tail.
+        let Ok(tail) = serde_json::from_slice::<AuditEvent>(line) else {
+            continue;
+        };
+        // Optional single-link back-verify (R12-D3, warn-only per D7): when a
+        // preceding complete event row exists, its own hash must equal the
+        // adopted tail's prev_hash. A mismatch never blocks adoption.
+        for &prev in lines[..idx].iter().rev() {
+            if prev.iter().all(|b| b.is_ascii_whitespace()) {
+                continue;
+            }
+            if serde_json::from_slice::<AuditEvent>(prev).is_ok() {
+                if tail.prev_hash.as_deref() != Some(row_own_hash(prev).as_str()) {
+                    tracing::warn!(
+                        target: "audit",
+                        path = %path.display(),
+                        "audit chain back-verify: adopted tail's prev_hash does not match the preceding complete row"
+                    );
+                }
+                break;
+            }
         }
+        return Some(row_own_hash(line));
     }
     None
 }
@@ -497,6 +541,127 @@ mod tests {
             line.as_bytes(),
             "round-trip must be byte-identical"
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // -- R12-D3: tail-adoption hardening --
+
+    /// sha256 of a canonical row (json line content) + the '\n' terminator -
+    /// mirrors row_own_hash for string fixtures.
+    fn own_hash(line: &str) -> String {
+        sha256_hex(format!("{line}\n").as_bytes())
+    }
+
+    /// Serialize a sample event to its canonical row (no trailing newline).
+    fn sample_line(target: &str) -> String {
+        serde_json::to_string(&sample(target)).unwrap()
+    }
+
+    #[test]
+    fn tail_adoption_picks_last_complete_event() {
+        let dir = temp_dir("tail-ok");
+        let path = dir.join(AUDIT_LOG_FILE);
+        let l1 = sample_line("L2:strategy");
+        let l2 = sample_line("L2:ports");
+        std::fs::write(&path, format!("{l1}\n{l2}\n")).unwrap();
+        let log = AuditLog::new(path);
+        assert_eq!(*log.last_hash.lock().unwrap(), Some(own_hash(&l2)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn tail_adoption_skips_valid_json_non_event() {
+        // A well-formed foreign JSON object is mid-stream garbage, NOT a tail
+        // candidate (was: any parseable Value became the chain tail).
+        let dir = temp_dir("tail-nonjson");
+        let path = dir.join(AUDIT_LOG_FILE);
+        let l1 = sample_line("L2:strategy");
+        std::fs::write(&path, format!("{l1}\n{{"garbage":true}}\n")).unwrap();
+        let log = AuditLog::new(path);
+        assert_eq!(*log.last_hash.lock().unwrap(), Some(own_hash(&l1)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn tail_adoption_skips_torn_final_line() {
+        // Crash-truncated tail (no closing brace, no newline) is skipped;
+        // the last COMPLETE event row is adopted.
+        let dir = temp_dir("tail-torn");
+        let path = dir.join(AUDIT_LOG_FILE);
+        let l1 = sample_line("L2:strategy");
+        std::fs::write(&path, format!("{l1}\n{{\"schema\":\"audit/v1\",\"ts")).unwrap();
+        let log = AuditLog::new(path);
+        assert_eq!(*log.last_hash.lock().unwrap(), Some(own_hash(&l1)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn tail_adoption_empty_log_seeds_none() {
+        let dir = temp_dir("tail-empty");
+        let path = dir.join(AUDIT_LOG_FILE);
+        std::fs::write(&path, "").unwrap();
+        let log = AuditLog::new(path);
+        assert_eq!(*log.last_hash.lock().unwrap(), None);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn append_links_over_garbage_and_preserves_forensic_bytes() {
+        // File: [event1, foreign-JSON garbage, torn tail]. The new append
+        // must link to event1 (chain links OVER garbage) and the injected
+        // bytes must remain in the file untouched.
+        let dir = temp_dir("forensic");
+        let path = dir.join(AUDIT_LOG_FILE);
+        let l1 = sample_line("L2:strategy");
+        let garbage = "{\"not\":\"an audit event\"}";
+        let torn = "{\"schema\":\"audit/v1\",\"ts"; // truncated row bytes
+        std::fs::write(&path, format!("{l1}\n{garbage}\n{torn}\n")).unwrap();
+        let log = AuditLog::new(path.clone());
+        assert_eq!(*log.last_hash.lock().unwrap(), Some(own_hash(&l1)));
+
+        log.append(sample("L2:ports")).unwrap();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        // forensic preservation: injected bytes still present verbatim
+        assert!(raw.contains(garbage), "garbage line must be preserved");
+        assert!(raw.contains(torn), "torn tail bytes must be preserved");
+        // chain continuity lands on the last complete event row
+        let last: AuditEvent = serde_json::from_str(raw.lines().last().unwrap()).unwrap();
+        assert_eq!(last.prev_hash.as_deref(), Some(own_hash(&l1).as_str()));
+        // written_bytes was re-seeded from the real file size
+        assert_eq!(
+            *log.written_bytes.lock().unwrap(),
+            std::fs::metadata(&path).unwrap().len()
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn new_seeds_counter_from_metadata_len() {
+        let dir = temp_dir("counter");
+        let path = dir.join(AUDIT_LOG_FILE);
+        let l1 = sample_line("L2:strategy");
+        std::fs::write(&path, format!("{l1}\n")).unwrap();
+        let log = AuditLog::new(path.clone());
+        assert_eq!(
+            *log.written_bytes.lock().unwrap(),
+            std::fs::metadata(&path).unwrap().len()
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn back_verify_mismatch_still_adopts_tail() {
+        // Tail row whose prev_hash does NOT match the preceding event's own
+        // hash (hand-edited/forged chain): warn path fires, adoption stands.
+        let dir = temp_dir("backverify");
+        let path = dir.join(AUDIT_LOG_FILE);
+        let l1 = sample_line("L2:strategy");
+        let mut bad = sample("L2:ports");
+        bad.prev_hash = Some("00".repeat(32));
+        let l2 = serde_json::to_string(&bad).unwrap();
+        std::fs::write(&path, format!("{l1}\n{l2}\n")).unwrap();
+        let log = AuditLog::new(path);
+        assert_eq!(*log.last_hash.lock().unwrap(), Some(own_hash(&l2)));
         let _ = std::fs::remove_dir_all(dir);
     }
 }

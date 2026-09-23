@@ -84,3 +84,36 @@ The live log is never truncated by export; the log is only ever rotated by D4.
   ever added it should paginate the file read-only, never rewrite.
 - Zero interaction with the 10-backup ring (D5): backups answer content history,
   audit answers actor history; losing either does not corrupt the other.
+
+## Errata (2026-09-23, r12 wave-d R12-D3)
+
+Corrects and tightens D3 (amend-not-rewrite; no format change):
+
+1. A row's own hash is the SHA-256 of the **stored line bytes** plus the
+   `\n` terminator. Verifiers hash the stored bytes directly and MUST NOT
+   re-serialize a parsed `AuditEvent` (serialization is deterministic for
+   this struct today, but the chain contract binds the bytes on disk).
+2. A torn tail (crash-truncated final line) is forensically preserved: the
+   adoption walk skips it and the bytes are never truncated, rewritten, or
+   removed.
+3. Garbage lines mid-stream are a tolerated input: a verifier MUST skip any
+   line that does not parse as an `AuditEvent`, and the chain links over it
+   (the next appended row's `prev_hash` points at the last complete event
+   row, not the garbage).
+4. Backward-walk semantics: from EOF toward the start, the first line that
+   parses as a complete `AuditEvent` is the adopted chain tail; blank and
+   unparseable lines are skipped. Since this ticket the candidate must parse
+   as `AuditEvent`, not merely as JSON - a well-formed foreign object is
+   garbage, not a tail. The optional single-link back-verify (adopted tail's
+   `prev_hash` vs the preceding complete event row's own hash) logs a
+   `tracing::warn!` on mismatch but never blocks adoption (D7).
+5. Disclosure: after `write_row` creates `audit.jsonl`, the parent
+   directory's entry change is not fsynced - a crash could lose the file
+   (never a torn file; best-effort per D7). Documented, not fixed.
+
+Single-writer invariant (mirrored in the `audit.rs` module docs): `append`
+performs the `prev_hash` read-modify-write across the row I/O in two
+separate critical sections; this is safe only because every production
+caller funnels through the process-global `AUDIT` Mutex. Any future
+multi-writer wiring must move the chain read+write into ONE critical
+section.
