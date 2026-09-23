@@ -131,12 +131,7 @@ impl ReputationClient {
         let ip_s = ip.to_string();
         let value = match provider {
             ReputationProvider::IpQualityScore => {
-                let url = format!(
-                    "{}/api/json/ip/{}/{}",
-                    provider.base(),
-                    urlencoding(api_key),
-                    ip_s
-                );
+                let url = ipqs_url(api_key, &ip_s);
                 self.http
                     .get(url)
                     .send()
@@ -178,8 +173,16 @@ impl ReputationClient {
     }
 }
 
-fn urlencoding(value: &str) -> String {
-    url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
+/// The IPQS lookup URL. The API key sits inside a PATH SEGMENT, so it uses
+/// the strict path-segment encoder - never form-urlencoded (a  for a
+/// space was the r12 wave-c bug the regression test below pins shut).
+fn ipqs_url(api_key: &str, ip_s: &str) -> String {
+    format!(
+        "{}/api/json/ip/{}/{}",
+        ReputationProvider::IpQualityScore.base(),
+        crate::encoding::encode_path_segment(api_key),
+        ip_s
+    )
 }
 fn as_bool(v: &serde_json::Value, name: &str) -> Option<bool> {
     v.get(name).and_then(|x| x.as_bool())
@@ -314,7 +317,10 @@ mod tests {
         assert_eq!(e.country_code.as_deref(), Some("DE"));
     }
     #[test]
-    fn provider_parse_is_explicit() {
+    fn ipqs_url_encodes_key_as_path_segment() {
+        // Regression lock (R12-D2): the key sits in a path segment, so a
+        // space must be %20 - never the form-urlencoded  - and literal
+        // NaN
         assert_eq!(
             ReputationProvider::parse("ipqs"),
             Some(ReputationProvider::IpQualityScore)

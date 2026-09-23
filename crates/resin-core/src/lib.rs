@@ -31,6 +31,7 @@ pub mod audit;
 pub mod backup;
 pub mod config_transfer;
 pub mod db;
+pub mod encoding;
 pub mod entry_protocol;
 pub mod ip_reputation;
 pub mod ipc_error;
