@@ -28,6 +28,7 @@
 //!     as a canonical UUID so encoding is a no-op in practice, but we encode
 //!     defensively in case a caller passes a non-canonical form.
 
+use crate::encoding::{encode_path_segment, encode_uri_component};
 use crate::ipc_error::IpcError;
 use anyhow::{anyhow, Context, Result};
 use serde_json::Value;
@@ -281,14 +282,14 @@ impl ResinClient {
     /// GET /api/v1/platforms/{id}
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R10
     pub async fn get_platform(&self, id: &str) -> Result<Value> {
-        let path = format!("/platforms/{}", urlencoding(id));
+        let path = format!("/platforms/{}", encode_path_segment(id));
         self.send_read(&path).await
     }
 
     /// DELETE /api/v1/platforms/{id}
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R12
     pub async fn delete_platform(&self, id: &str) -> Result<Value> {
-        let path = format!("/platforms/{}", urlencoding(id));
+        let path = format!("/platforms/{}", encode_path_segment(id));
         self.send_with_retry(reqwest::Method::DELETE, &path, None)
             .await
     }
@@ -322,7 +323,7 @@ impl ResinClient {
     /// DELETE /subscriptions/{id} - remove a subscription (204 -> Null).
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R29
     pub async fn delete_subscription(&self, id: &str) -> Result<Value> {
-        let path = format!("/subscriptions/{}", urlencoding(id));
+        let path = format!("/subscriptions/{}", encode_path_segment(id));
         self.send_with_retry(reqwest::Method::DELETE, &path, None)
             .await
     }
@@ -338,7 +339,7 @@ impl ResinClient {
     /// content, so the paired subscription_add migrated to source_type="remote".
     /// No request body is sent; Resin kicks its scheduler tick synchronously.
     pub async fn refresh_subscription_native(&self, id: &str) -> Result<Value> {
-        let path = format!("/subscriptions/{}/actions/refresh", urlencoding(id));
+        let path = format!("/subscriptions/{}/actions/refresh", encode_path_segment(id));
         self.send_with_retry(reqwest::Method::POST, &path, None)
             .await
     }
@@ -349,7 +350,7 @@ impl ResinClient {
     /// body and returns 400 with a descriptive error for invalid enum values.
     /// Used by the topology canvas hot-switch (Phase R1/R2).
     pub async fn update_platform(&self, id: &str, body: Value) -> Result<Value> {
-        let path = format!("/platforms/{}", urlencoding(id));
+        let path = format!("/platforms/{}", encode_path_segment(id));
         self.send_with_retry(reqwest::Method::PATCH, &path, Some(body))
             .await
     }
@@ -379,7 +380,10 @@ impl ResinClient {
     /// updates the node's egress_ip + TD-EWMA + routing as a side effect.
     /// Used by node-pool per-card probe button.
     pub async fn probe_node_egress(&self, node_hash: &str) -> Result<Value> {
-        let path = format!("/nodes/{}/actions/probe-egress", urlencoding(node_hash));
+        let path = format!(
+            "/nodes/{}/actions/probe-egress",
+            encode_path_segment(node_hash)
+        );
         self.send_with_retry(reqwest::Method::POST, &path, None)
             .await
     }
@@ -391,7 +395,10 @@ impl ResinClient {
     /// {latency_ewma_ms}. Resin updates the node's TD-EWMA for that domain.
     /// Used by node-pool per-card probe button.
     pub async fn probe_node_latency(&self, node_hash: &str) -> Result<Value> {
-        let path = format!("/nodes/{}/actions/probe-latency", urlencoding(node_hash));
+        let path = format!(
+            "/nodes/{}/actions/probe-latency",
+            encode_path_segment(node_hash)
+        );
         self.send_with_retry(reqwest::Method::POST, &path, None)
             .await
     }
@@ -418,7 +425,7 @@ impl ResinClient {
     /// node_hash, expiry) to surface the keys already bound to an exit IP on
     /// this platform. This is the "right pane already-active accounts" view.
     pub async fn platform_leases(&self, platform_id: &str) -> Result<Value> {
-        let path = format!("/platforms/{}/leases", urlencoding(platform_id));
+        let path = format!("/platforms/{}/leases", encode_path_segment(platform_id));
         self.send_read(&path).await
     }
 
@@ -440,14 +447,14 @@ impl ResinClient {
     /// GET /api/v1/endpoints/{endpoint_id} — read a single endpoint.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R17
     pub async fn get_endpoint(&self, endpoint_id: &str) -> Result<Value> {
-        let path = format!("/endpoints/{}", urlencoding(endpoint_id));
+        let path = format!("/endpoints/{}", encode_path_segment(endpoint_id));
         self.send_read(&path).await
     }
 
     /// PATCH /api/v1/endpoints/{endpoint_id} — update port or capabilities (hot-reload).
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R18
     pub async fn update_endpoint(&self, endpoint_id: &str, body: Value) -> Result<Value> {
-        let path = format!("/endpoints/{}", urlencoding(endpoint_id));
+        let path = format!("/endpoints/{}", encode_path_segment(endpoint_id));
         self.send_with_retry(reqwest::Method::PATCH, &path, Some(body))
             .await
     }
@@ -455,7 +462,7 @@ impl ResinClient {
     /// DELETE /api/v1/endpoints/{endpoint_id} — delete + close listener.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R19
     pub async fn delete_endpoint(&self, endpoint_id: &str) -> Result<Value> {
-        let path = format!("/endpoints/{}", urlencoding(endpoint_id));
+        let path = format!("/endpoints/{}", encode_path_segment(endpoint_id));
         self.send_with_retry(reqwest::Method::DELETE, &path, None)
             .await
     }
@@ -495,28 +502,28 @@ impl ResinClient {
         let mut path = format!("/request-logs?limit={}", limit);
         if let Some(q) = query {
             if let Some(v) = q.platform_name.as_deref() {
-                path.push_str(&format!("&platform_name={}", urlencoding(v)));
+                path.push_str(&format!("&platform_name={}", encode_path_segment(v)));
             }
             if let Some(v) = q.account.as_deref() {
-                path.push_str(&format!("&account={}", urlencoding(v)));
+                path.push_str(&format!("&account={}", encode_path_segment(v)));
             }
             if let Some(v) = q.target_host.as_deref() {
-                path.push_str(&format!("&target_host={}", urlencoding(v)));
+                path.push_str(&format!("&target_host={}", encode_path_segment(v)));
             }
             if let Some(v) = q.egress_ip.as_deref() {
-                path.push_str(&format!("&egress_ip={}", urlencoding(v)));
+                path.push_str(&format!("&egress_ip={}", encode_path_segment(v)));
             }
             if let Some(v) = q.proxy_type.as_deref() {
-                path.push_str(&format!("&proxy_type={}", urlencoding(v)));
+                path.push_str(&format!("&proxy_type={}", encode_path_segment(v)));
             }
             if let Some(v) = q.net_ok.as_deref() {
-                path.push_str(&format!("&net_ok={}", urlencoding(v)));
+                path.push_str(&format!("&net_ok={}", encode_path_segment(v)));
             }
             if let Some(v) = q.http_status.as_deref() {
-                path.push_str(&format!("&http_status={}", urlencoding(v)));
+                path.push_str(&format!("&http_status={}", encode_path_segment(v)));
             }
             if let Some(v) = q.cursor.as_deref() {
-                path.push_str(&format!("&cursor={}", urlencoding(v)));
+                path.push_str(&format!("&cursor={}", encode_path_segment(v)));
             }
         }
         self.send_read(&path).await
@@ -525,7 +532,7 @@ impl ResinClient {
     /// GET /api/v1/request-logs/{log_id} — single request log entry.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R45
     pub async fn get_request_log(&self, log_id: &str) -> Result<Value> {
-        let path = format!("/request-logs/{}", urlencoding(log_id));
+        let path = format!("/request-logs/{}", encode_path_segment(log_id));
         self.send_read(&path).await
     }
 
@@ -533,7 +540,7 @@ impl ResinClient {
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R46
     /// bodies for a log entry (only present when payload logging is enabled).
     pub async fn get_request_log_payloads(&self, log_id: &str) -> Result<Value> {
-        let path = format!("/request-logs/{}/payloads", urlencoding(log_id));
+        let path = format!("/request-logs/{}/payloads", encode_path_segment(log_id));
         self.send_read(&path).await
     }
 
@@ -552,7 +559,7 @@ impl ResinClient {
             let k = k.trim();
             if !k.is_empty() {
                 path.push_str("&keyword=");
-                path.push_str(&urlencoding(k));
+                path.push_str(&encode_path_segment(k));
             }
         }
         self.send_read(&path).await
@@ -659,11 +666,11 @@ impl ResinClient {
         if let Some(f) = from {
             path.push(sep);
             sep = '&';
-            path.push_str(&format!("from={}", urlencoding(f)));
+            path.push_str(&format!("from={}", encode_path_segment(f)));
         }
         if let Some(t) = to {
             path.push(sep);
-            path.push_str(&format!("to={}", urlencoding(t)));
+            path.push_str(&format!("to={}", encode_path_segment(t)));
         }
         self.send_read(&path).await
     }
@@ -804,40 +811,10 @@ pub struct RequestLogQuery {
 /// does not make every subscription import fail. 15s timeout: subscription
 /// YAML can be large (50+ proxies) on slow hosts.
 ///
-/// Percent-encode a path segment or query value, keeping RFC 3986
-/// alphanumerics plus `-`/`_` literal; every other UTF-8 byte becomes %XX.
-/// Backed by the percent-encoding crate — no hand-rolled escape table.
-/// (Resin IDs are canonical UUIDs and need no escaping, but we keep the
-/// door open for future callers who might pass a name.)
-const SEGMENT_ENCODE_SET: &percent_encoding::AsciiSet =
-    &percent_encoding::NON_ALPHANUMERIC.remove(b'-').remove(b'_');
-
-fn urlencoding(s: &str) -> String {
-    percent_encoding::utf8_percent_encode(s, SEGMENT_ENCODE_SET).to_string()
-}
-
-/// JS encodeURIComponent unreserved set: A-Z a-z 0-9 - _ . ! ~ * ' ( ).
-const URI_COMPONENT_ENCODE_SET: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
-    .remove(b'-')
-    .remove(b'_')
-    .remove(b'.')
-    .remove(b'!')
-    .remove(b'~')
-    .remove(b'*')
-    .remove(b'\'')
-    .remove(b'(')
-    .remove(b')');
-
-/// encodeURIComponent-compatible path-segment encoder for account-header-rule
-/// url_prefix values. The upstream contract test exercises
-/// `api.example.com%2Fv1` — the `/` MUST stay percent-encoded so the Go 1.22
-/// ServeMux `{prefix...}` wildcard receives one segment and unescapes it back
-/// to `api.example.com/v1`. Byte-for-byte identical to JS
-/// encodeURIComponent (same unreserved set, UTF-8 bytes) — the proven-good
-/// encoding against this exact server.
-fn encode_uri_component(s: &str) -> String {
-    percent_encoding::utf8_percent_encode(s, URI_COMPONENT_ENCODE_SET).to_string()
-}
+// URL encoders live in crate::encoding (R12-D2 consolidation): strict
+// encode_path_segment for Resin path segments + query values (over-encoding
+// a query value is always safe), JS-parity encode_uri_component for the
+// account-header-rule url_prefix contract.
 
 #[cfg(test)]
 mod tests {
@@ -855,29 +832,6 @@ mod tests {
         assert!(ResinClient::new("http://127.0.0.1:2260", "tok".into()).is_ok());
         assert!(ResinClient::new("http://localhost:2260", "tok".into()).is_ok());
         assert!(ResinClient::new("http://[::1]:2260", "tok".into()).is_ok());
-    }
-
-    #[test]
-    fn urlencoding_escapes_disallowed_chars() {
-        assert_eq!(urlencoding("foo-bar_b123"), "foo-bar_b123");
-        assert_eq!(urlencoding("a/b"), "a%2Fb");
-        // Non-ASCII input is UTF-8 percent-encoded per byte (the prior
-        // char-wise table emitted the raw codepoint, e.g. %540D).
-        assert_eq!(urlencoding("名"), "%E5%90%8D");
-    }
-
-    #[test]
-    fn encode_uri_component_matches_js_unreserved_set() {
-        assert_eq!(
-            encode_uri_component("api.example.com/v1"),
-            "api.example.com%2Fv1"
-        );
-        // encodeURIComponent keeps - _ . ! ~ * ' ( ) literal.
-        assert_eq!(
-            encode_uri_component("a-b_c.d!e~f*g'h(i)"),
-            "a-b_c.d!e~f*g'h(i)"
-        );
-        assert_eq!(encode_uri_component("a b"), "a%20b");
     }
 
     #[tokio::test]
@@ -2175,7 +2129,7 @@ mod tests {
     async fn mockito_probe_history_sends_rfc3339_from_to() {
         // from/to arrive at this layer as RFC3339Nano strings already
         // boundary-validated by the IPC layer; assert they ride the query
-        // string URL-encoded (`:` is escaped by the shared urlencoding helper).
+        // string URL-encoded (`:` is escaped by the shared encode_path_segment helper).
         let mut server = mockito::Server::new_async().await;
         let m = server
             .mock("GET", mockito::Matcher::Any)

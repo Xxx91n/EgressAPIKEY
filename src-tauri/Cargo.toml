@@ -47,9 +47,6 @@ getrandom = "0.2"
 # Lowercase hex encoding for the sidecar admin token (gen_token) and the
 # headless CSPRNG token; 0.4.3 already sits in Cargo.lock transitively.
 hex = "0.4"
-# RFC 3986 percent-encoding for the headless BFF path segments; 2.3.2 is
-# already in Cargo.lock transitively via the url/reqwest tree.
-percent-encoding = "2.3"
 # IP/CIDR matching for the headless --trusted-proxy flag (R12-D1); 2.12.0 is
 # already in Cargo.lock transitively via the reqwest/hyper tree.
 ipnet = "2"

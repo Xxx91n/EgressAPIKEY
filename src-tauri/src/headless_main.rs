@@ -50,6 +50,7 @@ use axum::{
 use clap::Parser;
 use egressapikey_app::headless_security::{self, HeadlessGuard};
 use egressapikey_app::sidecar::{boot_resin_standalone, SidecarHandle};
+use resin_core::encoding::encode_path_segment;
 
 mod headless_shell;
 use tower_http::services::{ServeDir, ServeFile};
@@ -794,15 +795,6 @@ fn id_for_name(list: &serde_json::Value, want: &str) -> Option<String> {
     None
 }
 
-/// Percent-encode a path segment, keeping RFC 3986 alphanumerics plus
-/// `-`/`_` literal (UUID dashes); every other UTF-8 byte becomes %XX.
-/// Backed by the percent-encoding crate — no hand-rolled escape table.
-fn url_encode_segment(s: &str) -> String {
-    const SEGMENT_ENCODE_SET: &percent_encoding::AsciiSet =
-        &percent_encoding::NON_ALPHANUMERIC.remove(b'-').remove(b'_');
-    percent_encoding::utf8_percent_encode(s, SEGMENT_ENCODE_SET).to_string()
-}
-
 /// Pure: rewrite a PATCH body by stripping `name` and translating the
 /// camelCase IPC keys (ipcPlatformUpdate sends `allocationPolicy`,
 /// `regexFilters`, `regionFilters`, `stickyTtl`, etc.) to Resin's
@@ -1018,7 +1010,7 @@ async fn translate_request(
             "subscriptions"
         };
         let id = resolve_id(client, upstream_base, admin_token, collection, &name).await?;
-        let enc = url_encode_segment(&id);
+        let enc = encode_path_segment(&id);
         if method == Method::DELETE {
             // Resin expects no body on DELETE /{id}.
             return Ok((
@@ -1043,7 +1035,7 @@ async fn translate_request(
             egressapikey_app::commands::validate_short_name(&name, "platform")?;
             let id = resolve_id(client, upstream_base, admin_token, "platforms", &name).await?;
             return Ok((
-                format!("/api/v1/platforms/{}/leases", url_encode_segment(&id)),
+                format!("/api/v1/platforms/{}/leases", encode_path_segment(&id)),
                 reqwest::Body::from(Vec::<u8>::new()),
             ));
         }
@@ -1057,7 +1049,7 @@ async fn translate_request(
             return Ok((
                 format!(
                     "/api/v1/subscriptions/{}/actions/refresh",
-                    url_encode_segment(&id)
+                    encode_path_segment(&id)
                 ),
                 reqwest::Body::from(Vec::<u8>::new()),
             ));
@@ -1077,7 +1069,7 @@ async fn translate_request(
         {
             return Err("url_prefix invalid (1..512 chars, no control)".to_string());
         }
-        let enc = url_encode_segment(prefix);
+        let enc = encode_path_segment(prefix);
         if method == Method::DELETE {
             return Ok((
                 format!("/api/v1/account-header-rules/{}", enc),
@@ -1416,16 +1408,26 @@ mod bff_translate_tests {
     }
 
     #[test]
-    fn url_encode_segment_preserves_alphanum_and_dashes() {
-        assert_eq!(url_encode_segment("abc-123_xyz"), "abc-123_xyz");
+    fn encode_path_segment_preserves_alphanum_and_dashes() {
+        assert_eq!(encode_path_segment("abc-123_xyz"), "abc-123_xyz");
     }
 
     #[test]
-    fn url_encode_segment_escapes_chinese_and_special() {
-        let out = url_encode_segment("名前");
+    fn encode_path_segment_escapes_chinese_and_special() {
+        let out = encode_path_segment("名前");
         assert!(!out.contains('名'));
         assert!(out.starts_with('%'));
         assert_eq!(out.matches('%').count(), 6);
+    }
+
+    #[test]
+    fn encode_path_segment_percent_decode_round_trip() {
+        // The BFF encodes with the shared strict set and decodes with the
+        // local percent_decode; the pair must round-trip arbitrary UTF-8
+        // (including %20 for space - never the form-urlencoded +).
+        for s in ["abc-123_xyz", "a b+c/d", "名前", "a%20b"] {
+            assert_eq!(percent_decode(&encode_path_segment(s)), s);
+        }
     }
 
     #[test]

@@ -25,6 +25,29 @@ pub fn encode_path_segment(s: &str) -> String {
     percent_encoding::utf8_percent_encode(s, PATH_SEGMENT_ENCODE_SET).to_string()
 }
 
+/// JS `encodeURIComponent` unreserved set: A-Z a-z 0-9 - _ . ! ~ * ' ( ).
+const URI_COMPONENT_ENCODE_SET: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
+    .remove(b'-')
+    .remove(b'_')
+    .remove(b'.')
+    .remove(b'!')
+    .remove(b'~')
+    .remove(b'*')
+    .remove(b'\'')
+    .remove(b'(')
+    .remove(b')');
+
+/// `encodeURIComponent`-compatible encoder for the account-header-rule
+/// `url_prefix` path segment. The upstream contract test exercises
+/// `api.example.com%2Fv1` - the `/` MUST stay percent-encoded so the Go 1.22
+/// ServeMux `{prefix...}` wildcard receives one segment and unescapes it back
+/// to `api.example.com/v1`. Byte-for-byte identical to JS
+/// `encodeURIComponent` (same unreserved set, UTF-8 bytes) - the proven-good
+/// encoding against this exact server.
+pub fn encode_uri_component(s: &str) -> String {
+    percent_encoding::utf8_percent_encode(s, URI_COMPONENT_ENCODE_SET).to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -45,5 +68,20 @@ mod tests {
     fn encode_path_segment_non_ascii_utf8() {
         // multi-byte UTF-8 is percent-encoded byte by byte
         assert_eq!(encode_path_segment("名前"), "%E5%90%8D%E5%89%8D");
+    }
+
+    #[test]
+    fn encode_uri_component_matches_js_unreserved_set() {
+        // moved verbatim from resin_client.rs (byte-equivalence contract)
+        assert_eq!(
+            encode_uri_component("api.example.com/v1"),
+            "api.example.com%2Fv1"
+        );
+        // encodeURIComponent keeps - _ . ! ~ * ' ( ) literal.
+        assert_eq!(
+            encode_uri_component("a-b_c.d!e~f*g'h(i)"),
+            "a-b_c.d!e~f*g'h(i)"
+        );
+        assert_eq!(encode_uri_component("a b"), "a%20b");
     }
 }
