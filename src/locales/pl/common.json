@@ -300,6 +300,7 @@
     "region": "Według Regionu",
     "regionSelect": "Wybierz według regionu",
     "regionsHint": "US,SG,JP (oddzielone przecinkami)",
+    "selected": "wybrane",
     "stickyTtlHint": "0 = brak lepkości (każde żądanie może używać innego IP wyjścia); wyższa wartość wiąże ten sam klucz API z tym samym IP dłużej",
     "subsHint": "sub1,sub2 (oddzielone przecinkami)",
     "subscription": "Według Subskrypcji",

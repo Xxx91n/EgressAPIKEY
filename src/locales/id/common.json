@@ -300,6 +300,7 @@
     "region": "Berdasarkan Wilayah",
     "regionSelect": "Pilih berdasarkan wilayah",
     "regionsHint": "US,SG,JP (dipisah koma)",
+    "selected": "dipilih",
     "stickyTtlHint": "0 = tanpa lengket (setiap permintaan mungkin menggunakan IP keluar berbeda); nilai lebih tinggi mengikat kunci API yang sama ke IP yang sama lebih lama",
     "subsHint": "sub1,sub2 (dipisah koma)",
     "subscription": "Berdasarkan Langganan",

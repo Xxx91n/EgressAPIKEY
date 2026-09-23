@@ -300,6 +300,7 @@
     "region": "حسب المنطقة",
     "regionSelect": "اختيار حسب المنطقة",
     "regionsHint": "US,SG,JP (مفصول بفواصل)",
+    "selected": "محددة",
     "stickyTtlHint": "0 = بدون ثبابة (كل طلب قد يستخدم IP خروج مختلف); قيمة أعلى تربط نفس مفتاح API بنفس IP لفترة أطول",
     "subsHint": "sub1,sub2 (مفصول بفواصل)",
     "subscription": "حسب الاشتراك",

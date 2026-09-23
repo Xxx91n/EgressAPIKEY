@@ -300,6 +300,7 @@
     "region": "Bölgeye Göre",
     "regionSelect": "Bölgeye göre seç",
     "regionsHint": "US,SG,JP (virgülle ayrılmış)",
+    "selected": "seçildi",
     "stickyTtlHint": "0 = yapışkanlık yok (her istek farklı bir çıkış IP'si kullanabilir); daha yüksek değer aynı API anahtarını aynı IP'ye daha uzun süre bağlar",
     "subsHint": "sub1,sub2 (virgülle ayrılmış)",
     "subscription": "Aboneliğe Göre",

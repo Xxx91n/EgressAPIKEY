@@ -12,8 +12,10 @@
 //   GET /__stats         -> counters: active streams, cancels, blocked writes
 //
 // mock node (HTTP CONNECT proxy on loopback): Resin's `http` outbound dials
-// CONNECT host:port through it; we pipe to the real target. Only loopback
-// targets are permitted so the bench can never egress off-box.
+// CONNECT host:port through it; we pipe to the real target. Load traffic
+// targets only loopback (the mock upstream), but external CONNECTs ARE
+// served - Resin's mandatory node health probes (cloudflare.com/gstatic)
+// and the R12-C1 faultinject probe_exit_ip leg to 1.1.1.1 ride it.
 
 import http from "node:http";
 import net from "node:net";

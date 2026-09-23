@@ -239,6 +239,26 @@ let convergeUnlistenSidecar: (() => void) | null = null;
 let convergeUnlistenSnapshotRefresh: (() => void) | null = null;
 let convergeOnVisibility: (() => void) | null = null;
 let convergeInFlight = false;
+/// r12-wave-d D4c probe for the React-Query register line (arm (a)): a
+/// monotonic dev-only counter that records a snapshot-trigger mark landing
+/// while the previous ipcAuthoritativeSnapshot invoke is still unresolved.
+/// One measured overlap fires the line; two observation cycles at zero
+/// return it to suspended. import.meta.env.DEV dead-code-eliminates the
+/// whole instrument in production builds.
+const convergeDevMarks = import.meta.env.DEV
+  ? { lastMarkAt: 0, overlaps: 0 }
+  : null;
+function convergeDevMark(path: string): void {
+  if (convergeDevMarks === null) return;
+  const now = performance.now();
+  if (convergeInFlight) {
+    convergeDevMarks.overlaps += 1;
+    console.debug(
+      `[converge] ${path} snapshot trigger overlapped an in-flight pull (overlaps=${convergeDevMarks.overlaps}, mark delta ${(now - convergeDevMarks.lastMarkAt).toFixed(0)}ms)`,
+    );
+  }
+  convergeDevMarks.lastMarkAt = now;
+}
 /// Rises on every subscribe/unsubscribe so a late-resolving listen() from a
 /// discarded subscription cannot leak its unlisten into the next one
 /// (React StrictMode double-mounts effects in dev).
@@ -295,6 +315,7 @@ function convergeSubscribe(): () => void {
   // Checkpoint B: sidecar lifecycle transitions (healthy/unhealthy/
   // terminated/restarting from the G3 health poll) refetch immediately.
   void listen(SIDECAR_STATUS_EVENT, () => {
+    convergeDevMark("sidecar-status");
     void useAppStore.getState().refreshConvergeSnapshot();
   })
     .then((unlisten) => {
@@ -307,6 +328,7 @@ function convergeSubscribe(): () => void {
   // once instead of at the next 5s/30s poll. Same trigger-only discipline as
   // checkpoint B (the payload is untrusted and unused).
   void listen(SNAPSHOT_REFRESH_EVENT, () => {
+    convergeDevMark("snapshot-refresh");
     void useAppStore.getState().refreshConvergeSnapshot();
   })
     .then((unlisten) => {

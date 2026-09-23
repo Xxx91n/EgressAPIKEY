@@ -300,6 +300,7 @@
     "region": "Theo khu vực",
     "regionSelect": "Chọn theo khu vực",
     "regionsHint": "US,SG,JP (cách nhau dấu phẩy)",
+    "selected": "đã chọn",
     "stickyTtlHint": "0 = không dính (mỗi yêu cầu có thể sử dụng IP đầu ra khác); giá trị cao hơn liên kết cùng khóa API với cùng IP lâu hơn",
     "subsHint": "sub1,sub2 (cách nhau dấu phẩy)",
     "subscription": "Theo đăng ký",

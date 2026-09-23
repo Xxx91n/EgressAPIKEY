@@ -300,6 +300,7 @@
     "region": "Nach Region",
     "regionSelect": "Nach Region wählen",
     "regionsHint": "US,SG,JP (durch Kommas getrennt)",
+    "selected": "ausgewählt",
     "stickyTtlHint": "0 = keine Klebrigkeit (jede Anfrage kann eine andere Ausgangs-IP verwenden); höherer Wert bindet denselben API-Schlüssel länger an dieselbe IP",
     "subsHint": "sub1,sub2 (durch Kommas getrennt)",
     "subscription": "Nach Abonnement",

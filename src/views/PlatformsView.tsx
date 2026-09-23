@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Plus, Trash2, Loader2, AlertCircle, CheckCircle2, Plug, ShieldCheck, ShieldAlert, Copy, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { translateError } from "../lib/i18n-error";
+import { groupBySub } from "../lib/nodeGroup";
 import {
   ipcPlatformRemove,
   ipcPlatformListFull,
@@ -54,7 +55,6 @@ interface PlatformInfoFull {
 
 interface NodeEntry { display_tag: string; region: string; node_hash: string; tags?: { subscription_name?: string; subscriptionName?: string; tag: string }[]; }
 
-/// subscription-folded node grouping (reused from NodesView pattern)
 // Resin list endpoints answer either a bare array or { items: [...] } -
 // unwrap once (was copy-pasted in refreshPlatforms and the lease fetch).
 function unwrapItems(raw: unknown): unknown[] {
@@ -62,19 +62,8 @@ function unwrapItems(raw: unknown): unknown[] {
   return ((raw as Record<string, unknown>)?.items ?? []) as unknown[];
 }
 
-function platformSubName(n: NodeEntry): string {
-  return n.tags?.[0]?.subscription_name ?? n.tags?.[0]?.subscriptionName ?? n.tags?.[0]?.tag ?? "";
-}
-function platformGroupBySub(nodes: NodeEntry[]): Map<string, NodeEntry[]> {
-  const m = new Map<string, NodeEntry[]>();
-  for (const n of nodes) {
-    const key = platformSubName(n) || "__untagged__";
-    const arr = m.get(key);
-    if (arr) arr.push(n);
-    else m.set(key, [n]);
-  }
-  return m;
-}
+// subscription-fold grouping comes from src/lib/nodeGroup.ts (shared with
+// NodesView since r12 wave-d D4).
 
 export function PlatformsView() {
   const { t } = useTranslation();
@@ -117,7 +106,7 @@ export function PlatformsView() {
   const [subList, setSubList] = useState<{ name: string; node_count: number }[]>([]);
   const [expandedPlatformCards, setExpandedPlatformCards] = useState<Set<string>>(new Set());
   const [manualSearch, setManualSearch] = useState<Record<string, string>>({});
-  const [manualSubExpanded, setManualSubCollapsed] = useState<Set<string>>(new Set());
+  const [manualSubExpanded, setManualSubExpanded] = useState<Set<string>>(new Set());
 
   const refreshStrategy = useCallback(async () => {
     try {
@@ -551,7 +540,7 @@ export function PlatformsView() {
               const isExpanded = expandedPortCards.has(p.port) || hoveredPort === p.port;
               const h = health[p.port];
               const a = authInfo[p.port];
-              const healthDot = h ? (h.reachable && h.reason === "ok" || (h.reachable && h.reason === "ok") ? "bg-emerald-500" : "bg-red-500") : "bg-muted-foreground/30";
+              const healthDot = h ? (h.reachable && h.reason === "ok" ? "bg-emerald-500" : "bg-red-500") : "bg-muted-foreground/30";
               return (
                 <li key={p.port} className={"cursor-grab rounded-md border bg-card text-sm transition " + (draggingPort === p.port ? "opacity-50 cursor-grabbing " : "") + (isExpanded ? "p-2" : "p-1.5")} onPointerDown={(e) => { dragStartRef.current = { x: e.clientX, y: e.clientY }; didDragRef.current = false; }} onPointerMove={(e) => { if (dragStartRef.current && !didDragRef.current) { const dx = e.clientX - dragStartRef.current.x; const dy = e.clientY - dragStartRef.current.y; if (Math.hypot(dx, dy) > 5) { didDragRef.current = true; document.body.style.userSelect = "none"; setDraggingPort(p.port); } } }} onPointerUp={() => { document.body.style.userSelect = ""; dragStartRef.current = null; if (didDragRef.current) { setDraggingPort(null); setDragOverPlatform(null); } }} onMouseEnter={() => setHoveredPort(p.port)} onMouseLeave={() => setHoveredPort(null)} data-testid={"port-row-" + p.port}>
                   {/* collapsed = single row, expanded = details */}
@@ -586,8 +575,8 @@ export function PlatformsView() {
                   {isExpanded && (
                     <div className="mt-1.5 space-y-1 border-t pt-1.5">
                       <div className="flex items-center gap-2 text-[11px] text-muted-foreground" data-testid={"port-auth-" + p.port}>
-                        {h && (h.reachable && h.reason === "ok" || (h.reachable && h.reason === "ok") ? <ShieldCheck className="h-3 w-3 text-emerald-500" /> : <ShieldAlert className="h-3 w-3 text-red-500" />)}
-                        <span>{h ? (h.reachable && h.reason === "ok" || (h.reachable && h.reason === "ok") ? t("platform.healthOk") : h.protocol_mismatch ? t("platform.healthProtocolMismatch") : t("platform.healthUnavailable")) : ""}</span>
+                        {h && (h.reachable && h.reason === "ok" ? <ShieldCheck className="h-3 w-3 text-emerald-500" /> : <ShieldAlert className="h-3 w-3 text-red-500" />)}
+                        <span>{h ? (h.reachable && h.reason === "ok" ? t("platform.healthOk") : h.protocol_mismatch ? t("platform.healthProtocolMismatch") : t("platform.healthUnavailable")) : ""}</span>
                         {h && h.latency_ms > 0 && <span className="text-muted-foreground/70">· {h.latency_ms}ms</span>}
                         {a && (
                           <button type="button" className="ml-auto inline-flex items-center gap-1 rounded p-1 hover:text-primary" onClick={() => copyCredentials(p.port, a)} aria-label={t("platform.copyCredentials")} title={t("platform.copyCredentials")}>
@@ -771,17 +760,17 @@ export function PlatformsView() {
                               {(() => {
                                 const searchLower = search.toLowerCase();
                                 const filtered = nodeList.filter((n) => n.display_tag.toLowerCase().includes(searchLower) || n.region.toLowerCase().includes(searchLower));
-                                const grouped = platformGroupBySub(filtered);
+                                const grouped = groupBySub(filtered);
                                 return (
                                   <div className="space-y-1">
                                     {Array.from(grouped.entries()).map(([subName, nodes]) => {
                                       const subSelected = nodes.filter((n) => manualNodes.includes(n.node_hash));
                                       return (
                                         <div key={subName} className="rounded border border-border/50">
-                                          <button type="button" className="flex w-full items-center gap-1 px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-muted rounded-t" onClick={(e) => { e.stopPropagation(); setManualSubCollapsed((s) => { const ns = new Set(s); if (ns.has(subName)) ns.delete(subName); else ns.add(subName); return ns; }); }} data-testid={"strategy-manual-sub-" + p.name + "-" + subName}>
+                                          <button type="button" className="flex w-full items-center gap-1 px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-muted rounded-t" onClick={(e) => { e.stopPropagation(); setManualSubExpanded((s) => { const ns = new Set(s); if (ns.has(subName)) ns.delete(subName); else ns.add(subName); return ns; }); }} data-testid={"strategy-manual-sub-" + p.name + "-" + subName}>
                                             {manualSubExpanded.has(subName) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                                            <span className="font-medium">{subName === "__untagged__" ? t("strategy.untagged") : subName}</span>
-                                            <span className="text-muted-foreground/60">{"(" + nodes.length + (subSelected.length > 0 ? " / " + subSelected.length + " selected" : "") + ")"}</span>
+                                            <span className="font-medium">{subName === "__untagged__" ? t("nodes.untagged") : subName}</span>
+                                            <span className="text-muted-foreground/60">{"(" + nodes.length + (subSelected.length > 0 ? " / " + subSelected.length + " " + t("strategy.selected") : "") + ")"}</span>
                                           </button>
                                           {manualSubExpanded.has(subName) && (
                                             <div className="flex flex-wrap gap-1 px-1.5 pb-1.5">

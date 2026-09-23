@@ -4,6 +4,7 @@ import { Server, RefreshCw, Activity, Globe, AlertCircle, Info, ChevronDown, Che
 import { ipcNodeList, ipcNodePoolSnapshot, ipcIpReputationSnapshot, ipcSubscriptionRefresh, ipcNodeProbe, type ReputationSnapshot } from "../lib/ipc";
 import { loadNodeProbe, batchChunkSize } from "../lib/settings";
 import { translateError } from "../lib/i18n-error";
+import { groupBySub } from "../lib/nodeGroup";
 import { usePoll } from "../hooks/usePoll";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAppStore, type NodeInfo } from "../store/appStore";
@@ -43,21 +44,6 @@ function itemsArr(v: unknown): NodeItem[] {
   if (Array.isArray(items)) return items.filter((x): x is NodeItem => !!x && typeof x === "object");
   if (Array.isArray(v)) return v.filter((x): x is NodeItem => !!x && typeof x === "object");
   return [];
-}
-
-function subName(n: NodeItem): string {
-  return n.tags?.[0]?.subscription_name ?? n.tags?.[0]?.subscriptionName ?? n.tags?.[0]?.tag ?? "";
-}
-
-function groupBySub(nodes: NodeItem[]): Map<string, NodeItem[]> {
-  const m = new Map<string, NodeItem[]>();
-  for (const n of nodes) {
-    const key = subName(n) || "__untagged__";
-    const arr = m.get(key);
-    if (arr) arr.push(n);
-    else m.set(key, [n]);
-  }
-  return m;
 }
 
 function latencyColor(ms: number | null | undefined): string {

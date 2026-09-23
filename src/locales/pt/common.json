@@ -300,6 +300,7 @@
     "region": "Por Região",
     "regionSelect": "Selecionar por região",
     "regionsHint": "US,SG,JP (separado por vírgulas)",
+    "selected": "selecionados",
     "stickyTtlHint": "0 = sem fixação (cada solicitação pode usar um IP de saída diferente); valor mais alto vincula a mesma chave API ao mesmo IP por mais tempo",
     "subsHint": "sub1,sub2 (separado por vírgulas)",
     "subscription": "Por Assinatura",

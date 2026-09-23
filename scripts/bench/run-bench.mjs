@@ -677,9 +677,22 @@ async function phaseFaultInject(ctx) {
   //    a clean tick inside this window, so driver interleavings only ever
   //    add suspect ticks - the assertions stay monotonic-safe.
   for (const c of entries) killTree(c);
-  await waitAllClosed(rowPorts, 15000);
+  // Trace only, never an acceptance signal (r12 wave-d): killTree already
+  // proved the children are dead; port closure can lag milliseconds behind
+  // process teardown. The wait is diagnostic output, not a gate.
+  const allClosedMs = await waitAllClosed(rowPorts, 15000);
+  log(
+    allClosedMs === null
+      ? "waitAllClosed: entry ports still answering after the 15s deadline - continuing"
+      : `entry ports refused within ${allClosedMs}ms`,
+  );
   const suspectTicks = [];
-  for (let i = 0; i < 3; i++) {
+  // ADR-0080: the suspect-streak audit row fires when the streak CROSSES 3
+  // (hardwired threshold - anti-Goodhart). Pinned as a named constant so the
+  // assertions read against the legislation, not a bare literal; three
+  // manual ticks are required to cross it.
+  const SUSPECT_AUDIT_STREAK = 3;
+  for (let i = 0; i < SUSPECT_AUDIT_STREAK; i++) {
     const t = await tick();
     snap(`suspect-${i + 1}`, t);
     suspectTicks.push(t);
@@ -690,8 +703,8 @@ async function phaseFaultInject(ctx) {
     `suspect streak not monotonic non-decreasing >=1: ${streaks.join(",")}`,
   );
   assert(
-    streaks.at(-1) >= 3,
-    `suspect streak did not cross 3 within 3 injected ticks: ${streaks.join(",")}`,
+    streaks.at(-1) >= SUSPECT_AUDIT_STREAK,
+    `suspect streak did not cross ${SUSPECT_AUDIT_STREAK} within ${SUSPECT_AUDIT_STREAK} injected ticks: ${streaks.join(",")}`,
   );
   suspectTicks.forEach((t, i) =>
     assert(

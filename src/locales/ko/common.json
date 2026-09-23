@@ -300,6 +300,7 @@
     "region": "지역별",
     "regionSelect": "지역별 선택",
     "regionsHint": "US,SG,JP (쉼표 구분)",
+    "selected": "선택됨",
     "stickyTtlHint": "0 = 고정 없음 (각 요청이 다른 출구 IP를 사용할 수 있음); 값이 높을수록 동일한 API 키를 동일한 IP에 더 오래 바인딩",
     "subsHint": "sub1,sub2 (쉼표 구분)",
     "subscription": "구독별",

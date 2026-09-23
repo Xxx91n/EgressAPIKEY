@@ -300,6 +300,7 @@
     "region": "地域別",
     "regionSelect": "地域で選択",
     "regionsHint": "US,SG,JP (カンマ区切り)",
+    "selected": "選択済み",
     "stickyTtlHint": "0 = スティッキーなし（各リクエストが異なる出口IPを使用する可能性あり）; 高い値ほど同じAPIキーを同じIPに長くバインド",
     "subsHint": "sub1,sub2 (カンマ区切り)",
     "subscription": "サブスクリプション別",

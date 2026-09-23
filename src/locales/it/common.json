@@ -300,6 +300,7 @@
     "region": "Per Regione",
     "regionSelect": "Seleziona per regione",
     "regionsHint": "US,SG,JP (separato da virgole)",
+    "selected": "selezionati",
     "stickyTtlHint": "0 = nessuna persistenza (ogni richiesta può usare un IP di uscita diverso); valore più alto lega la stessa chiave API allo stesso IP più a lungo",
     "subsHint": "sub1,sub2 (separato da virgole)",
     "subscription": "Per Abbonamento",

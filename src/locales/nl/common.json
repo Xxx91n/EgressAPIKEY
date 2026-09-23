@@ -300,6 +300,7 @@
     "region": "Per Regio",
     "regionSelect": "Selecteer per regio",
     "regionsHint": "US,SG,JP (door komma's gescheiden)",
+    "selected": "geselecteerd",
     "stickyTtlHint": "0 = geen vastheid (elk verzoek kan een andere uitgangs-IP gebruiken); hogere waarde bindt dezelfde API-sleutel langer aan dezelfde IP",
     "subsHint": "sub1,sub2 (door komma's gescheiden)",
     "subscription": "Per Abonnement",

@@ -300,6 +300,7 @@
     "region": "By Region",
     "regionSelect": "Select by region",
     "regionsHint": "US,SG,JP (comma-separated)",
+    "selected": "selected",
     "stickyTtlHint": "0 = no stickiness (every request may use a different exit IP); higher value binds the same API key to the same IP longer",
     "subsHint": "sub1,sub2 (comma-separated)",
     "subscription": "By Subscription",
