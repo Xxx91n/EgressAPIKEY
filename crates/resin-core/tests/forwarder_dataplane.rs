@@ -450,9 +450,17 @@ async fn socks_open(fwd_port: u16, host: &str, port: u16) -> TcpStream {
     s.read_exact(&mut rep).await.unwrap();
     assert_eq!(
         rep,
-        [0x05, 0x00],
-        "Mode A must select NoAuth credential-free"
+        [0x05, 0x02],
+        "RFC 1928: a UserPass-only offer must be answered with 0x02"
     );
+    // RFC 1929 accept-any: the credential-free entry never reads content -
+    // port = identity. Prove it by sending arbitrary bytes.
+    s.write_all(&[0x01, 0x03, b'x', b'y', b'z', 0x01, b'w'])
+        .await
+        .unwrap();
+    let mut auth = [0u8; 2];
+    s.read_exact(&mut auth).await.unwrap();
+    assert_eq!(auth, [0x01, 0x00], "credential-free entry accepts any auth");
     let mut req = vec![0x05, 0x01, 0x00, 0x03, host.len() as u8];
     req.extend_from_slice(host.as_bytes());
     req.extend_from_slice(&port.to_be_bytes());
@@ -638,7 +646,11 @@ async fn socks5_upstream_dial_failure_answers_in_band() {
     s.write_all(&[0x05, 0x01, 0x02]).await.unwrap();
     let mut rep = [0u8; 2];
     s.read_exact(&mut rep).await.unwrap();
-    assert_eq!(rep, [0x05, 0x00]);
+    assert_eq!(rep, [0x05, 0x02]);
+    s.write_all(&[0x01, 0x01, b'x', 0x00]).await.unwrap();
+    let mut auth = [0u8; 2];
+    s.read_exact(&mut auth).await.unwrap();
+    assert_eq!(auth, [0x01, 0x00]);
     let mut req = vec![0x05, 0x01, 0x00, 0x03, 9];
     req.extend_from_slice(b"127.0.0.1");
     req.extend_from_slice(&80u16.to_be_bytes());
