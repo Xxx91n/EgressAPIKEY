@@ -576,7 +576,7 @@ mod tests {
         let dir = temp_dir("tail-nonjson");
         let path = dir.join(AUDIT_LOG_FILE);
         let l1 = sample_line("L2:strategy");
-        std::fs::write(&path, format!("{l1}\n{{"garbage":true}}\n")).unwrap();
+        std::fs::write(&path, format!("{l1}\n{{\"garbage\":true}}\n")).unwrap();
         let log = AuditLog::new(path);
         assert_eq!(*log.last_hash.lock().unwrap(), Some(own_hash(&l1)));
         let _ = std::fs::remove_dir_all(dir);
