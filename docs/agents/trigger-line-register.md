@@ -48,10 +48,10 @@ Re-open the trim adjudication when ANY line fires:
 - **F-11 e2e remove assertion**: CLOSED in R12-00 (webview-smoke assertion set).
 - **F-12 ADR wildcard link**: CLOSED in r11 rework.
 - **F-13 dual 60s drivers**: ACCEPTED — the headless vs desktop driver shapes intentionally diverge (independent cadence loops); duplication is 6 lines of spawn boilerplate, not shared logic.
-- **Narrative tokens**: CLEARED
+- **Narrative tokens**: CLEARED — `T*-*/round*/ticket *` markers in production `src/` comments went 26 -> 0 (test names keep ids as regression anchors).
 - **resolve_id double-RTT (critique #2)**: VERDICT r12-wave-d D-005 — already adjudicated (ADR-0071 D-002-2, r11-wave-b 2026-09-20: the BFF name-to-id resolution extra control-plane RTT was Accepted). Not reopened.
 - **dead-semantics manifest commands (critique #9)**: VERDICT r12-wave-d D-005 — already adjudicated (AGENTS §7.6 + CONTEXT.md `Echo Command`: echoes are alive contract surface; deletion condition = Resin account REST surface change). Rejected.
-- **i18n-check Rust-side blind spot**: OBSERVATION r12-wave-d D-005 — i18n-check scans the frontend only; Rust-side strings (tray, headless) uncovered. Extend the probe cheaply if it ever bites. — `T*-*/round*/ticket *` markers in production `src/` comments went 26 -> 0 (test names keep ids as regression anchors).
+- **i18n-check Rust-side blind spot**: OBSERVATION r12-wave-d D-005 — i18n-check scans the frontend only; Rust-side strings (tray, headless) uncovered. Extend the probe cheaply if it ever bites.
 
 ## Procedure
 

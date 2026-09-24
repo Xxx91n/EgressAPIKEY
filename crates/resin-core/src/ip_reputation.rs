@@ -174,7 +174,7 @@ impl ReputationClient {
 }
 
 /// The IPQS lookup URL. The API key sits inside a PATH SEGMENT, so it uses
-/// the strict path-segment encoder - never form-urlencoded (a  for a
+/// the strict path-segment encoder - never form-urlencoded (a `+` for a
 /// space was the r12 wave-c bug the regression test below pins shut).
 fn ipqs_url(api_key: &str, ip_s: &str) -> String {
     format!(
@@ -319,12 +319,12 @@ mod tests {
     #[test]
     fn ipqs_url_encodes_key_as_path_segment() {
         // Regression lock (R12-D2): the key sits in a path segment, so a
-        // space must be %20 - never the form-urlencoded  - and literal
-        // NaN
-        assert_eq!(
-            ReputationProvider::parse("ipqs"),
-            Some(ReputationProvider::IpQualityScore)
+        // space must encode %20 - never the form-urlencoded `+` - and a
+        // literal `+` or `/` in the key must stay inside the segment.
+        let url = ipqs_url("a b+c/d", "8.8.8.8");
+        assert!(
+            url.contains("/api/json/ip/a%20b%2Bc%2Fd/8.8.8.8"),
+            "key must encode as a strict path segment: {url}"
         );
-        assert!(ReputationProvider::parse("anything").is_none());
     }
 }

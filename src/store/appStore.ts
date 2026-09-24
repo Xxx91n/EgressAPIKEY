@@ -248,13 +248,13 @@ let convergeInFlight = false;
 const convergeDevMarks = import.meta.env.DEV
   ? { lastMarkAt: 0, overlaps: 0 }
   : null;
-function convergeDevMark(path: string): void {
+function convergeDevMark(source: string): void {
   if (convergeDevMarks === null) return;
   const now = performance.now();
   if (convergeInFlight) {
     convergeDevMarks.overlaps += 1;
     console.debug(
-      `[converge] ${path} snapshot trigger overlapped an in-flight pull (overlaps=${convergeDevMarks.overlaps}, mark delta ${(now - convergeDevMarks.lastMarkAt).toFixed(0)}ms)`,
+      `[converge] ${source} snapshot trigger overlapped an in-flight pull (overlaps=${convergeDevMarks.overlaps}, mark delta ${(now - convergeDevMarks.lastMarkAt).toFixed(0)}ms)`,
     );
   }
   convergeDevMarks.lastMarkAt = now;
@@ -346,6 +346,7 @@ function convergeSubscribe(): () => void {
     if (hidden) {
       convergeClearTimer();
     } else {
+      convergeDevMark("visibility-resume");
       void useAppStore.getState().refreshConvergeSnapshot();
     }
   };

@@ -14,7 +14,7 @@ export interface SubTagged {
   }> | null;
 }
 
-export function subName(n: SubTagged): string {
+function subName(n: SubTagged): string {
   return n.tags?.[0]?.subscription_name ?? n.tags?.[0]?.subscriptionName ?? n.tags?.[0]?.tag ?? "";
 }
 
