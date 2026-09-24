@@ -10,7 +10,11 @@ use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+#[cfg(debug_assertions)]
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+#[cfg(debug_assertions)]
+use std::sync::Mutex as StdMutex;
 use std::time::Duration;
 
 /// Cross-connection write contention budget. A second process or
@@ -33,9 +37,122 @@ pub struct PortMapping {
 }
 
 #[derive(Clone)]
-pub struct DbPool(Arc<Mutex<Connection>>);
+pub struct DbPool(
+    Arc<Mutex<Connection>>,
+    #[cfg(debug_assertions)] Arc<LockWaitStats>,
+);
+
+/// R12-E3 (register row 'DbPool single-lock (bb8)', arms i+ii): a dev-only
+/// lock-wait instrument on every DbPool acquisition. The 1 ms reopen
+/// threshold is anchored to the parking_lot eventual-fairness forcing line
+/// (~1 ms; 0.5 ms average) - a real-load wait at or above it means the
+/// single Mutex<Connection> is genuinely contended and the pool-impl
+/// adjudication re-opens (successor: deadpool-sqlite; r2d2 is 404-dead on
+/// crates.io, recorded). The whole instrument sits behind
+/// debug_assertions - the convergeDevMark pattern: release builds compile
+/// it out entirely (zero-cost), and acquire() collapses to the bare lock.
+#[cfg(debug_assertions)]
+const LOCK_WAIT_REOPEN: Duration = Duration::from_millis(1);
+
+/// Dev-session reservoir cap: counts keep accumulating after the sample
+/// vec is full so a long session cannot grow memory unboundedly.
+#[cfg(debug_assertions)]
+const LOCK_WAIT_SAMPLE_CAP: usize = 16384;
+
+#[cfg(debug_assertions)]
+#[derive(Default)]
+struct LockWaitStats {
+    acquisitions: AtomicU64,
+    over_threshold: AtomicU64,
+    max_wait_micros: AtomicU64,
+    wait_micros: StdMutex<Vec<u64>>,
+}
+
+#[cfg(debug_assertions)]
+impl LockWaitStats {
+    fn new_shared() -> Arc<Self> {
+        Arc::new(Self::default())
+    }
+
+    fn observe(&self, wait: Duration) {
+        let micros = wait.as_micros() as u64;
+        self.acquisitions.fetch_add(1, Ordering::Relaxed);
+        self.max_wait_micros.fetch_max(micros, Ordering::Relaxed);
+        if wait >= LOCK_WAIT_REOPEN {
+            self.over_threshold.fetch_add(1, Ordering::Relaxed);
+            tracing::warn!(
+                target: "db",
+                wait_micros = micros,
+                "DbPool lock wait >= 1ms (register arm i threshold)"
+            );
+        }
+        if let Ok(mut s) = self.wait_micros.lock() {
+            if s.len() < LOCK_WAIT_SAMPLE_CAP {
+                s.push(micros);
+            }
+        }
+    }
+}
+
+/// Dev-only snapshot of the lock-wait instrument (debug_assertions-gated,
+/// compiled out of release builds). The synthetic concurrency probe reads
+/// `wait_micros` for its p99 upper-bound proof; `over_threshold` is arm
+/// (i)'s observation surface on real load.
+#[cfg(debug_assertions)]
+#[derive(Debug, Default, Clone)]
+pub struct LockWaitReport {
+    /// Total DbPool acquisitions observed since open/reset.
+    pub acquisitions: u64,
+    /// Acquisitions that waited >= LOCK_WAIT_REOPEN (1 ms).
+    pub over_threshold: u64,
+    /// Largest single acquisition wait, microseconds.
+    pub max_wait_micros: u64,
+    /// Bounded reservoir of per-acquisition waits (microseconds).
+    pub wait_micros: Vec<u64>,
+}
 
 impl DbPool {
+    /// Single acquisition seam for every public DbPool method. In debug
+    /// builds it times the parking_lot lock acquisition into the dev
+    /// instrument; in release it is the bare lock - zero-cost.
+    #[inline]
+    fn acquire(&self) -> parking_lot::MutexGuard<'_, Connection> {
+        #[cfg(debug_assertions)]
+        let guard = {
+            let t = std::time::Instant::now();
+            let g = self.0.lock();
+            self.1.observe(t.elapsed());
+            g
+        };
+        #[cfg(not(debug_assertions))]
+        let guard = self.0.lock();
+        guard
+    }
+
+    /// Dev-only: reset the lock-wait instrument (probe baseline).
+    #[cfg(debug_assertions)]
+    pub fn lock_wait_reset(&self) {
+        let s = &self.1;
+        s.acquisitions.store(0, Ordering::Relaxed);
+        s.over_threshold.store(0, Ordering::Relaxed);
+        s.max_wait_micros.store(0, Ordering::Relaxed);
+        if let Ok(mut v) = s.wait_micros.lock() {
+            v.clear();
+        }
+    }
+
+    /// Dev-only: snapshot the lock-wait counters + sample reservoir.
+    #[cfg(debug_assertions)]
+    pub fn lock_wait_report(&self) -> LockWaitReport {
+        let s = &self.1;
+        LockWaitReport {
+            acquisitions: s.acquisitions.load(Ordering::Relaxed),
+            over_threshold: s.over_threshold.load(Ordering::Relaxed),
+            max_wait_micros: s.max_wait_micros.load(Ordering::Relaxed),
+            wait_micros: s.wait_micros.lock().map(|v| v.clone()).unwrap_or_default(),
+        }
+    }
+
     pub fn open(path: &Path) -> Result<Self, String> {
         let conn = Connection::open(path).map_err(|e| format!("open db: {e}"))?;
         conn.pragma_update(None, "journal_mode", "WAL")
@@ -47,14 +164,22 @@ impl DbPool {
             .map_err(|e| format!("pragma synchronous=NORMAL: {e}"))?;
         Self::configure(&conn)?;
         Self::migrate(&conn)?;
-        Ok(Self(Arc::new(Mutex::new(conn))))
+        Ok(Self(
+            Arc::new(Mutex::new(conn)),
+            #[cfg(debug_assertions)]
+            LockWaitStats::new_shared(),
+        ))
     }
 
     pub fn open_in_memory() -> Result<Self, String> {
         let conn = Connection::open_in_memory().map_err(|e| format!("open in-memory: {e}"))?;
         Self::configure(&conn)?;
         Self::migrate(&conn)?;
-        Ok(Self(Arc::new(Mutex::new(conn))))
+        Ok(Self(
+            Arc::new(Mutex::new(conn)),
+            #[cfg(debug_assertions)]
+            LockWaitStats::new_shared(),
+        ))
     }
 
     fn configure(conn: &Connection) -> Result<(), String> {
@@ -121,7 +246,7 @@ impl DbPool {
     }
 
     pub fn list_ports(&self) -> Result<Vec<PortMapping>, String> {
-        let conn = self.0.lock();
+        let conn = self.acquire();
         let mut stmt = conn
             .prepare("SELECT port, protocol, platform_name, account, label, enabled, auth_required FROM port_mappings ORDER BY port")
             .map_err(|e| format!("prepare list_ports: {e}"))?;
@@ -146,7 +271,7 @@ impl DbPool {
     }
 
     pub fn upsert_port(&self, m: &PortMapping) -> Result<(), String> {
-        let conn = self.0.lock();
+        let conn = self.acquire();
         conn.execute(
             "INSERT INTO port_mappings (port, protocol, platform_name, account, label, enabled, auth_required) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(port) DO UPDATE SET protocol = excluded.protocol, platform_name = excluded.platform_name, account = excluded.account, label = excluded.label, enabled = excluded.enabled, auth_required = excluded.auth_required",
             params![m.port, m.protocol, m.platform_name, m.account, m.label, m.enabled as i64, m.auth_required as i64],
@@ -156,7 +281,7 @@ impl DbPool {
     }
 
     pub fn delete_port(&self, port: u16) -> Result<(), String> {
-        let conn = self.0.lock();
+        let conn = self.acquire();
         conn.execute("DELETE FROM port_mappings WHERE port = ?1", params![port])
             .map_err(|e| format!("delete port_mappings: {e}"))?;
         Ok(())
@@ -166,7 +291,7 @@ impl DbPool {
     /// already validated the desired configuration; a DB error leaves the old
     /// map untouched.
     pub fn replace_ports(&self, mappings: &[PortMapping]) -> Result<(), String> {
-        let mut conn = self.0.lock();
+        let mut conn = self.acquire();
         // BEGIN IMMEDIATE: take the RESERVED lock at BEGIN, not at
         // the first write — a deferred txn that upgrades mid-flight can hit
         // SQLITE_BUSY_SNAPSHOT under WAL when a reader advanced past it, and
@@ -188,7 +313,7 @@ impl DbPool {
             .map_err(|e| format!("commit replace_ports: {e}"))
     }
     pub fn get_port(&self, port: u16) -> Result<Option<PortMapping>, String> {
-        let conn = self.0.lock();
+        let conn = self.acquire();
         let row = conn
             .query_row(
                 "SELECT port, protocol, platform_name, account, label, enabled, auth_required FROM port_mappings WHERE port = ?1",
@@ -289,7 +414,11 @@ mod tests {
         .unwrap();
 
         DbPool::migrate(&conn).unwrap();
-        let pool = DbPool(Arc::new(Mutex::new(conn)));
+        let pool = DbPool(
+            Arc::new(Mutex::new(conn)),
+            #[cfg(debug_assertions)]
+            LockWaitStats::new_shared(),
+        );
         let rows = pool.list_ports().unwrap();
         let protocol_of = |p: u16| {
             rows.iter()
@@ -609,5 +738,72 @@ mod tests {
 
         drop(pool);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// R12-E3 register arm (ii): synthetic concurrency probe - 8 threads
+    /// hammer `list_ports` on a shared file-backed pool, and the
+    /// acquisition-wait p99 must stay under the 1 ms parking_lot
+    /// eventual-fairness line. p99 >= 1 ms fires the pool-impl reopen line
+    /// (successor: deadpool-sqlite). This is an existence-of-contention
+    /// instrument, CI-runnable with zero runner dependency; the
+    /// selfhosted dagger line still owns absolute-latency thresholds.
+    /// Dev-gated like the instrument itself - a release test build has no
+    /// instrument to read.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn concurrent_list_ports_lock_wait_p99_under_1ms() {
+        let dir = std::env::temp_dir().join(format!("resin-db-probe-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("probe.db");
+        let _ = std::fs::remove_file(&path);
+        let pool = DbPool::open(&path).unwrap();
+        for i in 0..64u16 {
+            pool.upsert_port(&PortMapping {
+                port: 30000 + i,
+                protocol: "mixed".into(),
+                platform_name: "P".into(),
+                account: format!("a{i}"),
+                label: "".into(),
+                enabled: true,
+                auth_required: true,
+            })
+            .unwrap();
+        }
+        pool.lock_wait_reset();
+
+        const THREADS: usize = 8;
+        const ROUNDS: usize = 25;
+        let mut handles = Vec::with_capacity(THREADS);
+        for _ in 0..THREADS {
+            let p = pool.clone();
+            handles.push(std::thread::spawn(move || {
+                for _ in 0..ROUNDS {
+                    assert_eq!(p.list_ports().unwrap().len(), 64);
+                }
+            }));
+        }
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let report = pool.lock_wait_report();
+        assert!(
+            report.acquisitions >= (THREADS * ROUNDS) as u64,
+            "instrument must observe every probe acquisition, got {}",
+            report.acquisitions
+        );
+        let mut s = report.wait_micros.clone();
+        s.sort_unstable();
+        assert!(!s.is_empty());
+        let p99 = s[(s.len() * 99 / 100).min(s.len() - 1)];
+        drop(pool);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(
+            p99 < 1000,
+            "DbPool acquisition wait p99 must be < 1ms (register arm ii): p99={p99}us over {} samples (max={}us over_threshold={})",
+            s.len(),
+            report.max_wait_micros,
+            report.over_threshold
+        );
     }
 }
