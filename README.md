@@ -64,7 +64,7 @@ graph LR
 </details>
 ## Download
 
-**Desktop** — installers (MSI / NSIS / deb / AppImage / dmg) and one portable, drop-and-run executable per OS are published on the [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) page. No tagged release yet — artifacts ship with the first tagged release.
+**Desktop** — installers (MSI / NSIS / deb / AppImage / dmg) and one portable, drop-and-run executable per OS are published on the [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) page. macOS is arm64 (Apple Silicon) first-class; x86_64 is opt-in best-effort until 2027-08 (macOS 15+ Intel only, via the `include_intel_mac` dispatch input). No tagged release yet — artifacts ship with the first tagged release.
 
 **Headless server** — the same control surface (Platforms, Subscriptions, Nodes, Topology) served in any browser at `http://127.0.0.1:14200`, for Linux servers, Docker, or a remote VPS. The admin bearer token is injected server-side; the browser never sees it. Headless runs data-plane **Mode B**: the Resin engine binds each entry port, and clients present the port's `Platform.Account` proxy credential once (username `Platform.Account`, password = the proxy token). One upstream caveat: plain-HTTP forward-form requests on a Mode B port are buffered by the engine — CONNECT-tunnelled HTTPS traffic, the actual AI API path, streams normally ([ADR-0068](docs/adr/0068-data-plane-dual-mode-mixed-protocol.md)). The `@egressapikey/server` npm launcher is **not published to npm** — run from source:
 

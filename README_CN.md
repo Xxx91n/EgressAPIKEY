@@ -64,7 +64,7 @@ graph LR
 </details>
 ## 下载
 
-**桌面版** —— 安装包（MSI / NSIS / deb / AppImage / dmg）与每平台一个免安装、开箱即用的可执行文件发布在 [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) 页面。目前尚无 tagged release —— 产物将随首个 tagged release 一并发布。
+**桌面版** —— 安装包（MSI / NSIS / deb / AppImage / dmg）与每平台一个免安装、开箱即用的可执行文件发布在 [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) 页面。macOS 以 arm64（Apple Silicon）为一等支持；x86_64 为可选加入、尽力而为直至 2027-08（仅 macOS 15+ Intel，经 `include_intel_mac` 调度开关）。目前尚无 tagged release —— 产物将随首个 tagged release 一并发布。
 
 **无头服务器** —— 同一套控制面（平台 / 订阅 / 节点 / 拓扑），可在任意浏览器经 `http://127.0.0.1:14200` 访问，适用于 Linux 服务器、Docker 或远程 VPS。admin bearer 令牌由服务端注入，浏览器永远看不到它。headless 运行数据面 **Mode B**：入口端口由 Resin 引擎自行绑定，客户端一次性出示该端口的 `Platform.Account` 代理凭据（用户名 = `Platform.Account`，密码 = 代理令牌）。上游注意项：Mode B 端口上的纯 HTTP 转发形态请求会被引擎缓冲 —— 经 CONNECT 隧道的 HTTPS 流量（AI API 实际路径）不受影响，正常流式（[ADR-0068](docs/adr/0068-data-plane-dual-mode-mixed-protocol.md)）。`@egressapikey/server` npm 启动器**未发布到 npm** —— 请从源码运行：
 

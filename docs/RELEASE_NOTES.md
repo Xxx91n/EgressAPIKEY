@@ -30,8 +30,9 @@ fault-injection evidence for its environment-suspect suppressor.
 - **License / sidecar / platforms / i18n**: unchanged from 0.1.0
   (GPL-3.0-or-later shell; vendored Resin v1.2.0 pinned in
   `docs/RESIN_UPSTREAM_MANIFEST.yaml`; Windows MSI/NSIS/portable, macOS
-  arm64+x86_64 dmg, Linux deb/AppImage, per-OS headless backend; 18
-  locales).
+  arm64 dmg first-class (x86_64 opt-in best-effort until 2027-08 -
+  macOS 15+ Intel only, via the `include_intel_mac` dispatch input),
+  Linux deb/AppImage, per-OS headless backend; 18 locales).
 - **Upgrade surface**: whitebox `orchestration` section is additive and
   serde-defaulted - an 0.1.0 config loads unchanged with the controller
   disabled until you opt in. `egressapikey.db` carries forward via the

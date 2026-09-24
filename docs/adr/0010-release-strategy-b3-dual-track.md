@@ -200,3 +200,31 @@ a push to `origin`, deferred to the user (WORKFLOW section 4.2: no push without
 an explicit instruction). Until then the gate is verified by workflow parsing
 and YAML validation, not by a run.
 ---
+
+## Revision — 2026-09-24 (r12-wave-e D-003 / ticket R12-E2): macOS x86_64 demoted to opt-in best-effort
+
+Status stays **ACCEPTED**. The two macOS x86_64 release legs (backend +
+gui installer) were dead jobs, not slow jobs: the `macos-13` runner image
+was retired wholesale on 2025-12-04/08. Both legs move to `macos-15-intel`
+(the last Intel image; retires 2027-08) and are demoted behind a new
+`workflow_dispatch` input `include_intel_mac` (default off). They ship as
+dedicated jobs (`backend-intel` / `gui-intel`) carrying a job-level `if:`,
+so an opt-out dispatch never provisions an Intel runner while every
+non-Intel leg always builds. Positioning: macOS = arm64 (Apple Silicon)
+first-class; x86_64 = opt-in best-effort until 2027-08 (macOS 15+ Intel
+only).
+
+- Timeout: explicit raised per-job bounds (backend-intel 120m, gui-intel
+  180m) - Intel-runner builds are empirically the slowest legs.
+- Draft-release collection verified: no step hard-asserts the x86_64 dmg;
+  tauri-action uploads whatever bundles each gui leg produced, so an
+  opt-out dispatch simply ships fewer assets.
+- Rejected: paid larger runner (same 2027-08 endgame, not worth it);
+  doc-only change (dead legs would keep lying to each other); deleting the
+  leg outright today (kills a real escape hatch early); the "GitHub
+  restores free Intel capacity" signal (deleted as unverifiable).
+- Trigger lines (docs/agents/trigger-line-register.md): hard date
+  2027-08-01 -> this input-gate escalates to A1 full-removal adjudication;
+  >=3 non-bot issues requesting an Intel dmg -> re-entry adjudication;
+  universal2 dmg (arm64 runner + x86_64 target + lipo) recorded as the
+  designated successor when the hard date fires - not implemented here.

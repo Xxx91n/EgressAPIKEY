@@ -5,7 +5,9 @@ name: ci
 #     (tsc + vite) + vitest + every guard script (scripts/verify-build.sh) + the
 #     line-ending guard. This is the push->verify gate: no green verify, no merge.
 #   workflow_dispatch  -> `verify` + the 5-job release matrix, unchanged and still
-#     manual: the user opens the Actions tab and types a tag.
+#     manual: the user opens the Actions tab and types a tag. Input
+#     `include_intel_mac` (default off) additionally gates the two opt-in
+#     macOS x86_64 legs (backend-intel + gui-intel on macos-15-intel, R12-E2).
 # Release packaging NEVER runs on push: every release/e2e job carries
 # `if: github.event_name == 'workflow_dispatch'`.
 # Minute burn is bounded by the concurrency group below: superseded push/PR runs on
@@ -21,6 +23,15 @@ on:
         description: 'Git tag for the release (e.g. v0.1.0). The user runs: git tag <tag> && git push origin <tag> first, then triggers this workflow with the same tag.'
         required: true
         type: string
+      # R12-E2 (ADR-0010 revision): macOS x86_64 demoted to opt-in best-effort
+      # - macos-13 was retired wholesale (2025-12-04/08) so the legs moved to
+      # macos-15-intel, the last Intel image (retires 2027-08). Default off:
+      # non-Intel legs always build; Intel legs need this input on.
+      include_intel_mac:
+        description: 'Also build the macOS x86_64 (Intel) legs on macos-15-intel - opt-in best-effort until 2027-08'
+        required: false
+        type: boolean
+        default: false
 
 # Cancel superseded push/PR runs on the same ref. A manual release run is never
 # cancelled, so an intentional release always finishes even if a push lands mid-run.
@@ -116,9 +127,6 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             name: macos-arm64
-          - os: macos-13
-            target: x86_64-apple-darwin
-            name: macos-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -184,6 +192,67 @@ jobs:
           path: release/${{ matrix.name }}-backend.tar.gz
           if-no-files-found: error
 
+  # 3b. Opt-in Intel backend leg (R12-E2): same shape as a backend matrix leg
+  #     but gated on the include_intel_mac dispatch input - a job-level `if`
+  #     keeps the opt-out path from even provisioning an Intel runner.
+  backend-intel:
+    name: backend headless (macos-x86_64, opt-in)
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' && inputs.include_intel_mac
+    # Raised bound: Intel runners are empirically slow.
+    timeout-minutes: 120
+    runs-on: macos-15-intel
+    env:
+      TARGET: x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+          key: server-${{ env.TARGET }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: fetch Resin Go sidecar binary
+        shell: bash
+        run: bash scripts/fetch_resin.sh
+      - run: pnpm build
+      - name: Build backend binary
+        run: cargo build --release --target ${{ env.TARGET }} -p egressapikey-app --bin egressapikey-headless --features headless
+      - name: Package backend
+        shell: bash
+        run: |
+          set -e
+          mkdir -p release
+          STAGE="release/macos-x86_64-backend"
+          mkdir -p "$STAGE"
+          cp "target/${{ env.TARGET }}/release/egressapikey-headless" "$STAGE/"
+          cp -r dist "$STAGE/dist"
+          SIDECAR_BIN="$(ls src-tauri/binaries/resin-*${{ env.TARGET }}* 2>/dev/null | head -1 || true)"
+          if [ -n "$SIDECAR_BIN" ]; then
+            cp "$SIDECAR_BIN" "$STAGE/resin"
+          else
+            echo "::warning::resin sidecar not found — headless will fail to boot resin"
+          fi
+          cp -r docs "$STAGE/docs" 2>/dev/null || true
+          tar -czf "$STAGE.tar.gz" "$STAGE"
+          ls -lh "$STAGE.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-x86_64-backend
+          path: release/macos-x86_64-backend.tar.gz
+          if-no-files-found: error
+
   # 4. GUI installer matrix: tauri-action produces per-OS installer bundles.
   #    Windows -> msi + nsis setup.exe; Linux -> deb + AppImage; macOS -> dmg (universal).
   gui:
@@ -210,10 +279,6 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             name: macos-gui-arm64
-            ubuntuDeps: false
-          - os: macos-13
-            target: x86_64-apple-darwin
-            name: macos-gui-x86_64
             ubuntuDeps: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -255,7 +320,7 @@ jobs:
           args: --target ${{ matrix.target }} --features custom-protocol
           tagName: ${{ inputs.tag }}
           releaseName: "EgressAPIKEY ${{ inputs.tag }}"
-          releaseBody: "Windows MSI+NSIS setup, Linux deb+AppImage, macOS dmg (arm64 + x86_64), plus per-OS headless backend tarballs."
+          releaseBody: "Windows MSI+NSIS setup, Linux deb+AppImage, macOS dmg (arm64; x86_64 opt-in via include_intel_mac), plus per-OS headless backend tarballs."
           releaseDraft: true
           prerelease: false
       - name: stage release/
@@ -285,6 +350,79 @@ jobs:
         with:
           name: ${{ matrix.name }}-installers
           path: release/${{ matrix.name }}/*
+          if-no-files-found: error
+
+  # 4b. Opt-in Intel GUI installer leg (R12-E2): the macos-13 -> macos-15-intel
+  #     migration gated on include_intel_mac; same tauri-action shape as a gui
+  #     matrix leg so its dmg lands on the same draft release when opted in.
+  gui-intel:
+    name: gui installer (macos-gui-x86_64, opt-in)
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' && inputs.include_intel_mac
+    # Raised bound: Intel-runner tauri builds are empirically the slowest leg.
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    runs-on: macos-15-intel
+    env:
+      TARGET: x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+      - run: pnpm install --frozen-lockfile
+      - name: fetch Resin Go sidecar binary (windows powershell / unix bash)
+        shell: bash
+        run: bash scripts/fetch_resin.sh
+      - name: tauri build (installer bundles)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # custom-protocol MUST be passed: without it tauri::generate_context!
+          # compiles dev:true → webview loads devUrl (localhost:1420) →
+          # ERR_CONNECTION_REFUSED on the user's machine (no Vite dev server).
+          # See AGENTS.md section 5 + src-tauri/Cargo.toml [features].
+          args: --target ${{ env.TARGET }} --features custom-protocol
+          tagName: ${{ inputs.tag }}
+          releaseName: "EgressAPIKEY ${{ inputs.tag }}"
+          releaseBody: "Windows MSI+NSIS setup, Linux deb+AppImage, macOS dmg (arm64; x86_64 opt-in via include_intel_mac), plus per-OS headless backend tarballs."
+          releaseDraft: true
+          prerelease: false
+      - name: stage release/
+        shell: bash
+        run: |
+          set -e
+          STAGE="release/macos-gui-x86_64"
+          mkdir -p "$STAGE"
+          for d in "target/${{ env.TARGET }}/release/bundle" \
+                   "src-tauri/target/${{ env.TARGET }}/release/bundle" \
+                   "target/release/bundle" \
+                   "src-tauri/target/release/bundle"; do
+            [ -d "$d" ] || continue
+            find "$d" -type f -name '*.dmg' -print | while read -r f; do
+              cp "$f" "$STAGE/"
+            done
+          done
+          [ "$(ls -A "$STAGE" 2>/dev/null)" ] || { echo "::error::no installer bundles staged"; exit 1; }
+          ls -lh "$STAGE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-gui-x86_64-installers
+          path: release/macos-gui-x86_64/*
           if-no-files-found: error
 
   # 5. Portable GUI binary matrix: a single uninstalled GUI executable per
