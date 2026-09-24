@@ -286,6 +286,35 @@ fn now_unix() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// AGENTS section-4 compliance debt (R12-E4): the alias fn had no direct
+    /// test. Table-driven over every registered alias per provider, mixed
+    /// case, surrounding whitespace, and unknown -> None.
+    #[test]
+    fn parse_provider_alias_table() {
+        let cases: &[(&str, Option<ReputationProvider>)] = &[
+            ("ipqualityscore", Some(ReputationProvider::IpQualityScore)),
+            ("ip_quality_score", Some(ReputationProvider::IpQualityScore)),
+            ("ipqs", Some(ReputationProvider::IpQualityScore)),
+            ("IPQS", Some(ReputationProvider::IpQualityScore)),
+            (
+                "  IpQualityScore\t",
+                Some(ReputationProvider::IpQualityScore),
+            ),
+            ("abuseipdb", Some(ReputationProvider::AbuseIpDb)),
+            ("abuse_ip_db", Some(ReputationProvider::AbuseIpDb)),
+            ("AbuseIpDb", Some(ReputationProvider::AbuseIpDb)),
+            ("ip-api", Some(ReputationProvider::IpApi)),
+            ("ip_api", Some(ReputationProvider::IpApi)),
+            ("ipapi", Some(ReputationProvider::IpApi)),
+            ("IP-API", Some(ReputationProvider::IpApi)),
+            ("", None),
+            ("virustotal", None),
+            ("ipqs2", None),
+        ];
+        for (input, want) in cases {
+            assert_eq!(ReputationProvider::parse(input), *want, "input {input:?}");
+        }
+    }
     #[test]
     fn public_ip_filter_rejects_private_and_dedupes() {
         assert_eq!(

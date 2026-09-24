@@ -126,11 +126,26 @@ try {
 
   // ---- S1: window up + title liveness --------------------------------------
   {
+    // s1 fired as a one-shot getTitle landing before the webview had set
+    // document.title (runs 35839072568 / 35948350717). Remedy = in-probe
+    // polling, same family as waitPort below; the criterion is NOT relaxed:
+    // the poll still requires title === "EgressAPIKEY", a bounded 30s window
+    // still FAILs, and detail records the last observed title plus the title
+    // evolution across polls. S2-S5 and waitPort/nativeTitle are untouched.
+    const titleDeadlineMs = 30000;
+    const titleIntervalMs = 500;
+    const titleT0 = Date.now();
+    const titleEvolution = [];
     let title = null;
-    try {
-      title = await browser.getTitle();
-    } catch (e) {
-      title = `getTitle failed: ${e.message}`;
+    while (Date.now() - titleT0 <= titleDeadlineMs) {
+      try {
+        title = await browser.getTitle();
+      } catch (e) {
+        title = `getTitle failed: ${e.message}`;
+      }
+      titleEvolution.push({ ms: Date.now() - titleT0, title });
+      if (title === "EgressAPIKEY") break;
+      await new Promise((r) => setTimeout(r, titleIntervalMs));
     }
     let nativeTitle = null;
     if (isWin) {
@@ -147,6 +162,7 @@ try {
     const panic = results.stdoutTail.some((l) => /panic/i.test(l));
     record("s1-window-up", title === "EgressAPIKEY" && (nativeTitle === null || nativeTitle === "EgressAPIKEY") && !panic, {
       documentTitle: title,
+      titleEvolution,
       nativeTitle,
       panic,
       tracingOk,
