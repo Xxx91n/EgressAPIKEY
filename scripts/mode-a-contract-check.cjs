@@ -33,6 +33,15 @@
  * live probe and exits 1 on any mismatch. Locally without a binary this runs
  * static self-checks only, warns, and exits 0 (CI-only build policy
  * 2026-09-04: local never builds or downloads; live evidence = CI runs).
+ *
+ * Boundary law (R12-E1, registered legislation - NOT a new amnesty): Mode A
+ * is a legislated dataplane under ADR-0068 D1/D3, so the static section also
+ * freezes its boundary against tests/fixtures/mode-a-boundary/census.json:
+ * protocol-family freeze {socks5-handshake, http-connect,
+ * absolute-form->CONNECT}, no TLS fronting (ADR-0068 D4 verbatim), and no
+ * new L7 features (function inventory + StreamSensor dimensions). Net-new
+ * dataplane behavior belongs to the ADR-0068 D2 fork line; a deliberate,
+ * adjudicated change updates the census in the same commit.
  */
 
 const fs = require('fs');
@@ -248,6 +257,71 @@ async function main() {
     'contracts sub-step must invoke scripts/mode-a-contract-check.cjs');
   record(fs.existsSync(path.join(REPO_ROOT, 'tests', 'fixtures', 't17-contract', 'README.md')),
     'tests/fixtures/t17-contract/README.md present (baseline table + hand recipe)');
+
+  // ---- Mode A boundary law (R12-E1 registered legislation assertions) ----
+  // These run on every invocation (CI and local): they assert the Mode A
+  // dataplane still matches the frozen census, so net-new dataplane
+  // behavior trips the register line instead of landing quietly.
+  const censusPath = path.join(REPO_ROOT, 'tests', 'fixtures', 'mode-a-boundary', 'census.json');
+  let census = null;
+  try { census = JSON.parse(fs.readFileSync(censusPath, 'utf8')); } catch (e) { }
+  record(census !== null, 'boundary: census fixture present + parses',
+    'tests/fixtures/mode-a-boundary/census.json');
+  const fwdSrc = fs.readFileSync(path.join(REPO_ROOT, 'crates', 'resin-core', 'src', 'port_forwarder.rs'), 'utf8');
+  const fwdPre = fwdSrc.split('#[cfg(test)]')[0];
+  if (census) {
+    // Ban 3 - no new L7 features: the non-test function inventory must
+    // equal the census exactly (either direction of drift fails).
+    const actualFns = [...fwdPre.matchAll(/^\s*(?:pub\s*(?:\([^)]*\)\s*)?)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)/gm)].map(m => m[1]);
+    const missing = census.functions.filter(f => !actualFns.includes(f));
+    const extra = actualFns.filter(f => !census.functions.includes(f));
+    record(missing.length === 0 && extra.length === 0,
+      'boundary: function inventory frozen at census (net-new dataplane behavior goes to the ADR-0068 D2 fork line)',
+      missing.map(m => 'missing:' + m).concat(extra.map(e => 'new:' + e)).join(', ') || undefined);
+
+    // Ban 1 - protocol-family freeze: wire dialects stay {socks5, http}
+    // (detect_protocol arms) and the declared entry-protocol value set
+    // stays {http, mixed, socks5}.
+    const detectBody = fwdPre.slice(fwdPre.indexOf('fn detect_protocol'), fwdPre.indexOf('fn dialect_allowed'));
+    const dialectsOk = detectBody.includes('"socks5"') && detectBody.includes('"http"');
+    const epSrc = fs.readFileSync(path.join(REPO_ROOT, 'crates', 'resin-core', 'src', 'entry_protocol.rs'), 'utf8');
+    const epMatch = epSrc.match(/ENTRY_PORT_PROTOCOLS[^=]*=\s*\[([^\]]*)\]/);
+    const epVals = epMatch ? [...epMatch[1].matchAll(/"([^"]+)"/g)].map(m => m[1]).sort() : [];
+    record(dialectsOk && JSON.stringify(epVals) === JSON.stringify(census.entry_port_protocols.slice().sort()),
+      'boundary: protocol-family freeze - dialects {socks5,http} + entry protocols {http,mixed,socks5}',
+      'entry=' + JSON.stringify(epVals));
+
+    // Rewrite whitelist anchors: the three legislated paths exist; the
+    // census inventory above is what catches any additional rewrite rule.
+    const anchors = ['fn handle_socks5', 'method == "CONNECT"', 'fn split_absolute_form', 'fn build_replayed_head'];
+    const absent = anchors.filter(a => !fwdPre.includes(a));
+    record(absent.length === 0,
+      'boundary: rewrite whitelist {socks5-handshake, http-connect, absolute-form->CONNECT} anchors intact',
+      absent.join(', ') || undefined);
+
+    // Ban 2 - no TLS fronting: cite ADR-0068 D4 verbatim, do not
+    // re-legislate. Tokens are code-shaped (a comment saying "TLS" is not
+    // a violation; a TlsAcceptor or a 0x16 handshake byte is).
+    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const tlsHits = census.banned_tls_tokens.filter(t =>
+      new RegExp('(?<![A-Za-z0-9_])' + esc(t) + '(?![A-Za-z0-9_])', 'i').test(fwdSrc));
+    record(tlsHits.length === 0,
+      'boundary: no TLS fronting - ADR-0068 D4 verbatim: "' + census.adr_0068_d4_verbatim + '"',
+      tlsHits.join(', ') || undefined);
+
+    // StreamSensor classification dimensions frozen (new dimension =
+    // net-new dataplane behavior per the register line).
+    const sensorSrc = fs.readFileSync(path.join(REPO_ROOT, 'crates', 'resin-core', 'src', 'stream_sensor.rs'), 'utf8');
+    const enumBody = (sensorSrc.split('enum StreamKind')[1] || '').split('}')[0];
+    const dims = [...enumBody.matchAll(/([A-Za-z]+)\s*,/g)].map(m => m[1].toLowerCase()).sort();
+    record(JSON.stringify(dims) === JSON.stringify(census.stream_sensor_dimensions.slice().sort()),
+      'boundary: StreamSensor dimensions frozen {unary,sse,websocket,unknown}',
+      'got ' + JSON.stringify(dims));
+  }
+  // Register wording: line count is a warn-only reference column, not a
+  // trigger - report it, never assert on it.
+  console.log('WARN  port_forwarder.rs = ' + fwdSrc.split('\n').length
+    + ' lines (census froze 1414; warn-only reference, not a trigger)');
 
   // ---- locate the sidecar binary ----
   const bin = findResinBinary();
