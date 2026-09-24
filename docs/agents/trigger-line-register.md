@@ -72,6 +72,7 @@ Re-open the trim adjudication when ANY line fires:
 - **probe hang-pathology bound (audit)**: VERDICT - permanent `p99 < 250ms` assert on the lock-wait probe is beyond the literal E3 ticket text; auditor-accepted as defensible instrument sanity. Recorded, no action.
 - **impl-session local rustc cfg-harness (audit)**: OBSERVATION - disclosed minor ADR-0072 deviation (standalone rustc cfg sanity probe, not a deliverable build); all delivery evidence stayed CI.
 - **wave-e lanes awaiting user land (D-001)**: OBSERVATION - workspace at `ae9ecb29` = tag `r12-wavee-ci.1`; lanes `r12-e1..e4` + `ca-branch-1` applied; integration lane disposable post-land per section-4.2 (no agent merge). Landing is a user-side action.
+
 ## Procedure
 
 - Per-round grill: re-check each line's probe column; mark hits.

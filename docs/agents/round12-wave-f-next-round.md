@@ -10,6 +10,7 @@ Produced: 2026-09-24 wave-f grill consolidation. Every task declares its D-xxx c
 Agenda A = fired-line adjudication round. Main item: DbPool pool-impl adjudication (register arm (ii) fired on machine evidence). Small ticket: Mode A census extractor hardening + register stale measure. Observation items land as write-back notes only — never tickets. Armed items stay parked absent new evidence (no re-grilling).
 
 Binding negatives carried by the round:
+
 - No source edits during grilling; implementation is future work.
 - Method: per-question code evidence + atomcode terminal adjudication; zero revised records.
 - Do not reopen parked items (#1 monolith / #4 i18n / #7 envelope) without new evidence — trigger-line discipline.
@@ -29,6 +30,7 @@ Binding negatives carried by the round:
 Files: `scripts/mode-a-contract-check.cjs`, `tests/fixtures/mode-a-boundary/census.json`, `crates/resin-core/src/db.rs` (comments only), `docs/agents/trigger-line-register.md` (closeout already landed).
 
 Deliverables:
+
 1. Widen the fn-extraction regex (script :275) to the full qualifier space — `pub(…)?` + any combination/order of `const` / `async` / `unsafe` / `extern "…"` before `fn`; `extern "C"` quoted-string handled; invalid combos may over-report (fail-closed is intended).
 2. Add `extractor_version` field to census.json — a regex upgrade must bump it and update census in the same commit (assertion self-documents).
 3. Add the declarative-macro fail-closed assertion: any `macro_rules!`/`macro` definition in port_forwarder.rs -> gate FAIL with the offending line number and two disposal options in the message (inline the expansion into census / rewrite as a plain fn) — a ten-second decision, not a research problem.
@@ -37,6 +39,7 @@ Deliverables:
 6. Verify the gate still passes 19/19 locally-as-script (the check runs in verify-build.sh — CI is the acceptance surface per ADR-0072).
 
 Rejected by adjudication (do not implement):
+
 - Trait-impl / proc-macro-call-site coverage expansion — impl-block fns are internal detail, not the dataplane contract (golden-file principle: freeze consumer-visible contract only); proc-macro deps are caught by Cargo.toml diff anyway.
 - syn / rustdoc-JSON AST extraction now — nightly coupling + format drift (cargo-public-api #858, rust #135600) violates ADR-0072 minimal CI surface; the AST upgrade trigger line is armed in the register instead.
 
