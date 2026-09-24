@@ -59,6 +59,12 @@ const BIN_DIR = path.join(REPO_ROOT, 'src-tauri', 'binaries');
 const IS_CI = process.env.CI === 'true';
 const WIN = process.platform === 'win32';
 
+// Extractor generation marker (r12-wave-f D-003): any change to the
+// fn-extraction regex below MUST bump this constant AND census.json's
+// extractor_version + refresh the census in the same commit - the gate
+// asserts the equality so a regex-only edit fails closed.
+const EXTRACTOR_VERSION = 2;
+
 const seen = new Set();
 let failures = 0;
 function record(ok, label, detail) {
@@ -272,12 +278,44 @@ async function main() {
   if (census) {
     // Ban 3 - no new L7 features: the non-test function inventory must
     // equal the census exactly (either direction of drift fails).
-    const actualFns = [...fwdPre.matchAll(/^\s*(?:pub\s*(?:\([^)]*\)\s*)?)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)/gm)].map(m => m[1]);
+    // Extractor v2 (r12-wave-f D-003): pub(..)? then ANY
+    // combination/order of const / async / unsafe / extern ".." before
+    // fn (extern may also appear bare - Rust defaults to "C").
+    // Qualifier combos that are invalid Rust may over-report -
+    // fail-closed is intended: a phantom fn in actualFns fails the
+    // inventory check loudly instead of a real fn slipping by silently.
+    // Macro-generated fns are unreachable for ANY regex - the
+    // fail-closed assertion below covers that blind spot.
+    const actualFns = [...fwdPre.matchAll(/^\s*(?:pub\s*(?:\([^)]*\)\s*)?)?(?:(?:const|async|unsafe|extern(?:\s+"[^"\n]*")?)\s+)*fn\s+([A-Za-z_][A-Za-z0-9_]*)/gm)].map(m => m[1]);
     const missing = census.functions.filter(f => !actualFns.includes(f));
     const extra = actualFns.filter(f => !census.functions.includes(f));
     record(missing.length === 0 && extra.length === 0,
       'boundary: function inventory frozen at census (net-new dataplane behavior goes to the ADR-0068 D2 fork line)',
       missing.map(m => 'missing:' + m).concat(extra.map(e => 'new:' + e)).join(', ') || undefined);
+
+    // Extractor/census version coupling (r12-wave-f D-003): the
+    // assertion self-documents the rule - a regex upgrade bumps
+    // EXTRACTOR_VERSION above AND census.extractor_version AND refreshes
+    // the census, all in one commit.
+    record(census.extractor_version === EXTRACTOR_VERSION,
+      'boundary: census extractor_version matches gate extractor v' + EXTRACTOR_VERSION,
+      census.extractor_version === EXTRACTOR_VERSION ? undefined
+        : 'census has ' + JSON.stringify(census.extractor_version)
+          + ' - bump EXTRACTOR_VERSION + census.extractor_version + refresh census in the same commit');
+
+    // Declarative-macro fail-closed (r12-wave-f D-003): the regex
+    // extractor cannot see macro-generated fns, so ANY macro_rules!
+    // or macro definition in port_forwarder.rs fails the gate with the
+    // offending line number - a ten-second human decision, not a silent
+    // blind spot (cargo-public-api #858 panic precedent). Whole file,
+    // not just the non-test prefix: over-reporting is the intent.
+    const macroLines = fwdSrc.split('\n').map((l, i) => ({ t: l.trim(), n: i + 1 }))
+      .filter(x => /^\s*(?:(?:pub\s+)?macro\s+[A-Za-z_][A-Za-z0-9_]*|macro_rules!\s*[A-Za-z_][A-Za-z0-9_]*)/.test(x.t));
+    record(macroLines.length === 0,
+      'boundary: no declarative-macro definitions in port_forwarder.rs (extractor blind spot - fail-closed)',
+      macroLines.length === 0 ? undefined
+        : macroLines.map(x => 'line ' + x.n + ': ' + x.t).join('; ')
+          + ' - disposal: inline the expansion into census.json OR rewrite as a plain fn');
 
     // Ban 1 - protocol-family freeze: wire dialects stay {socks5, http}
     // (detect_protocol arms) and the declared entry-protocol value set
@@ -319,9 +357,13 @@ async function main() {
       'got ' + JSON.stringify(dims));
   }
   // Register wording: line count is a warn-only reference column, not a
-  // trigger - report it, never assert on it.
+  // trigger - report it, never assert on it. Convention (r12-wave-f
+  // D-003): content.split('\n').length, matching census.json's
+  // line_count_convention; the frozen figure is read from census
+  // .frozen_at, not hardcoded.
   console.log('WARN  port_forwarder.rs = ' + fwdSrc.split('\n').length
-    + ' lines (census froze 1414; warn-only reference, not a trigger)');
+    + ' lines (census frozen_at: ' + (census ? census.frozen_at : 'n/a')
+    + '; warn-only reference, not a trigger)');
 
   // ---- locate the sidecar binary ----
   const bin = findResinBinary();

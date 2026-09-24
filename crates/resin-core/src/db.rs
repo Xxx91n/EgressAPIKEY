@@ -42,15 +42,20 @@ pub struct DbPool(
     #[cfg(debug_assertions)] Arc<LockWaitStats>,
 );
 
-/// R12-E3 (register row 'DbPool single-lock (bb8)', arms i+ii): a dev-only
-/// lock-wait instrument on every DbPool acquisition. The 1 ms reopen
-/// threshold is anchored to the parking_lot eventual-fairness forcing line
-/// (~1 ms; 0.5 ms average) - a real-load wait at or above it means the
-/// single Mutex<Connection> is genuinely contended and the pool-impl
-/// adjudication re-opens (successor: deadpool-sqlite; r2d2 is 404-dead on
-/// crates.io, recorded). The whole instrument sits behind
-/// debug_assertions - the convergeDevMark pattern: release builds compile
-/// it out entirely (zero-cost), and acquire() collapses to the bare lock.
+/// R12-E3, adjudicated r12-wave-f D-002 (register row 'DbPool
+/// single-lock (bb8)'): a dev-only lock-wait instrument on every DbPool
+/// acquisition. The 1 ms threshold is anchored to the parking_lot
+/// eventual-fairness forcing line (~1 ms; 0.5 ms average). Verdict:
+/// arm (ii) fired 2026-09-24 and discharged to keep-Mutex - the
+/// synthetic probe proved lock saturation exists under contention
+/// (parking_lot fairness forcing guarantees the reading) but is not a
+/// production-impact criterion. Arm (i) - THIS counter on real dev load
+/// - is now the primary instrument: a real-load wait >= 1 ms re-opens
+/// the pool-impl adjudication (successor: deadpool-sqlite; r2d2 is
+/// 404-dead on crates.io, recorded; remedy order B read-conn before A
+/// migration). The whole instrument sits behind debug_assertions - the
+/// convergeDevMark pattern: release builds compile it out entirely
+/// (zero-cost), and acquire() collapses to the bare lock.
 #[cfg(debug_assertions)]
 const LOCK_WAIT_REOPEN: Duration = Duration::from_millis(1);
 
@@ -96,8 +101,9 @@ impl LockWaitStats {
 
 /// Dev-only snapshot of the lock-wait instrument (debug_assertions-gated,
 /// compiled out of release builds). The synthetic concurrency probe reads
-/// `wait_micros` for its p99 upper-bound proof; `over_threshold` is arm
-/// (i)'s observation surface on real load.
+/// `wait_micros` for its p99 regression/A-B readout (arm (ii) discharged
+/// 2026-09-24, keep-Mutex verdict - r12-wave-f D-002); `over_threshold` is
+/// arm (i)'s observation surface on real load - the primary instrument.
 #[cfg(debug_assertions)]
 #[derive(Debug, Default, Clone)]
 pub struct LockWaitReport {
@@ -740,18 +746,21 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// R12-E3 register arm (ii): synthetic concurrency probe - 8 threads
-    /// hammer `list_ports` on a shared file-backed pool, measuring the
-    /// acquisition-wait p99. The registered 1 ms arm FIRED on first
-    /// measurement (CI run 35959139983, 2026-09-24: p99=9615us over 200
-    /// samples, 76/200 >= 1ms) - the firing is written back to
-    /// docs/agents/trigger-line-register.md and the pool-impl adjudication
-    /// re-enters the ticket filter (successor: deadpool-sqlite). Per the
-    /// register the fired arm discharges instead of pinning the gate red:
-    /// this probe stays as the *measuring* instrument for arms (iii)/(iv)
-    /// and asserts only instrument sanity plus a hang-pathology bound
-    /// (p99 < 250ms - 25x the observed 9.9ms max, catching an unreleased
-    /// lock / pathological regression without encoding the fired arm).
+    /// R12-E3 register arm (ii), adjudicated r12-wave-f D-002: synthetic
+    /// concurrency probe - 8 threads hammer `list_ports` on a shared
+    /// file-backed pool, measuring the acquisition-wait p99. The
+    /// registered 1 ms arm FIRED on first measurement (CI run
+    /// 35959139983, 2026-09-24: p99=9615us over 200 samples, 76/200 >=
+    /// 1ms) and discharged to a keep-Mutex verdict - saturation
+    /// existence proven, production impact not (a fairness-forced
+    /// microbenchmark is not a production criterion; emschwartz/abseil
+    /// per the ledger). Post-verdict semantics: this probe is a
+    /// regression/A-B instrument only - it asserts instrument sanity
+    /// plus a hang-pathology bound (p99 < 250ms - 25x the observed 9.9ms
+    /// max, catching an unreleased lock / pathological regression). Arm
+    /// (i) - the dev counters on real load - is the primary instrument;
+    /// arm (iii)'s probe leg is dropped; arm (iv)'s 2026-10-20 hard date
+    /// is unchanged.
     /// Dev-gated like the instrument itself - a release test build has no
     /// instrument to read.
     #[cfg(debug_assertions)]
@@ -803,12 +812,12 @@ mod tests {
         let p99 = s[(s.len() * 99 / 100).min(s.len() - 1)];
         drop(pool);
         let _ = std::fs::remove_dir_all(&dir);
-        // Register arm (ii) verdict line: p99 >= 1000us means the reopen
-        // condition holds (FIRED 2026-09-24); p99 < 1000us in a later cycle
-        // is arm (iii) evidence. Printed, not gated - the fired arm's
-        // consequence is adjudication, not a red build.
+        // Post-verdict instrument line (r12-wave-f D-002): arm (ii) fired
+        // 2026-09-24 and discharged to a keep-Mutex verdict, so this
+        // print is a regression/A-B readout - printed, not gated; arm (i)
+        // on real load is the primary reopen instrument.
         println!(
-            "lock-wait probe: p99={p99}us max={}us over_threshold={} samples={} (register arm ii: p99>=1000us -> reopen, FIRED 2026-09-24 run 35959139983)",
+            "lock-wait probe: p99={p99}us max={}us over_threshold={} samples={} (regression/A-B instrument; arm ii FIRED+discharged 2026-09-24 run 35959139983, keep-Mutex verdict)",
             report.max_wait_micros,
             report.over_threshold,
             s.len()

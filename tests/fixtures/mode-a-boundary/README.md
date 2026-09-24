@@ -27,6 +27,20 @@ registered trigger line "Mode A shell forwarder boundary law"
 `port_forwarder.rs` line count is reported warn-only — a reference
 column, never the trigger (register wording).
 
+Convention: `content.split('\n').length` (r12-wave-f D-003),
+recorded in census.json as `line_count_convention`.
+
+Two fail-closed extractor guards (r12-wave-f D-003) sit beside the
+three bans above:
+
+- `extractor_version` couples the gate regex to this file: any
+  fn-extractor change bumps `EXTRACTOR_VERSION` in the script AND this
+  field AND refreshes the census in one commit, else the gate fails.
+- Any `macro_rules!`/`macro` definition in `port_forwarder.rs` fails
+  the gate with the offending line number - the regex extractor cannot
+  see macro-generated fns. Disposal: inline the expansion into this
+  census, or rewrite as a plain fn.
+
 ## Deliberate change path
 
 If a change is adjudicated to extend Mode A, update `census.json` **in

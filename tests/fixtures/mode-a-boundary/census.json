@@ -2,6 +2,9 @@
   "schema": "r12-e1/mode-a-boundary-census.v1",
   "source_file": "crates/resin-core/src/port_forwarder.rs",
   "frozen_at": "2026-09-24 (1414 lines at census)",
+  "extractor_version": 2,
+  "extractor_change_policy": "any change to the fn-extraction regex in scripts/mode-a-contract-check.cjs MUST bump EXTRACTOR_VERSION there AND this field AND refresh this census in the same commit (the gate asserts equality - fails closed otherwise). v1 = pub/async-only (R12-E1); v2 = full qualifier space pub(..)? + (const|async|unsafe|extern \"..\"|bare)* before fn, over-reporting intended (r12-wave-f D-003).",
+  "line_count_convention": "content.split(\\n).length on the raw file bytes (no trim); the script's warn-only line report uses the same expression and reads the frozen figure from frozen_at, never a hardcoded number",
   "registered_legislation": "Mode A is a legislated dataplane (ADR-0068 D1/D3), not drift. Boundary law = protocol-family freeze + no TLS fronting + no new L7 features. Trigger line: docs/agents/trigger-line-register.md row 'Mode A shell forwarder boundary law' - net-new dataplane behavior (new handshake dialect / new rewrite rule / new StreamSensor dimension) re-opens adjudication; a deliberate change updates this file in the same commit.",
   "functions": [
     "accept_loop",
