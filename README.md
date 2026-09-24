@@ -1,4 +1,4 @@
-<!-- synced-with: README_CN.md @ 94ad35ccf2da241bbf6538c64ea0dcd286c69022 -->
+<!-- synced-with: README_CN.md @ 0de816af4a5a629504e5fb7fe9ce6d0c8161aa13 -->
 
 # EgressAPIKEY
 
