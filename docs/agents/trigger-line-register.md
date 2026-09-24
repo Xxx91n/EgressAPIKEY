@@ -63,6 +63,7 @@ Re-open the trim adjudication when ANY line fires:
 - **convergeDevMark overlap counter**: OBSERVATION - dev-only counter live on all three trigger paths (R12-D4); >=1 measured in-flight overlap fires React-Query arm (a); two observation cycles at zero -> record "negative, stays SUSPENDED".
 - **monthly faultinject first run**: OBSERVATION - first scheduled run 2026-10-01 03:00 UTC; verify PHASES_ARG/HEADLESS_ARG resolution in the dry-run echo step job log; two consecutive absences fire the heartbeat line above.
 - **W8 bench-selfhosted runner**: OBSERVATION - registration is a user-side action; the DbPool line is decoupled from it (r12-wave-e D-004); the dagger provisional-thresholds line still depends on it (fallback 2026-10-20).
+
 ## Procedure
 
 - Per-round grill: re-check each line's probe column; mark hits.
