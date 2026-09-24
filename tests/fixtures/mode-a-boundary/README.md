@@ -33,13 +33,18 @@ recorded in census.json as `line_count_convention`.
 Two fail-closed extractor guards (r12-wave-f D-003) sit beside the
 three bans above:
 
-- `extractor_version` couples the gate regex to this file: any
-  fn-extractor change bumps `EXTRACTOR_VERSION` in the script AND this
-  field AND refreshes the census in one commit, else the gate fails.
-- Any `macro_rules!`/`macro` definition in `port_forwarder.rs` fails
+- `extractor_version` couples the gate regexes to this file: any
+  extractor/macro-detector change bumps `EXTRACTOR_VERSION` in the
+  script AND this field AND refreshes the census in one commit, else
+  the gate fails. The assertion keeps version and census in sync; it
+  cannot detect a regex edit that leaves extraction output unchanged
+  - the `functions` inventory check is the real tripwire.
+- Any `macro_rules!`/`macro` DEFINITION in `port_forwarder.rs` fails
   the gate with the offending line number - the regex extractor cannot
-  see macro-generated fns. Disposal: inline the expansion into this
-  census, or rewrite as a plain fn.
+  see macro-generated fns. Leading `#[attr]`, `pub(..)` visibility and
+  space-tolerant `macro_rules !` are covered; invocation sites
+  (`name!(..)`) are out of scope. Disposal: inline the expansion into
+  this census, or rewrite as a plain fn.
 
 ## Deliberate change path
 

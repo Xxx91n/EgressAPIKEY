@@ -63,7 +63,7 @@ const WIN = process.platform === 'win32';
 // fn-extraction regex below MUST bump this constant AND census.json's
 // extractor_version + refresh the census in the same commit - the gate
 // asserts the equality so a regex-only edit fails closed.
-const EXTRACTOR_VERSION = 2;
+const EXTRACTOR_VERSION = 3;
 
 const seen = new Set();
 let failures = 0;
@@ -278,15 +278,18 @@ async function main() {
   if (census) {
     // Ban 3 - no new L7 features: the non-test function inventory must
     // equal the census exactly (either direction of drift fails).
-    // Extractor v2 (r12-wave-f D-003): pub(..)? then ANY
-    // combination/order of const / async / unsafe / extern ".." before
-    // fn (extern may also appear bare - Rust defaults to "C").
-    // Qualifier combos that are invalid Rust may over-report -
-    // fail-closed is intended: a phantom fn in actualFns fails the
-    // inventory check loudly instead of a real fn slipping by silently.
-    // Macro-generated fns are unreachable for ANY regex - the
-    // fail-closed assertion below covers that blind spot.
-    const actualFns = [...fwdPre.matchAll(/^\s*(?:pub\s*(?:\([^)]*\)\s*)?)?(?:(?:const|async|unsafe|extern(?:\s+"[^"\n]*")?)\s+)*fn\s+([A-Za-z_][A-Za-z0-9_]*)/gm)].map(m => m[1]);
+    // Extractor v3 (r12-wave-f D-003, post-audit tighten): pub(..)?
+    // then ANY combination/order of const / async / unsafe (whitespace-
+    // separated) / extern (bare or "abi", whitespace optional both
+    // sides: extern"C"fn is legal Rust) before fn. Qualifier combos
+    // that are invalid Rust may over-report - fail-closed is intended:
+    // a phantom fn in actualFns fails the inventory check loudly
+    // instead of a real fn slipping by silently. Known limits (verbatim,
+    // also in census.json extractor_change_policy): single-line
+    // definitions only; glued non-extern idents like constfn are not
+    // declarations; macro-generated fns are unreachable for ANY regex -
+    // the fail-closed assertion below covers that blind spot.
+    const actualFns = [...fwdPre.matchAll(/^\s*(?:pub\s*(?:\([^)]*\)\s*)?)?(?:(?:const|async|unsafe)\s+|extern\s*(?:"[^"\n]*")?\s*)*fn\s+([A-Za-z_][A-Za-z0-9_]*)/gm)].map(m => m[1]);
     const missing = census.functions.filter(f => !actualFns.includes(f));
     const extra = actualFns.filter(f => !census.functions.includes(f));
     record(missing.length === 0 && extra.length === 0,
@@ -309,8 +312,11 @@ async function main() {
     // offending line number - a ten-second human decision, not a silent
     // blind spot (cargo-public-api #858 panic precedent). Whole file,
     // not just the non-test prefix: over-reporting is the intent.
+    // Post-audit tighten: leading #[attr] (e.g. #[macro_export]),
+    // pub(..) visibility, and space-tolerant macro_rules ! are all
+    // covered; definitions only, never invocation sites (name!(..)).
     const macroLines = fwdSrc.split('\n').map((l, i) => ({ t: l.trim(), n: i + 1 }))
-      .filter(x => /^\s*(?:(?:pub\s+)?macro\s+[A-Za-z_][A-Za-z0-9_]*|macro_rules!\s*[A-Za-z_][A-Za-z0-9_]*)/.test(x.t));
+      .filter(x => /^\s*(?:#\[[^\]\n]*\]\s*)*(?:(?:pub(?:\s*\([^)]*\))?\s+)?macro\s+[A-Za-z_][A-Za-z0-9_]*|macro_rules\s*!\s*[A-Za-z_][A-Za-z0-9_]*)/.test(x.t));
     record(macroLines.length === 0,
       'boundary: no declarative-macro definitions in port_forwarder.rs (extractor blind spot - fail-closed)',
       macroLines.length === 0 ? undefined
