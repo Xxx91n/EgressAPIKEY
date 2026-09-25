@@ -55,3 +55,5 @@ known_exemptions:
   - id: mode-b-sse-buffering
     since: "r12-wave-a (2026-09-22)"
     removal_condition: "upstream per-event flush on the forward-GET path"
+    # r12-wave-h D-002: "upstream" reads as "the shipped engine implements it" -
+    # a governed patch-fork release asset also lifts this exemption (upstream-first PR remains the default path).
