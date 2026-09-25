@@ -1,0 +1,321 @@
+diff --git a/internal/proxy/forward.go b/internal/proxy/forward.go
+index cb815a1..7cfe77c 100644
+--- a/internal/proxy/forward.go
++++ b/internal/proxy/forward.go
+@@ -5,6 +5,7 @@ import (
+ 	"encoding/base64"
+ 	"errors"
+ 	"io"
++	"mime"
+ 	"net/http"
+ 	"net/http/httptrace"
+ 	"strings"
+@@ -291,7 +292,7 @@ func (p *ForwardProxy) handleHTTP(w http.ResponseWriter, r *http.Request) {
+ 	// Copy end-to-end response headers and body.
+ 	lifecycle.addIngressBytes(copyEndToEndHeaders(w.Header(), resp.Header))
+ 	w.WriteHeader(resp.StatusCode)
+-	copiedBytes, copyErr := io.Copy(w, resp.Body)
++	copiedBytes, copyErr := copyForwardResponseBody(w, resp)
+ 	lifecycle.addIngressBytes(copiedBytes)
+ 	if copyErr != nil {
+ 		if shouldRecordForwardCopyFailure(r, copyErr) {
+@@ -407,6 +408,39 @@ func (p *ForwardProxy) handleCONNECT(w http.ResponseWriter, r *http.Request) {
+ 	prepare.session.recordResult(relay.netOK)
+ }
+ 
++// isEventStreamContentType reports whether a Content-Type header value is a
++// server-sent-events stream ("text/event-stream", optionally with parameters).
++func isEventStreamContentType(contentType string) bool {
++	mediaType, _, err := mime.ParseMediaType(contentType)
++	return err == nil && mediaType == "text/event-stream"
++}
++
++// sseFlushWriter flushes after every Write so each read chunk is delivered to
++// the client immediately instead of waiting for the server's write buffer to
++// fill.
++type sseFlushWriter struct {
++	w http.ResponseWriter
++	f http.Flusher
++}
++
++func (fw sseFlushWriter) Write(p []byte) (int, error) {
++	n, err := fw.w.Write(p)
++	fw.f.Flush()
++	return n, err
++}
++
++// copyForwardResponseBody streams an upstream response body to the client.
++// SSE responses flush per read so events arrive per-event; all other bodies
++// keep the plain io.Copy path byte-for-byte.
++func copyForwardResponseBody(w http.ResponseWriter, resp *http.Response) (int64, error) {
++	if isEventStreamContentType(resp.Header.Get("Content-Type")) {
++		if flusher, ok := w.(http.Flusher); ok {
++			return io.Copy(sseFlushWriter{w: w, f: flusher}, resp.Body)
++		}
++	}
++	return io.Copy(w, resp.Body)
++}
++
+ // shouldRecordForwardCopyFailure decides whether an HTTP response body copy
+ // error should be treated as an upstream/node failure.
+ func shouldRecordForwardCopyFailure(r *http.Request, copyErr error) bool {
+diff --git a/internal/proxy/forward_http_copy_test.go b/internal/proxy/forward_http_copy_test.go
+index 322b9c4..02388b6 100644
+--- a/internal/proxy/forward_http_copy_test.go
++++ b/internal/proxy/forward_http_copy_test.go
+@@ -1,10 +1,15 @@
+ package proxy
+ 
+ import (
++	"bufio"
++	"bytes"
+ 	"context"
+ 	"errors"
++	"io"
++	"net/http"
+ 	"net/http/httptest"
+ 	"testing"
++	"time"
+ )
+ 
+ func TestShouldRecordForwardCopyFailure(t *testing.T) {
+@@ -46,3 +51,239 @@ func TestShouldRecordForwardCopyFailure(t *testing.T) {
+ 		}
+ 	})
+ }
++
++func TestIsEventStreamContentType(t *testing.T) {
++	t.Run("Bare", func(t *testing.T) {
++		if !isEventStreamContentType("text/event-stream") {
++			t.Fatal("bare text/event-stream should be detected")
++		}
++	})
++
++	t.Run("WithParameters", func(t *testing.T) {
++		if !isEventStreamContentType("text/event-stream; charset=utf-8") {
++			t.Fatal("parameterized text/event-stream should be detected")
++		}
++	})
++
++	t.Run("CaseInsensitive", func(t *testing.T) {
++		if !isEventStreamContentType("Text/Event-Stream") {
++			t.Fatal("media type matching should be case-insensitive")
++		}
++	})
++
++	t.Run("Empty", func(t *testing.T) {
++		if isEventStreamContentType("") {
++			t.Fatal("empty Content-Type should not be detected as SSE")
++		}
++	})
++
++	t.Run("NonSSE", func(t *testing.T) {
++		if isEventStreamContentType("application/octet-stream") {
++			t.Fatal("binary content should not be detected as SSE")
++		}
++	})
++}
++
++// stepReader emits one chunk per Read. Before the second chunk it blocks on
++// release (when non-nil) so a test can prove the first event was already
++// delivered while the upstream stream is still open.
++type stepReader struct {
++	steps   [][]byte
++	release chan struct{}
++	i       int
++}
++
++func (r *stepReader) Read(p []byte) (int, error) {
++	if r.i >= len(r.steps) {
++		return 0, io.EOF
++	}
++	if r.i == 1 && r.release != nil {
++		<-r.release
++	}
++	n := copy(p, r.steps[r.i])
++	r.i++
++	return n, nil
++}
++
++// flushLogWriter records the interleaving of Write and Flush calls.
++type flushLogWriter struct {
++	header http.Header
++	logf   []string
++}
++
++func (w *flushLogWriter) Header() http.Header {
++	if w.header == nil {
++		w.header = http.Header{}
++	}
++	return w.header
++}
++
++func (w *flushLogWriter) WriteHeader(int) {}
++
++func (w *flushLogWriter) Write(p []byte) (int, error) {
++	w.logf = append(w.logf, "write:"+string(p))
++	return len(p), nil
++}
++
++func (w *flushLogWriter) Flush() {
++	w.logf = append(w.logf, "flush")
++}
++
++func TestCopyForwardResponseBody_SSEFlushesAfterEveryWrite(t *testing.T) {
++	resp := &http.Response{
++		Header: http.Header{"Content-Type": []string{"text/event-stream"}},
++		Body: io.NopCloser(&stepReader{steps: [][]byte{
++			[]byte("data: event-1\n\n"),
++			[]byte("data: event-2\n\n"),
++		}}),
++	}
++	w := &flushLogWriter{}
++	n, err := copyForwardResponseBody(w, resp)
++	if err != nil {
++		t.Fatalf("copy failed: %v", err)
++	}
++	if n != int64(len("data: event-1\n\n")+len("data: event-2\n\n")) {
++		t.Fatalf("copied %d bytes", n)
++	}
++	want := []string{
++		"write:data: event-1\n\n", "flush",
++		"write:data: event-2\n\n", "flush",
++	}
++	if len(w.logf) != len(want) {
++		t.Fatalf("log = %v, want %v", w.logf, want)
++	}
++	for i := range want {
++		if w.logf[i] != want[i] {
++			t.Fatalf("log[%d] = %q, want %q (full log %v)", i, w.logf[i], want[i], w.logf)
++		}
++	}
++}
++
++// TestCopyForwardResponseBody_SSEEventArrivesBeforeStreamEnds is the per-event
++// arrival assertion: the first SSE event must reach the client while the
++// upstream body is still open and has not produced the second event. Under a
++// plain io.Copy(w, body) the first event (well under 4KB) would sit in the
++// server's write buffer until the handler returns, so this read would time
++// out.
++func TestCopyForwardResponseBody_SSEEventArrivesBeforeStreamEnds(t *testing.T) {
++	release := make(chan struct{})
++	resp := &http.Response{
++		Header: http.Header{"Content-Type": []string{"text/event-stream; charset=utf-8"}},
++		Body: io.NopCloser(&stepReader{
++			steps:   [][]byte{[]byte("data: event-1\n\n"), []byte("data: event-2\n\n")},
++			release: release,
++		}),
++	}
++	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		if _, err := copyForwardResponseBody(w, resp); err != nil {
++			t.Errorf("copy failed: %v", err)
++		}
++	}))
++	defer srv.Close()
++
++	httpResp, err := http.Get(srv.URL)
++	if err != nil {
++		t.Fatalf("get: %v", err)
++	}
++	defer httpResp.Body.Close()
++
++	reader := bufio.NewReader(httpResp.Body)
++	readWithTimeout := func(n int) (string, error) {
++		type result struct {
++			s   string
++			err error
++		}
++		done := make(chan result, 1)
++		go func() {
++			buf := make([]byte, n)
++			m, err := io.ReadFull(reader, buf)
++			done <- result{string(buf[:m]), err}
++		}()
++		select {
++		case res := <-done:
++			return res.s, res.err
++		case <-time.After(3 * time.Second):
++			return "", errors.New("read timed out")
++		}
++	}
++
++	event1 := "data: event-1\n\n"
++	got, err := readWithTimeout(len(event1))
++	if err != nil {
++		t.Fatalf("first SSE event did not arrive while stream still open: %v", err)
++	}
++	if got != event1 {
++		t.Fatalf("first event = %q, want %q", got, event1)
++	}
++
++	close(release)
++	event2 := "data: event-2\n\n"
++	got, err = readWithTimeout(len(event2))
++	if err != nil {
++		t.Fatalf("second SSE event: %v", err)
++	}
++	if got != event2 {
++		t.Fatalf("second event = %q, want %q", got, event2)
++	}
++}
++
++func TestCopyForwardResponseBody_NonSSEUnchanged(t *testing.T) {
++	payload := bytes.Repeat([]byte("binary-chunk-"), 512) // >4KB, multi-read
++	resp := &http.Response{
++		Header: http.Header{"Content-Type": []string{"application/octet-stream"}},
++		Body:   io.NopCloser(bytes.NewReader(payload)),
++	}
++	w := &flushLogWriter{}
++	n, err := copyForwardResponseBody(w, resp)
++	if err != nil {
++		t.Fatalf("copy failed: %v", err)
++	}
++	if n != int64(len(payload)) {
++		t.Fatalf("copied %d bytes, want %d", n, len(payload))
++	}
++	for _, entry := range w.logf {
++		if entry == "flush" {
++			t.Fatal("non-SSE response must not flush; plain io.Copy path expected")
++		}
++	}
++	var got bytes.Buffer
++	for _, entry := range w.logf {
++		got.WriteString(entry[len("write:"):])
++	}
++	if !bytes.Equal(got.Bytes(), payload) {
++		t.Fatal("non-SSE body bytes differ from upstream payload")
++	}
++}
++
++// noFlushWriter deliberately does not implement http.Flusher.
++type noFlushWriter struct {
++	header http.Header
++	buf    bytes.Buffer
++}
++
++func (w *noFlushWriter) Header() http.Header {
++	if w.header == nil {
++		w.header = http.Header{}
++	}
++	return w.header
++}
++
++func (w *noFlushWriter) WriteHeader(int) {}
++
++func (w *noFlushWriter) Write(p []byte) (int, error) { return w.buf.Write(p) }
++
++func TestCopyForwardResponseBody_SSEWithoutFlusherStillCopies(t *testing.T) {
++	body := "data: fallback-1\n\ndata: fallback-2\n\n"
++	resp := &http.Response{
++		Header: http.Header{"Content-Type": []string{"text/event-stream"}},
++		Body:   io.NopCloser(bytes.NewBufferString(body)),
++	}
++	w := &noFlushWriter{}
++	n, err := copyForwardResponseBody(w, resp)
++	if err != nil {
++		t.Fatalf("copy failed: %v", err)
++	}
++	if n != int64(len(body)) || w.buf.String() != body {
++		t.Fatal("SSE body without Flusher support must still be copied verbatim")
++	}
++}
