@@ -31,6 +31,7 @@ detail; the ubuntu leg captured the diagnosed race verbatim ("" at 11ms ->
 "EgressAPIKEY" at 579ms) - mechanism-level proof the poll absorbs it.
 
 Duty:
+
 1. Watch the next scheduled nightly run(s) - cron 03:30 UTC, main only
    (first candidate: 2026-09-26 03:30 UTC).
 2. Count only SCHEDULED greens toward the 1-2 run window; cancelled or
