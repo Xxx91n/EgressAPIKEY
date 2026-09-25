@@ -949,7 +949,7 @@ Resin kernel cannot express are pursued (round11 D-001/D-002). Pinned
 to exactly one trigger: per-request model-field-driven exit switching
 inside one account; node-level pinning also lives here. Until the
 trigger fires the fork line must not start, and the shell line must
-not re-enter the kernel (ADR-0050).
+not re-enter the kernel (ADR-0050). The line starts only on its pinned trigger; a governed defect patch delivered upstream-first - or via a dormant patch-fork after rejection/stall (r12-wave-h D-002) - is NOT the fork line: registered, exit-conditioned patching is not "patching casually".
 _Avoid_: patching Resin casually, shell-side kernel forks
 
 ### Deployment Profile (部署剖面)
