@@ -13,6 +13,7 @@ use std::path::Path;
 #[cfg(debug_assertions)]
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::LazyLock;
 #[cfg(debug_assertions)]
 use std::sync::Mutex as StdMutex;
 use std::time::Duration;
@@ -36,11 +37,31 @@ pub struct PortMapping {
     pub auth_required: bool,
 }
 
+/// R12-H2 (D-004 step1, remedy order B): a dedicated read-only connection
+/// for the read paths, lazily opened on first use and kept for the pool's
+/// life. hynek's WAL caveat applies - a short-lived reader pays the -shm
+/// handshake on every open/close and lands SQLITE_BUSY, so the handle MUST
+/// be long-lived (the LazyLock keeps it for the pool's life). `None` for an
+/// in-memory pool (a second in-memory handle would be a different database)
+/// or when the read-only open failed - both cases fall back to the writer
+/// mutex so reads keep working.
+type ReadConnLazy = LazyLock<
+    Option<Mutex<Connection>>,
+    Box<dyn FnOnce() -> Option<Mutex<Connection>> + Send + Sync>,
+>;
+
 #[derive(Clone)]
 pub struct DbPool(
     Arc<Mutex<Connection>>,
+    Arc<ReadConnLazy>,
     #[cfg(debug_assertions)] Arc<LockWaitStats>,
 );
+
+/// Shared `None` initializer for pools that have no file-backed read
+/// connection (open_in_memory; tests that hand-build a pool).
+fn no_read_conn() -> Arc<ReadConnLazy> {
+    Arc::new(LazyLock::new(Box::new(|| None)))
+}
 
 /// R12-E3, adjudicated r12-wave-f D-002 (register row 'DbPool
 /// single-lock (bb8)'): a dev-only lock-wait instrument on every DbPool
@@ -71,6 +92,11 @@ struct LockWaitStats {
     over_threshold: AtomicU64,
     max_wait_micros: AtomicU64,
     wait_micros: StdMutex<Vec<u64>>,
+    /// R12-H2 step0 (D-004): last acquisition callsite - the holder identity
+    /// a >=1ms waiter was blocked on (the in-flight/preceding acquirer). Lets
+    /// the next real-load WARN name its starver (candidates per the
+    /// contention profile: replace_ports/backup self-check/migrate).
+    holder: StdMutex<Option<&'static str>>,
 }
 
 #[cfg(debug_assertions)]
@@ -79,15 +105,23 @@ impl LockWaitStats {
         Arc::new(Self::default())
     }
 
-    fn observe(&self, wait: Duration) {
+    fn observe(&self, wait: Duration, who: &'static str) {
         let micros = wait.as_micros() as u64;
         self.acquisitions.fetch_add(1, Ordering::Relaxed);
         self.max_wait_micros.fetch_max(micros, Ordering::Relaxed);
         if wait >= LOCK_WAIT_REOPEN {
             self.over_threshold.fetch_add(1, Ordering::Relaxed);
+            let holder = self
+                .holder
+                .lock()
+                .ok()
+                .and_then(|h| *h)
+                .unwrap_or("unknown");
             tracing::warn!(
                 target: "db",
                 wait_micros = micros,
+                waiter = who,
+                holder = holder,
                 "DbPool lock wait >= 1ms (register arm i threshold)"
             );
         }
@@ -95,6 +129,9 @@ impl LockWaitStats {
             if s.len() < LOCK_WAIT_SAMPLE_CAP {
                 s.push(micros);
             }
+        }
+        if let Ok(mut h) = self.holder.lock() {
+            *h = Some(who);
         }
     }
 }
@@ -118,16 +155,18 @@ pub struct LockWaitReport {
 }
 
 impl DbPool {
-    /// Single acquisition seam for every public DbPool method. In debug
+    /// Single acquisition seam for every WRITER-path DbPool method (read
+    /// paths go through read_guard and only land here on fallback). In debug
     /// builds it times the parking_lot lock acquisition into the dev
-    /// instrument; in release it is the bare lock - zero-cost.
+    /// instrument and attributes the waiter callsite; in release it is the
+    /// bare lock - zero-cost.
     #[inline]
-    fn acquire(&self) -> parking_lot::MutexGuard<'_, Connection> {
+    fn acquire(&self, _who: &'static str) -> parking_lot::MutexGuard<'_, Connection> {
         #[cfg(debug_assertions)]
         let guard = {
             let t = std::time::Instant::now();
             let g = self.0.lock();
-            self.1.observe(t.elapsed());
+            self.2.observe(t.elapsed(), _who);
             g
         };
         #[cfg(not(debug_assertions))]
@@ -135,10 +174,22 @@ impl DbPool {
         guard
     }
 
+    /// Read seam for `list_ports`/`get_port` (D-004 step1): prefer the
+    /// dedicated read-only connection so reads never queue behind a writer's
+    /// critical section; fall back to the instrumented writer lock when no
+    /// dedicated connection exists (in-memory pool, failed read-only open).
+    #[inline]
+    fn read_guard(&self, who: &'static str) -> parking_lot::MutexGuard<'_, Connection> {
+        if let Some(m) = &**self.1 {
+            return m.lock();
+        }
+        self.acquire(who)
+    }
+
     /// Dev-only: reset the lock-wait instrument (probe baseline).
     #[cfg(debug_assertions)]
     pub fn lock_wait_reset(&self) {
-        let s = &self.1;
+        let s = &self.2;
         s.acquisitions.store(0, Ordering::Relaxed);
         s.over_threshold.store(0, Ordering::Relaxed);
         s.max_wait_micros.store(0, Ordering::Relaxed);
@@ -150,13 +201,20 @@ impl DbPool {
     /// Dev-only: snapshot the lock-wait counters + sample reservoir.
     #[cfg(debug_assertions)]
     pub fn lock_wait_report(&self) -> LockWaitReport {
-        let s = &self.1;
+        let s = &self.2;
         LockWaitReport {
             acquisitions: s.acquisitions.load(Ordering::Relaxed),
             over_threshold: s.over_threshold.load(Ordering::Relaxed),
             max_wait_micros: s.max_wait_micros.load(Ordering::Relaxed),
             wait_micros: s.wait_micros.lock().map(|v| v.clone()).unwrap_or_default(),
         }
+    }
+
+    /// Dev-only: true once the dedicated read-only connection initialized
+    /// (file-backed pool). Read paths fall back to the writer lock on false.
+    #[cfg(debug_assertions)]
+    pub fn read_conn_dedicated(&self) -> bool {
+        (&**self.1).is_some()
     }
 
     pub fn open(path: &Path) -> Result<Self, String> {
@@ -170,8 +228,32 @@ impl DbPool {
             .map_err(|e| format!("pragma synchronous=NORMAL: {e}"))?;
         Self::configure(&conn)?;
         Self::migrate(&conn)?;
+        // Dedicated read conn (D-004 step1): opened lazily on first read so
+        // a pool that never reads pays nothing. Read-only + long-lived per
+        // the hynek WAL caveat; any failure degrades to the writer lock.
+        let read_path = path.to_path_buf();
+        let init_read: Box<dyn FnOnce() -> Option<Mutex<Connection>> + Send + Sync> = Box::new(
+            move || {
+                let c = match Connection::open_with_flags(
+                    &read_path,
+                    rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+                ) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        tracing::warn!(target: "db", "dedicated read conn open failed ({e}); reads fall back to the writer lock");
+                        return None;
+                    }
+                };
+                if let Err(e) = c.busy_timeout(BUSY_TIMEOUT) {
+                    tracing::warn!(target: "db", "dedicated read conn busy_timeout failed ({e}); reads fall back to the writer lock");
+                    return None;
+                }
+                Some(Mutex::new(c))
+            },
+        );
         Ok(Self(
             Arc::new(Mutex::new(conn)),
+            Arc::new(LazyLock::new(init_read)),
             #[cfg(debug_assertions)]
             LockWaitStats::new_shared(),
         ))
@@ -183,6 +265,7 @@ impl DbPool {
         Self::migrate(&conn)?;
         Ok(Self(
             Arc::new(Mutex::new(conn)),
+            no_read_conn(),
             #[cfg(debug_assertions)]
             LockWaitStats::new_shared(),
         ))
@@ -252,7 +335,7 @@ impl DbPool {
     }
 
     pub fn list_ports(&self) -> Result<Vec<PortMapping>, String> {
-        let conn = self.acquire();
+        let conn = self.read_guard("list_ports");
         let mut stmt = conn
             .prepare("SELECT port, protocol, platform_name, account, label, enabled, auth_required FROM port_mappings ORDER BY port")
             .map_err(|e| format!("prepare list_ports: {e}"))?;
@@ -277,7 +360,7 @@ impl DbPool {
     }
 
     pub fn upsert_port(&self, m: &PortMapping) -> Result<(), String> {
-        let conn = self.acquire();
+        let conn = self.acquire("upsert_port");
         conn.execute(
             "INSERT INTO port_mappings (port, protocol, platform_name, account, label, enabled, auth_required) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(port) DO UPDATE SET protocol = excluded.protocol, platform_name = excluded.platform_name, account = excluded.account, label = excluded.label, enabled = excluded.enabled, auth_required = excluded.auth_required",
             params![m.port, m.protocol, m.platform_name, m.account, m.label, m.enabled as i64, m.auth_required as i64],
@@ -287,7 +370,7 @@ impl DbPool {
     }
 
     pub fn delete_port(&self, port: u16) -> Result<(), String> {
-        let conn = self.acquire();
+        let conn = self.acquire("delete_port");
         conn.execute("DELETE FROM port_mappings WHERE port = ?1", params![port])
             .map_err(|e| format!("delete port_mappings: {e}"))?;
         Ok(())
@@ -297,7 +380,7 @@ impl DbPool {
     /// already validated the desired configuration; a DB error leaves the old
     /// map untouched.
     pub fn replace_ports(&self, mappings: &[PortMapping]) -> Result<(), String> {
-        let mut conn = self.acquire();
+        let mut conn = self.acquire("replace_ports");
         // BEGIN IMMEDIATE: take the RESERVED lock at BEGIN, not at
         // the first write — a deferred txn that upgrades mid-flight can hit
         // SQLITE_BUSY_SNAPSHOT under WAL when a reader advanced past it, and
@@ -319,7 +402,7 @@ impl DbPool {
             .map_err(|e| format!("commit replace_ports: {e}"))
     }
     pub fn get_port(&self, port: u16) -> Result<Option<PortMapping>, String> {
-        let conn = self.acquire();
+        let conn = self.read_guard("get_port");
         let row = conn
             .query_row(
                 "SELECT port, protocol, platform_name, account, label, enabled, auth_required FROM port_mappings WHERE port = ?1",
@@ -422,6 +505,7 @@ mod tests {
         DbPool::migrate(&conn).unwrap();
         let pool = DbPool(
             Arc::new(Mutex::new(conn)),
+            no_read_conn(),
             #[cfg(debug_assertions)]
             LockWaitStats::new_shared(),
         );
@@ -747,8 +831,7 @@ mod tests {
     }
 
     /// R12-E3 register arm (ii), adjudicated r12-wave-f D-002: synthetic
-    /// concurrency probe - 8 threads hammer `list_ports` on a shared
-    /// file-backed pool, measuring the acquisition-wait p99. The
+    /// concurrency probe measuring the acquisition-wait p99. The
     /// registered 1 ms arm FIRED on first measurement (CI run
     /// 35959139983, 2026-09-24: p99=9615us over 200 samples, 76/200 >=
     /// 1ms) and discharged to a keep-Mutex verdict - saturation
@@ -761,6 +844,15 @@ mod tests {
     /// (i) - the dev counters on real load - is the primary instrument;
     /// arm (iii)'s probe leg is dropped; arm (iv)'s 2026-10-20 hard date
     /// is unchanged.
+    /// R12-H2 (D-004 step1) reframed the target: file-backed reads now go
+    /// through the dedicated read conn and never touch the instrumented
+    /// writer lock, so the saturation hammer moved from `list_ports` to
+    /// the WRITER path (`upsert_port` - the remaining real contention
+    /// surface alongside replace_ports/backup/migrate). The probe still
+    /// measures acquisition-wait p99 on the single writer lock, then
+    /// asserts the step1 invariant: a read hammer on the same file-backed
+    /// pool registers ZERO additional acquisitions (reads are invisible
+    /// to the instrument by design - the machine-checkable B-side pivot).
     /// Dev-gated like the instrument itself - a release test build has no
     /// instrument to read.
     #[cfg(debug_assertions)]
@@ -788,11 +880,22 @@ mod tests {
         const THREADS: usize = 8;
         const ROUNDS: usize = 25;
         let mut handles = Vec::with_capacity(THREADS);
-        for _ in 0..THREADS {
+        for t in 0..THREADS {
             let p = pool.clone();
             handles.push(std::thread::spawn(move || {
-                for _ in 0..ROUNDS {
-                    assert_eq!(p.list_ports().unwrap().len(), 64);
+                for r in 0..ROUNDS {
+                    // Writer-path hammer: each upsert is one instrumented
+                    // acquisition of the single writer lock.
+                    p.upsert_port(&PortMapping {
+                        port: 31000 + (t * ROUNDS + r) as u16,
+                        protocol: "mixed".into(),
+                        platform_name: "P".into(),
+                        account: format!("t{t}r{r}"),
+                        label: "".into(),
+                        enabled: true,
+                        auth_required: true,
+                    })
+                    .unwrap();
                 }
             }));
         }
@@ -806,12 +909,11 @@ mod tests {
             "instrument must observe every probe acquisition, got {}",
             report.acquisitions
         );
+        let acquisitions_after_writes = report.acquisitions;
         let mut s = report.wait_micros.clone();
         s.sort_unstable();
         assert!(!s.is_empty());
         let p99 = s[(s.len() * 99 / 100).min(s.len() - 1)];
-        drop(pool);
-        let _ = std::fs::remove_dir_all(&dir);
         // Post-verdict instrument line (r12-wave-f D-002): arm (ii) fired
         // 2026-09-24 and discharged to a keep-Mutex verdict, so this
         // print is a regression/A-B readout - printed, not gated; arm (i)
@@ -826,5 +928,158 @@ mod tests {
             p99 < 250_000,
             "hang-pathology bound: acquisition wait p99 must stay < 250ms, got {p99}us"
         );
+
+        // D-004 step1 pivot assertion: the same read hammer that arm (ii)
+        // once saturated the lock with now registers ZERO acquisitions -
+        // file-backed reads ride the dedicated read conn.
+        let mut readers = Vec::with_capacity(THREADS);
+        for _ in 0..THREADS {
+            let p = pool.clone();
+            readers.push(std::thread::spawn(move || {
+                for _ in 0..ROUNDS {
+                    assert_eq!(p.list_ports().unwrap().len(), 64 + THREADS * ROUNDS);
+                }
+            }));
+        }
+        for h in readers {
+            h.join().unwrap();
+        }
+        assert_eq!(
+            pool.lock_wait_report().acquisitions,
+            acquisitions_after_writes,
+            "file-backed reads must not touch the instrumented writer lock"
+        );
+
+        drop(pool);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// R12-H2 step0 (D-004): every acquisition attributes its callsite -
+    /// the stats record the LAST acquirer as the holder identity a >=1ms
+    /// waiter was blocked on. In-memory reads land on the instrumented
+    /// fallback, so their callsites attribute identically.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn lock_wait_stats_records_last_acquirer_identity() {
+        let pool = DbPool::open_in_memory().unwrap();
+        let m = |port: u16| PortMapping {
+            port,
+            protocol: "mixed".into(),
+            platform_name: "P".into(),
+            account: "a".into(),
+            label: "".into(),
+            enabled: true,
+            auth_required: true,
+        };
+        pool.upsert_port(&m(17990)).unwrap();
+        pool.delete_port(17990).unwrap();
+        assert_eq!(
+            *pool.2.holder.lock().unwrap(),
+            Some("delete_port"),
+            "the last acquirer must attribute its callsite"
+        );
+        pool.list_ports().unwrap(); // fallback read also attributes
+        assert_eq!(
+            *pool.2.holder.lock().unwrap(),
+            Some("list_ports"),
+            "a fallback read attributes its callsite too"
+        );
+    }
+
+    /// R12-H2 step1 (D-004): a file-backed pool serves list/get through the
+    /// dedicated read-only connection - a separate handle on the same WAL
+    /// database, lazily opened on first read and kept for the pool's life
+    /// (hynek: short-lived readers pay the -shm handshake). In-memory pools
+    /// stay on the instrumented writer-lock fallback.
+    #[cfg(debug_assertions)]
+    #[test]
+    fn file_backed_reads_use_the_dedicated_read_conn() {
+        let dir = std::env::temp_dir().join(format!("resin-db-readconn-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("read.db");
+        let _ = std::fs::remove_file(&path);
+
+        let pool = DbPool::open(&path).unwrap();
+        pool.upsert_port(&PortMapping {
+            port: 17990,
+            protocol: "mixed".into(),
+            platform_name: "OpenAI".into(),
+            account: "a".into(),
+            label: "".into(),
+            enabled: true,
+            auth_required: true,
+        })
+        .unwrap();
+
+        let rows = pool.list_ports().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].platform_name, "OpenAI");
+        assert!(
+            pool.read_conn_dedicated(),
+            "the dedicated conn must be live after the first read"
+        );
+        assert_eq!(pool.get_port(17990).unwrap().unwrap().port, 17990);
+        assert!(pool.get_port(17991).unwrap().is_none());
+
+        // A commit after reads stays visible to the same long-lived conn
+        // (each read is a fresh WAL snapshot transaction).
+        pool.delete_port(17990).unwrap();
+        assert!(pool.list_ports().unwrap().is_empty());
+
+        drop(pool);
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let mem = DbPool::open_in_memory().unwrap();
+        assert!(
+            !mem.read_conn_dedicated(),
+            "an in-memory pool must not claim a dedicated read conn"
+        );
+        assert!(mem.list_ports().unwrap().is_empty());
+    }
+
+    /// The dedicated read conn is a second handle on the same WAL file:
+    /// readers keep observing committed snapshots while a writer is active,
+    /// never queueing on the writer mutex. Functional closed-loop - the
+    /// latency shape is the dev-session A/B readout (R12-H2 step1).
+    #[test]
+    fn dedicated_read_conn_serves_reads_while_writer_is_active() {
+        let dir = std::env::temp_dir().join(format!("resin-db-readrace-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("race.db");
+        let _ = std::fs::remove_file(&path);
+
+        let pool = DbPool::open(&path).unwrap();
+        let rows = |shift: u16| -> Vec<PortMapping> {
+            (0..8u16)
+                .map(|i| PortMapping {
+                    port: 21000 + shift * 8 + i,
+                    protocol: "mixed".into(),
+                    platform_name: "P".into(),
+                    account: format!("a{}", shift * 8 + i),
+                    label: "".into(),
+                    enabled: true,
+                    auth_required: true,
+                })
+                .collect()
+        };
+        pool.replace_ports(&rows(0)).unwrap();
+
+        let writer = {
+            let p = pool.clone();
+            std::thread::spawn(move || {
+                for i in 0..20u16 {
+                    p.replace_ports(&rows(i % 4)).unwrap();
+                }
+            })
+        };
+        // Whichever commit is current, the map always holds exactly 8 rows;
+        // reads on the dedicated conn keep flowing while replace_ports churns.
+        for _ in 0..200 {
+            assert_eq!(pool.list_ports().unwrap().len(), 8);
+        }
+        writer.join().unwrap();
+
+        drop(pool);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
