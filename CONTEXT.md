@@ -990,9 +990,13 @@ The suspension mechanism for deferred work (r12-wave-a D-003/D-005): an
 item parks until a machine-checkable condition fires, then re-enters
 adjudication (⑤c churn trigger, R12-01 unblock conditions, the four i18n
 revisit lines). Every trigger line is covered by the per-round grill
-inspection obligation so parked items cannot become orphans.
+inspection obligation so parked items cannot become orphans. An
+observation cycle counts only a real read of the line's instrument; a
+cycle never read is no-data, not zero (NOT_OBSERVED != 0), and unread
+arms may carry a hard date after which they are recorded
+dead/unevaluable (r12-wave-g D-001).
 _Avoid_: "later" without a named condition, suspended items with no
-inspector
+inspector, treating never-observed as a zero reading
 
 ### Good-Event Ratio (好事件占比)
 
