@@ -83,8 +83,6 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         if: matrix.os == 'windows-latest' && inputs.with_app == 'true'
-        with:
-          version: 9
 
       - name: Install frontend deps (windows app phases)
         if: matrix.os == 'windows-latest' && inputs.with_app == 'true'

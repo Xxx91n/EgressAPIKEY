@@ -68,8 +68,6 @@ jobs:
       # losing the whole run's evidence.
       - uses: pnpm/action-setup@v4
         if: (inputs.runner_os || 'linux') == 'linux'
-        with:
-          version: 9
       - name: Linux tauri deps for headless build
         if: (inputs.runner_os || 'linux') == 'linux'
         continue-on-error: true

@@ -60,8 +60,6 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -91,8 +89,6 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.tag }}
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -145,8 +141,6 @@ jobs:
           workspaces: "./src-tauri -> target"
           key: server-${{ matrix.target }}
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -216,8 +210,6 @@ jobs:
           workspaces: "./src-tauri -> target"
           key: server-${{ env.TARGET }}
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -292,8 +284,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -371,8 +361,6 @@ jobs:
         with:
           ref: refs/tags/${{ inputs.tag }}
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -464,8 +452,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
