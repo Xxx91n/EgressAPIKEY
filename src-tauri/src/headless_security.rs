@@ -295,10 +295,13 @@ where
     if !trusted.iter().any(|net| net.contains(&peer)) {
         return false;
     }
+    // .last() not .next_back(): the caller hands in a generic iterator,
+    // so no DoubleEndedIterator bound exists - consuming to the end and
+    // keeping the tail element is the same rightmost-wins read.
     x_forwarded_proto
         .into_iter()
         .flat_map(|v| v.split(','))
-        .next_back()
+        .last()
         .map(|v| v.trim().eq_ignore_ascii_case("https"))
         .unwrap_or(false)
 }
