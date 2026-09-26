@@ -152,8 +152,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     // r12-wave-i D-002: refuse a wildcard --trusted-proxy unless the second
     // explicit switch acknowledged it (before any dir/tracing/sidecar work).
-    if let Some(e) = trusted_proxy_scope_error(&cli.trusted_proxy, cli.trusted_proxy_unrestricted)
-    {
+    if let Some(e) = trusted_proxy_scope_error(&cli.trusted_proxy, cli.trusted_proxy_unrestricted) {
         anyhow::bail!("{e}");
     }
 
@@ -1979,10 +1978,7 @@ mod trusted_proxy_scope_tests {
     fn wildcard_cidrs_refuse_startup_without_the_unrestricted_flag() {
         for s in ["0.0.0.0/0", "::/0"] {
             let net = parse_trusted_proxy(s).expect("a wildcard CIDR parses");
-            assert!(
-                is_wildcard_proxy_net(&net),
-                "{s} must read as a wildcard"
-            );
+            assert!(is_wildcard_proxy_net(&net), "{s} must read as a wildcard");
             let err = trusted_proxy_scope_error(&[net], false)
                 .expect("wildcard without the flag must refuse startup");
             assert!(err.contains("--trusted-proxy-unrestricted"));
