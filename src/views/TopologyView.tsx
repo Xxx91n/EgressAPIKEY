@@ -94,11 +94,11 @@ export const useTopologyStore = create<TopologyState>((set) => ({
   leases: [],
   ports: [],
   portHealth: {},
-  setPlatforms: (p) => set((s) => (shallow(s.platforms, p) ? {} : { platforms: p })),
-  setSubGroups: (sg) => set((s) => (shallow(s.subGroups, sg) ? {} : { subGroups: sg })),
-  setLeases: (l) => set((s) => (shallow(s.leases, l) ? {} : { leases: l })),
-  setPorts: (p) => set((s) => (shallow(s.ports, p) ? {} : { ports: p })),
-  setPortHealth: (m) => set((s) => (shallow(s.portHealth, m) ? {} : { portHealth: m })),
+  setPlatforms: (p) => set((s) => (shallow(s.platforms, p) ? s : { platforms: p })),
+  setSubGroups: (sg) => set((s) => (shallow(s.subGroups, sg) ? s : { subGroups: sg })),
+  setLeases: (l) => set((s) => (shallow(s.leases, l) ? s : { leases: l })),
+  setPorts: (p) => set((s) => (shallow(s.ports, p) ? s : { ports: p })),
+  setPortHealth: (m) => set((s) => (shallow(s.portHealth, m) ? s : { portHealth: m })),
 }));
 
 /// (ADR-0048 S1+S3+S4): a_class-semantic node filter helper.
