@@ -16,7 +16,7 @@ itself is the trust boundary. Three controls protect it:
 | --- | --- | --- |
 | Shared-secret token | `--auth-token` | Required on every control-plane request. |
 | Host / Origin allowlist | `--allowed-host` | Rejects requests whose `Host` / `Origin` is not an accepted name. |
-| Trusted proxy set | `--trusted-proxy` | Repeatable IP/CIDR; only requests arriving from these peers may assert `X-Forwarded-Proto` (the bootstrap cookie gains `; Secure`). The header is ignored entirely when the set is empty. |
+| Trusted proxy set | `--trusted-proxy` | Repeatable IP/CIDR; only requests arriving from these peers may assert `X-Forwarded-Proto` (the bootstrap cookie gains `; Secure`). The header is ignored entirely when the set is empty. Wildcard CIDRs (`0.0.0.0/0`, `::/0`) are refused at startup unless `--trusted-proxy-unrestricted` is also given. |
 | Startup refusal | - | A non-loopback `--bind` without `--auth-token` refuses to start. |
 
 ### Token lifecycle
@@ -213,10 +213,14 @@ socket peer is declared via the repeatable flag:
 ```
 
 Only then does `X-Forwarded-Proto: https` add `; Secure` to the bootstrap
-session cookie (the first list value wins; anything else fails closed;
-forged headers are dropped silently). `--trusted-proxy=0.0.0.0/0` disables
-the boundary entirely - list only the addresses your proxy can actually
-arrive from.
+session cookie (the LAST - rightmost - list value wins: it is the scheme
+the nearest trusted hop observed, so earlier client-writable segments are
+ignored; anything outside the literal `http`/`https` pair fails closed;
+forged headers are dropped silently). Multiple `X-Forwarded-Proto` header
+instances are merged in wire order before that rule applies. A wildcard
+CIDR - `--trusted-proxy=0.0.0.0/0` or `::/0` - is refused at startup
+unless the second explicit switch `--trusted-proxy-unrestricted` is also
+passed; list only the addresses your proxy can actually arrive from.
 
 The proxy's auth gate is defence in depth - the in-process token and Host
 allowlist are the actual boundary (see Security model).

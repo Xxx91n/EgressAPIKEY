@@ -98,9 +98,18 @@ struct Cli {
     /// Reverse-proxy peer trusted to assert X-Forwarded-Proto (repeatable;
     /// exact IP or CIDR, e.g. 127.0.0.1 or 10.8.0.0/16). Without this flag
     /// XFP is ignored entirely - it is a client-writable header (R12-D1).
-    /// 0.0.0.0/0 disables the boundary; see docs/how-to/HEADLESS_DEPLOYMENT.md.
+    /// Wildcard CIDRs (0.0.0.0/0, ::/0) refuse startup unless the second
+    /// explicit `--trusted-proxy-unrestricted` switch is also given
+    /// (r12-wave-i D-002); see docs/how-to/HEADLESS_DEPLOYMENT.md.
     #[arg(long = "trusted-proxy", value_name = "IP_OR_CIDR", value_parser = parse_trusted_proxy)]
     trusted_proxy: Vec<ipnet::IpNet>,
+    /// Explicit acknowledgement that `--trusted-proxy` may carry a wildcard
+    /// CIDR (0.0.0.0/0 or ::/0): every reachable peer is then trusted to
+    /// assert X-Forwarded-Proto, which disables the boundary the flag
+    /// exists to keep (r12-wave-i D-002). Only meaningful on networks where
+    /// every possible client hop is already inside the trusted set.
+    #[arg(long = "trusted-proxy-unrestricted")]
+    trusted_proxy_unrestricted: bool,
 }
 
 /// clap value parser for --trusted-proxy: an exact IP becomes a host net
@@ -114,9 +123,39 @@ fn parse_trusted_proxy(s: &str) -> Result<ipnet::IpNet, String> {
         .map_err(|_| format!("not an IP or CIDR: {s}"))
 }
 
+/// True when `net` matches every peer address (`0.0.0.0/0`, `::/0`, or any
+/// /0-prefix CIDR - host bits do not narrow a zero-length prefix). A
+/// wildcard --trusted-proxy entry accepts XFP assertions from the whole
+/// reachable network, silently disabling the R12-D1 boundary (r12-wave-i
+/// D-002).
+fn is_wildcard_proxy_net(net: &ipnet::IpNet) -> bool {
+    net.prefix_len() == 0
+}
+
+/// Startup gate for the wildcard case above: returns the refusal reason
+/// when a wildcard --trusted-proxy net is configured WITHOUT the explicit
+/// `--trusted-proxy-unrestricted` acknowledgement flag (Prometheus
+/// --web.enable-* style: two deliberate switches for a boundary-disabling
+/// posture).
+fn trusted_proxy_scope_error(nets: &[ipnet::IpNet], unrestricted: bool) -> Option<String> {
+    if unrestricted || !nets.iter().any(is_wildcard_proxy_net) {
+        return None;
+    }
+    Some(
+        "--trusted-proxy 0.0.0.0/0 or ::/0 would trust X-Forwarded-Proto from every          reachable peer; refusing to start (pass --trusted-proxy-unrestricted to accept          that posture)"
+            .to_string(),
+    )
+}
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+    // r12-wave-i D-002: refuse a wildcard --trusted-proxy unless the second
+    // explicit switch acknowledged it (before any dir/tracing/sidecar work).
+    if let Some(e) = trusted_proxy_scope_error(&cli.trusted_proxy, cli.trusted_proxy_unrestricted)
+    {
+        anyhow::bail!("{e}");
+    }
 
     // Resolve state_root / log_root via the `dirs` crate so the headless
     // binary lives in the SAME OS-standard dirs the Tauri shell uses
@@ -191,6 +230,11 @@ async fn main() -> Result<()> {
         "headless: trusted-proxy peers = {} (--trusted-proxy)",
         cli.trusted_proxy.len()
     );
+    if cli.trusted_proxy.iter().any(is_wildcard_proxy_net) {
+        tracing::warn!(
+            "headless: --trusted-proxy includes a wildcard CIDR - X-Forwarded-Proto is trusted from EVERY reachable peer (--trusted-proxy-unrestricted was given)"
+        );
+    }
 
     let binary_dir = cli.binary_dir.unwrap_or_else(|| {
         std::env::current_exe()
@@ -595,21 +639,25 @@ async fn security_guard(
     }
 
     // R12-D1 (ADR-0071 errata): the XFP read lives next to the cookie plant
-    // that consumes it - next.run consumes the request, so the header value
-    // is captured here and the trust decision (socket peer vs the
-    // --trusted-proxy set) is evaluated at plant time.
-    let x_forwarded_proto = req
+    // that consumes it - next.run consumes the request, so the header values
+    // are captured here and the trust decision (socket peer vs the
+    // --trusted-proxy set) is evaluated at plant time. r12-wave-i D-002:
+    // EVERY header instance is captured in wire order (get_all, not get - a
+    // sender may split the list across headers); the merged rightmost
+    // segment is what trusted_forwarded_https consults.
+    let x_forwarded_proto: Vec<String> = req
         .headers()
-        .get("x-forwarded-proto")
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_owned);
+        .get_all("x-forwarded-proto")
+        .iter()
+        .filter_map(|v| v.to_str().ok().map(str::to_owned))
+        .collect();
     let mut resp = next.run(req).await;
     if plant_cookie {
         let mut cookie = guard.session_cookie();
         if headless_security::trusted_forwarded_https(
             peer.ip(),
             guard.trusted_proxies(),
-            x_forwarded_proto.as_deref(),
+            x_forwarded_proto.iter().map(String::as_str),
         ) {
             cookie.push_str("; Secure");
         }
@@ -1919,5 +1967,42 @@ mod guard_wiring_tests {
             "the forwarded body must be byte-identical to the request body"
         );
         let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+/// r12-wave-i D-002: the wildcard --trusted-proxy startup gate.
+#[cfg(test)]
+mod trusted_proxy_scope_tests {
+    use super::*;
+
+    #[test]
+    fn wildcard_cidrs_refuse_startup_without_the_unrestricted_flag() {
+        for s in ["0.0.0.0/0", "::/0"] {
+            let net = parse_trusted_proxy(s).expect("a wildcard CIDR parses");
+            assert!(
+                is_wildcard_proxy_net(&net),
+                "{s} must read as a wildcard"
+            );
+            let err = trusted_proxy_scope_error(&[net], false)
+                .expect("wildcard without the flag must refuse startup");
+            assert!(err.contains("--trusted-proxy-unrestricted"));
+        }
+    }
+
+    #[test]
+    fn wildcard_cidr_passes_with_the_unrestricted_flag() {
+        let net = parse_trusted_proxy("0.0.0.0/0").expect("a wildcard CIDR parses");
+        assert!(trusted_proxy_scope_error(&[net], true).is_none());
+    }
+
+    #[test]
+    fn concrete_proxies_never_need_the_flag() {
+        let nets = [
+            parse_trusted_proxy("127.0.0.1").unwrap(),
+            parse_trusted_proxy("10.8.0.0/16").unwrap(),
+            parse_trusted_proxy("::1").unwrap(),
+        ];
+        assert!(!nets.iter().any(is_wildcard_proxy_net));
+        assert!(trusted_proxy_scope_error(&nets, false).is_none());
     }
 }

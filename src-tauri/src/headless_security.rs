@@ -256,21 +256,35 @@ pub fn token_cookie(token: &str) -> String {
 }
 
 /// True only when the socket peer is a declared `--trusted-proxy` AND the
-/// `X-Forwarded-Proto` header's FIRST list value is `https` (fail-closed).
+/// LAST (rightmost) segment of the merged `X-Forwarded-Proto` value is
+/// `https`; a last segment outside the literal {`http`,`https`} pair
+/// fails closed (not secure).
 ///
 /// XFP is a client-writable header: trusting it unconditionally let any
 /// caller forge the `Secure` suffix onto the session cookie on a plain-HTTP
 /// deployment (r12 wave-d R12-D1, ADR-0071 errata). The socket peer - not
 /// the XFF chain - is the trust anchor: the guard only needs "did a trusted
-/// proxy relay this request", never the real client IP. IPv4-mapped-IPv6
-/// peers (`::ffff:a.b.c.d`) normalize via `to_ipv4_mapped()` - NOT
-/// `to_ipv4()`, which also maps `::1` -> `0.0.0.1` and would break the v6
-/// loopback peer.
-pub fn trusted_forwarded_https(
+/// proxy relay this request", never the real client IP. Every header
+/// instance is merged in wire order and only the rightmost segment is
+/// consulted: that segment is the scheme the trusted hop NEAREST this
+/// process observed - earlier segments are client-suppliable and never
+/// rescue a non-https tail (r12 wave-i D-002; same direction as ASP.NET
+/// ForwardLimit=1 / Envoy xff_num_trusted_hops, which consume XFP/XFF from
+/// the right). IPv4-mapped-IPv6 peers (`::ffff:a.b.c.d`) normalize via
+/// `to_ipv4_mapped()` - NOT `to_ipv4()`, which also maps `::1` ->
+/// `0.0.0.1` and would break the v6 loopback peer.
+///
+/// `x_forwarded_proto` is every `X-Forwarded-Proto` header instance in wire
+/// order (a merged comma-joined value is equivalent); an empty iterator
+/// means no header arrived.
+pub fn trusted_forwarded_https<'a, I>(
     peer: std::net::IpAddr,
     trusted: &[ipnet::IpNet],
-    x_forwarded_proto: Option<&str>,
-) -> bool {
+    x_forwarded_proto: I,
+) -> bool
+where
+    I: IntoIterator<Item = &'a str>,
+{
     let peer = match peer {
         std::net::IpAddr::V6(v6) => v6
             .to_ipv4_mapped()
@@ -282,7 +296,9 @@ pub fn trusted_forwarded_https(
         return false;
     }
     x_forwarded_proto
-        .and_then(|v| v.split(',').next())
+        .into_iter()
+        .flat_map(|v| v.split(','))
+        .next_back()
         .map(|v| v.trim().eq_ignore_ascii_case("https"))
         .unwrap_or(false)
 }
@@ -587,7 +603,11 @@ mod tests {
     #[test]
     fn trusted_peer_without_xfp_gets_no_secure() {
         let trusted = vec![net("127.0.0.1/32")];
-        assert!(!trusted_forwarded_https(v4("127.0.0.1"), &trusted, None));
+        assert!(!trusted_forwarded_https(
+            v4("127.0.0.1"),
+            &trusted,
+            None::<&str>
+        ));
     }
 
     #[test]
@@ -601,20 +621,56 @@ mod tests {
     }
 
     #[test]
-    fn xfp_list_uses_first_scheme_fail_closed() {
+    fn xfp_list_uses_rightmost_scheme_fail_closed() {
         let trusted = vec![net("127.0.0.1/32")];
-        // First list value = client-nearest scheme; later entries never
-        // rescue a non-https first value.
-        assert!(trusted_forwarded_https(
+        // Rightmost list value = the scheme the nearest trusted hop
+        // observed; earlier (client-writable) segments never rescue a
+        // non-https tail.
+        assert!(!trusted_forwarded_https(
             v4("127.0.0.1"),
             &trusted,
             Some("https,http")
         ));
-        assert!(!trusted_forwarded_https(
+        assert!(trusted_forwarded_https(
             v4("127.0.0.1"),
             &trusted,
             Some("http,https")
         ));
+    }
+
+    #[test]
+    fn xfp_multiple_header_instances_merge_in_wire_order() {
+        let trusted = vec![net("127.0.0.1/32")];
+        // Header instances merge in wire order (get_all); the last segment
+        // of the LAST instance is the nearest-hop assertion.
+        assert!(trusted_forwarded_https(
+            v4("127.0.0.1"),
+            &trusted,
+            ["http", "https"]
+        ));
+        assert!(!trusted_forwarded_https(
+            v4("127.0.0.1"),
+            &trusted,
+            ["https", "http"]
+        ));
+        // A per-instance comma list still resolves on the rightmost segment.
+        assert!(trusted_forwarded_https(
+            v4("127.0.0.1"),
+            &trusted,
+            ["http,https", "https"]
+        ));
+    }
+
+    #[test]
+    fn xfp_last_segment_outside_http_https_fails_closed() {
+        let trusted = vec![net("127.0.0.1/32")];
+        for bad in ["https,gibberish", "https,", " https , http "] {
+            assert!(!trusted_forwarded_https(
+                v4("127.0.0.1"),
+                &trusted,
+                Some(bad)
+            ));
+        }
     }
 
     #[test]
