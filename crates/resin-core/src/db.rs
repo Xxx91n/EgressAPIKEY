@@ -160,7 +160,8 @@ impl LockWaitStats {
     fn observe_read(&self, wait: Duration, who: &'static str) {
         let micros = wait.as_micros() as u64;
         self.read_acquisitions.fetch_add(1, Ordering::Relaxed);
-        self.read_max_wait_micros.fetch_max(micros, Ordering::Relaxed);
+        self.read_max_wait_micros
+            .fetch_max(micros, Ordering::Relaxed);
         Self::observe_domain(
             wait,
             micros,
