@@ -70,6 +70,12 @@ required-features = ["bench"]
 
 [features]
 default = []
+# r12-wave-i D-003.1: opt-in lock-wait observation instrument on DbPool -
+# existence tier (>=1ms) + magnitude tier (>=5ms), holder attribution on
+# both the writer lock and the dedicated read conn. Feature-on builds are
+# for observation cycles ONLY - never a shipping configuration; nothing
+# in the release path enables it.
+db-lock-metrics = []
 # Perf-bench Mode-A entry listener (scripts/bench). Optional so workspace
 # builds and the push gate never compile the harness binary.
 bench = ["dep:tracing-subscriber"]

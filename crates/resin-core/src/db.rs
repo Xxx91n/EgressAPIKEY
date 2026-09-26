@@ -10,11 +10,11 @@ use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-#[cfg(debug_assertions)]
+#[cfg(feature = "db-lock-metrics")]
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::sync::LazyLock;
-#[cfg(debug_assertions)]
+#[cfg(feature = "db-lock-metrics")]
 use std::sync::Mutex as StdMutex;
 use std::time::Duration;
 
@@ -54,7 +54,7 @@ type ReadConnLazy = LazyLock<
 pub struct DbPool(
     Arc<Mutex<Connection>>,
     Arc<ReadConnLazy>,
-    #[cfg(debug_assertions)] Arc<LockWaitStats>,
+    #[cfg(feature = "db-lock-metrics")] Arc<LockWaitStats>,
 );
 
 /// Shared `None` initializer for pools that have no file-backed read
@@ -64,112 +64,196 @@ fn no_read_conn() -> Arc<ReadConnLazy> {
 }
 
 /// R12-E3, adjudicated r12-wave-f D-002 (register row 'DbPool
-/// single-lock (bb8)'): a dev-only lock-wait instrument on every DbPool
-/// acquisition. The 1 ms threshold is anchored to the parking_lot
-/// eventual-fairness forcing line (~1 ms; 0.5 ms average). Verdict:
-/// arm (ii) fired 2026-09-24 and discharged to keep-Mutex - the
-/// synthetic probe proved lock saturation exists under contention
-/// (parking_lot fairness forcing guarantees the reading) but is not a
-/// production-impact criterion. Arm (i) - THIS counter on real dev load
-/// - is now the primary instrument: a real-load wait >= 1 ms re-opens
-/// the pool-impl adjudication (successor: deadpool-sqlite; r2d2 is
+/// single-lock (bb8)'): a lock-wait instrument on every DbPool
+/// acquisition. The 1 ms existence threshold is anchored to the
+/// parking_lot eventual-fairness forcing line (~1 ms; 0.5 ms average);
+/// the 5 ms magnitude tier (r12-wave-i D-003.1) sits above it because
+/// the fairness forcing line makes ~1 ms waits a SCHEDULER guarantee
+/// under contention - existence alone cannot discriminate a real
+/// contention event from fairness noise. Verdict history: arm (ii)
+/// fired 2026-09-24 and discharged to keep-Mutex - the synthetic probe
+/// proved lock saturation exists under contention but is not a
+/// production-impact criterion. Arm (i) - THIS counter on real load
+/// - is the primary instrument: a real-load wait >= 1 ms re-opens the
+/// pool-impl adjudication (successor: deadpool-sqlite; r2d2 is
 /// 404-dead on crates.io, recorded; remedy order B read-conn before A
-/// migration). The whole instrument sits behind debug_assertions - the
-/// convergeDevMark pattern: release builds compile it out entirely
-/// (zero-cost), and acquire() collapses to the bare lock.
-#[cfg(debug_assertions)]
+/// migration). The instrument sits behind the opt-in Cargo feature
+/// `db-lock-metrics` (r12-wave-i D-003.1): default-off builds compile
+/// it out entirely (zero-cost - acquire() collapses to the bare lock),
+/// and feature-on builds exist for observation cycles ONLY, never a
+/// shipping configuration.
+#[cfg(feature = "db-lock-metrics")]
 const LOCK_WAIT_REOPEN: Duration = Duration::from_millis(1);
+
+/// Magnitude tier (r12-wave-i D-003.1): waits >= 5 ms. Above this a wait
+/// is a real contention event, not parking_lot fairness forcing.
+#[cfg(feature = "db-lock-metrics")]
+const LOCK_WAIT_MAGNITUDE: Duration = Duration::from_millis(5);
 
 /// Dev-session reservoir cap: counts keep accumulating after the sample
 /// vec is full so a long session cannot grow memory unboundedly.
-#[cfg(debug_assertions)]
+#[cfg(feature = "db-lock-metrics")]
 const LOCK_WAIT_SAMPLE_CAP: usize = 16384;
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "db-lock-metrics")]
 #[derive(Default)]
 struct LockWaitStats {
     acquisitions: AtomicU64,
     over_threshold: AtomicU64,
+    /// r12-wave-i D-003.1: magnitude tier - writer waits >=
+    /// LOCK_WAIT_MAGNITUDE (5 ms), counted separately so existence and
+    /// magnitude stay distinguishable.
+    over_magnitude: AtomicU64,
     max_wait_micros: AtomicU64,
     wait_micros: StdMutex<Vec<u64>>,
-    /// R12-H2 step0 (D-004): last acquisition callsite - the holder identity
-    /// a >=1ms waiter was blocked on (the in-flight/preceding acquirer). Lets
-    /// the next real-load WARN name its starver (candidates per the
-    /// contention profile: replace_ports/backup self-check/migrate).
+    /// R12-H2 step0 (D-004): last WRITER acquisition callsite - the holder
+    /// identity a >=1ms waiter was blocked on (the in-flight/preceding
+    /// acquirer). Lets the next real-load WARN name its starver
+    /// (candidates per the contention profile: replace_ports/backup
+    /// self-check/migrate).
     holder: StdMutex<Option<&'static str>>,
+    /// r12-wave-i D-003.1/D-005: dedicated read-conn observation leg.
+    /// Reader-vs-reader waits on the read mutex get their own counters +
+    /// holder slot so the writer-lock counts stay the pure B-side pivot.
+    read_acquisitions: AtomicU64,
+    read_over_threshold: AtomicU64,
+    read_over_magnitude: AtomicU64,
+    read_max_wait_micros: AtomicU64,
+    /// Last dedicated-read-conn acquirer callsite - the holder=read-guard
+    /// attribution the register's reader-vs-reader reopen-when depends on.
+    read_holder: StdMutex<Option<&'static str>>,
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "db-lock-metrics")]
 impl LockWaitStats {
     fn new_shared() -> Arc<Self> {
         Arc::new(Self::default())
     }
 
+    /// Record a WRITER-lock acquisition wait attributed to `who`. The
+    /// wait lands in the p99 sample reservoir (the arm-(ii) A/B readout
+    /// caliber).
     fn observe(&self, wait: Duration, who: &'static str) {
         let micros = wait.as_micros() as u64;
         self.acquisitions.fetch_add(1, Ordering::Relaxed);
         self.max_wait_micros.fetch_max(micros, Ordering::Relaxed);
-        if wait >= LOCK_WAIT_REOPEN {
-            self.over_threshold.fetch_add(1, Ordering::Relaxed);
-            let holder = self
-                .holder
-                .lock()
-                .ok()
-                .and_then(|h| *h)
-                .unwrap_or("unknown");
-            tracing::warn!(
-                target: "db",
-                wait_micros = micros,
-                waiter = who,
-                holder = holder,
-                "DbPool lock wait >= 1ms (register arm i threshold)"
-            );
-        }
+        Self::observe_domain(
+            wait,
+            micros,
+            who,
+            "writer",
+            &self.over_threshold,
+            &self.over_magnitude,
+            &self.holder,
+        );
         if let Ok(mut s) = self.wait_micros.lock() {
             if s.len() < LOCK_WAIT_SAMPLE_CAP {
                 s.push(micros);
             }
         }
-        if let Ok(mut h) = self.holder.lock() {
+    }
+
+    /// Record a dedicated READ-CONN acquisition wait attributed to `who`
+    /// (r12-wave-i D-003.1: the reader-vs-reader leg the D-005 reopen-when
+    /// depends on). Read waits stay OUT of the writer p99 sample so the
+    /// A/B readout keeps its single-lock caliber.
+    fn observe_read(&self, wait: Duration, who: &'static str) {
+        let micros = wait.as_micros() as u64;
+        self.read_acquisitions.fetch_add(1, Ordering::Relaxed);
+        self.read_max_wait_micros.fetch_max(micros, Ordering::Relaxed);
+        Self::observe_domain(
+            wait,
+            micros,
+            who,
+            "read-conn",
+            &self.read_over_threshold,
+            &self.read_over_magnitude,
+            &self.read_holder,
+        );
+    }
+
+    /// Shared threshold/WARN/holder bookkeeping for one lock domain.
+    /// `holder` is the domain's last-acquirer slot - written AFTER the
+    /// over-threshold read so a waiter names the acquirer it was actually
+    /// blocked behind.
+    fn observe_domain(
+        wait: Duration,
+        micros: u64,
+        who: &'static str,
+        domain: &'static str,
+        over_threshold: &AtomicU64,
+        over_magnitude: &AtomicU64,
+        holder: &StdMutex<Option<&'static str>>,
+    ) {
+        if wait >= LOCK_WAIT_MAGNITUDE {
+            over_magnitude.fetch_add(1, Ordering::Relaxed);
+        }
+        if wait >= LOCK_WAIT_REOPEN {
+            over_threshold.fetch_add(1, Ordering::Relaxed);
+            let holder_name = holder.lock().ok().and_then(|h| *h).unwrap_or("unknown");
+            tracing::warn!(
+                target: "db",
+                wait_micros = micros,
+                domain = domain,
+                waiter = who,
+                holder = holder_name,
+                magnitude = wait >= LOCK_WAIT_MAGNITUDE,
+                "DbPool lock wait >= 1ms (register arm i threshold)"
+            );
+        }
+        if let Ok(mut h) = holder.lock() {
             *h = Some(who);
         }
     }
 }
 
-/// Dev-only snapshot of the lock-wait instrument (debug_assertions-gated,
-/// compiled out of release builds). The synthetic concurrency probe reads
-/// `wait_micros` for its p99 regression/A-B readout (arm (ii) discharged
-/// 2026-09-24, keep-Mutex verdict - r12-wave-f D-002); `over_threshold` is
-/// arm (i)'s observation surface on real load - the primary instrument.
-#[cfg(debug_assertions)]
+/// Snapshot of the lock-wait instrument (gated on the opt-in
+/// `db-lock-metrics` feature, r12-wave-i D-003.1 - observation builds
+/// only). The synthetic concurrency probe reads `wait_micros` for its p99
+/// regression/A-B readout (arm (ii) discharged 2026-09-24, keep-Mutex
+/// verdict - r12-wave-f D-002); `over_threshold` is arm (i)'s
+/// observation surface on real load - the primary instrument. The
+/// `read_*` leg observes the dedicated read conn (the reader-vs-reader
+/// surface for D-005's reopen-when) without polluting the writer p99.
+#[cfg(feature = "db-lock-metrics")]
 #[derive(Debug, Default, Clone)]
 pub struct LockWaitReport {
-    /// Total DbPool acquisitions observed since open/reset.
+    /// Total WRITER-lock acquisitions observed since open/reset.
     pub acquisitions: u64,
-    /// Acquisitions that waited >= LOCK_WAIT_REOPEN (1 ms).
+    /// Writer waits that hit >= LOCK_WAIT_REOPEN (1 ms existence tier).
     pub over_threshold: u64,
-    /// Largest single acquisition wait, microseconds.
+    /// Writer waits >= LOCK_WAIT_MAGNITUDE (5 ms magnitude tier).
+    pub over_magnitude: u64,
+    /// Largest single writer acquisition wait, microseconds.
     pub max_wait_micros: u64,
-    /// Bounded reservoir of per-acquisition waits (microseconds).
+    /// Bounded reservoir of per-acquisition WRITER waits (microseconds).
     pub wait_micros: Vec<u64>,
+    /// Dedicated read-conn acquisitions observed.
+    pub read_acquisitions: u64,
+    /// Read-conn waits >= LOCK_WAIT_REOPEN (reader-vs-reader surface).
+    pub read_over_threshold: u64,
+    /// Read-conn waits >= LOCK_WAIT_MAGNITUDE.
+    pub read_over_magnitude: u64,
+    /// Largest single read-conn acquisition wait, microseconds.
+    pub read_max_wait_micros: u64,
 }
 
 impl DbPool {
     /// Single acquisition seam for every WRITER-path DbPool method (read
-    /// paths go through read_guard and only land here on fallback). In debug
-    /// builds it times the parking_lot lock acquisition into the dev
-    /// instrument and attributes the waiter callsite; in release it is the
-    /// bare lock - zero-cost.
+    /// paths go through read_guard and only land here on fallback). With
+    /// `db-lock-metrics` on it times the parking_lot lock acquisition into
+    /// the instrument and attributes the waiter callsite; default builds
+    /// are the bare lock - zero-cost.
     #[inline]
     fn acquire(&self, _who: &'static str) -> parking_lot::MutexGuard<'_, Connection> {
-        #[cfg(debug_assertions)]
+        #[cfg(feature = "db-lock-metrics")]
         let guard = {
             let t = std::time::Instant::now();
             let g = self.0.lock();
             self.2.observe(t.elapsed(), _who);
             g
         };
-        #[cfg(not(debug_assertions))]
+        #[cfg(not(feature = "db-lock-metrics"))]
         let guard = self.0.lock();
         guard
     }
@@ -178,35 +262,63 @@ impl DbPool {
     /// dedicated read-only connection so reads never queue behind a writer's
     /// critical section; fall back to the instrumented writer lock when no
     /// dedicated connection exists (in-memory pool, failed read-only open).
+    /// With `db-lock-metrics` on, the dedicated read-conn acquisition is
+    /// timed too (r12-wave-i D-003.1/D-005: the reader-vs-reader leg) -
+    /// landing in the read_* counters, never the writer p99 sample.
     #[inline]
     fn read_guard(&self, who: &'static str) -> parking_lot::MutexGuard<'_, Connection> {
         if let Some(m) = &**self.1 {
-            return m.lock();
+            #[cfg(feature = "db-lock-metrics")]
+            let guard = {
+                let t = std::time::Instant::now();
+                let g = m.lock();
+                self.2.observe_read(t.elapsed(), who);
+                g
+            };
+            #[cfg(not(feature = "db-lock-metrics"))]
+            let guard = m.lock();
+            return guard;
         }
         self.acquire(who)
     }
 
-    /// Dev-only: reset the lock-wait instrument (probe baseline).
-    #[cfg(debug_assertions)]
+    /// Feature-gated: reset the lock-wait instrument (probe baseline).
+    #[cfg(feature = "db-lock-metrics")]
     pub fn lock_wait_reset(&self) {
         let s = &self.2;
         s.acquisitions.store(0, Ordering::Relaxed);
         s.over_threshold.store(0, Ordering::Relaxed);
+        s.over_magnitude.store(0, Ordering::Relaxed);
         s.max_wait_micros.store(0, Ordering::Relaxed);
+        s.read_acquisitions.store(0, Ordering::Relaxed);
+        s.read_over_threshold.store(0, Ordering::Relaxed);
+        s.read_over_magnitude.store(0, Ordering::Relaxed);
+        s.read_max_wait_micros.store(0, Ordering::Relaxed);
         if let Ok(mut v) = s.wait_micros.lock() {
             v.clear();
         }
+        if let Ok(mut h) = s.holder.lock() {
+            *h = None;
+        }
+        if let Ok(mut h) = s.read_holder.lock() {
+            *h = None;
+        }
     }
 
-    /// Dev-only: snapshot the lock-wait counters + sample reservoir.
-    #[cfg(debug_assertions)]
+    /// Feature-gated: snapshot the lock-wait counters + sample reservoir.
+    #[cfg(feature = "db-lock-metrics")]
     pub fn lock_wait_report(&self) -> LockWaitReport {
         let s = &self.2;
         LockWaitReport {
             acquisitions: s.acquisitions.load(Ordering::Relaxed),
             over_threshold: s.over_threshold.load(Ordering::Relaxed),
+            over_magnitude: s.over_magnitude.load(Ordering::Relaxed),
             max_wait_micros: s.max_wait_micros.load(Ordering::Relaxed),
             wait_micros: s.wait_micros.lock().map(|v| v.clone()).unwrap_or_default(),
+            read_acquisitions: s.read_acquisitions.load(Ordering::Relaxed),
+            read_over_threshold: s.read_over_threshold.load(Ordering::Relaxed),
+            read_over_magnitude: s.read_over_magnitude.load(Ordering::Relaxed),
+            read_max_wait_micros: s.read_max_wait_micros.load(Ordering::Relaxed),
         }
     }
 
@@ -254,7 +366,7 @@ impl DbPool {
         Ok(Self(
             Arc::new(Mutex::new(conn)),
             Arc::new(LazyLock::new(init_read)),
-            #[cfg(debug_assertions)]
+            #[cfg(feature = "db-lock-metrics")]
             LockWaitStats::new_shared(),
         ))
     }
@@ -266,7 +378,7 @@ impl DbPool {
         Ok(Self(
             Arc::new(Mutex::new(conn)),
             no_read_conn(),
-            #[cfg(debug_assertions)]
+            #[cfg(feature = "db-lock-metrics")]
             LockWaitStats::new_shared(),
         ))
     }
@@ -506,7 +618,7 @@ mod tests {
         let pool = DbPool(
             Arc::new(Mutex::new(conn)),
             no_read_conn(),
-            #[cfg(debug_assertions)]
+            #[cfg(feature = "db-lock-metrics")]
             LockWaitStats::new_shared(),
         );
         let rows = pool.list_ports().unwrap();
@@ -853,9 +965,9 @@ mod tests {
     /// asserts the step1 invariant: a read hammer on the same file-backed
     /// pool registers ZERO additional acquisitions (reads are invisible
     /// to the instrument by design - the machine-checkable B-side pivot).
-    /// Dev-gated like the instrument itself - a release test build has no
-    /// instrument to read.
-    #[cfg(debug_assertions)]
+    /// Feature-gated like the instrument itself - a default test build
+    /// has no instrument to read.
+    #[cfg(feature = "db-lock-metrics")]
     #[test]
     fn concurrent_list_ports_lock_wait_probe_reports_p99() {
         let dir = std::env::temp_dir().join(format!("resin-db-probe-{}", std::process::id()));
@@ -957,8 +1069,10 @@ mod tests {
     /// R12-H2 step0 (D-004): every acquisition attributes its callsite -
     /// the stats record the LAST acquirer as the holder identity a >=1ms
     /// waiter was blocked on. In-memory reads land on the instrumented
-    /// fallback, so their callsites attribute identically.
-    #[cfg(debug_assertions)]
+    /// fallback, so their callsites attribute identically. r12-wave-i
+    /// D-003.1 adds the dedicated read-conn leg: file-backed reads
+    /// attribute on the read domain's own holder slot.
+    #[cfg(feature = "db-lock-metrics")]
     #[test]
     fn lock_wait_stats_records_last_acquirer_identity() {
         let pool = DbPool::open_in_memory().unwrap();

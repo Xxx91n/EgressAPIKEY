@@ -99,6 +99,7 @@ Re-open the trim adjudication when ANY line fires:
 - **convergeDevMark Read#2**: OBSERVATION (renewed) - one more real dev-session read needed; re-scoped overlap-only (see R12-F row).
 - **faultinject 10-01 / DbPool arm(iv) + convergeDevMark dead-fallback + W8 fallback 10-20**: OBSERVATION (renewed) - carried; i18n-codegen eval joins the 10-20 block (r12-wave-i D-006).
 - **evidence convention**: docs/agents/evidence/<slug>/ now carries observation-class digests (r12-wave-i D-003); wave-h r12h2-session backfilled.
+- **db-lock-metrics feature landed (r12-wave-i duties)**: the DbPool lock-wait observer moved off `debug_assertions` onto the opt-in Cargo feature `db-lock-metrics` (default off; never a shipping config); dual thresholds landed (existence >=1ms / magnitude >=5ms) plus a dedicated read-conn observation leg carrying holder attribution on both locks; verify-build.sh gained a `--features db-lock-metrics` check+test pass so the gated code stays live rather than dead cfg text. The three-field declaration rule is machine-enforced as of this wave (scripts/instrument-declaration-check.cjs).
 
 ## Procedure
 

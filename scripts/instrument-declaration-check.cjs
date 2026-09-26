@@ -14,9 +14,12 @@
 // "Other registered trigger lines" table. Plain (untitled) meta bullets -
 // the Procedure rules themselves - are out of scope.
 //
-// Legacy entries predating the gate are pinned in LEGACY_EXEMPTIONS by
-// title substring (waiver-ledger pattern: waivers are pinned, visible, and
-// must be maintained). A pin that matches no current entry is stale and
+// Pinned-out entries live in LEGACY_EXEMPTIONS below (waiver-ledger
+// pattern: waivers are pinned, visible, and must be maintained). Two
+// groups: (a) LEGACY instruments predating the gate; (b) META entries that
+// merely mention instrument vocabulary in passing (a gate note, a verdict
+// about an instrument) - they are not registrations, but the pin makes the
+// exclusion explicit. A pin that matches no current entry is stale and
 // fails the gate - drop it in the same commit that removed the entry.
 // Additionally every entry carrying a covered-by: note must carry a
 // machine-checkable reopen-when: condition (r12-wave-i D-005(ii)).
@@ -35,6 +38,7 @@ const FIELD_MARKERS = [
 
 // Entries live before this gate existed; pinned by a stable substring of
 // their entry title / first table cell.
+// (a) legacy instrument entries predating the gate:
 const LEGACY_EXEMPTIONS = [
   "React Query migration (R12-01)",
   "paired_request_added_latency_p95 flake (C9)",
@@ -53,6 +57,9 @@ const LEGACY_EXEMPTIONS = [
   "i18n-check Rust-side blind spot",
   "STANDING RULING (scope, r12-wave-h D-005)",
   "Resin upstream-first sequence (r12-wave-h D-002/D-003)",
+  // (b) meta entries: mention instrument vocabulary without registering
+  // an instrument - pinned so the exclusion is explicit, not accidental.
+  "db-lock-metrics feature landed", // landing note for the gated observer
 ];
 
 const text = fs.readFileSync(REGISTER, "utf8");

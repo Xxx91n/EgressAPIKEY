@@ -112,6 +112,10 @@ default = []
 # the Vite dev server running.
 custom-protocol = ["tauri/custom-protocol"]
 headless = []
+# r12-wave-i D-003.1: forwards the resin-core lock-wait observation
+# instrument for feature-on OBSERVATION builds only - no shipping or CI
+# release configuration enables it.
+db-lock-metrics = ["resin-core/db-lock-metrics"]
 # webview-smoke CI build only: compiles the embedded WebDriver server so
 # @wdio/tauri-service (driverProvider: "embedded") can drive the real webview.
 wdio-smoke = ["dep:tauri-plugin-wdio-webdriver", "dep:tauri-plugin-wdio"]

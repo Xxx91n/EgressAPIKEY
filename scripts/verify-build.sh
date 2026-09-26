@@ -55,6 +55,15 @@ else
   cargo test -p resin-core --lib --quiet
 fi
 
+# r12-wave-i D-003.1: the lock-wait instrument compiles only under
+# --features db-lock-metrics (observation builds, never shipping). This
+# pass keeps it live code rather than dead cfg text: --all-targets
+# type-checks the feature-gated test modules too (f682940e-class guard),
+# and the test run exercises the gated probe/holder tests once.
+echo "[verify] db-lock-metrics feature pass (observation-only instrument)"
+cargo check -p resin-core --features db-lock-metrics --all-targets --quiet
+cargo test -p resin-core --features db-lock-metrics --lib --quiet
+
 echo "[verify] pnpm build (tsc + vite)"
 npx tsc -b
 npx vite build
