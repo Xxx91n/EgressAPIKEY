@@ -323,9 +323,10 @@ impl DbPool {
         }
     }
 
-    /// Dev-only: true once the dedicated read-only connection initialized
-    /// (file-backed pool). Read paths fall back to the writer lock on false.
-    #[cfg(debug_assertions)]
+    /// True once the dedicated read-only connection initialized
+    /// (file-backed pool). Read paths fall back to the writer lock on
+    /// false. Public observability surface (r12-wave-i D-004.3) -
+    /// independent of the `db-lock-metrics` instrument feature.
     pub fn read_conn_dedicated(&self) -> bool {
         (&**self.1).is_some()
     }
@@ -888,23 +889,18 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// replace_ports must begin its txn with BEGIN IMMEDIATE (write
-    /// lock at BEGIN), and the whole write path must stay inside the control-
-    /// plane latency budget (D-004: p99 <= 50ms).
+    /// replace_ports commit-latency measurement. Two assertions that used
+    /// to live here left the push gate (r12-wave-i D-004; djust #2157
+    /// precedent - benchmark bodies still run, duration assertions don't
+    /// gate): the BEGIN-IMMEDIATE requirement is enforced by
+    /// scripts/db-immediate-txn-check.cjs (a real source gate - comments
+    /// stripped, whitespace-normalized match instead of a test reading its
+    /// own source), and the p99 <= 50ms bound records through the bench.yml
+    /// dbprobe phase as a measure-only artifact row. The body still runs -
+    /// a correctness regression still fails here via the unwraps.
     #[test]
-    fn replace_ports_begins_immediate_and_meets_p99_budget() {
-        let src = std::fs::read_to_string("src/db.rs").expect("db.rs readable from crate root");
-        let start = src
-            .find("fn replace_ports(")
-            .expect("replace_ports present");
-        let body = &src[start..];
-        let end = body.find("\n    }\n").unwrap_or(body.len());
-        assert!(
-            body[..end].contains("TransactionBehavior::Immediate"),
-            "replace_ports must BEGIN IMMEDIATE"
-        );
-
-        // Latency budget check on the real write path: repeated full-map
+    fn replace_ports_commit_latency_measurement() {
+        // Latency measurement on the real write path: repeated full-map
         // replaces on a file-backed WAL database. Sequential writes isolate
         // the per-commit cost (no artificial contention); p99 over 200
         // samples leaves large headroom for CI-runner jitter while still
@@ -933,12 +929,91 @@ mod tests {
         }
         samples.sort();
         let p99 = samples[(samples.len() * 99 / 100).min(samples.len() - 1)];
-        assert!(
-            p99 <= Duration::from_millis(50),
-            "replace_ports p99 must be <= 50ms (D-004), got {:?}",
-            p99
+        // Measured, not asserted (r12-wave-i D-004): the <=50ms budget is a
+        // recorded bench row; DBPROBE is what the bench dbprobe phase parses.
+        println!(
+            "DBPROBE replace_ports_p99_us={} samples={}",
+            p99.as_micros(),
+            samples.len()
         );
 
+        drop(pool);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// r12-wave-i D-004: behavioral lock for the BEGIN-IMMEDIATE invariant -
+    /// while a competing connection holds a write txn, replace_ports must
+    /// fail AT `begin` (SQLITE_BUSY after busy_timeout), not at the first
+    /// write or commit. A deferred txn would take no write lock at BEGIN
+    /// and only hit BUSY inside `clear port_mappings:`, so the error
+    /// prefix IS the non-upgrade proof. Strict ordering, no racing: the
+    /// holder's BEGIN IMMEDIATE is confirmed via channel before B runs and
+    /// released only after B returns. B's connection is hand-built with a
+    /// short busy_timeout so the closed loop runs in ms, not the
+    /// production 5s budget.
+    #[test]
+    fn replace_ports_fails_at_begin_while_write_txn_held() {
+        let dir =
+            std::env::temp_dir().join(format!("resin-db-busybegin-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("busybegin.db");
+        let _ = std::fs::remove_file(&path);
+
+        // Schema via the real open path, then a hand-built pool whose conn
+        // carries a short busy timeout (production uses BUSY_TIMEOUT = 5s;
+        // the held txn never releases mid-test, so the value only controls
+        // how fast B fails).
+        drop(DbPool::open(&path).unwrap());
+        let conn = Connection::open(&path).unwrap();
+        conn.busy_timeout(Duration::from_millis(50)).unwrap();
+        let pool = DbPool(
+            Arc::new(Mutex::new(conn)),
+            no_read_conn(),
+            #[cfg(feature = "db-lock-metrics")]
+            LockWaitStats::new_shared(),
+        );
+
+        // Connection A holds BEGIN IMMEDIATE on a raw connection
+        // (Transaction borrows its Connection, so the txn must live on the
+        // holder thread - same pattern as the busy-timeout test).
+        let path2 = path.clone();
+        let (begun_tx, begun_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let holder = std::thread::spawn(move || {
+            let mut a = Connection::open(&path2).unwrap();
+            a.busy_timeout(Duration::from_millis(0)).unwrap(); // holder never waits
+            let tx = a
+                .transaction_with_behavior(TransactionBehavior::Immediate)
+                .unwrap();
+            tx.execute(
+                "INSERT INTO port_mappings (port, protocol, platform_name, account, label, enabled, auth_required) VALUES (19005, 'mixed', 'A', 'a', '', 1, 1)",
+                [],
+            )
+            .unwrap();
+            begun_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+            tx.commit().unwrap();
+        });
+        begun_rx.recv().unwrap(); // A holds the write lock - strict ordering
+
+        let err = pool
+            .replace_ports(&[PortMapping {
+                port: 19006,
+                protocol: "http".into(),
+                platform_name: "B".into(),
+                account: "b".into(),
+                label: "".into(),
+                enabled: true,
+                auth_required: true,
+            }])
+            .expect_err("a held write txn must turn BEGIN IMMEDIATE into a BUSY failure");
+        assert!(
+            err.starts_with("begin replace_ports:"),
+            "the failure must land at BEGIN (Immediate), not the first write/commit: {err}"
+        );
+
+        release_tx.send(()).unwrap();
+        holder.join().unwrap();
         drop(pool);
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -952,8 +1027,10 @@ mod tests {
     /// microbenchmark is not a production criterion; emschwartz/abseil
     /// per the ledger). Post-verdict semantics: this probe is a
     /// regression/A-B instrument only - it asserts instrument sanity
-    /// plus a hang-pathology bound (p99 < 250ms - 25x the observed 9.9ms
-    /// max, catching an unreleased lock / pathological regression). Arm
+    /// plus deterministic pivots; the p99 < 250ms hang-pathology bound
+    /// (25x the observed 9.9ms max, catching an unreleased lock /
+    /// pathological regression) moved to the bench.yml dbprobe artifact
+    /// row (r12-wave-i D-004 - recorded, never gated). Arm
     /// (i) - the dev counters on real load - is the primary instrument;
     /// arm (iii)'s probe leg is dropped; arm (iv)'s 2026-10-20 hard date
     /// is unchanged.
@@ -1030,16 +1107,17 @@ mod tests {
         // Post-verdict instrument line (r12-wave-f D-002): arm (ii) fired
         // 2026-09-24 and discharged to a keep-Mutex verdict, so this
         // print is a regression/A-B readout - printed, not gated; arm (i)
-        // on real load is the primary reopen instrument.
+        // on real load is the primary reopen instrument. The 250ms
+        // hang-pathology bound left the push gate for the bench.yml
+        // dbprobe artifact row (r12-wave-i D-004) - DBPROBE is what the
+        // phase parses.
         println!(
-            "lock-wait probe: p99={p99}us max={}us over_threshold={} samples={} (regression/A-B instrument; arm ii FIRED+discharged 2026-09-24 run 35959139983, keep-Mutex verdict)",
+            "DBPROBE lock_wait_p99_us={p99} max_us={} over_threshold={} over_magnitude={} read_over_threshold={} samples={} (arm ii FIRED+discharged 2026-09-24 run 35959139983, keep-Mutex verdict)",
             report.max_wait_micros,
             report.over_threshold,
+            report.over_magnitude,
+            report.read_over_threshold,
             s.len()
-        );
-        assert!(
-            p99 < 250_000,
-            "hang-pathology bound: acquisition wait p99 must stay < 250ms, got {p99}us"
         );
 
         // D-004 step1 pivot assertion: the same read hammer that arm (ii)
@@ -1099,14 +1177,37 @@ mod tests {
             Some("list_ports"),
             "a fallback read attributes its callsite too"
         );
+
+        // File-backed reads land on the dedicated read conn - attribution
+        // goes to the read domain's own holder slot (D-003.1/D-005).
+        let dir = std::env::temp_dir().join(format!("resin-db-readattr-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("readattr.db");
+        let _ = std::fs::remove_file(&path);
+        let file_pool = DbPool::open(&path).unwrap();
+        file_pool.upsert_port(&m(17991)).unwrap();
+        file_pool.list_ports().unwrap();
+        assert_eq!(
+            *file_pool.2.read_holder.lock().unwrap(),
+            Some("list_ports"),
+            "a dedicated-conn read attributes its callsite on the read domain"
+        );
+        assert_eq!(
+            *file_pool.2.holder.lock().unwrap(),
+            Some("upsert_port"),
+            "writer holder must stay untouched by dedicated-conn reads"
+        );
+        drop(file_pool);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// R12-H2 step1 (D-004): a file-backed pool serves list/get through the
     /// dedicated read-only connection - a separate handle on the same WAL
     /// database, lazily opened on first read and kept for the pool's life
     /// (hynek: short-lived readers pay the -shm handshake). In-memory pools
-    /// stay on the instrumented writer-lock fallback.
-    #[cfg(debug_assertions)]
+    /// stay on the writer-lock fallback. Ungated per r12-wave-i D-004.3 -
+    /// observability comes from the public `read_conn_dedicated()`
+    /// accessor, not the instrument feature.
     #[test]
     fn file_backed_reads_use_the_dedicated_read_conn() {
         let dir = std::env::temp_dir().join(format!("resin-db-readconn-{}", std::process::id()));

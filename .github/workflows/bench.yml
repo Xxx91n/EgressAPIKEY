@@ -119,7 +119,7 @@ jobs:
       # gate. Identical expressions as the Run benchmark step below.
       - name: Resolve schedule/dispatch inputs (dry-run)
         env:
-          PHASES_ARG: ${{ github.event_name == 'schedule' && '--phases idle,paired,rps,sse,soak,healthz,app,appstart,headless,headlessstart,faultinject' || (inputs.phases != '' && format('--phases {0}', inputs.phases) || '') }}
+          PHASES_ARG: ${{ github.event_name == 'schedule' && '--phases idle,paired,rps,sse,soak,healthz,app,appstart,headless,headlessstart,faultinject,dbprobe' || (inputs.phases != '' && format('--phases {0}', inputs.phases) || '') }}
           HEADLESS_ARG: ${{ (matrix.os == 'windows-latest' && (inputs.with_app == 'true' || contains(inputs.phases, 'faultinject') || github.event_name == 'schedule')) && '--headless-exe target/x86_64-pc-windows-msvc/release/egressapikey-headless.exe' || (matrix.os == 'ubuntu-latest' && (contains(inputs.phases, 'faultinject') || github.event_name == 'schedule')) && '--headless-exe target/x86_64-unknown-linux-gnu/release/egressapikey-headless' || '' }}
         run: echo "[bench] event=${{ github.event_name }} duration=${{ inputs.duration || 'short' }} gate=${{ inputs.gate || 'warn' }} phases=[$PHASES_ARG] headless=[$HEADLESS_ARG]"
         shell: bash
@@ -129,7 +129,9 @@ jobs:
           # Schedule runs the explicit full default set + faultinject
           # (R12-D4b): the list is spelled out, not expanded from empty
           # input, so the monthly heartbeat is immune to default-list drift.
-          PHASES_ARG: ${{ github.event_name == 'schedule' && '--phases idle,paired,rps,sse,soak,healthz,app,appstart,headless,headlessstart,faultinject' || (inputs.phases != '' && format('--phases {0}', inputs.phases) || '') }}
+          # dbprobe (r12-wave-i D-004) carries the ex-push-gate duration
+          # measurements - it runs cargo test, so it needs no SUT plumbing.
+          PHASES_ARG: ${{ github.event_name == 'schedule' && '--phases idle,paired,rps,sse,soak,healthz,app,appstart,headless,headlessstart,faultinject,dbprobe' || (inputs.phases != '' && format('--phases {0}', inputs.phases) || '') }}
           HEADLESS_ARG: ${{ (matrix.os == 'windows-latest' && (inputs.with_app == 'true' || contains(inputs.phases, 'faultinject') || github.event_name == 'schedule')) && '--headless-exe target/x86_64-pc-windows-msvc/release/egressapikey-headless.exe' || (matrix.os == 'ubuntu-latest' && (contains(inputs.phases, 'faultinject') || github.event_name == 'schedule')) && '--headless-exe target/x86_64-unknown-linux-gnu/release/egressapikey-headless' || '' }}
         run: >
           node scripts/bench/run-bench.mjs

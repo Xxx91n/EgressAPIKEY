@@ -9,13 +9,13 @@
 //     [--headless-exe <path>]  (vps-headless profile: whole-tree idle + cold start)
 //     [--out <dir>]
 //     [--phases <csv>]  an explicit list is EXACT (no exe-gated appends).
-//                       Default: idle,paired,rps,sse,soak,healthz plus
-//                       app/appstart (--app-exe) + headless/headlessstart
+//                       Default: idle,paired,rps,sse,soak,healthz,dbprobe
+//                       plus app/appstart (--app-exe) + headless/headlessstart
 //                       (--headless-exe). "faultinject" is opt-in evidence:
 //                       real WAN egress required, never in the default set.
 // Env: RESIN_BIN, VEGETA, BENCH_OUT
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import net from "node:net";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -73,7 +73,7 @@ const APPSTART_N = Number(process.env.BENCH_APPSTART_N || 5);
 const HEADLESS_N = Number(process.env.BENCH_HEADLESS_N || 5);
 const OUT = arg("out", process.env.BENCH_OUT || path.join(root, "bench-results"));
 const PHASES = (arg("phases", null) ??
-  "idle,paired,rps,sse,soak,healthz" + (APP_EXE ? ",app,appstart" : "") + (HEADLESS_EXE ? ",headless,headlessstart" : ""))
+  "idle,paired,rps,sse,soak,healthz,dbprobe" + (APP_EXE ? ",app,appstart" : "") + (HEADLESS_EXE ? ",headless,headlessstart" : ""))
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
@@ -387,6 +387,49 @@ async function phaseHeadlessStart(ctx) {
     samples,
     coldStartMs: roundStats(summarize(ok)),
   };
+}
+
+// r12-wave-i D-004: the two duration assertions that used to live in the
+// cargo-test push gate (replace_ports p99 <= 50ms; lock-wait probe p99 <
+// 250ms hang bound) record here as measurement rows instead - the phase
+// runs the measurement tests and parses their DBPROBE key=value markers.
+// kind=measure semantics apply: numbers are recorded evidence, never a
+// job failure. Needs cargo on the runner (bench jobs install stable).
+async function phaseDbProbe() {
+  const marks = {};
+  const errors = [];
+  for (const filter of [
+    "replace_ports_commit_latency_measurement",
+    "concurrent_list_ports_lock_wait_probe_reports_p99",
+  ]) {
+    const r = spawnSync(
+      "cargo",
+      ["test", "-p", "resin-core", "--features", "db-lock-metrics", "--lib", filter, "--", "--nocapture", "--test-threads=1"],
+      { cwd: root, encoding: "utf8", timeout: 600000 },
+    );
+    const text = String(r.stdout ?? "") + "\n" + String(r.stderr ?? "");
+    for (const m of text.matchAll(/DBPROBE\s+([^\n]+)/g)) {
+      for (const kv of m[1].matchAll(/(\w+)=([^\s()]+)/g)) {
+        marks[kv[1]] = kv[2];
+      }
+    }
+    if (r.status !== 0 && r.status !== null) {
+      errors.push(filter + ": exit " + r.status + (r.error ? " (" + r.error + ")" : ""));
+    } else if (r.error) {
+      errors.push(filter + ": " + r.error);
+    }
+  }
+  const num = (k) => (marks[k] != null ? Number(marks[k]) : null);
+  const out = {
+    replacePortsP99Us: num("replace_ports_p99_us"),
+    lockWaitP99Us: num("lock_wait_p99_us"),
+    lockWaitMaxUs: num("max_us"),
+    lockWaitOverThreshold: num("over_threshold"),
+    lockWaitOverMagnitude: num("over_magnitude"),
+    readWaitOverThreshold: num("read_over_threshold"),
+  };
+  if (errors.length) out.error = errors.join("; ");
+  return out;
 }
 
 // ---- gate evaluation ------------------------------------------------------
@@ -957,6 +1000,7 @@ async function main() {
   await runPhase("appstart", (c) => phaseAppStart(c));
   await runPhase("headless", (c) => phaseHeadless(c));
   await runPhase("headlessstart", (c) => phaseHeadlessStart(c));
+  await runPhase("dbprobe", () => phaseDbProbe());
   await runPhase("faultinject", (c) => phaseFaultInject(c));
 
   // gates

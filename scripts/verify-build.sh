@@ -120,6 +120,12 @@ node scripts/mode-a-contract-check.cjs
 echo "[verify] instrument declaration gate"
 node scripts/instrument-declaration-check.cjs
 
+# r12-wave-i D-004: replace_ports' BEGIN-IMMEDIATE requirement is a source
+# gate, not a self-reading test - comments stripped, whitespace
+# normalized, only the transaction_with_behavior(Immediate) call counts.
+echo "[verify] db BEGIN IMMEDIATE source gate"
+node scripts/db-immediate-txn-check.cjs
+
 # The headless capability registry must cover every registered
 # command exactly once and agree with the transport route table.
 echo "[verify] headless capability registry contract"

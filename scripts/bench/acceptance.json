@@ -233,6 +233,26 @@
       "measure": "phases.healthz.p95",
       "locked": 263.3,
       "lockedState": "measured"
+    },
+    {
+      "id": "db-replace-ports-p99-us",
+      "kind": "measure",
+      "desc": "replace_ports full-map commit latency p99 over 200 sequential writes (file-backed WAL). Ex-push-gate duration bound (the D-004 <=50ms budget) demoted to a recorded row per r12-wave-i D-004 - the benchmark body still runs in cargo test, the assertion does not gate",
+      "op": "measure-only",
+      "target": null,
+      "unit": "us",
+      "scope": "both",
+      "measure": "phases.dbprobe.replacePortsP99Us"
+    },
+    {
+      "id": "db-lockwait-p99-us",
+      "kind": "measure",
+      "desc": "DbPool writer-lock acquisition-wait p99 under the synthetic saturation hammer (regression/A-B readout; arm ii discharged 2026-09-24). Ex-push-gate hang-pathology bound (p99<250ms) demoted likewise; read-domain counters land alongside under phases.dbprobe.*OverThreshold",
+      "op": "measure-only",
+      "target": null,
+      "unit": "us",
+      "scope": "both",
+      "measure": "phases.dbprobe.lockWaitP99Us"
     }
   ],
   "meta": {
