@@ -111,12 +111,15 @@ pub fn new_audit_id() -> String {
 /// real file at construction so a size already past the threshold rotates on
 /// the first append.
 ///
-/// Single-writer invariant: `append` performs the `prev_hash`
-/// read-modify-write across the row I/O in two separate critical sections.
-/// That is safe only because every production caller funnels through the
-/// process-global `AUDIT` Mutex (tests use a private `AuditLog`). Before
-/// any future multi-writer wiring, the chain read + write must move into ONE
-/// critical section.
+/// Per-instance thread-safety: `append` holds the `last_hash` lock across
+/// the whole prev_hash read -> serialize -> rotate -> write -> commit
+/// sequence (one critical section, R12-J1 / wave-j D-002), so two appends on
+/// ONE instance can never interleave a torn chain - the type is thread-safe
+/// on its own. What remains a discipline invariant is one instance per file:
+/// two `AuditLog`s pointed at the same `audit.jsonl` still race each other
+/// (cross-instance writers to one file have no intra-process defense; no
+/// file locking - out of scope). Production keeps exactly one instance
+/// behind the process-global `AUDIT` mutex.
 pub struct AuditLog {
     path: PathBuf,
     last_hash: Mutex<Option<String>>,
@@ -144,7 +147,13 @@ impl AuditLog {
     /// failure is reported to the caller (which is the store's degrade path);
     /// the module-level `append` wraps this so a failure never blocks writes.
     pub fn append(&self, mut event: AuditEvent) -> Result<(), String> {
-        event.prev_hash = self.last_hash.lock().unwrap().clone();
+        // One critical section: the last_hash lock is held across the whole
+        // prev_hash read-modify-write + row I/O, so concurrent appends on
+        // this instance can never interleave a torn chain. Lock order is
+        // always last_hash -> written_bytes (rotate keeps the same order);
+        // a failure path drops the guard with the chain tail uncommitted.
+        let mut last_hash = self.last_hash.lock().unwrap();
+        event.prev_hash = last_hash.clone();
         // Canonical JSONL row: serialize to one line + trailing newline.
         let mut line = serde_json::to_vec(&event).map_err(|e| e.to_string())?;
         line.push(b'\n');
@@ -154,7 +163,7 @@ impl AuditLog {
         self.write_row(&line)?;
 
         // Commit the chain + byte accounting only after the row lands.
-        *self.last_hash.lock().unwrap() = Some(row_hash);
+        *last_hash = Some(row_hash);
         // Re-seed the byte counter from the real file size after EVERY append
         // so drift between the counter and on-disk bytes self-corrects
         // (rotation fidelity). A stat failure keeps the previous value -
@@ -662,6 +671,58 @@ mod tests {
         std::fs::write(&path, format!("{l1}\n{l2}\n")).unwrap();
         let log = AuditLog::new(path);
         assert_eq!(*log.last_hash.lock().unwrap(), Some(own_hash(&l2)));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // -- R12-J1 / wave-j D-002: append is a single critical section --
+
+    #[test]
+    fn concurrent_appends_form_one_unbroken_chain() {
+        // N threads append to ONE shared AuditLog; the single critical
+        // section serializes the prev_hash read-modify-write, so the file
+        // must land as one unbroken chain in append order: row i links to
+        // the own-hash of the physical previous row, and exactly one row
+        // (the head) carries no prev_hash.
+        let dir = temp_dir("concurrent");
+        let path = dir.join(AUDIT_LOG_FILE);
+        let log = std::sync::Arc::new(AuditLog::new(path.clone()));
+
+        const THREADS: usize = 8;
+        const ROWS: usize = 16;
+        let mut handles = Vec::with_capacity(THREADS);
+        for t in 0..THREADS {
+            let log = std::sync::Arc::clone(&log);
+            handles.push(std::thread::spawn(move || {
+                for i in 0..ROWS {
+                    let mut ev = sample("L2:strategy");
+                    ev.op = format!("put-{t}-{i}");
+                    log.append(ev).unwrap();
+                }
+            }));
+        }
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        let raw = std::fs::read_to_string(&path).unwrap();
+        let lines: Vec<&str> = raw.lines().collect();
+        assert_eq!(lines.len(), THREADS * ROWS);
+        let mut heads = 0usize;
+        for (i, l) in lines.iter().enumerate() {
+            let row: AuditEvent = serde_json::from_str(l).unwrap();
+            if i == 0 {
+                heads += 1;
+                assert!(row.prev_hash.is_none(), "chain head has no prev_hash");
+            } else {
+                let prev_own = own_hash(lines[i - 1]);
+                assert_eq!(
+                    row.prev_hash.as_deref(),
+                    Some(prev_own.as_str()),
+                    "row {i} must link to the physical previous row - no two rows share prev_hash"
+                );
+            }
+        }
+        assert_eq!(heads, 1, "exactly one chain head");
         let _ = std::fs::remove_dir_all(dir);
     }
 }
