@@ -4,7 +4,8 @@ name: ci
 #   push / pull_request -> ONLY the `verify` job runs: cargo test + frontend build
 #     (tsc + vite) + vitest + every guard script (scripts/verify-build.sh) + the
 #     line-ending guard. This is the push->verify gate: no green verify, no merge.
-#   workflow_dispatch  -> `verify` + the 5-job release matrix, unchanged and still
+#   workflow_dispatch  -> `verify` + `macos-test` (r12-wave-j D-004 tier-2
+#     release gate) + the 5-job release matrix, unchanged and still
 #     manual: the user opens the Actions tab and types a tag. Input
 #     `include_intel_mac` (default off) additionally gates the two opt-in
 #     macOS x86_64 legs (backend-intel + gui-intel on macos-15-intel, R12-E2).
@@ -77,11 +78,42 @@ jobs:
       - name: line-ending guard
         run: git diff --check || (echo "::error::CRLF/whitespace errors detected" && exit 1)
 
+  # 1b. macOS tier-2 test gate (r12-wave-j D-004): cargo test on macos-latest
+  #     as a REQUIRED check on the release path - gate-at-release here, while
+  #     the periodic signal lives in bench.yml's macos-latest leg
+  #     (signal-at-main). Dispatch-only: NEVER on push (~10x runner cost +
+  #     flake surface would press the only merge gate - ADR-0072 noise
+  #     discipline). A first macOS-unique failure fires the armed register
+  #     row (promotion-to-gating adjudication).
+  macos-test:
+    name: 'macos cargo test (tier-2 release gate)'
+    runs-on: macos-latest
+    needs: verify
+    if: github.event_name == 'workflow_dispatch'
+    env:
+      CARGO_BUILD_TARGET: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: fetch Resin Go sidecar binary
+        shell: bash
+        run: bash scripts/fetch_resin.sh
+      # Same test scope as the unix verify leg. The repo .cargo/config.toml
+      # pins x86_64-pc-windows-msvc, so CARGO_BUILD_TARGET must be overridden
+      # to the host triple (same trick as the verify job on ubuntu).
+      - name: cargo test (tier-2 signal promoted to release gate)
+        run: |
+          cargo test -p resin-core --quiet
+          cargo test -p egressapikey-app --lib --quiet
+
   # 2. Frontend e2e (playwright) on the Vite dev server surface.
   e2e:
     name: e2e (playwright)
     runs-on: ubuntu-latest
-    needs: verify
+    needs: [verify, macos-test]
     # Release-track job: never on push - the automatic gate is `verify` only.
     if: github.event_name == 'workflow_dispatch'
     steps:
@@ -107,7 +139,7 @@ jobs:
 #    self-contained release for users who want the proxy without the GUI shell.
   backend:
     name: backend headless (${{ matrix.name }})
-    needs: verify
+    needs: [verify, macos-test]
     # Release-track job: manual dispatch only (ADR-0010 Track 2).
     if: github.event_name == 'workflow_dispatch'
     strategy:
@@ -191,7 +223,7 @@ jobs:
   #     keeps the opt-out path from even provisioning an Intel runner.
   backend-intel:
     name: backend headless (macos-x86_64, opt-in)
-    needs: verify
+    needs: [verify, macos-test]
     if: github.event_name == 'workflow_dispatch' && inputs.include_intel_mac
     # Raised bound: Intel runners are empirically slow.
     timeout-minutes: 120
@@ -249,7 +281,7 @@ jobs:
   #    Windows -> msi + nsis setup.exe; Linux -> deb + AppImage; macOS -> dmg (universal).
   gui:
     name: gui installer (${{ matrix.name }})
-    needs: verify
+    needs: [verify, macos-test]
     # Release-track job: manual dispatch only (ADR-0010 Track 2).
     if: github.event_name == 'workflow_dispatch'
     # tauri-action creates the draft GitHub release + uploads installer
@@ -347,7 +379,7 @@ jobs:
   #     matrix leg so its dmg lands on the same draft release when opted in.
   gui-intel:
     name: gui installer (macos-gui-x86_64, opt-in)
-    needs: verify
+    needs: [verify, macos-test]
     if: github.event_name == 'workflow_dispatch' && inputs.include_intel_mac
     # Raised bound: Intel-runner tauri builds are empirically the slowest leg.
     timeout-minutes: 180
@@ -418,7 +450,7 @@ jobs:
   #    v2's `--no-bundle` build mode.
   gui-portable:
     name: gui portable (${{ matrix.name }})
-    needs: verify
+    needs: [verify, macos-test]
     # Release-track job: manual dispatch only (ADR-0010 Track 2).
     if: github.event_name == 'workflow_dispatch'
     strategy:

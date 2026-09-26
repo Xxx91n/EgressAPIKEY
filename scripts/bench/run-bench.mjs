@@ -410,13 +410,18 @@ async function phaseDbProbe() {
         encoding: "utf8",
         timeout: 600000,
         // .cargo/config.toml pins target=x86_64-pc-windows-msvc repo-wide;
-        // without this override cargo test on the ubuntu leg
+        // without this override cargo test on the unix legs
         // cross-compiles to msvc and exits 101 (ci.yml's verify job does
-        // the same override). The bench matrix is x64 win/ubuntu only.
+        // the same override). The bench matrix is win/ubuntu/macos
+        // (r12-wave-j D-004 added the macOS tier-2 signal leg).
         env: {
           ...process.env,
           CARGO_BUILD_TARGET:
-            process.platform === "win32" ? "x86_64-pc-windows-msvc" : "x86_64-unknown-linux-gnu",
+            process.platform === "win32"
+              ? "x86_64-pc-windows-msvc"
+              : process.platform === "darwin"
+                ? "aarch64-apple-darwin"
+                : "x86_64-unknown-linux-gnu",
         },
       },
     );
