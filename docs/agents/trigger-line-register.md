@@ -105,6 +105,6 @@ Re-open the trim adjudication when ANY line fires:
 - Per-round grill: re-check each line's probe column; mark hits.
 - A hit line re-enters the normal ticket filter (D-003 four-tier rule).
 - Adding a suspended item without a named trigger line is a ledger error.
-- New instruments MUST declare at registration: observation environment, zero-read power boundary, evidence-retention class (r12-wave-i D-007; machine gate pending R12-I7).
+- New instruments MUST declare at registration: observation environment, zero-read power boundary, evidence-retention class - literal markers `obs-env:` / `zero-read:` / `evidence:` in the entry text (r12-wave-i D-007; enforced by scripts/instrument-declaration-check.cjs in verify-build.sh).
 - A covered-by note without a reopen-when condition is a ledger error (r12-wave-i D-005).
 - Mechanism-level fixes may discharge a flake line at one scheduled green (r12-wave-i D-007 exception clause).

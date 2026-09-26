@@ -105,6 +105,12 @@ node scripts/upstream-router-check.cjs
 echo "[verify] contracts (mode-a contract gate, ADR-0068)"
 node scripts/mode-a-contract-check.cjs
 
+# r12-wave-i D-003.2 + D-007.1: trigger-line instruments must declare their
+# three fields at birth (obs-env / zero-read / evidence) - a machine gate,
+# not a convention.
+echo "[verify] instrument declaration gate"
+node scripts/instrument-declaration-check.cjs
+
 # The headless capability registry must cover every registered
 # command exactly once and agree with the transport route table.
 echo "[verify] headless capability registry contract"
