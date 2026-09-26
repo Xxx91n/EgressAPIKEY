@@ -88,7 +88,10 @@ let scanned = 0;
 
 for (const e of entries) {
   const isInstrument = INSTRUMENT_WORD.test(e.text);
-  const pin = LEGACY_EXEMPTIONS.find((x) => e.name.includes(x) || x.includes(e.name));
+  // Directional match only (r12-wave-i audit nit): the pin must be a
+  // substring of the ENTRY name - a short future entry name can never be
+  // silently exempted by containing a longer pin's tail.
+  const pin = LEGACY_EXEMPTIONS.find((x) => e.name.includes(x));
   if (pin) exempted.add(pin);
 
   // Rule (ii): a covered-by note without reopen-when is a ledger error.
