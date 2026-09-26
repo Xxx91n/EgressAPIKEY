@@ -142,7 +142,7 @@ fn trusted_proxy_scope_error(nets: &[ipnet::IpNet], unrestricted: bool) -> Optio
         return None;
     }
     Some(
-        "--trusted-proxy 0.0.0.0/0 or ::/0 would trust X-Forwarded-Proto from every          reachable peer; refusing to start (pass --trusted-proxy-unrestricted to accept          that posture)"
+        "--trusted-proxy 0.0.0.0/0 or ::/0 would trust X-Forwarded-Proto from every reachable peer; refusing to start (pass --trusted-proxy-unrestricted to accept that posture)"
             .to_string(),
     )
 }
