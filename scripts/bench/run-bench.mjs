@@ -405,7 +405,20 @@ async function phaseDbProbe() {
     const r = spawnSync(
       "cargo",
       ["test", "-p", "resin-core", "--features", "db-lock-metrics", "--lib", filter, "--", "--nocapture", "--test-threads=1"],
-      { cwd: root, encoding: "utf8", timeout: 600000 },
+      {
+        cwd: root,
+        encoding: "utf8",
+        timeout: 600000,
+        // .cargo/config.toml pins target=x86_64-pc-windows-msvc repo-wide;
+        // without this override cargo test on the ubuntu leg
+        // cross-compiles to msvc and exits 101 (ci.yml's verify job does
+        // the same override). The bench matrix is x64 win/ubuntu only.
+        env: {
+          ...process.env,
+          CARGO_BUILD_TARGET:
+            process.platform === "win32" ? "x86_64-pc-windows-msvc" : "x86_64-unknown-linux-gnu",
+        },
+      },
     );
     const text = String(r.stdout ?? "") + "\n" + String(r.stderr ?? "");
     for (const m of text.matchAll(/DBPROBE\s+([^\n]+)/g)) {
@@ -414,6 +427,11 @@ async function phaseDbProbe() {
       }
     }
     if (r.status !== 0 && r.status !== null) {
+      // Echo the tail of the test output so a failing measurement stays
+      // debuggable from the job log alone (CI-only policy: no local
+      // repro path).
+      console.error("[dbprobe] " + filter + " failed (exit " + r.status + ") - output tail:");
+      console.error(text.split("\n").slice(-30).join("\n"));
       errors.push(filter + ": exit " + r.status + (r.error ? " (" + r.error + ")" : ""));
     } else if (r.error) {
       errors.push(filter + ": " + r.error);
