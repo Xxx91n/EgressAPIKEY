@@ -29,6 +29,7 @@ Spec:
 - Pure fn `trusted_forwarded_https(peer, trusted, xfp) -> bool`: IPv4-mapped-IPv6 normalization via `to_ipv4_mapped()` (NOT `to_ipv4` — maps `::1`->`0.0.0.1`); XFP list values take FIRST scheme (client-nearest, ASP.NET semantics), fail-closed.
 - Forged XFP silently dropped (per-request warn = flood vector; optional `tracing::debug!`); startup info line prints trusted-proxy count.
 - `0.0.0.0/0` = operator footgun: docs warning only, no hard block.
+- **errata r12-wave-i D-002 (2026-09-26)**: the FIRST-segment rule and the `0.0.0.0/0` "warning only" posture in this ticket were superseded on landing - merged header instances take the RIGHTMOST (nearest-trusted-hop) segment, and wildcard CIDRs now refuse startup unless `--trusted-proxy-unrestricted` is given. Current truth: src-tauri/src/headless_security.rs + .scratch/r12-wave-i-grill decision ledger.
 - ADR-0071: appended errata (amend-not-rewrite) recording why socket-peer model was chosen over XFF chain (guard only needs "did a trusted proxy relay this", not real client IP). Deployment doc gains the flag; CHANGELOG/RELEASE_NOTES behavior-change line in the SAME commit.
 - Tests: 8 pure-fn cases — no flag ignores / untrusted peer ignores / trusted+https -> Secure / trusted+no-header -> none / XFP=http -> none / trusted+`https,http` list / v6-mapped `::ffff:127.0.0.1` hits v4 entry / CIDR hit+miss.
 
