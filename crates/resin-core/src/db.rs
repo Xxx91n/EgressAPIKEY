@@ -953,8 +953,7 @@ mod tests {
     /// production 5s budget.
     #[test]
     fn replace_ports_fails_at_begin_while_write_txn_held() {
-        let dir =
-            std::env::temp_dir().join(format!("resin-db-busybegin-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("resin-db-busybegin-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("busybegin.db");
         let _ = std::fs::remove_file(&path);
