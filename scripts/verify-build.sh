@@ -101,6 +101,16 @@ if [ "$ssvc_lines" -gt 4000 ]; then
   exit 1
 fi
 echo "[verify] strategy_service.rs size OK: ${ssvc_lines} lines <= 4000"
+echo "[verify] snapshot.rs prod-lines gate (r12-wave-j D-005 armed row)"
+# Prod surface = lines before the `mod tests` block (anchor ~:919); the
+# ~1110-line test half is excluded so the 2.2x headroom ratchet measures
+# production code only. Breach re-opens the split adjudication.
+snap_prod=$(awk '/^mod tests/{exit} {n++} END{print n+0}' crates/resin-core/src/snapshot.rs)
+if [ "$snap_prod" -gt 2000 ]; then
+  echo "FAIL: snapshot.rs is ${snap_prod} prod lines - over the 2000-line armed gate (armed at ~919 prod lines); split re-adjudication re-opens"
+  exit 1
+fi
+echo "[verify] snapshot.rs prod-lines OK: ${snap_prod} <= 2000"
 echo "[verify] ipc manifest guard"
 node scripts/ipc-manifest-check.cjs
 echo "[verify] vitest isolation guard"
