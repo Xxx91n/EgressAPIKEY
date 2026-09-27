@@ -130,7 +130,7 @@ Re-open the trim adjudication when ANY line fires:
 - Per-round grill: re-check each line's probe column; mark hits.
 - A hit line re-enters the normal ticket filter (D-003 four-tier rule).
 - Adding a suspended item without a named trigger line is a ledger error.
-- New instruments MUST declare at registration: observation environment, zero-read power boundary, evidence-retention class - literal markers `obs-env:` / `zero-read:` / `evidence:` in the entry text (r12-wave-i D-007; enforced by scripts/instrument-declaration-check.cjs in verify-build.sh).
+- New instruments and new armed trigger rows MUST declare at registration: observation environment, zero-read power boundary, evidence-retention class - literal markers `obs-env:` / `zero-read:` / `evidence:` in the entry text (r12-wave-i D-007; enforced by scripts/instrument-declaration-check.cjs in verify-build.sh).
 - A covered-by note without a reopen-when condition is a ledger error (r12-wave-i D-005).
 - Mechanism-level fixes may discharge a flake line at one scheduled green (r12-wave-i D-007 exception clause).
 - **Composition-check pre-filter (r12-wave-j D-008)**: a quantitative-headline charge (line counts, "N-times shell", O(n) claims) must pass a composition check BEFORE it earns an adjudication slot - production-vs-test split, duties-per-line, existing absorption/mitigation mechanisms. Charges failing the check dispose as closed-observations, not full adjudications. The filter gates agenda entry only; it never substitutes adjudication of the item itself.

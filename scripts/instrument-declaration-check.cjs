@@ -3,7 +3,9 @@
 // enforces the standing procedural rule that every NEW trigger-line
 // instrument declares three fields at birth. An entry in
 // docs/agents/trigger-line-register.md is instrument-class when its text
-// carries instrument vocabulary (instrument|counter|probe); such an entry
+// carries instrument vocabulary (instrument|counter|probe), OR it is an
+// armed-status row in the "Other registered trigger lines" table (r12-wave-k
+// audit extension: armed registrations are instruments too); such an entry
 // MUST contain the three literal field markers:
 //
 //   obs-env:    observation environment - e.g. dev | release | feature:<name>
@@ -57,6 +59,19 @@ const LEGACY_EXEMPTIONS = [
   "i18n-check Rust-side blind spot",
   "STANDING RULING (scope, r12-wave-h D-005)",
   "Resin upstream-first sequence (r12-wave-h D-002/D-003)",
+  // armed trigger rows predating the three-field rule (r12-wave-k audit):
+  "AGENTS.md 32 KiB ceiling",
+  "strategy_service split preemption (r12-wave-b D-001, extends wave-a D-003-7)",
+  "forwarder port-scan O(n) suggestion path (critique #2)",
+  "backup envelope versioning (critique #7)",
+  "monthly faultinject schedule heartbeat",
+  "Mode A shell forwarder boundary law (r12-wave-e D-002)",
+  "macos-x86_64 delivery demotion (r12-wave-e D-003)",
+  "census extractor AST upgrade (r12-wave-f D-003)",
+  "snapshot.rs prod-lines gate (r12-wave-j D-005)",
+  "ipc.ts interface-role drift (r12-wave-j D-006)",
+  "macOS test-signal leg (r12-wave-j D-004)",
+  "suggest_free_entry_port squatter escalation (r12-wave-j D-003)",
   // (b) meta entries: mention instrument vocabulary without registering
   // an instrument - pinned so the exclusion is explicit, not accidental.
   "db-lock-metrics feature landed", // landing note for the gated observer
@@ -78,13 +93,14 @@ for (let i = 0; i < lines.length; i++) {
   }
   const bullet = line.match(/^- \*\*(.+?)\*\*\s*:/);
   if (bullet) {
-    entries.push({ name: bullet[1], line: ln, text: line });
+    entries.push({ name: bullet[1], line: ln, text: line, armedRow: false });
     continue;
   }
   if (inTriggerTable && /^\|/.test(line)) {
     const cells = line.split("|").map((c) => c.trim()).filter((c) => c.length > 0);
     if (cells.length >= 2 && cells[0] !== "Item" && !/^---+$/.test(cells[0].replace(/\s/g, ""))) {
-      entries.push({ name: cells[0], line: ln, text: line });
+      const statusCell = cells[cells.length - 1] || "";
+      entries.push({ name: cells[0], line: ln, text: line, armedRow: /(^|[^a-z0-9_])armed([^a-z0-9_]|$)/i.test(statusCell) });
     }
   }
 }
@@ -94,7 +110,7 @@ const problems = [];
 let scanned = 0;
 
 for (const e of entries) {
-  const isInstrument = INSTRUMENT_WORD.test(e.text);
+  const isInstrument = INSTRUMENT_WORD.test(e.text) || e.armedRow === true;
   // Directional match only (r12-wave-i audit nit): the pin must be a
   // substring of the ENTRY name - a short future entry name can never be
   // silently exempted by containing a longer pin's tail.
