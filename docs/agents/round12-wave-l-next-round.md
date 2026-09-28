@@ -13,6 +13,8 @@ Each item declares the D-xxx records it covers. Binding negatives at the end are
 - macOS leg note: explicit schedule phases (app/appstart/headless/headlessstart/faultinject) record "skipped" rows on macos-latest - no exe is built there by design; skipped is graceful, not a failure.
 - Earliest checkpoint (r12-wave-n D-002): the 2026-09-28 02:00Z weekly bench run is the first observable faultinject evidence (schedule events inject faultinject into PHASES_ARG). Check run existence + faultinject rows in results.json. cancelled != absent - run 35574009682 (2026-09-21, ~1h, cancelled) does NOT count toward monthly absence; a missing or cancelled 09-28 run must be flagged within the wave. Monthly absence counting (1st-of-month cron) unaffected; this note does not feed the monthly absence tally; no trigger-line implication.
 
+  - Outcome (r12-wave-o, checked 2026-09-28 ~07:26Z): the 09-28 scheduled run was ABSENT - flagged per duty; register R12-O holds the record. Monthly tally unaffected; no trigger-line implication.
+
 ## R12-L2 - wait_bound flake watch (r12-wave-k D-001; unchanged by wave-L)
 
 - Covers: r12-wave-k D-001 armed row.
