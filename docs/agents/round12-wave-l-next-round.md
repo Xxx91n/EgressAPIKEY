@@ -11,6 +11,7 @@ Each item declares the D-xxx records it covers. Binding negatives at the end are
 - Covers: r12-wave-d schedule legislation; r12-wave-k D-001.5 roll-call.
 - At/after 2026-10-01 03:00Z: confirm the bench.yml scheduled run exists; inspect the dry-run echo (PHASES_ARG/HEADLESS_ARG) and results.json for the faultinject phase. The armed heartbeat fires only after TWO consecutive missing occurrences.
 - macOS leg note: explicit schedule phases (app/appstart/headless/headlessstart/faultinject) record "skipped" rows on macos-latest - no exe is built there by design; skipped is graceful, not a failure.
+- Earliest checkpoint (r12-wave-n D-002): the 2026-09-28 02:00Z weekly bench run is the first observable faultinject evidence (schedule events inject faultinject into PHASES_ARG). Check run existence + faultinject rows in results.json. cancelled != absent - run 35574009682 (2026-09-21, ~1h, cancelled) does NOT count toward monthly absence; a missing or cancelled 09-28 run must be flagged within the wave. Monthly absence counting (1st-of-month cron) unaffected; this note does not feed the monthly absence tally; no trigger-line implication.
 
 ## R12-L2 - wait_bound flake watch (r12-wave-k D-001; unchanged by wave-L)
 
@@ -47,6 +48,7 @@ Each item declares the D-xxx records it covers. Binding negatives at the end are
 - No re-grilling discharged/parked lines without new machine evidence.
 - No source edits inside grill waves; delivery evidence is CI-only (ADR-0072).
 - The second-reader line is parked, never armed without machine evidence.
+- Sealed-evidence discipline: scratch audit/report artifacts are sealed evidence - corrections go in dated append-only errata blocks, never rewritten in place (r12-wave-n D-003).
 
 ## Suggested skills
 
