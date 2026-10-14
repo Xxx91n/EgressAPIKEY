@@ -115,7 +115,7 @@ Any agent or human landing on this repo MUST apply these conventions. Violating 
 
 ### 6. Git hygiene - push after every change
 
-- Commit convention: `<Phase>: <area> - <summary>` e.g. `P1: core - lane hash + SSE lease`.
+- Commit convention: Conventional Commits `type(scope): summary` (e.g. `docs(r12-wave-p): ...`, `feat(core): ...`) - this matches the entire repo history; the former `<Phase>: <area> - <summary>` text was retired (audit L-6).
 - Every phase/feature commit MUST be pushed (`git push`) so the project is always traceable. Do not accumulate local-only work across phases.
 - `.gitattributes` LF policy is authoritative; `git diff --check` must be clean before each commit. Never commit with CRLF outside the allow set (`.bat`, `.ps1`, `.cmd`).
 - `git config core.autocrlf false` at repo level (set at init). Do not re-enable autocrlf.

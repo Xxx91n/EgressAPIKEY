@@ -12,8 +12,8 @@ Each item declares the D-xxx records it covers. Binding negatives at the end are
 - At/after 2026-10-01 03:00Z: confirm the bench.yml scheduled run exists; inspect the dry-run echo (PHASES_ARG/HEADLESS_ARG) and results.json for the faultinject phase. The armed heartbeat fires only after TWO consecutive missing occurrences.
 - macOS leg note: explicit schedule phases (app/appstart/headless/headlessstart/faultinject) record "skipped" rows on macos-latest - no exe is built there by design; skipped is graceful, not a failure.
 - Earliest checkpoint (r12-wave-n D-002): the 2026-09-28 02:00Z weekly bench run is the first observable faultinject evidence (schedule events inject faultinject into PHASES_ARG). Check run existence + faultinject rows in results.json. cancelled != absent - run 35574009682 (2026-09-21, ~1h, cancelled) does NOT count toward monthly absence; a missing or cancelled 09-28 run must be flagged within the wave. Monthly absence counting (1st-of-month cron) unaffected; this note does not feed the monthly absence tally; no trigger-line implication.
-
-  - Outcome (r12-wave-o, checked 2026-09-28 ~07:26Z): the 09-28 scheduled run was ABSENT - flagged per duty; register R12-O holds the record. Monthly tally unaffected; no trigger-line implication.
+- OUTCOME (r12-wave-p): 09-28 flag resolved as LATE-ARRIVAL (run 36396334252 @08:15:58Z, faultinject real on 2/3 legs); 10-01 monthly run 36845743331 decisive PASS - heartbeat dormant, zero misses.
+- OUTCOME (r12-wave-o, checked 2026-09-28 ~07:26Z): the 09-28 scheduled run was ABSENT - flagged per duty; register R12-O holds the record. Monthly tally unaffected; no trigger-line implication. CORRECTED 2026-10-15: the flag was structurally false-positive (check time fell inside the 5h17m-7h44m systematic dispatch-lag envelope; absence verdicts require cron + 8h).
 
 ## R12-L2 - wait_bound flake watch (r12-wave-k D-001; unchanged by wave-L)
 
@@ -22,6 +22,8 @@ Each item declares the D-xxx records it covers. Binding negatives at the end are
 - TTL: bound to the 10-20 eval block - still poll-structured with no recurrence by then auto-promotes to a hygiene ticket.
 
 ## R12-L3 - macOS tier-2 signal watch (r12-wave-j D-004)
+
+- OUTCOME (r12-wave-p): first post-armed macOS-unique failure observed 2026-09-28 - sse_first_token p99 assert on bench(macos-latest) 36396334252 (crates/resin-core/tests/forwarder_dataplane.rs:1003); zero recurrence in 3 later legs. Armed promotion row FIRED - re-tier adjudication owed at next grill.
 
 - One green on record (36255905315). First macOS-unique failure on the non-gating leg fires the armed promotion row (tier-2 -> tier-1 re-tier adjudication).
 
