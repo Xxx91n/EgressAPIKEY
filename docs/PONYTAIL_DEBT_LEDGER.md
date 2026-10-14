@@ -48,9 +48,9 @@ rg -n "ponytail:" --glob "!*.md" --glob "!docs/**"
 
 6 source hits on 2026-08-17 (was 2 on 2026-08-13). Five keep, one done. No stale markers remain. Drift surfaced in the post-T17 audit: the T15 + T16 + T17 commits added 4 keep markers (`commands/mod.rs` L908 poison-safe mutex, `sidecar.rs` L330 Job Object race, `sidecar.rs` L882 notification crate, `TopologyView.tsx` L763 S2 helper deferral) without a corresponding ledger update. Fixed by listing all 6 in one pass. T17 audit also fixed the T17-1a vitest that claimed to assert former ADR-0041 (retired 2026-10-15) S1 region guard but never switched viewMode off the default subscription path — the storage-seam pre-populate pattern (T15-3 precedent at L635-644 of `TopologyView.test.tsx`) is now used to hydrate region viewMode before render.
 
-## Historical note on AGENTS.md §51 (T7 diff)
+## Historical note (formerly recorded at AGENTS.md §51, T7 diff — section retired 2026-10-15)
 
-AGENTS.md §51 `Ponytail-debt` line L622 records "exactly 2 hits" because at the T7 commit boundary `trace.rs` L30 + `ipc.ts` L646 were the only tagged markers. That row is a frozen historical snapshot per AGENTS.md §10 — do not rewrite it; the count is the T7-time truth and the ledger above is the living current truth. The two stay reconciled because the ledger header now states both numbers side-by-side.
+AGENTS.md §51 `Ponytail-debt` line L622 records "exactly 2 hits" because at the T7 commit boundary `trace.rs` L30 + `ipc.ts` L646 were the only tagged markers. That row is a frozen historical snapshot — do not rewrite it; the count is the T7-time truth and the ledger above is the living current truth. The two stay reconciled because the ledger header now states both numbers side-by-side.
 
 ## Audit context-mode protocol
 

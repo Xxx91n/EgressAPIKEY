@@ -53,3 +53,12 @@ The index lives at `.codegraph/` (gitignored). Before reading files for "how doe
 | `round12-wave-l-next-round.md` | Live committed watch taskbook |
 
 `phase-history.md` was retired 2026-10-15 (process narrative; phase outcomes live in `CHANGELOG.md` and git history).
+
+## Legacy AGENTS.md section pointers
+
+Older docs (ADRs, CONTEXT.md) cite former AGENTS.md section numbers — the file
+was slimmed on 2026-10-15. Map: `§7.5` / `§7.6` (IPC validation, SSRF, manifest)
+→ `CONTRIBUTING.md` "IPC & security contracts" + `ipc-manifest.md`;
+`§Storage locations` → `storage-locations.md`; `§11` license → `CONTRIBUTING.md`
+license discipline + `THIRD_PARTY.md`; all other `§N` → git history of
+`AGENTS.md` (pre-2026-10-15).

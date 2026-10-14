@@ -74,7 +74,7 @@ only; the appStore `processRoutes` array becomes a view cache fed by
 
 Resin v1.2.0 has NO per-process / process-group API (verified against the
 upstream README 2026-08-31; the shell's own history already recorded
-"Resin has no such feature" - HANDOFF_PATH_A.md). The route family is
+"Resin has no such feature" - HANDOFF_PATH_A.md — retired 2026-10-15, git history). The route family is
 therefore NOT mirrored by any Resin object of its own. The honest L3
 semantics: a route is exactly as live as the entry port it points to.
 

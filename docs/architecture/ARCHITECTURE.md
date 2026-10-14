@@ -100,7 +100,7 @@ export — it never writes them, and consistency during the backup is guarded
 by the Resin sidecar's own mutex (the shell only reads; the L3 REST-seam
 write rule is untouched). This exception is legislated by ADR-0050-bis and
 is the complete read-exception list: `request_logs*.db` stay outside it and
-never enter backups (leak prevention, AGENTS.md §7.6).
+never enter backups (leak prevention — CONTRIBUTING.md IPC & security contracts).
 
 `config_export` / `config_import` (ADR-0061) are whitebox-source, not Resin:
 export reads `egressapikey-strategy.json` + `egressapikey-ports.json` verbatim

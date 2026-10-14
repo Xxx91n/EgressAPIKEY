@@ -3,7 +3,7 @@
 Date: 2026-08-18
 Status: ACCEPTED
 Supersedes: ADR-0044 S2 (subscription refresh path only; S1/S3/S4 unchanged)
-Canon: GRILL_T20_SUBSCRIPTION_REFRESH_NATIVE_PLAN.md
+Canon: GRILL_T20_SUBSCRIPTION_REFRESH_NATIVE_PLAN.md (retired 2026-10-15, git history)
 Fix branch: T20 (parallel to T17/T19 audit branches)
 
 ## Context

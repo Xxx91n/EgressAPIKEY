@@ -119,7 +119,7 @@ pnpm tauri dev
 | [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) | Layers, data flow, config authority (L1/L2/L3), tech stack |
 | [docs/architecture/UPSTREAM.md](docs/architecture/UPSTREAM.md) | Upstream Resin integration router: API coverage, version manifest, third-party obligations |
 | [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | Per-release notes with compatibility declarations and upgrade notes |
-| [docs/adr/](docs/adr/) | Architectural decision records (numbered, append-only) |
+| [docs/adr/](docs/adr/) | Architectural decision records (numbered; retired records live in git history) |
 | [docs/how-to/HEADLESS_DEPLOYMENT.md](docs/how-to/HEADLESS_DEPLOYMENT.md) | Headless server deployment (systemd, Docker, TLS) |
 | [docs/how-to/HEADLESS_RUNBOOK.md](docs/how-to/HEADLESS_RUNBOOK.md) | Headless operations (logs, health, shutdown, troubleshooting) |
 | [docs/how-to/RELEASE.md](docs/how-to/RELEASE.md) | Release pipeline: CI matrix, artifact groups |
@@ -130,7 +130,7 @@ pnpm tauri dev
 
 ## Contributing
 
-Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) — desktop dev-environment setup and the verification workflow. Security issues follow [SECURITY.md](SECURITY.md) (private vulnerability reporting, never public issues); community behavior is covered by the [Code of Conduct](CODE_OF_CONDUCT.md); questions and open discussion belong in [Discussions](https://github.com/Xxx91n/EgressAPIKEY/discussions). Before your first PR, read [AGENTS.md](AGENTS.md) (repo conventions: i18n full-key coverage, test-per-behavior, license-field discipline) and the [architecture overview](docs/architecture/ARCHITECTURE.md).
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) — desktop dev-environment setup and the verification workflow. Security issues follow [SECURITY.md](SECURITY.md) (private vulnerability reporting, never public issues); community behavior is covered by the [Code of Conduct](CODE_OF_CONDUCT.md); questions and open discussion belong in [Discussions](https://github.com/Xxx91n/EgressAPIKEY/discussions). Before your first PR, read [CONTRIBUTING.md](CONTRIBUTING.md) (repo conventions: i18n full-key coverage, test-per-behavior, license-field discipline) and the [architecture overview](docs/architecture/ARCHITECTURE.md). Agent operating pointers live in [AGENTS.md](AGENTS.md).
 
 ## Third-party notices
 

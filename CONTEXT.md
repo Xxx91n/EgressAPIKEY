@@ -642,8 +642,7 @@ body forwards nothing. `account_add` and `account_bind_ip` are the
 two surviving echoes since ADR-0050 deleted the kernel face; each call
 logs `tracing::warn!` (target `ipc.account_deprecated`). Removal
 condition: an echo is deleted only when the corresponding Resin REST
-endpoint disappears or changes shape (see the AGENTS.md §7.6 echo
-command list) — not merely because it has no caller.
+endpoint disappears or changes shape (see the echo-command contract in `docs/agents/ipc-manifest.md` and the CONTRIBUTING.md IPC rules) — not merely because it has no caller.
 _Avoid_: no-op, stub, dead command (echoes are alive contract surface)
 
 ### White-box Config
