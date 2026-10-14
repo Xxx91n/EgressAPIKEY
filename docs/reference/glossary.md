@@ -27,7 +27,7 @@ A closed-loop test that runs against the REAL Resin Go sidecar binary
 (resin-x86_64-pc-<abi>.exe), not a mockito stand-in. Proves the shell
 injects headers the real binary actually honors, and the real binary
 produces leases with the expected egress IPs. Stronger than mockito-only.
-ADR-0006 item 3 requires this for the A4-3 interceptor.
+ADR-0006 (retired 2026-10-15) item 3 requires this for the A4-3 interceptor.
 
 ## routable-view
 
@@ -38,7 +38,7 @@ ADR-0006 item 3 requires this for the A4-3 interceptor.
 Resin admin endpoint: GET /api/v1/platforms/{id}/routable-view. Returns the
 list of nodes a platform can actually route to (after region_filters + node
 health). The shell is platform_snapshot IPC currently returns an empty
-Vec<Account>; wiring it to routable-view is ADR-0006 item 1 / HANDOFF
+Vec<Account>; wiring it to routable-view is ADR-0006 (retired 2026-10-15) item 1 / HANDOFF
 next-deep-work-1.
 
 ## route_id
@@ -70,7 +70,7 @@ removed before the route_id-derived value is injected.
 
 ## mainline A / mainline B
 
-ADR-0006. Mainline A = function closure (make the software not a toy).
+ADR-0006 (retired 2026-10-15). Mainline A = function closure (make the software not a toy).
 Mainline B = release standardization (fill release/ + tag v0.1.0).
 Sequential: B starts only after A is closed-loop verified.
 

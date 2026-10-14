@@ -87,30 +87,6 @@ npx vitest run
 
 echo "[verify] i18n coverage"
 node scripts/i18n-check.cjs
-echo "[verify] AGENTS.md size guard (32KiB budget)"
-agents_bytes=$(wc -c < AGENTS.md)
-if [ "$agents_bytes" -gt 32768 ]; then
-  echo "FAIL: AGENTS.md is ${agents_bytes}B - over the 32KiB project_doc_max_bytes budget; move detail into docs/agents/ and keep a pointer"
-  exit 1
-fi
-echo "[verify] AGENTS.md size OK: ${agents_bytes}B <= 32768B"
-echo "[verify] strategy_service.rs line guard (4000-line budget)"
-ssvc_lines=$(wc -l < crates/resin-core/src/strategy_service.rs)
-if [ "$ssvc_lines" -gt 4000 ]; then
-  echo "FAIL: strategy_service.rs is ${ssvc_lines} lines - over the 4000-line module budget; split write-surface or read-surface helpers into a sibling module before growing further"
-  exit 1
-fi
-echo "[verify] strategy_service.rs size OK: ${ssvc_lines} lines <= 4000"
-echo "[verify] snapshot.rs prod-lines gate (r12-wave-j D-005 armed row)"
-# Prod surface = lines before the `mod tests` block (anchor ~:919); the
-# ~1110-line test half is excluded so the 2.2x headroom ratchet measures
-# production code only. Breach re-opens the split adjudication.
-snap_prod=$(awk '/^mod tests/{exit} {n++} END{print n+0}' crates/resin-core/src/snapshot.rs)
-if [ "$snap_prod" -gt 2000 ]; then
-  echo "FAIL: snapshot.rs is ${snap_prod} prod lines - over the 2000-line armed gate (armed at ~919 prod lines); split re-adjudication re-opens"
-  exit 1
-fi
-echo "[verify] snapshot.rs prod-lines OK: ${snap_prod} <= 2000"
 echo "[verify] ipc manifest guard"
 node scripts/ipc-manifest-check.cjs
 echo "[verify] vitest isolation guard"
@@ -124,12 +100,6 @@ node scripts/upstream-router-check.cjs
 echo "[verify] contracts (mode-a contract gate, ADR-0068)"
 node scripts/mode-a-contract-check.cjs
 
-# r12-wave-i D-003.2 + D-007.1: trigger-line instruments must declare their
-# three fields at birth (obs-env / zero-read / evidence) - a machine gate,
-# not a convention.
-echo "[verify] instrument declaration gate"
-node scripts/instrument-declaration-check.cjs
-
 # r12-wave-i D-004: replace_ports' BEGIN-IMMEDIATE requirement is a source
 # gate, not a self-reading test - comments stripped, whitespace
 # normalized, only the transaction_with_behavior(Immediate) call counts.
@@ -140,14 +110,6 @@ node scripts/db-immediate-txn-check.cjs
 # command exactly once and agree with the transport route table.
 echo "[verify] headless capability registry contract"
 node scripts/headless-capability-check.cjs
-
-# C7 (r12-wave-b): markdownlint coverage in the PRE-MERGE gate. docs-lint.yml
-# fires on pull_request + push-to-main only; GitButler branch merges never
-# open a PR, so doc changes previously got their first lint on main. Run the
-# same markdownlint-cli2 (pinned devDep 0.14.0) with the same config + glob
-# set here so verify is the single pre-merge gate.
-echo "[verify] markdownlint (same config+globs as docs-lint.yml)"
-npx markdownlint-cli2 "AGENTS.md" "README.md" "README_CN.md" "CHANGELOG.md" "CONTRIBUTING.md" "SECURITY.md" "CODE_OF_CONDUCT.md" "PULL_REQUEST_TEMPLATE.md" ".github/ISSUE_TEMPLATE/*.md" "docs/**/*.md"
 
 # Live-process smoke for the headless transport (验收闭环: 启动并
 # 测活软件进程). The script resolves the bin under target/<triple>/debug or

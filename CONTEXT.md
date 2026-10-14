@@ -580,7 +580,7 @@ with a subscription bound draws unlabeled unconditional edges (see
 Strategy-Labeled Edge). Rejected the older "subscription group = a bundle of
 regions" reading, where dragging a subscription silently expanded into a
 hand-written region list: it desynchronized the recorded intent from the
-applied projection (ADR-0075).
+applied projection (former ADR-0075 — record retired 2026-10-15).
 _Avoid_: region bundle, subscription expansion, subscription group drag-fill
 
 ### Strategy-Labeled Edge

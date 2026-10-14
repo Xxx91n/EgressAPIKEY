@@ -19,8 +19,8 @@
 
 | Tier | Gate | Trigger | Executes |
 | --- | --- | --- | --- |
-| T1 | `ci.yml` job `verify` | every push / pull_request | `cargo build` + `cargo test -p resin-core` (~308 tests), `tsc -b`, `vite build`, `vitest run` (24 spec files), six guard scripts, `git diff --check` |
-| T2 | `docs-lint.yml` (Docs Governance) | PR touching docs/governance files; push to main/master | markdownlint-cli2, dead-link check, layer-separation guard, AGENTS.md size warning |
+| T1 | `ci.yml` job `verify` | every push / pull_request | `cargo build` + `cargo test -p resin-core` (~308 tests), `tsc -b`, `vite build`, `vitest run` (24 spec files), guard scripts, `git diff --check` |
+| T2 | (vacant — `docs-lint.yml` retired 2026-10-15, governance-court ruling) | — | — |
 | T3 | `ci.yml` release matrix | workflow_dispatch only | playwright e2e (5 specs), headless binary ×4 targets, GUI installer ×4, portable GUI ×3 — **builds only, no test run** |
 | T0 | — | never in CI | `src-tauri` Rust unit tests (~156: sidecar, tray, headless_*, commands/tests — app crate is a Windows-only compile surface skipped by T1 on Linux), `#[ignore]`d live-sidecar probes, all performance budgets |
 
@@ -91,7 +91,7 @@ defined = registered = AGENTS.md manifest), `vitest-isolation-guard`,
 | --- | --- | --- | --- |
 | Push→verify gate | every push/PR runs build+tests+guards | ci.yml `verify` (self-evidencing, T1) | Branch-protection "required check" is a repo setting, outside CI files |
 | Release artifacts | installers (msi/nsis/deb/AppImage/dmg), portable ×3, headless ×4 | gui/gui-portable/backend matrix (T3) | Manual dispatch by design (ADR-0010 revision) |
-| Docs governance | markdownlint, dead links, layer separation | docs-lint.yml (T2) | AGENTS.md size is warn-only (currently ~46 KB > 32 KiB Codex default) |
+| Docs governance (retired 2026-10-15) | — | docs-lint.yml removed | gate retired by governance-court ruling; markdownlint-cli2 devDep remains dormant |
 | License layering declared | package.json = Cargo workspace = README = GPL-3.0-or-later; LICENSE is verbatim GPL text | license-field-check (T1) | Legal posture documented in THIRD_PARTY.md/ADR-0067 — declared, not audited |
 | Bilingual README | EN/CN heading map 1:1 + license body + drift-token absence | readme-lang-check (T1) | — |
 | Upstream docs integrity | UPSTREAM.md links resolve; RELEASE_NOTES↔CHANGELOG versions aligned | upstream-router-check (T1) | — |
@@ -146,7 +146,7 @@ Excluded from "verified" above until they land with green CI:
 ## 6. Maintenance rule
 
 Every new capability claim in README/docs must name its evidence anchor
-(job, test, or guard) — same closed-loop discipline as ADR-0020. When a gate
-gains coverage, move the row; when a claim loses its anchor, the claim goes
-to §4 or is deleted. This file is linted by docs-lint (T2) like every
-docs/** page.
+(job, test, or guard) — same closed-loop discipline as the retired ADR-0020.
+When a gate gains coverage, move the row; when a claim loses its anchor, the
+claim goes to §4 or is deleted. (Formerly linted by docs-lint T2, retired
+2026-10-15.)

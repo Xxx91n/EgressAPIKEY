@@ -155,7 +155,7 @@ policy biasing proves insufficient in practice.
   bandwidth field. No per-node protocol field beyond what the subscription
   tags encode.
 
-## 7. ADR-0006 item 3 live-sidecar e2e findings (new)
+## 7. ADR-0006 (retired 2026-10-15) item 3 live-sidecar e2e findings (new)
 
 - **Reverse-proxy path format requires the identity segment.** The Resin
   reverse-proxy surface path is `/<token>/<identity>/<protocol>/<host>/<path>`.

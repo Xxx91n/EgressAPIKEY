@@ -1,6 +1,6 @@
 # ADR-0078: Acceptance line - dual deployment profiles, dual thresholds, measured-vs-smoke semantics
 
-Status: DRAFT (R12-00; awaits representative-hardware numbers before locking `†` absolute pins)
+Status: Accepted (R12-00 acceptance contract live in bench.yml; `†` absolute pins remain provisional pending representative-hardware numbers)
 - **Date**: 2026-09-22 (r12-wave-a grill decision-ledger D-001/D-002; execution ticket R12-00)
 - **Supersedes**: the round-8 D-004 single-threshold perf budget table (its locks remain recorded as `locked` columns in `scripts/bench/acceptance.json`)
 - **Research basis**: cloudflare-streaming-resources-1, tail-flicker-flicker-1 indexed research sessions (TTFT / event-gap / backpressure calibers)
