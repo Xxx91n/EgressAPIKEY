@@ -7,8 +7,8 @@ exploring the codebase.
 
 - `CONTEXT.md` at the repo root — the domain glossary (one entry per term, each
   with an _Avoid_ list of synonyms to not drift to)
-- `docs/adr/` — architectural decision records (`00NN-slug.md`, numbered from
-  `0001`)
+- `docs/adr/` — architectural decision records (`00NN-slug.md`, numbered 0001–0080
+  with gaps — retired records live in git history)
 
 There is no `CONTEXT-MAP.md` and no per-package `docs/adr/`: this repo is
 single-context, and both files above are the only domain-doc sources.

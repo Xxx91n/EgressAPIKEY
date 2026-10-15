@@ -6,7 +6,7 @@ Supersedes: None (complements ADR-0012 — port=identity leaves the Resin sideca
 
 ## Context
 
-The T6 grill plan (docs/GRILL_T6_NETWORK_LAYER_PLAN.md) exposed a gap: the shell-side `WhiteboxConfig` only carried entry_ports and had no way to probe/control Resin's network-layer behavior. Resin v1.2.0 itself exposes a set of env-var knobs for DNS, connection pooling, probing, and bypass rules — but no shell input surface existed.
+The T6 grill plan (docs/GRILL_T6_NETWORK_LAYER_PLAN.md — retired 2026-10-15, git history) exposed a gap: the shell-side `WhiteboxConfig` only carried entry_ports and had no way to probe/control Resin's network-layer behavior. Resin v1.2.0 itself exposes a set of env-var knobs for DNS, connection pooling, probing, and bypass rules — but no shell input surface existed.
 
 ## Decision
 
@@ -39,4 +39,4 @@ Extend `crates/resin-core/src/whitebox_config.rs` with a `network: NetworkConfig
 
 ## Oversight
 
-This ADR records only T6-1. Sidecar env injection (T6-2), GUI Settings card (T6-3), and the rest of the T6 plan are referenced in docs/GRILL_T6_NETWORK_LAYER_PLAN.md and docs/HANDOFF_T6_NETWORK_LAYER.md.
+This ADR records only T6-1. Sidecar env injection (T6-2), GUI Settings card (T6-3), and the rest of the T6 plan are referenced in docs/GRILL_T6_NETWORK_LAYER_PLAN.md and docs/HANDOFF_T6_NETWORK_LAYER.md (both retired 2026-10-15, git history).

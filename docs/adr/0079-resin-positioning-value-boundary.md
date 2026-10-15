@@ -1,7 +1,7 @@
 # ADR-0079: Resin positioning — shell-is-the-product, engine-is-a-seam (evaluation record)
 
 Date: 2026-09-22
-Status: Draft (evaluation output, NOT a refactor authorization — R12-06)
+Status: Accepted (positioning boundary; evaluation-document origin — still NOT a refactor authorization, R12-06)
 Provenance: R12-06 ticket (r12-wave-a D-003④). Resolves the standing
 question "is the real product shape just Resin itself, and where does the
 shell's value boundary sit?"

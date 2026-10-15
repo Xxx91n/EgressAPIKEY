@@ -46,7 +46,7 @@ are deliberately unwired — selection rationale in ADR-0065.
 
 > This subsection legislates the three-layer configuration authority model. It
 > EXTENDS decided ADRs and reopens none of them: ADR-0036 (strategy whitebox
-> single write entry), ADR-0039 SS2 (read-side strategy contract), ADR-0042
+> single write entry), ADR-0039 SS2 (read-side strategy contract; record retired 2026-10-15), ADR-0042
 > S2/S6 (whitebox port truth + restore from whitebox). Where this subsection and
 > an ADR appear to conflict, the ADR wins and this subsection gets fixed.
 
@@ -100,7 +100,7 @@ export — it never writes them, and consistency during the backup is guarded
 by the Resin sidecar's own mutex (the shell only reads; the L3 REST-seam
 write rule is untouched). This exception is legislated by ADR-0050-bis and
 is the complete read-exception list: `request_logs*.db` stay outside it and
-never enter backups (leak prevention, AGENTS.md §7.6).
+never enter backups (leak prevention — CONTRIBUTING.md IPC & security contracts).
 
 `config_export` / `config_import` (ADR-0061) are whitebox-source, not Resin:
 export reads `egressapikey-strategy.json` + `egressapikey-ports.json` verbatim

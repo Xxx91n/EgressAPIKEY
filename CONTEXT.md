@@ -580,7 +580,7 @@ with a subscription bound draws unlabeled unconditional edges (see
 Strategy-Labeled Edge). Rejected the older "subscription group = a bundle of
 regions" reading, where dragging a subscription silently expanded into a
 hand-written region list: it desynchronized the recorded intent from the
-applied projection (ADR-0075).
+applied projection (former ADR-0075 — record retired 2026-10-15).
 _Avoid_: region bundle, subscription expansion, subscription group drag-fill
 
 ### Strategy-Labeled Edge
@@ -642,8 +642,7 @@ body forwards nothing. `account_add` and `account_bind_ip` are the
 two surviving echoes since ADR-0050 deleted the kernel face; each call
 logs `tracing::warn!` (target `ipc.account_deprecated`). Removal
 condition: an echo is deleted only when the corresponding Resin REST
-endpoint disappears or changes shape (see the AGENTS.md §7.6 echo
-command list) — not merely because it has no caller.
+endpoint disappears or changes shape (see the echo-command contract in `docs/agents/ipc-manifest.md` and the CONTRIBUTING.md IPC rules) — not merely because it has no caller.
 _Avoid_: no-op, stub, dead command (echoes are alive contract surface)
 
 ### White-box Config

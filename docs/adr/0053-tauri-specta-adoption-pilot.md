@@ -1,6 +1,6 @@
 # ADR-0053: tauri-specta 采纳试点 — 仅类型层采纳,分期迁移
 
-Status: PROPOSED (检查点 B 待用户拍板 — 三选一结论在 §Decision,推荐方向已按 handoff 默认先行)
+Status: Accepted (type-layer pilot only; runtime generation rejected — adjudicated r12-wave-j D-006; status field corrected 2026-10-15)
 > Date: 2026-08-30
 > Ticket: architecture-recovery 09 (tauri-specta-pilot)
 > Related: ADR-0045 (IPC 错误契约 — IpcError 判别联合由此进入 bindings.ts)、

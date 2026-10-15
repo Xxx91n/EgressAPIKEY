@@ -119,7 +119,7 @@ pnpm tauri dev
 | [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) | 分层、数据流、配置权威（L1/L2/L3）、技术栈 |
 | [docs/architecture/UPSTREAM.md](docs/architecture/UPSTREAM.md) | 上游 Resin 对接总纲：API 覆盖清单、版本清单、第三方义务 |
 | [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | 每版本发布说明：兼容性声明与升级注意事项 |
-| [docs/adr/](docs/adr/) | 架构决策记录（编号、只追加） |
+| [docs/adr/](docs/adr/) | 架构决策记录（编号；退役记录存于 git 历史） |
 | [docs/how-to/HEADLESS_DEPLOYMENT.md](docs/how-to/HEADLESS_DEPLOYMENT.md) | 无头服务器部署（systemd、Docker、TLS） |
 | [docs/how-to/HEADLESS_RUNBOOK.md](docs/how-to/HEADLESS_RUNBOOK.md) | 无头服务器运维（日志、健康、停机、故障排查） |
 | [docs/how-to/RELEASE.md](docs/how-to/RELEASE.md) | 发布流水线：CI 矩阵、产物分组 |
@@ -130,7 +130,7 @@ pnpm tauri dev
 
 ## 参与贡献
 
-欢迎提交 Issue 与 Pull Request —— 请到 [GitHub Issue](https://github.com/Xxx91n/EgressAPIKEY/issues)。首次提交 PR 前，请先阅读 [AGENTS.md](AGENTS.md)（仓库约定：i18n 全键覆盖、每个行为必须有测试、许可证字段纪律）与[架构总览](docs/architecture/ARCHITECTURE.md)。包含桌面开发环境搭建的独立 `CONTRIBUTING.md` 已列入路线图。
+欢迎提交 Issue 与 Pull Request —— 请到 [GitHub Issue](https://github.com/Xxx91n/EgressAPIKEY/issues)。首次提交 PR 前，请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)（仓库约定：i18n 全键覆盖、每个行为必须有测试、许可证字段纪律）与[架构总览](docs/architecture/ARCHITECTURE.md)。Agent 操作指引见 [AGENTS.md](AGENTS.md)。
 
 ## 第三方声明
 

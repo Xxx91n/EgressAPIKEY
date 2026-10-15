@@ -71,7 +71,7 @@ gains a toggle card with the enabled checkbox + delay_minutes input.
 + 2 reused from T14-2 (`lightweightMode`, `autoLightweightMinutes`).
 
 ### T14-9: Documentation + final commit
-This ADR + AGENTS.md update + GRILL_T14_PERFORMANCE.md completion status + push.
+This ADR + AGENTS.md update + GRILL_T14_PERFORMANCE.md (retired 2026-10-15, git history) completion status + push.
 
 ## Consequences
 

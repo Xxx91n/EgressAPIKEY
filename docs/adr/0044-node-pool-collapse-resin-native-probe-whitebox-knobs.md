@@ -2,7 +2,7 @@
 
 Date: 2026-08-17
 Status: ACCEPTED
-Canon: GRILL_T19_NODE_POOL_FIX_PLAN.md (5-phase execution)
+Canon: GRILL_T19_NODE_POOL_FIX_PLAN.md (retired 2026-10-15, git history) (5-phase execution)
 
 ## Context
 
