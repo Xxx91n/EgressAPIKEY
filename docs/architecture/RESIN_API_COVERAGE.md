@@ -4,7 +4,7 @@
 > registrations) + `resin/cmd/resin/main.go` bootstrap wiring. Bundled sidecar: **v1.2.0**
 > (`docs/RESIN_UPSTREAM_MANIFEST.yaml`). Audited: 2026-09-04 (round5 T13).
 > Maintenance discipline: the row and the governing decision update in the same commit as the change.
-> ADR-XXXX citations in this file are historical attribution (records retired 2026-10); each row's 备注 carries the reason.
+> The retired ADR citations were stripped from this file (2026-10); each row's 备注 carries the reason.
 
 This is the complete consumption ledger for every upstream Resin control-plane route:
 1 unauthenticated (`/healthz`) + 57 authenticated = **58 rows**. Any agent wiring a new

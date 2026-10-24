@@ -2,7 +2,7 @@
 
 > Purpose: runtime wiring state, sidecar lifecycle, ResinClient, IPC retarget, G4 signal channel (sidecar-status event subscription, no HTTP webhook), CI release pipeline.
 > This file is read by agents when they need architecture implementation details.
-> ADR-XXXX citations below are historical attribution (records retired 2026-10); the decision content is inline and the records live in git history.
+> The retired ADR citations were stripped from this file (2026-10); the decision content is inline and the records live in git history.
 
 ---
 
