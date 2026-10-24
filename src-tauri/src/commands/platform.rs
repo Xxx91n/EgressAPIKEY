@@ -78,7 +78,7 @@ pub async fn account_add(
     id: String,
     lane: usize,
 ) -> Result<(), IpcError> {
-    tracing::warn!(target: "ipc.account_deprecated", "account_add is deprecated since  (Resin owns account semantics); manage accounts via Resin directly");
+    tracing::warn!(target: "ipc.account_deprecated", "account_add is deprecated: Resin owns account semantics; manage accounts via Resin directly");
     validate_short_name(&platform, "platform")?;
     validate_short_name(&id, "account")?;
     if lane >= MAX_LANES {
@@ -102,7 +102,7 @@ pub async fn account_bind_ip(
     account: String,
     ip: String,
 ) -> Result<bool, IpcError> {
-    tracing::warn!(target: "ipc.account_deprecated", "account_bind_ip is deprecated since  (Resin owns account semantics); manage accounts via Resin directly");
+    tracing::warn!(target: "ipc.account_deprecated", "account_bind_ip is deprecated: Resin owns account semantics; manage accounts via Resin directly");
     validate_short_name(&platform, "platform")?;
     validate_short_name(&account, "account")?;
     validate_ip(&ip)?;

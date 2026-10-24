@@ -782,10 +782,10 @@ async fn probe_exit_ip_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
 // ── Deprecated echo stubs  ──────────────
 // Reachable for parity: they validate input and echo the same fixed
 // responses the desktop commands produce (no semantics — Resin owns
-// accounts since ).
+// accounts, so these stubs only keep the IPC surface stable).
 
 async fn account_add_h(body: Bytes) -> Response {
-    tracing::warn!(target: "ipc.account_deprecated", "account_add is deprecated since  (Resin owns account semantics); manage accounts via Resin directly");
+    tracing::warn!(target: "ipc.account_deprecated", "account_add is deprecated: Resin owns account semantics; manage accounts via Resin directly");
     let v = match json_body(&body).await {
         Ok(v) => v,
         Err(r) => return r,
@@ -812,7 +812,7 @@ async fn account_add_h(body: Bytes) -> Response {
 }
 
 async fn account_bind_ip_h(body: Bytes) -> Response {
-    tracing::warn!(target: "ipc.account_deprecated", "account_bind_ip is deprecated since  (Resin owns account semantics); manage accounts via Resin directly");
+    tracing::warn!(target: "ipc.account_deprecated", "account_bind_ip is deprecated: Resin owns account semantics; manage accounts via Resin directly");
     let v = match json_body(&body).await {
         Ok(v) => v,
         Err(r) => return r,

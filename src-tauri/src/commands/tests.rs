@@ -628,11 +628,11 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
     let create = body_of("backup_create_impl");
     assert!(
         create.contains("push_sqlite_snapshot("),
-        "backup_create must package the L3 databases through push_sqlite_snapshot "
+        "backup_create must package the L3 databases through push_sqlite_snapshot"
     );
     assert!(
         !create.contains("std::fs::read("),
-        "backup_create must not raw-copy a database itself "
+        "backup_create must not raw-copy a database itself"
     );
     let forbidden = create
         .find("assert_no_forbidden(")
@@ -642,7 +642,7 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
         .expect("backup_create: no manifest build");
     assert!(
         forbidden < manifest,
-        "backup_create must reject forbidden members before sealing the manifest "
+        "backup_create must reject forbidden members before sealing the manifest"
     );
 
     let restore = body_of("backup_restore_impl");
@@ -654,7 +654,7 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
         .expect("backup_restore: no per-member verification");
     assert!(
         envelope < verify,
-        "backup_restore must open the envelope before verifying members "
+        "backup_restore must open the envelope before verifying members"
     );
     // Every write entry the restore touches must come after verification.
     // (The L1 write entry is the injected settings_apply closure —
@@ -663,7 +663,7 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
         if let Some(pos) = restore.find(writer) {
             assert!(
                 verify < pos,
-                "backup_restore must verify every member before the write entry {writer} "
+                "backup_restore must verify every member before the write entry {writer}"
             );
         }
     }
@@ -753,7 +753,7 @@ fn port_impls_persist_l2_before_mutating_l3() {
                 .unwrap_or_else(|| panic!("{name}: expected L3 marker {marker}"));
             assert!(
                 l2 < l3,
-                "{name}: L2 whitebox.apply must precede the L3 step {marker} "
+                "{name}: L2 whitebox.apply must precede the L3 step {marker}"
             );
         }
     }
