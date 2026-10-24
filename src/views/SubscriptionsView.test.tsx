@@ -234,12 +234,12 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
     });
   });
 });
-/// Item 2 / Option B: ADR-0006 item 2 closed-loop - the row hint must
+/// Item 2 / Option B:  closed-loop - the row hint must
 /// surface Resin last_error/last_checked/healthy_node_count so a fetch
 /// 403 is not a mute zero. The hint reads the i18n raw key fallback
 /// (jsdom does not eager-load the resources-to-backend chunks), so the
 /// matcher allows the raw key OR the en-locale text.
-describe("SubscriptionsView item 2 row hint (ADR-0006 item 2)", () => {
+describe("SubscriptionsView item 2 row hint ", () => {
   afterEach(() => cleanup());
   beforeEach(() => {
     useAppStore.setState({ subscriptions: [] });

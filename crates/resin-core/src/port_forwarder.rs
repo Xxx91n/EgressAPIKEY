@@ -1,17 +1,17 @@
-//! Multi-port identity layer - the ADR-0012 listener surface, re-materialised
-//! as Data-Plane Mode A (ADR-0068 D1/D3).
+//! Multi-port identity layer - the  listener surface, re-materialised
+//! as Data-Plane Mode A .
 //!
 //! Each Entry Port is an identity. The mode decides which process realises it:
 //!
 //!   Engine (Mode B - VPS/headless default): Resin binds every entry port
 //!     natively and the client supplies the Platform.Account credential once.
-//!     The shell binds nothing - exactly the thin shape ADR-0015 left behind.
+//!     The shell binds nothing - exactly the thin shape  left behind.
 //!
 //!   Shell (Mode A - desktop default): the shell binds every enabled entry
 //!     port, the client connects credential-free, and every connection is
 //!     relayed to Resin's consolidated proxy port (resin_addr) with the
 //!     port's (platform, account) injected in the dialect the connection
-//!     speaks (ADR-0068 D3):
+//!     speaks :
 //!       SOCKS5: RFC 1929 username-password subnegotiation,
 //!         username = Platform.Account, password = the sidecar proxy token.
 //!       HTTP:   Proxy-Authorization: Basic base64(Platform.Account:token),
@@ -26,7 +26,7 @@
 //! mixed | http | socks5) gates what is ACCEPTED here, because the
 //! consolidated port accepts both dialects and will not refuse the wrong one
 //! on the forwarder's behalf. The refusals mirror
-//! the per-endpoint behaviour the ADR-0068 D4 gate observed live: a SOCKS5
+//! the per-endpoint behaviour the  gate observed live: a SOCKS5
 //! client on an http-only port gets a 05 FF method rejection, an HTTP client
 //! on a socks5-only port gets 403 + X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED.
 //!
@@ -78,7 +78,7 @@ const BIND_RETRY_MIN_MS: u64 = 1_000;
 /// Backoff ceiling for a persistently-held entry port.
 const BIND_RETRY_MAX_MS: u64 = 30_000;
 
-/// Which process realises the port = identity data plane (ADR-0068 D1).
+/// Which process realises the port = identity data plane .
 /// Engine = Mode B (Resin listens, client credential once).
 /// Shell  = Mode A (shell listens, client credential-free).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -163,7 +163,7 @@ struct PortForwarderInner {
 
 impl PortForwarder {
     /// Mode B constructor (headless default and every legacy call
-    /// site): binds nothing, keeps the ADR-0015 thin behaviour.
+    /// site): binds nothing, keeps the  thin behaviour.
     pub fn new(
         db: DbPool,
         resin_host: impl Into<String>,
@@ -245,7 +245,7 @@ impl PortForwarder {
     ///   Shell:  the ports whose accept loop currently holds a bound
     ///           listener (a retrying bind is NOT yet serving, so it is
     ///           honestly absent - the snapshot reads it MissingOnResin).
-    ///   Engine: the shell-side PortMapping metadata view the ADR-0015
+    ///   Engine: the shell-side PortMapping metadata view the
     ///           thin shell kept (the real listeners live in Resin).
     pub fn running_ports(&self) -> Vec<u16> {
         if self.is_shell() {
@@ -443,7 +443,7 @@ async fn handle_client(
 }
 
 /// Protocol-faithful refusal of the wrong dialect (mirrors what a tightened
-/// single-protocol Resin endpoint answers, ADR-0068 D4 observation).
+/// single-protocol Resin endpoint answers,  observation).
 async fn refuse_dialect(client: &mut TcpStream, sniffed: &str) -> Result<(), String> {
     let out: &[u8] = if sniffed == "socks5" {
         &[0x05u8, 0xFFu8][..]
@@ -568,7 +568,7 @@ async fn handle_socks5(mut client: TcpStream, ctx: SessionCtx) -> Result<(), Str
 /// RFC 1929 username/password subnegotiation, accept-any: the bytes are
 /// consumed so the stream is positioned at the CONNECT request, but the
 /// credential itself is never validated - Mode A is credential-free, the
-/// entry port is the identity (ADR-0068 D3).
+/// entry port is the identity .
 async fn consume_socks5_userpass(client: &mut TcpStream) -> Result<(), String> {
     let mut hdr = [0u8; 2];
     client
@@ -664,7 +664,7 @@ async fn read_socks_reply_addr(stream: &mut TcpStream) -> Result<(), String> {
 
 /// Authed SOCKS5 CONNECT toward the consolidated engine port: RFC 1929
 /// username-password subnegotiation carrying the port's identity
-/// (ADR-0068 D3 dialect injection).
+/// .
 async fn socks5_connect_authed(
     ctx: &SessionCtx,
     dest_host: &str,

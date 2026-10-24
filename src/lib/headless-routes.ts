@@ -8,7 +8,7 @@
  * invoke-wrapper body in lib/ipc.ts.
  */
 
-// --- dual-mode: cmd -> REST route map (ADR-0043 Q2=A) ---
+// --- dual-mode: cmd -> REST route map (=A) ---
 // In the Tauri webview ipc.ts uses the native invoke(). In a plain browser
 // (headless npm server) the dispatch falls back to fetch("/api/v1/...")
 // which the headless axum reverse-proxy forwards to the local Resin sidecar.

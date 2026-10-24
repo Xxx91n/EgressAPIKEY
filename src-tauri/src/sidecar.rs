@@ -35,7 +35,7 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 use resin_core::NetworkConfig;
 use std::process::{Child, Command, Stdio};
 
-/// Lifecycle state of the Resin sidecar process (ADR-0016 Q1).
+/// Lifecycle state of the Resin sidecar process .
 /// Modeled after clash-verge-rev CoreManager RunningMode: a lightweight
 /// enum behind RwLock so any thread can cheaply read the current state
 /// without blocking the IPC command layer. Transition graph:
@@ -52,17 +52,17 @@ pub enum RunningMode {
     Starting,
     /// Process is live and control plane is up (normal steady state).
     Running,
-    /// (ADR-0016): After MAX_CRASH_RESTARTS the crash restarter
+    /// : After MAX_CRASH_RESTARTS the crash restarter
     /// gives up and marks the sidecar Terminated — no further restart
     /// attempts. The mode is terminal until the user restarts the app.
     /// mode transition is Running|Starting -> Terminated.
     Terminated,
 }
 
-/// Ring buffer capacity for sidecar stderr/stdout lines (ADR-0016 Q2a).
+/// Ring buffer capacity for sidecar stderr/stdout lines .
 const SIDECAR_LOG_CAPACITY: usize = 500;
 
-/// Bounded ring buffer for sidecar process stdout/stderr output (ADR-0016 Q2a).
+/// Bounded ring buffer for sidecar process stdout/stderr output .
 pub struct LogBuffer {
     lines: parking_lot::Mutex<VecDeque<String>>,
 }
@@ -99,11 +99,11 @@ pub struct SidecarHandle {
     /// kill() means a second Exit callback (if Tauri ever re-emits one)
     /// is a no-op.
     pub child: Mutex<Option<Child>>,
-    /// Lifecycle mode (ADR-0016 Q1). RwLock so the health poll thread,
+    /// Lifecycle mode . RwLock so the health poll thread,
     /// crash restarter, and exit hook can all read/set the mode without
     /// blocking the IPC command path (which only needs api_port + tokens).
     pub mode: std::sync::RwLock<RunningMode>,
-    /// Ring buffer for sidecar stderr/stdout lines (ADR-0016 Q2a).
+    /// Ring buffer for sidecar stderr/stdout lines .
     pub log_buf: Arc<LogBuffer>,
     /// Resin's single consolidated port (control-plane API + proxy + webui).
     pub api_port: u16,
@@ -137,7 +137,7 @@ impl SidecarHandle {
     }
 
     /// Transition to a new mode. Validates that the transition is legal
-    /// per the ADR-0016 state graph; logs a warn on illegal transitions
+    ///  state graph; logs a warn on illegal transitions
     /// but does not panic (defensive against races in the exit path).
     pub fn set_mode(&self, new: RunningMode) {
         let old = self.mode();
@@ -395,7 +395,7 @@ fn spawn_resin_inner(
 
     match &slot {
         Some(s) => {
-            // CONTEXT Port Cleanup / ADR-0016 Q4: refuse to spawn into a port
+            // CONTEXT Port Cleanup / : refuse to spawn into a port
             // that is still held. A silent bind failure would otherwise look
             // like a successful restart while no control plane ever came up.
             check_port_available(s.port)
@@ -475,7 +475,7 @@ fn spawn_resin_on_port(
     // empty proxy_token enables no-auth on ports where require_proxy_auth_info=0.
     // Resin socks5.go:261 — when s.token=="" the OR condition is false, so the
     // else branch accepts NoAuth(0x00) + UserPass(0x02). forward.go:103 — when
-    // p.token=="" the no-auth path returns nil error directly. ADR-0027 was wrong:
+    // p.token=="" the no-auth path returns nil error directly.  was wrong:
     // source verification proves empty token is safe (socks5.go:307 short-circuits
     // the password check, forward.go:103-115 lets no-auth through).
     let proxy_token = String::new();
@@ -730,7 +730,7 @@ pub(crate) fn restart_resin<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
 /// transitions are unit-testable against a tempdir + the real resin binary
 /// without an AppHandle or MockRuntime path resolution.
 ///
-/// Sequence (ADR-0016 Q5 two-phase shutdown, then a fresh spawn):
+/// Sequence :
 ///   1. Running -> NotRunning, take the child out of the handle
 ///   2. kill + wait SHUTDOWN_WAIT_MS + try_wait (port/SQLite lock released)
 ///   3. NotRunning -> Starting, respawn on the SAME port with the SAME admin
@@ -751,7 +751,7 @@ pub fn restart_into_slot(
     let slot = state.respawn_slot();
     tracing::warn!("ghost: restarting sidecar on port {}", slot.port);
 
-    // Phase 1 + 2: two-phase shutdown of the old child (ADR-0016 Q5).
+    // Phase 1 + 2: two-phase shutdown of the old child .
     state.set_mode(RunningMode::NotRunning);
     {
         let mut guard = state.child.lock().unwrap_or_else(|e| e.into_inner());
@@ -820,7 +820,7 @@ fn gen_token() -> Result<String> {
     Ok(hex::encode(bytes))
 }
 
-/// (ADR-0016): Check if a loopback TCP port is available to bind.
+/// : Check if a loopback TCP port is available to bind.
 /// Returns Ok(()) if free, Err(message) if occupied by another process.
 /// Pure function for testability: the test binds a listener then calls this
 /// with the same port and expects Err.
@@ -1084,7 +1084,7 @@ mod tests {
 
     #[test]
     fn sidecar_handle_set_mode_logs_warn_on_invalid_running_to_starting() {
-        // Running -> Starting is NOT a valid ADR-0016 transition.
+        // Running -> Starting is NOT a valid  transition.
         // set_mode does NOT panic or revert — it traces a warn then writes
         // the new value anyway (defensive, in case of races in the exit
         // path). We assert the value IS written (documenting the actual
@@ -1184,7 +1184,7 @@ mod tests {
     #[test]
     fn unhealthy_action_restarts_for_the_first_three_transitions() {
         // transitions 1..=3 each spend one real restart attempt,
-        // the ADR-0016 Q3 backoff (1s, 2s, 4s).
+        // the  backoff (1s, 2s, 4s).
         assert_eq!(
             unhealthy_action(1),
             UnhealthyAction::Restart { backoff_ms: 1000 }
@@ -1500,18 +1500,18 @@ const HEALTH_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs
 const HEALTH_FAILURE_THRESHOLD: u32 = 3;
 const STATUS_EVENT: &str = "sidecar-status";
 
-/// Crash auto-restart bounds (ADR-0016 Q3). After a sidecar process crash,
+/// Crash auto-restart bounds . After a sidecar process crash,
 /// attempt up to 3 restarts with exponential backoff: 1s, 2s, 4s.
 /// After MAX_RESTARTS, mark terminal dead + notify user (no infinite loop).
 const MAX_CRASH_RESTARTS: u32 = 3;
 
-/// (ADR-0016): milliseconds to wait between TerminateProcess and
+/// : milliseconds to wait between TerminateProcess and
 /// PID reaping check. Gives the OS time to release the port + SQLite state
 /// lock so the next boot does not get EADDRINUSE or "database is locked".
 /// 500ms is the clash-verge-rev CoreManager two-phase shutdown interval.
 pub const SHUTDOWN_WAIT_MS: u64 = 500;
 
-/// (ADR-0016): Two-phase shutdown sequence for the sidecar process.
+/// : Two-phase shutdown sequence for the sidecar process.
 /// Phase 1: Send the kill signal (TerminateProcess on Windows, SIGTERM on Unix).
 /// Phase 2: Wait SHUTDOWN_WAIT_MS, then verify the process is gone.
 /// Returns Ok(()) if the process is gone within the wait window,
@@ -1531,7 +1531,7 @@ pub fn two_phase_shutdown_result(killed: bool, pid_alive: bool) -> Result<(), St
 }
 
 /// Return the backoff delay in milliseconds for crash restart attempt N
-/// (0-indexed). ADR-0016 Q3: 1s, 2s, 4s exponential backoff.
+/// (0-indexed). : 1s, 2s, 4s exponential backoff.
 /// Pure function for testability.
 pub fn crash_backoff_ms(attempt: u32) -> u64 {
     // attempt 0 -> 1000ms, 1 -> 2000ms, 2 -> 4000ms
@@ -1540,7 +1540,7 @@ pub fn crash_backoff_ms(attempt: u32) -> u64 {
 
 /// What the Ghost safety net does on unhealthy transition number
 /// `crash_count` (1-based). Transitions 1..=MAX_CRASH_RESTARTS spend one
-/// real restart attempt (after the ADR-0016 Q3 backoff); the next transition
+/// real restart attempt ; the next transition
 /// exhausts the budget and marks the sidecar Terminated. Extracted as a pure
 /// fn so the 3-strike budget is unit-testable without spawning a process.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

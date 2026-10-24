@@ -516,7 +516,7 @@ function evalGates(acc) {
 
 // ---- faultinject (R12-C1): opt-in evidence phase ---------------------------
 
-// SUT = egressapikey-headless (Mode B transport) driving the ADR-0080
+// SUT = egressapikey-headless (Mode B transport) driving the
 // signal-plane common-mode suppressor under REAL fault injection. The
 // assertions ARE the evidence: a breach is a hard fail (fatal), never a
 // warn-only measurement. Opt-in only - never in the default phase set or
@@ -753,7 +753,7 @@ async function phaseFaultInject(ctx) {
       : `entry ports refused within ${allClosedMs}ms`,
   );
   const suspectTicks = [];
-  // ADR-0080: the suspect-streak audit row fires when the streak CROSSES 3
+  // : the suspect-streak audit row fires when the streak CROSSES 3
   // (hardwired threshold - anti-Goodhart). Pinned as a named constant so the
   // assertions read against the legislation, not a bare literal; three
   // manual ticks are required to cross it.

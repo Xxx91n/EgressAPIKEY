@@ -36,7 +36,7 @@ The T1 guard scripts (all wired through `scripts/verify-build.sh`):
 
 | Capability | What CI proves | Anchor (tier) | Residual gap |
 | --- | --- | --- | --- |
-| Entry-port lifecycle (upsert/remove/toggle/bind, 1024–65535, ≤256 ports) | Validation, persistence, Resin endpoint CRUD order | whitebox_config + db + ports IPC vitest wrappers (T1) | Listener lifecycle is Resin-owned by design — no shell TcpListener (ADR-0012) |
+| Entry-port lifecycle (upsert/remove/toggle/bind, 1024–65535, ≤256 ports) | Validation, persistence, Resin endpoint CRUD order | whitebox_config + db + ports IPC vitest wrappers (T1) | Listener lifecycle is Resin-owned by design — no shell TcpListener  |
 | Port = (platform, account) identity record | `resin_identity()` string + PortMapping persistence | port_forwarder tests: `identity_defaults_account_to_port`, `distinct_ports_distinct_identities` (T1) | Binding is config-plane only; live exit selection still keys on the client-supplied credential (Mode B) until Mode A lands (§5) |
 | Entry protocols {http, socks5} | Closed-set validation at whitebox + IPC boundaries | validator tests + `ipcPortUpsert` rejection tests (T1) | `mixed` default + socks5-tightening in flight (ticket 13, §5) |
 | Exit-IP probe parsing | Cloudflare-trace body → IP parse | proxy_e2e mockito tests ×3 + port_forwarder parse tests (T1) | Real-network probe `test_probe_real_1_1_1_1` is `#[ignore]`d (T0) |
@@ -89,7 +89,7 @@ The T1 guard scripts (all wired through `scripts/verify-build.sh`):
 | Capability | What CI proves | Anchor (tier) | Residual gap |
 | --- | --- | --- | --- |
 | Push→verify gate | every push/PR runs build+tests+guards | ci.yml `verify` (self-evidencing, T1) | Branch-protection "required check" is a repo setting, outside CI files |
-| Release artifacts | installers (msi/nsis/deb/AppImage/dmg), portable ×3, headless ×4 | gui/gui-portable/backend matrix (T3) | Manual dispatch by design (ADR-0010 revision) |
+| Release artifacts | installers (msi/nsis/deb/AppImage/dmg), portable ×3, headless ×4 | gui/gui-portable/backend matrix (T3) | Manual dispatch by design  |
 | Docs governance (retired 2026-10-15) | — | docs-lint.yml removed | gate retired by governance-court ruling; markdownlint-cli2 devDep remains dormant |
 | License layering declared | package.json = Cargo workspace = README = GPL-3.0-or-later; LICENSE is verbatim GPL text | license-field-check (T1) | Legal posture documented in THIRD_PARTY.md — declared, not audited |
 | Bilingual README | EN/CN heading map 1:1 + license body | readme-lang-check retired 2026-10 (doc-word gate); manual review | — |
@@ -104,10 +104,10 @@ The T1 guard scripts (all wired through `scripts/verify-build.sh`):
 | 2 | "each port is the identity of one (platform, account) pair" (README) | **partially** | Identity record is stored/validated (T1); live exit binding requires client credential today — Mode A forwarder in flight |
 | 3 | "guarantees a distinct sticky exit IP per pair" (README) | **not CI-verified** | Guarantee is Resin-side; shell anchors identity plumbing only; live probe is #[ignore]d (T0) |
 | 4 | "SSE session stickiness — locks its node until completion, auto-switching on failure" (README) | **not CI-verified** | Classification anchored (T1); stickiness = Resin lease behavior, no e2e in any gate |
-| 5 | "Per-request TCP freshness — pool_max_idle_per_host(0)" (README + README_CN) | **stale mechanism name** | Symbol absent from codebase; actual knob is whitebox `network.max_idle_conns*` → sidecar transport env (ADR-0028). Claim intent survives; named mechanism is wrong |
+| 5 | "Per-request TCP freshness — pool_max_idle_per_host(0)" (README + README_CN) | **stale mechanism name** | Symbol absent from codebase; actual knob is whitebox `network.max_idle_conns*` → sidecar transport env . Claim intent survives; named mechanism is wrong |
 | 6 | "Strategy engine — B-class decides how a port picks its exit (random / round-robin / low-latency)" (README) | **stale vocabulary** | Post ticket-01 truth set is the three Resin allocation policies; the six-way per-port picker narrative is withdrawn (GLOSSARY.md B-Class Strategy) |
 | 7 | "Topology canvas — drag-to-connect hot-patches region filters on the live sidecar" (README) | **anchored (partial)** | `strategy_platform_regions_set` → apply path tested (T1) + TopologyView vitest; live-sidecar effect covered by contract, not e2e |
-| 8 | "Zero adaptation — point your gateway at an entry port; client code stays unchanged" (README) | **partially true today** | No-auth entry ports accept credential-free clients (ADR-0027); per-port (platform,account) binding still needs client-supplied credential until Mode A lands (tickets 13/17/18) |
+| 8 | "Zero adaptation — point your gateway at an entry port; client code stays unchanged" (README) | **partially true today** | No-auth entry ports accept credential-free clients ; per-port (platform,account) binding still needs client-supplied credential until Mode A lands (tickets 13/17/18) |
 | 9 | "Headless twin — the full GUI control surface over HTTP" (README) | **overstated** | 35/79 mapped + 44 typed-disabled by design (§2 Headless); "same control surface" holds only for the Resin-backed subset |
 | 10 | "admin bearer token injected server-side; browser never sees it" (README) | **anchored (code) + T0 tests** | BFF strips/injects (headless_main.rs) + security gate tests exist but are not CI-executed |
 | 11 | "68 ADRs" (docs/README.md) | **stale count** | 70 files on disk (69 numbered + 0050-bis) — the narrative this page replaces was not even numerically current |
@@ -145,7 +145,7 @@ Excluded from "verified" above until they land with green CI:
 ## 6. Maintenance rule
 
 Every new capability claim in README/docs must name its evidence anchor
-(job, test, or guard) — same closed-loop discipline as the retired ADR-0020.
+(job, test, or guard) — same closed-loop discipline as the retired .
 When a gate gains coverage, move the row; when a claim loses its anchor, the
 claim goes to §4 or is deleted. (Formerly linted by docs-lint T2, retired
 2026-10-15.)

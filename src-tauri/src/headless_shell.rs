@@ -1,4 +1,4 @@
-//! BFF-native shell routes (ADR-0071 option C).
+//! BFF-native shell routes .
 //!
 //! Every command that reads or writes control-plane state gets a real
 //! endpoint here — NOT a proxy pass-through and NOT a disabled stub. The
@@ -319,7 +319,7 @@ async fn strategy_regions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
 }
 
 /// PATCH /api/v1/shell/strategy/subscriptions {platform_name, subscriptions} -
-/// subscription-intent deep edit (ADR-0075), same sanctioned service write.
+/// subscription-intent deep edit , same sanctioned service write.
 async fn strategy_subscriptions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     let v = match json_body(&body).await {
         Ok(v) => v,
@@ -352,7 +352,7 @@ async fn strategy_subscriptions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
 }
 
 /// PATCH /api/v1/shell/strategy/manual-nodes {platform_name, manual_nodes} -
-/// manual_nodes deep edit (ADR-0076 delete-projection write path).
+/// manual_nodes deep edit .
 async fn strategy_manual_nodes_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     let v = match json_body(&body).await {
         Ok(v) => v,
@@ -408,7 +408,7 @@ async fn strategy_rollback_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     if backup_name.is_empty() || backup_name.len() > 200 {
         return port_err(StatusCode::BAD_REQUEST, "backup_name invalid");
     }
-    // ADR-0059: scope a rollback audit context so the row emitted by
+    // : scope a rollback audit context so the row emitted by
     // FsStrategyStore::store carries op:"rollback" + source_backup.
     let audit_ctx = resin_core::audit::AuditCtx {
         op: Some("rollback".into()),
@@ -520,7 +520,7 @@ async fn reconcile_h(ctx: Arc<PortCtx>) -> Response {
     }
 }
 
-// ── Process routes (ADR-0055 D2: L2 whitebox family) ─────────────────────
+// ── Process routes (L2 whitebox family) ─────────────────────
 
 async fn process_route_list_h(ctx: Arc<PortCtx>) -> Response {
     axum::Json(ctx.whitebox.snapshot().process_routes).into_response()
@@ -779,13 +779,13 @@ async fn probe_exit_ip_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     }
 }
 
-// ── Deprecated echo stubs (ADR-0050 contract compatibility) ──────────────
+// ── Deprecated echo stubs  ──────────────
 // Reachable for parity: they validate input and echo the same fixed
 // responses the desktop commands produce (no semantics — Resin owns
-// accounts since ADR-0050).
+// accounts since ).
 
 async fn account_add_h(body: Bytes) -> Response {
-    tracing::warn!(target: "ipc.account_deprecated", "account_add is deprecated since ADR-0050 (Resin owns account semantics); manage accounts via Resin directly");
+    tracing::warn!(target: "ipc.account_deprecated", "account_add is deprecated since  (Resin owns account semantics); manage accounts via Resin directly");
     let v = match json_body(&body).await {
         Ok(v) => v,
         Err(r) => return r,
@@ -812,7 +812,7 @@ async fn account_add_h(body: Bytes) -> Response {
 }
 
 async fn account_bind_ip_h(body: Bytes) -> Response {
-    tracing::warn!(target: "ipc.account_deprecated", "account_bind_ip is deprecated since ADR-0050 (Resin owns account semantics); manage accounts via Resin directly");
+    tracing::warn!(target: "ipc.account_deprecated", "account_bind_ip is deprecated since  (Resin owns account semantics); manage accounts via Resin directly");
     let v = match json_body(&body).await {
         Ok(v) => v,
         Err(r) => return r,
@@ -1084,7 +1084,7 @@ pub fn shell_routes(ctx: Arc<PortCtx>) -> Router {
         .route("/api/v1/shell/sidecar/restart", post(h!(sidecar_restart_h)))
         .route("/api/v1/shell/firewall", get(firewall_h))
         .route("/api/v1/shell/probe-exit-ip", post(h!(probe_exit_ip_h)))
-        // deprecated echo stubs (ADR-0050 contract parity)
+        // deprecated echo stubs
         .route("/api/v1/shell/accounts", post(account_add_h))
         .route("/api/v1/shell/accounts/bind-ip", post(account_bind_ip_h))
 }

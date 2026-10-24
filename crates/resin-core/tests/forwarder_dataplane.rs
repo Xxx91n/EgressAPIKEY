@@ -6,7 +6,7 @@
 //! endpoint). All legs are real loopback TCP sockets - per the spec's
 //! testing decision the behaviour is measured end to end, not through
 //! stubbed traits. The mock consolidated port replicates exactly what the
-//! ADR-0068 D4 gate and the ticket-17 contract probes observed live
+//!  gate and the ticket-17 contract probes observed live
 //! (.scratch/architecture-recovery/repro/d4-mixed/ + t17-contract/): one
 //! port, both dialects, presented credentials parsed and relayed raw.
 //!

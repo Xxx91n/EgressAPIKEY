@@ -9,7 +9,7 @@
 // pushes and nightly only, so a failure is evidence on main, never a PR gate.
 //
 //   S1 window up     - webview session opens + document title == EgressAPIKEY
-//                      (+ MainWindowTitle on win32 - the ADR-0072 liveness)
+//
 //   S2 nav switch    - Topology -> Settings renders the network save control
 //   S3 ipc roundtrip - port_list returns an array through the real IPC bridge
 //   S4 remove path   - platform_add -> card renders -> UI delete -> gone

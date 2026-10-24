@@ -64,11 +64,11 @@ mod tests;
 // Extracted for unit testing without an AppHandle.
 
 // ---------------------------------------------------------------------------
-// Strategy Engine (ADR-0022) — whitebox per-platform strategy config.
+// Strategy Engine  — whitebox per-platform strategy config.
 // The shell polls Resin /nodes, applies A-class filters, PATCHes region_filters.
 // B-class maps to Resin allocation_policy via the existing platform_update IPC.
 
-// --- Phase 1: Port health batch probe (ADR-0042 S1) ---------------------
+// --- Phase 1: Port health batch probe  ---------------------
 //
 // A single watch_port_health command drives the background Tokio task that
 // probes every enabled entry-port concurrently (cap 10) and streams

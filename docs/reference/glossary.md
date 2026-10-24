@@ -19,7 +19,7 @@ A test that proves a feature works end-to-end through the real code path it
 claims to cover, not just a mocked stub. For backend IPC: cargo unit test +
 mockito integration test. For GUI: vitest component test mocking invoke().
 A feature without a closed-loop test is "black-box / toy" by the user is
-standard (ADR-0003 context).
+standard .
 
 ## live-sidecar e2e
 
@@ -27,7 +27,7 @@ A closed-loop test that runs against the REAL Resin Go sidecar binary
 (resin-x86_64-pc-<abi>.exe), not a mockito stand-in. Proves the shell
 injects headers the real binary actually honors, and the real binary
 produces leases with the expected egress IPs. Stronger than mockito-only.
-ADR-0006 (retired 2026-10-15) item 3 requires this for the A4-3 interceptor.
+ (retired 2026-10-15) item 3 requires this for the A4-3 interceptor.
 
 ## routable-view
 
@@ -38,25 +38,25 @@ ADR-0006 (retired 2026-10-15) item 3 requires this for the A4-3 interceptor.
 Resin admin endpoint: GET /api/v1/platforms/{id}/routable-view. Returns the
 list of nodes a platform can actually route to (after region_filters + node
 health). The shell is platform_snapshot IPC currently returns an empty
-Vec<Account>; wiring it to routable-view is ADR-0006 (retired 2026-10-15) item 1 / HANDOFF
+Vec<Account>; wiring it to routable-view is  (retired 2026-10-15) item 1 / HANDOFF
 next-deep-work-1.
 
 ## route_id
 
 > **Deleted symbols (historical)**: `route_id()` and `lane.rs` no longer
-> exist — ADR-0014 deleted the interceptor identity line (route_id,
-> normalize_auth, the A4-3 interceptor) and ADR-0050 deleted the remaining
+> exist —  deleted the interceptor identity line (route_id,
+> normalize_auth, the A4-3 interceptor) and  deleted the remaining
 > lane.rs module. This entry is kept as term history only.
 
 A stable u64 hash of the three-tuple (normalized_auth, body.model,
 request.path) computed by route_id() in crates/resin-core/src/lane.rs.
 The shell injects X-Resin-Account: ar-<16hex of route_id> so Resin anchors
-egress IP per unique (api key + upstream endpoint) pair. ADR-0003.
+egress IP per unique (api key + upstream endpoint) pair. .
 
 ## X-Resin-Account
 
 > **Superseded mechanism (historical)**: the A4-3 interceptor described
-> below was deleted by ADR-0014, and ADR-0015 confirmed the thin-shell
+> below was deleted by , and  confirmed the thin-shell
 > forwarder — the shell no longer injects this header per (key, model);
 > port identity reaches Resin via the port→(platform, account) mapping
 > (see GLOSSARY.md「Entry Port Mapping」).
@@ -70,13 +70,13 @@ removed before the route_id-derived value is injected.
 
 ## mainline A / mainline B
 
-ADR-0006 (retired 2026-10-15). Mainline A = function closure (make the software not a toy).
+ (retired 2026-10-15). Mainline A = function closure (make the software not a toy).
 Mainline B = release standardization (fill release/ + tag v0.1.0).
 Sequential: B starts only after A is closed-loop verified.
 
 ## observed_keys
 
-The shell-side SQLite table (ADR-0011) storing the reverse map from
+The shell-side SQLite table  storing the reverse map from
 route_id (ar-<16hex>) to readable (apiKeyMask, endpoint, first_seen,
 last_seen, request_count). Append-only. Backed up inside the P14 zip
 alongside settings.json. Lives at app_config_dir()/egressapikey.db (WAL).
@@ -86,5 +86,5 @@ alongside settings.json. Lives at app_config_dir()/egressapikey.db (WAL).
 The Arc<r2d2::Pool<SqliteConnectionManager>> wrapper managed into Tauri
 State from main.rs .setup(). Shared by the axum interceptor (writes
 observed_keys on new route_id) and the observed_keys() IPC handler
-(services the GUI 5s sync). r2d2_rusqlite per AGENTS ADR-0011 — pool
+(services the GUI 5s sync). r2d2_rusqlite per AGENTS  — pool
 size 4, WAL enabled, hand-written PRAGMA user_version migration.

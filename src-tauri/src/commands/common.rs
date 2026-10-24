@@ -60,9 +60,9 @@ pub fn find_endpoint_id_by_port(existing: &serde_json::Value, port: u16) -> Opti
     None
 }
 
-/// (ADR-0042 S6): Restore Resin endpoints from whitebox config on startup.
+/// : Restore Resin endpoints from whitebox config on startup.
 /// Spawns-safe: failures log only, never fail the app. Skips ports already in Resin (409 Conflict).
-/// Mode A (ADR-0068 D1) delegates to restore_shell_listeners: the
+/// Mode A  delegates to restore_shell_listeners: the
 /// shell's accept loops are the entry-port listeners there, not engine rows.
 pub async fn restore_ports_from_whitebox(
     sidecar: &SidecarHandle,
@@ -127,7 +127,7 @@ pub async fn restore_ports_from_whitebox(
 
 /// Mode A restore: the whitebox rows apply to the shell's own
 /// accept loops, so the startup work is two convergence acts over L3-derived
-/// state (ADR-0042 S6: rebuildable, never user data):
+/// state (rebuildable, never user data):
 ///   1. retire stale per-port Resin endpoints - a B-era row persisted in
 ///      Resin's state.db would EADDRINUSE the shell bind and shadow the
 ///      forwarder's credential-free entry; the default consolidated

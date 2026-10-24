@@ -34,13 +34,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 
 /// Hard caps (validator + ingest) — the section is user-editable whitebox
-/// content so every array/string needs a bound (ADR-0059 audit discipline).
+/// content so every array/string needs a bound .
 pub const MAX_ORCH_PLATFORMS: usize = 64;
 pub const MAX_SWITCH_LOG: usize = 64;
 pub const MAX_PROPOSAL_REASON: usize = 512;
 pub const MAX_PROPOSAL_DIFF: usize = 1024;
 pub const MAX_REGIONS_PER_SWITCH: usize = 64;
-/// Cap on a verdict detail string (ADR-0080) — operator-facing evidence
+/// Cap on a verdict detail string  — operator-facing evidence
 /// carried on the IPC/audit surface only, never into the ring.
 pub const MAX_VERDICT_DETAIL: usize = 64;
 
@@ -256,7 +256,7 @@ pub struct OrchestrationSection {
     pub params: OrchestrationParams,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub platforms: Vec<PlatformOrch>,
-    /// Latest signal verdict per probed platform (ADR-0080 §7): persisted
+    /// Latest signal verdict per probed platform : persisted
     /// bookkeeping so consumers project verdicts without riding a tick.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub signal_verdicts: HashMap<String, ProbeVerdict>,
@@ -294,13 +294,13 @@ pub struct WindowStats {
     /// This tick's own verdict (already pushed into the window by the
     /// caller before evaluation).
     pub tick_failed: bool,
-    /// ADR-0080 barrier: false when this tick's verdict is Skipped or
+    ///  barrier: false when this tick's verdict is Skipped or
     /// EnvironmentSuspect — evidence-free ticks skip row evaluation
     /// entirely (no heal, no good-cycle advance, no breach check).
     pub tick_valid: bool,
 }
 
-/// Typed per-port probe outcome (ADR-0080). The join matrix classifies
+/// Typed per-port probe outcome . The join matrix classifies
 /// WHERE a failure lives so a local outage is never rewritten as N remote
 /// platform failures.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -333,7 +333,7 @@ impl ProbeVerdict {
     }
 }
 
-/// Per-port join matrix (ADR-0080 §1). The contradiction case (loopback
+/// Per-port join matrix . The contradiction case (loopback
 /// fail + egress ok) classifies as LocalFail; the caller records it in the
 /// ≤64B detail field.
 pub fn join_probe(loopback_ok: bool, egress_ok: bool) -> ProbeVerdict {
@@ -345,7 +345,7 @@ pub fn join_probe(loopback_ok: bool, egress_ok: bool) -> ProbeVerdict {
 }
 
 /// Aggregate one platform's per-port verdicts into its tick verdict
-/// (ADR-0080 §2 — supersedes the typeless majority count): skipped holds
+/// : skipped holds
 /// no evidence and leaves the denominator; a strict majority of fail-class
 /// ports over the valid set yields the dominant class (ties → RemoteFail,
 /// the actionable class); otherwise Ok.
@@ -379,7 +379,7 @@ pub fn aggregate_platform_verdict(verdicts: &[ProbeVerdict]) -> ProbeVerdict {
     }
 }
 
-/// Common-mode suppressor (ADR-0080 §3): >=80% of ALL probed bound ports
+/// Common-mode suppressor : >=80% of ALL probed bound ports
 /// failing loopback in one tick means the environment broke, not the
 /// platforms. Denominator = attempted probes (skipped attempts included).
 pub fn common_mode_suspect(local_fail_ports: u32, probed_ports: u32) -> bool {
@@ -403,7 +403,7 @@ pub fn window_stats(ring: &VecDeque<ProbeVerdict>, tick: ProbeVerdict) -> Window
 }
 
 /// Trailing run of entries equal to `v` — suspect/skipped entries
-/// truncate the run (ADR-0080 streak semantics).
+/// truncate the run .
 pub fn verdict_streak(ring: &VecDeque<ProbeVerdict>, v: ProbeVerdict) -> u32 {
     ring.iter().rev().take_while(|&&x| x == v).count() as u32
 }
@@ -545,7 +545,7 @@ pub fn evaluate_section(
             Some(s) => *s,
             None => continue, // no signal source this tick — no evidence, no action
         };
-        // ADR-0080 barrier tick: Skipped/EnvironmentSuspect carry no
+        //  barrier tick: Skipped/EnvironmentSuspect carry no
         // platform evidence — "not failed" is NOT "healthy". The evaluator
         // skips the row entirely: no Degraded self-heal, no Observing
         // good-cycle advance (rollback baseline kept), no breach eval, no
@@ -1232,7 +1232,7 @@ mod tests {
         assert!(p.diff.len() <= MAX_PROPOSAL_DIFF + 16);
     }
 
-    // ---- ADR-0080 signal-plane verdicts ----
+    // ----  signal-plane verdicts ----
 
     use ProbeVerdict as PV;
 

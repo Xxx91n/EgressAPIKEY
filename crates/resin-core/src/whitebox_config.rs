@@ -32,7 +32,7 @@ pub const WHITEBOX_CONFIG_FILE: &str = "egressapikey-ports.json";
 
 /// Current whitebox document version.
 ///
-/// v1 -> v2 is / (ADR-0068 D3): the entry-port protocol
+/// v1 -> v2 is / : the entry-port protocol
 /// enum gained `mixed` and `socks5` was tightened to SOCKS5-only. v1 documents
 /// still load - the two-value vocabulary is flag-preserving onto `mixed` - and
 /// are upgraded in place by `migrate_entry_port_protocols`.
@@ -45,23 +45,23 @@ pub struct WhiteboxConfig {
     pub entry_ports: Vec<PortMapping>,
     #[serde(default)]
     pub network: NetworkConfig,
-    /// ADR-0054 §D: optional exemption list. Members are decimal
+    /// : optional exemption list. Members are decimal
     /// port numbers the user has marked "known drift, don't notify". Absent
     /// = empty (older configs load unchanged). NEVER enters the three-state
     /// merge — read-side presentation only. Shape checks in `validate`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acknowledged: Vec<String>,
-    /// ADR-0055 D1: per-process -> entry-port routing rules,
+    /// : per-process -> entry-port routing rules,
     /// migrated out of L1 settings.json. Absent = empty (older files load
     /// unchanged); single write entry = WhiteboxConfigStore::apply via the
     /// process_route_* commands.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub process_routes: Vec<ProcessRouteRule>,
-    /// ADR-0055 D6: ADR-0054 §D exemption vocabulary for the
+    /// :  exemption vocabulary for the
     /// route family (process names). Read-side presentation only.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub route_acknowledged: Vec<String>,
-    /// ADR-0058: write-authority generation counter —
+    /// : write-authority generation counter —
     /// ports half is SINGLE-generation by design: the writer and the apply
     /// executor are the same process (`WhiteboxConfigStore::apply` completes
     /// synchronously), the Crossplane "external resource needs a second
@@ -89,7 +89,7 @@ impl WhiteboxConfig {
     }
 }
 
-/// ADR-0055: one process-routing rule (L2 whitebox family).
+/// : one process-routing rule (L2 whitebox family).
 /// This is the SINGLE wire shape — the former dual writers (webview
 /// settings.ts camelCase `targetPort` vs Rust snake_case `target_port`)
 /// collapsed into this snake_case form on disk and over IPC.
@@ -99,7 +99,7 @@ pub struct ProcessRouteRule {
     pub target_port: u16,
 }
 
-/// ADR-0055 D1: upper bound for whitebox process routes
+/// : upper bound for whitebox process routes
 /// (AGENTS 7.5 bounded-array template).
 pub const MAX_PROCESS_ROUTES: usize = 256;
 
@@ -160,10 +160,10 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
         validate_text(&port.label, "label")?;
     }
     validate_network(&config.network)?;
-    // ADR-0054 §D: the exemption array shares the strategy
+    // : the exemption array shares the strategy
     // whitebox shape rules (≤64 × 1..128 chars, no control chars, no dupes).
     crate::strategy_service::validate_acknowledged(&config.acknowledged, "acknowledged")?;
-    // ADR-0055: route family validation. Bounded count, unique
+    // : route family validation. Bounded count, unique
     // normalized process names, port >= MIN_USER_PORT, and the legacy
     // one-port-one-process conflict rule so a hand-edited file cannot
     // smuggle two processes onto one port.
@@ -198,10 +198,10 @@ pub fn validate(config: &WhiteboxConfig) -> Result<(), String> {
     Ok(())
 }
 
-/// ADR-0055 D2: one target port may carry at most one process.
+/// : one target port may carry at most one process.
 /// Returns Err naming the bound process (the legacy typed-conflict
 /// contract, now part of document validation). Pure; unit-tested.
-/// (ADR-0068 D3): the flag-preserving
+/// : the flag-preserving
 /// rewrite of ONE legacy protocol token.
 ///
 /// Under the v1 vocabulary a `socks5` row produced BOTH engine flags
@@ -301,7 +301,7 @@ pub fn process_route_conflict_check(rules: &[ProcessRouteRule]) -> Result<(), St
     Ok(())
 }
 
-/// ADR-0055 D5: parse the LEGACY L1 settings.json value
+/// : parse the LEGACY L1 settings.json value
 /// tolerantly. Both historical wire shapes are accepted
 /// (webview camelCase `targetPort` / Rust snake_case `target_port`, plus the
 /// even older `target_lane`); entries that are not objects, lack a
@@ -339,7 +339,7 @@ pub fn parse_legacy_l1_routes(v: &serde_json::Value) -> Vec<ProcessRouteRule> {
     out
 }
 
-/// ADR-0055 D5: one-time boot migration. Merge the legacy L1
+/// : one-time boot migration. Merge the legacy L1
 /// rules into the seed document (existing whitebox process names WIN —
 /// the whitebox is already the truth source) and return the merged doc.
 /// Idempotent by construction: a second pass over an empty legacy value is
@@ -576,7 +576,7 @@ impl WhiteboxConfigStore {
         migrate_entry_port_protocols(&mut next);
         validate(&next)?;
         let _guard = self.writer.lock().await;
-        // ADR-0058: single-generation counter bump —
+        // : single-generation counter bump —
         // every ACCEPTED apply advances the ports write-authority generation
         // past the CURRENT committed value (not the incoming doc's: callers
         // hand-build documents that may not carry the latest counter). The
@@ -600,16 +600,16 @@ impl WhiteboxConfigStore {
         Ok(started)
     }
 
-    /// ADR-0054 section B: list the versioned backups of this whitebox file,
+    /// : list the versioned backups of this whitebox file,
     /// newest first.
     pub fn list_backups(&self) -> Result<Vec<WhiteboxBackupEntry>, String> {
         backup_list(&self.path)
     }
 
-    /// ADR-0054 section B: roll the whitebox file back to a listed backup.
+    /// : roll the whitebox file back to a listed backup.
     /// The backup content is parsed and then re-enters the SAME validate ->
     /// DB/listeners -> file -> swap chain as a hand edit (apply), never
-    /// bypassing ADR-0042 entries. The rollback write is itself backed up,
+    /// bypassing  entries. The rollback write is itself backed up,
     /// so a rollback is reversible.
     pub async fn rollback_to_backup(
         &self,
@@ -622,7 +622,7 @@ impl WhiteboxConfigStore {
     }
 }
 
-/// (ADR-0042 S6): Filter entry_ports to only enabled entries for
+/// : Filter entry_ports to only enabled entries for
 /// Resin endpoint restore on startup. Pure helper so it is unit-testable
 /// without a live Resin sidecar.
 pub fn enabled_entries_for_restore(entry_ports: &[PortMapping]) -> Vec<&PortMapping> {
@@ -637,7 +637,7 @@ async fn apply_ports(
     validate(&WhiteboxConfig::from_ports(next.to_vec()))?;
     let _previous = db.list_ports()?;
     // Data-plane mode decides what "applying the rows to the listeners"
-    // means (ADR-0068 D1):
+    // means :
     //   Engine (Mode B): Resin v1.2.0 owns the per-entry-port listeners;
     //     endpoint CRUD happens through the command layer's ResinClient
     //     step (port_upsert/port_remove), so the hot-swap of shell
@@ -649,7 +649,7 @@ async fn apply_ports(
     //     of silently half-applying.
     // The write txn is synchronous SQLite work — run it on the
     // blocking pool so an async worker never parks on the pool Mutex (the
-    // ADR-0011 Mutex+spawn_blocking pattern). The txn itself is short:
+    //  Mutex+spawn_blocking pattern). The txn itself is short:
     // BEGIN IMMEDIATE + one DELETE + N INSERTs + COMMIT.
     let rows = next.to_vec();
     let db2 = db.clone();
@@ -661,10 +661,10 @@ async fn apply_ports(
     Ok(next.len())
 }
 
-/// Atomic whitebox write with versioning (ADR-0054 section B): the current
+/// Atomic whitebox write with versioning : the current
 /// file is copied to backup/ and rotated BEFORE the new bytes replace it.
 /// Callers have already validated; a failed backup aborts the write.
-/// ADR-0059 audit: records a best-effort row with the
+///  audit: records a best-effort row with the
 /// before/after content hashes (never propagates; rollback context comes
 /// from the AUDIT_CTX task-local set by the whitebox_rollback IPC command).
 fn write_atomic(path: &Path, config: &WhiteboxConfig) -> Result<(), String> {
@@ -716,7 +716,7 @@ mod tests {
         }
     }
 
-    // ---- ADR-0055: process routes family ----
+    // ---- : process routes family ----
 
     fn route(process: &str, port: u16) -> ProcessRouteRule {
         ProcessRouteRule {
@@ -987,7 +987,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// ADR-0058: every ACCEPTED apply bumps the ports
+    /// : every ACCEPTED apply bumps the ports
     /// single-generation counter and stamps updated_at. A v1 file (no
     /// generation fields) loads with generation=0 — serde(default) zero
     /// migration, and apply #1 lands at generation=1.

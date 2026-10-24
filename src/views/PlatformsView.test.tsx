@@ -570,7 +570,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     unmount();
   });
 
-  // ADR-0073 invariant 1: a strategy-field sync never shrinks the platform
+  //  invariant 1: a strategy-field sync never shrinks the platform
   // entry set - desired entries absent from the live list still reach
   // config_put verbatim (missing-on-live is a Drifted phase, not deletion).
   it("strategy sync keeps desired entries absent from the live list", async () => {
@@ -598,7 +598,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
     expect(putConfig.platforms).toHaveLength(2);
   });
 
-  // ADR-0073 invariant 2 (allowEmpty): an empty live read is an
+  //  invariant 2 (allowEmpty): an empty live read is an
   // engine-untrustworthy window, never a deletion signal - the write-back
   // is not fed by it, so the full desired set still reaches config_put.
   it("empty live list cannot wipe the desired platform set", async () => {

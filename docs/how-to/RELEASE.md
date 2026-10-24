@@ -31,7 +31,7 @@ Before promoting a build (and after any Resin sidecar version bump):
 
 - `bash scripts/verify-build.sh` is green, including its `contracts` sub-step:
   `scripts/mode-a-contract-check.cjs` boots the fetched Resin sidecar and
-  re-establishes the ADR-0068 D4 four-scenario byte-level contract (mixed-port
+  re-establishes the  four-scenario byte-level contract (mixed-port
   503 `NO_AVAILABLE_NODES` + SOCKS5 `05 00`; http-only refuses SOCKS5 with
   `05 ff`; socks5-only refuses HTTP with 403 `ENDPOINT_CAPABILITY_DISABLED`)
   plus the ticket-17 identity-attribution cases (HTTP Basic and SOCKS5

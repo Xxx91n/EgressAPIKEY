@@ -99,7 +99,7 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
     expect(screen.getByTestId("ec-last-checked")).toHaveTextContent(new Date(TS * 1000).toLocaleString());
     expect(screen.getByTestId("ec-resin-down")).toBeInTheDocument();
     const row = screen.getByTestId("ec-platform-delta");
-    // ADR-0051: sidecar-down absence is neutral, not drift.
+    // : sidecar-down absence is neutral, not drift.
     expect(within(row).getByTestId("ec-badge-missing")).toHaveAttribute("data-neutral", "true");
     expect(within(row).getByText(/r3/)).toBeInTheDocument();
   });
@@ -190,7 +190,7 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
   });
 });
 
-// ADR-0054 §A: reconcile preview dialog — confirm / cancel /
+// : reconcile preview dialog — confirm / cancel /
 // failure paths, re-entry guard, auto re-verify. Preview data comes from
 // the snapshot in memory (no extra request besides the re-verify pull).
 describe("EffectiveConfigView reconcile (ticket 14)", () => {
@@ -424,7 +424,7 @@ describe("EffectiveConfigView reconcile preview coverage (ticket 19)", () => {
   });
 });
 
-// ADR-0058: the top-level convergence chip. The REAL en
+// : the top-level convergence chip. The REAL en
 // catalog is wired in so the assertions lock the shipped wording values.
 describe("EffectiveConfigView converge chip (round5 T09)", () => {
   beforeAll(() => {

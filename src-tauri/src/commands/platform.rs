@@ -67,7 +67,7 @@ pub async fn platform_list_full(
         .map_err(|e| map_resin_error(&e.to_string()))
 }
 
-/// @deprecated since ADR-0050: account semantics are owned by the Resin
+/// @deprecated since : account semantics are owned by the Resin
 /// sidecar (the forward proxy anchors sticky leases per account). The shell
 /// only validates input and echoes `Ok` — no behavior. Kept solely for IPC
 /// contract compatibility (no in-repo caller; see AGENTS.md §7.6 echo list).
@@ -78,7 +78,7 @@ pub async fn account_add(
     id: String,
     lane: usize,
 ) -> Result<(), IpcError> {
-    tracing::warn!(target: "ipc.account_deprecated", "account_add is deprecated since ADR-0050 (Resin owns account semantics); manage accounts via Resin directly");
+    tracing::warn!(target: "ipc.account_deprecated", "account_add is deprecated since  (Resin owns account semantics); manage accounts via Resin directly");
     validate_short_name(&platform, "platform")?;
     validate_short_name(&id, "account")?;
     if lane >= MAX_LANES {
@@ -91,7 +91,7 @@ pub async fn account_add(
     Ok(())
 }
 
-/// @deprecated since ADR-0050: account semantics are owned by the Resin
+/// @deprecated since : account semantics are owned by the Resin
 /// sidecar (sticky egress IPs are managed on the Resin side). The shell
 /// only validates input and echoes `true` — no behavior. Kept solely for
 /// IPC contract compatibility (no in-repo caller; see AGENTS.md §7.6 echo list).
@@ -102,7 +102,7 @@ pub async fn account_bind_ip(
     account: String,
     ip: String,
 ) -> Result<bool, IpcError> {
-    tracing::warn!(target: "ipc.account_deprecated", "account_bind_ip is deprecated since ADR-0050 (Resin owns account semantics); manage accounts via Resin directly");
+    tracing::warn!(target: "ipc.account_deprecated", "account_bind_ip is deprecated since  (Resin owns account semantics); manage accounts via Resin directly");
     validate_short_name(&platform, "platform")?;
     validate_short_name(&account, "account")?;
     validate_ip(&ip)?;
@@ -122,10 +122,10 @@ pub fn platform_names(v: &serde_json::Value) -> Vec<String> {
 // hop now lives once in resin-core (resin_client::resolve_id_in for the
 // fn-pointer seams, ResinClient::resolve_*_by_name for the command bodies).
 
-/// ADR-0055 D2: the ONLY write entry for process routes. The
+/// : the ONLY write entry for process routes. The
 /// rule family lives in the L2 whitebox (egressapikey-ports.json
 /// process_routes field); writes commit through WhiteboxConfigStore::apply
-/// (validate -> DB/listeners -> versioned file swap, ADR-0042 entry, the
+/// (validate -> DB/listeners -> versioned file swap,  entry, the
 /// same chain as port_upsert). The legacy L1 settings.json path is deleted.
 #[tauri::command]
 pub async fn process_route_add(
@@ -170,7 +170,7 @@ pub async fn process_route_add_impl(
     Ok(())
 }
 
-/// ADR-0055 D2: remove by process name (case-insensitive).
+/// : remove by process name (case-insensitive).
 /// Returns false when no rule matched (nothing was written).
 #[tauri::command]
 pub async fn process_route_remove(
@@ -201,7 +201,7 @@ pub async fn process_route_remove_impl(
     Ok(true)
 }
 
-/// ADR-0055 D2: read the whitebox route family.
+/// : read the whitebox route family.
 #[tauri::command]
 pub async fn process_route_list(
     whitebox: State<'_, resin_core::WhiteboxConfigStore>,
@@ -209,11 +209,11 @@ pub async fn process_route_list(
     Ok(whitebox.snapshot().process_routes)
 }
 
-// ── Account header rules (ADR-0063) ──────────────────
+// ── Account header rules  ──────────────────
 // Thin IPC facades over the ResinClient account-header-rules family
 // (R32-R35). These are L3 pass-through reads/writes on the Resin
 // control plane — NO L2 whitebox file, no snapshot field, no reconcile
-// action (coexistence legislation in ADR-0063). §7.5: every string
+// action . §7.5: every string
 // input is length-capped and control-char-rejected BEFORE reaching
 // ResinClient (which re-validates defensively).
 
@@ -396,7 +396,7 @@ pub async fn subscription_add(
     }
     let client = resin_client(&sidecar)?;
 
-    // POST source_type=remote directly (ADR-0045). Resin's Scheduler
+    // POST source_type=remote directly . Resin's Scheduler
     // re-pulls the remote URL via its own clash.meta UA fetcher
     // (cmd/resin/main.go const downloadUserAgent); the shell no longer
     // re-fetches or converts the Clash YAML itself (P13 B4 chain deleted).
@@ -421,7 +421,7 @@ pub async fn subscription_add(
             // pipeline=establish opts INTO the
             // five-step cascade (resolve -> whitebox platform -> apply).
             // The enqueue + drain is the user-triggered reconcile — no
-            // background loop (ADR-0054 discipline). Without the parameter
+            // background loop . Without the parameter
             // the behavior is exactly the legacy import-only POST.
             if pipeline.as_deref() == Some("establish") {
                 let svc = super::strategy::strategy_service(&app)?;
@@ -431,7 +431,7 @@ pub async fn subscription_add(
                 // (backoff + parking); the IPC still returns Ok — the import
                 // itself succeeded. The drain is the single reconciler pass,
                 // running on this command task: no background loop owns it
-                // (ADR-0054 user-triggered discipline).
+                // .
                 if pipeline_state.0.enqueue(resin_core::EstablishEvent {
                     subscription: name.clone(),
                     url: url.clone(),
@@ -514,7 +514,7 @@ pub async fn subscription_remove(
 }
 
 /// trigger Resin-native subscription refresh by POST /actions/refresh.
-/// source_type must be "remote" (ADR-0045); a local-source subscription re-parses
+/// source_type must be "remote" ; a local-source subscription re-parses
 /// in-memory content on /actions/refresh (no HTTP, no new upstream nodes).
 /// The paired subscription_add migrated to source_type=remote so refresh
 /// actually pulls new nodes. Resin's Scheduler re-fetches via its own clash.meta

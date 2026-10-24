@@ -1,5 +1,5 @@
 //! StrategyService — the ONE deep module owning the strategyConfig pipeline
-//! (ADR-0052).
+//! .
 //!
 //! Vocabulary (the three-vocabulary map owned by this module family):
 //! - `strategy.rs` owns the B-class type (`StrategyId` 6 shell options) —
@@ -10,13 +10,13 @@
 //!   Resin's `allocation_policy` enum — a pure display/mapping layer.
 //! This module is the *ownership* layer: read (whitebox JSON), validate,
 //! store (write-back), apply (compute plan + PATCH Resin; creates missing
-//! platforms and never deletes whitebox entries, ADR-0056), snapshot
+//! platforms and never deletes whitebox entries, ), snapshot
 //! (read-back), and a deep `set_platform_regions` edit used by
 //! the topology canvas.
 //!
-//! ADR-0036 discipline: the whitebox file is the truth; `store` is the ONLY
+//!  discipline: the whitebox file is the truth; `store` is the ONLY
 //! writer in the shell (the former duplicate writers in the command layer are
-//! gone). ADR-0039 SS2: every strategy field still travels to views through
+//! gone). : every strategy field still travels to views through
 //! the snapshot (unchanged shape).
 
 use std::collections::HashMap;
@@ -85,7 +85,7 @@ pub struct ReconcilePortsOutcome {
 }
 
 /// Idempotency memory for the reconcile ports half ( hard gate:
-/// "连续两次执行第二次零变更"). Since ADR-0057 the strategy half is
+/// "连续两次执行第二次零变更"). Since  the strategy half is
 /// wire-idempotent on its own (diff-then-skip: an in-sync platform is
 /// PATCHed never — no TTL needed there); the ports half is not —
 /// Resin would accept the duplicate POST or 409-skip forever. This window
@@ -95,7 +95,7 @@ pub struct ReconcilePortsOutcome {
 /// cleanup loop: an in-process `StdMutex` state, best-effort, never a truth
 /// source (the whitebox stays the truth; this only throttles re-asserts).
 ///
-/// ADR-0069 D2: only the 409-conflict path stamps. A successful assertion is
+/// : only the 409-conflict path stamps. A successful assertion is
 /// NOT stamped (the liveness filter already guarantees that pass cannot
 /// re-assert it), so an endpoint deleted OUTSIDE the app is restored on the
 /// NEXT pass instead of after the TTL window.
@@ -142,7 +142,7 @@ impl ReconcileMemory {
             .collect()
     }
 
-    /// Stamp a 409-conflict assertion (ADR-0069 D2) - the anti-hammer case.
+    /// Stamp a 409-conflict assertion  - the anti-hammer case.
     /// Successful assertions are deliberately NOT stamped: see the struct doc.
     pub fn stamp_asserted(&self, port: u16, now: u64) {
         let mut guard = self
@@ -153,7 +153,7 @@ impl ReconcileMemory {
     }
 }
 
-/// ADR-0054 §A: what one reconcile pass
+/// : what one reconcile pass
 /// WOULD change. Both halves are derived from data the snapshot/apply pass
 /// already fetches (list_platforms + list_endpoints + compute_plan) — the
 /// preview never issues extra requests of its own beyond those two reads.
@@ -350,7 +350,7 @@ impl StrategyConfigStore for FsStrategyStore {
 
     fn store(&self, config: &StrategyConfig) -> Result<(), String> {
         let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
-        // ADR-0059 audit: record the before/after content hashes
+        //  audit: record the before/after content hashes
         // around the write. before_hash = the CURRENT on-disk whitebox (the
         // exact bytes backup_before_write is about to copy); after_hash = the
         // NEW document (the bytes that land atomically). Rollback context
@@ -362,7 +362,7 @@ impl StrategyConfigStore for FsStrategyStore {
         let after_hash = crate::audit::sha256_hex(json.as_bytes());
         let before_bytes = current.len() as u64;
         let after_bytes = json.len() as u64;
-        // ADR-0054 section B: version the previous file before the swap.
+        // : version the previous file before the swap.
         let write_result = (|| -> Result<(), String> {
             backup_before_write(&self.path, now_unix())?;
             atomic_write_bytes(&self.path, json.as_bytes())
@@ -390,19 +390,19 @@ impl StrategyConfigStore for FsStrategyStore {
 }
 
 impl FsStrategyStore {
-    /// ADR-0054 section B: list the versioned backups of the strategy
+    /// : list the versioned backups of the strategy
     /// whitebox, newest first.
     pub fn list_backups(&self) -> Result<Vec<WhiteboxBackupEntry>, String> {
         backup_list(&self.path)
     }
 
-    /// ADR-0054 section B: parse a listed backup and persist it through the
-    /// SAME validate + store write entry as strategy_config_put (ADR-0036).
+    /// : parse a listed backup and persist it through the
+    /// SAME validate + store write entry as strategy_config_put .
     /// The rollback write is itself backed up, so a rollback is reversible.
     pub fn rollback(&self, backup_name: &str) -> Result<StrategyConfig, String> {
         let mut config: StrategyConfig = read_backup_parsed(&self.path, backup_name)?;
         validate(&config)?;
-        // ADR-0058: a rollback IS a write-authority change — bump the
+        // : a rollback IS a write-authority change — bump the
         // generation here (the store trait's store() is a byte-dump and must
         // stay counter-agnostic; the service-level store() owns the bump for
         // the IPC put path, this is the store-adjacent rollback path).
@@ -442,7 +442,7 @@ pub fn dangling_subscription_refs(
 }
 
 /// Extend an AppliedPlatform reason with the dangling-subscription clause.
-/// The "dangling subscription refs:" prefix is DISTINCT from the ADR-0056
+/// The "dangling subscription refs:" prefix is DISTINCT from the
 /// "create failed:" / "PATCH failed:" / "in sync" vocabulary so report
 /// consumers can tell the two failure families apart (risk note).
 fn with_dangling_note(mut row: AppliedPlatform, dangling: &[String]) -> AppliedPlatform {
@@ -555,7 +555,7 @@ fn validate_orchestration(
             }
         }
     }
-    // ADR-0080 signal-plane bookkeeping: bounded by the platform cap,
+    //  signal-plane bookkeeping: bounded by the platform cap,
     // keys bounded by the platform-name limit (a hand-edited file cannot
     // smuggle oversized verdict maps through the store).
     if sec.signal_verdicts.len() > o::MAX_ORCH_PLATFORMS {
@@ -712,7 +712,7 @@ fn validate_subscription_statuses(rows: &[SubscriptionStatus]) -> Result<(), Str
     Ok(())
 }
 
-/// ADR-0054 §D: shared shape checks for a whitebox
+/// : shared shape checks for a whitebox
 /// `acknowledged` exemption array. Non-string members are already rejected
 /// by serde's Vec<String> deserialization (a hand-edited file with a number
 /// inside fails to parse, preserving compatibility of valid old files);
@@ -741,7 +741,7 @@ pub fn validate_acknowledged(list: &[String], field: &str) -> Result<(), String>
     Ok(())
 }
 
-/// Cap for whitebox `acknowledged` exemption arrays (ADR-0054 §D).
+/// Cap for whitebox `acknowledged` exemption arrays .
 pub const MAX_ACKNOWLEDGED_ENTRIES: usize = 64;
 
 /// The service. Owns the store handle; Resin access goes through the
@@ -756,7 +756,7 @@ impl<S: StrategyConfigStore> StrategyService<S> {
     }
 
     /// Read the whitebox document; missing file yields defaults (never an
-    /// error — mirrors the historical command behavior and ADR-0036).
+    /// error — mirrors the historical command behavior and ).
     pub fn get(&self) -> Result<StrategyConfig, String> {
         Ok(self.store.load()?.unwrap_or_default())
     }
@@ -768,8 +768,8 @@ impl<S: StrategyConfigStore> StrategyService<S> {
         &self.store
     }
 
-    /// Validate + persist. The write entry for strategyConfig (ADR-0036).
-    /// ADR-0058: the generation counter is bumped HERE — after
+    /// Validate + persist. The write entry for strategyConfig .
+    /// : the generation counter is bumped HERE — after
     /// validate, before the file lands — so every sanctioned write (IPC put,
     /// deep region edit, rollback, apply's own write-back) serially advances
     /// the write-authority generation. The caller passes its config by value
@@ -835,7 +835,7 @@ impl<S: StrategyConfigStore> StrategyService<S> {
 
     /// Deep edit used by the topology canvas: set (or create) one platform's
     /// subscription-intent list in the whitebox, preserving every other
-    /// entry verbatim, and stamp a_class=Subscription (ADR-0075): the canvas
+    /// entry verbatim, and stamp a_class=Subscription : the canvas
     /// writes subscription INTENT; the engine derives the region projection
     /// via a_class_regions at apply time - the view never expands
     /// subscriptions into regions itself. Returns the stored document.
@@ -888,7 +888,7 @@ impl<S: StrategyConfigStore> StrategyService<S> {
     }
 
     /// Deep edit used by the topology canvas: set one platform's
-    /// `manual_nodes` (selected node hashes) in the whitebox (ADR-0076).
+    /// `manual_nodes` (selected node hashes) in the whitebox .
     /// Unlike the subscription path this does NOT re-stamp a_class on an
     /// existing entry - manual_nodes only has meaning under a_class=Manual;
     /// a newly created entry defaults to Manual. Returns the stored
@@ -939,10 +939,10 @@ impl<S: StrategyConfigStore> StrategyService<S> {
     /// STATUS row (upsert by name). This is the sanctioned write path for the
     /// whitebox `subscriptions` status array — it re-enters `store` so the
     /// write is validated, versioned (backup ring) and audited exactly like
-    /// every other strategy mutation (ADR-0036 / ADR-0059 invariants), BUT
+    /// every other strategy mutation , BUT
     /// the landed document keeps the CURRENT generation: a status write is
     /// not a desired-state write (k8s status-subresource rule), and bumping
-    /// would flip ADR-0058's top-level ConvergePhase into a false
+    /// would flip 's top-level ConvergePhase into a false
     /// PendingApply after every cascade. The in-memory generation counter
     /// rides the document across the read-modify-write, so two phase writes
     /// in a row never regress or duplicate the counter.
@@ -1009,7 +1009,7 @@ impl<S: StrategyConfigStore> StrategyService<S> {
                 row.phase_error = phase_error;
                 // a green cascade clears the last
                 // failure's compensation record (the last_apply_error
-                // precedent, ADR-0058 D3). Other transitions keep it — the
+                // precedent, ). Other transitions keep it — the
                 // field is the LAST failure by name until replaced.
                 if phase == SubscriptionPhase::Converged {
                     row.last_cascade_error = None;
@@ -1132,8 +1132,8 @@ impl<S: StrategyConfigStore> StrategyService<S> {
 impl StrategyService<FsStrategyStore> {
     /// Full apply: read whitebox -> parse nodes -> fulfill the reconcile
     /// preview's promises per platform (create missing-on-resin platforms
-    /// through the ResinClient create seam, ADR-0056; PATCH the axes that
-    /// actually drift from the whitebox — diff-then-skip, ADR-0057: an
+    /// through the ResinClient create seam, ; PATCH the axes that
+    /// actually drift from the whitebox — diff-then-skip, : an
     /// in-sync platform is skipped, so apply is wire-idempotent and a second
     /// reconcile pass emits zero PATCH requests).
     ///
@@ -1147,7 +1147,7 @@ impl StrategyService<FsStrategyStore> {
     /// failures are reported per-platform, never fatal. Apply NEVER deletes
     /// whitebox desired state: a failed create keeps the entry and reports
     /// the reason (the former apply-time auto-clean path was removed by
-    /// ADR-0056 — the "said establish, actually deleted" contradiction).
+    ///  — the "said establish, actually deleted" contradiction).
     pub async fn apply(
         &self,
         client: &crate::resin_client::ResinClient,
@@ -1166,9 +1166,9 @@ impl StrategyService<FsStrategyStore> {
         // Reference-resolution input. One extra
         // GET /subscriptions ONLY when at least one whitebox platform lists
         // subscriptions — a region/manual-only config keeps the exact
-        // ADR-0057 wire shape (zero new requests). The dangling list is
+        //  wire shape (zero new requests). The dangling list is
         // merged into each platform's report row below; apply NEVER deletes
-        // the whitebox entry for a dangling ref (ADR-0056 discipline).
+        // the whitebox entry for a dangling ref .
         let dangling_by_platform: HashMap<String, Vec<String>> = if config
             .platforms
             .iter()
@@ -1197,7 +1197,7 @@ impl StrategyService<FsStrategyStore> {
                 .cloned()
                 .unwrap_or_default();
             if !live_names.contains(platform_name) {
-                // ADR-0056: the preview says "will be established" — make it
+                // : the preview says "will be established" — make it
                 // true. Create the platform on Resin, then fall through to
                 // the PATCH loop (which re-reads list_platforms and finds
                 // the created row). A failed create is reported per-platform
@@ -1224,7 +1224,7 @@ impl StrategyService<FsStrategyStore> {
             }
             let platforms_v = client.list_platforms().await.map_err(|e| e.to_string())?;
             if let Some(id) = platform_id_for_name(&platforms_v, platform_name) {
-                // ADR-0057: diff-then-skip. Compare the computed
+                // : diff-then-skip. Compare the computed
                 // region_filters against the live row we just read; PATCH
                 // only on real drift. No live -> no diff -> no PATCH: apply
                 // is wire-idempotent (a second reconcile pass emits zero
@@ -1235,7 +1235,7 @@ impl StrategyService<FsStrategyStore> {
                 // counts as drift. The live row comes from THIS pass's
                 // fresh `list_platforms` read — never from cached state —
                 // and a failed PATCH still reports per-platform with the
-                // whitebox entry kept (ADR-0056 re-assert-on-retry).
+                // whitebox entry kept .
                 let live = parse_resin_platforms(&platforms_v)
                     .into_iter()
                     .find(|rp| rp.name == *platform_name);
@@ -1311,7 +1311,7 @@ impl StrategyService<FsStrategyStore> {
             }
         }
 
-        // ADR-0058: apply-generation write-back. All
+        // : apply-generation write-back. All
         // green => applied_generation catches up to the generation the
         // write-back itself will LAND at (store() bumps, so that is
         // generation + 1) and the error slot clears — inside the same store
@@ -1356,11 +1356,11 @@ impl StrategyService<FsStrategyStore> {
     /// legacy `b_class` token to its canonical Resin allocation policy
     /// (`strategy_engine::migrate_b_class_values`), and lands the result
     /// through the SAME validated, versioned, audited store entry every other
-    /// strategy write uses (ADR-0036 / ADR-0059 invariants).
+    /// strategy write uses .
     ///
     /// The landed generation stays at the CURRENT value: the six->three table
     /// is many-to-one onto the policy the shell ALREADY PATCHed to Resin, so
-    /// the desired state is unchanged and bumping would flip ADR-0058's
+    /// the desired state is unchanged and bumping would flip 's
     /// ConvergePhase into a false PendingApply on an already-converged runtime
     /// (the status-subresource discipline `record_subscription_phase`
     /// follows).
@@ -1386,14 +1386,14 @@ impl StrategyService<FsStrategyStore> {
         Ok(true)
     }
 
-    /// ADR-0054 §A: ONE-WAY reconcile.
+    /// : ONE-WAY reconcile.
     /// Serial: strategy apply FIRST, ports restore SECOND, stop at the first
     /// failure (fail-fast) so a broken strategy PATCH can never mask a port
     /// problem behind a half-applied pass. The ports half is injected as a
     /// closure so the whitebox store stays a shell-side concern — resin-core
     /// never touches the ports whitebox directly (same seam discipline as
     /// `apply`). No "accept current state" write exists by design.
-    /// Wire-idempotent end to end since ADR-0057: the strategy half
+    /// Wire-idempotent end to end since : the strategy half
     /// diff-then-skips in-sync platforms, the ports half is TTL-throttled —
     /// a second pass emits zero write requests (zero changes, both halves).
     pub async fn reconcile(
@@ -1519,7 +1519,7 @@ mod tests {
         assert!(svc.store(bad).is_err());
     }
 
-    // ---- ADR-0058: generation counter ----
+    // ---- : generation counter ----
     #[test]
     fn store_bumps_generation_serially_and_stamps_updated_at() {
         let dir = std::env::temp_dir().join(format!("strategy-svc-gen-{}", std::process::id()));
@@ -1567,7 +1567,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    // ---- ADR-0058: apply write-back ----
+    // ---- : apply write-back ----
     #[tokio::test]
     async fn apply_green_write_back_applies_generation_inside_store_entry() {
         let store_path = apply_fixture_store_path("gen-green");
@@ -1774,7 +1774,7 @@ mod tests {
         let _ = std::fs::remove_file(&store_path);
     }
 
-    // ---- set_platform_subscriptions / set_platform_manual_nodes (ADR-0075/0076) ----
+    // ---- set_platform_subscriptions / set_platform_manual_nodes  ----
 
     #[test]
     fn set_platform_subscriptions_writes_intent_and_stamps_class() {
@@ -1912,7 +1912,7 @@ mod tests {
         let _ = std::fs::remove_dir(&dir);
     }
 
-    // ---- whitebox versioning (ADR-0054 section B) ----
+    // ---- whitebox versioning  ----
     #[test]
     fn fs_store_write_backs_up_previous_file_and_is_atomic() {
         let dir = std::env::temp_dir().join(format!("strategy-svc-bak-{}", std::process::id()));
@@ -2065,7 +2065,7 @@ mod tests {
         let _ = std::fs::remove_dir(&dir);
     }
 
-    // ---- ADR-0054 §A: reconcile plan + idempotency memory ----
+    // ---- : reconcile plan + idempotency memory ----
 
     fn node(hash: &str, region: &str, healthy: bool) -> NodeSummary {
         NodeSummary {
@@ -2222,7 +2222,7 @@ mod tests {
 
     #[test]
     fn reconcile_memory_stamps_only_conflicts_so_external_delete_recovers_next_pass() {
-        // ADR-0069 D2 regression: the success path is NOT stamped, so an
+        //  regression: the success path is NOT stamped, so an
         // endpoint that was asserted and is then deleted OUTSIDE the app is
         // re-asserted on the very next pass - no 24h recovery gap.
         let mem = ReconcileMemory::default();
@@ -2283,7 +2283,7 @@ mod tests {
         m_platforms.assert_async().await;
     }
 
-    // ---- apply: missing-on-resin platform semantics (ADR-0056) ----
+    // ---- apply: missing-on-resin platform semantics  ----
 
     fn apply_fixture_store_path(tag: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!(
@@ -2296,7 +2296,7 @@ mod tests {
     /// The preview promises "create_platform" for a whitebox platform absent
     /// from Resin; apply must FULFILL it: POST /platforms {"name": ...}, then
     /// PATCH the computed region_filters via the created id. The whitebox
-    /// entry survives (apply never deletes desired state, ADR-0056).
+    /// entry survives .
     #[tokio::test]
     async fn apply_creates_missing_on_resin_platform_and_patches_regions() {
         let store_path = apply_fixture_store_path("create");
@@ -2387,7 +2387,7 @@ mod tests {
 
     /// A failed create is honest, not silent: the report carries the failure
     /// reason for that platform AND the whitebox entry stays (the reverse
-    /// "said establish, actually deleted" action is forbidden, ADR-0056).
+    /// "said establish, actually deleted" action is forbidden, ).
     #[tokio::test]
     async fn apply_failed_create_reports_reason_and_keeps_whitebox_entry() {
         let store_path = apply_fixture_store_path("failcreate");
@@ -2456,7 +2456,7 @@ mod tests {
     }
 
     /// A live platform keeps the plain PATCH path (no create POST) — the
-    /// create branch fires only for missing-on-resin names (ADR-0056).
+    /// create branch fires only for missing-on-resin names .
     #[tokio::test]
     async fn apply_live_platform_patches_without_create() {
         let store_path = apply_fixture_store_path("live");
@@ -2521,7 +2521,7 @@ mod tests {
         let _ = std::fs::remove_file(&store_path);
     }
 
-    /// ADR-0057: an in-sync platform (live region_filters equal
+    /// : an in-sync platform (live region_filters equal
     /// the computed plan under the snapshot's order/case-insensitive set
     /// rule) is diff-skipped: the report marks the platform converged
     /// (patched=true + "in sync" reason, so Settings' patched/errors counter
@@ -2584,7 +2584,7 @@ mod tests {
         let _ = std::fs::remove_file(&store_path);
     }
 
-    /// ADR-0057 wire-idempotency: apply TWICE against a synced
+    ///  wire-idempotency: apply TWICE against a synced
     /// world. Pass 1 PATCHes the drift, pass 2 (live row now equals the
     /// plan) must emit ZERO PATCH — the mock caps PATCH at exactly 1 and
     /// pass 2 still succeeds with the platform reported converged.
@@ -2939,7 +2939,7 @@ mod tests {
     }
 
     /// Zero-extra-request rule: a config whose platforms reference no
-    /// subscriptions skips the resolution GET entirely (the ADR-0057 wire
+    /// subscriptions skips the resolution GET entirely (the  wire
     /// shape for region/manual-only configs is untouched).
     #[tokio::test]
     async fn apply_skips_subscription_resolution_when_no_refs() {
@@ -3017,7 +3017,7 @@ mod tests {
             patched: true,
             reason: None,
         };
-        // No dangling refs: reason untouched (ADR-0057 "in sync" contract
+        // No dangling refs: reason untouched ( "in sync" contract
         // stays byte-exact).
         assert_eq!(with_dangling_note(row.clone(), &[]).reason, None);
         let in_sync = AppliedPlatform {
@@ -3183,10 +3183,10 @@ mod tests {
     }
 
     /// Checkpoint B: the status write is generation-aware in the
-    /// ADR-0058 sense — it travels the ONE store entry (FsStrategyStore,
+    ///  sense — it travels the ONE store entry (FsStrategyStore,
     /// validate + backup + audit) but does NOT bump the desired-state
     /// generation (k8s status-subresource rule). The pair stays converged
-    /// across a cascade, so ADR-0058's top-level ConvergePhase cannot be
+    /// across a cascade, so 's top-level ConvergePhase cannot be
     /// flipped into a false PendingApply by a status write.
     #[test]
     fn fs_status_write_keeps_generation_stable_and_lands_on_disk(
@@ -3199,7 +3199,7 @@ mod tests {
         let seeded = svc.store(cfg(vec![ps("A", &["HK"])]))?;
         assert_eq!(seeded.generation, 1);
 
-        // A green apply write-back converges the pair (ADR-0058 D3 shape).
+        // A green apply write-back converges the pair .
         let mut green = svc.get().unwrap();
         green.applied_generation = green.generation;
         green.last_apply_at = Some(now_unix());
@@ -3405,7 +3405,7 @@ mod tests {
         // (k8s status-subresource rule — same as record_subscription_phase).
         assert_eq!(after.generation, 0);
         // A later Converged write clears the record (last_apply_error
-        // precedent, ADR-0058 D3).
+        // precedent, ).
         let green = svc
             .record_subscription_phase("sub-a", SubscriptionPhase::Converged, None, None)
             .unwrap();
@@ -3593,7 +3593,7 @@ mod tests {
 
     #[test]
     fn orchestration_validate_rejects_oversized_signal_verdicts() {
-        // ADR-0080: the persisted projection shares the section's bounds -
+        // : the persisted projection shares the section's bounds -
         // an unbounded map or key must be rejected through validate(), not
         // just truncated at write time.
         let dir = std::env::temp_dir().join(format!("strategy-svc-orchsv-{}", std::process::id()));

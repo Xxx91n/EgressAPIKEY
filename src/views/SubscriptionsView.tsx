@@ -417,7 +417,7 @@ export function SubscriptionsView() {
   // F1 confirm: strategy_config_put -> strategy_apply (the PlatformsView
   // chip chain) for EVERY selected platform plus the optional same-name
   // auto-create; then the optional port bindings. One put + one apply for
-  // the whole batch (apply is diff-then-skip, ADR-0057, so re-applying an
+  // the whole batch (apply is diff-then-skip, , so re-applying an
   // unchanged platform costs zero writes).
   const handleBindConfirm = async () => {
     if (!bind) return;
@@ -432,7 +432,7 @@ export function SubscriptionsView() {
       // F1 "自动建 platform"). The a_class/subscriptions semantics are L2
       // whitebox vocabulary, so the Resin row is created with its own
       // schema fields and the binding lands via strategy_config_put below;
-      // strategy_apply (ADR-0056) is the fallback establish path when the
+      // strategy_apply  is the fallback establish path when the
       // create 409s/fails for any reason.
       if (bindCreate) {
         try {

@@ -387,7 +387,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       const after = buildEdges([{ name: "OpenAI", region_filters: [] }], regionGroups as any);
       expect(after.find((e) => e.id === "e-OpenAI-hk")).toBeFalsy();
     });
-    it("ADR-0012: A->B edge connects port to platform", () => {
+    it(": A->B edge connects port to platform", () => {
       const edges = buildEdges(
         [{ name: "OpenAI", region_filters: null }],
         regionGroups as any,
@@ -430,8 +430,8 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  // --- ADR-0012 lease identity chips ---
-  describe("ADR-0012: lease chips show Platform.Account identity", () => {
+  // ---  lease identity chips ---
+  describe(": lease chips show Platform.Account identity", () => {
     it("renders lease account + egress", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({
@@ -536,7 +536,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
   describe("T22-3: buildEdges a_class-semantic B->C edge", () => {
-    it("subscription+empty = edges to ALL groups with NO label (ADR-0075)", () => {
+    it("subscription+empty = edges to ALL groups with NO label ", () => {
       const platforms = [{ name: "OpenAI", region_filters: [], aClass: "subscription", subscriptionNames: [] }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk"] }, { subscriptionName: "sub2", regions: ["us"] }];
       const edges = buildEdges(platforms as any, subGroups as any, []);
@@ -563,7 +563,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       expect(bcEdges).toHaveLength(1);
       expect(bcEdges[0].label).toBe("region:hk");
     });
-    it("manual = visible edge to group containing manual_nodes, label manual:N, deletable (ADR-0076)", () => {
+    it("manual = visible edge to group containing manual_nodes, label manual:N, deletable ", () => {
       const platforms = [{ name: "OpenAI", region_filters: [], aClass: "manual", manualNodes: ["h1"] }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk"], nodeHashes: ["h1", "h2"] }];
       const edges = buildEdges(platforms as any, subGroups as any, []);
@@ -593,12 +593,12 @@ describe("T15-3: React.memo canvas node optimization", () => {
       const edges = buildEdges(platforms as any, subGroups as any, []);
       const bcEdges = edges.filter((e) => e.source.startsWith("platform-"));
       expect(bcEdges).toHaveLength(2);
-      // unconditional edges carry no label (ADR-0075 convention)
+      // unconditional edges carry no label
       expect(bcEdges[0].label === undefined || bcEdges[0].label === "").toBe(true);
     });
   });
 
-  describe("ADR-0076: manualNodesAfterGroupEdgeDelete (manual edge -> node-level mapping)", () => {
+  describe(": manualNodesAfterGroupEdgeDelete (manual edge -> node-level mapping)", () => {
     it("subgroup manual edge: removes that subscription node_hashes from manual_nodes", () => {
       const platforms = [{ name: "OpenAI", manualNodes: ["h1", "h2", "h3"] }] as any;
       const subGroups = [{ subscriptionName: "sub1", nodes: [{ node_hash: "h1" }, { node_hash: "h2" }] }] as any;
@@ -617,9 +617,9 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  // === ADR-0077 regression tests (real-runtime defects recovered from the
+  // ===  regression tests (real-runtime defects recovered from the
   // zcode-GUI-Topology branch; re-validated against main) ===
-  describe("ADR-0077 defect A: snake_case subscription_name tags group correctly", () => {
+  describe(" defect A: snake_case subscription_name tags group correctly", () => {
     it("renders the real subscription name group when Resin returns subscription_name (snake)", async () => {
       // Live /api/v1/nodes shape (verified against the real sidecar):
       // tags: [{ subscription_id: "...", subscription_name: "1", tag: "1/node-01" }]
@@ -653,7 +653,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("ADR-0077 defect C: buildRegionViewEdges subscription-with-specific-subs branch", () => {
+  describe(" defect C: buildRegionViewEdges subscription-with-specific-subs branch", () => {
     const subGroups = [
       { subscriptionName: "1", regions: ["jp", "sg"], nodes: [] },
       { subscriptionName: "GitHub", regions: ["us"], nodes: [] },
@@ -666,7 +666,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       expect(targets).toEqual(["regiongroup-jp", "regiongroup-sg"]);
       expect(bc[0].label).toBe("subscription:1");
     });
-    it("subscription+empty subs -> edges to ALL regions with NO label (ADR-0075)", () => {
+    it("subscription+empty subs -> edges to ALL regions with NO label ", () => {
       const platforms = [{ name: "Default", aClass: "subscription", subscriptionNames: [], region_filters: [] }] as any;
       const edges = buildRegionViewEdges(platforms, subGroups, []);
       const bc = edges.filter((e) => e.target.startsWith("regiongroup-"));
@@ -678,7 +678,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("ADR-0077 defect B: layoutNodesViaDagre column anchors keep three columns", () => {
+  describe(" defect B: layoutNodesViaDagre column anchors keep three columns", () => {
     it("NO edges at all: entry < platform < C in x (columns never collapse)", () => {
       const nodes: any[] = [
         { id: "entry-port-1", type: "entryPort", position: { x: 0, y: 0 }, data: {} },
@@ -713,7 +713,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("ADR-0075: subscription intent write path + edge id viewMode prefix", () => {
+  describe(": subscription intent write path + edge id viewMode prefix", () => {
     it("buildEdges: subscription+specific subs -> label is subscription:<name>", () => {
       const platforms = [{ name: "P1", region_filters: [], aClass: "subscription", subscriptionNames: ["subA"] }];
       const subGroups = [{ subscriptionName: "subA", regions: ["hk"] }, { subscriptionName: "subB", regions: ["us"] }];
@@ -1075,7 +1075,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         { id: "e2", source: "b", target: "c" },
       ];
       const result = layoutNodesViaDagre(nodes, edges);
-      // offset removed per ADR-0039 SS4; dagre positions start from margin (20,20).
+      // offset removed ; dagre positions start from margin (20,20).
       // Assert positions are non-negative and finite (no NaN/infinite drift).
       for (const n of result) {
         expect(Number.isFinite(n.position.x)).toBe(true);
@@ -1086,7 +1086,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T15-5: onConnect routes through strategyConfig not direct PATCH (ADR-0036)", () => {
+  describe("T15-5: onConnect routes through strategyConfig not direct PATCH ", () => {
     it("sync() fetches ONLY the authoritative snapshot; legacy cross-store commands are not invoked", async () => {
       const invokedCmds: string[] = [];
       invokeMock.mockImplementation((cmd: string) => {
@@ -1168,11 +1168,11 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  // === tests (ADR-0041: Canvas v4 node pool + toolbar merge + MiniMap ariaLabel + dedup) ===
-  describe("T17-1 (ADR-0041 S1): viewMode guard on subGroup loop", () => {
+  // === tests (Canvas v4 node pool + toolbar merge + MiniMap ariaLabel + dedup) ===
+  describe("T17-1 : viewMode guard on subGroup loop", () => {
     beforeEach(() => { invokeMock.mockReset(); });
 
-    it("T17-1a: region viewMode does not render subscription group nodes (ADR-0041 S1)", async () => {
+    it("T17-1a: region viewMode does not render subscription group nodes ", async () => {
 // assertion strategy switched from ReactFlow-rendered DOM textContent to
       // a direct call of the extracted `buildCColumnGroups` pure helper. Reason (atomcode
       // research + local evidence): under jsdom, ReactFlow only reliably stampedes entry-port
@@ -1277,7 +1277,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T17-2 (ADR-0041 S2): cross-subscription node dedup by node_hash", () => {
+  describe("T17-2 : cross-subscription node dedup by node_hash", () => {
     beforeEach(() => { invokeMock.mockReset(); });
 
     it("T17-2a: duplicate node_hash within one subscription is deduped", async () => {
@@ -1342,7 +1342,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T17-3 (ADR-0041 S3): MiniMap ariaLabel replaces div[title]", () => {
+  describe("T17-3 : MiniMap ariaLabel replaces div[title]", () => {
     it("T17-3a: MiniMap receives ariaLabel prop with translated tooltip text", async () => {
       invokeMock.mockImplementation(() => Promise.resolve(undefined));
       const { container } = render(<TopologyView />);
@@ -1369,7 +1369,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T18-1 (ADR-0042 S1): port health chip — 4-state + authRequired + disabled", () => {
+  describe("T18-1 : port health chip — 4-state + authRequired + disabled", () => {
     it("T18-1a: entry port renders Alive green dot when watch_port_health emits alive snapshot", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
@@ -1444,7 +1444,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       expect(lockEl).toBeTruthy();
     });
 
-    it("T18-4 (ADR-0042 S4): A badge shows Manual (N nodes) when strategyConfig.manual_nodes is non-empty", async () => {
+    it("T18-4 : A badge shows Manual (N nodes) when strategyConfig.manual_nodes is non-empty", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({
           items: [{ id: "p1", name: "platManual", allocation_policy: "BALANCED", routable_node_count: 0, region_filters: null, regex_filters: null, sticky_ttl: "0s" }],
@@ -1468,8 +1468,8 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T17-4 (ADR-0041 S4): openStrategyConfig button merged into CanvasControls toolbar", () => {
-    it("T17-4a/T18-5a (ADR-0042 S5): ConfigToolbar toggle button title=i18n(openConfig) at top-right and dropdown expands 2 options", async () => {
+  describe("T17-4 : openStrategyConfig button merged into CanvasControls toolbar", () => {
+    it("T17-4a/T18-5a : ConfigToolbar toggle button title=i18n(openConfig) at top-right and dropdown expands 2 options", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
         if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
@@ -1497,7 +1497,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       });
     });
 
-    it("T18-5b (ADR-0042 S5): clicking Open ports config dropdown option closes the dropdown", async () => {
+    it("T18-5b : clicking Open ports config dropdown option closes the dropdown", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
         if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });

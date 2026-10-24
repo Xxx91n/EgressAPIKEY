@@ -136,7 +136,7 @@ export function sampleDescendantTreeMB(rootPid) {
 }
 
 // Poll a spawned Windows process until its main window has a non-empty title
-// (ADR-0072 liveness contract: MainWindowTitle == productName means the shell
+// ( liveness contract: MainWindowTitle == productName means the shell
 // actually booted, not just that the process exists). Returns ms elapsed, or
 // null on timeout. Linux has no window title to poll - callers skip there.
 export function waitMainWindowTitle(pid, deadlineMs = 30000) {

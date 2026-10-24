@@ -7,7 +7,7 @@ import { translateError } from "../lib/i18n-error";
 import { HeadlessCapabilityNotice, commandBlocked } from "../components/HeadlessCapabilityNotice";
 
 /// ProcessRouteView: per-process -> entry-port routing table.
-/// ADR-0055: the family lives in the L2 whitebox
+/// : the family lives in the L2 whitebox
 /// (egressapikey-ports.json process_routes); the ONLY writer is the Rust
 /// process_route_add/remove command family (WhiteboxConfigStore::apply,
 /// versioned + reconciled). This view is read-through-IPC + submit-through-IPC;
@@ -16,7 +16,7 @@ import { HeadlessCapabilityNotice, commandBlocked } from "../components/Headless
 /// toast. Resin owns per-request auth separately; here we only own the
 /// routing-rule registry. The registry is a declarative memo: it never
 /// takes over a process's traffic — the process's own proxy settings must
-/// point at the port (the banner states this verbatim, ADR-0055 D3).
+/// point at the port .
 export function ProcessRouteView() {
   const { t } = useTranslation();
   const localRoutes = useAppStore((s) => s.processRoutes);

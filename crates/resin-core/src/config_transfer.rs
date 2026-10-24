@@ -1,6 +1,6 @@
-//! Config export/import document (ADR-0061).
+//! Config export/import document .
 //!
-//! `config_export` reads the two L2 whitebox documents verbatim (ADR-0036:
+//! `config_export` reads the two L2 whitebox documents verbatim (:
 //! the whitebox files are the truth — it never reads Resin) and wraps them
 //! in one JSON container. `config_import` parses that container, validates
 //! each whitebox document through its OWN validate entry
@@ -92,7 +92,7 @@ pub fn parse_import_doc(v: &Value) -> Result<ConfigImportDoc, String> {
     Ok(ConfigImportDoc { strategy, ports })
 }
 
-/// ADR-0069 D4 (phase 1): validate BOTH whitebox documents before either is
+///  (phase 1): validate BOTH whitebox documents before either is
 /// committed. This is the atomicity gate of `config_import` - because both
 /// documents are checked here, a rejection of the SECOND one can never leave
 /// the FIRST one already persisted (the pre-D4 half-imported state).
@@ -250,7 +250,7 @@ mod tests {
         }])
     }
 
-    /// ADR-0069 D4: the shared pair gate is the SINGLE validation seam - it
+    /// : the shared pair gate is the SINGLE validation seam - it
     /// accepts a good pair and names the offending half on rejection.
     #[test]
     fn validate_import_pair_is_the_single_gate_for_both_documents() {
@@ -259,7 +259,7 @@ mod tests {
         assert!(err.contains("ports whitebox rejected"), "{err}");
     }
 
-    ///  ADR-0069 D4: an import whose SECOND (ports) document fails
+    ///  : an import whose SECOND (ports) document fails
     /// validation must write NOTHING - both whitebox files stay byte-identical
     /// and no staging temp file survives.
     #[test]

@@ -10,7 +10,7 @@ import { invoke as _invoke, Channel } from "@tauri-apps/api/core";
 // invoke().
 import type { LogLevel, PortMapping } from "../bindings";
 
-// --- dual-mode (ADR-0043 Q2=A): headless knowledge lives in sibling modules ---
+// --- dual-mode (=A): headless knowledge lives in sibling modules ---
 // In the Tauri webview we use the native invoke(). In a plain browser
 // (headless npm server) the dispatch falls back to fetch("/api/v1/...")
 // which the headless axum reverse-proxy forwards to the local Resin sidecar.
@@ -42,7 +42,7 @@ const NAME_MAX = 128;
 const USER_PORT_MIN = 1024;
 const USER_PORT_MAX = 65535;
 
-// --- Phase 5-1: trace_id passthrough (ADR-0026 Q1-Q5) ---
+// --- Phase 5-1: trace_id passthrough  ---
 // Every IPC call automatically gets a UUID v4 trace_id injected into args.
 // The Rust side extracts __trace_id and opens a tracing::info_span! so
 // log files carry a per-call trace_id for end-to-end bug reproduction.
@@ -236,14 +236,14 @@ export async function ipChannelDelete(name: string): Promise<boolean> {
 }
 
 /**
- * @deprecated since ADR-0050: account semantics are owned by the Resin
+ * @deprecated since : account semantics are owned by the Resin
  * sidecar; the shell command only validates input and echoes. Kept for IPC
  * contract compatibility — no in-repo caller (see AGENTS.md §7.6 echo list).
  */
 export async function ipcAccountBindIp(platform: string, account: string, ip: string): Promise<boolean> {
   const meta = import.meta as { env?: { DEV?: boolean } };
   if (meta.env?.DEV) {
-    console.warn("[ipc] account_bind_ip is deprecated since ADR-0050 (Resin owns account semantics)");
+    console.warn("[ipc] account_bind_ip is deprecated since  (Resin owns account semantics)");
   }
   assertShortName(platform, "platform");
   assertShortName(account, "account");
@@ -434,7 +434,7 @@ export async function ipcBackupRestore(
   });
 }
 
-// ---- Process routing (ADR-0055: L2 whitebox family) ----
+// ---- Process routing (L2 whitebox family) ----
 export interface ProcessRouteRule {
   process: string;
   target_port: number;
@@ -457,7 +457,7 @@ export async function ipcProcessRouteList(): Promise<ProcessRouteRule[]> {
   return invoke<ProcessRouteRule[]>("process_route_list");
 }
 
-// ── Account header rules (ADR-0063): Resin-side HTTP-header
+// ── Account header rules : Resin-side HTTP-header
 // routing family, R32-R35. Coexists with the process_route_* family —
 // see docs/architecture/PROCESS_ROUTE_VS_HEADER_RULES.md.
 
@@ -513,12 +513,12 @@ export async function ipcDeleteAccountHeaderRule(urlPrefix: string): Promise<unk
   return invoke("delete_account_header_rule", { urlPrefix });
 }
 
-/// ADR-0061: export the L2 whitebox config (strategy + ports).
+/// : export the L2 whitebox config (strategy + ports).
 export async function ipcConfigExport(): Promise<unknown> {
   return invoke("config_export");
 }
 
-/// ADR-0061: import a whitebox config document. The backend
+/// : import a whitebox config document. The backend
 /// validates schema + version and writes through the whitebox stores (never
 /// a direct Resin PATCH), then triggers reconcile. Returns a summary.
 export async function ipcConfigImport(config: unknown): Promise<{
@@ -562,7 +562,7 @@ export async function ipcLeaseMap(): Promise<LeaseEntry[]> {
 }
 
 
-// Phase 2 / ADR-0012: Entry Port = identity. Shell multi-port forwarder.
+// Phase 2 / : Entry Port = identity. Shell multi-port forwarder.
 export type { PortMapping };
 
 function assertPort(port: number): void {
@@ -616,7 +616,7 @@ export async function ipcPortRemove(port: number): Promise<boolean> {
   return invoke<boolean>("port_remove", { port });
 }
 
-/// (ADR-0042): Toggle enabled flag on an entry-port without
+/// : Toggle enabled flag on an entry-port without
 /// touching any other field. Patches the Resin endpoint `{enabled: bool}`
 /// and persists the flag into the shell whitebox. The entry-port's other
 /// fields (protocol, platform_name, account, auth_required) are preserved.
@@ -642,10 +642,10 @@ export async function ipcPortRunning(): Promise<number[]> {
   return Array.isArray(raw) ? raw : [];
 }
 
-/// ADR-0021 Q1: SOCKS5/HTTP credentials a gateway must present to reach an
+/// : SOCKS5/HTTP credentials a gateway must present to reach an
 /// entry-port. Username is the port's bound Platform.Account string,
 /// password is the sidecar global proxy_token. `auth_required` is read from
-/// the port_mapping row (ADR-0027: per-port auth control via
+/// the port_mapping row (: per-port auth control via
 /// require_proxy_auth_info).
 export interface PortAuthInfo {
   port: number;
@@ -727,7 +727,7 @@ export interface OrchPlatformRow {
   pending: OrchProposal | null;
 }
 
-/// ADR-0080 signal-plane verdict classes (serde snake_case mirror of
+///  signal-plane verdict classes (serde snake_case mirror of
 /// resin_core::orchestration::ProbeVerdict).
 export type ProbeVerdict =
   | "ok"
@@ -744,7 +744,7 @@ export interface OrchestrationState {
       [k: string]: unknown;
     };
     platforms: OrchPlatformRow[];
-    /// Latest tick verdict per probed platform (ADR-0080 §7 bookkeeping).
+    /// Latest tick verdict per probed platform .
     signal_verdicts?: Record<string, ProbeVerdict>;
     /// Consecutive environment-suspect ticks (common-mode suppressor).
     suspect_streak?: number;
@@ -802,7 +802,7 @@ export async function ipcOrchestrationDismiss(platformName: string): Promise<voi
   await invoke("orchestration_dismiss", { platformName });
 }
 
-/// ADR-0021 Q1: live TCP probe + SOCKS5 method-negotiation so the GUI can
+/// : live TCP probe + SOCKS5 method-negotiation so the GUI can
 /// show a green/red health chip per port (clash-verge-rev CoreManager mode).
 export interface PortHealthCheck {
   port: number;
@@ -813,9 +813,9 @@ export interface PortHealthCheck {
   reason: "ok" | "refused" | "timeout" | "noop_no_reply" | "protocol_mismatch";
 }
 
-/// ADR-0026 Q9: protocol-aware health probe. For socks5 and mixed ports the
+/// : protocol-aware health probe. For socks5 and mixed ports the
 /// Rust side sends a SOCKS5 greeting (a mixed listener answers it - verified
-/// live, / ADR-0068 D4 gate); for http ports it sends an
+/// live, /  gate); for http ports it sends an
 /// HTTP CONNECT probe. Defaults to "mixed", the default port protocol.
 export async function ipcPortHealthCheck(port: number, protocol?: string): Promise<PortHealthCheck> {
   if (port < USER_PORT_MIN || port > USER_PORT_MAX) throw new Error(`port ${port} out of range (${USER_PORT_MIN}..${USER_PORT_MAX})`);
@@ -1077,7 +1077,7 @@ export async function ipcRequestLogPayloads(logId: string): Promise<RequestLogPa
   };
 }
 
-// (ADR-0064): Resin metrics minimal set — realtime throughput
+// : Resin metrics minimal set — realtime throughput
 // (#R47) + probe history (#R53). Pull model (no WebSocket push). from/to are
 // RFC3339 strings at this boundary (upstream handler_metrics.go:15 parses
 // time.RFC3339Nano); validated here first, then re-validated at the Rust
@@ -1174,7 +1174,7 @@ export interface WhiteboxConfig {
   version: number;
   entry_ports: PortMapping[];
   network?: NetworkConfig;
-  /** (ADR-0054 §D): optional exemption list (decimal port numbers). */
+  /** : optional exemption list (decimal port numbers). */
   acknowledged?: string[];
 }
 
@@ -1213,7 +1213,7 @@ export function ipcWhiteboxSaveNetwork(network: NetworkConfig): Promise<number> 
 }
 
 /**
- * (ADR-0054 section B): one versioned backup copy of a whitebox
+ * : one versioned backup copy of a whitebox
  * file. file_name is a server-generated `<original>.<unixts>[-N].bak` name - it
  * is NEVER interpolated into any URL or passed raw to another command; the
  * rollback wrappers validate the shape before invoking (section 7.6).
@@ -1299,7 +1299,7 @@ export async function ipcGetSidecarStatus(): Promise<SidecarStatus> {
 
 
 // ---------------------------------------------------------------------------
-// Strategy Engine (ADR-0022) — whitebox per-platform strategy config.
+// Strategy Engine  — whitebox per-platform strategy config.
 // ---------------------------------------------------------------------------
 
 /// the former `BClassParams` interface
@@ -1333,7 +1333,7 @@ export interface AuditExportResult {
 }
 
 /**
- * ADR-0059: export the append-only audit log to the path
+ * : export the append-only audit log to the path
  * returned by the native save dialog (Settings > Storage "Export audit log").
  * Validates the path at the TS boundary (non-empty, 1..4096 chars, no control
  * chars) before invoking — AGENTS §7.5 validate-then-invoke contract.
@@ -1351,7 +1351,7 @@ export async function ipcExportAuditLog(targetPath: string): Promise<AuditExport
 export interface StrategyConfig {
   version: number;
   platforms: PlatformStrategy[];
-  /** (ADR-0054 §D): optional exemption list (platform names). */
+  /** : optional exemption list (platform names). */
   acknowledged?: string[];
 }
 
@@ -1407,7 +1407,7 @@ export async function ipcStrategyApply(): Promise<StrategyApplyResult> {
   return invoke<StrategyApplyResult>("strategy_apply");
 }
 
-/// (ADR-0052): deep edit — set one platform's region list through
+/// : deep edit — set one platform's region list through
 /// the StrategyService (single sanctioned write path). The canvas no longer
 /// assembles strategyConfig JSON client-side. Response is the stored document
 /// (untrusted): re-validated shape before returning to callers.
@@ -1457,7 +1457,7 @@ export async function ipcStrategyPlatformSubscriptionsSet(
   return doc as StrategyConfig;
 }
 
-/// (ADR-0076): deep edit — set one platform's manual_nodes (selected node
+/// : deep edit — set one platform's manual_nodes (selected node
 /// hashes) through the StrategyService; used by the manual group-edge
 /// delete projection.
 export async function ipcStrategyPlatformManualNodesSet(
@@ -1502,7 +1502,7 @@ export interface StrategySnapshotConsistent {
   a_class: string;
   manual_nodes: string[];
   subscriptions: string[];
-  /** (ADR-0054 §D): read-side exemption flag; never influences the merge. */
+  /** : read-side exemption flag; never influences the merge. */
   acknowledged: boolean;
 }
 export interface StrategySnapshotDivergent {
@@ -1516,9 +1516,9 @@ export interface StrategySnapshotDivergent {
   a_class: string;
   manual_nodes: string[];
   subscriptions: string[];
-  /** (ADR-0054 §C): Unix seconds of first in-process drift; undefined while fresh. */
+  /** : Unix seconds of first in-process drift; undefined while fresh. */
   divergent_since?: number;
-  /** (ADR-0054 §D): read-side exemption flag. */
+  /** : read-side exemption flag. */
   acknowledged: boolean;
 }
 export interface StrategySnapshotMissingOnResin {
@@ -1530,9 +1530,9 @@ export interface StrategySnapshotMissingOnResin {
   b_class: string;
   manual_nodes: string[];
   subscriptions: string[];
-  /** (ADR-0054 §C): Unix seconds of first in-process drift. */
+  /** : Unix seconds of first in-process drift. */
   divergent_since?: number;
-  /** (ADR-0054 §D): read-side exemption flag. */
+  /** : read-side exemption flag. */
   acknowledged: boolean;
 }
 export type StrategySnapshot =
@@ -1549,7 +1549,7 @@ export interface PortSnapshotConsistent {
   label: string;
   enabled: boolean;
   auth_required: boolean;
-  /** (ADR-0054 §D): read-side exemption flag. */
+  /** : read-side exemption flag. */
   acknowledged: boolean;
 }
 export interface PortSnapshotMissingOnResin {
@@ -1560,21 +1560,21 @@ export interface PortSnapshotMissingOnResin {
   account: string;
   label: string;
   auth_required: boolean;
-  /** (ADR-0054 §C): Unix seconds of first in-process drift. */
+  /** : Unix seconds of first in-process drift. */
   divergent_since?: number;
-  /** (ADR-0054 §D): read-side exemption flag. */
+  /** : read-side exemption flag. */
   acknowledged: boolean;
 }
 export type PortSnapshot = PortSnapshotConsistent | PortSnapshotMissingOnResin;
 
-/** (ADR-0055 D3): per-route three-state. The live side of a route
+/** : per-route three-state. The live side of a route
  *  IS its target port (Resin has no per-process object), so the variants
  *  mirror the ports family. */
 export interface ProcessRouteSnapshotConsistent {
   state: "consistent";
   process: string;
   target_port: number;
-  /** ADR-0055 D6: read-side exemption flag; never influences the merge. */
+  /** : read-side exemption flag; never influences the merge. */
   acknowledged: boolean;
 }
 export interface ProcessRouteSnapshotMissingOnResin {
@@ -1714,7 +1714,7 @@ export interface AuthoritativeSnapshot {
   strategyVersion: number;
   platforms: StrategySnapshot[];
   ports: PortSnapshot[];
-  /** (ADR-0055 D3): route family; empty when the whitebox has none. */
+  /** : route family; empty when the whitebox has none. */
   routes: ProcessRouteSnapshot[];
  /** subscription reverse lookup; empty when Resin is
    *  unreachable and the whitebox references nothing. */
@@ -1723,9 +1723,9 @@ export interface AuthoritativeSnapshot {
    *  projections); empty when no cascade has ever recorded a phase. */
   subscriptionPhases?: SubscriptionPhaseRow[];
   resinReachable: boolean;
-  /** (ADR-0054 §C): Unix seconds when this snapshot was generated. */
+  /** : Unix seconds when this snapshot was generated. */
   lastCheckedAt: number;
-  /** (ADR-0058): whitebox write-authority generation + observed
+  /** : whitebox write-authority generation + observed
    *  (last green apply) generation and the derived convergence phase. */
   strategyGeneration: number;
   strategyAppliedGeneration: number;
@@ -1736,7 +1736,7 @@ export interface AuthoritativeSnapshot {
   lastApplyError?: string;
 }
 
-/** (ADR-0058): top-level convergence phase. The Rust enum
+/** : top-level convergence phase. The Rust enum
  *  serializes in its PascalCase variant form over the wire; mirrored here. */
 export type ConvergePhase =
   | "NeverApplied"
@@ -1917,7 +1917,7 @@ function snapSnapshot(v: unknown): AuthoritativeSnapshot {
     // untrusted timestamp sanitized to a bounded Unix-seconds
     // number; a malformed value degrades to 0 instead of leaking junk.
     lastCheckedAt: snapTs(r.lastCheckedAt) ?? 0,
-    // (ADR-0058): untrusted generation counters + phase. A
+    // : untrusted generation counters + phase. A
     // malformed counter degrades to 0; a malformed phase degrades to
     // "Unknown" (honest: we do not know what the wire said).
     strategyGeneration: snapCounter(r.strategyGeneration),
@@ -1947,7 +1947,7 @@ export async function ipcAuthoritativeSnapshot(): Promise<AuthoritativeSnapshot>
 }
 
 // ---------------------------------------------------------------------------
-// ADR-0054 §A: one-way reconcile. The
+// : one-way reconcile. The
 // preview list is computed FROM data the snapshot pass already reads
 // (compute_plan vs live rows); reconcile_now re-runs the serial
 // strategy-apply + ports-restore chain (fail-fast) and the view re-pulls
@@ -2039,7 +2039,7 @@ export function snapshotPlatformName(p: StrategySnapshot): string {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 5-2: typed IPC error contract (ADR-0026 Q6-Q8).
+// Phase 5-2: typed IPC error contract .
 // Discriminated union matching the Rust IpcError enum (externally-tagged serde).
 // Each variant carries an i18n_key so the GUI renders a locale-specific message
 // without parsing English error text.

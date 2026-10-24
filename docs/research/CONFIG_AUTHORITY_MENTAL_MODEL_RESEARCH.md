@@ -10,7 +10,7 @@
 - 基础设施侧（K8s controller → ArgoCD/Flux → Terraform + HCP 定时 drift）已把它做成工业级：spec/status 分离、`observedGeneration`、Synced/OutOfSync × Healthy/Degraded 双轴、selfHeal/prune 默认关、字段级 ignoreDifferences。
 - 桌面代理侧（Clash Verge Rev、v2rayN、sing-box）普遍停留在「多层输入 → 生成/合并 → 丢给内核重载」的单向流水线：内核能 `GET /configs` 读回运行态（mihomo）、sing-box 有 check-then-swap 重载，但**没有任何客户端把「用户最新一次编辑是否已被内核消化」做成持久、机读、双轴的状态**——「改了什么 vs 实际跑什么 vs 服务是否真的可用」三件事混在一起，故障形态是静默覆盖（Verge #7696 / #7804）与「配置对但没生效」（TUN/系统代理开关独立）。
 
-对一个单机桌面代理应用，最合适的组合是 **OpenGitOps 四原则缩小为单机 controller 循环（git→白盒文件、cluster→sidecar L3、ArgoCD 的 sync 语义 + selfHeal 默认关）+ Terraform 式绑定存储（SQLite 存 identity 映射）+ kubectl apply 式 3-way 所有权 + K8s 的 spec/status 与 observedGeneration 纪律**。Egress 的 L1/L2/L3 + `authoritative_snapshot` + 单向 reconcile 已站在这个模型的正确一侧（ADR-0051 / 0054 / 0056 已显式引用 ArgoCD desired/live、selfHeal 默认关与 OpenGitOps）。
+对一个单机桌面代理应用，最合适的组合是 **OpenGitOps 四原则缩小为单机 controller 循环（git→白盒文件、cluster→sidecar L3、ArgoCD 的 sync 语义 + selfHeal 默认关）+ Terraform 式绑定存储（SQLite 存 identity 映射）+ kubectl apply 式 3-way 所有权 + K8s 的 spec/status 与 observedGeneration 纪律**。Egress 的 L1/L2/L3 + `authoritative_snapshot` + 单向 reconcile 已站在这个模型的正确一侧。
 
 仍缺的工业级四环（按性价比排序）：**(a) 持久化「spec 代次 → observed 代次」回显**；**(b) 只读后台定时复验 + 状态跃迁通知**；**(c) sync 轴与 health 轴分离**；**(d) 轻量写审计日志**。
 
@@ -31,7 +31,7 @@ Confidence：**高**（两套生态的事实性结论均有官方文档全文核
 ### 2.2 基础设施侧：「desired/live + 独立 controller + 双轴机读 status」
 
 - **B1. 心智模型 = 期望（声明在权威存储）vs 实况（运行时），由独立 controller 持续 reconcile，状态发布为两轴机读 status**。ArgoCD：Target state（git）= desired、Live state = cluster 实况、Sync = 拉近两者、Sync status =「live 是否等于 target」、Health =「是否真的在正确工作」，两者独立（Synced-but-Degraded 与 OutOfSync-but-Healthy 都是合法象限）。OpenGitOps 四原则：Declarative / Versioned & Immutable / Pulled Automatically / Continuously Reconciled \[S3\]\[S5\]\[S18\]。
-- **B2. ArgoCD 的安全语义是「默认不自动纠正」：selfHeal 与 prune 均默认关，同步是显式/按策略触发**。事故教训（多源一致）：团队手动 `kubectl scale` 降载，auto-heal 在 ~90 秒内把副本拉回原值、压垮数据库引发级联——「紧急运维必须走 git 而非 kubectl」是纪律约束而非技术特性。本仓 ADR-0054 拒绝 auto-heal/后台自动 reconcile 引用的正是同一论据 \[S4\]\[S19\]\[S20\]。
+- **B2. ArgoCD 的安全语义是「默认不自动纠正」：selfHeal 与 prune 均默认关，同步是显式/按策略触发**。事故教训（多源一致）：团队手动 `kubectl scale` 降载，auto-heal 在 ~90 秒内把副本拉回原值、压垮数据库引发级联——「紧急运维必须走 git 而非 kubectl」是纪律约束而非技术特性。本仓  拒绝 auto-heal/后台自动 reconcile 引用的正是同一论据 \[S4\]\[S19\]\[S20\]。
 - **B3. 工业级「证明已生效」的机读机制 = spec/status 分离 + `observedGeneration` + conditions（reason/message/lastTransitionTime）**。controller 处理完一代 spec 后把 `status.observedGeneration` 置为 `metadata.generation`，从而区分「已按最新 spec 收敛」与「controller 还没看到/还没处理完」；ArgoCD 的 Deployment health（Progressing）同样把 observed generation 落后列为条件 \[S10\]\[S18\]\[S22\]。
 - **B4. Terraform 模型 = 配置文件是期望，`.tfstate` 是「remote object ↔ resource instance」的绑定存储；drift 靠每次 plan/apply 前的 refresh 暴露，HCP 提供定时只读 drift detection**。`-refresh-only`（0.15.4+）只探测与呈现漂移、不写状态不动作。已知教训：被管理资源的手工改动 = drift，下一次 apply 可能「无意销毁或重建」资源；state 文件丢失/损坏、多 actor 并发改同一 state、`ignore_changes` 漏标 \[S23\]\[S24\]\[S25\]。
 - **B5. 两轴与 diffing 的已知坑：同步成功仍可能立刻 OutOfSync；controller/webhook 改写与 server 默认值会造成「假漂移」（注：此外部 GitOps 机制与本仓无关——Resin 上游无 webhook/callback/push 出口，G4 信号通道为 sidecar-status 事件订阅），工业解法是字段级/owner 级 ignoreDifferences**。核心教训：「漂移判定」必须理解谁合法地改字段（server 默认、其他 controller、自家程序保留键），否则产生永久性噪音——这与 A1 里 Verge 的「程序自留键不可覆盖」是同一问题的两侧 \[S3\]\[S6\]。
@@ -63,8 +63,8 @@ Confidence：**高**（两套生态的事实性结论均有官方文档全文核
 
 **仍缺的四环（按性价比排序）**：
 
-1. **`generation → observedGeneration` 回显（最缺、最便宜）**。现在快照证明的是「当前 desired==live」，**证明不了「你 10 秒前那次编辑已被内核消化」**——若 apply 失败或队列未处理，三态仍可能暂时显示一致。给两个白盒各加单调写计数（每次写入入口 bump），apply/reconcile 后把 `applied_generation`/`last_applied_at`/`last_apply_error` 持久化并随 snapshot 回带，UI 顶部常驻「已生效于 HH:MM（rev N）」。这是把 K8s `observedGeneration` 惯例与 Terraform「apply 后导出状态工件」落到桌面；与 ADR-0054 已拒绝的「持久 divergentSince」不同——那是漂移计时，这是**最后一次成功收敛的版本标记**。
-2. **只读后台定时复验 + 状态跃迁通知**。现复验是事件/手动驱动；sidecar 被外部重启、region_filters 被其他客户端改掉时，应用空闲期会静默漂移直到用户打开视图。补一个 sidecar Running 时的低频只读 snapshot（60–300s，HCP drift assessment / Flux interval 同构），通知语义从「每进程一次」升级为「状态持久 + 通知只在跃迁时」。这与 ADR-0054 拒绝的 auto-heal **不是一回事**：只观察、不自动纠正（`-refresh-only` 语义）。
+1. **`generation → observedGeneration` 回显（最缺、最便宜）**。现在快照证明的是「当前 desired==live」，**证明不了「你 10 秒前那次编辑已被内核消化」**——若 apply 失败或队列未处理，三态仍可能暂时显示一致。给两个白盒各加单调写计数（每次写入入口 bump），apply/reconcile 后把 `applied_generation`/`last_applied_at`/`last_apply_error` 持久化并随 snapshot 回带，UI 顶部常驻「已生效于 HH:MM（rev N）」。这是把 K8s `observedGeneration` 惯例与 Terraform「apply 后导出状态工件」落到桌面；与  已拒绝的「持久 divergentSince」不同——那是漂移计时，这是**最后一次成功收敛的版本标记**。
+2. **只读后台定时复验 + 状态跃迁通知**。现复验是事件/手动驱动；sidecar 被外部重启、region_filters 被其他客户端改掉时，应用空闲期会静默漂移直到用户打开视图。补一个 sidecar Running 时的低频只读 snapshot（60–300s，HCP drift assessment / Flux interval 同构），通知语义从「每进程一次」升级为「状态持久 + 通知只在跃迁时」。这与  拒绝的 auto-heal **不是一回事**：只观察、不自动纠正（`-refresh-only` 语义）。
 3. **sync 轴与 health 轴分离**。把现有 `port_health_check`/`probe_exit_ip` 等健康数据并入每实体状态，采用 conditions 词汇（reason/message/lastTransitionTime），让 UI 能表达桌面领域最高频的「Synced but Degraded」象限——「三态徽标全绿 ≠ 流量真的在走代理」（TUN/系统代理独立开关）。这直接回答排障文档第一行「改了为什么没生效」之外的「生效了为什么没用」。
 4. **轻量写审计日志**。版本化备份保留 10 份 ≠ git 历史：无「谁/何时/哪一层/从什么改成什么」。补 append-only JSONL（ts / source GUI|外部文件|进程回滚 / before-hash / after-hash）即获得 GitOps 审计能力（「versioned & immutable」原则的桌面实现）。
 

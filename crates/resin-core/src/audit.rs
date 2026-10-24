@@ -1,4 +1,4 @@
-//! Append-only audit logging (ADR-0059).
+//! Append-only audit logging .
 //!
 //! Every sanctioned L2 whitebox write (strategy store + ports write_atomic)
 //! records one JSONL row in `audit.jsonl` under `app_config_dir()` — the
@@ -236,7 +236,7 @@ impl AuditLog {
 
 /// sha256 of a stored line's raw bytes + the '\n' terminator - a row's OWN
 /// hash. Verifiers hash the stored bytes directly; a parsed `AuditEvent` is
-/// never re-serialized for verification (ADR-0059 D3 errata).
+/// never re-serialized for verification .
 fn row_own_hash(line: &[u8]) -> String {
     let mut bytes = Vec::with_capacity(line.len() + 1);
     bytes.extend_from_slice(line);

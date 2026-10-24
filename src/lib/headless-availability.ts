@@ -16,7 +16,7 @@
 import { CMD_TO_HTTP } from "./headless-routes";
 import CAPABILITIES from "./headless-capabilities.json";
 
-// --- dual-mode: isTauri detection (ADR-0043 Q2=A) ---
+// --- dual-mode: isTauri detection (=A) ---
 // In the Tauri webview we use the native invoke(). In a plain browser
 // (headless npm server) we fall back to fetch("/api/v1/...") which the
 // headless axum reverse-proxy forwards to the local Resin sidecar.
@@ -56,7 +56,7 @@ export function isTauri(): boolean {
 
 /** Why a command has no headless surface. Drives the UI disabled state and
  *  the i18n reason key (`ipc.disabled.<reason>`); never a runtime surprise.
- *  Re-triage rule (ADR-0071): a command may stay disabled ONLY when it
+ *  Re-triage rule : a command may stay disabled ONLY when it
  *  assumes a desktop environment — everything else must be reachable. */
 export type CommandDisabledReason =
   | "desktop_only_tray"

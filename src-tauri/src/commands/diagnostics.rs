@@ -10,7 +10,7 @@ use resin_core::IpcError;
 use serde::Serialize;
 use tauri::State;
 
-/// (ADR-0016 b): IPC snapshot of the sidecar stderr/stdout ring
+/// : IPC snapshot of the sidecar stderr/stdout ring
 /// buffer. Returns the last N lines (oldest still in buffer first) for the
 /// Settings > Logs view. Read-only; no input from the webview.
 #[tauri::command]
@@ -18,7 +18,7 @@ pub fn get_sidecar_logs(sidecar: State<'_, SidecarHandle>) -> Result<Vec<String>
     Ok(sidecar.log_buf.snapshot())
 }
 
-/// (ADR-0012 deep audit): Expose the Resin sidecar's actual runtime
+/// : Expose the Resin sidecar's actual runtime
 /// port + health status to the frontend as read-only data.
 #[derive(serde::Serialize)]
 pub struct SidecarStatus {
@@ -136,7 +136,7 @@ pub async fn request_log_tail(
     sidecar: State<'_, SidecarHandle>,
     limit: Option<usize>,
 ) -> Result<Vec<RequestLogEntry>, IpcError> {
-    // ADR-0045: clamp the caller-controlled page size at the IPC boundary.
+    // : clamp the caller-controlled page size at the IPC boundary.
     let n = limit.unwrap_or(50).min(200).max(1) as u32;
     let client = resin_client(&sidecar)?;
     let resp = client
@@ -408,7 +408,7 @@ pub struct ExitIpProbe {
     pub status: u16,
 }
 
-// ── (ADR-0064): Resin metrics minimal set ─────────────────────
+// ── : Resin metrics minimal set ─────────────────────
 // Two endpoints of the 12 registered by resin/internal/api/handler_metrics.go
 // (裂痕 #5): GET /metrics/realtime/throughput (#R47) and GET
 // /metrics/history/probes (#R53). Pull model (spec: no WebSocket push); the
@@ -423,7 +423,7 @@ pub struct ExitIpProbe {
 ///   - from/to parse as RFC3339 (handler_metrics.go:15 parses
 ///     time.RFC3339Nano; anything else is a 400 upstream — reject earlier).
 ///     Note: the issue draft said "Unix timestamp"; the upstream Go source is
-///     authoritative and takes RFC3339Nano (ADR-0064 deviation note).
+///     authoritative and takes RFC3339Nano .
 ///   - both present: from must be strictly before to (handler_metrics.go:38).
 ///   - to must not be more than METRICS_FUTURE_SKEW in the future (client
 ///     clock is trusted for `now` defaults; a future `to` is a bug).
@@ -479,7 +479,7 @@ pub(crate) fn validate_metrics_range(
     Ok((from.map(str::to_string), to.map(str::to_string)))
 }
 
-/// (ADR-0064): GET /api/v1/metrics/history/probes — probe-count history
+/// : GET /api/v1/metrics/history/probes — probe-count history
 /// buckets for the Diagnostics metrics card. from/to are RFC3339 strings,
 /// boundary-validated per §7.5 (see validate_metrics_range); both optional,
 /// in which case Resin applies its own defaults (to=now, from=to-1h).
@@ -505,7 +505,7 @@ pub async fn metrics_probe_history(
         .map_err(|e| map_resin_error(&e.to_string()))
 }
 
-/// (ADR-0064): GET /api/v1/metrics/realtime/throughput — realtime
+/// : GET /api/v1/metrics/realtime/throughput — realtime
 /// ingress/egress ring samples for the Diagnostics metrics card. No input
 /// params (issue F4: realtime 无入参) — Resin's parseMetricsTimeRange defaults
 /// apply upstream (last hour). Response shape (handler_metrics.go:147):

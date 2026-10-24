@@ -1,9 +1,9 @@
-//! Shell-side port->platform mapping store (ADR-0012).
+//! Shell-side port->platform mapping store .
 //!
 //! A tiny SQLite store mapping each Entry Port number to a (platform_name,
 //! account_string) pair. The multi-port listener reads this on every inbound
 //! connection to inject the correct X-Resin-Account header before forwarding
-//! to Resin. Reuses the DbPool infrastructure from ADR-0011 (parking_lot::Mutex
+//! to Resin. Reuses the DbPool infrastructure from  (parking_lot::Mutex
 //! + WAL + hand-rolled PRAGMA user_version migration).
 
 use parking_lot::Mutex;
@@ -409,7 +409,7 @@ impl DbPool {
             tracing::info!(target: "db", "migrated to user_version 3 (auth_required column)");
         }
         if v < 4 {
-            // (ADR-0068 D3): the entry-port protocol
+            // : the entry-port protocol
             // enum gained `mixed` and `socks5` was tightened to SOCKS5-only. A
             // pre-change `socks5` row produced BOTH engine flags, so it is
             // rewritten to the flag-preserving `mixed` - the "existing ports
@@ -554,7 +554,7 @@ impl DbPool {
 /// back as if it were trustworthy.
 ///
 /// This never writes to `src`; the destination is a fresh file. Callers keep
-/// the ADR-0050-bis constraint on Resin private state.
+/// the  constraint on Resin private state.
 pub fn snapshot_db_readonly(src: &Path, dst: &Path) -> Result<(), String> {
     if !src.is_file() {
         return Err(format!("snapshot: source is not a file: {}", src.display()));
@@ -770,7 +770,7 @@ mod tests {
         assert!(pool.get_port(17990).unwrap().is_none());
     }
 
-    /// ADR-0070: the backup snapshot must be a consistent,
+    /// : the backup snapshot must be a consistent,
     /// self-checked copy of a LIVE database (the pool keeps a WAL writer open),
     /// and must refuse a source that is not a file rather than handing back an
     /// empty snapshot the caller would treat as real.

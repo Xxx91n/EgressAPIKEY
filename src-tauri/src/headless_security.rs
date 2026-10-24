@@ -262,7 +262,7 @@ pub fn token_cookie(token: &str) -> String {
 ///
 /// XFP is a client-writable header: trusting it unconditionally let any
 /// caller forge the `Secure` suffix onto the session cookie on a plain-HTTP
-/// deployment (r12 wave-d R12-D1, ADR-0071 errata). The socket peer - not
+/// deployment . The socket peer - not
 /// the XFF chain - is the trust anchor: the guard only needs "did a trusted
 /// proxy relay this request", never the real client IP. Every header
 /// instance is merged in wire order and only the rightmost segment is
@@ -564,7 +564,7 @@ mod tests {
         );
     }
 
-    // -- R12-D1: X-Forwarded-Proto trust boundary (ADR-0071 errata) --
+    // -- R12-D1: X-Forwarded-Proto trust boundary  --
 
     fn v4(s: &str) -> std::net::IpAddr {
         s.parse().expect("v4 addr")

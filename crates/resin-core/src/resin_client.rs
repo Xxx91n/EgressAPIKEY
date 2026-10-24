@@ -104,7 +104,7 @@ impl ResinClient {
     /// Send an authenticated admin request and return the parsed JSON body.
     /// For non-success (2xx) responses we surface the upstream status + a
     /// short body excerpt rather than swallowing the error.
-    /// (ADR-0018): Read-only auto-retry wrapper. Calls send() and
+    /// : Read-only auto-retry wrapper. Calls send() and
     /// retries up to READ_MAX_RETRIES times with READ_RETRY_DELAY_MS between
     /// attempts. Only for GET methods (read-only); write methods use send()
     /// directly. Retries on network error or 5xx (server transient failure);
@@ -543,7 +543,7 @@ impl ResinClient {
         self.send_read(&path).await
     }
 
-    // ── Account header rules (coexistence with process_route per ADR-0063) ──
+    // ── Account header rules  ──
 
     /// GET /api/v1/account-header-rules?limit=1000&offset=0 — list all rules.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R32
@@ -641,7 +641,7 @@ impl ResinClient {
     }
 
     /// GET /api/v1/metrics/realtime/throughput — realtime ingress/egress
-    /// throughput ring samples. minimal set (ADR-0064): the shell sends
+    /// throughput ring samples. minimal set : the shell sends
     /// no from/to params, so Resin's parseMetricsTimeRange applies its own
     /// defaults (to=now, from=to-1h). Response shape (handler_metrics.go:147):
     /// {"step_seconds": N, "items": [{"ts","ingress_bps","egress_bps"}]}.
@@ -652,7 +652,7 @@ impl ResinClient {
 
     /// GET /api/v1/metrics/history/probes?from=<RFC3339>&to=<RFC3339> —
     /// probe-count history buckets from Resin's metrics.db. minimal set
-    /// (ADR-0064). `from`/`to` are RFC3339Nano strings (handler_metrics.go:15):
+    /// . `from`/`to` are RFC3339Nano strings (handler_metrics.go:15):
     /// Resin rejects anything else with 400 INVALID_ARGUMENT, so the IPC layer
     /// boundary-validates and converts before calling this. None passes no
     /// param at all — Resin then applies its own defaults (to=now,
@@ -2094,7 +2094,7 @@ mod tests {
         assert_eq!(resolve_id_in(&serde_json::json!({"foo": 1}), "x"), None);
         assert_eq!(resolve_id_in(&Value::Null, "x"), None);
     }
-    // ── metrics minimal-set mockito tests (ADR-0064) ─────────────
+    // ── metrics minimal-set mockito tests  ─────────────
 
     #[tokio::test]
     async fn mockito_realtime_throughput_happy_path_no_params() {

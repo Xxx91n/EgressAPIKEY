@@ -7,8 +7,8 @@ value set, and the StreamSensor classification dimensions.
 
 `scripts/mode-a-contract-check.cjs` asserts the source still matches this
 file on every verify run. It is the CI-assertion baseline for the
-registered trigger line "Mode A shell forwarder boundary law"
-(`docs/agents/trigger-line-register.md`).
+"Mode A shell forwarder boundary law": net-new dataplane behavior re-opens
+adjudication.
 
 ## Boundary law (what the gate fails on)
 

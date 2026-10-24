@@ -55,7 +55,7 @@ pub enum HealthState {
 }
 
 impl HealthState {
-    /// Map (reachable, fails) to the 4-state chip per ADR-0042 S1.
+    /// Map (reachable, fails) to the 4-state chip
     pub fn classify(reachable: bool, fails: u32) -> Self {
         if reachable {
             if fails > 0 {
@@ -160,7 +160,7 @@ async fn probe_one(port: u16, protocol: &str) -> (bool, Option<u32>) {
         // `mixed` ports are probed with the SOCKS5 greeting (the branch
         // above), so a SOCKS5 method-selection reply is the expected answer for
         // BOTH `socks5` and `mixed`. Verified live against Resin: a dual-flag
-        // port answers 05 00 (ADR-0068 D4 gate).
+        // port answers 05 00 .
         Ok(Ok(n))
             if protocol != "http"
                 && n >= 2
@@ -349,7 +349,7 @@ mod tests {
 
     /// a `mixed` port must classify as reachable
     /// when it answers the SOCKS5 greeting. A dual-flag Resin listener replies
-    /// `05 00` - exactly what the ADR-0068 D4 gate observed live - and the
+    /// `05 00` - exactly what the  gate observed live - and the
     /// pre-change match arm only recognised `socks5`, so `mixed` would have
     /// fallen through and been reported dead.
     #[tokio::test]

@@ -17,7 +17,7 @@
 //! The former catalog face (parse aliases, the Rust-side
 //! strategy->allocation_policy mapping, the protocol_weight table,
 //! strategy_catalog/StrategyInfo) had no consumer outside its own tests and
-//! was deleted (ADR-0050 direction). With
+//! was deleted . With
 //! the remaining many-to-one mapping collapsed to the IDENTITY: the
 //! whitebox stores the Resin wire value verbatim, so the desired-vs-observed
 //! comparison in `snapshot::merge_strategies` needs no second mapping table,

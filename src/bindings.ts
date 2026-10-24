@@ -6,7 +6,7 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 export const commands = {
 	setLogLevel: (level: LogLevel) => typedError<string, IpcError>(__TAURI_INVOKE("set_log_level", { level })),
 	/**
-	 *  (ADR-0042) / ADR-0069 D1: toggle the enabled flag on an entry-port
+	 *   / : toggle the enabled flag on an entry-port
 	 *  without re-POST/Create or DELETE. L2 whitebox first, then the Resin PATCH.
 	 *  Thin state-extraction wrapper over [`port_toggle_impl`].
 	 */

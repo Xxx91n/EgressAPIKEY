@@ -365,7 +365,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     expect(await ipcPortList()).toEqual([]);
   });
 
-  // (ADR-0042): port_toggle IPC forwards to Rust command with port + enabled; not privileged port.
+  // : port_toggle IPC forwards to Rust command with port + enabled; not privileged port.
   it("ipcPortToggle forwards port + enabled to port_toggle and rejects privileged port", async () => {
     invokeMock.mockResolvedValueOnce({ port: 17991, protocol: "socks5", platform_name: "Default", account: "port-17991", label: "k", enabled: false, auth_required: false });
     await ipcPortToggle(17991, false);
@@ -571,7 +571,7 @@ describe("T6-5 firewall + request log tail", () => {
   });
 });
 
-describe("T19 (ADR-0064) metrics minimal-set wrappers", () => {
+describe("T19  metrics minimal-set wrappers", () => {
   it("ipcMetricsRealtimeThroughput forwards with no params and coerces items", async () => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue({ step_seconds: 10, items: [{ ts: "2026-09-04T00:00:00Z", ingress_bps: 1, egress_bps: 2 }] });
@@ -808,7 +808,7 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
     // UI reads that reason through ipcCommandAvailability() to render a
     // disabled state instead of a runtime surprise.
     //
-    // get_config_dir stays disabled under desktop_only_local_path (ADR-0071
+    // get_config_dir stays disabled under desktop_only_local_path (
     // re-triage): it resolves a desktop filesystem path, a genuinely
     // local-only surface — everything else was promoted to a BFF route.
     const { ipcGetConfigDir } = await import("./ipc");
@@ -1077,7 +1077,7 @@ describe("ticket 14: reconcile plan + report wrappers", () => {
 });
 
 
-// --- ADR-0055: routes in the authoritative snapshot ---
+// --- : routes in the authoritative snapshot ---
 describe("ticket 17: route snapshot sanitizers", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 

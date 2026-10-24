@@ -1,4 +1,4 @@
-//! Backup package model (ADR-0070).
+//! Backup package model .
 //!
 //! Pure logic for the user-facing backup archive. It owns four things and
 //! nothing else:
@@ -41,23 +41,23 @@ pub const BACKUP_FORMAT_VERSION: u8 = 1;
 
 /// Manifest member (itself excluded from its own entry list).
 pub const MANIFEST_ENTRY: &str = "manifest.json";
-/// The ADR-0061 config-transfer container, built from the two whitebox
+/// The  config-transfer container, built from the two whitebox
 /// documents. Sharing that container is what makes backup and
 /// `config_export` ONE model instead of two.
 pub const CONFIG_ENTRY: &str = "config.json";
 /// L1 GUI preferences (L1 authoritative write entry: tauri-plugin-store).
 pub const SETTINGS_ENTRY: &str = "settings.json";
-/// L2 strategy whitebox (ADR-0036 write entry).
+/// L2 strategy whitebox .
 pub const STRATEGY_ENTRY: &str = "l2/egressapikey-strategy.json";
-/// L2 entry-port whitebox (ADR-0042 write entry).
+/// L2 entry-port whitebox .
 pub const PORTS_ENTRY: &str = "l2/egressapikey-ports.json";
 /// L2 port-mapping SQLite store (derived from the ports whitebox on apply).
 pub const PORT_DB_ENTRY: &str = "l2/egressapikey.db";
-/// L2 append-only write-audit log (ADR-0059).
+/// L2 append-only write-audit log .
 pub const AUDIT_ENTRY: &str = "l2/audit.jsonl";
 /// Directory prefix holding the rotated audit archives (audit.jsonl.1..10).
 pub const AUDIT_ARCHIVE_PREFIX: &str = "l2/audit.jsonl.";
-/// Directory holding the whitebox version history (ADR-0054 section B).
+/// Directory holding the whitebox version history .
 pub const WHITEBOX_HISTORY_DIR: &str = "l2/backup";
 /// L3 Resin strong-persistence store (read-only in, never written back).
 pub const STATE_DB_ENTRY: &str = "l3/resin-state/state.db";
@@ -79,7 +79,7 @@ pub const REQUEST_LOG_PREFIX: &str = "request_logs";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackupClass {
     /// Configuration layer: the whitebox documents, their version history,
-    /// the port-mapping DB, and the shared ADR-0061 config container.
+    /// the port-mapping DB, and the shared  config container.
     Config,
     /// L1 GUI preferences.
     L1,

@@ -5,7 +5,7 @@
  * Applying one merges the preset's fields into the platform's
  * PlatformStrategy entry and commits through the SAME authoritative write
  * entry every chip uses: strategy_config_put -> strategy_apply
- * (ADR-0036/0052). The generation bump and the audit row are produced by
+ * . The generation bump and the audit row are produced by
  * that path unchanged; a preset adds no privilege and no bypass.
  *
  * The presets are deliberately region-level honest (D-002): no preset

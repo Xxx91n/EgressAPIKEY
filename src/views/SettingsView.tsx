@@ -127,7 +127,7 @@ export function SettingsView() {
   }, [lightweightEnabled, lightweightDelay]);
   const [busy, setBusy] = useState(false);
   // Sidecar runtime status: the Resin sidecar's actual listen port is
-  // auto-assigned by the shell (ADR-0012) and displayed read-only — there is
+  // auto-assigned by the shell  and displayed read-only — there is
   // no editable network-bind preference in settings.json.
   const [sidecarStatus, setSidecarStatus] = useState<SidecarStatus | null>(null);
   // Network-layer whitebox config (DNS + idle + probe + bypass).
@@ -157,10 +157,10 @@ export function SettingsView() {
   const [configBusy, setConfigBusy] = useState(false);
   // surface it. Swallow errors (vitest, sidecar not running, IPC not registered).
   const [configMsg, setConfigMsg] = useState("");
-  // ADR-0059: Export audit log button state.
+  // : Export audit log button state.
   const [auditBusy, setAuditBusy] = useState(false);
   const [auditMsg, setAuditMsg] = useState("");
-  // strategy config reload surface (ADR-0039 SS5)
+  // strategy config reload surface
   const [strategyConfigPath, setStrategyConfigPath] = useState("");
   const [strategyBusy, setStrategyBusy] = useState(false);
   const [strategyMsg, setStrategyMsg] = useState("");
@@ -172,7 +172,7 @@ export function SettingsView() {
   const [resinMaxFailures, setResinMaxFailures] = useState<number>(3);
   const [resinLatencyInterval, setResinLatencyInterval] = useState<string>("1h");
   const [resinLatencyUrl, setResinLatencyUrl] = useState<string>("");
-  // 4 Resin hot-update knobs missing from P4 (ADR-0044 plan-line-14)
+  // 4 Resin hot-update knobs missing from P4
   const [resinMaxEgressInterval, setResinMaxEgressInterval] = useState<string>("24h");
   const [resinLatencyAuthorities, setResinLatencyAuthorities] = useState<string>("");
   const [resinP2cLatencyWindow, setResinP2cLatencyWindow] = useState<string>("30s");
@@ -216,7 +216,7 @@ export function SettingsView() {
     }
   }
 
-  // reload strategy config from disk (whitebox edit loop, ADR-0039 SS5)
+  // reload strategy config from disk
   async function reloadStrategyConfig() {
     setStrategyBusy(true);
     try {
@@ -444,7 +444,7 @@ export function SettingsView() {
   const saveAll = async () => {
     setBusy(true);
     try {
-      // Sidecar port is auto-assigned by the shell (ADR-0012) — nothing
+      // Sidecar port is auto-assigned by the shell  — nothing
       // network-related to persist here.
       await saveIpReputationConfig(reputationConfig);
       setBaseline({ reputationConfig });
@@ -670,7 +670,7 @@ export function SettingsView() {
             <ScrollText size={14} strokeWidth={1.75} />
             {t("settings.openLogDir")}
           </button>
- {/* ADR-0059: Export audit log button */}
+ {/* : Export audit log button */}
           <button
             onClick={() => void doExportAuditLog()}
             disabled={auditBusy || commandBlocked("export_audit_log")}
@@ -694,7 +694,7 @@ export function SettingsView() {
             {t("settings.whiteboxPath")}: {whiteboxPath}
           </p>
         ) : null}
- {/* ADR-0059: audit export result message */}
+ {/* : audit export result message */}
         {auditMsg ? (
           <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400" data-testid="settings-audit-msg">
             {auditMsg.includes("failed") || auditMsg.includes("error") ? (
@@ -811,7 +811,7 @@ export function SettingsView() {
         </div>
       </SectionCard>
 
- {/* Strategy config reload surface (ADR-0039 SS5) */}
+ {/* Strategy config reload surface  */}
       <SectionCard icon={<RefreshCw size={16} strokeWidth={1.75} />} title={t("settings.strategyConfig")}>
         <div className="flex flex-col gap-2">
           {strategyConfigPath && (

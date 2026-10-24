@@ -45,13 +45,10 @@ The index lives at `.codegraph/` (gitignored). Before reading files for "how doe
 | `issue-tracker.md` | Issue tracker declaration: GitHub Issues |
 | `domain.md` | Domain doc layout (`GLOSSARY.md`) and consumer rules |
 | `triage-labels.md` | Triage label vocabulary: five default state roles |
-| `trigger-line-register.md` | Live register of armed/parked trigger lines + write-back history |
-| `evidence/` | Frozen evidence bundles cited by register rows |
 | `storage-locations.md` | L1/L2/L3 config layers, key inventory, write paths |
 | `community-files.md` | CONTRIBUTING / ISSUE_TEMPLATE / PR_TEMPLATE / SECURITY / CODE_OF_CONDUCT inventory |
-| `round12-wave-l-next-round.md` | Live committed watch taskbook |
 
-`phase-history.md` was retired 2026-10-15 (process narrative; phase outcomes live in `CHANGELOG.md` and git history).
+`phase-history.md` was retired 2026-10-15 (process narrative; phase outcomes live in `CHANGELOG.md` and git history). The trigger-line register, the wave taskbooks and the frozen evidence bundles were removed 2026-10 (governance layer retirement).
 
 ## Legacy AGENTS.md section pointers
 

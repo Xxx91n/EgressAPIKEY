@@ -637,7 +637,7 @@ async fn security_guard(
         }
     }
 
-    // R12-D1 (ADR-0071 errata): the XFP read lives next to the cookie plant
+    // R12-D1 : the XFP read lives next to the cookie plant
     // that consumes it - next.run consumes the request, so the header values
     // are captured here and the trust decision (socket peer vs the
     // --trusted-proxy set) is evaluated at plant time. r12-wave-i D-002:
@@ -667,7 +667,7 @@ async fn security_guard(
     with_security_headers(resp)
 }
 
-/// ADR-0071 D3: baseline response headers for every headless response —
+/// : baseline response headers for every headless response —
 /// self-only CSP (no framing anywhere), referrer + nosniff. Applied inside
 /// the guard so static assets, BFF routes and proxy responses all carry it.
 fn with_security_headers(mut resp: Response) -> Response {
@@ -1212,7 +1212,7 @@ async fn ports_list_h(ctx: Arc<PortCtx>) -> Response {
 }
 
 async fn ports_suggest_h(ctx: Arc<PortCtx>) -> Response {
-    // ADR-0031 lives in resin-core so the GUI and the establish cascade suggest
+    //  lives in resin-core so the GUI and the establish cascade suggest
     // the same port; headless calls that one implementation.
     match resin_core::subscription_pipeline::suggest_free_entry_port(&ctx.db) {
         Ok(port) => axum::Json(serde_json::json!({ "port": port })).into_response(),
@@ -1236,7 +1236,7 @@ fn port_row(ctx: &PortCtx, port: u16) -> Result<resin_core::PortMapping, Respons
     }
 }
 
-/// ADR-0069 D1 / option C: the headless port family calls the SAME
+///  / option C: the headless port family calls the SAME
 /// shared implementation as the desktop IPC command, so the L2-first write
 /// order and the domain validation cannot drift between the two surfaces
 /// . Only the transport-facing error mapping differs.

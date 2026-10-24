@@ -50,7 +50,7 @@ pub struct TrayLabels {
     pub tooltip: &'static str,
 }
 
-/// ADR-0060 (revising ADR-0054 §E): per-locale copy for the drift-episode
+///  : per-locale copy for the drift-episode
 /// edge notice.
 pub struct DriftNotice {
     pub title: &'static str,
@@ -284,7 +284,7 @@ pub fn lang_for_str(s: &str) -> TrayLang {
     }
 }
 
-/// ADR-0060 (revising ADR-0054 §E): drift-episode edge notify state. Holds
+///  : drift-episode edge notify state. Holds
 /// only the previous snapshot's "any unacknowledged drift" boolean; the
 /// notification fires on that predicate's false→true rising edge. A
 /// process-local static (like DRIFT_MEMORY / RECONCILE_MEMORY): a restart
@@ -296,12 +296,12 @@ pub struct DriftNotifyState {
     prev_has_drift: bool,
 }
 
-/// Process-local notify state (ADR-0054 §E as revised by ADR-0060). Static so
+/// Process-local notify state . Static so
 /// every authoritative_snapshot call shares the per-drift-episode contract.
 static DRIFT_NOTIFY_STATE: once_cell::sync::Lazy<std::sync::Mutex<DriftNotifyState>> =
     once_cell::sync::Lazy::new(|| std::sync::Mutex::new(DriftNotifyState::default()));
 
-/// Pure edge predicate of the drift-episode notify state (ADR-0060).
+/// Pure edge predicate of the drift-episode notify state .
 ///
 /// * `has_drift` — whether THIS snapshot contains at least one
 ///   NOT-acknowledged drift entry (divergent or missingOnResin).
@@ -320,7 +320,7 @@ pub fn should_fire_drift_notice(has_drift: bool, prev_has_drift: bool) -> bool {
 }
 
 /// Count unacknowledged drift entries (strategy + ports halves of the
-/// snapshot). Acknowledged entities are exempt (ADR-0054 §D/§E): they stay
+/// snapshot). Acknowledged entities are exempt : they stay
 /// visible in the view but never trigger the notice.
 pub fn count_unacknowledged_drift_entries(snap: &resin_core::AuthoritativeSnapshot) -> usize {
     let platforms = snap
@@ -333,7 +333,7 @@ pub fn count_unacknowledged_drift_entries(snap: &resin_core::AuthoritativeSnapsh
         .iter()
         .filter(|pp| pp.state_tag() != "consistent" && !pp.acknowledged())
         .count();
-    // ADR-0055 D6: route drift joins the same counter; the
+    // : route drift joins the same counter; the
     // acknowledged exemption stays read-side (state tag untouched).
     let routes = snap
         .routes
@@ -344,11 +344,11 @@ pub fn count_unacknowledged_drift_entries(snap: &resin_core::AuthoritativeSnapsh
 }
 
 /// Fire the drift-episode OS notification (best-effort, rising edge per
-/// ADR-0060). Returns true when the notification was dispatched. Never panics
+/// ). Returns true when the notification was dispatched. Never panics
 /// and never blocks the snapshot on a notification failure — a missed toast
 /// is logged, not fatal.
 pub fn fire_drift_notification(app: &AppHandle, snap: &resin_core::AuthoritativeSnapshot) -> bool {
-    // Sidecar down = absence is not drift (ADR-0051): enabled entries report
+    // Sidecar down = absence is not drift : enabled entries report
     // missing_on_resin because there is nothing to compare against. Notifying
     // "your config drifted" while the engine is simply offline would be noise.
     if !snap.resin_reachable {
@@ -360,7 +360,7 @@ pub fn fire_drift_notification(app: &AppHandle, snap: &resin_core::Authoritative
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let fire = should_fire_drift_notice(has_drift, guard.prev_has_drift);
-        // Unconditional baseline update on BOTH edges (ADR-0060 F2): the
+        // Unconditional baseline update on BOTH edges : the
         // falling edge only moves the baseline, it never emits.
         guard.prev_has_drift = has_drift;
         fire
@@ -390,7 +390,7 @@ pub fn fire_drift_notification(app: &AppHandle, snap: &resin_core::Authoritative
 
 /// the tray mirrors the
 /// top-level ConvergePhase derived by every `authoritative_snapshot` call
-/// (ADR-0058 surface, read-only — the tray never writes config):
+/// :
 ///   - Converged   → silent (default window icon, base tooltip);
 ///   - PendingApply / Drifted → amber (checkpoint C: drift is amber);
 ///   - ApplyFailed → solid red icon, held visible until the next GREEN apply
@@ -409,7 +409,7 @@ pub struct ConvergeMirrorState {
 static CONVERGE_MIRROR_STATE: once_cell::sync::Lazy<std::sync::Mutex<ConvergeMirrorState>> =
     once_cell::sync::Lazy::new(|| std::sync::Mutex::new(ConvergeMirrorState::default()));
 
-/// Rising-edge predicate (ADR-0060 isomorph): repaint only when the phase
+/// Rising-edge predicate : repaint only when the phase
 /// CHANGED. A Converged plateau stays silent (no repaint churn every 5s
 /// poll); Converged → Drifted repaints; the boot baseline (None) always
 /// paints once so the first snapshot after launch carries the real state.
@@ -683,7 +683,7 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    /// ADR-0060: the drift-episode edge predicate. Rising edge fires;
+    /// : the drift-episode edge predicate. Rising edge fires;
     /// sustained drift stays silent; the falling edge never fires; a new
     /// episode after a clear fires again.
     #[test]
@@ -697,7 +697,7 @@ mod tests {
         assert!(!should_fire_drift_notice(false, true));
     }
 
-    /// ADR-0060 F5 acknowledge self-consistency: exempting an entity moves
+    ///  F5 acknowledge self-consistency: exempting an entity moves
     /// the baseline (falling edge) but must never re-arm into a re-notice;
     /// the NEXT genuinely new drift after the exemption fires again.
     #[test]
@@ -715,7 +715,7 @@ mod tests {
     }
 
     /// A snapshot whose only drift entries are acknowledged MUST NOT notify:
-    /// the counter filters them out entirely (ADR-0054 §D/§E).
+    /// the counter filters them out entirely .
     #[test]
     fn count_unacknowledged_drift_entries_ignores_acknowledged() {
         use resin_core::snapshot::{PortSnapshot, StrategySnapshot};
@@ -1139,7 +1139,7 @@ mod tests {
 
     /// The mirror baseline advances on every evaluation (both edges), so a
     /// phase that reappears after a silent plateau repaints again — same
-    /// unconditional-baseline discipline as the ADR-0060 notify state.
+    /// unconditional-baseline discipline as the  notify state.
     #[test]
     fn converge_mirror_baseline_updates_even_when_silent() {
         use resin_core::ConvergePhase;

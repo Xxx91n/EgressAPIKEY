@@ -1,4 +1,4 @@
-//! Architecture-recovery ticket 14 / ADR-0054 §A: reconcile integration
+//! Architecture-recovery ticket 14 / : reconcile integration
 //! coverage against a mockito Resin. The hard acceptance gate is idempotency:
 //! running the reconcile pass TWICE must produce ZERO changes the second
 //! time — no PATCH reaches Resin and the ports half re-asserts nothing
@@ -51,7 +51,7 @@ fn fixture_ports() -> Vec<PortMapping> {
 /// phase mocks served in registration order, matching mockito's
 /// first-mock-with-missing-hits rule). The reconcile pass must PATCH
 /// exactly once; the SECOND pass must produce no further PATCH — the
-/// wire-level zero-change gate, real since ADR-0057's diff-then-skip.
+/// wire-level zero-change gate, real since 's diff-then-skip.
 async fn mock_resin() -> (mockito::ServerGuard, String) {
     let server = mockito::Server::new_async().await;
     let url = server.url();
@@ -115,7 +115,7 @@ async fn reconcile_twice_second_pass_zero_changes() {
         .create_async()
         .await;
     // The ONE write of the whole scenario: the drift-fixing PATCH. Since
-    // ADR-0057 apply() diff-then-skips in-sync platforms, this cap is a
+    //  apply() diff-then-skips in-sync platforms, this cap is a
     // REAL wire-idempotency gate: pass 2 reads the synced phase (in sync)
     // and must not PATCH again. The assert at the bottom makes a
     // second-pass re-PATCH fail the test.
@@ -202,7 +202,7 @@ async fn reconcile_twice_second_pass_zero_changes() {
 
     // Rebuild the mocks for a synced world and run pass 2 against it:
     // Resin now reports region_filters=["HK"] so apply's diff-then-skip
-    // (ADR-0057) finds the platform in sync and writes nothing — pass 2
+    //  finds the platform in sync and writes nothing — pass 2
     // asserts at the OUTCOME level: the ports half is a no-op, the report
     // carries zero restores, and the PATCH mock above stays capped at
     // exactly the one drift-fixing write of pass 1.
@@ -217,7 +217,7 @@ async fn reconcile_twice_second_pass_zero_changes() {
         .expect("pass 2 must succeed");
     assert_eq!(report2.ports_restored, Vec::<u16>::new());
     // The strategy half's pass-2 verdict is visible in the report itself:
-    // the platform converges WITHOUT a write (diff-then-skip, ADR-0057) —
+    // the platform converges WITHOUT a write  —
     // m_patch's count above is the wire-level proof of the same fact.
     let sp = report2
         .strategy
@@ -231,7 +231,7 @@ async fn reconcile_twice_second_pass_zero_changes() {
     m_platforms_drifted.assert_async().await;
     m_platforms_synced.assert_async().await;
     let _ = m_endpoints;
-    // ADR-0057: the once-per-scenario PATCH gate is now load-bearing — a
+    // : the once-per-scenario PATCH gate is now load-bearing — a
     // second-pass re-PATCH would fail this assertion.
     m_patch.assert_async().await;
     let _ = std::fs::remove_file(&store_path);

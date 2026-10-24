@@ -2,7 +2,7 @@
 'use strict';
 
 /*
- * mode-a-contract-check.cjs - ADR-0068 D4 four-scenario contract gate, live
+ * mode-a-contract-check.cjs -  four-scenario contract gate, live
  * black-box against the real Resin sidecar binary.
  *
  * Evidence lineage: the original Mode A landing verified the byte-level
@@ -34,12 +34,12 @@
  * 2026-09-04: local never builds or downloads; live evidence = CI runs).
  *
  * Boundary law (R12-E1, registered legislation - NOT a new amnesty): Mode A
- * is a legislated dataplane under ADR-0068 D1/D3, so the static section also
+ * is a legislated dataplane under , so the static section also
  * freezes its boundary against tests/fixtures/mode-a-boundary/census.json:
  * protocol-family freeze {socks5-handshake, http-connect,
- * absolute-form->CONNECT}, no TLS fronting (ADR-0068 D4 verbatim), and no
+ * absolute-form->CONNECT}, no TLS fronting , and no
  * new L7 features (function inventory + StreamSensor dimensions). Net-new
- * dataplane behavior belongs to the ADR-0068 D2 fork line; a deliberate,
+ * dataplane behavior belongs to the  fork line; a deliberate,
  * adjudicated change updates the census in the same commit.
  */
 
@@ -292,7 +292,7 @@ async function main() {
     const missing = census.functions.filter(f => !actualFns.includes(f));
     const extra = actualFns.filter(f => !census.functions.includes(f));
     record(missing.length === 0 && extra.length === 0,
-      'boundary: function inventory frozen at census (net-new dataplane behavior goes to the ADR-0068 D2 fork line)',
+      'boundary: function inventory frozen at census ',
       missing.map(m => 'missing:' + m).concat(extra.map(e => 'new:' + e)).join(', ') || undefined);
 
     // Extractor/census version coupling (r12-wave-f D-003): the
@@ -342,14 +342,14 @@ async function main() {
       'boundary: rewrite whitelist {socks5-handshake, http-connect, absolute-form->CONNECT} anchors intact',
       absent.join(', ') || undefined);
 
-    // Ban 2 - no TLS fronting: cite ADR-0068 D4 verbatim, do not
+    // Ban 2 - no TLS fronting: cite  verbatim, do not
     // re-legislate. Tokens are code-shaped (a comment saying "TLS" is not
     // a violation; a TlsAcceptor or a 0x16 handshake byte is).
     const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const tlsHits = census.banned_tls_tokens.filter(t =>
       new RegExp('(?<![A-Za-z0-9_])' + esc(t) + '(?![A-Za-z0-9_])', 'i').test(fwdSrc));
     record(tlsHits.length === 0,
-      'boundary: no TLS fronting - ADR-0068 D4 verbatim: "' + census.adr_0068_d4_verbatim + '"',
+      'boundary: no TLS fronting -  verbatim: "' + census.adr_0068_d4_verbatim + '"',
       tlsHits.join(', ') || undefined);
 
     // StreamSensor classification dimensions frozen (new dimension =

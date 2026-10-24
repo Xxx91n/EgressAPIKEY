@@ -46,7 +46,7 @@ Summarized from the CHANGELOG [0.2.0] section:
   state rows - driving a 60s tick on both the desktop and headless
   transports. Suggest tier parks proposals for explicit approve/dismiss;
   Auto tier migrates regions through the authoritative write path only.
-- **Signal-plane typed verdicts** (ADR-0080): every tick joins loopback
+- **Signal-plane typed verdicts** : every tick joins loopback
   listener health with a real egress probe per enabled entry port into a
   five-value verdict (ok / local_fail / remote_fail / skipped /
   environment_suspect). When >=80% of probed ports fail loopback in one
@@ -118,7 +118,7 @@ sticky exit-IP routing for AI API keys, with a topology canvas.
   webview prerequisites for your platform.
 - **Sidecar seam**: the shell talks to the bundled Resin v1.2.0 over loopback
   REST only; other Resin versions are not drop-in compatible — the compatible
-  version is pinned in `docs/RESIN_UPSTREAM_MANIFEST.yaml` (ADR-0017).
+  version is pinned in `docs/RESIN_UPSTREAM_MANIFEST.yaml` .
 - **i18n**: 18 locales (en, zh, ja, es, fr, de, ko, ru, pt, ar, hi, id, it,
   nl, pl, th, tr, vi).
 
@@ -142,13 +142,13 @@ Summarized from the CHANGELOG [0.1.0] section (31 Added, 17 Changed, 8 Fixed,
 ### Deprecated
 
 - `account_add` / `account_bind_ip` echo commands: validate-and-echo only —
-  Resin owns account semantics (ADR-0050). Both emit a deprecation warning on
+  Resin owns account semantics . Both emit a deprecation warning on
   every call.
 
 ### Removed
 
 - The dead in-shell gateway kernel (mihomo/gateway/lane/lease/tdewma modules,
-  ADR-0050) and the unused dependencies that came with it — the shell is a
+  ) and the unused dependencies that came with it — the shell is a
   pure control plane over the sidecar REST seam.
 
 ### Fixed
@@ -164,6 +164,6 @@ Summarized from the CHANGELOG [0.1.0] section (31 Added, 17 Changed, 8 Fixed,
 - Coming from pre-rename **ai-api-route** builds: legacy `settings.json`
   network keys (`gatewayBind`, `mihomoApi`) are purged and `processRoutes`
   is migrated into the whitebox once at startup — no manual action.
-- Upgrading the bundled Resin sidecar is deliberately manual (ADR-0017): bump
+- Upgrading the bundled Resin sidecar is deliberately manual : bump
   `docs/RESIN_UPSTREAM_MANIFEST.yaml`, re-verify THIRD_PARTY.md against the
   upstream originals at the exact new tag, and land both in the same commit.

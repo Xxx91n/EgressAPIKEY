@@ -121,7 +121,7 @@ pub async fn reset_kernel(
 }
 
 /// shared kill+restart helper. Delegates to the Ghost-tested restart seam
-/// `crate::sidecar::restart_resin` (ADR-0016 Q5 two-phase shutdown +
+/// `crate::sidecar::restart_resin` ( two-phase shutdown +
 /// RespawnSlot-preserving respawn, D-004 B'). BLOCKING by
 /// contract — restart_resin parks on std::process + blocking reqwest healthz
 /// polls, so it runs on the blocking pool, never on the async runtime
@@ -161,7 +161,7 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, IpcError> {
     }
 }
 
-/// ADR-0059: export the append-only audit log (audit.jsonl) to
+/// : export the append-only audit log (audit.jsonl) to
 /// a user-chosen path (Settings > Storage "Export audit log"). A plain copy
 /// of the live log; the "offline evidence package" zip (audit + backup/ +
 /// whitebox) is an optional stretch documented in the report, not part of
