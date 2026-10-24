@@ -12,8 +12,8 @@
   existing subscriptions to 5s.
 - **Upstream reality**: Resin v1.2.0 enforces `update_interval >= 30s` on
   BOTH `POST /api/v1/subscriptions` (create, control_plane_subscription.go
-  :188-192) and `PATCH /api/v1/subscriptions/{id}` (update, :324-330) via
-  `minSubscriptionUpdateInterval = 30 * time.Second` (:130); a smaller
+:188-192) and `PATCH /api/v1/subscriptions/{id}` (update,:324-330) via
+  `minSubscriptionUpdateInterval = 30 * time.Second` (130); a smaller
   value is rejected with 400 "update_interval: must be >= 30s".
 - **Shell behavior now**: default stays 30s; a 5s POST is never sent by
   default and the new write-path retry never re-POSTs a 400 body.

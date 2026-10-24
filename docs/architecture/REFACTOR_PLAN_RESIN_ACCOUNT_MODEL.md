@@ -6,14 +6,14 @@
 
 ## 真实概念映射
 
-| 用户心智模型            | Resin 真实实体              | 真实 API 路径                                       | 持久化位置                |
+| 用户心智模型 | Resin 真实实体 | 真实 API 路径 | 持久化位置 |
 |------------------------|----------------------------|-----------------------------------------------------|---------------------------|
-| 平台 (Platform)        | Resin Platform             | POST/GET/PATCH/DELETE /api/v1/platforms             | state.db platforms 表     |
-| api key 组合           | Resin Account（路径段字符串）| 无独立 POST — 由代理流量产生 lease 自动出现          | cache.db leases 表        |
-| key 的唯一标识         | sha1(v1_endpoint + api_key)\[:8\]（shell 侧 UID） | 无 Resin 原生 UID — shell UI 生成展示用 UID    | 仅 UI 展示，不持久化后端  |
-| ip/ip 通道             | Resin Node (subscription)  | GET /api/v1/nodes、GET /metrics/snapshots/node-pool  | cache.db nodes_static/dynamic |
-| 平台内 key→IP 出口绑定 | Resin Lease                | GET /platforms/{id}/leases                          | cache.db leases 表 (platform_id, account, node_hash, egress_ip) |
-| ip 出口策略            | Platform allocation_policy | PATCH /platforms/{id} body.allocation_policy       | state.db platforms 表     |
+| 平台 (Platform) | Resin Platform | POST/GET/PATCH/DELETE /api/v1/platforms | state.db platforms 表 |
+| api key 组合 | Resin Account（路径段字符串）| 无独立 POST — 由代理流量产生 lease 自动出现 | cache.db leases 表 |
+| key 的唯一标识 | sha1(v1_endpoint + api_key)\[:8\]（shell 侧 UID） | 无 Resin 原生 UID — shell UI 生成展示用 UID | 仅 UI 展示，不持久化后端 |
+| ip/ip 通道 | Resin Node (subscription) | GET /api/v1/nodes、GET /metrics/snapshots/node-pool | cache.db nodes_static/dynamic |
+| 平台内 key→IP 出口绑定 | Resin Lease | GET /platforms/{id}/leases | cache.db leases 表 (platform_id, account, node_hash, egress_ip) |
+| ip 出口策略 | Platform allocation_policy | PATCH /platforms/{id} body.allocation_policy | state.db platforms 表 |
 
 ## 关键现实（避免玩具 UI）
 

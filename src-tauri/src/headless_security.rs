@@ -5,14 +5,14 @@
 //! hostile origin:
 //!
 //! 1. Shared-secret token (`--auth-token`). Required on every `/api/v1/*` and
-//!    `/metrics/*` request. Binding a non-loopback address without a token
-//!    refuses startup.
+//! `/metrics/*` request. Binding a non-loopback address without a token
+//! refuses startup.
 //! 2. Host / Origin allowlist. Rejects any request whose `Host` (or `Origin`)
-//!    is neither a loopback name nor an explicitly declared host. This is the
-//!    same mitigation Caddy / Envoy / nginx apply against DNS rebinding: an
-//!    attacker page rebinds its own hostname to 127.0.0.1, so the browser keeps
-//!    sending the attacker's `Host` while the TCP connection lands on the local
-//!    control plane.
+//! is neither a loopback name nor an explicitly declared host. This is the
+//! same mitigation Caddy / Envoy / nginx apply against DNS rebinding: an
+//! attacker page rebinds its own hostname to 127.0.0.1, so the browser keeps
+//! sending the attacker's `Host` while the TCP connection lands on the local
+//! control plane.
 //!
 //! The token comes from the OS CSPRNG (`getrandom`). Time + PID entropy is
 //! explicitly rejected: it is guessable from the process start window and is not
@@ -77,7 +77,7 @@ pub fn generate_token() -> Result<String, String> {
 /// * `--auth-token` supplied (non-blank) -> use it, on any bind address.
 /// * omitted + loopback bind -> generate with the OS CSPRNG.
 /// * omitted + non-loopback bind -> REFUSE. An unauthenticated admin control
-///   plane must never be exposed off-host.
+/// plane must never be exposed off-host.
 pub fn resolve_token(cli_token: Option<&str>, bind: &str) -> Result<ResolvedToken, String> {
     let provided = cli_token.map(str::trim).filter(|t| !t.is_empty());
     match provided {
@@ -118,7 +118,7 @@ pub fn allowed_hosts(bind: &str, declared: &[String]) -> Vec<String> {
         .and_then(|s| s.strip_suffix(']'))
         .unwrap_or(b);
     if let Ok(ip) = inner.parse::<std::net::IpAddr>() {
-        // An unspecified bind (0.0.0.0 / ::) tells us nothing about the name
+        // An unspecified bind (0.0.0.0 /::) tells us nothing about the name
         // clients will use, so it must NOT widen the allowlist.
         if !ip.is_unspecified() {
             push_unique(&mut hosts, ip.to_string());
@@ -262,7 +262,7 @@ pub fn token_cookie(token: &str) -> String {
 ///
 /// XFP is a client-writable header: trusting it unconditionally let any
 /// caller forge the `Secure` suffix onto the session cookie on a plain-HTTP
-/// deployment . The socket peer - not
+/// deployment. The socket peer - not
 /// the XFF chain - is the trust anchor: the guard only needs "did a trusted
 /// proxy relay this request", never the real client IP. Every header
 /// instance is merged in wire order and only the rightmost segment is
@@ -564,7 +564,7 @@ mod tests {
         );
     }
 
-    // -- R12-D1: X-Forwarded-Proto trust boundary  --
+    // -- R12-D1: X-Forwarded-Proto trust boundary --
 
     fn v4(s: &str) -> std::net::IpAddr {
         s.parse().expect("v4 addr")

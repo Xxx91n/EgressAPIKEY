@@ -6,32 +6,32 @@
 //!
 //! Responsibilities (thin, no GUI):
 //! 1. Spawns the resin Go sidecar (reuses the same sidecar.rs boot helpers
-//!    the Tauri shell uses; no GUI-specific logic).
+//! the Tauri shell uses; no GUI-specific logic).
 //! 2. Serves the prebuilt `dist/` static assets on the bind address so
-//!    the same React frontend the Tauri webview ships runs in any browser.
+//! the same React frontend the Tauri webview ships runs in any browser.
 //! 3. Proxies `/api/v1/*` and `/metrics/*` requests to the local Resin
-//!    control plane (admin token stays Rust-side, never leaks to the
-//!    browser request). Mutating routes that the SPA addresses by
-//!    business `name` (DELETE/PATCH on `/platforms` and `/subscriptions`)
-//!    are translated here to Resin's `/{id}` path-param form BEFORE the
-//!    upstream call (industrial BFF pattern). This mirrors the
-//!    list+match resolution the Tauri Rust IPC commands (platform_remove,
-//!    platform_update, subscription_remove) already perform, so the two
-//!    modes stay behaviour-equivalent and TOCTOU-free (resolve + mutate in
-//!    one process, single serial connection).
+//! control plane (admin token stays Rust-side, never leaks to the
+//! browser request). Mutating routes that the SPA addresses by
+//! business `name` (DELETE/PATCH on `/platforms` and `/subscriptions`)
+//! are translated here to Resin's `/{id}` path-param form BEFORE the
+//! upstream call (industrial BFF pattern). This mirrors the
+//! list+match resolution the Tauri Rust IPC commands (platform_remove,
+//! platform_update, subscription_remove) already perform, so the two
+//! modes stay behaviour-equivalent and TOCTOU-free (resolve + mutate in
+//! one process, single serial connection).
 //! 4. Two-phase shutdown: on Ctrl+C/SIGTERM, kills the resin child and
-//!    exits. Logs the full sequence via `tracing` to the OS log dir.
+//! exits. Logs the full sequence via `tracing` to the OS log dir.
 //!
 //! 5. Enforces the control-surface security gate: a shared
-//!    `--auth-token` on `/api/v1/*` + `/metrics/*`, and a `Host`/`Origin`
-//!    allowlist on every request (DNS-rebinding mitigation). The primitives live
-//!    in `headless_security`; the operator-facing threat model is
-//!    `docs/how-to/HEADLESS_DEPLOYMENT.md`.
+//! `--auth-token` on `/api/v1/*` + `/metrics/*`, and a `Host`/`Origin`
+//! allowlist on every request (DNS-rebinding mitigation). The primitives live
+//! in `headless_security`; the operator-facing threat model is
+//! `docs/how-to/HEADLESS_DEPLOYMENT.md`.
 //!
 //! This binary does NOT:
 //! - Load Tauri plugins or the webview
 //! - Manage the OS system HTTP proxy (Ghost safety net feature owned by the
-//!   desktop GUI's tray; headless mode never touches the OS proxy).
+//! desktop GUI's tray; headless mode never touches the OS proxy).
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -98,13 +98,13 @@ struct Cli {
     /// Reverse-proxy peer trusted to assert X-Forwarded-Proto (repeatable;
     /// exact IP or CIDR, e.g. 127.0.0.1 or 10.8.0.0/16). Without this flag
     /// XFP is ignored entirely - it is a client-writable header (R12-D1).
-    /// Wildcard CIDRs (0.0.0.0/0, ::/0) refuse startup unless the second
+    /// Wildcard CIDRs (0.0.0.0/0,::/0) refuse startup unless the second
     /// explicit `--trusted-proxy-unrestricted` switch is also given
     /// (r12-wave-i D-002); see docs/how-to/HEADLESS_DEPLOYMENT.md.
     #[arg(long = "trusted-proxy", value_name = "IP_OR_CIDR", value_parser = parse_trusted_proxy)]
     trusted_proxy: Vec<ipnet::IpNet>,
     /// Explicit acknowledgement that `--trusted-proxy` may carry a wildcard
-    /// CIDR (0.0.0.0/0 or ::/0): every reachable peer is then trusted to
+    /// CIDR (0.0.0.0/0 or::/0): every reachable peer is then trusted to
     /// assert X-Forwarded-Proto, which disables the boundary the flag
     /// exists to keep (r12-wave-i D-002). Only meaningful on networks where
     /// every possible client hop is already inside the trusted set.
@@ -566,12 +566,12 @@ fn build_router(
 /// request guard. Two ordered checks:
 ///
 /// 1. Host / Origin allowlist - rejects DNS-rebinding style requests whose
-///    `Host` names a domain that merely resolves to this machine. Applies to
-///    every request, static assets included.
+/// `Host` names a domain that merely resolves to this machine. Applies to
+/// every request, static assets included.
 /// 2. Shared-secret token - required on the control-plane prefixes
-///    `/api/v1/*` and `/metrics/*`. A valid token arriving via `?auth_token=`
-///    also plants the session cookie, so the SPA's later same-origin fetches
-///    authenticate without ever holding the token in JS.
+/// `/api/v1/*` and `/metrics/*`. A valid token arriving via `?auth_token=`
+/// also plants the session cookie, so the SPA's later same-origin fetches
+/// authenticate without ever holding the token in JS.
 async fn security_guard(
     State(guard): State<Arc<HeadlessGuard>>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
@@ -637,7 +637,7 @@ async fn security_guard(
         }
     }
 
-    // R12-D1 : the XFP read lives next to the cookie plant
+    // R12-D1: the XFP read lives next to the cookie plant
     // that consumes it - next.run consumes the request, so the header values
     // are captured here and the trust decision (socket peer vs the
     // --trusted-proxy set) is evaluated at plant time. r12-wave-i D-002:
@@ -667,7 +667,7 @@ async fn security_guard(
     with_security_headers(resp)
 }
 
-/// : baseline response headers for every headless response —
+///: baseline response headers for every headless response —
 /// self-only CSP (no framing anywhere), referrer + nosniff. Applied inside
 /// the guard so static assets, BFF routes and proxy responses all carry it.
 fn with_security_headers(mut resp: Response) -> Response {
@@ -703,13 +703,13 @@ fn proxy_client() -> Result<&'static reqwest::Client, reqwest::Error> {
 /// Pure-proxy to resin with a thin BFF translation layer for the three
 /// routes the SPA addresses by business `name` instead of Resin's UUID
 /// `{id}` path-param:
-///   - DELETE /api/v1/platforms      body {name}   -> DELETE /api/v1/platforms/{id}
-///   - PATCH  /api/v1/platforms      body {name,...} -> PATCH /api/v1/platforms/{id} (name stripped)
-///   - DELETE /api/v1/subscriptions  body {name}   -> DELETE /api/v1/subscriptions/{id}
+/// - DELETE /api/v1/platforms body {name} -> DELETE /api/v1/platforms/{id}
+/// - PATCH /api/v1/platforms body {name,...} -> PATCH /api/v1/platforms/{id} (name stripped)
+/// - DELETE /api/v1/subscriptions body {name} -> DELETE /api/v1/subscriptions/{id}
 /// The list+match resolution happens HERE (not in the SPA) so:
 ///   1) the frontend contract is name-based in BOTH modes (matches Tauri);
 ///   2) resolve + mutate are atomic in one process (no client-side TOCTOU);
-///   3) the browser never needs to hold Resin UUIDs.
+/// 3) the browser never needs to hold Resin UUIDs.
 /// Industry-template lineage: Kong request-transformer / LiteLLM pattern
 /// (the headless server is a separate required-features-gated bin).
 async fn proxy_to_resin(
@@ -1020,16 +1020,16 @@ async fn resolve_id(
 /// contract (the browser never holds a Resin UUID):
 ///
 /// 1. Collection + body name -> /{id} path param (DELETE/PATCH platforms,
-///    DELETE subscriptions).
+/// DELETE subscriptions).
 /// 2. GET /platforms?leases_for=<name> -> /platforms/{id}/leases:
-///    platform_leases was mapped at the bare collection, so headless handed
-///    the SPA the platform LIST where it expected the lease set.
+/// platform_leases was mapped at the bare collection, so headless handed
+/// the SPA the platform LIST where it expected the lease set.
 /// 3. POST /subscriptions?refresh=<name> -> /subscriptions/{id}/actions/refresh.
-///    Refresh had no bare-collection mapping, so it was desktop-only.
+/// Refresh had no bare-collection mapping, so it was desktop-only.
 /// 4. PUT/DELETE /account-header-rules with body url_prefix ->
-///    /account-header-rules/{prefix}. Rules are addressed by prefix in the
-///    PATH and a prefix may contain "/" (its %2F must survive), so the SPA never
-///    builds that segment itself.
+/// /account-header-rules/{prefix}. Rules are addressed by prefix in the
+/// PATH and a prefix may contain "/" (its %2F must survive), so the SPA never
+/// builds that segment itself.
 ///
 /// Anything else passes through unchanged (path + body bytes as-is).
 async fn translate_request(
@@ -1136,7 +1136,7 @@ async fn translate_request(
 
     // --- 5. POST /platforms validates the Resin V1 name rule. ---
     // The desktop command (create_platform_from_name) rejects names containing
-    // . : | / \ @ ? # % ~ or any whitespace; the BFF must enforce the SAME rule
+    //.: | / \ @ ? # % ~ or any whitespace; the BFF must enforce the SAME rule
     // or a browser caller could create a name the desktop would have refused
     // One validation, effective in both places). Validates only -
     // the body still passes through unchanged below.
@@ -1212,7 +1212,7 @@ async fn ports_list_h(ctx: Arc<PortCtx>) -> Response {
 }
 
 async fn ports_suggest_h(ctx: Arc<PortCtx>) -> Response {
-    //  lives in resin-core so the GUI and the establish cascade suggest
+    // lives in resin-core so the GUI and the establish cascade suggest
     // the same port; headless calls that one implementation.
     match resin_core::subscription_pipeline::suggest_free_entry_port(&ctx.db) {
         Ok(port) => axum::Json(serde_json::json!({ "port": port })).into_response(),
@@ -1236,10 +1236,10 @@ fn port_row(ctx: &PortCtx, port: u16) -> Result<resin_core::PortMapping, Respons
     }
 }
 
-///  / option C: the headless port family calls the SAME
+/// / option C: the headless port family calls the SAME
 /// shared implementation as the desktop IPC command, so the L2-first write
 /// order and the domain validation cannot drift between the two surfaces
-/// . Only the transport-facing error mapping differs.
+///. Only the transport-facing error mapping differs.
 impl egressapikey_app::commands::ResinEndpointSource for PortCtx {
     fn endpoint_client(&self) -> Result<resin_core::ResinClient, String> {
         self.client()
@@ -1822,7 +1822,7 @@ mod guard_wiring_tests {
 
     /// Regression lock for the axum-0.7 literal-path bug — under
     /// "{port}" syntax these URIs silently fell through to the /api/v1/*path
-    /// proxy. Every :port route must reach the BFF-native handler instead of
+    /// proxy. Every:port route must reach the BFF-native handler instead of
     /// being proxied verbatim (the mock upstream always answers {"ok":true},
     /// so a passthrough is instantly recognisable).
     #[tokio::test]

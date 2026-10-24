@@ -4,7 +4,7 @@ import { invokeMock } from "../test/setup";
 import { SettingsView } from "./SettingsView";
 import { useAppStore } from "../store/appStore";
 
-// : the Export audit log button uses the native save
+//: the Export audit log button uses the native save
 // dialog from @tauri-apps/plugin-dialog; mock it so the webview test can drive
 // the chosen path and assert the export_audit_log IPC fires with it.
 vi.mock("@tauri-apps/plugin-dialog", () => ({
@@ -168,7 +168,7 @@ describe("SettingsView T6-3 network layer card closed-loop", () => {
   });
 });
 
-// : Settings > Storage "Export audit log" button.
+//: Settings > Storage "Export audit log" button.
 describe("SettingsView T11 export audit log button ", () => {
   beforeEach(() => {
     invokeMock.mockReset();

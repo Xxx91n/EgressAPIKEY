@@ -1,4 +1,4 @@
-# Resin upstream version manifest .
+# Resin upstream version manifest.
 # Single source of truth for the Resin Go sidecar version this shell bundles.
 # fetch_resin.ps1 / .sh read the "version" + "repo" fields from this file.
 # To upgrade: bump version, verify the release asset names match, test boot.
@@ -7,17 +7,17 @@
 # (allocation_policy enum, region_filters field, /nodes pagination).
 # Compat notes (architecture-recovery ticket 11, 2026-08-30):
 # - The shell consumes GET /api/v1/request-logs (ResinClient::request_logs,
-#   src-tauri request_log_tail). Verified present in the v1.2.0 sidecar
-#   (embedded WebUI + route strings in resin.exe). If a future Resin bump
-#   removes or reshapes this endpoint, request_log_tail fails with an explicit
-#   IpcError ("response has no items array") — that is the seam alarm, not a
-#   silent misparse.
+# src-tauri request_log_tail). Verified present in the v1.2.0 sidecar
+# (embedded WebUI + route strings in resin.exe). If a future Resin bump
+# removes or reshapes this endpoint, request_log_tail fails with an explicit
+# IpcError ("response has no items array") — that is the seam alarm, not a
+# silent misparse.
 # - The shell no longer reads Resin's private request_logs*.db files (the
-#   former direct-DB seam exception was closed by ticket 11).
+# former direct-DB seam exception was closed by ticket 11).
 
 repo: "Resinat/Resin"
 version: "v1.2.0"
-# Two-layer license value :
+# Two-layer license value:
 # layer 1 "declared" = Resin's own resin/LICENSE (MIT);
 # layer 2 "dependency-tree" = the compiled sidecar binary conveys
 # GPL-3.0-or-later obligations via github.com/sagernet/sing-box v1.12.21
@@ -40,17 +40,17 @@ assets:
   linux-amd64: "resin-linux-amd64.tar.gz"
 # ---------------------------------------------------------------------------
 # Registered Exemption (r12-wave-a D-002 / R12-00; removal condition required):
-#   id:      mode-b-sse-buffering
-#   scope:   forward-GET response path (resin/internal/proxy/forward.go) -
-#            io.Copy(w, resp.Body) without a Flush, so SSE over the Mode B
-#            forward path is buffered in ~2-4KB windows (measured:
-#            proxySpread~0 vs CONNECT-tunnel spread~1.0).
-#   gate:    the SSE event-gap acceptance line gates the Mode A shell CONNECT
-#            tunnel only; the Mode B numbers are recorded as evidence, never
-#            asserted.
-#   removal: upstream implements per-event flush on the forward path -> delete
-#            this note, the acceptance.json exempt row, and the PERF-BENCH.md
-#            Known-measured-behavior paragraph together.
+# id: mode-b-sse-buffering
+# scope: forward-GET response path (resin/internal/proxy/forward.go) -
+# io.Copy(w, resp.Body) without a Flush, so SSE over the Mode B
+# forward path is buffered in ~2-4KB windows (measured:
+# proxySpread~0 vs CONNECT-tunnel spread~1.0).
+# gate: the SSE event-gap acceptance line gates the Mode A shell CONNECT
+# tunnel only; the Mode B numbers are recorded as evidence, never
+# asserted.
+# removal: upstream implements per-event flush on the forward path -> delete
+# this note, the acceptance.json exempt row, and the PERF-BENCH.md
+# Known-measured-behavior paragraph together.
 known_exemptions:
   - id: mode-b-sse-buffering
     since: "r12-wave-a (2026-09-22)"

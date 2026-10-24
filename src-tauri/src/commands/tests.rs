@@ -51,7 +51,7 @@ fn resolve_id_in_matches() {
     assert_eq!(resin_core::resolve_id_in(&v, "Bar"), None);
 }
 
-/// : the conflict rule moved to document level in
+///: the conflict rule moved to document level in
 /// resin-core (same port, different process => typed error). Shell-side
 /// regression lock on the re-exported helper.
 #[test]
@@ -573,7 +573,7 @@ fn authoritative_snapshot_wire_shape() {
     let v = serde_json::to_value(&snap).unwrap();
     // Top-level field is camelCase (TS wrapper convention).
     assert_eq!(v["lastCheckedAt"], 1_756_521_601i64);
-    // Per-variant payload fields stay snake_case .
+    // Per-variant payload fields stay snake_case.
     assert_eq!(v["platforms"][0]["divergent_since"], 1_756_521_600i64);
     assert_eq!(v["platforms"][0]["acknowledged"], true);
     // None => the key is absent (skip_serializing_if).
@@ -599,7 +599,7 @@ fn authoritative_snapshot_wire_shape() {
 // returns only {"status":"ok"}) and decides `changed` from these pure fns.
 
 // -----------------------------------------------------------------------
-//  backup/restore audit - two invariants a later refactor can
+// backup/restore audit - two invariants a later refactor can
 // silently reverse: (1) backup_create packages the L3 databases through the
 // consistent-snapshot helper instead of raw-copying them, and it rejects
 // forbidden members before sealing the manifest; (2) backup_restore verifies
@@ -718,11 +718,11 @@ fn extract_sub_row_stats_reads_count_and_version() {
 }
 
 // -----------------------------------------------------------------------
-//  write-order audit - three commands, one by one.
+// write-order audit - three commands, one by one.
 //
 // L2-first is a contract a later refactor can silently reverse, so it is
 // pinned by a source-order assertion over the SHARED implementations (the
-//  ones the headless adapter also calls, option C). Each impl is
+// ones the headless adapter also calls, option C). Each impl is
 // checked for the whitebox persistence step preceding every L3 call.
 #[test]
 fn port_impls_persist_l2_before_mutating_l3() {
@@ -881,7 +881,7 @@ async fn orchestration_tick_collects_probe_signals_when_controller_disabled() {
     .unwrap();
     assert_eq!(out["enabled"], serde_json::json!(false));
     assert_eq!(out["signals"], serde_json::json!(1));
-    // : one dead port = 100% local_fail -> the common-mode
+    //: one dead port = 100% local_fail -> the common-mode
     // suppressor stamps the tick environment_suspect (n=1 degenerate).
     assert_eq!(
         out["platform_verdicts"][0]["platform"],

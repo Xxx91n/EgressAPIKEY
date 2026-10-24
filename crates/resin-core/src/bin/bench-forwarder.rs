@@ -5,12 +5,12 @@
 //! client takes. Driven entirely by env vars so scripts/bench/run-bench.mjs
 //! can spawn it next to the Resin sidecar:
 //!
-//!   BENCH_FWD_PORT          entry port to bind (client-facing, no creds)
-//!   BENCH_FWD_ENGINE_PORT   engine consolidated port (admin+proxy, Mode B port)
-//!   BENCH_FWD_PLATFORM      platform name for the injected identity
-//!   BENCH_FWD_ACCOUNT       account segment (default "bench")
-//!   BENCH_FWD_PROXY_TOKEN   proxy token half of the injected credential
-//!   BENCH_FWD_PROTOCOL      declared entry protocol (default "mixed")
+//! BENCH_FWD_PORT entry port to bind (client-facing, no creds)
+//! BENCH_FWD_ENGINE_PORT engine consolidated port (admin+proxy, Mode B port)
+//! BENCH_FWD_PLATFORM platform name for the injected identity
+//! BENCH_FWD_ACCOUNT account segment (default "bench")
+//! BENCH_FWD_PROXY_TOKEN proxy token half of the injected credential
+//! BENCH_FWD_PROTOCOL declared entry protocol (default "mixed")
 //!
 //! Build: cargo build --release -p resin-core --features bench --bin bench-forwarder
 //! The bin is feature-gated (required-features = ["bench"]) so normal builds

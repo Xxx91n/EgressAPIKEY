@@ -2,10 +2,10 @@
 // (repo-wide GPL-3.0-or-later layering decision).
 //
 // Keeps the three declared license fields equal to the repo-wide value:
-//   1. package.json "license"
-//   2. root Cargo.toml [workspace.package] license (member crates must use
-//      `license.workspace = true`, never a hardcoded string)
-//   3. README.md "## License" section body
+// 1. package.json "license"
+// 2. root Cargo.toml [workspace.package] license (member crates must use
+// `license.workspace = true`, never a hardcoded string)
+// 3. README.md "## License" section body
 // plus root LICENSE presence/shape (official GPL-3.0 plain text, LF, no BOM).
 //
 // This ticket ships the script WITHOUT mounting it: wiring into
@@ -13,7 +13,7 @@
 // ticket (03) so multiple windows never edit verify-build concurrently.
 //
 // Usage:
-//   node scripts/license-field-check.cjs            # check (exit 0 = green)
+// node scripts/license-field-check.cjs # check (exit 0 = green)
 //
 // Self-test recipe (close-out evidence in the
 // report): break one field -> expect exit 1 + FAIL lines; restore -> exit 0.

@@ -1,13 +1,13 @@
 // SSE measurement + the four hard behavior assertions (D-002):
-//   TTFB added latency (paired direct vs proxied first-event delta) p95 <=5ms
-//   event-gap added delta as a GOOD-EVENT RATIO (<=10ms @>=99% target /
-//     <=500ms @>=99% danger) - Mode A shell CONNECT tunnel only; the Mode B
-//     forward-GET path is a Registered Exemption (buffered io.Copy upstream).
-//   assertion 1: per-event flush (arrival spread ~= emit window)
-//   assertion 2: client disconnect cascades cancel upstream (stats.cancels)
-//   assertion 3: bounded backpressure (upstream sees blocked writes AND resin
-//                RSS delta stays under cap while a paused client stalls)
-//   assertion 4: in-band error signaling (data:{"error":...} + clean EOF)
+// TTFB added latency (paired direct vs proxied first-event delta) p95 <=5ms
+// event-gap added delta as a GOOD-EVENT RATIO (<=10ms @>=99% target /
+// <=500ms @>=99% danger) - Mode A shell CONNECT tunnel only; the Mode B
+// forward-GET path is a Registered Exemption (buffered io.Copy upstream).
+// assertion 1: per-event flush (arrival spread ~= emit window)
+// assertion 2: client disconnect cascades cancel upstream (stats.cancels)
+// assertion 3: bounded backpressure (upstream sees blocked writes AND resin
+// RSS delta stays under cap while a paused client stalls)
+// assertion 4: in-band error signaling (data:{"error":...} + clean EOF)
 //
 // Legs: modeB = forward-GET through the engine endpoint (Resin data plane);
 // tunnel = CONNECT through the endpoint; modeA = CONNECT through the shell
@@ -261,8 +261,8 @@ async function upStats(upStatsUrl) {
 // Per-event arrival lag vs the producer's own timestamp (same clock - the
 // mock upstream is in-process). The acceptance-line caliber is the ADDED
 // delta over the direct control leg, expressed as a good-event ratio:
-//   delta_i = lag_leg_i - median(lag_direct)
-//   goodRatio@T = fraction of events with delta_i <= T ms
+// delta_i = lag_leg_i - median(lag_direct)
+// goodRatio@T = fraction of events with delta_i <= T ms
 function legLags(st) {
   return st.events
     .filter((e) => e.ts != null)

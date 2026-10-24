@@ -457,7 +457,7 @@ describe("NodesView T19-P4 batch probe timeout + batch_on_load=false gate", () =
   });
 
   // "batch_on_load=false skips auto-batch" spec (audit deviation fix).
-  //  default behavior: manual single-probe. batch_on_load=false
+  // default behavior: manual single-probe. batch_on_load=false
   // prevents an automatic batch probe on page mount. NodesView has NO
   // useEffect reading batch_on_load to auto-trigger, so on mount + the 10s
   // poll refresh the node_probe IPC is never invoked; only node_list and

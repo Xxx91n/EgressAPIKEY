@@ -8,14 +8,14 @@
 // from the trigger design, not a job flag: the workflow runs on post-merge
 // pushes and nightly only, so a failure is evidence on main, never a PR gate.
 //
-//   S1 window up     - webview session opens + document title == EgressAPIKEY
+// S1 window up - webview session opens + document title == EgressAPIKEY
 //
-//   S2 nav switch    - Topology -> Settings renders the network save control
-//   S3 ipc roundtrip - port_list returns an array through the real IPC bridge
-//   S4 remove path   - platform_add -> card renders -> UI delete -> gone
-//                      (the previously weakened e2e remove assertion, restored)
-//   S5 glyph matrix  - ar/hi/th locales: no horizontal overflow, nav intact,
-//                      one screenshot per locale (uploaded as CI artifact)
+// S2 nav switch - Topology -> Settings renders the network save control
+// S3 ipc roundtrip - port_list returns an array through the real IPC bridge
+// S4 remove path - platform_add -> card renders -> UI delete -> gone
+// (the previously weakened e2e remove assertion, restored)
+// S5 glyph matrix - ar/hi/th locales: no horizontal overflow, nav intact,
+// one screenshot per locale (uploaded as CI artifact)
 //
 // Env: APP_EXE (required), TAURI_WEBDRIVER_PORT (default 4445), OUT_DIR.
 

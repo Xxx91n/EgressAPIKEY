@@ -1,18 +1,18 @@
 // headless-capability-check.cjs — headless capability contract guard.
 //
 // Asserts the three headless capability surfaces can never drift apart:
-//   1. src/lib/headless-capabilities.json — the single source of truth, served
-//      verbatim at GET /api/v1/capabilities and driving DISABLED_COMMANDS.
-//   2. src/lib/headless-routes.ts        — the transport route table.
-//   3. src-tauri/src/**/*.rs             — the registered command universe.
+// 1. src/lib/headless-capabilities.json — the single source of truth, served
+// verbatim at GET /api/v1/capabilities and driving DISABLED_COMMANDS.
+// 2. src/lib/headless-routes.ts — the transport route table.
+// 3. src-tauri/src/**/*.rs — the registered command universe.
 //
 // Invariants:
-//   - every registered #[tauri::command] appears in the registry exactly once
-//   - enabled entries exist in CMD_TO_HTTP with the same method + path
-//   - disabled entries carry a reason in the CommandDisabledReason union
-//   - enabled ∩ disabled = ∅, and neither table lists a command twice
+// - every registered #[tauri::command] appears in the registry exactly once
+// - enabled entries exist in CMD_TO_HTTP with the same method + path
+// - disabled entries carry a reason in the CommandDisabledReason union
+// - enabled ∩ disabled = ∅, and neither table lists a command twice
 //
-// Usage: node scripts/headless-capability-check.cjs   (exits non-zero on drift)
+// Usage: node scripts/headless-capability-check.cjs (exits non-zero on drift)
 
 const fs = require("node:fs");
 const path = require("node:path");

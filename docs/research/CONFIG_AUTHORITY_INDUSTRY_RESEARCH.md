@@ -55,7 +55,7 @@
 
 官网原文(2026-09-01 实抓):Change configs safely — Validate before deployment, keep version history and restore a known-good configuration when something changes. 功能清单:Config validation and history;Git synchronization and backups;统一管理 HAProxy、NGINX、Apache、Keepalived [R1]。
 
-可借鉴点:部署前校验 + 版本历史 + 一键恢复已知良好配置,是「配置权威」在负载均衡运维 GUI 里的同族实现;本项目  的白盒版本化(写前备份 / 轮转 / 回滚复用同一 validate→apply 链)与之同构。
+可借鉴点:部署前校验 + 版本历史 + 一键恢复已知良好配置,是「配置权威」在负载均衡运维 GUI 里的同族实现;本项目 的白盒版本化(写前备份 / 轮转 / 回滚复用同一 validate→apply 链)与之同构。
 
 ### 4.2 Kubernetes controller / OpenGitOps:desired/live 对比的立法来源
 

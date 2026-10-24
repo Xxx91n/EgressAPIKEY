@@ -68,7 +68,7 @@ OmniRoute does NOT route by Authorization alone. Its pipeline:
 Incoming request -> src/proxy.ts
   -> runAuthzPipeline() in src/server/authz/pipeline.ts
      1. Strip trusted internal headers (x-omniroute-auth-*) from inbound
-     2. extractApiKey(request) -> Authorization Bearer value  (client identity)
+     2. extractApiKey(request) -> Authorization Bearer value (client identity)
      3. classifyRoute()
      4. POLICIES[routeClass].evaluate(ctx)
         -> AuthSubject{ kind: client_api_key, id: key_<last-4>, scopes }

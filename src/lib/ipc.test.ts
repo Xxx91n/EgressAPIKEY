@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 /// closed-loop coverage for the IPC boundary. We mock
 /// @tauri-apps/api/core's invoke and verify:
-///   - IPC wrappers validate inputs (port range, name length, URL shape)
-///   - Forwards the args to the right command name
-///   - Surfaces errors verbatim from the backend
+/// - IPC wrappers validate inputs (port range, name length, URL shape)
+/// - Forwards the args to the right command name
+/// - Surfaces errors verbatim from the backend
 /// Vitest runs WITHOUT a real Tauri runtime, so invoke would reject anyway;
 /// we provide a mockable surface so we can assert the dispatched command and
 /// validate the TS-side guards beyond what the unit-test store covers.
@@ -365,7 +365,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     expect(await ipcPortList()).toEqual([]);
   });
 
-  // : port_toggle IPC forwards to Rust command with port + enabled; not privileged port.
+  //: port_toggle IPC forwards to Rust command with port + enabled; not privileged port.
   it("ipcPortToggle forwards port + enabled to port_toggle and rejects privileged port", async () => {
     invokeMock.mockResolvedValueOnce({ port: 17991, protocol: "socks5", platform_name: "Default", account: "port-17991", label: "k", enabled: false, auth_required: false });
     await ipcPortToggle(17991, false);
@@ -787,11 +787,11 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
     const r = await ipcPlatformList() as unknown;
     // invokeHttp unwraps Resin's {items:[...]} wrapper AND projects each row to
     // its `name` field. Which side is right, argued from both ends:
-    //   - the Tauri command is `platform_list -> Result<Vec<String>>`
+    // - the Tauri command is `platform_list -> Result<Vec<String>>`
     //     (commands/platform.rs returns platform_names(&list));
-    //   - this wrapper is typed Promise<string[]> to match it;
-    //   - the headless route therefore declares `unwrapItems` + `project: "name"`
-    //     so the SPA sees the SAME shape in both modes (equivalent face).
+    // - this wrapper is typed Promise<string[]> to match it;
+    // - the headless route therefore declares `unwrapItems` + `project: "name"`
+    // so the SPA sees the SAME shape in both modes (equivalent face).
     // rework: the old object-array expectation contradicted
     // both the signature and its own comment above it.
     expect(r).toEqual(["a", "b"]);
@@ -1077,7 +1077,7 @@ describe("ticket 14: reconcile plan + report wrappers", () => {
 });
 
 
-// --- : routes in the authoritative snapshot ---
+// ---: routes in the authoritative snapshot ---
 describe("ticket 17: route snapshot sanitizers", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 

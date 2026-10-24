@@ -1,10 +1,10 @@
 // ipc-manifest-check.cjs - IPC command registry guard (product invariants only).
 // Keeps the registered IPC surface equal to the code truth:
-//   1. extracts every #[tauri::command] fn name under src-tauri/src (CRLF/LF safe),
-//   2. reconciles it against the generate_handler! registry in
-//      src-tauri/src/main.rs - a definition that is never registered, or a
-//      registry entry with no definition, is a runtime bug (the command
-//      silently does not exist / the router panics), so drift exits non-zero.
+// 1. extracts every #[tauri::command] fn name under src-tauri/src (CRLF/LF safe),
+// 2. reconciles it against the generate_handler! registry in
+// src-tauri/src/main.rs - a definition that is never registered, or a
+// registry entry with no definition, is a runtime bug (the command
+// silently does not exist / the router panics), so drift exits non-zero.
 // The former third leg (diffing a generated docs/agents/ipc-manifest.md fence
 // and an AGENTS.md pointer block) is gone: that was a documentation gate, the
 // manifest file and its --write mode were retired with the governance layer.
@@ -13,8 +13,8 @@
 // Zero deps, style aligned with scripts/i18n-check.cjs.
 //
 // Usage:
-//   node scripts/ipc-manifest-check.cjs              # check (build gate)
-//   node scripts/ipc-manifest-check.cjs --self-test  # parser self-test
+// node scripts/ipc-manifest-check.cjs # check (build gate)
+// node scripts/ipc-manifest-check.cjs --self-test # parser self-test
 
 const fs = require("node:fs");
 const path = require("node:path");

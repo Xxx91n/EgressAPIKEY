@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-/// Phase 5-1: trace_id passthrough closed-loop test .
+/// Phase 5-1: trace_id passthrough closed-loop test.
 /// Verifies that the invoke wrapper always generates a UUID v4 and injects
 /// it as __trace_id into the args passed to the Tauri backend.
 

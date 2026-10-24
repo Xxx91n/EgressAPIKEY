@@ -137,7 +137,7 @@ async fn e2e_sub_then_platform_then_apply_in_wire_order() {
     assert!(report.all_ok(), "e2e pass must be green: {report:?}");
 
     // Whitebox side effects: one pipeline store entry (+1) and apply's GREEN
-    // write-back (+1,  — a green pass lands applied == generation
+    // write-back (+1, — a green pass lands applied == generation
     // at the post-bump value). Ref present, no duplicate entry.
     let cfg = svc.get().unwrap();
     assert_eq!(cfg.generation, 2);
@@ -237,7 +237,7 @@ async fn e2e_twice_second_pass_zero_writes() {
     // Both passes green, queue empty. The zero-writes claim is scoped to the
     // WIRE (no POST/PATCH mocks exist to hit) and to whitebox CONTENT (no
     // duplicate platform/ref below). The generation DID advance 1 -> 3: each
-    // green apply write-back bumps it (, Terraform re-apply
+    // green apply write-back bumps it (Terraform re-apply
     // semantics) — that is apply's own sanctioned store entry, not a pipeline
     // whitebox rewrite.
     assert!(p.pending().is_empty());

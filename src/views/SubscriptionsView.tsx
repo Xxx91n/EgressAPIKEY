@@ -27,22 +27,22 @@ interface BindStep {
 /// SubscriptionsView - Resin subscription import surface (P20 rewrite).
 ///
 /// Fixes vs the P19 version:
-///  - Item 3: duplicate-name detection BEFORE import. Resin POST /api/v1/subscriptions
-///    is name-keyed - posting the same name silently overwrites the prior sub.
-///    We fetch the live list, and if the chosen name already exists we refuse to
-///    POST and surface a toast so the user can rename. Coexistence by design.
-///  - Item 4: reset-order no longer duplicates. The old applyOrder merged stale
-///    localOrder entries that no longer exist on the server with the fresh server
-///    list, causing "ghost" rows after reset. The new reset drops localOrder AND
-///    re-renders from the server list only (`setLive(serverList)`), bypassing
-///    applyOrder entirely, so there is no stale-name carryover.
-///  - Item 6: drag-to-reorder uses the browser-native HTML5 draggable attribute
-///    (dragstart / dragover / drop events). The old hand-rolled subDrag mutated a
-///    useState object's isDragging flag without triggering a React re-render, so
-///    the window mouseup listener that was supposed to fire finishDrag() never
-///    re-registered after the first drag - dragging "did nothing". Native drag
-///    has no such race: the browser owns the drag lifecycle and emits dragstart
-///    once + drop once, both on the DOM elements the user actually grabs.
+/// - Item 3: duplicate-name detection BEFORE import. Resin POST /api/v1/subscriptions
+/// is name-keyed - posting the same name silently overwrites the prior sub.
+/// We fetch the live list, and if the chosen name already exists we refuse to
+/// POST and surface a toast so the user can rename. Coexistence by design.
+/// - Item 4: reset-order no longer duplicates. The old applyOrder merged stale
+/// localOrder entries that no longer exist on the server with the fresh server
+/// list, causing "ghost" rows after reset. The new reset drops localOrder AND
+/// re-renders from the server list only (`setLive(serverList)`), bypassing
+/// applyOrder entirely, so there is no stale-name carryover.
+/// - Item 6: drag-to-reorder uses the browser-native HTML5 draggable attribute
+/// (dragstart / dragover / drop events). The old hand-rolled subDrag mutated a
+/// useState object's isDragging flag without triggering a React re-render, so
+/// the window mouseup listener that was supposed to fire finishDrag() never
+/// re-registered after the first drag - dragging "did nothing". Native drag
+/// has no such race: the browser owns the drag lifecycle and emits dragstart
+/// once + drop once, both on the DOM elements the user actually grabs.
 ///
 /// Outside Tauri (Vite dev preview), every IPC call throws gracefully and we
 /// keep the local appStore as a fallback list so the screen never blanks.
@@ -417,7 +417,7 @@ export function SubscriptionsView() {
   // F1 confirm: strategy_config_put -> strategy_apply (the PlatformsView
   // chip chain) for EVERY selected platform plus the optional same-name
   // auto-create; then the optional port bindings. One put + one apply for
-  // the whole batch (apply is diff-then-skip, , so re-applying an
+  // the whole batch (apply is diff-then-skip,, so re-applying an
   // unchanged platform costs zero writes).
   const handleBindConfirm = async () => {
     if (!bind) return;
@@ -432,7 +432,7 @@ export function SubscriptionsView() {
       // F1 "自动建 platform"). The a_class/subscriptions semantics are L2
       // whitebox vocabulary, so the Resin row is created with its own
       // schema fields and the binding lands via strategy_config_put below;
-      // strategy_apply  is the fallback establish path when the
+      // strategy_apply is the fallback establish path when the
       // create 409s/fails for any reason.
       if (bindCreate) {
         try {

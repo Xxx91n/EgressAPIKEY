@@ -1,4 +1,4 @@
-// : the reconcile preview
+//: the reconcile preview
 // derivation. The plan is computed FROM the snapshot's own entries (spec:
 // "源自快照内已有计划数据,禁止发新请求"): the snapshot already merged the
 // whitebox intent against the live Resin rows through compute_plan, so a
@@ -39,7 +39,7 @@ function liveOf(p: StrategySnapshot): string[] {
 /** Derive what one reconcile pass WOULD change, from the snapshot alone. */
 export function reconcilePreviewFromSnapshot(snap: AuthoritativeSnapshot): ReconcilePreview {
   if (!snap.resinReachable) {
-    // : sidecar-down absence is not drift; a reconcile with no
+    //: sidecar-down absence is not drift; a reconcile with no
     // runtime to converge has an empty plan (the view disables the button).
     return { platforms: [], ports: [] };
   }
@@ -70,9 +70,9 @@ export function reconcilePreviewFromSnapshot(snap: AuthoritativeSnapshot): Recon
 }
 
 /** The snapshot's missingOnResin port variant does not carry `enabled`
- *  (whitebox-only field); treat every missing port as enabled-intent —
- *  restore_ports_from_whitebox itself filters disabled entries, and a
- *  disabled port would not appear as missingOnResin in practice. */
+ * (whitebox-only field); treat every missing port as enabled-intent —
+ * restore_ports_from_whitebox itself filters disabled entries, and a
+ * disabled port would not appear as missingOnResin in practice. */
 function portEnabledInDesired(_pt: PortSnapshot): boolean {
   return true;
 }

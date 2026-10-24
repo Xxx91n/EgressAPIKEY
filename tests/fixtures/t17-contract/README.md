@@ -48,11 +48,11 @@ Env (mirrors `src-tauri/src/sidecar.rs`):
 
     RESIN_AUTH_VERSION=V1
     RESIN_ADMIN_TOKEN=<random hex>
-    RESIN_PROXY_TOKEN=            # empty on purpose
+    RESIN_PROXY_TOKEN= # empty on purpose
     RESIN_LISTEN_ADDRESS=127.0.0.1
     RESIN_PORT=<admin port>
     RESIN_STATE_DIR/RESIN_CACHE_DIR/RESIN_LOG_DIR=<fresh temp dirs>
-    RESIN_REQUEST_LOG_QUEUE_FLUSH_INTERVAL=2s   # default is 5 MINUTES; without
+    RESIN_REQUEST_LOG_QUEUE_FLUSH_INTERVAL=2s # default is 5 MINUTES; without
                                                 # this the log assertion stalls
 
 Wait for `GET /healthz` (unauthenticated) -> 200 `{"status":"ok"}`. Admin
@@ -61,19 +61,19 @@ calls carry `Authorization: Bearer <RESIN_ADMIN_TOKEN>`.
 Provision three endpoints (all `allow_proxy=true`, `allow_http_reverse=false`,
 `allow_management=false`):
 
-    POST /api/v1/endpoints  mixed:    {port, allow_socks5:true, allow_http_forward:true}
-    POST /api/v1/endpoints  http-only:{port, allow_socks5:false, allow_http_forward:true}
-    POST /api/v1/endpoints  socks5-only:{port, allow_socks5:true, allow_http_forward:false}
+    POST /api/v1/endpoints mixed: {port, allow_socks5:true, allow_http_forward:true}
+    POST /api/v1/endpoints http-only:{port, allow_socks5:false, allow_http_forward:true}
+    POST /api/v1/endpoints socks5-only:{port, allow_socks5:true, allow_http_forward:false}
 
 (All flag fields must be explicit - omitted bools default to the engines
 fallback, not to false.) Optionally `POST /api/v1/platforms {"name":"T17P"}`.
 
 Probe (curl equivalents of the four scenarios):
 
-    curl -si -x http://127.0.0.1:<mixed> http://1.1.1.1/     -> 503 + X-Resin-Error: NO_AVAILABLE_NODES
-    curl -sv -x socks5h://T17P.ac2:@127.0.0.1:<mixed> http://1.1.1.1/  -> method 05 00, then exit 97 (general failure)
-    curl -sv -x socks5h://127.0.0.1:<http-only> http://1.1.1.1/        -> 05 ff, exit 97/1
-    curl -si -x http://127.0.0.1:<socks5-only> http://1.1.1.1/         -> 403 + X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED
+    curl -si -x http://127.0.0.1:<mixed> http://1.1.1.1/ -> 503 + X-Resin-Error: NO_AVAILABLE_NODES
+    curl -sv -x socks5h://T17P.ac2:@127.0.0.1:<mixed> http://1.1.1.1/ -> method 05 00, then exit 97 (general failure)
+    curl -sv -x socks5h://127.0.0.1:<http-only> http://1.1.1.1/ -> 05 ff, exit 97/1
+    curl -si -x http://127.0.0.1:<socks5-only> http://1.1.1.1/ -> 403 + X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED
 
 Then read attribution back:
 

@@ -12,7 +12,7 @@ import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice
 
 /// NodesView — collapsible tree by subscription (clash-verge-dev pattern).
 /// groups default-collapsed (seed-all after first refresh), hide-unhealthy toggle,
-///        3-state latency sort, clash-verge-style delay>N / delay=timeout search syntax.
+/// 3-state latency sort, clash-verge-style delay>N / delay=timeout search syntax.
 /// Level 1: subscription (foldable) — name + node count + health rate
 /// Level 2: nodes — display_tag / region / latency(ms) / health
 /// Latency color: <200ms green, 200-500ms yellow, >500ms red, timeout/null gray
@@ -65,7 +65,7 @@ function isHealthy(n: NodeItem): boolean {
 }
 
 /// clash-verge-style delay> search syntax. Returns:
-///   { text: substring to match against tag/region/sub, delayFilter?: predicate on latency }
+/// { text: substring to match against tag/region/sub, delayFilter?: predicate on latency }
 export function parseDelayQuery(q: string): { text: string; delayFilter?: (ms: number | null) => boolean } {
   const trimmed = q.trim();
   // Match delay>N / delay<N / delay=timeout / delay=error (case-insensitive)

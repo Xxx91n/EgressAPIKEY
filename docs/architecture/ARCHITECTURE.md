@@ -30,10 +30,10 @@ Resin Go Sidecar (bundle.externalBin)
 Resin-pattern Core (crates/resin-core/) - shell-side support crate
 
 - resin_client.rs: loopback-only async REST client (SSRF guard + Bearer) — full endpoint coverage table: [RESIN_API_COVERAGE.md](RESIN_API_COVERAGE.md)
-- whitebox_config.rs: egressapikey-ports.json store ; db.rs: SQLite port mapping
+- whitebox_config.rs: egressapikey-ports.json store; db.rs: SQLite port mapping
 - port_forwarder.rs / port_health.rs / strategy_engine.rs / stream_sensor.rs / ip_reputation.rs / ipc_error.rs: live shell support modules
 - platform.rs: Platform/Account registry (shell SharedRegistry state)
-- lane/lease/tdewma/gateway/mihomo modules + CoreConfig + stub bin: deleted in  (zero external references)
+- lane/lease/tdewma/gateway/mihomo modules + CoreConfig + stub bin: deleted in (zero external references)
 
 IP reputation is a shell-side capability: `ip_reputation.rs` queries third-party
 providers (IPQualityScore fraud score, AbuseIPDB abuse confidence; keys in L1
@@ -45,8 +45,8 @@ are deliberately unwired — the decision input is egress-IP reputation (fraud s
 ### Config Authority (配置权威)
 
 > This subsection legislates the three-layer configuration authority model. It
-> EXTENDS decided ADRs and reopens none of them:  (strategy whitebox
-> single write entry),  (read-side strategy contract; record retired 2026-10-15),
+> EXTENDS decided ADRs and reopens none of them: (strategy whitebox
+> single write entry), (read-side strategy contract; record retired 2026-10-15),
 > S2/S6 (whitebox port truth + restore from whitebox). Where this subsection and
 > an ADR appear to conflict, the ADR wins and this subsection gets fixed.
 
@@ -60,7 +60,7 @@ standing lesson — borrow the layering, not the field semantics.
 | Layer | Storage | Sole write entry | Authority semantics |
 | --- | --- | --- | --- |
 | L1 GUI preferences | `settings.json` (`app_config_dir()`, tauri-plugin-store) | Webview `src/lib/settings.ts` + `lightweight_get/set` / `get_log_level` / `set_log_level` commands | Preference only; never influences proxy behavior |
-| L2 Whitebox user-editable | `egressapikey-strategy.json` + `egressapikey-ports.json` (`app_config_dir()`) | Strategy: `strategy_config_put` then `strategy_apply`. Ports + process routes: `WhiteboxConfigStore` (`crates/resin-core/src/whitebox_config.rs`, hotswap-config atomic write; routes via the `process_route_*` commands, ) | The file IS the truth; GUI edits and external edits converge here  |
+| L2 Whitebox user-editable | `egressapikey-strategy.json` + `egressapikey-ports.json` (`app_config_dir()`) | Strategy: `strategy_config_put` then `strategy_apply`. Ports + process routes: `WhiteboxConfigStore` (`crates/resin-core/src/whitebox_config.rs`, hotswap-config atomic write; routes via the `process_route_*` commands) | The file IS the truth; GUI edits and external edits converge here |
 | L3 Resin runtime | Resin sidecar state (`state.db`, leases, listeners); shell-side partner `egressapikey.db` (`port_mappings` table) | ResinClient REST seam only (`crates/resin-core/src/resin_client.rs`) | Derived and rebuildable from L2 at any time; execute authority, never a config source |
 
 Write entry = authority, per layer: an L1 key must not change what the proxy
@@ -102,7 +102,7 @@ write rule is untouched). This is the single declared read-only exception and
 the complete read-exception list: `request_logs*.db` stay outside it and
 never enter backups (leak prevention — CONTRIBUTING.md IPC & security contracts).
 
-`config_export` / `config_import`  are whitebox-source, not Resin:
+`config_export` / `config_import` are whitebox-source, not Resin:
 export reads `egressapikey-strategy.json` + `egressapikey-ports.json` verbatim
 into a versioned JSON container (`crates/resin-core/src/config_transfer.rs`);
 import validates both documents up front (any violation is a clear IpcError
@@ -124,7 +124,7 @@ Two distinct write pipelines live behind L2 (verified in code;
   only where the live row actually drifts — diff-then-skip, only drifting axes are sent;
   never deletes whitebox entries). Landed: ticket 10 converged
   read/validate/apply/read-back into the one StrategyService module
-  (`crates/resin-core/src/strategy_service.rs`, ;  stays in
+  (`crates/resin-core/src/strategy_service.rs`,; stays in
   force).
 - Ports: `port_upsert` / `port_remove` / `port_toggle` /
   `whitebox_save_network` → `WhiteboxConfigStore` (atomic write +
@@ -132,11 +132,11 @@ Two distinct write pipelines live behind L2 (verified in code;
   `egressapikey.db` + listeners as one transaction; boot seeds the store from
   the DB, and `restore_ports_from_whitebox` re-asserts the entry listeners after a sidecar restart —
   Mode B (engine direct) re-POSTs `/api/v1/endpoints`; Mode A (desktop shell forwarder) retires stale B-era
-  endpoints and reloads the shell's bound set instead . Three-party sync: whitebox
+  endpoints and reloads the shell's bound set instead. Three-party sync: whitebox
   JSON ↔ `egressapikey.db` ↔ Resin endpoints, orchestrated in
   `src-tauri/src/main.rs`.
 
-Both whitebox writes are versioned : before every
+Both whitebox writes are versioned: before every
 atomic swap the current file is copied to the sibling `backup/` directory
 under `app_config_dir()` (`<original>.<unixts>[-N].bak`, 10 kept per file,
 same-second collisions suffixed, never overwritten), and the two
@@ -144,7 +144,7 @@ same-second collisions suffixed, never overwritten), and the two
 same validate-before-swap → apply chain for rollback (never a bypass);
 `backup/` is runtime data, not configuration, and is never committed to git.
 
-Process routes  are folded into the same L2 discipline:
+Process routes are folded into the same L2 discipline:
 the `process_routes` + `route_acknowledged` fields live in
 `egressapikey-ports.json`; the `process_route_add`/`process_route_remove`
 commands are the single write entry (the former L1 settings.json key and the
@@ -160,14 +160,14 @@ upstream). The family is a declarative memo — adding a rule never takes over
 the process's traffic; the target process's own proxy settings must point at
 the entry port (the ProcessRoute view banner and the troubleshooting table
 state this verbatim). The snapshot is the ONLY sanctioned cross-store merge point. The Resin-side account-header-rules family (R32-R35, wired by
-round5 ticket 16 / ) is the proxy-data-plane counterpart — URL-prefix
+round5 ticket 16 /) is the proxy-data-plane counterpart — URL-prefix
 → header-name rules for account extraction on the reverse proxy — and is
 deliberately NOT an L2 config family: four thin IPC pass-throughs over the
 ResinClient seam, no whitebox file, no snapshot/reconcile participation; the
 coexistence comparison lives in
 [PROCESS_ROUTE_VS_HEADER_RULES.md](PROCESS_ROUTE_VS_HEADER_RULES.md).
 
-Landed wiring (ticket 07 /  — views consume the one authoritative
+Landed wiring (ticket 07 / — views consume the one authoritative
 snapshot; the former view-layer cross-store merge is deleted, its diagram
 preserved in git history). One write entry per layer + one authoritative
 read-back:
@@ -194,7 +194,7 @@ platform/port. Each entry is in exactly one of three states:
 - `missing` — one side is absent (e.g. a platform exists in the whitebox but
   not in Resin, or a port's Resin endpoint vanished).
 
-Reconciliation closure : the loop above is
+Reconciliation closure: the loop above is
 closed by four increments, all read-side or explicitly user-triggered —
 never automatic:
 
@@ -211,7 +211,7 @@ never automatic:
 3. **Reconcile** (ticket 14): a single user-triggered `reconcile_now` runs
    the previewed, serial strategy-apply + ports-restore with the whitebox
    ALWAYS winning (one-way); no "accept current state" reverse write exists.
-   The pass is wire-idempotent end to end : the strategy half
+   The pass is wire-idempotent end to end: the strategy half
    diff-then-skips in-sync platforms, the ports half is TTL-throttled — a
    second pass emits zero write requests.
 4. **Versioned whitebox** (ticket 15): every atomic whitebox write first
@@ -225,7 +225,7 @@ rising edge) fires one OS notification (state machine in
 `src-tauri/src/tray.rs`, hooked on the snapshot command tail); sustained
 drift is silent, the falling edge (cleared or acknowledged) only updates the
 baseline, and drift reappearing after a clear notifies again. Sidecar-down
-absence never notifies . See `docs/how-to/WHY-NOT-EFFECTIVE.md`
+absence never notifies. See `docs/how-to/WHY-NOT-EFFECTIVE.md`
 for the user-facing troubleshooting table.
 
 The snapshot is the ONLY sanctioned cross-store merge point. View layers
@@ -239,7 +239,7 @@ legislated fixtures). Adding a new view-layer merge is a review blocker.
 Upstream Resin also exposes three platform action POST endpoints
 (reset-to-default R13, rebuild-routable-view R14, preview-filter R09 in
 [RESIN_API_COVERAGE.md](RESIN_API_COVERAGE.md)); all three are deliberate
-non-adoptions  (round5 T22): reset-to-default would rewrite L3
+non-adoptions (round5 T22): reset-to-default would rewrite L3
 platform config from env defaults behind the L2 whitebox's back,
 rebuild-routable-view re-derives Resin-internal pool state that
 diff-then-skip already keeps converged, and preview-filter duplicates the
@@ -252,11 +252,11 @@ it (`subscription_add pipeline=establish`) continues past the POST into a
 level-triggered five-step cascade — create_subscription (skipped when the
 name is already on Resin) -> resolve (nodes landed) -> establish the
 a_class=subscription platform (whitebox entry through the ONE Service
-store entry + Resin row via the  create seam) -> strategy apply
+store entry + Resin row via the create seam) -> strategy apply
 . Every step
 is idempotent, a failed step is persistent state with backoff retries
 (parked after 5), and the enqueue IS the user-triggered reconcile — no
-background loop, no auto-heal . Terminal =
+background loop, no auto-heal. Terminal =
 consumed_by non-empty AND the target platform not missing on Resin AND
 ConvergePhase in {Converged, Drifted(acknowledged)}.
 

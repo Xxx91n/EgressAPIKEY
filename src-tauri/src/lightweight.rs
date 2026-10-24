@@ -4,10 +4,10 @@
 //! cockpit-tools EmptyWorkingSet pattern.
 //!
 //! State graph (CAS on AtomicU8):
-//!   Normal -> EnteringLightweight  (CloseRequested: start delay timer)
-//!   EnteringLightweight -> Normal   (Focus: cancel timer)
-//!   EnteringLightweight -> InLightweight  (timer fires: destroy webview)
-//!   InLightweight -> Normal          (Tray click: rebuild webview)
+//! Normal -> EnteringLightweight (CloseRequested: start delay timer)
+//! EnteringLightweight -> Normal (Focus: cancel timer)
+//! EnteringLightweight -> InLightweight (timer fires: destroy webview)
+//! InLightweight -> Normal (Tray click: rebuild webview)
 //!
 //! Ponytail: std AtomicU8 for state, std thread for delay timer. No new crate.
 //!

@@ -13,11 +13,11 @@
 //! This module is the single source of truth for two things that used to be
 //! spread across the codebase and therefore drifted apart:
 //!
-//!   1. the CLOSED value set the whitebox validator and the IPC / headless
-//!      HTTP boundaries enforce (`canonical_protocol` / `is_valid_protocol`),
-//!      and
-//!   2. the Resin endpoint capability flags derived from the token
-//!      (`engine_flags`) - previously hand-rolled at four separate call sites.
+//! 1. the CLOSED value set the whitebox validator and the IPC / headless
+//! HTTP boundaries enforce (`canonical_protocol` / `is_valid_protocol`),
+//! and
+//! 2. the Resin endpoint capability flags derived from the token
+//! (`engine_flags`) - previously hand-rolled at four separate call sites.
 //!
 //! Behavioural change: `socks5` NO LONGER implies HTTP forwarding.
 //! Before the change a `socks5` port produced (allow_socks5 = true,
@@ -60,11 +60,11 @@ pub fn is_valid_protocol(raw: &str) -> bool {
 /// Resin endpoint capability flags for an entry-port protocol token, returned
 /// as `(allow_socks5, allow_http_forward)`.
 ///
-/// | protocol | allow_socks5 | allow_http_forward | listener      |
+/// | protocol | allow_socks5 | allow_http_forward | listener |
 /// |----------|--------------|--------------------|---------------|
-/// | `mixed`  | true         | true               | HTTP + SOCKS5 |
-/// | `http`   | false        | true               | HTTP only     |
-/// | `socks5` | true         | false              | SOCKS5 only   |
+/// | `mixed` | true | true | HTTP + SOCKS5 |
+/// | `http` | false | true | HTTP only |
+/// | `socks5` | true | false | SOCKS5 only |
 ///
 /// TOTAL by design: every boundary that can introduce a token rejects
 /// out-of-set values first (`canonical_protocol` in the whitebox validator, the

@@ -74,13 +74,13 @@ export interface AppState {
   processRoutes: ProcessRoute[];
   subscriptions: Subscription[];
   /** per-subscription establish-phase STATUS rows,
-   *  mirrored from the authoritative snapshot stream (App-level pull +
-   *  SubscriptionsView refresh feed the same field; data identical). */
+   * mirrored from the authoritative snapshot stream (App-level pull +
+   * SubscriptionsView refresh feed the same field; data identical). */
   subscriptionPhases: SubscriptionPhaseRow[];
   locale: Locale;
   theme: Theme;
   /// the globally-subscribed authoritative snapshot.
-  /// Display truth only ; null until the first fetch lands and on
+  /// Display truth only; null until the first fetch lands and on
   /// fetch failure (the "no pill" contract, not a fake Unknown).
   convergeSnapshot: AuthoritativeSnapshot | null;
   /// Whether the global converge subscription is wired (subscribeToConverge).
@@ -163,7 +163,7 @@ export const useAppStore = create<AppState>((set) => ({
     set((s) => ({
       processRoutes: [...s.processRoutes, { id: uid(), process, targetPort }],
     })),
-// : view cache only — persistence goes through the
+//: view cache only — persistence goes through the
   // process_route_* IPC commands (single write entry, L2 whitebox).
   removeProcessRoute: (id) => {
     set({ processRoutes: useAppStore.getState().processRoutes.filter((r) => r.id !== id) });
@@ -186,18 +186,18 @@ export { useShallow };
 
 // ─── the global converge loop ──────────────────────
 // One subscription owns the authoritative-snapshot cadence for the whole app:
-//   - checkpoint A: 5s foreground polling (default); once the phase is
-//     Converged AND lastApplyAt is more than CONVERGE_SETTLE_SECONDS (60s)
-//     old, the cadence backs off to 30s — a settled green world does not
-//     need a 5s heartbeat, but a fresh green apply is still watched closely;
-//   - checkpoint B: an immediate refresh whenever the sidecar-status event
-//     fires (the existing Resin G4 IPC retarget channel from sidecar.rs,
-//     reused verbatim — no new channel; the string payload is untrusted and
+// - checkpoint A: 5s foreground polling (default); once the phase is
+// Converged AND lastApplyAt is more than CONVERGE_SETTLE_SECONDS (60s)
+// old, the cadence backs off to 30s — a settled green world does not
+// need a 5s heartbeat, but a fresh green apply is still watched closely;
+// - checkpoint B: an immediate refresh whenever the sidecar-status event
+// fires (the existing Resin G4 IPC retarget channel from sidecar.rs,
+// reused verbatim — no new channel; the string payload is untrusted and
 //     unused, the event is a trigger only, AGENTS §7.6 discipline);
-//   - checkpoint D: polling pauses while the document is hidden (visibility
-//     API) and a resume refetches immediately before re-arming.
-// The snapshot is display truth : nothing here writes config, and
-// every write still flows through the  /  entries.
+// - checkpoint D: polling pauses while the document is hidden (visibility
+// API) and a resume refetches immediately before re-arming.
+// The snapshot is display truth: nothing here writes config, and
+// every write still flows through the / entries.
 
 /// Foreground polling cadence (checkpoint A: default 5s).
 export const CONVERGE_POLL_INTERVAL_MS = 5_000;
@@ -209,7 +209,7 @@ export const CONVERGE_SETTLE_SECONDS = 60;
 
 /// Event channel owned by src-tauri/src/sidecar.rs (G3 health poll / G4).
 export const SIDECAR_STATUS_EVENT = "sidecar-status";
-/// : emitted by the Rust port family when an L2 intent was
+///: emitted by the Rust port family when an L2 intent was
 /// persisted but the L3 (Resin) mutation was rejected, so the drift becomes
 /// visible immediately instead of at the next poll. Payload-less trigger only.
 export const SNAPSHOT_REFRESH_EVENT = "snapshot://refresh";
@@ -328,7 +328,7 @@ function convergeSubscribe(): () => void {
       else unlisten();
     })
     .catch(() => { /* outside Tauri: polling still runs */ });
-  // : a port command that persisted the L2 intent but was rejected
+  //: a port command that persisted the L2 intent but was rejected
   // by Resin asks for an immediate re-pull, so the resulting drift shows at
   // once instead of at the next 5s/30s poll. Same trigger-only discipline as
   // checkpoint B (the payload is untrusted and unused).

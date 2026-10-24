@@ -11,22 +11,22 @@
 //! This is a small reqwest wrapper, not an SDK. We do NOT model
 //! every Resin REST endpoint. We expose only the verbs the IPC commands
 //! layer currently needs:
-//!   - POST /api/v1/platforms               create_platform
-//!   - GET  /api/v1/platforms               list_platforms
-//!   - GET  /api/v1/platforms/{id}           get_platform
-//!   - DELETE /api/v1/platforms/{id}         delete_platform
-//!   - GET  /api/v1/metrics/realtime/leases active_leases
+//! - POST /api/v1/platforms create_platform
+//! - GET /api/v1/platforms list_platforms
+//! - GET /api/v1/platforms/{id} get_platform
+//! - DELETE /api/v1/platforms/{id} delete_platform
+//! - GET /api/v1/metrics/realtime/leases active_leases
 //! Any request body is accepted as serde_json::Value so the caller can pass
 //! exactly what the React form produced. We provide one canonical helper
 //! (create_platform_from_name) for the common single-name path.
 //!
 //! Resin design notes:
-//!   - Admin API token goes in `Authorization: Bearer <admin_token>`.
-//!   - /healthz is the only unauthenticated endpoint (the safety-net uses it).
-//!   - All admin endpoints are under /api/v1/*.
-//!   - Path parameters ({id}) are URL-encoded: the spec validates platform_id
-//!     as a canonical UUID so encoding is a no-op in practice, but we encode
-//!     defensively in case a caller passes a non-canonical form.
+//! - Admin API token goes in `Authorization: Bearer <admin_token>`.
+//! - /healthz is the only unauthenticated endpoint (the safety-net uses it).
+//! - All admin endpoints are under /api/v1/*.
+//! - Path parameters ({id}) are URL-encoded: the spec validates platform_id
+//! as a canonical UUID so encoding is a no-op in practice, but we encode
+//! defensively in case a caller passes a non-canonical form.
 
 use crate::encoding::{encode_path_segment, encode_uri_component};
 use crate::ipc_error::IpcError;
@@ -104,7 +104,7 @@ impl ResinClient {
     /// Send an authenticated admin request and return the parsed JSON body.
     /// For non-success (2xx) responses we surface the upstream status + a
     /// short body excerpt rather than swallowing the error.
-    /// : Read-only auto-retry wrapper. Calls send() and
+    ///: Read-only auto-retry wrapper. Calls send() and
     /// retries up to READ_MAX_RETRIES times with READ_RETRY_DELAY_MS between
     /// attempts. Only for GET methods (read-only); write methods use send()
     /// directly. Retries on network error or 5xx (server transient failure);
@@ -407,10 +407,10 @@ impl ResinClient {
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R08
     /// Accepts a free-form body (serde_json::Value) so the GUI form can pass
     /// exactly the fields Resin DESIGN.md lists for platform creation:
-    ///   name (required), sticky_ttl, regex_filters, region_filters,
-    ///   reverse_proxy_miss_action, reverse_proxy_empty_account_behavior,
-    ///   reverse_proxy_fixed_account_header, allocation_policy,
-    ///   passive_circuit_breaker_disabled.
+    /// name (required), sticky_ttl, regex_filters, region_filters,
+    /// reverse_proxy_miss_action, reverse_proxy_empty_account_behavior,
+    /// reverse_proxy_fixed_account_header, allocation_policy,
+    /// passive_circuit_breaker_disabled.
     /// This is the "create platform with fields" verb: Milestone B uses it to
     /// create auto-{uid} independent platforms when a candidate key is dropped
     /// on the right pane's empty space, with a custom allocation_policy.
@@ -543,7 +543,7 @@ impl ResinClient {
         self.send_read(&path).await
     }
 
-    // ── Account header rules  ──
+    // ── Account header rules ──
 
     /// GET /api/v1/account-header-rules?limit=1000&offset=0 — list all rules.
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R32
@@ -641,7 +641,7 @@ impl ResinClient {
     }
 
     /// GET /api/v1/metrics/realtime/throughput — realtime ingress/egress
-    /// throughput ring samples. minimal set : the shell sends
+    /// throughput ring samples. minimal set: the shell sends
     /// no from/to params, so Resin's parseMetricsTimeRange applies its own
     /// defaults (to=now, from=to-1h). Response shape (handler_metrics.go:147):
     /// {"step_seconds": N, "items": [{"ts","ingress_bps","egress_bps"}]}.
@@ -652,7 +652,7 @@ impl ResinClient {
 
     /// GET /api/v1/metrics/history/probes?from=<RFC3339>&to=<RFC3339> —
     /// probe-count history buckets from Resin's metrics.db. minimal set
-    /// . `from`/`to` are RFC3339Nano strings (handler_metrics.go:15):
+    ///. `from`/`to` are RFC3339Nano strings (handler_metrics.go:15):
     /// Resin rejects anything else with 400 INVALID_ARGUMENT, so the IPC layer
     /// boundary-validates and converts before calling this. None passes no
     /// param at all — Resin then applies its own defaults (to=now,
@@ -810,7 +810,7 @@ pub struct RequestLogQuery {
 /// does not make every subscription import fail. 15s timeout: subscription
 /// YAML can be large (50+ proxies) on slow hosts.
 ///
-// URL encoders live in crate::encoding (R12-D2 consolidation): strict
+// URL encoders live in crate::encoding (the consolidation): strict
 // encode_path_segment for Resin path segments + query values (over-encoding
 // a query value is always safe), JS-parity encode_uri_component for the
 // account-header-rule url_prefix contract.
@@ -2094,7 +2094,7 @@ mod tests {
         assert_eq!(resolve_id_in(&serde_json::json!({"foo": 1}), "x"), None);
         assert_eq!(resolve_id_in(&Value::Null, "x"), None);
     }
-    // ── metrics minimal-set mockito tests  ─────────────
+    // ── metrics minimal-set mockito tests ─────────────
 
     #[tokio::test]
     async fn mockito_realtime_throughput_happy_path_no_params() {

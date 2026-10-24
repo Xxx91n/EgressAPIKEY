@@ -6,17 +6,17 @@
 // Tauri desktop app exposes. No GUI, no Tauri plugin surface.
 //
 // Priority for binary discovery:
-//   1. `EGRESSAPIKEY_HEADLESS_BIN` env var (absolute path — used by tests
-//      and CI which build outside the standard layout).
-//   2. `binaries/egressapikey-headless<ext>` next to this launcher
-//      (shippable npm package layout).
-//   3. `../../target/release/egressapikey-headless<ext>` (dev build output).
-//   4. `../../target/debug/egressapikey-headless<ext>` (dev convenience).
+// 1. `EGRESSAPIKEY_HEADLESS_BIN` env var (absolute path — used by tests
+// and CI which build outside the standard layout).
+// 2. `binaries/egressapikey-headless<ext>` next to this launcher
+// (shippable npm package layout).
+// 3. `../../target/release/egressapikey-headless<ext>` (dev build output).
+// 4. `../../target/debug/egressapikey-headless<ext>` (dev convenience).
 //
 // Priority for `--dist`:
-//   1. `EGRESSAPIKEY_DIST` env var.
-//   2. `../../dist/` relative to this launcher.
-//   3. `dist/` relative to CWD (Tauri build output convention).
+// 1. `EGRESSAPIKEY_DIST` env var.
+// 2. `../../dist/` relative to this launcher.
+// 3. `dist/` relative to CWD (Tauri build output convention).
 //
 // Ponytail: ~80 lines. CommonJS (no top-level await for Node 18 compat).
 

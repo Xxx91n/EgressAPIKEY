@@ -2,13 +2,13 @@
  * Headless capability registry.
  *
  * Owns the headless-mode knowledge the UI and the dispatch share:
- *   - isTauri(): which runtime this SPA runs in (Tauri webview with the
- *     native invoke() bridge vs a plain browser pointed at the headless BFF)
- *   - DISABLED_COMMANDS: every command with no reachable headless HTTP
- *     surface, grouped by WHY so a future change of circumstance has one
- *     place to edit
- *   - the availability probe the UI calls to render explicit disabled
- *     states, plus the typed error the dispatch guard throws
+ * - isTauri(): which runtime this SPA runs in (Tauri webview with the
+ * native invoke() bridge vs a plain browser pointed at the headless BFF)
+ * - DISABLED_COMMANDS: every command with no reachable headless HTTP
+ * surface, grouped by WHY so a future change of circumstance has one
+ * place to edit
+ * - the availability probe the UI calls to render explicit disabled
+ * states, plus the typed error the dispatch guard throws
  * The cmd -> REST route table lives in ./headless-routes.ts; the request
  * guard + fetch dispatch in ./headless-dispatch.ts. lib/ipc.ts re-exports
  * the public surface so existing callers keep importing from "./ipc".
@@ -55,9 +55,9 @@ export function isTauri(): boolean {
 }
 
 /** Why a command has no headless surface. Drives the UI disabled state and
- *  the i18n reason key (`ipc.disabled.<reason>`); never a runtime surprise.
- *  Re-triage rule : a command may stay disabled ONLY when it
- *  assumes a desktop environment — everything else must be reachable. */
+ * the i18n reason key (`ipc.disabled.<reason>`); never a runtime surprise.
+ * Re-triage rule: a command may stay disabled ONLY when it
+ * assumes a desktop environment — everything else must be reachable. */
 export type CommandDisabledReason =
   | "desktop_only_tray"
   | "desktop_only_os"
@@ -74,10 +74,10 @@ interface CapabilityEntry {
 }
 
 /** The disabled registry is DERIVED from ./headless-capabilities.json — the
- *  same document GET /api/v1/capabilities serves verbatim — so the UI, the
- *  dispatch guard and the machine-readable endpoint can never disagree.
- *  (Was 44 hand-maintained entries; the re-triage promoted every
- *  command whose dependence on the desktop was only a storage root.) */
+ * same document GET /api/v1/capabilities serves verbatim — so the UI, the
+ * dispatch guard and the machine-readable endpoint can never disagree.
+ * (Was 44 hand-maintained entries; the re-triage promoted every
+ * command whose dependence on the desktop was only a storage root.) */
 export const DISABLED_COMMANDS: Record<string, CommandDisabledReason> =
   Object.fromEntries(
     Object.entries(
@@ -91,8 +91,8 @@ export const DISABLED_COMMANDS: Record<string, CommandDisabledReason> =
   );
 
 /** Thrown when a headless-mode call targets a command with no HTTP surface.
- *  The UI checks `ipcCommandAvailability` BEFORE calling, so reaching this is a
- *  programming error - but it stays typed so no raw string ever surfaces. */
+ * The UI checks `ipcCommandAvailability` BEFORE calling, so reaching this is a
+ * programming error - but it stays typed so no raw string ever surfaces. */
 export class IpcUnavailableError extends Error {
   readonly command: string;
   readonly reason: CommandDisabledReason | "unknown";
@@ -107,8 +107,8 @@ export class IpcUnavailableError extends Error {
 }
 
 /** Headless availability probe for one command. The UI uses this to render an
- *  explicit disabled state (no more runtime Tauri-only throw).
- *  In Tauri mode every command is available. */
+ * explicit disabled state (no more runtime Tauri-only throw).
+ * In Tauri mode every command is available. */
 export function ipcCommandAvailability(
   cmd: string,
 ): { available: true } | { available: false; reason: CommandDisabledReason | "unknown" } {
@@ -124,9 +124,9 @@ export function ipcIsHeadless(): boolean {
 
 /** Every command with no headless HTTP surface, paired with its typed reason
  * Exposed so the UI capability panel can render the
- *  COMPLETE disabled set: a command must not be invisible just because no
- *  view happens to call it, and the user must be able to see WHY it is gone
- *  rather than discovering it at click time. */
+ * COMPLETE disabled set: a command must not be invisible just because no
+ * view happens to call it, and the user must be able to see WHY it is gone
+ * rather than discovering it at click time. */
 export function ipcDisabledCommands(): { command: string; reason: CommandDisabledReason }[] {
   return Object.entries(DISABLED_COMMANDS).map(([command, reason]) => ({ command, reason }));
 }

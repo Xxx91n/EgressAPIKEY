@@ -64,7 +64,7 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 tauri-plugin-opener = "2"
-# : one-shot drift tray notification (best-effort).
+#: one-shot drift tray notification (best-effort).
 tauri-plugin-notification = "2"
 # Single-instance guard (must be the FIRST plugin registered in main.rs):
 # clicking a second GUI exe focuses the existing window instead of spawning a
@@ -100,7 +100,7 @@ tauri-build = { version = "2", features = ["codegen"] }
 # `cargo build --release` would still set dev:true and the webview would try
 # to load http://localhost:1420 (ERR_CONNECTION_REFUSED when no dev server
 # runs). Forward the feature so our portable build path can opt in:
-#   cargo build --release -p egressapikey-app --features custom-protocol
+# cargo build --release -p egressapikey-app --features custom-protocol
 # build-all.sh / CI must pass --features custom-protocol for every GUI build
 # that is handed to a user. See AGENTS.md section 5.
 [features]

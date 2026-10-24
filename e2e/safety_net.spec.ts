@@ -7,9 +7,9 @@
 // G3 commit message for the kill+9s evidence). This spec documents the
 // contract the React shell is expected to honour:
 //
-//   1. A "sidecar-status" event is emitted from Rust with payload
-//      "healthy" | "unhealthy".
-//   2. While unhealthy, the topology view should display a banner.
+// 1. A "sidecar-status" event is emitted from Rust with payload
+// "healthy" | "unhealthy".
+// 2. While unhealthy, the topology view should display a banner.
 //
 // Frontend wiring for that banner is tracked by G4 (it will be the first
 // place that subscribes to the sidecar-status event). This file exists so

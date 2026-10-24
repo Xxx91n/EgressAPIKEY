@@ -127,7 +127,7 @@ export function SettingsView() {
   }, [lightweightEnabled, lightweightDelay]);
   const [busy, setBusy] = useState(false);
   // Sidecar runtime status: the Resin sidecar's actual listen port is
-  // auto-assigned by the shell  and displayed read-only — there is
+  // auto-assigned by the shell and displayed read-only — there is
   // no editable network-bind preference in settings.json.
   const [sidecarStatus, setSidecarStatus] = useState<SidecarStatus | null>(null);
   // Network-layer whitebox config (DNS + idle + probe + bypass).
@@ -157,7 +157,7 @@ export function SettingsView() {
   const [configBusy, setConfigBusy] = useState(false);
   // surface it. Swallow errors (vitest, sidecar not running, IPC not registered).
   const [configMsg, setConfigMsg] = useState("");
-  // : Export audit log button state.
+  //: Export audit log button state.
   const [auditBusy, setAuditBusy] = useState(false);
   const [auditMsg, setAuditMsg] = useState("");
   // strategy config reload surface
@@ -444,7 +444,7 @@ export function SettingsView() {
   const saveAll = async () => {
     setBusy(true);
     try {
-      // Sidecar port is auto-assigned by the shell  — nothing
+      // Sidecar port is auto-assigned by the shell — nothing
       // network-related to persist here.
       await saveIpReputationConfig(reputationConfig);
       setBaseline({ reputationConfig });

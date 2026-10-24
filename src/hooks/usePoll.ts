@@ -28,9 +28,9 @@ export interface UsePollOptions {
  * receives an AbortSignal so it can cancel in-flight fetches on unmount/pause.
  *
  * Usage:
- *   usePoll(async (signal) => {
+ * usePoll(async (signal) => {
  *     const res = await fetch("/api/data", { signal });
- *     ...
+ * ...
  *   }, { intervalMs: 5000 });
  */
 export function usePoll(

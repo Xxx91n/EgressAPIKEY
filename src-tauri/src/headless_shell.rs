@@ -1,4 +1,4 @@
-//! BFF-native shell routes .
+//! BFF-native shell routes.
 //!
 //! Every command that reads or writes control-plane state gets a real
 //! endpoint here — NOT a proxy pass-through and NOT a disabled stub. The
@@ -319,7 +319,7 @@ async fn strategy_regions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
 }
 
 /// PATCH /api/v1/shell/strategy/subscriptions {platform_name, subscriptions} -
-/// subscription-intent deep edit , same sanctioned service write.
+/// subscription-intent deep edit, same sanctioned service write.
 async fn strategy_subscriptions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     let v = match json_body(&body).await {
         Ok(v) => v,
@@ -352,7 +352,7 @@ async fn strategy_subscriptions_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
 }
 
 /// PATCH /api/v1/shell/strategy/manual-nodes {platform_name, manual_nodes} -
-/// manual_nodes deep edit .
+/// manual_nodes deep edit.
 async fn strategy_manual_nodes_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     let v = match json_body(&body).await {
         Ok(v) => v,
@@ -408,7 +408,7 @@ async fn strategy_rollback_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     if backup_name.is_empty() || backup_name.len() > 200 {
         return port_err(StatusCode::BAD_REQUEST, "backup_name invalid");
     }
-    // : scope a rollback audit context so the row emitted by
+    //: scope a rollback audit context so the row emitted by
     // FsStrategyStore::store carries op:"rollback" + source_backup.
     let audit_ctx = resin_core::audit::AuditCtx {
         op: Some("rollback".into()),
@@ -779,7 +779,7 @@ async fn probe_exit_ip_h(ctx: Arc<PortCtx>, body: Bytes) -> Response {
     }
 }
 
-// ── Deprecated echo stubs  ──────────────
+// ── Deprecated echo stubs ──────────────
 // Reachable for parity: they validate input and echo the same fixed
 // responses the desktop commands produce (no semantics — Resin owns
 // accounts, so these stubs only keep the IPC surface stable).

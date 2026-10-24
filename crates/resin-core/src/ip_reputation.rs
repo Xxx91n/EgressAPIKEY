@@ -175,7 +175,7 @@ impl ReputationClient {
 
 /// The IPQS lookup URL. The API key sits inside a PATH SEGMENT, so it uses
 /// the strict path-segment encoder - never form-urlencoded (a `+` for a
-/// space was the r12 wave-c bug the regression test below pins shut).
+/// space was the encoding bug the regression test below pins shut).
 fn ipqs_url(api_key: &str, ip_s: &str) -> String {
     format!(
         "{}/api/json/ip/{}/{}",
@@ -286,7 +286,7 @@ fn now_unix() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    /// AGENTS section-4 compliance debt (R12-E4): the alias fn had no direct
+    /// AGENTS section-4 compliance debt: the alias fn had no direct
     /// test. Table-driven over every registered alias per provider, mixed
     /// case, surrounding whitespace, and unknown -> None.
     #[test]
@@ -347,7 +347,7 @@ mod tests {
     }
     #[test]
     fn ipqs_url_encodes_key_as_path_segment() {
-        // Regression lock (R12-D2): the key sits in a path segment, so a
+        // Regression lock: the key sits in a path segment, so a
         // space must encode %20 - never the form-urlencoded `+` - and a
         // literal `+` or `/` in the key must stay inside the segment.
         let url = ipqs_url("a b+c/d", "8.8.8.8");

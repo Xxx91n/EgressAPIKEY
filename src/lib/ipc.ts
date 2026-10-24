@@ -16,9 +16,9 @@ import type { LogLevel, PortMapping } from "../bindings";
 // which the headless axum reverse-proxy forwards to the local Resin sidecar.
 // Headless-mode knowledge lives in sibling modules so headless surface
 // changes never touch the invoke-wrapper body:
-//   ./headless-routes.ts       cmd -> REST route table (CMD_TO_HTTP)
-//   ./headless-availability.ts isTauri detection + DISABLED_COMMANDS + probe
-//   ./headless-dispatch.ts     request guard + fetch dispatch (invokeHeadless)
+// ./headless-routes.ts cmd -> REST route table (CMD_TO_HTTP)
+// ./headless-availability.ts isTauri detection + DISABLED_COMMANDS + probe
+// ./headless-dispatch.ts request guard + fetch dispatch (invokeHeadless)
 import { isTauri } from "./headless-availability";
 import { invokeHeadless } from "./headless-dispatch";
 
@@ -42,7 +42,7 @@ const NAME_MAX = 128;
 const USER_PORT_MIN = 1024;
 const USER_PORT_MAX = 65535;
 
-// --- Phase 5-1: trace_id passthrough  ---
+// --- Phase 5-1: trace_id passthrough ---
 // Every IPC call automatically gets a UUID v4 trace_id injected into args.
 // The Rust side extracts __trace_id and opens a tracing::info_span! so
 // log files carry a per-call trace_id for end-to-end bug reproduction.
@@ -51,10 +51,10 @@ function genTraceId(): string {
 }
 
 /** Single dispatch point. Tauri webview -> native invoke(); plain browser
- *  (headless) -> fetch() via ./headless-dispatch.ts against the declarative
- *  route table. A command with neither a route nor a DISABLED_COMMANDS entry
- *  raises a typed IpcUnavailableError instead of the former opaque
- *  Tauri-only string. */
+ * (headless) -> fetch() via ./headless-dispatch.ts against the declarative
+ * route table. A command with neither a route nor a DISABLED_COMMANDS entry
+ * raises a typed IpcUnavailableError instead of the former opaque
+ * Tauri-only string. */
 async function invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const traceId = genTraceId();
   if (typeof console !== "undefined" && console.debug) {
@@ -236,7 +236,7 @@ export async function ipChannelDelete(name: string): Promise<boolean> {
 }
 
 /**
- * @deprecated since : account semantics are owned by the Resin
+ * @deprecated since: account semantics are owned by the Resin
  * sidecar; the shell command only validates input and echoes. Kept for IPC
  * contract compatibility — no in-repo caller (see AGENTS.md §7.6 echo list).
  */
@@ -260,8 +260,8 @@ export async function ipcRefreshTray(): Promise<void> {
 export interface SubscriptionSnapshotEntry {
   name: string;
   /** Resin `url` — the remote source this subscription pulls from. The
-   *  Failed chip's retry affordance re-enqueues `{ subscription, url }`, and
-   *  this is the only name→url hop on the wire (the phase row is name-only). */
+   * Failed chip's retry affordance re-enqueues `{ subscription, url }`, and
+   * this is the only name→url hop on the wire (the phase row is name-only). */
   url: string;
   node_count: number;
   healthy_node_count: number;
@@ -399,9 +399,9 @@ export async function ipcBackupList(url: string, username: string, password: str
 }
 
 /** Restore summary returned by the backend. The backend verifies the manifest
- *  and every member hash BEFORE it writes, so a failure here means nothing was
- *  applied. `evidence` lists the L3 / audit members that were extracted as
- *  read-only evidence instead of being written back. */
+ * and every member hash BEFORE it writes, so a failure here means nothing was
+ * applied. `evidence` lists the L3 / audit members that were extracted as
+ * read-only evidence instead of being written back. */
 export interface BackupRestoreSummary {
   configRestored: boolean;
   settingsRestored: boolean;
@@ -414,7 +414,7 @@ export interface BackupRestoreSummary {
 }
 
 /** Backup: download a listed archive from WebDAV and restore it through the
- *  authoritative write entries (the same path config_import uses). */
+ * authoritative write entries (the same path config_import uses). */
 export async function ipcBackupRestore(
   url: string,
   username: string,
@@ -457,7 +457,7 @@ export async function ipcProcessRouteList(): Promise<ProcessRouteRule[]> {
   return invoke<ProcessRouteRule[]>("process_route_list");
 }
 
-// ── Account header rules : Resin-side HTTP-header
+// ── Account header rules: Resin-side HTTP-header
 // routing family, R32-R35. Coexists with the process_route_* family —
 // see docs/architecture/PROCESS_ROUTE_VS_HEADER_RULES.md.
 
@@ -513,12 +513,12 @@ export async function ipcDeleteAccountHeaderRule(urlPrefix: string): Promise<unk
   return invoke("delete_account_header_rule", { urlPrefix });
 }
 
-/// : export the L2 whitebox config (strategy + ports).
+///: export the L2 whitebox config (strategy + ports).
 export async function ipcConfigExport(): Promise<unknown> {
   return invoke("config_export");
 }
 
-/// : import a whitebox config document. The backend
+///: import a whitebox config document. The backend
 /// validates schema + version and writes through the whitebox stores (never
 /// a direct Resin PATCH), then triggers reconcile. Returns a summary.
 export async function ipcConfigImport(config: unknown): Promise<{
@@ -562,7 +562,7 @@ export async function ipcLeaseMap(): Promise<LeaseEntry[]> {
 }
 
 
-// Phase 2 / : Entry Port = identity. Shell multi-port forwarder.
+// Phase 2 /: Entry Port = identity. Shell multi-port forwarder.
 export type { PortMapping };
 
 function assertPort(port: number): void {
@@ -616,7 +616,7 @@ export async function ipcPortRemove(port: number): Promise<boolean> {
   return invoke<boolean>("port_remove", { port });
 }
 
-/// : Toggle enabled flag on an entry-port without
+///: Toggle enabled flag on an entry-port without
 /// touching any other field. Patches the Resin endpoint `{enabled: bool}`
 /// and persists the flag into the shell whitebox. The entry-port's other
 /// fields (protocol, platform_name, account, auth_required) are preserved.
@@ -642,10 +642,10 @@ export async function ipcPortRunning(): Promise<number[]> {
   return Array.isArray(raw) ? raw : [];
 }
 
-/// : SOCKS5/HTTP credentials a gateway must present to reach an
+///: SOCKS5/HTTP credentials a gateway must present to reach an
 /// entry-port. Username is the port's bound Platform.Account string,
 /// password is the sidecar global proxy_token. `auth_required` is read from
-/// the port_mapping row (: per-port auth control via
+/// the port_mapping row (per-port auth control via
 /// require_proxy_auth_info).
 export interface PortAuthInfo {
   port: number;
@@ -727,7 +727,7 @@ export interface OrchPlatformRow {
   pending: OrchProposal | null;
 }
 
-///  signal-plane verdict classes (serde snake_case mirror of
+/// signal-plane verdict classes (serde snake_case mirror of
 /// resin_core::orchestration::ProbeVerdict).
 export type ProbeVerdict =
   | "ok"
@@ -744,7 +744,7 @@ export interface OrchestrationState {
       [k: string]: unknown;
     };
     platforms: OrchPlatformRow[];
-    /// Latest tick verdict per probed platform .
+    /// Latest tick verdict per probed platform.
     signal_verdicts?: Record<string, ProbeVerdict>;
     /// Consecutive environment-suspect ticks (common-mode suppressor).
     suspect_streak?: number;
@@ -802,7 +802,7 @@ export async function ipcOrchestrationDismiss(platformName: string): Promise<voi
   await invoke("orchestration_dismiss", { platformName });
 }
 
-/// : live TCP probe + SOCKS5 method-negotiation so the GUI can
+///: live TCP probe + SOCKS5 method-negotiation so the GUI can
 /// show a green/red health chip per port (clash-verge-rev CoreManager mode).
 export interface PortHealthCheck {
   port: number;
@@ -813,9 +813,9 @@ export interface PortHealthCheck {
   reason: "ok" | "refused" | "timeout" | "noop_no_reply" | "protocol_mismatch";
 }
 
-/// : protocol-aware health probe. For socks5 and mixed ports the
+///: protocol-aware health probe. For socks5 and mixed ports the
 /// Rust side sends a SOCKS5 greeting (a mixed listener answers it - verified
-/// live, /  gate); for http ports it sends an
+/// live, / gate); for http ports it sends an
 /// HTTP CONNECT probe. Defaults to "mixed", the default port protocol.
 export async function ipcPortHealthCheck(port: number, protocol?: string): Promise<PortHealthCheck> {
   if (port < USER_PORT_MIN || port > USER_PORT_MAX) throw new Error(`port ${port} out of range (${USER_PORT_MIN}..${USER_PORT_MAX})`);
@@ -1023,9 +1023,9 @@ export async function ipcRequestLogDetail(logId: string): Promise<RequestLogDeta
 export const PAYLOAD_DISPLAY_CAP_BYTES = 1024 * 1024;
 
 /** Decode one upstream base64 payload part to UTF-8 text for display.
- *  Invalid/empty input decodes to "" (payload logging off upstream);
- *  parts over the cap are sliced BEFORE decode so a multi-MB body never
- *  reaches the DOM — the flag drives the truncation label. */
+ * Invalid/empty input decodes to "" (payload logging off upstream);
+ * parts over the cap are sliced BEFORE decode so a multi-MB body never
+ * reaches the DOM — the flag drives the truncation label. */
 export function decodePayloadPart(
   b64: unknown,
   capBytes: number = PAYLOAD_DISPLAY_CAP_BYTES,
@@ -1077,7 +1077,7 @@ export async function ipcRequestLogPayloads(logId: string): Promise<RequestLogPa
   };
 }
 
-// : Resin metrics minimal set — realtime throughput
+//: Resin metrics minimal set — realtime throughput
 // (#R47) + probe history (#R53). Pull model (no WebSocket push). from/to are
 // RFC3339 strings at this boundary (upstream handler_metrics.go:15 parses
 // time.RFC3339Nano); validated here first, then re-validated at the Rust
@@ -1213,7 +1213,7 @@ export function ipcWhiteboxSaveNetwork(network: NetworkConfig): Promise<number> 
 }
 
 /**
- * : one versioned backup copy of a whitebox
+ *: one versioned backup copy of a whitebox
  * file. file_name is a server-generated `<original>.<unixts>[-N].bak` name - it
  * is NEVER interpolated into any URL or passed raw to another command; the
  * rollback wrappers validate the shape before invoking (section 7.6).
@@ -1299,7 +1299,7 @@ export async function ipcGetSidecarStatus(): Promise<SidecarStatus> {
 
 
 // ---------------------------------------------------------------------------
-// Strategy Engine  — whitebox per-platform strategy config.
+// Strategy Engine — whitebox per-platform strategy config.
 // ---------------------------------------------------------------------------
 
 /// the former `BClassParams` interface
@@ -1333,7 +1333,7 @@ export interface AuditExportResult {
 }
 
 /**
- * : export the append-only audit log to the path
+ *: export the append-only audit log to the path
  * returned by the native save dialog (Settings > Storage "Export audit log").
  * Validates the path at the TS boundary (non-empty, 1..4096 chars, no control
  * chars) before invoking — AGENTS §7.5 validate-then-invoke contract.
@@ -1407,7 +1407,7 @@ export async function ipcStrategyApply(): Promise<StrategyApplyResult> {
   return invoke<StrategyApplyResult>("strategy_apply");
 }
 
-/// : deep edit — set one platform's region list through
+///: deep edit — set one platform's region list through
 /// the StrategyService (single sanctioned write path). The canvas no longer
 /// assembles strategyConfig JSON client-side. Response is the stored document
 /// (untrusted): re-validated shape before returning to callers.
@@ -1457,7 +1457,7 @@ export async function ipcStrategyPlatformSubscriptionsSet(
   return doc as StrategyConfig;
 }
 
-/// : deep edit — set one platform's manual_nodes (selected node
+///: deep edit — set one platform's manual_nodes (selected node
 /// hashes) through the StrategyService; used by the manual group-edge
 /// delete projection.
 export async function ipcStrategyPlatformManualNodesSet(
@@ -1568,8 +1568,8 @@ export interface PortSnapshotMissingOnResin {
 export type PortSnapshot = PortSnapshotConsistent | PortSnapshotMissingOnResin;
 
 /** : per-route three-state. The live side of a route
- *  IS its target port (Resin has no per-process object), so the variants
- *  mirror the ports family. */
+ * IS its target port (Resin has no per-process object), so the variants
+ * mirror the ports family. */
 export interface ProcessRouteSnapshotConsistent {
   state: "consistent";
   process: string;
@@ -1588,10 +1588,10 @@ export interface ProcessRouteSnapshotMissingOnResin {
 export type ProcessRouteSnapshot = ProcessRouteSnapshotConsistent | ProcessRouteSnapshotMissingOnResin;
 
 /** per-subscription reverse lookup — the Gateway
- *  API attachedRoutes analog. consumed_by lists the whitebox platforms whose
- *  `subscriptions` array names this subscription; empty = unbound. A row
- *  with resolvable=false means the whitebox references a subscription Resin
- *  no longer reports (dangling). */
+ * API attachedRoutes analog. consumed_by lists the whitebox platforms whose
+ * `subscriptions` array names this subscription; empty = unbound. A row
+ * with resolvable=false means the whitebox references a subscription Resin
+ * no longer reports (dangling). */
 export interface SubscriptionReverseRow {
   name: string;
   node_count: number;
@@ -1601,8 +1601,8 @@ export interface SubscriptionReverseRow {
 }
 
 /** establish-cascade phase of ONE subscription, as
- *  recorded in the strategy whitebox (STATUS, not spec). Wire tags mirror
- *  the Rust enum's PascalCase variant serialization (ConvergePhase style). */
+ * recorded in the strategy whitebox (STATUS, not spec). Wire tags mirror
+ * the Rust enum's PascalCase variant serialization (ConvergePhase style). */
 export type SubscriptionPhase =
   | "Never"
   | "Importing"
@@ -1612,7 +1612,7 @@ export type SubscriptionPhase =
   | "NeedsApproval";
 
 /** Cascade sub-step tag (Rust `EstablishStep`; snake_case on the wire).
- *  import/resolve appear only on Failed rows; port is reserved for. */
+ * import/resolve appear only on Failed rows; port is reserved for. */
 export type SubscriptionStage = "import" | "resolve" | "platform" | "bind" | "port" | "apply";
 
 const SUBSCRIPTION_PHASES: readonly SubscriptionPhase[] = [
@@ -1633,9 +1633,9 @@ const SUBSCRIPTION_STAGES: readonly SubscriptionStage[] = [
 ];
 
 /** one subscription's persisted cascade-failure
- *  compensation record (Rust `CascadeError`; schema LOCKED to
- *  `{ stage, reason, rollback_actions[] }` — one ordered marking entry per
- *  cascade step, never a dynamic object). */
+ * compensation record (Rust `CascadeError`; schema LOCKED to
+ * `{ stage, reason, rollback_actions[] }` — one ordered marking entry per
+ * cascade step, never a dynamic object). */
 export interface CascadeErrorInfo {
   stage: SubscriptionStage;
   reason: string;
@@ -1643,7 +1643,7 @@ export interface CascadeErrorInfo {
 }
 
 /** one whitebox phase status row (snake_case row fields, the
- *  per-variant wire convention; the parent field is camelCase). */
+ * per-variant wire convention; the parent field is camelCase). */
 export interface SubscriptionPhaseRow {
   name: string;
   phase: SubscriptionPhase;
@@ -1653,8 +1653,8 @@ export interface SubscriptionPhaseRow {
 }
 
 /** sanitize one cascade-failure record (untrusted). Any
- *  malformed member drops the WHOLE record — a half-valid failure marking
- *  would read as data that was never persisted. */
+ * malformed member drops the WHOLE record — a half-valid failure marking
+ * would read as data that was never persisted. */
 function snapCascadeError(v: unknown): CascadeErrorInfo | undefined {
   if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
   const r = v as Record<string, unknown>;
@@ -1677,8 +1677,8 @@ function snapCascadeError(v: unknown): CascadeErrorInfo | undefined {
 }
 
 /** sanitize one phase row (untrusted). A malformed phase
- *  degrades to "Never" — the state machine's identity element, honest
- *  "nothing recorded" — never to Converged/Failed (no fake green/red). */
+ * degrades to "Never" — the state machine's identity element, honest
+ * "nothing recorded" — never to Converged/Failed (no fake green/red). */
 function snapSubscriptionPhaseRow(v: unknown): SubscriptionPhaseRow | null {
   if (!v || typeof v !== "object") return null;
   const r = v as Record<string, unknown>;
@@ -1717,16 +1717,16 @@ export interface AuthoritativeSnapshot {
   /** : route family; empty when the whitebox has none. */
   routes: ProcessRouteSnapshot[];
  /** subscription reverse lookup; empty when Resin is
-   *  unreachable and the whitebox references nothing. */
+   * unreachable and the whitebox references nothing. */
   subscriptions: SubscriptionReverseRow[];
   /** per-subscription establish-phase STATUS rows (whitebox
-   *  projections); empty when no cascade has ever recorded a phase. */
+   * projections); empty when no cascade has ever recorded a phase. */
   subscriptionPhases?: SubscriptionPhaseRow[];
   resinReachable: boolean;
   /** : Unix seconds when this snapshot was generated. */
   lastCheckedAt: number;
   /** : whitebox write-authority generation + observed
-   *  (last green apply) generation and the derived convergence phase. */
+   * (last green apply) generation and the derived convergence phase. */
   strategyGeneration: number;
   strategyAppliedGeneration: number;
   convergePhase: ConvergePhase;
@@ -1737,7 +1737,7 @@ export interface AuthoritativeSnapshot {
 }
 
 /** : top-level convergence phase. The Rust enum
- *  serializes in its PascalCase variant form over the wire; mirrored here. */
+ * serializes in its PascalCase variant form over the wire; mirrored here. */
 export type ConvergePhase =
   | "NeverApplied"
   | "PendingApply"
@@ -1917,7 +1917,7 @@ function snapSnapshot(v: unknown): AuthoritativeSnapshot {
     // untrusted timestamp sanitized to a bounded Unix-seconds
     // number; a malformed value degrades to 0 instead of leaking junk.
     lastCheckedAt: snapTs(r.lastCheckedAt) ?? 0,
-    // : untrusted generation counters + phase. A
+    //: untrusted generation counters + phase. A
     // malformed counter degrades to 0; a malformed phase degrades to
     // "Unknown" (honest: we do not know what the wire said).
     strategyGeneration: snapCounter(r.strategyGeneration),
@@ -1947,7 +1947,7 @@ export async function ipcAuthoritativeSnapshot(): Promise<AuthoritativeSnapshot>
 }
 
 // ---------------------------------------------------------------------------
-// : one-way reconcile. The
+//: one-way reconcile. The
 // preview list is computed FROM data the snapshot pass already reads
 // (compute_plan vs live rows); reconcile_now re-runs the serial
 // strategy-apply + ports-restore chain (fail-fast) and the view re-pulls
@@ -2039,7 +2039,7 @@ export function snapshotPlatformName(p: StrategySnapshot): string {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 5-2: typed IPC error contract .
+// Phase 5-2: typed IPC error contract.
 // Discriminated union matching the Rust IpcError enum (externally-tagged serde).
 // Each variant carries an i18n_key so the GUI renders a locale-specific message
 // without parsing English error text.
@@ -2055,8 +2055,8 @@ export type IpcErr =
   | { kind: "Internal"; data: { msg: string; i18n_key: string } };
 
 /** Narrow a thrown/unknown value from invoke() into a typed IpcErr.
- *  Tauri rejects with a string by default; if the Rust side returns
- *  IpcError via serde, Tauri serialises it as a JS object. */
+ * Tauri rejects with a string by default; if the Rust side returns
+ * IpcError via serde, Tauri serialises it as a JS object. */
 export function extractIpcErr(e: unknown): IpcErr {
   if (e && typeof e === "object" && "kind" in e && "data" in e) {
     const kind = (e as { kind: string }).kind;

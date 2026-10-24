@@ -6,7 +6,7 @@
 
 ## 1. The actual routing input tuple
 
-Research first corrected a wrong premise from the earlier  PROPOSED.
+Research first corrected a wrong premise from the earlier PROPOSED.
 Resin does NOT treat the upstream `Authorization: Bearer <sk-xxx>` value as
 the Account. The routing input is the THREE-tuple:
 
@@ -48,11 +48,11 @@ This means:
 
 ```go
 type Router struct {
-    pool          PoolAccessor
-    states        *xsync.Map[string, *PlatformRoutingState]
-    authorities   func() []string
-    p2cWindow     func() time.Duration
-    onLeaseEvent  LeaseEventFunc
+    pool PoolAccessor
+    states *xsync.Map[string, *PlatformRoutingState]
+    authorities func() []string
+    p2cWindow func() time.Duration
+    onLeaseEvent LeaseEventFunc
     nodeTagResolver func(node.Hash) string
 }
 
@@ -155,7 +155,7 @@ policy biasing proves insufficient in practice.
   bandwidth field. No per-node protocol field beyond what the subscription
   tags encode.
 
-## 7.  (retired 2026-10-15) item 3 live-sidecar e2e findings (new)
+## 7. (retired 2026-10-15) item 3 live-sidecar e2e findings (new)
 
 - **Reverse-proxy path format requires the identity segment.** The Resin
   reverse-proxy surface path is `/<token>/<identity>/<protocol>/<host>/<path>`.

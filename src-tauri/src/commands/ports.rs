@@ -17,14 +17,14 @@ use resin_core::IpcError;
 use resin_core::PortMapping;
 
 // ---------------------------------------------------------------------------
-// : immediate snapshot refresh after an L2-persisted / L3-rejected
+//: immediate snapshot refresh after an L2-persisted / L3-rejected
 // port mutation. Payload-less event: a trigger only (AGENTS 7.6 discipline) -
 // the GUI re-pulls the authoritative snapshot instead of waiting for the
-// 5s/30s converge poll .
+// 5s/30s converge poll.
 // ---------------------------------------------------------------------------
 
 /// Event the GUI listens to in order to re-pull the authoritative snapshot
-/// immediately .
+/// immediately.
 pub const SNAPSHOT_REFRESH_EVENT: &str = "snapshot://refresh";
 
 /// Process-local GUI handle backing [`request_snapshot_refresh`]. Installed
@@ -47,7 +47,7 @@ pub fn request_snapshot_refresh() {
     }
 }
 
-/// : the error a port command returns when the L3 (Resin) step
+///: the error a port command returns when the L3 (Resin) step
 /// fails AFTER the L2 (whitebox) intent has been persisted (D1 write order).
 /// The message names both layers so the resulting drift is self-describing,
 /// and a snapshot refresh is requested before returning so the GUI shows
@@ -59,7 +59,7 @@ fn l3_rejected(op: &str, port: u16, detail: &str) -> IpcError {
     ))
 }
 
-///  / option C: how a port command reaches the Resin
+/// / option C: how a port command reaches the Resin
 /// (L3) control plane. The desktop shell resolves it from the managed
 /// `SidecarHandle`; the headless adapter resolves it from its own loopback
 /// config. Keeping it a trait is what lets ONE shared implementation serve
@@ -133,29 +133,29 @@ pub async fn port_list(db: State<'_, DbPool>) -> Result<Vec<resin_core::PortMapp
     db.list_ports().map_err(IpcError::from)
 }
 
-/// Smart port suggestion .
+/// Smart port suggestion.
 /// Reads port_mappings for used ports, starts from 17990, skips used,
 /// probes each candidate with TcpListener::bind, returns first available.
 #[tauri::command]
 pub async fn port_suggest(db: State<'_, DbPool>) -> Result<u16, IpcError> {
-    // the  algorithm now lives in resin-core so the
+    // the algorithm now lives in resin-core so the
     // establish cascade's default-port tail and this command suggest
     // identically (one implementation, not two).
     resin_core::subscription_pipeline::suggest_free_entry_port(&db).map_err(IpcError::from)
 }
 
 // ---------------------------------------------------------------------------
-//  (L2-first write order) + option C decoupling.
+// (L2-first write order) + option C decoupling.
 //
 // The three shared `*_impl` functions below take plain references instead of
 // Tauri `State`, so the desktop IPC command and the headless adapter execute
-// the SAME implementation ( one domain validation, effective in both
+// the SAME implementation (one domain validation, effective in both
 // places). The `#[tauri::command]` wrappers only extract managed state.
 // The write-order reversal lives in the shared functions - never in the
 // wrappers - so the headless path cannot keep the old order.
 // ---------------------------------------------------------------------------
 
-/// : shared `port_upsert` implementation.
+///: shared `port_upsert` implementation.
 ///
 /// Write order is L2-FIRST: validate -> whitebox apply (DB + atomic file
 /// swap) -> Resin endpoint mutation. A Resin-side failure therefore leaves
@@ -241,7 +241,7 @@ pub async fn port_upsert_impl(
 }
 
 /// Upsert one entry-port: L2 whitebox persist first, then the L3 Resin
-/// mutation . Thin state-extraction wrapper over
+/// mutation. Thin state-extraction wrapper over
 /// [`port_upsert_impl`]; see it for the write-order contract.
 #[tauri::command]
 pub async fn port_upsert(
@@ -273,7 +273,7 @@ pub async fn port_upsert(
     .await
 }
 
-/// : shared `port_remove` implementation (L2 first, then L3).
+///: shared `port_remove` implementation (L2 first, then L3).
 /// Dropping the whitebox intent first means a Resin-side failure can no
 /// longer leave the engine serving a port the user already deleted while
 /// the delete itself was never recorded.
@@ -319,7 +319,7 @@ pub async fn port_remove_impl(
 }
 
 /// Remove one entry-port: L2 whitebox first, then the L3 Resin delete
-/// . Thin state-extraction wrapper over [`port_remove_impl`].
+///. Thin state-extraction wrapper over [`port_remove_impl`].
 #[tauri::command]
 pub async fn port_remove(
     sidecar: State<'_, SidecarHandle>,
@@ -338,9 +338,9 @@ pub async fn port_remove(
     .await
 }
 
-///  / : shared `port_toggle` implementation.
+/// /: shared `port_toggle` implementation.
 ///
-/// The whitebox `enabled` flag is the truth , so it is
+/// The whitebox `enabled` flag is the truth, so it is
 /// persisted first and the Resin endpoint is PATCHed afterwards. Toggling
 /// off never deletes the Resin record (`inactive` keeps it), so toggling
 /// back on stays a PATCH.
@@ -396,7 +396,7 @@ pub async fn port_toggle_impl(
     Ok(m)
 }
 
-///  / : toggle the enabled flag on an entry-port
+/// /: toggle the enabled flag on an entry-port
 /// without re-POST/Create or DELETE. L2 whitebox first, then the Resin PATCH.
 /// Thin state-extraction wrapper over [`port_toggle_impl`].
 #[tauri::command]
@@ -420,7 +420,7 @@ pub async fn port_toggle(
     .await
 }
 
-/// : Bind an entry-port to a platform WITHOUT touching
+///: Bind an entry-port to a platform WITHOUT touching
 /// auth_required. Only updates the shell-side whitebox PortMapping
 /// platform_name field. Does NOT call port_upsert (which would default
 /// auth_required=true and flip no-auth ports to require-auth).
@@ -507,14 +507,14 @@ pub async fn whitebox_reload(
         .map_err(IpcError::from)
 }
 
-/// : return the SOCKS5 authentication credentials a gateway must
+///: return the SOCKS5 authentication credentials a gateway must
 /// present to reach one entry-port. Resin's SOCKS5 server, when `proxy_token`
 /// is set in the sidecar env, requires UserPass auth: username equals the
 /// port's bound `platform.account` string (`Platform.Account`), password is
 /// the sidecar global proxy token kept in `SidecarHandle.proxy_token`. As long
 /// as the sidecar sets `RESIN_PROXY_TOKEN`, every port requires auth — there
 /// is no per-port no-auth fallback without forking Resin, so `auth_required`
-/// is read from the port_mapping row; : proxy_token is now empty so
+/// is read from the port_mapping row;: proxy_token is now empty so
 /// per-endpoint `require_proxy_auth_info` controls auth per port.
 #[derive(Debug, Serialize, Clone)]
 pub struct PortAuthInfo {
@@ -702,7 +702,7 @@ pub async fn key_account_lookup(
     key_account_lookup_impl(&client, &db, &key).await
 }
 
-/// : live TCP probe + minimal SOCKS5 method-negotiation so the GUI
+///: live TCP probe + minimal SOCKS5 method-negotiation so the GUI
 /// can show a green/red health chip per port (same pattern clash-verge-rev
 /// uses for `CoreManager` reachability). We send the 3-byte greeting
 /// `05 01 02` (SOCKS5 version + 1 method + method 0x02 UserPass). A healthy
@@ -894,10 +894,10 @@ pub async fn watch_port_health(
 }
 
 // ---------------------------------------------------------------------------
-// : whitebox versioning - list + rollback IPC.
+//: whitebox versioning - list + rollback IPC.
 // ---------------------------------------------------------------------------
 
-/// : list the versioned backups of the ports whitebox file
+///: list the versioned backups of the ports whitebox file
 /// (newest first). Read-only; no inputs to validate.
 #[tauri::command]
 pub async fn whitebox_backup_list(
@@ -906,10 +906,10 @@ pub async fn whitebox_backup_list(
     whitebox.list_backups().map_err(IpcError::from)
 }
 
-/// : roll the ports whitebox back to a listed backup. The
+///: roll the ports whitebox back to a listed backup. The
 /// backup content re-enters the SAME validate-before-swap -> apply chain as
 /// a hand edit (never a bypass), then restore_ports_from_whitebox reconciles
-/// L3  so the next snapshot re-check reports the restored state.
+/// L3 so the next snapshot re-check reports the restored state.
 #[tauri::command]
 pub async fn whitebox_rollback(
     sidecar: State<'_, SidecarHandle>,
@@ -933,7 +933,7 @@ pub async fn whitebox_rollback_impl(
     if backup_name.is_empty() || backup_name.len() > 200 {
         return Err(IpcError::from("backup_name invalid".to_string()));
     }
-    // : scope a rollback audit context so the single
+    //: scope a rollback audit context so the single
     // row emitted by write_atomic carries op:"rollback" + source_backup.
     let audit_ctx = resin_core::audit::AuditCtx {
         op: Some("rollback".into()),

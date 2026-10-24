@@ -64,13 +64,13 @@ lists only the tag-filter DB migration), so this table matches the bundled v1.2.
 | R05 | GET /api/v1/system/config/env | handler_system.go:82 | — | — | 故意不接 | — | v1.0 | env 由 boot_resin 注入（含 token）；读回无信息量且不得进 webview |
 | R06 | PATCH /api/v1/system/config | handler_system.go:89 | system_config_patch:447 | system_config_patch (settings.rs:76) | 已对接 | settings.rs:72 (T8-1 / T19-P4) | v1.0 | max_consecutive_failures 1..=100 壳侧校验 |
 | R07 | GET /api/v1/platforms | handler_platform.go:75 | list_platforms:274 | platform_list / platform_list_full / strategy_verify / authoritative_snapshot / reconcile_now / strategy_apply (Service) | 已对接 | — | v1.0 | name→id 两步跳模式核心（T17 helper 票收敛） |
-| R08 | POST /api/v1/platforms | handler_platform.go:118 | create_platform:247 / create_platform_from_name:254 / create_platform_with_fields:394 | platform_add / platform_create_with_fields / strategy_apply  | 已对接 | — | v1.0 | 三方法同端点；from_name 镜像 Resin V1 名字规则 |
-| R09 | POST /api/v1/platforms/preview-filter | handler_platform.go:202 | — | — | 故意不接 | — | v1.0 | dry-run 只读不改 Resin 状态；与  壳侧内存快照重叠 — 唯一下轮接线候选 T23  |
+| R08 | POST /api/v1/platforms | handler_platform.go:118 | create_platform:247 / create_platform_from_name:254 / create_platform_with_fields:394 | platform_add / platform_create_with_fields / strategy_apply | 已对接 | — | v1.0 | 三方法同端点；from_name 镜像 Resin V1 名字规则 |
+| R09 | POST /api/v1/platforms/preview-filter | handler_platform.go:202 | — | — | 故意不接 | — | v1.0 | dry-run 只读不改 Resin 状态；与 壳侧内存快照重叠 — 唯一下轮接线候选 T23 |
 | R10 | GET /api/v1/platforms/{id} | handler_platform.go:101 | get_platform:279 | — | 孤儿 | — | v1.0 | 列表已覆盖单读；仅 client 单测调用 |
 | R11 | PATCH /api/v1/platforms/{id} | handler_platform.go:135 | update_platform:342 | platform_update / strategy_apply (region_filters diff-then-skip) | 已对接 | — | v1.0 | 收敛只 PATCH 真实漂移 |
 | R12 | DELETE /api/v1/platforms/{id} | handler_platform.go:156 | delete_platform:285 | platform_remove | 已对接 | — | v1.0 | 先 list 反查 id 再删 |
-| R13 | POST /api/v1/platforms/{id}/actions/reset-to-default | handler_platform.go:171 | — | — | 故意不接 | — | v1.0 | 从 env 默认重编译平台配置，绕过 L2 白盒权威面 (control_plane_platform.go:546) — 故意不接  |
-| R14 | POST /api/v1/platforms/{id}/actions/rebuild-routable-view | handler_platform.go:187 | — | — | 故意不接 | — | v1.0 | Resin 内部 Pool 视图重建，节点变化自动维护； diff-then-skip 已保收敛 — 故意不接  |
+| R13 | POST /api/v1/platforms/{id}/actions/reset-to-default | handler_platform.go:171 | — | — | 故意不接 | — | v1.0 | 从 env 默认重编译平台配置，绕过 L2 白盒权威面 (control_plane_platform.go:546) — 故意不接 |
+| R14 | POST /api/v1/platforms/{id}/actions/rebuild-routable-view | handler_platform.go:187 | — | — | 故意不接 | — | v1.0 | Resin 内部 Pool 视图重建，节点变化自动维护； diff-then-skip 已保收敛 — 故意不接 |
 | R15 | GET /api/v1/endpoints | handler_endpoint.go:9 | list_endpoints:411 | port_list / port_upsert / port_remove / port_toggle / restore_ports_from_whitebox / reconcile_now / authoritative_snapshot | 已对接 | — | v1.2.0 | 端口监听面读中枢 |
 | R16 | POST /api/v1/endpoints | handler_endpoint.go:35 | create_endpoint:416 | port_upsert / restore_ports_from_whitebox / reconcile_now | 已对接 | — | v1.2.0 | Resin 重启后按白盒重建监听 |
 | R17 | GET /api/v1/endpoints/{id} | handler_endpoint.go:24 | get_endpoint:421 | — | 孤儿 | — | v1.2.0 | 封装无调用 |
@@ -119,6 +119,6 @@ lists only the tag-filter DB migration), so this table matches the bundled v1.2.
 ## Maintenance
 
 Every add / remove / reshape of an upstream route or of a ResinClient method MUST update
-this table and  in the same commit . Bumping the bundled sidecar
+this table and in the same commit. Bumping the bundled sidecar
 version in `docs/RESIN_UPSTREAM_MANIFEST.yaml` requires re-auditing the row set against
 the new binary (route strings / contract tests) before landing.

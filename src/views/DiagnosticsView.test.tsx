@@ -51,7 +51,7 @@ describe("DiagnosticsView closed-loop tests", () => {
       // typed L1 command pair replaced the bare get/set_store_value bypass
       if (cmd === "get_diag_poll_interval") return Promise.resolve(5000);
       if (cmd === "set_diag_poll_interval") return Promise.resolve(undefined);
-      // : metrics minimal set
+      //: metrics minimal set
       if (cmd === "metrics_realtime_throughput") return Promise.resolve({
         step_seconds: 10,
         items: [{ ts: "2026-09-04T00:00:00Z", ingress_bps: 1000, egress_bps: 2000 }],
@@ -261,7 +261,7 @@ describe("T15-1: DiagnosticsView uses usePoll (not setInterval)", () => {
       // typed L1 command pair replaced the bare get/set_store_value bypass
       if (cmd === "get_diag_poll_interval") return Promise.resolve(5000);
       if (cmd === "set_diag_poll_interval") return Promise.resolve(undefined);
-      // : metrics minimal set (also needed in usePoll block)
+      //: metrics minimal set (also needed in usePoll block)
       if (cmd === "metrics_realtime_throughput") return Promise.resolve({ step_seconds: 10, items: [] });
       if (cmd === "metrics_probe_history") return Promise.resolve({ bucket_seconds: 60, items: [] });
       return Promise.resolve(null);

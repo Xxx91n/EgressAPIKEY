@@ -430,7 +430,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  // ---  lease identity chips ---
+  // --- lease identity chips ---
   describe(": lease chips show Platform.Account identity", () => {
     it("renders lease account + egress", async () => {
       invokeMock.mockImplementation((cmd: string) => {
@@ -617,7 +617,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  // ===  regression tests (real-runtime defects recovered from the
+  // === regression tests (real-runtime defects recovered from the
   // zcode-GUI-Topology branch; re-validated against main) ===
   describe(" defect A: snake_case subscription_name tags group correctly", () => {
     it("renders the real subscription name group when Resin returns subscription_name (snake)", async () => {
@@ -1075,7 +1075,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
         { id: "e2", source: "b", target: "c" },
       ];
       const result = layoutNodesViaDagre(nodes, edges);
-      // offset removed ; dagre positions start from margin (20,20).
+      // offset removed; dagre positions start from margin (20,20).
       // Assert positions are non-negative and finite (no NaN/infinite drift).
       for (const n of result) {
         expect(Number.isFinite(n.position.x)).toBe(true);

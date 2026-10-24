@@ -15,23 +15,23 @@
  * full-run-only (standalone always green).
  *
  * The rule is no longer pinned to NodesView.
- *   1. Every src/views/*.test.tsx file is scanned (targets discovered, not
- *      hardcoded), so a new view test that introduces the pattern is covered
- *      the day it lands.
- *   2. Any file that touches a role=button sub-header MUST declare the guarded
- *      helper block (clickSubHeaderExpand / clickSubHeaderCollapse, which await
- *      the settled chevron state before clicking).
- *   3. Raw sub-header clicks are detected in both the single-line form (a
- *      fireEvent.click whose argument resolves the element via closest
- *      role=button) and the two-step form (resolve the element first, click the
- *      variable later), outside the guarded helper block.
+ * 1. Every src/views/*.test.tsx file is scanned (targets discovered, not
+ * hardcoded), so a new view test that introduces the pattern is covered
+ * the day it lands.
+ * 2. Any file that touches a role=button sub-header MUST declare the guarded
+ * helper block (clickSubHeaderExpand / clickSubHeaderCollapse, which await
+ * the settled chevron state before clicking).
+ * 3. Raw sub-header clicks are detected in both the single-line form (a
+ * fireEvent.click whose argument resolves the element via closest
+ * role=button) and the two-step form (resolve the element first, click the
+ * variable later), outside the guarded helper block.
  *
  * Deliberately NOT generalized: a blanket ban on getByRole button clicks.
  * Ordinary buttons (import / add / export / sort) are clicked directly all over
  * the view tests; only the collapsible sub-header carries the seeding race, so a
  * blanket ban would be a false-positive machine, not a guard.
  *
- * Usage: node scripts/vitest-isolation-guard.cjs   (exit 0 = pass, 1 = fail)
+ * Usage: node scripts/vitest-isolation-guard.cjs (exit 0 = pass, 1 = fail)
  */
 const fs = require("fs");
 const path = require("path");

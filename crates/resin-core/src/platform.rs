@@ -83,7 +83,7 @@ impl Platform {
     /// implemented as a deterministic min-by-key over the candidate set — no
     /// `rand` dependency — using a single tuple ordering:
     ///
-    ///   (has_sample? 1 : 0, latency_ms_or_0, lane != prefer_lane? 1 : 0, lane)
+    /// (has_sample? 1: 0, latency_ms_or_0, lane != prefer_lane? 1: 0, lane)
     ///
     /// Lower tuple wins. `latency_for` is supplied by the caller (the
     /// Tauri command or gateway) so this module does NOT import TdEwma; the

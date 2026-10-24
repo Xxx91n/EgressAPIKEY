@@ -2,7 +2,7 @@
 'use strict';
 
 /*
- * mode-a-contract-check.cjs -  four-scenario contract gate, live
+ * mode-a-contract-check.cjs - four-scenario contract gate, live
  * black-box against the real Resin sidecar binary.
  *
  * Evidence lineage: the original Mode A landing verified the byte-level
@@ -13,13 +13,13 @@
  * tests/fixtures/t17-contract/README.md.
  *
  * Scenarios (the dialect contract gate, verified on custom endpoints):
- *   mixed  (allow_socks5 + allow_http_forward):
- *            HTTP CONNECT    -> HTTP/1.1 503 + X-Resin-Error: NO_AVAILABLE_NODES
- *            SOCKS5 greeting -> 05 00 (method accepted)
- *   http   (allow_http_forward only):
- *            SOCKS5 greeting -> 05 ff (no acceptable method)
- *   socks5 (allow_socks5 only):
- *            HTTP CONNECT    -> HTTP/1.1 403 + X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED
+ * mixed (allow_socks5 + allow_http_forward):
+ * HTTP CONNECT -> HTTP/1.1 503 + X-Resin-Error: NO_AVAILABLE_NODES
+ * SOCKS5 greeting -> 05 00 (method accepted)
+ * http (allow_http_forward only):
+ * SOCKS5 greeting -> 05 ff (no acceptable method)
+ * socks5 (allow_socks5 only):
+ * HTTP CONNECT -> HTTP/1.1 403 + X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED
  *
  * Identity attribution ("credential is identity", tests/fixtures/t17-contract): with
  * RESIN_PROXY_TOKEN empty the no-auth default endpoint still PUBLISHES the
@@ -34,12 +34,12 @@
  * 2026-09-04: local never builds or downloads; live evidence = CI runs).
  *
  * Boundary law (R12-E1, registered legislation - NOT a new amnesty): Mode A
- * is a legislated dataplane under , so the static section also
+ * is a legislated dataplane under, so the static section also
  * freezes its boundary against tests/fixtures/mode-a-boundary/census.json:
  * protocol-family freeze {socks5-handshake, http-connect,
- * absolute-form->CONNECT}, no TLS fronting , and no
+ * absolute-form->CONNECT}, no TLS fronting, and no
  * new L7 features (function inventory + StreamSensor dimensions). Net-new
- * dataplane behavior belongs to the  fork line; a deliberate,
+ * dataplane behavior belongs to the fork line; a deliberate,
  * adjudicated change updates the census in the same commit.
  */
 

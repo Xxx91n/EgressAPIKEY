@@ -119,7 +119,7 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "subscription_list") {
         calls.subscription_list++;
-        // Always returns  Whisky/Tango/Foxtrot in server order.
+        // Always returns Whisky/Tango/Foxtrot in server order.
         return [{ name: "Whisky", node_count: 1 }, { name: "Tango", node_count: 1 }, { name: "Foxtrot", node_count: 1 }];
       }
       if (cmd === "node_pool_snapshot") return { total_nodes: 3, healthy_nodes: 3, egress_ip_count: 3, healthy_egress_ip_count: 3 };
@@ -234,7 +234,7 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
     });
   });
 });
-/// Item 2 / Option B:  closed-loop - the row hint must
+/// Item 2 / Option B: closed-loop - the row hint must
 /// surface Resin last_error/last_checked/healthy_node_count so a fetch
 /// 403 is not a mute zero. The hint reads the i18n raw key fallback
 /// (jsdom does not eager-load the resources-to-backend chunks), so the
@@ -260,7 +260,7 @@ describe("SubscriptionsView item 2 row hint ", () => {
    render(<SubscriptionsView />);
    await waitFor(() => expect(screen.getByText(/probe-bad/)).toBeInTheDocument());
     // The hint span carries the last_error text either as a native i18n
-    // interpolation ( LoadedState ) OR the raw-key fallback (jsdom does
+    // interpolation (LoadedState) OR the raw-key fallback (jsdom does
     // not eager-load the resources-to-backend chunks). Both shapes embed the
     // last_error substring, so we match the substring at the row level.
     await waitFor(() => {
@@ -489,7 +489,7 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
       });
       render(<SubscriptionsView />);
       await waitFor(() => expect(screen.getByText(/alpha/i)).toBeInTheDocument());
-      // Find and click a delete("×"/"删" /no button) . Locate the delete control per row.
+      // Find and click a delete("×"/"删" /no button). Locate the delete control per row.
       // The delete control has aria-label = t("subscription.delete", name) or the icon button text ✕.
       const deleteButtons = await screen.findAllByRole("button");
       // First delete control sits next to the first row.

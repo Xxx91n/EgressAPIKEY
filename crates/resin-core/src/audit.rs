@@ -1,4 +1,4 @@
-//! Append-only audit logging .
+//! Append-only audit logging.
 //!
 //! Every sanctioned L2 whitebox write (strategy store + ports write_atomic)
 //! records one JSONL row in `audit.jsonl` under `app_config_dir()` — the
@@ -113,7 +113,7 @@ pub fn new_audit_id() -> String {
 ///
 /// Per-instance thread-safety: `append` holds the `last_hash` lock across
 /// the whole prev_hash read -> serialize -> rotate -> write -> commit
-/// sequence (one critical section, R12-J1 / wave-j D-002), so two appends on
+/// sequence (one critical section), so two appends on
 /// ONE instance can never interleave a torn chain - the type is thread-safe
 /// on its own. What remains a discipline invariant is one instance per file:
 /// two `AuditLog`s pointed at the same `audit.jsonl` still race each other
@@ -167,7 +167,7 @@ impl AuditLog {
         // Re-seed the byte counter from the real file size after EVERY append
         // so drift between the counter and on-disk bytes self-corrects
         // (rotation fidelity). A stat failure keeps the previous value -
-        // never zeroed, never an error (D7).
+        // never zeroed, never an error.
         let mut written = self.written_bytes.lock().unwrap();
         if let Ok(m) = std::fs::metadata(&self.path) {
             *written = m.len();
@@ -236,7 +236,7 @@ impl AuditLog {
 
 /// sha256 of a stored line's raw bytes + the '\n' terminator - a row's OWN
 /// hash. Verifiers hash the stored bytes directly; a parsed `AuditEvent` is
-/// never re-serialized for verification .
+/// never re-serialized for verification.
 fn row_own_hash(line: &[u8]) -> String {
     let mut bytes = Vec::with_capacity(line.len() + 1);
     bytes.extend_from_slice(line);
@@ -262,7 +262,7 @@ fn last_line_hash(path: &Path) -> Option<String> {
         let Ok(tail) = serde_json::from_slice::<AuditEvent>(line) else {
             continue;
         };
-        // Optional single-link back-verify (R12-D3, warn-only per D7): when a
+        // Optional single-link back-verify (warn-only): when a
         // preceding complete event row exists, its own hash must equal the
         // adopted tail's prev_hash. A mismatch never blocks adoption.
         for &prev in lines[..idx].iter().rev() {
@@ -553,7 +553,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    // -- R12-D3: tail-adoption hardening --
+    // -- tail-adoption hardening --
 
     /// sha256 of a canonical row (json line content) + the '\n' terminator -
     /// mirrors row_own_hash for string fixtures.
@@ -674,7 +674,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    // -- R12-J1 / wave-j D-002: append is a single critical section --
+    // -- append is a single critical section --
 
     #[test]
     fn concurrent_appends_form_one_unbroken_chain() {

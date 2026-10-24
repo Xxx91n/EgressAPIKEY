@@ -27,8 +27,8 @@ Set up and run the desktop app:
 git clone https://github.com/Xxx91n/EgressAPIKEY.git
 cd EgressAPIKEY
 pnpm install
-bash scripts/fetch_resin.sh     # pin the prebuilt Resin sidecar into src-tauri/binaries/
-pnpm tauri dev                  # Vite dev server + Tauri shell (GUI)
+bash scripts/fetch_resin.sh # pin the prebuilt Resin sidecar into src-tauri/binaries/
+pnpm tauri dev # Vite dev server + Tauri shell (GUI)
 ```
 
 Headless server (same browser control surface — desktop-only commands render disabled; no desktop shell): `pnpm build`, then `cargo build --release -p egressapikey-app --bin egressapikey-headless --features headless`, then run the binary with `--dist dist --binary-dir src-tauri/binaries`. Deployment layouts live in [docs/how-to/HEADLESS_DEPLOYMENT.md](docs/how-to/HEADLESS_DEPLOYMENT.md).
@@ -36,7 +36,7 @@ Headless server (same browser control surface — desktop-only commands render d
 ## Verify before you push
 
 ```bash
-bash scripts/verify-build.sh    # cargo build + tests, tsc + vite build, vitest, i18n coverage
+bash scripts/verify-build.sh # cargo build + tests, tsc + vite build, vitest, i18n coverage
 ```
 
 CI runs the same script on every push and pull request. Focused checks:
@@ -51,9 +51,9 @@ These rules are authoritative here and are enforced by reviewers and CI (`script
 
 - **i18n full-key coverage** — every user-visible string in `src/` comes from `src/locales/<locale>/*.json` via `t()` / `Trans`; never hard-code locale text in components. A new key must land in **all 18 base locales** in the same commit (`pnpm i18n:check` fails the build otherwise); the `Locale` union in `src/store/appStore.ts` and the `ALL` list in `scripts/i18n-check.cjs` stay in lockstep with the `src/locales/` directories.
 - **Test per behavior** — every public function in `crates/resin-core/` carries a unit test (same-file `#[cfg(test)]` or `crates/resin-core/tests/`); Zustand stores and pure reducers get vitest tests under `src/`; component interactions get Playwright e2e coverage under `e2e/`. The evaluator for the whole repo is `bash scripts/verify-build.sh` (what CI runs on every push/PR).
-- **CI-only delivery**  — local builds are forbidden as delivery evidence: a source commit is finished when the CI verify job proves it, and a testable exe comes from a release-matrix dispatch. Never hand out a locally-built binary; never claim a UI change is testable before its CI-built artifact exists.
+- **CI-only delivery** — local builds are forbidden as delivery evidence: a source commit is finished when the CI verify job proves it, and a testable exe comes from a release-matrix dispatch. Never hand out a locally-built binary; never claim a UI change is testable before its CI-built artifact exists.
 - **Bilingual README pair** — `README.md` is the EN-canonical homepage skeleton (preserve its section order; route deep content to `docs/`); `README_CN.md` is the structure-locked CN mirror — update both sides in the same commit. The `## License` body stays exactly `GPL-3.0-or-later`.
-- **License discipline** — the repository is GPL-3.0-or-later via [LICENSE](LICENSE) (verbatim GNU text — never reword); the README / workspace `Cargo.toml` / `package.json` license fields are machine-checked (`scripts/license-field-check.cjs`); vendored third-party components register in [THIRD_PARTY.md](THIRD_PARTY.md) with the two-layer declared-vs-tree value. Mere-aggregation invariant : shell ↔ sidecar interact only over the loopback REST seam — no FFI, no in-process linking, no source embedding. On any `docs/RESIN_UPSTREAM_MANIFEST.yaml` version bump, re-verify license facts against upstream originals at that tag and update `THIRD_PARTY.md` + the manifest in the same commit.
+- **License discipline** — the repository is GPL-3.0-or-later via [LICENSE](LICENSE) (verbatim GNU text — never reword); the README / workspace `Cargo.toml` / `package.json` license fields are machine-checked (`scripts/license-field-check.cjs`); vendored third-party components register in [THIRD_PARTY.md](THIRD_PARTY.md) with the two-layer declared-vs-tree value. Mere-aggregation invariant: shell ↔ sidecar interact only over the loopback REST seam — no FFI, no in-process linking, no source embedding. On any `docs/RESIN_UPSTREAM_MANIFEST.yaml` version bump, re-verify license facts against upstream originals at that tag and update `THIRD_PARTY.md` + the manifest in the same commit.
 - **IPC & security contracts** — every `#[tauri::command]` validates input at the IPC layer before calling resin-core (lane range `0..MAX_LANES`, length caps ≤253 + NUL rejection, latency cap, `http(s)://` URL prefix); TS wrappers in `src/lib/ipc.ts` validate-then-invoke and treat Rust responses as untrusted. The headless router keeps **every** route behind `security_guard` in `src-tauri/src/headless_main.rs` (`--auth-token` on `/api/v1/*` + `/metrics/*`, Host/Origin allowlist, CSPRNG token — never register a route above the `.layer(...)` call).
 - **Docs routing** — the README is a homepage; deep content belongs in `docs/` (architecture, how-tos). Retired docs are deleted, not archived in-tree — history lives in git.
 

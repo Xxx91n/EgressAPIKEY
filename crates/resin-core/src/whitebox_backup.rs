@@ -1,5 +1,5 @@
 //! Whitebox versioning \u2014 backup / rotation / rollback for the two L2
-//! whitebox stores .
+//! whitebox stores.
 //!
 //! Before EVERY atomic whitebox write (both the strategy store and the ports
 //! store funnel through here) the current file is copied to a sibling
@@ -10,7 +10,7 @@
 //!
 //! Rollback helpers re-enter the SAME validate-before-swap chain as a hand
 //! edit: callers parse the backup content through serde and then call the
-//! store's own write entry ( strategy store /  ports
+//! store's own write entry (strategy store / ports
 //! apply) \u2014 this module never writes a whitebox file itself.
 //!
 //! Storage discipline: backup/ lives under app_config_dir() (OS AppData at

@@ -175,7 +175,7 @@
     "passwordMasked": "parola: (gizli)",
     "port": "Port",
     "portAddOk": "Port eklendi",
-    "portBound": "Bağlandı :{{port}} → {{platform}}",
+    "portBound": "Bağlandı:{{port}} → {{platform}}",
     "portDuplicate": "Port zaten var",
     "portInvalid": "Port 1024–65535 olmalı",
     "portLabel": "Etiket",

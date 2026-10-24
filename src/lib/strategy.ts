@@ -18,7 +18,7 @@
  * allocation_policy mapping left in the repo — used for view display labels
  * and the webview-side translation before the platform PATCH. The Rust side
  * holds the same three values as the storage type; do not reintroduce a second
- * mapping copy in Rust ( keeps the vocabularies separate and this file
+ * mapping copy in Rust (keeps the vocabularies separate and this file
  * is the display layer).
  */
 export const STRATEGY_IDS = [

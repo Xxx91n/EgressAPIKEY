@@ -35,7 +35,7 @@ export function buildQuery(route: HttpRoute, args?: Record<string, unknown>): st
 }
 
 /** Non-GET body: unwrap the Tauri arg envelope, rename camelCase keys, and
- *  drop nulls (the "only provided fields" contract Resin and the BFF share). */
+ * drop nulls (the "only provided fields" contract Resin and the BFF share). */
 export function buildBody(route: HttpRoute, args?: Record<string, unknown>): string | undefined {
   if (route.method === "GET" || (!args && !route.bodyConst)) return undefined;
   let payload: Record<string, unknown> = { ...(route.bodyConst ?? {}), ...(args ?? {}) };
@@ -88,10 +88,10 @@ export async function invokeHttp<T>(route: HttpRoute, args?: Record<string, unkn
 }
 
 /** Single headless dispatch point: route lookup -> typed guard -> fetch.
- *  A command with neither a CMD_TO_HTTP route nor a DISABLED_COMMANDS entry
- *  raises a typed IpcUnavailableError (reason "unknown") instead of the
- *  former opaque Tauri-only string. The mode check itself stays in
- *  lib/ipc.ts's invoke() — this seam is only ever entered in headless mode. */
+ * A command with neither a CMD_TO_HTTP route nor a DISABLED_COMMANDS entry
+ * raises a typed IpcUnavailableError (reason "unknown") instead of the
+ * former opaque Tauri-only string. The mode check itself stays in
+ * lib/ipc.ts's invoke() — this seam is only ever entered in headless mode. */
 export async function invokeHeadless<T = unknown>(
   cmd: string,
   args?: Record<string, unknown>,

@@ -2,7 +2,7 @@
 //!
 //! Independent, pluggable observation board. Classifies proxied HTTP traffic
 //! as Unary / SSE / WebSocket from **headers only** (no body sniffing, no API
-//! key inspection — ). Counters are lock-free enough for the thin
+//! key inspection —). Counters are lock-free enough for the thin
 //! shell: a parking_lot mutex around three u64s.
 //!
 //! On the multi-port SOCKS5 path most AI HTTPS is end-to-end encrypted after

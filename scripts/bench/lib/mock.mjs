@@ -5,11 +5,11 @@
 // Resin node health probes need live WAN reachability to flip routable.
 //
 // mock upstream (HTTP server):
-//   GET /health          -> 200 "ok"
-//   GET /echo            -> 200 fixed small JSON (fast path for latency/RPS)
-//   GET /sse?interval&count&size -> text/event-stream; count=0 means infinite
-//   GET /sse-error?after=K     -> K events then in-band data:{"error":...} + EOF
-//   GET /__stats         -> counters: active streams, cancels, blocked writes
+// GET /health -> 200 "ok"
+// GET /echo -> 200 fixed small JSON (fast path for latency/RPS)
+// GET /sse?interval&count&size -> text/event-stream; count=0 means infinite
+// GET /sse-error?after=K -> K events then in-band data:{"error":...} + EOF
+// GET /__stats -> counters: active streams, cancels, blocked writes
 //
 // mock node (HTTP CONNECT proxy on loopback): Resin's `http` outbound dials
 // CONNECT host:port through it; we pipe to the real target. Load traffic

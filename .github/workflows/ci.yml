@@ -1,14 +1,14 @@
 name: ci
 
 # Dual trigger (release strategy: verify automatic on push/PR, release jobs manual-dispatch).
-#   push / pull_request -> ONLY the `verify` job runs: cargo test + frontend build
-#     (tsc + vite) + vitest + every guard script (scripts/verify-build.sh) + the
-#     line-ending guard. This is the push->verify gate: no green verify, no merge.
-#   workflow_dispatch  -> `verify` + `macos-test` (r12-wave-j D-004 tier-2
-#     release gate) + the 5-job release matrix, unchanged and still
-#     manual: the user opens the Actions tab and types a tag. Input
-#     `include_intel_mac` (default off) additionally gates the two opt-in
-#     macOS x86_64 legs (backend-intel + gui-intel on macos-15-intel, R12-E2).
+# push / pull_request -> ONLY the `verify` job runs: cargo test + frontend build
+# (tsc + vite) + vitest + every guard script (scripts/verify-build.sh) + the
+# line-ending guard. This is the push->verify gate: no green verify, no merge.
+# workflow_dispatch -> `verify` + `macos-test` (tier-2
+# release gate) + the 5-job release matrix, unchanged and still
+# manual: the user opens the Actions tab and types a tag. Input
+# `include_intel_mac` (default off) additionally gates the two opt-in
+# macOS x86_64 legs (backend-intel + gui-intel on macos-15-intel).
 # Release packaging NEVER runs on push: every release/e2e job carries
 # `if: github.event_name == 'workflow_dispatch'`.
 # Minute burn is bounded by the concurrency group below: superseded push/PR runs on
@@ -42,10 +42,10 @@ concurrency:
 
 jobs:
  # 1. push->verify gate: the ONLY job that runs on push
-  #    and pull_request. cargo test + frontend build (tsc + vite) + vitest + every
-  #    guard script + the line-ending guard. Guard scripts are enumerated in
-  #    scripts/verify-build.sh (i18n x18 / vitest-isolation /
-  #    license-field / mode-a-contract).
+  # and pull_request. cargo test + frontend build (tsc + vite) + vitest + every
+  # guard script + the line-ending guard. Guard scripts are enumerated in
+  # scripts/verify-build.sh (i18n x18 / vitest-isolation /
+  # license-field / mode-a-contract).
   verify:
     name: 'verify (push->verify gate: build + test + i18n + guards)'
     runs-on: ubuntu-latest
@@ -78,13 +78,13 @@ jobs:
       - name: line-ending guard
         run: git diff --check || (echo "::error::CRLF/whitespace errors detected" && exit 1)
 
-  # 1b. macOS tier-2 test gate (r12-wave-j D-004): cargo test on macos-latest
-  #     as a REQUIRED check on the release path - gate-at-release here, while
-  #     the periodic signal lives in bench.yml's macos-latest leg
-  #     (signal-at-main). Dispatch-only: NEVER on push (~10x runner cost +
-  #     flake surface would press the only merge gate - CI-only-delivery noise
-  #     discipline). A first macOS-unique failure fires the armed register
-  #     row (promotion-to-gating adjudication).
+  # 1b. macOS tier-2 test gate: cargo test on macos-latest
+  # as a REQUIRED check on the release path - gate-at-release here, while
+  # the periodic signal lives in bench.yml's macos-latest leg
+  # (signal-at-main). Dispatch-only: NEVER on push (~10x runner cost +
+  # flake surface would press the only merge gate - CI-only-delivery noise
+  # discipline). A first macOS-unique failure fires the armed register
+  # row (promotion-to-gating adjudication).
   macos-test:
     name: 'macos cargo test (tier-2 release gate)'
     runs-on: macos-latest
@@ -136,7 +136,7 @@ jobs:
           retention-days: 7
 
 # 3. Headless backend matrix: egressapikey-headless binary + dist/ + resin sidecar,
-#    self-contained release for users who want the proxy without the GUI shell.
+# self-contained release for users who want the proxy without the GUI shell.
   backend:
     name: backend headless (${{ matrix.name }})
     needs: [verify, macos-test]
@@ -218,9 +218,9 @@ jobs:
           path: release/${{ matrix.name }}-backend.tar.gz
           if-no-files-found: error
 
-  # 3b. Opt-in Intel backend leg (R12-E2): same shape as a backend matrix leg
-  #     but gated on the include_intel_mac dispatch input - a job-level `if`
-  #     keeps the opt-out path from even provisioning an Intel runner.
+  # 3b. Opt-in Intel backend leg: same shape as a backend matrix leg
+  # but gated on the include_intel_mac dispatch input - a job-level `if`
+  # keeps the opt-out path from even provisioning an Intel runner.
   backend-intel:
     name: backend headless (macos-x86_64, opt-in)
     needs: [verify, macos-test]
@@ -278,7 +278,7 @@ jobs:
           if-no-files-found: error
 
   # 4. GUI installer matrix: tauri-action produces per-OS installer bundles.
-  #    Windows -> msi + nsis setup.exe; Linux -> deb + AppImage; macOS -> dmg (universal).
+  # Windows -> msi + nsis setup.exe; Linux -> deb + AppImage; macOS -> dmg (universal).
   gui:
     name: gui installer (${{ matrix.name }})
     needs: [verify, macos-test]
@@ -359,7 +359,7 @@ jobs:
                    "target/release/bundle" \
                    "src-tauri/target/release/bundle"; do
             [ -d "$d" ] || continue
-            find "$d" -type f \( \
+            find "$d" -type f \(\
               -name '*.msi' -o -name '*-setup.exe' -o \
               -name '*.deb' -o -name '*.AppImage' -o -name '*.dmg' \) \
               -print | while read -r f; do
@@ -374,9 +374,9 @@ jobs:
           path: release/${{ matrix.name }}/*
           if-no-files-found: error
 
-  # 4b. Opt-in Intel GUI installer leg (R12-E2): the macos-13 -> macos-15-intel
-  #     migration gated on include_intel_mac; same tauri-action shape as a gui
-  #     matrix leg so its dmg lands on the same draft release when opted in.
+  # 4b. Opt-in Intel GUI installer leg: the macos-13 -> macos-15-intel
+  # migration gated on include_intel_mac; same tauri-action shape as a gui
+  # matrix leg so its dmg lands on the same draft release when opted in.
   gui-intel:
     name: gui installer (macos-gui-x86_64, opt-in)
     needs: [verify, macos-test]
@@ -446,8 +446,8 @@ jobs:
           if-no-files-found: error
 
   # 5. Portable GUI binary matrix: a single uninstalled GUI executable per
-  #    OS for users who want to run without an installer. Comes from Tauri
-  #    v2's `--no-bundle` build mode.
+  # OS for users who want to run without an installer. Comes from Tauri
+  # v2's `--no-bundle` build mode.
   gui-portable:
     name: gui portable (${{ matrix.name }})
     needs: [verify, macos-test]

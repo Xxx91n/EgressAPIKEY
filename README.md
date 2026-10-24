@@ -73,7 +73,7 @@ git clone https://github.com/Xxx91n/EgressAPIKEY.git
 cd EgressAPIKEY
 pnpm install && pnpm build
 cargo build --release -p egressapikey-app --bin egressapikey-headless --features headless
-bash scripts/fetch_resin.sh   # pins the sidecar into src-tauri/binaries/ (or build resin/ with Go)
+bash scripts/fetch_resin.sh # pins the sidecar into src-tauri/binaries/ (or build resin/ with Go)
 target/release/egressapikey-headless --dist dist --binary-dir src-tauri/binaries --no-browser
 ```
 

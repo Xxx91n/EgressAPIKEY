@@ -73,7 +73,7 @@ git clone https://github.com/Xxx91n/EgressAPIKEY.git
 cd EgressAPIKEY
 pnpm install && pnpm build
 cargo build --release -p egressapikey-app --bin egressapikey-headless --features headless
-bash scripts/fetch_resin.sh   # 将侧车二进制固定拉取到 src-tauri/binaries/（或用 Go 构建 resin/）
+bash scripts/fetch_resin.sh # 将侧车二进制固定拉取到 src-tauri/binaries/（或用 Go 构建 resin/）
 target/release/egressapikey-headless --dist dist --binary-dir src-tauri/binaries --no-browser
 ```
 

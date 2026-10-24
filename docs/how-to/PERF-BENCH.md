@@ -67,9 +67,9 @@ node scripts/bench/run-bench.mjs --headless-exe target/release/egressapikey-head
 node scripts/bench/run-bench.mjs --phases soak --out bench-results/diag
 
 # knobs (env): BENCH_SOAK_STREAMS / BENCH_SOAK_SECONDS / BENCH_SOAK_INTERVAL_MS
-#              BENCH_APPSTART_N / BENCH_HEADLESS_N / HEADLESS_BIN
-#              RESIN_BIN / FORWARDER_BIN / BENCH_OUT
-#              BENCH_DURATION / BENCH_GATE / BENCH_CPU_PIN
+# BENCH_APPSTART_N / BENCH_HEADLESS_N / HEADLESS_BIN
+# RESIN_BIN / FORWARDER_BIN / BENCH_OUT
+# BENCH_DURATION / BENCH_GATE / BENCH_CPU_PIN
 ```
 
 CI: `.github/workflows/bench.yml` (`workflow_dispatch`, weekly cron) builds the
@@ -129,9 +129,9 @@ results artifact is the rerunnable proof.
 
 ```text
                  ┌─ Mode B: forward-GET / CONNECT ─► endpoint ───────────┐
-client ──────────┤                                                       ├─► node (mock Clash CONNECT)
-                 └─ Mode A: CONNECT ─► bench-forwarder ─► consolidated ──┘        │
-                     (port = identity, credential injected by the shell)          └─► mock upstream (/echo /sse)
+client ──────────┤ ├─► node (mock Clash CONNECT)
+                 └─ Mode A: CONNECT ─► bench-forwarder ─► consolidated ──┘ │
+                     (port = identity, credential injected by the shell) └─► mock upstream (/echo /sse)
 ```
 
 The mock node permits external `CONNECT` targets because Resin's probe manager

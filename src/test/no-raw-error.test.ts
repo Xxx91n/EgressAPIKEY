@@ -8,10 +8,10 @@ import * as path from "path";
 /// translateError(). This prevents "[object Object]" regression.
 ///
 /// Allowed patterns:
-///   - translateError(e, t)  -- safe
-///   - e instanceof Error ? e.message : String(e)  -- safe narrowing
-///   - console.warn(e) / console.log(e)  -- debug, not user-facing
-///   - setXxx({ ..., error: e instanceof Error ? e.message : String(e) })  -- safe
+/// - translateError(e, t) -- safe
+/// - e instanceof Error ? e.message: String(e) -- safe narrowing
+/// - console.warn(e) / console.log(e) -- debug, not user-facing
+/// - setXxx({ ..., error: e instanceof Error ? e.message: String(e) }) -- safe
 
 const SRC_DIR = path.resolve(__dirname, "..");
 const DISPLAY_FNS = [

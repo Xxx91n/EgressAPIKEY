@@ -4,17 +4,17 @@
 //!
 //! Design (per docs/MEMORY_REUSE_DECISION.md path A):
 //! - Resin binds a single port and exposes control-plane API + WebUI + proxy
-//!   on that same port (DESIGN.md §3 统一入站端口). It does NOT use Ghost's
-//!   stdout JSON handshake; we poll `/healthz` instead.
+//! on that same port (DESIGN.md §3 统一入站端口). It does NOT use Ghost's
+//! stdout JSON handshake; we poll `/healthz` instead.
 //! - Tokens (`RESIN_ADMIN_TOKEN`, `RESIN_PROXY_TOKEN`) are generated here in
-//!   the Rust shell and passed to the sidecar via the child env. These are
-//!   server-side trust only — they NEVER cross into the webview. The webview
-//!   can only reach Resin through the Rust-side ResinClient (G2) which holds
-//!   this handle's admin token.
-//! - We pick a free port up front (TCP bind :0, probe listener held until
-//!   just before spawn) and tell Resin to listen on it. A foreign process
-//!   can still win the residual exec->bind race, so a cold boot re-picks on
-//!   the lost-race signature (bounded by PORT_PICK_ATTEMPTS).
+//! the Rust shell and passed to the sidecar via the child env. These are
+//! server-side trust only — they NEVER cross into the webview. The webview
+//! can only reach Resin through the Rust-side ResinClient (G2) which holds
+//! this handle's admin token.
+//! - We pick a free port up front (TCP bind:0, probe listener held until
+//! just before spawn) and tell Resin to listen on it. A foreign process
+//! can still win the residual exec->bind race, so a cold boot re-picks on
+//! the lost-race signature (bounded by PORT_PICK_ATTEMPTS).
 //!
 //! Crash-restart loops live in the Ghost safety net (G3), not here.
 use std::collections::VecDeque;
@@ -35,13 +35,13 @@ use tauri::{AppHandle, Emitter, Manager, Runtime};
 use resin_core::NetworkConfig;
 use std::process::{Child, Command, Stdio};
 
-/// Lifecycle state of the Resin sidecar process .
+/// Lifecycle state of the Resin sidecar process.
 /// Modeled after clash-verge-rev CoreManager RunningMode: a lightweight
 /// enum behind RwLock so any thread can cheaply read the current state
 /// without blocking the IPC command layer. Transition graph:
-///   NotRunning -> Starting -> Running  (boot_resin success path)
-///   Running -> NotRunning              (exit hook / crash)
-///   Starting -> NotRunning             (boot timeout)
+/// NotRunning -> Starting -> Running (boot_resin success path)
+/// Running -> NotRunning (exit hook / crash)
+/// Starting -> NotRunning (boot timeout)
 /// std RwLock (no arc-swap dep): mode transitions are rare
 /// (boot, crash, shutdown), so RwLock contention is negligible.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,17 +52,17 @@ pub enum RunningMode {
     Starting,
     /// Process is live and control plane is up (normal steady state).
     Running,
-    /// : After MAX_CRASH_RESTARTS the crash restarter
+    ///: After MAX_CRASH_RESTARTS the crash restarter
     /// gives up and marks the sidecar Terminated — no further restart
     /// attempts. The mode is terminal until the user restarts the app.
     /// mode transition is Running|Starting -> Terminated.
     Terminated,
 }
 
-/// Ring buffer capacity for sidecar stderr/stdout lines .
+/// Ring buffer capacity for sidecar stderr/stdout lines.
 const SIDECAR_LOG_CAPACITY: usize = 500;
 
-/// Bounded ring buffer for sidecar process stdout/stderr output .
+/// Bounded ring buffer for sidecar process stdout/stderr output.
 pub struct LogBuffer {
     lines: parking_lot::Mutex<VecDeque<String>>,
 }
@@ -99,11 +99,11 @@ pub struct SidecarHandle {
     /// kill() means a second Exit callback (if Tauri ever re-emits one)
     /// is a no-op.
     pub child: Mutex<Option<Child>>,
-    /// Lifecycle mode . RwLock so the health poll thread,
+    /// Lifecycle mode. RwLock so the health poll thread,
     /// crash restarter, and exit hook can all read/set the mode without
     /// blocking the IPC command path (which only needs api_port + tokens).
     pub mode: std::sync::RwLock<RunningMode>,
-    /// Ring buffer for sidecar stderr/stdout lines .
+    /// Ring buffer for sidecar stderr/stdout lines.
     pub log_buf: Arc<LogBuffer>,
     /// Resin's single consolidated port (control-plane API + proxy + webui).
     pub api_port: u16,
@@ -137,12 +137,12 @@ impl SidecarHandle {
     }
 
     /// Transition to a new mode. Validates that the transition is legal
-    ///  state graph; logs a warn on illegal transitions
+    /// state graph; logs a warn on illegal transitions
     /// but does not panic (defensive against races in the exit path).
     pub fn set_mode(&self, new: RunningMode) {
         let old = self.mode();
         // Valid: Starting->Running, Starting->NotRunning (timeout),
-        //        Running->NotRunning (crash/exit), NotRunning->Starting (reboot).
+        // Running->NotRunning (crash/exit), NotRunning->Starting (reboot).
         let valid = matches!(
             (old, new),
             (RunningMode::Starting, RunningMode::Running)
@@ -395,7 +395,7 @@ fn spawn_resin_inner(
 
     match &slot {
         Some(s) => {
-            // CONTEXT Port Cleanup / : refuse to spawn into a port
+            // CONTEXT Port Cleanup /: refuse to spawn into a port
             // that is still held. A silent bind failure would otherwise look
             // like a successful restart while no control plane ever came up.
             check_port_available(s.port)
@@ -475,7 +475,7 @@ fn spawn_resin_on_port(
     // empty proxy_token enables no-auth on ports where require_proxy_auth_info=0.
     // Resin socks5.go:261 — when s.token=="" the OR condition is false, so the
     // else branch accepts NoAuth(0x00) + UserPass(0x02). forward.go:103 — when
-    // p.token=="" the no-auth path returns nil error directly.  was wrong:
+    // p.token=="" the no-auth path returns nil error directly. was wrong:
     // source verification proves empty token is safe (socks5.go:307 short-circuits
     // the password check, forward.go:103-115 lets no-auth through).
     let proxy_token = String::new();
@@ -730,12 +730,12 @@ pub(crate) fn restart_resin<R: Runtime>(app: &AppHandle<R>) -> Result<()> {
 /// transitions are unit-testable against a tempdir + the real resin binary
 /// without an AppHandle or MockRuntime path resolution.
 ///
-/// Sequence :
-///   1. Running -> NotRunning, take the child out of the handle
-///   2. kill + wait SHUTDOWN_WAIT_MS + try_wait (port/SQLite lock released)
-///   3. NotRunning -> Starting, respawn on the SAME port with the SAME admin
-///      token (RespawnSlot) and await /healthz (15s deadline)
-///   4. swap the new child into the handle, Starting -> Running
+/// Sequence:
+/// 1. Running -> NotRunning, take the child out of the handle
+/// 2. kill + wait SHUTDOWN_WAIT_MS + try_wait (port/SQLite lock released)
+/// 3. NotRunning -> Starting, respawn on the SAME port with the SAME admin
+/// token (RespawnSlot) and await /healthz (15s deadline)
+/// 4. swap the new child into the handle, Starting -> Running
 ///
 /// BLOCKING (std::process + blocking reqwest + thread::sleep): callers MUST
 /// run this on a blocking pool (tokio::task::spawn_blocking), never directly
@@ -751,7 +751,7 @@ pub fn restart_into_slot(
     let slot = state.respawn_slot();
     tracing::warn!("ghost: restarting sidecar on port {}", slot.port);
 
-    // Phase 1 + 2: two-phase shutdown of the old child .
+    // Phase 1 + 2: two-phase shutdown of the old child.
     state.set_mode(RunningMode::NotRunning);
     {
         let mut guard = state.child.lock().unwrap_or_else(|e| e.into_inner());
@@ -820,7 +820,7 @@ fn gen_token() -> Result<String> {
     Ok(hex::encode(bytes))
 }
 
-/// : Check if a loopback TCP port is available to bind.
+///: Check if a loopback TCP port is available to bind.
 /// Returns Ok(()) if free, Err(message) if occupied by another process.
 /// Pure function for testability: the test binds a listener then calls this
 /// with the same port and expects Err.
@@ -841,7 +841,7 @@ fn assign_sidecar_to_job_object(pid: u32) -> Option<isize> {
 }
 
 /// Same as assign_sidecar_to_job_object but able to REUSE the Job Object
-/// created at boot ( restart: the new child must land in the same job
+/// created at boot (restart: the new child must land in the same job
 /// so a force-killed GUI still takes the restarted sidecar down with it).
 /// Only a job created here is closed on the error paths - a borrowed handle
 /// still belongs to the SidecarHandle slot.
@@ -1084,7 +1084,7 @@ mod tests {
 
     #[test]
     fn sidecar_handle_set_mode_logs_warn_on_invalid_running_to_starting() {
-        // Running -> Starting is NOT a valid  transition.
+        // Running -> Starting is NOT a valid transition.
         // set_mode does NOT panic or revert — it traces a warn then writes
         // the new value anyway (defensive, in case of races in the exit
         // path). We assert the value IS written (documenting the actual
@@ -1184,7 +1184,7 @@ mod tests {
     #[test]
     fn unhealthy_action_restarts_for_the_first_three_transitions() {
         // transitions 1..=3 each spend one real restart attempt,
-        // the  backoff (1s, 2s, 4s).
+        // the backoff (1s, 2s, 4s).
         assert_eq!(
             unhealthy_action(1),
             UnhealthyAction::Restart { backoff_ms: 1000 }
@@ -1208,7 +1208,7 @@ mod tests {
 
     #[test]
     fn ghost_restart_budget_is_three_restarts_then_terminated() {
-        // : three restart attempts, then Terminated. The safety net
+        //: three restart attempts, then Terminated. The safety net
         // spends one real restart per unhealthy transition; the next one is
         // terminal.
         let mut crash_count: u32 = 0;
@@ -1486,32 +1486,32 @@ mod tests {
 //
 // - spec: Ghost safety net G3 (health poll + tray + system-proxy cutoff).
 // - safety posture: the Resin sidecar is the OS-facing proxy runtime. If it
-//   dies (crash, OOM-kill, malicious quit) we must NOT silently keep the
-//   desktop tray pretending the proxy is up, and we must NOT let a stale
-//   system-proxy setting point traffic at a dead listener. So on the 3rd
-//   consecutive /healthz failure we mark the tray red and call the OS proxy
-//   clear command. The frontend is notified via a safety-net event so a
-//   banner can be drawn (decoupled from any notification plugin; no new dep).
+// dies (crash, OOM-kill, malicious quit) we must NOT silently keep the
+// desktop tray pretending the proxy is up, and we must NOT let a stale
+// system-proxy setting point traffic at a dead listener. So on the 3rd
+// consecutive /healthz failure we mark the tray red and call the OS proxy
+// clear command. The frontend is notified via a safety-net event so a
+// banner can be drawn (decoupled from any notification plugin; no new dep).
 // - ponytail: do NOT add tauri-plugin-notification just for this — the
-//   webview already renders a banner on events. The system-proxy clear is a
-//   single shell call per platform; no new native crate.
+// webview already renders a banner on events. The system-proxy clear is a
+// single shell call per platform; no new native crate.
 
 const HEALTH_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(3);
 const HEALTH_FAILURE_THRESHOLD: u32 = 3;
 const STATUS_EVENT: &str = "sidecar-status";
 
-/// Crash auto-restart bounds . After a sidecar process crash,
+/// Crash auto-restart bounds. After a sidecar process crash,
 /// attempt up to 3 restarts with exponential backoff: 1s, 2s, 4s.
 /// After MAX_RESTARTS, mark terminal dead + notify user (no infinite loop).
 const MAX_CRASH_RESTARTS: u32 = 3;
 
-/// : milliseconds to wait between TerminateProcess and
+///: milliseconds to wait between TerminateProcess and
 /// PID reaping check. Gives the OS time to release the port + SQLite state
 /// lock so the next boot does not get EADDRINUSE or "database is locked".
 /// 500ms is the clash-verge-rev CoreManager two-phase shutdown interval.
 pub const SHUTDOWN_WAIT_MS: u64 = 500;
 
-/// : Two-phase shutdown sequence for the sidecar process.
+///: Two-phase shutdown sequence for the sidecar process.
 /// Phase 1: Send the kill signal (TerminateProcess on Windows, SIGTERM on Unix).
 /// Phase 2: Wait SHUTDOWN_WAIT_MS, then verify the process is gone.
 /// Returns Ok(()) if the process is gone within the wait window,
@@ -1531,7 +1531,7 @@ pub fn two_phase_shutdown_result(killed: bool, pid_alive: bool) -> Result<(), St
 }
 
 /// Return the backoff delay in milliseconds for crash restart attempt N
-/// (0-indexed). : 1s, 2s, 4s exponential backoff.
+/// (0-indexed).: 1s, 2s, 4s exponential backoff.
 /// Pure function for testability.
 pub fn crash_backoff_ms(attempt: u32) -> u64 {
     // attempt 0 -> 1000ms, 1 -> 2000ms, 2 -> 4000ms
@@ -1540,7 +1540,7 @@ pub fn crash_backoff_ms(attempt: u32) -> u64 {
 
 /// What the Ghost safety net does on unhealthy transition number
 /// `crash_count` (1-based). Transitions 1..=MAX_CRASH_RESTARTS spend one
-/// real restart attempt ; the next transition
+/// real restart attempt; the next transition
 /// exhausts the budget and marks the sidecar Terminated. Extracted as a pure
 /// fn so the 3-strike budget is unit-testable without spawning a process.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1742,8 +1742,8 @@ fn mark_tray_status<R: Runtime>(app: &AppHandle<R>, healthy: bool) -> tauri::Res
 /// feature that may enable system proxy; today the EgressAPIKEY shell
 /// never sets it, so in practice this is a defense-in-depth no-op.
 /// Windows: HKCU\Software\Microsoft\Windows\CurrentVersion\Internet
-///   Settings ProxyEnable=0 (registry write is authoritative; a new
-///   WinINet consumer process picks it up on restart).
+/// Settings ProxyEnable=0 (registry write is authoritative; a new
+/// WinINet consumer process picks it up on restart).
 /// macOS: per-service "networksetup -setwebproxystate <svc> off".
 /// Linux (GNOME): "gsettings set org.gnome.system.proxy mode none".
 async fn clear_os_proxy() -> anyhow::Result<()> {

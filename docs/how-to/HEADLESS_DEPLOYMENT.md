@@ -73,11 +73,11 @@ A self-contained release artifact lives at `release/<os>-backend/`:
 
 ```text
 release/linux-backend/
-├── egressapikey-headless      # Rust binary (~4.4MB, portable)
-├── dist/                       # Vite-built React SPA
-│   ├── index.html
-│   └── assets/
-└── resin                       # Go sidecar binary (~38MB)
+├── egressapikey-headless # Rust binary (~4.4MB, portable)
+├── dist/ # Vite-built React SPA
+│ ├── index.html
+│ └── assets/
+└── resin # Go sidecar binary (~38MB)
 ```
 
 The binary expects `dist/` and `resin` siblings in the same directory
@@ -209,7 +209,7 @@ to this binary. The header is client-writable, so it is ignored unless the
 socket peer is declared via the repeatable flag:
 
 ```bash
---trusted-proxy=127.0.0.1            # exact IP; a CIDR like 10.8.0.0/16 also works
+--trusted-proxy=127.0.0.1 # exact IP; a CIDR like 10.8.0.0/16 also works
 ```
 
 Only then does `X-Forwarded-Proto: https` add `; Secure` to the bootstrap

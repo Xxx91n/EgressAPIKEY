@@ -1,6 +1,6 @@
 // headless-smoke.cjs — liveness + parity smoke for the headless binary.
 //
-// Runs against the REAL built binary in CI verify : boots the
+// Runs against the REAL built binary in CI verify: boots the
 // headless server with a throwaway state root, then asserts the guard, the
 // capabilities endpoint, the settings KV round-trip and the shell routes that
 // read live process state. This is the "启动并测活软件进程" evidence for the

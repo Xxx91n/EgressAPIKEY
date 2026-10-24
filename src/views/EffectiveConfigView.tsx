@@ -22,7 +22,7 @@ import { HeadlessCapabilityNotice, commandBlocked } from "../components/Headless
 
 // one-level "effective config" view
 // (GLOSSARY.md: Authoritative Snapshot; spec Implementation Decision 1/7).
-// Consumer of the authoritative_snapshot IPC : renders the
+// Consumer of the authoritative_snapshot IPC: renders the
 // pre-merged desired|live comparison per platform/port with the three-state
 // badge (consistent / divergent / missingOnResin), a grey "known"
 // degradation for acknowledged entities (exemptions never enter
@@ -79,7 +79,7 @@ function StateBadge(props: { state: string; acknowledged: boolean; resinReachabl
     );
   }
   // missingOnResin. Amber while the sidecar is reachable; neutral zinc when
-  // resinReachable is false - : sidecar-down absence is NOT drift.
+  // resinReachable is false -: sidecar-down absence is NOT drift.
   const neutral = !props.resinReachable;
   return (
     <span
@@ -102,7 +102,7 @@ function desiredRegions(p: StrategySnapshot): string {
   return (p.state === "divergent" ? p.whitebox_regions : p.regions).join(", ");
 }
 
-// : top-level convergence chip. Data comes from the
+//: top-level convergence chip. Data comes from the
 // SAME 5s/open snapshot pull as the rest of the view (zero new requests).
 // Converged => green "effective at HH:MM (rev N)"; ApplyFailed => red with
 // the recorded reason; PendingApply => amber, clickable, opens the reconcile
@@ -186,11 +186,11 @@ export function EffectiveConfigView() {
   const [snap, setSnap] = useState<AuthoritativeSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // : versioned-whitebox history + rollback.
+  //: versioned-whitebox history + rollback.
   const [history, setHistory] = useState<{ strategy: WhiteboxBackupEntry[]; ports: WhiteboxBackupEntry[] }>({ strategy: [], ports: [] });
   const [confirmTarget, setConfirmTarget] = useState<{ store: "strategy" | "ports"; backup: WhiteboxBackupEntry } | null>(null);
   const [rollbackBusy, setRollbackBusy] = useState(false);
-  // : reconcile preview dialog + in-flight guard.
+  //: reconcile preview dialog + in-flight guard.
   const [previewOpen, setPreviewOpen] = useState(false);
   const [reconciling, setReconciling] = useState(false);
 
@@ -220,7 +220,7 @@ export function EffectiveConfigView() {
 
 // the confirm dialog shows the TARGET timestamp, then the
   // rollback re-enters the backend validate-before-swap -> apply chain and
-  // the view re-pulls snapshot + history ( post-rollback
+  // the view re-pulls snapshot + history (post-rollback
   // snapshot re-check).
   const performRollback = async (store: "strategy" | "ports", backup: WhiteboxBackupEntry) => {
     setRollbackBusy(true);

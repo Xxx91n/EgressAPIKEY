@@ -4,14 +4,14 @@
 
 ## The upstream relationship in one paragraph
 
-EgressAPIKEY is a Tauri 2 + React 19 desktop shell over a **vendored Resin Go sidecar** (version pinned in the upstream manifest). The shell and the sidecar are independent works interacting **only** over a loopback REST seam (`ResinClient`, `crates/resin-core/src/resin_client.rs`): no FFI, no in-process linking, no embedding in either direction .
+EgressAPIKEY is a Tauri 2 + React 19 desktop shell over a **vendored Resin Go sidecar** (version pinned in the upstream manifest). The shell and the sidecar are independent works interacting **only** over a loopback REST seam (`ResinClient`, `crates/resin-core/src/resin_client.rs`): no FFI, no in-process linking, no embedding in either direction.
 
 ## The four documents
 
 | Document | What it owns | Read it when |
 | --- | --- | --- |
 | [RESIN_API_COVERAGE.md](RESIN_API_COVERAGE.md) | One row per upstream REST route (58 rows: 1 unauthenticated `/healthz` + 57 authenticated) with five-bucket wiring status | Wiring, auditing, or documenting any Resin endpoint; asking "why is X not wired?" |
-| [RESIN_UPSTREAM_MANIFEST.yaml](../RESIN_UPSTREAM_MANIFEST.yaml) | The single source of truth for the bundled Resin version: release assets, compat notes, fetch behavior  | Upgrading Resin, checking the bundled version, understanding `scripts/fetch_resin.sh` |
+| [RESIN_UPSTREAM_MANIFEST.yaml](../RESIN_UPSTREAM_MANIFEST.yaml) | The single source of truth for the bundled Resin version: release assets, compat notes, fetch behavior | Upgrading Resin, checking the bundled version, understanding `scripts/fetch_resin.sh` |
 | [THIRD_PARTY.md](../../THIRD_PARTY.md) | The redistribution-obligations registry: the two-layer license value per component (declared vs dependency-tree) | Shipping, redistributing, or answering license questions |
 | [THIRD_PARTY.md](../../THIRD_PARTY.md) | The license-layering registry: shell GPL-3.0-or-later, sidecar two-layer value, mere-aggregation invariant | Changing the aggregation boundary, licensing, or contribution licensing |
 

@@ -1,9 +1,9 @@
 //! T6-4 proxy_e2e: integration tests for the exit-IP probe pipeline.
 //!
 //! Layer 1 (unit): mockito echo server returns a fake cdn-cgi/trace body;
-//!   we verify parse_trace_body_ip extracts the exit IP correctly.
+//! we verify parse_trace_body_ip extracts the exit IP correctly.
 //! Layer 2 (integration, #[ignore]): real probe through the live sidecar
-//!   to http://1.1.1.1/cdn-cgi/trace. Requires the desktop app running.
+//! to http://1.1.1.1/cdn-cgi/trace. Requires the desktop app running.
 
 use resin_core::parse_trace_body_ip;
 

@@ -8,7 +8,7 @@ import type { ConvergePhase } from "../lib/ipc";
  * surfaces the 4-field convergence summary on hover or keyboard focus.
  *
  * Renders children inline, then an absolutely-positioned popover below.
- * Uses React state (not CSS :hover) so tests can drive the tooltip
+ * Uses React state (not CSS:hover) so tests can drive the tooltip
  * deterministically via fireEvent.mouseEnter / focus.
  */
 export interface ConvergeTooltipProps {
