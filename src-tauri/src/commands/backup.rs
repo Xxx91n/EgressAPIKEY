@@ -4,7 +4,7 @@
 //! pure mechanical move - no behavior, naming, or IPC-surface change.
 //!
 //! `backup_create` was rewritten (ADR-0070) so the archive actually carries
-//! the configuration that decides behaviour (the CONTEXT.md "Backup Scope"
+//! the configuration that decides behaviour (the GLOSSARY.md "Backup Scope"
 //! ledger), and `backup_restore` adds download -> verify -> import through the
 //! EXISTING authoritative write entries. The request-log DBs can never enter a
 //! package, enforced on both the packing and the restore side.
@@ -36,7 +36,7 @@ const MAX_HISTORY_MEMBERS: usize = 32;
 
 /// L1 + L2 authority directory: settings.json, both whitebox documents,
 /// egressapikey.db, audit.jsonl and the whitebox backup/ history.
-/// CONTEXT.md "Config Authority".
+/// GLOSSARY.md "Config Authority".
 fn cfg_dir(app: &AppHandle) -> Result<PathBuf, IpcError> {
     app.path()
         .app_config_dir()
@@ -145,7 +145,7 @@ fn push_sqlite_snapshot(
 }
 
 /// Pack the whitebox version history (app_config_dir()/backup/*.bak).
-/// CONTEXT.md "Backup Scope" class (a) includes it, so it rides along; the
+/// GLOSSARY.md "Backup Scope" class (a) includes it, so it rides along; the
 /// list is name-filtered and truncated so a pathological directory cannot
 /// balloon the archive.
 fn push_whitebox_history(members: &mut Vec<(String, Vec<u8>)>, cfg: &Path) {
@@ -170,7 +170,7 @@ fn push_whitebox_history(members: &mut Vec<(String, Vec<u8>)>, cfg: &Path) {
 /// Create a backup package and return its path.
 ///
 /// ADR-0070: the archive carries exactly the
-/// CONTEXT.md "Backup Scope" ledger:
+/// GLOSSARY.md "Backup Scope" ledger:
 ///
 ///   manifest.json   integrity gate (sha256 + size per member); never written
 ///   config.json     the ADR-0061 container, whitebox as the source
@@ -277,7 +277,7 @@ pub async fn backup_create_impl(
         &out_dir,
     );
 
-    // Leak line (CONTEXT.md "Backup Scope" class c): the request-log DBs are
+    // Leak line (GLOSSARY.md "Backup Scope" class c): the request-log DBs are
     // refused by the manifest gate below, so this assert is the packing-side
     // half of the same rule.
     let names: Vec<String> = members.iter().map(|(n, _)| n.clone()).collect();

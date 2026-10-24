@@ -1,6 +1,6 @@
 # 配置权威心智模型调研：桌面代理 × 基础设施两套生态的对照与 Egress 选型
 
-> 沉淀自 2026-09-03 派发的 atomcode 三引擎调研（architecture-recovery 票 37；17 检索：Exa 8 / Tavily 5 / AnySearch 4；15 篇全文核验 + 12+ 引擎内联正文核验；角度 Official / Comparative / Criticism / Community / Currency 5/5）。性质：研究记录（Explanation 象限），不是现状规范——as-built 模型见 docs/architecture/ARCHITECTURE.md「Config Authority」一节，设计决策见 docs/adr/（尤其 0036 / 0039 / 0042 / 0051 / 0054 / 0056）。
+> 沉淀自 2026-09-03 派发的 atomcode 三引擎调研（architecture-recovery 票 37；17 检索：Exa 8 / Tavily 5 / AnySearch 4；15 篇全文核验 + 12+ 引擎内联正文核验；角度 Official / Comparative / Criticism / Community / Currency 5/5）。性质：研究记录（Explanation 象限），不是现状规范——as-built 模型见 docs/architecture/ARCHITECTURE.md「Config Authority」一节，设计决策见源码内联注释与 git 历史（ADR 目录已退役；原编号 0036 / 0039 / 0042 / 0051 / 0054 / 0056）。
 > 引用纪律：本票与票 21（docs/research/CONFIG_AUTHORITY_INDUSTRY_RESEARCH.md）的关系是「增量，不复读」——票 21 已建立「桌面客户端三层 + 单向生成管线 + 三道证明闸」行业基线，本文在其上回答两件事：最适合本架构的配置权威心智模型是什么、还缺哪一环工业级成熟做法。正文引注 \[S#\] 对应 §5 来源清单。
 
 ## 1. 摘要（结论先行）

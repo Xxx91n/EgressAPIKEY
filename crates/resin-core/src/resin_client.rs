@@ -334,7 +334,7 @@ impl ResinClient {
     /// via its own clash.meta UA fetcher (cmd/resin/main.go const downloadUserAgent).
     /// The shell no longer re-fetches or converts the Clash YAML itself
     /// (the former fetch_clash_subscription+clash_yaml_to_proxies_block+PATCH
-    /// chain is deleted; ADR-0045 supersedes ADR-0044 S2 for the refresh path).
+    /// chain is deleted in favor of Resin-native refresh).
     /// Refresh on a local-source subscription is a no-op re-parse of in-memory
     /// content, so the paired subscription_add migrated to source_type="remote".
     /// No request body is sent; Resin kicks its scheduler tick synchronously.
@@ -488,8 +488,7 @@ impl ResinClient {
 
     /// GET /api/v1/request-logs?limit=N — tail of the Resin request log
     /// @see docs/architecture/RESIN_API_COVERAGE.md #R44
-    /// ( ADR-0005 Q6 said probe the endpoint
-    /// before coding: the endpoint was verified in the bundled sidecar
+    /// (probe the endpoint before coding: the endpoint was verified in the bundled sidecar
     /// (docs/RESIN_UPSTREAM_MANIFEST.yaml v1.2.0): the embedded WebUI calls
     /// GET /api/v1/request-logs with from/to/platform_name/account/target_host/
     /// egress_ip/proxy_type/net_ok/http_status/limit/cursor params, rows carry

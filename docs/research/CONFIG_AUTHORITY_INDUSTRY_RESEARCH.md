@@ -1,7 +1,7 @@
 # 行业对照研究:桌面代理客户端的「配置权威」与三层模型
 
 > 沉淀自 2026-08-31 派发的 atomcode 三引擎调研(生态 17 源 + 学术/工业命名两轮;知识库留档批次 atomcode config-authority research、atomcode mental-model research v2/v3),落盘于 2026-09-01(architecture-recovery Round 3 · 票 21)。
-> 性质:研究记录(Explanation 象限),不是现状规范——as-built 模型见 docs/architecture/ARCHITECTURE.md 的 Config Authority 一节,设计决策见 docs/adr/。
+> 性质:研究记录(Explanation 象限),不是现状规范——as-built 模型见 docs/architecture/ARCHITECTURE.md 的 Config Authority 一节,设计决策见源码内联注释与 git 历史（ADR 目录已退役）。
 > 引用纪律:除 §8.1 中 S11/S12 两条沿用原调研「搜索摘要核验」标注外,全部链接在落盘当日逐一实抓核验(HTTP 200)。正文引注 [S#] 对应 §8.1, [A#]/[R#] 对应 §8.2。
 
 ## 1. 摘要

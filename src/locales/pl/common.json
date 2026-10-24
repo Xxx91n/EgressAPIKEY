@@ -94,7 +94,7 @@
     "collapseAll": "Zwiń wszystko",
     "delayFilterHint": "Użyj delay>100 lub delay=timeout",
     "egressIps": "IP wyjścia",
-    "egressPolicyNote": "Polityka wyjścia per-region ustalana jest na płótnie Topology: przeciągnij Platformę na region kanału IP, a następnie ustaw Allocation policy na platformie. Zakładka Platforms zawiera silnik strategii (ADR-0022): klasa A wybiera które IP wejdą do platformy, klasa B jak port wybiera IP wyjścia.",
+    "egressPolicyNote": "Polityka wyjścia per-region ustalana jest na płótnie Topology: przeciągnij Platformę na region kanału IP, a następnie ustaw Allocation policy na platformie. Zakładka Platforms zawiera silnik strategii: klasa A wybiera które IP wejdą do platformy, klasa B jak port wybiera IP wyjścia.",
     "empty": "Brak węzłów. Importuj subskrypcję.",
     "expandAll": "Rozwiń wszystko",
     "healthRate": "{{rate}}% sprawnych",

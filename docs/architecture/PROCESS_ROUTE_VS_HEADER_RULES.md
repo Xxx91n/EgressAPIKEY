@@ -33,7 +33,7 @@
 | 动态性 | 低：白盒文件编辑 + `watch_apply` 热载，重启前由文件说了算 | 高：控制面 PUT/DELETE 即时生效（matcher 原子热替换，无重启） |
 | 跨进程 | 备忘可登记任意进程名，但不拦截连接——生效以进程自身代理指向为前提 | 否（仅反向代理数据面感知；`X-Resin-Account` 调试头在转发前被剥离，不会泄漏上游） |
 | 用途 | 本地进程代理（开发 / 调试：让某个 exe 走指定出口） | 远程客户端账号路由（生产：同一 URL 前缀下按请求头把不同账号粘到不同租约） |
-| 文档 | ADR-0055（L2 白盒字段 + 单写入口） | ADR-0063（本页 + RESIN_API_COVERAGE R32-R35） |
+| 文档 | L2 白盒字段 + 单写入口（docs/agents/storage-locations.md） | 本页 + RESIN_API_COVERAGE R32-R35 |
 
 ## When to use which
 
@@ -70,4 +70,4 @@ reports/03 §2 #4 and the issue F3 sketch described the rule headers as
 (`reverse.go` `resolveReverseProxyAccount` phase 3 →
 `extractAccountFromHeaders`), ``X-Resin-Account`` itself wins earlier
 (phase 1) and is stripped before forwarding. This page carries the corrected
-semantics; ADR-0063 records the same.
+semantics.

@@ -4,7 +4,7 @@
 > 本表把同一字段在五层的落位对齐成一行；上游权威为 `resin/DESIGN.md` §「Platform 模型」
 > （L1183-1300，创建与更新的字段要求同节）。基准版本 **v1.2.0**（`docs/RESIN_UPSTREAM_MANIFEST.yaml`）；
 > 端点消费面见 [RESIN_API_COVERAGE.md](../architecture/RESIN_API_COVERAGE.md) #R07/#R08/#R11。
-> 白盒写入口立法 ADR-0036（本表只做映射，不改字段与写路径）；人工维护、不做自动同步（spec §6）。
+> 白盒单写入口纪律（本表只做映射，不改字段与写路径）；人工维护、不做自动同步（spec §6）。
 
 ## 改动分流（先看这里）
 
@@ -81,6 +81,6 @@ Resin 未来版本新增字段时：先在本页全字段表加行（五列填�
 ## 维护规则
 
 1. 任一层新增或改名 platform 字段：同一 commit 更新本表对应行，五列必须全部有内容（无对应物写「无 + 原因」）。
-2. 白盒 `PlatformStrategy` 增删字段属 schema 变更：须新 ADR 立法（ADR-0036 纪律），并同步更新收敛推导故事（ADR-0058）。
+2. 白盒 `PlatformStrategy` 增删字段属 schema 变更：须按白盒单写入口纪律留下明确决策记录，并同步更新收敛推导故事（generation 计数）。
 3. `resin_client.rs` 平台方法注释携带 `@see docs/reference/RESIN_PLATFORM_SCHEMA.md` 锚指向本表（update_platform 注释）。
 4. sidecar 升级：diff `resin/DESIGN.md` §Platform，核对 12 行与核实节，更新页头基准版本号。

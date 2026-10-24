@@ -38,7 +38,7 @@ pub const LEGACY_B_CLASS_TOKENS: [&str; 6] = [
     "protocol_weight",
 ];
 
-/// User-facing strategy ids == Resin's `allocation_policy` enum (CONTEXT.md:
+/// User-facing strategy ids == Resin's `allocation_policy` enum (GLOSSARY.md:
 /// Egress IP Policy). Stable UPPER_SNAKE wire strings: the whitebox `b_class`
 /// field stores the Resin value verbatim, so the snapshot compares desired
 /// against observed with no translation at all.

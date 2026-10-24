@@ -5,36 +5,29 @@ exploring the codebase.
 
 ## Layout: single-context
 
-- `CONTEXT.md` at the repo root — the domain glossary (one entry per term, each
+- `GLOSSARY.md` at the repo root — the domain glossary (one line per term, each
   with an _Avoid_ list of synonyms to not drift to)
-- `docs/adr/` — architectural decision records (`00NN-slug.md`, numbered 0001–0080
-  with gaps — retired records live in git history)
 
-There is no `CONTEXT-MAP.md` and no per-package `docs/adr/`: this repo is
-single-context, and both files above are the only domain-doc sources.
+There is no `CONTEXT-MAP.md`: this repo is single-context and the glossary is
+the only domain-doc source. Architectural decisions live as self-contained
+comments at the code they govern (the ADR directory was retired 2026-10; the
+records survive in git history).
 
 ## Before exploring, read these
 
-- `CONTEXT.md` — always, before writing any prose that names domain concepts
-- `docs/adr/` — the entries touching the area you're about to work in
-
-If one of these is missing, proceed silently; `/domain-modeling` (reached via
-`/grill-with-docs` and `/improve-codebase-architecture`) recreates terms and
-decisions lazily as they resolve.
+- `GLOSSARY.md` — always, before writing any prose that names domain concepts
 
 ## Use the glossary's vocabulary
 
 When your output names a domain concept — an issue title, a refactor proposal, a
-hypothesis, a test name — use the term exactly as defined in `CONTEXT.md`. Don't
-drift to the synonyms the glossary explicitly lists under _Avoid_.
+hypothesis, a test name — use the term exactly as defined in `GLOSSARY.md`.
+Don't drift to the synonyms the glossary explicitly lists under _Avoid_.
 
-If the concept you need isn't in the glossary yet, that's a signal — either you're
-inventing language the project doesn't use (reconsider), or there's a real gap
-(note it for `/domain-modeling`).
+If the concept you need isn't in the glossary yet, that's a signal — either
+you're inventing language the project doesn't use (reconsider), or there's a
+real gap (add the term to `GLOSSARY.md` in the same commit).
 
-## Flag ADR conflicts
+## Flag decision conflicts
 
-If your output contradicts an existing ADR, surface it explicitly rather than
-silently overriding:
-
-> _Contradicts ADR-0036 (策略白盒单一写入口) — but worth reopening because…_
+If your output contradicts a decision inlined in a source comment, surface it
+explicitly rather than silently overriding.

@@ -9,7 +9,7 @@
 English | [简体中文](README_CN.md)
 
 > AI / automation agents: see [llms.txt](llms.txt) for a machine-readable map.
-> Formerly **ai-api-route** — renamed per [ADR-0013](docs/adr/0013-project-rename-egressapikey.md).
+> Formerly **ai-api-route** (renamed 2026).
 
 <p align="center">
   <picture>
@@ -22,11 +22,11 @@ English | [简体中文](README_CN.md)
 
 EgressAPIKEY is a desktop application (Tauri 2 + React 19) that sits between your AI gateway (OmniRoute / LiteLLM / CLIProxy) and upstream OpenAI-compatible v1 providers. It exposes many socks5/http entry ports; each port is the identity of one (platform, account) pair, and a Resin Go sidecar — its binary pulled at build time from the upstream Release by scripts/fetch_resin.sh (resin/ on disk is a gitignored local reference clone, not part of the repo) — guarantees a distinct sticky exit IP per pair — one AI API key never shares an egress IP with another unless you decide it should.
 
-A single unified proxy cannot carry per-key identity for HTTPS upstreams (the CONNECT tunnel hides the destination), so multi-port is the correct identity mechanism ([ADR-0012](docs/adr/0012-route-correction-thin-shell-multi-port.md)). The shell backend core is `crates/resin-core` (Rust: tokio, reqwest, rusqlite); the proxy engine is the Resin sidecar v1.2.0, whose binary is pulled at build time from the upstream Release by [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh) — the `resin/` directory on disk is a gitignored local reference clone — and it is reachable only over a loopback REST seam.
+A single unified proxy cannot carry per-key identity for HTTPS upstreams (the CONNECT tunnel hides the destination), so multi-port is the correct identity mechanism. The shell backend core is `crates/resin-core` (Rust: tokio, reqwest, rusqlite); the proxy engine is the Resin sidecar v1.2.0, whose binary is pulled at build time from the upstream Release by [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh) — the `resin/` directory on disk is a gitignored local reference clone — and it is reachable only over a loopback REST seam.
 
 ## Architecture
 
-Request flow — the data plane runs in two modes ([ADR-0068](docs/adr/0068-data-plane-dual-mode-mixed-protocol.md)); the diagram below shows Mode A:
+Request flow — the data plane runs in two modes; the diagram below shows Mode A:
 
 - **Mode A — shell forwarder** (desktop default): AI gateway → entry port bound by the shell, no client credentials → the forwarder injects the port's `Platform.Account` identity → Resin sidecar → distinct sticky exit IP.
 - **Mode B — engine direct** (headless/VPS default): AI gateway → entry port bound by Resin itself → the client presents the port's `Platform.Account` proxy credential once → sticky exit IP.
@@ -66,7 +66,7 @@ graph LR
 
 **Desktop** — installers (MSI / NSIS / deb / AppImage / dmg) and one portable, drop-and-run executable per OS are published on the [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) page. macOS is arm64 (Apple Silicon) first-class; x86_64 is opt-in best-effort until 2027-08 (macOS 15+ Intel only, via the `include_intel_mac` dispatch input). No tagged release yet — artifacts ship with the first tagged release.
 
-**Headless server** — the same control surface (Platforms, Subscriptions, Nodes, Topology) served in any browser at `http://127.0.0.1:14200`, for Linux servers, Docker, or a remote VPS. The admin bearer token is injected server-side; the browser never sees it. Headless runs data-plane **Mode B**: the Resin engine binds each entry port, and clients present the port's `Platform.Account` proxy credential once (username `Platform.Account`, password = the proxy token). One upstream caveat: plain-HTTP forward-form requests on a Mode B port are buffered by the engine — CONNECT-tunnelled HTTPS traffic, the actual AI API path, streams normally ([ADR-0068](docs/adr/0068-data-plane-dual-mode-mixed-protocol.md)). The `@egressapikey/server` npm launcher is **not published to npm** — run from source:
+**Headless server** — the same control surface (Platforms, Subscriptions, Nodes, Topology) served in any browser at `http://127.0.0.1:14200`, for Linux servers, Docker, or a remote VPS. The admin bearer token is injected server-side; the browser never sees it. Headless runs data-plane **Mode B**: the Resin engine binds each entry port, and clients present the port's `Platform.Account` proxy credential once (username `Platform.Account`, password = the proxy token). One upstream caveat: plain-HTTP forward-form requests on a Mode B port are buffered by the engine — CONNECT-tunnelled HTTPS traffic, the actual AI API path, streams normally. The `@egressapikey/server` npm launcher is **not published to npm** — run from source:
 
 ```bash
 git clone https://github.com/Xxx91n/EgressAPIKEY.git
@@ -119,7 +119,6 @@ pnpm tauri dev
 | [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) | Layers, data flow, config authority (L1/L2/L3), tech stack |
 | [docs/architecture/UPSTREAM.md](docs/architecture/UPSTREAM.md) | Upstream Resin integration router: API coverage, version manifest, third-party obligations |
 | [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | Per-release notes with compatibility declarations and upgrade notes |
-| [docs/adr/](docs/adr/) | Architectural decision records (numbered; retired records live in git history) |
 | [docs/how-to/HEADLESS_DEPLOYMENT.md](docs/how-to/HEADLESS_DEPLOYMENT.md) | Headless server deployment (systemd, Docker, TLS) |
 | [docs/how-to/HEADLESS_RUNBOOK.md](docs/how-to/HEADLESS_RUNBOOK.md) | Headless operations (logs, health, shutdown, troubleshooting) |
 | [docs/how-to/RELEASE.md](docs/how-to/RELEASE.md) | Release pipeline: CI matrix, artifact groups |
@@ -134,7 +133,7 @@ Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.
 
 ## Third-party notices
 
-The Resin Go sidecar (v1.2.0, its binary pulled at build time from the upstream Release by [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh), upstream [github.com/Resinat/Resin](https://github.com/Resinat/Resin)) carries a two-layer license value: **declared MIT** (per its own `LICENSE`) while its compiled dependency tree conveys **GPL-3.0-or-later** obligations via `github.com/sagernet/sing-box v1.12.21` (pinned in `resin/go.mod`). The shell and the sidecar are separate processes interacting only over a loopback REST seam (mere aggregation). Full registry with citations: [THIRD_PARTY.md](THIRD_PARTY.md) · decision record: [ADR-0067](docs/adr/0067-license-layering-provenance.md) · complete license text: [LICENSE](LICENSE).
+The Resin Go sidecar (v1.2.0, its binary pulled at build time from the upstream Release by [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh), upstream [github.com/Resinat/Resin](https://github.com/Resinat/Resin)) carries a two-layer license value: **declared MIT** (per its own `LICENSE`) while its compiled dependency tree conveys **GPL-3.0-or-later** obligations via `github.com/sagernet/sing-box v1.12.21` (pinned in `resin/go.mod`). The shell and the sidecar are separate processes interacting only over a loopback REST seam (mere aggregation). Full registry with citations: [THIRD_PARTY.md](THIRD_PARTY.md) · complete license text: [LICENSE](LICENSE).
 
 ## License
 

@@ -24,8 +24,9 @@
 //! - whitebox_config: egressapikey-ports.json whitebox store (ADR-0036)
 //!
 //! The former in-Rust gateway face (lane/lease/tdewma/gateway/mihomo modules,
-//! CoreConfig, sanitize_lanes, and the resin-core stub bin) was deleted per
-//! ADR-0050; that ADR records the reference evidence.
+//! CoreConfig, sanitize_lanes, and the resin-core stub bin) was deleted when
+//! the resin-core public surface shrank to the shell-used set; the reference
+//! evidence lives in git history.
 
 pub mod audit;
 pub mod backup;

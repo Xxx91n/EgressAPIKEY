@@ -94,7 +94,7 @@
     "collapseAll": "Comprimi tutto",
     "delayFilterHint": "Usa delay>100 o delay=timeout",
     "egressIps": "IP di uscita",
-    "egressPolicyNote": "La policy di egress per region si imposta sul canvas Topology: trascina una Piattaforma su una regione canale IP poi imposta Allocation policy sulla piattaforma. La scheda Platforms ospita il motore di strategie (ADR-0022): la classe A seleziona quali IP entrano in una piattaforma, la classe B come la porta sceglie l'IP di uscita.",
+    "egressPolicyNote": "La policy di egress per region si imposta sul canvas Topology: trascina una Piattaforma su una regione canale IP poi imposta Allocation policy sulla piattaforma. La scheda Platforms ospita il motore di strategie: la classe A seleziona quali IP entrano in una piattaforma, la classe B come la porta sceglie l'IP di uscita.",
     "empty": "Nessun nodo. Importa un abbonamento.",
     "expandAll": "Espandi tutto",
     "healthRate": "{{rate}}% sani",

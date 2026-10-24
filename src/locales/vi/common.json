@@ -94,7 +94,7 @@
     "collapseAll": "Thu tất cả",
     "delayFilterHint": "Dùng delay>100 hoặc delay=timeout",
     "egressIps": "IP đầu ra",
-    "egressPolicyNote": "Chính sách egress theo vùng được đặt trên canvas Topology: kéo một Platform vào vùng kênh IP rồi đặt Allocation policy trên platform. Tab Platforms chứa engine chiến lược (ADR-0022): lớp A chọn IP nào vào platform, lớp B cách port chọn IP ra.",
+    "egressPolicyNote": "Chính sách egress theo vùng được đặt trên canvas Topology: kéo một Platform vào vùng kênh IP rồi đặt Allocation policy trên platform. Tab Platforms chứa engine chiến lược: lớp A chọn IP nào vào platform, lớp B cách port chọn IP ra.",
     "empty": "Không có nút. Nhập gói đăng ký trước.",
     "expandAll": "Mở tất cả",
     "healthRate": "{{rate}}% khỏe mạnh",

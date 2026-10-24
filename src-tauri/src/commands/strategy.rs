@@ -258,7 +258,7 @@ pub(crate) fn strategy_service(
 }
 
 /// the authoritative effective-config
-/// snapshot (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config
+/// snapshot (GLOSSARY.md: Authoritative Snapshot; ARCHITECTURE.md §Config
 /// Authority). ONE call reads the three configuration sources and merges them
 /// at the single sanctioned merge point in resin-core:
 ///   L2 whitebox strategy intent  <- egressapikey-strategy.json

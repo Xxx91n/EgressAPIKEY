@@ -75,7 +75,7 @@ pub fn sidecar_status_of(sidecar: &SidecarHandle) -> SidecarStatus {
 /// The previous implementation scanned Resin's private request_logs*.db files
 /// (temp-copy + read-only rusqlite query) — that bypassed the ResinClient REST
 /// seam; Resin v1.2.0 (docs/RESIN_UPSTREAM_MANIFEST.yaml) exposes the official
-/// /api/v1/request-logs endpoint (ADR-0005 Q6: probe-before-code satisfied),
+/// /api/v1/request-logs endpoint (probe-before-code rule satisfied),
 /// so the shell no longer touches Resin's state dir.
 /// Response shape from Resin v1.2.0 (verified in the bundled sidecar binary):
 /// {"items":[{ts_ns, platform_name, account, target_host, egress_ip,
@@ -349,7 +349,7 @@ pub async fn probe_exit_ip_impl(
     let proto = protocol.to_ascii_lowercase();
     // the closed three-value set. A `mixed` port
     // probes through the SOCKS5 dialect - a dual-flag listener accepts it,
-    // which is what the ADR-0068 D4 gate observed live against Resin.
+    // which is what the live contract gate observed against Resin.
     if !resin_core::entry_protocol::is_valid_protocol(&proto) {
         return Err(IpcError::internal("error.invalidProtocol"));
     }

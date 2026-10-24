@@ -42,13 +42,12 @@ The index lives at `.codegraph/` (gitignored). Before reading files for "how doe
 | File | Purpose |
 |---|---|
 | `architecture-state.md` | Runtime wiring, sidecar lifecycle, ResinClient, IPC retarget, CI pipeline |
-| `issue-tracker.md` | Issue tracker declaration: local markdown under `.scratch/`, switch path to GitHub Issues |
-| `domain.md` | Domain doc layout (`CONTEXT.md` + `docs/adr/`) and consumer rules |
+| `issue-tracker.md` | Issue tracker declaration: GitHub Issues |
+| `domain.md` | Domain doc layout (`GLOSSARY.md`) and consumer rules |
 | `triage-labels.md` | Triage label vocabulary: five default state roles |
 | `trigger-line-register.md` | Live register of armed/parked trigger lines + write-back history |
 | `evidence/` | Frozen evidence bundles cited by register rows |
 | `storage-locations.md` | L1/L2/L3 config layers, key inventory, write paths |
-| `ipc-manifest.md` | Machine-checked IPC command manifest (regenerated — do not hand-edit) |
 | `community-files.md` | CONTRIBUTING / ISSUE_TEMPLATE / PR_TEMPLATE / SECURITY / CODE_OF_CONDUCT inventory |
 | `round12-wave-l-next-round.md` | Live committed watch taskbook |
 
@@ -56,9 +55,9 @@ The index lives at `.codegraph/` (gitignored). Before reading files for "how doe
 
 ## Legacy AGENTS.md section pointers
 
-Older docs (ADRs, CONTEXT.md) cite former AGENTS.md section numbers — the file
+Older docs cite former AGENTS.md section numbers — the file
 was slimmed on 2026-10-15. Map: `§7.5` / `§7.6` (IPC validation, SSRF, manifest)
-→ `CONTRIBUTING.md` "IPC & security contracts" + `ipc-manifest.md`;
+→ `CONTRIBUTING.md` "IPC & security contracts";
 `§Storage locations` → `storage-locations.md`; `§11` license → `CONTRIBUTING.md`
 license discipline + `THIRD_PARTY.md`; all other `§N` → git history of
 `AGENTS.md` (pre-2026-10-15).

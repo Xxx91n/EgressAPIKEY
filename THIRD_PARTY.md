@@ -3,7 +3,8 @@
 This file is the registry of third-party components that ship inside
 EgressAPIKEY's distributable artifacts, and the license obligations each one
 carries. It exists so that any evaluator or redistributor can verify in one
-place **who owns what and what the obligations are** (spec: ADR-0067 D2).
+place **who owns what and what the obligations are** (the repo-wide
+license-layering decision: one root LICENSE, two-layer records per component).
 
 Two layers are recorded per component and they are not the same thing:
 
@@ -14,12 +15,12 @@ Two layers are recorded per component and they are not the same thing:
 
 The repository-wide declaration is [`LICENSE`](LICENSE)
 (GPL-3.0-or-later, verbatim official text from
-<https://www.gnu.org/licenses/gpl-3.0.txt>). The layering decision and the
-mere-aggregation boundary are legislated in
-[ADR-0067](docs/adr/0067-license-layering-provenance.md); the version-pinning
-discipline that forces a re-scan of this file on every upstream bump is
-[ADR-0017](docs/adr/0017-upstream-resin-version-manifest.md) + its 2026-09-05
-dependency-tree-scan amendment.
+<https://www.gnu.org/licenses/gpl-3.0.txt>). The layering decision (repo-wide
+GPL-3.0-or-later; shell ↔ sidecar mere aggregation over the loopback REST
+seam) and the version-pinning discipline (every upstream bump re-verifies
+this file against upstream originals at the exact tag — dependency-tree
+license scan included since 2026-09-05) are repo policy, maintained in this
+file.
 
 ## Registry
 
@@ -82,9 +83,9 @@ With the sidecar binary carrying GPL obligations, a repo-wide
 GPL-3.0-or-later declaration is the only self-consistent value: MIT is
 one-way compatible into GPL-3.0, and the shell (`src-tauri/`, `crates/resin-core/`,
 `src/`) is an independent work that shares no code with the sidecar — the two
-interact exclusively over a loopback REST seam (`ResinClient`, ADR-0067 D3),
+interact exclusively over a loopback REST seam (`ResinClient`),
 which is mere aggregation, not a derivative work. Details and rejected
-alternatives: ADR-0067 D1.
+alternatives live in git history (the decision record is retired).
 
 ### Redistribution obligations per artifact
 
@@ -94,18 +95,18 @@ alternatives: ADR-0067 D1.
   binary (layer 2 above); Resin's own source remains MIT (layer 1).
 - **Release bundle overall** (`release/`): an aggregate of independent works
   distributed side by side — each part keeps its own terms; nothing is merged
-  or in-process linked (mere-aggregation invariant, ADR-0067 D3).
+  or in-process linked (mere-aggregation invariant).
 
 ## Maintenance rules
 
 - Any `docs/RESIN_UPSTREAM_MANIFEST.yaml` version bump MUST re-verify this
   entry against upstream originals at the new tag (go.mod + LICENSE at the
-  exact tag URL) and update this file in the same commit (ADR-0017 amendment,
-  2026-09-05).
+  exact tag URL) and update this file in the same commit (version-pin
+  discipline since 2026-09-05).
 - Evidence means quoted upstream originals with links — never from memory.
 - New vendored or bundled third-party components get their own registry row
   (and a section if their layering is non-trivial) in the same commit that
   introduces them.
 - Field consistency between `README.md`, root `Cargo.toml` and `package.json`
-  is machine-checked by `scripts/license-field-check.cjs` (mounting owned by
-  the CI-gate ticket; ADR-0067 D4).
+  is machine-checked by `scripts/license-field-check.cjs` (mounted as a
+  `scripts/verify-build.sh` step).

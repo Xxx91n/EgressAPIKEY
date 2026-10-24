@@ -14,7 +14,7 @@
 //!    browser request). Mutating routes that the SPA addresses by
 //!    business `name` (DELETE/PATCH on `/platforms` and `/subscriptions`)
 //!    are translated here to Resin's `/{id}` path-param form BEFORE the
-//!    upstream call (industrial BFF pattern; see ADR-0043). This mirrors the
+//!    upstream call (industrial BFF pattern). This mirrors the
 //!    list+match resolution the Tauri Rust IPC commands (platform_remove,
 //!    platform_update, subscription_remove) already perform, so the two
 //!    modes stay behaviour-equivalent and TOCTOU-free (resolve + mutate in
@@ -710,8 +710,8 @@ fn proxy_client() -> Result<&'static reqwest::Client, reqwest::Error> {
 ///   1) the frontend contract is name-based in BOTH modes (matches Tauri);
 ///   2) resolve + mutate are atomic in one process (no client-side TOCTOU);
 ///   3) the browser never needs to hold Resin UUIDs.
-/// See ADR-0043 for the
-/// industry-template lineage (Kong request-transformer / LiteLLM pattern).
+/// Industry-template lineage: Kong request-transformer / LiteLLM pattern
+/// (the headless server is a separate required-features-gated bin).
 async fn proxy_to_resin(
     method: Method,
     orig_uri: axum::http::Uri,

@@ -5,15 +5,14 @@
  * mode-a-contract-check.cjs - ADR-0068 D4 four-scenario contract gate, live
  * black-box against the real Resin sidecar binary.
  *
- * Evidence lineage: the original Mode A landing data-plane Mode A with the
- * byte-level D4 gate table verified live against the bundled Resin binary
- * (.scratch/-closed-2026-09-16/repro/{d4-mixed,t17-contract}).
+ * Evidence lineage: the original Mode A landing verified the byte-level
+ * four-scenario gate table live against the bundled Resin binary.
  * This script re-establishes the same evidence on every CI run so a Resin
  * upgrade that silently changes the engine contract fails the build instead
  * of surfacing as a user-visible regression. Hand recipe + baseline table:
  * tests/fixtures/t17-contract/README.md.
  *
- * Scenarios (per docs/adr/0068 D4, verified on custom endpoints):
+ * Scenarios (the dialect contract gate, verified on custom endpoints):
  *   mixed  (allow_socks5 + allow_http_forward):
  *            HTTP CONNECT    -> HTTP/1.1 503 + X-Resin-Error: NO_AVAILABLE_NODES
  *            SOCKS5 greeting -> 05 00 (method accepted)

@@ -21,20 +21,20 @@ import { translateError } from "../lib/i18n-error";
 import { HeadlessCapabilityNotice, commandBlocked } from "../components/HeadlessCapabilityNotice";
 
 // one-level "effective config" view
-// (CONTEXT.md: Authoritative Snapshot; spec Implementation Decision 1/7).
+// (GLOSSARY.md: Authoritative Snapshot; spec Implementation Decision 1/7).
 // Consumer of the authoritative_snapshot IPC (ADR-0051): renders the
 // pre-merged desired|live comparison per platform/port with the three-state
 // badge (consistent / divergent / missingOnResin), a grey "known"
-// degradation for acknowledged entities (ADR-0054 D: exemptions never enter
+// degradation for acknowledged entities (exemptions never enter
 // the three-state merge), divergentSince per entry and lastCheckedAt on top.
-// (ADR-0054 §A): the "sync to desired state" action — click opens
+// The "sync to desired state" action — click opens
 // the PREVIEW dialog computed from the snapshot already in memory (zero
 // extra requests); confirm runs the serial reconcile_now (strategy apply ->
-// ports restore, fail-fast, IpcError per ADR-0045) and auto re-verifies by
+// ports restore, fail-fast, typed IpcError contract) and auto re-verifies by
 // re-pulling the snapshot; cancel closes with zero side effects; the button
 // is disabled while a reconcile is in flight (no re-entry). ONE-WAY: the
 // whitebox always wins; there is no "accept current state" button.
-// (ADR-0054 §B) adds the versioned-whitebox history + rollback.
+// The versioned-whitebox history + rollback rides the same write entry.
 
 const badgeBase =
   "ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium";

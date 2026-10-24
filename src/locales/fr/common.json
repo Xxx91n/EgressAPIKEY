@@ -94,7 +94,7 @@
     "collapseAll": "Tout replier",
     "delayFilterHint": "Utilisez delay>100 ou delay=timeout",
     "egressIps": "IPs de sortie",
-    "egressPolicyNote": "La politique d'egress par région se règle sur le canevas Topologie : glissez une Plateforme sur une région de canal IP puis définissez Allocation policy dessus. L'onglet Platforms contient le moteur de stratégies (ADR-0022) : la classe A sélectionne les IP entrant dans une plateforme, la classe B la méthode de choix de l'IP de sortie.",
+    "egressPolicyNote": "La politique d'egress par région se règle sur le canevas Topologie : glissez une Plateforme sur une région de canal IP puis définissez Allocation policy dessus. L'onglet Platforms contient le moteur de stratégies : la classe A sélectionne les IP entrant dans une plateforme, la classe B la méthode de choix de l'IP de sortie.",
     "empty": "Aucun nœud. Importez un abonnement d'abord.",
     "expandAll": "Tout déplier",
     "healthRate": "{{rate}}% sains",

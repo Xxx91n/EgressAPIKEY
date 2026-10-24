@@ -1,7 +1,8 @@
 # t17 contract - data-plane Mode A byte-level baseline
 
-Authoritative sources: ADR-0068 D4 (four-scenario gate table) and round8
-ticket 17 (A-001, "credential is identity"). The automated gate living in
+Authoritative sources: the four-scenario gate table verified live against
+Resin v1.2.0, plus round8 ticket 17 (A-001, "credential is identity"). The
+automated gate living in
 `scripts/mode-a-contract-check.cjs` re-establishes everything below on every
 CI run; this document records the hand recipe and the byte-level baseline so
 a failing gate can be reproduced and diagnosed without archaeology.

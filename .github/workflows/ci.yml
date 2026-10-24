@@ -1,6 +1,6 @@
 name: ci
 
-# Dual trigger (ADR-0010 + its 2026-09-14 revision note).
+# Dual trigger (release strategy: verify automatic on push/PR, release jobs manual-dispatch).
 #   push / pull_request -> ONLY the `verify` job runs: cargo test + frontend build
 #     (tsc + vite) + vitest + every guard script (scripts/verify-build.sh) + the
 #     line-ending guard. This is the push->verify gate: no green verify, no merge.
@@ -24,7 +24,7 @@ on:
         description: 'Git tag for the release (e.g. v0.1.0). The user runs: git tag <tag> && git push origin <tag> first, then triggers this workflow with the same tag.'
         required: true
         type: string
-      # R12-E2 (ADR-0010 revision): macOS x86_64 demoted to opt-in best-effort
+      # macOS x86_64 demoted to opt-in best-effort (release-strategy revision)
       # - macos-13 was retired wholesale (2025-12-04/08) so the legs moved to
       # macos-15-intel, the last Intel image (retires 2027-08). Default off:
       # non-Intel legs always build; Intel legs need this input on.
@@ -44,8 +44,8 @@ jobs:
  # 1. push->verify gate: the ONLY job that runs on push
   #    and pull_request. cargo test + frontend build (tsc + vite) + vitest + every
   #    guard script + the line-ending guard. Guard scripts are enumerated in
-  #    scripts/verify-build.sh (i18n x18 / ipc-manifest / vitest-isolation /
-  #    license-field / readme-lang / upstream-router / mode-a-contract).
+  #    scripts/verify-build.sh (i18n x18 / vitest-isolation /
+  #    license-field / mode-a-contract).
   verify:
     name: 'verify (push->verify gate: build + test + i18n + guards)'
     runs-on: ubuntu-latest
@@ -82,7 +82,7 @@ jobs:
   #     as a REQUIRED check on the release path - gate-at-release here, while
   #     the periodic signal lives in bench.yml's macos-latest leg
   #     (signal-at-main). Dispatch-only: NEVER on push (~10x runner cost +
-  #     flake surface would press the only merge gate - ADR-0072 noise
+  #     flake surface would press the only merge gate - CI-only-delivery noise
   #     discipline). A first macOS-unique failure fires the armed register
   #     row (promotion-to-gating adjudication).
   macos-test:
@@ -140,7 +140,7 @@ jobs:
   backend:
     name: backend headless (${{ matrix.name }})
     needs: [verify, macos-test]
-    # Release-track job: manual dispatch only (ADR-0010 Track 2).
+    # Release-track job: manual dispatch only (release strategy Track 2).
     if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
@@ -282,7 +282,7 @@ jobs:
   gui:
     name: gui installer (${{ matrix.name }})
     needs: [verify, macos-test]
-    # Release-track job: manual dispatch only (ADR-0010 Track 2).
+    # Release-track job: manual dispatch only (release strategy Track 2).
     if: github.event_name == 'workflow_dispatch'
     # tauri-action creates the draft GitHub release + uploads installer
     # assets (releaseName/tagName below) — the default token is read-only.
@@ -451,7 +451,7 @@ jobs:
   gui-portable:
     name: gui portable (${{ matrix.name }})
     needs: [verify, macos-test]
-    # Release-track job: manual dispatch only (ADR-0010 Track 2).
+    # Release-track job: manual dispatch only (release strategy Track 2).
     if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false

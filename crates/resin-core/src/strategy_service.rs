@@ -1,7 +1,7 @@
 //! StrategyService — the ONE deep module owning the strategyConfig pipeline
 //! (ADR-0052).
 //!
-//! Vocabulary (see ADR-0052 for the full three-vocabulary map):
+//! Vocabulary (the three-vocabulary map owned by this module family):
 //! - `strategy.rs` owns the B-class type (`StrategyId` 6 shell options) —
 //! the UI-facing strategy vocabulary (catalog/mapping face deleted).
 //! - `strategy_engine.rs` owns the A-class planner (`StrategyConfig`,

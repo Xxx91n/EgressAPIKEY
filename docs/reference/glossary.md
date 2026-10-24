@@ -1,13 +1,13 @@
 # EgressAPIKEY Glossary
 
-> **Superseded by [CONTEXT.md](../CONTEXT.md)** — kept here as the original term-history record; new terms are added to CONTEXT.md directly per ADR-0013.
+> **Superseded by [GLOSSARY.md](../../GLOSSARY.md)** — kept here as the original term-history record; new terms are added to GLOSSARY.md directly.
 >
 > **Stale-reference warning**: this file is a historical record — entries
 > may reference symbols or behaviors deleted since they were written
 > (e.g. the platform_snapshot IPC, route_id/lane.rs, the A4-3 interceptor
-> header injection; see ADR-0014 / ADR-0015 / ADR-0050 and
+> header injection; see the retired decision records in git history and
 > architecture-recovery ticket 23). Never treat such a reference as
-> current; CONTEXT.md and docs/adr/ are the as-built truth.
+> current; GLOSSARY.md is the as-built truth.
 >
 > Domain terms used across ADRs, AGENTS.md, and docs/. Maintained by the
 > grill-with-docs / domain-modeling workflow. Add a term when an ADR or
@@ -33,7 +33,7 @@ ADR-0006 (retired 2026-10-15) item 3 requires this for the A4-3 interceptor.
 
 > **Stale reference (historical)**: the `platform_snapshot` IPC mentioned
 > below was deleted (architecture-recovery ticket 23). This entry is kept
-> as term history only; current truth lives in CONTEXT.md.
+> as term history only; current truth lives in GLOSSARY.md.
 
 Resin admin endpoint: GET /api/v1/platforms/{id}/routable-view. Returns the
 list of nodes a platform can actually route to (after region_filters + node
@@ -59,7 +59,7 @@ egress IP per unique (api key + upstream endpoint) pair. ADR-0003.
 > below was deleted by ADR-0014, and ADR-0015 confirmed the thin-shell
 > forwarder — the shell no longer injects this header per (key, model);
 > port identity reaches Resin via the port→(platform, account) mapping
-> (see CONTEXT.md「Entry Port Mapping」).
+> (see GLOSSARY.md「Entry Port Mapping」).
 
 HTTP header Resin uses as the highest-priority account identity source
 (source priority: X-Resin-Account > URL identity segment > fixed_header).

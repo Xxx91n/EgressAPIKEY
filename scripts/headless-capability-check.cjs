@@ -39,7 +39,7 @@ function listRsFiles(dir) {
   return out;
 }
 
-// Same extraction discipline as scripts/ipc-manifest-check.cjs.
+// Same comment-stripped extraction discipline as the retired ipc-manifest-check.
 function extractCommandNames(src) {
   const names = [];
   let pending = false;

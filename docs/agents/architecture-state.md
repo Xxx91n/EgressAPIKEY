@@ -1,9 +1,8 @@
 # Architecture State — Agent Instruction Layer
 
 > Purpose: runtime wiring state, sidecar lifecycle, ResinClient, IPC retarget, G4 signal channel (sidecar-status event subscription, no HTTP webhook), CI release pipeline.
-> Extracted from AGENTS.md to keep root file under 32 KiB (progressive disclosure).
 > This file is read by agents when they need architecture implementation details.
-> Source: AGENTS.md ### sections 11-17, content unchanged (extraction only).
+> ADR-XXXX citations below are historical attribution (records retired 2026-10); the decision content is inline and the records live in git history.
 
 ---
 

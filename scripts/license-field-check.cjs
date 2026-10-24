@@ -1,5 +1,5 @@
 // license-field-check.cjs - license field consistency guard
-// ADR-0067 D4.
+// (repo-wide GPL-3.0-or-later layering decision).
 //
 // Keeps the three declared license fields equal to the repo-wide value:
 //   1. package.json "license"

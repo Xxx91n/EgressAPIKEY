@@ -3,7 +3,7 @@
 //! Pure logic for the user-facing backup archive. It owns four things and
 //! nothing else:
 //!
-//! 1. **The member whitelist.** CONTEXT.md "Backup Scope" legislates a
+//! 1. **The member whitelist.** GLOSSARY.md "Backup Scope" legislates a
 //!    three-class ledger (config layer / L3-derived / never-in-a-backup).
 //!    `classify_member` turns a package path into that class and
 //!    `restore_action` turns the class into what restore is allowed to do
@@ -75,7 +75,7 @@ pub const REQUEST_LOG_PREFIX: &str = "request_logs";
 // Member classification
 // ---------------------------------------------------------------------------
 
-/// The three-class ledger of CONTEXT.md "Backup Scope".
+/// The three-class ledger of GLOSSARY.md "Backup Scope".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackupClass {
     /// Configuration layer: the whitebox documents, their version history,
@@ -101,7 +101,7 @@ pub enum RestoreAction {
 }
 
 /// True when a package member must never be produced or accepted: the Resin
-/// request-log DBs (CONTEXT.md "Backup Scope" class c). Matched on the file
+/// request-log DBs (GLOSSARY.md "Backup Scope" class c). Matched on the file
 /// name so any directory form is caught.
 pub fn is_forbidden_member(path: &str) -> bool {
     let base = path.rsplit('/').next().unwrap_or(path).to_ascii_lowercase();

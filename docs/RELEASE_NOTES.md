@@ -3,10 +3,9 @@
 Per-release notes for people who download and run EgressAPIKEY. The exhaustive
 per-commit record lives in [CHANGELOG.md](CHANGELOG.md) (Keep a Changelog
 format); this page adds what that format does not carry: compatibility
-declarations and upgrade notes. `scripts/upstream-router-check.cjs`
-machine-checks the alignment: every release section here must exist in the
-CHANGELOG with the same version and date, and every CHANGELOG version must
-have a section here.
+declarations and upgrade notes. Keep the alignment by hand: every release
+section here must exist in the CHANGELOG with the same version and date, and
+every CHANGELOG version must have a section here.
 
 ## Unreleased
 
@@ -110,8 +109,7 @@ sticky exit-IP routing for AI API keys, with a topology canvas.
 - **License**: the shell is GPL-3.0-or-later; the vendored Resin Go sidecar
   v1.2.0 carries a two-layer license value — declared MIT, dependency-tree
   GPL-3.0-or-later via sing-box. Redistribution obligations:
-  [THIRD_PARTY.md](THIRD_PARTY.md), decision record
-  [ADR-0067](adr/0067-license-layering-provenance.md).
+  [THIRD_PARTY.md](THIRD_PARTY.md).
 - **Platforms**: Windows (MSI + NSIS installer + portable exe), macOS (arm64
   and x86_64 dmg), Linux (deb + AppImage), plus a per-OS headless backend
   package; produced by the CI release matrix

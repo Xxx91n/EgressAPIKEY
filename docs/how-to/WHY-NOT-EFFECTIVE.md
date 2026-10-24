@@ -4,7 +4,7 @@
 > Config view (sidebar entry 生效配置 / Effective Config). Every scenario
 > below ends with "open that view and press 立即复验 (re-check)" — the
 > three-state badges there are the fact, this table is the interpretation.
-> Contract: ADR-0054 (reconciliation loop) + ADR-0051 (snapshot semantics).
+> Contract: the one-way reconciliation loop + the authoritative snapshot (see `docs/architecture/ARCHITECTURE.md`).
 
 ## 快速路径
 
@@ -36,7 +36,7 @@ region 编辑 /「同步到期望态」)。只改文件不 apply,L3 不会自己
   平台,确认后执行 strategy_apply 并自动复验(单向:白盒必胜)。
 - 或者继续用画布的拖拽编辑(它内部走同一个 apply 入口)。
 
-**如果 apply 后仍 divergent**:看错误提示(ADR-0045 类型化错误);常见是
+**如果 apply 后仍 divergent**:看错误提示（类型化 IpcError）;常见是
 sidecar 未运行——先到诊断页确认 sidecar 状态再重试。
 
 ## 场景 2:改了 ports 没生效
@@ -78,7 +78,7 @@ apply/reconcile。
 **症状**:系统通知「检测到配置漂移」出现过一次,之后明明还在漂移却不再
 弹。
 
-**原因(设计行为,ADR-0054 §E)**:托盘通知是**每进程一次**的状态机:
+**原因（设计行为：漂移通知状态机）**:托盘通知是**每进程一次**的状态机:
 
 - 首次出现「未豁免漂移」时弹一次,同进程内不重复弹(不打循环)。
 - 归零后重新武装:当一次快照显示**零条未豁免漂移**时,状态机重新武装,
@@ -96,7 +96,7 @@ apply/reconcile。
 **症状**:在「进程路由」页添加了 `xxx.exe → :17990`,但该进程的流量并未经由
 所选出口;Effective Config 里路由条目照常显示 一致 consistent。
 
-**原因(设计行为,ADR-0055 D3)**:进程路由是**带漂移告警的声明式备忘**,不是
+**原因（设计行为）**:进程路由是**带漂移告警的声明式备忘**,不是
 流量拦截器——规则只记录「进程名 → 入口端口」的意图并核对目标端口的存活度,
 壳层不会自动接管该进程的连接。Resin 没有进程组 API,一条路由的存活度 = 它
 指向的入口端口的存活度(端口有监听器即 consistent)。
@@ -114,8 +114,8 @@ process-group echo 注释),届时把数据源从端口监听器回显换成进�
 
 ## 相关文档
 
-- 生效配置视图契约:ADR-0051(authoritative snapshot)
-- 调和闭环(单向 reconcile / 版本化 / 通知一次):ADR-0054
+- 生效配置视图契约:authoritative snapshot（见 `docs/architecture/ARCHITECTURE.md`）
+- 调和闭环（单向 reconcile / 版本化 / 通知一次）:见 `docs/architecture/ARCHITECTURE.md`
 - 配置权威三层模型:`docs/architecture/ARCHITECTURE.md` § Config Authority
 - 白盒回滚:生效配置视图内的历史区(每次写入自动备份,保留最近 10 份)
 - 进程路由 vs 账号头规则:`docs/architecture/PROCESS_ROUTE_VS_HEADER_RULES.md`

@@ -1,7 +1,7 @@
 //! Authoritative effective-config snapshot.
 //!
 //! The read-back answer to "is my configuration actually in effect"
-//! (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config Authority):
+//! (GLOSSARY.md: Authoritative Snapshot; ARCHITECTURE.md §Config Authority):
 //! merge the L2 whitebox strategy config against the L3 Resin runtime and
 //! report per platform whether the two layers AGREE, DISAGREE (both values
 //! surfaced, never silently reconciled) or one side is MISSING. This module
@@ -13,7 +13,7 @@
 //!
 //! will move the strategy read/apply pipeline into a
 //! StrategyService; this module keeps the merge in resin-core so that move
-//! stays a pure relocation (AGENTS.md ADR-0036 write entry unchanged).
+//! stays a pure relocation (the strategy-whitebox single-write-entry rule is unchanged).
 
 use crate::strategy_engine::{
     CascadeError, EstablishStep, PlatformStrategy, StrategyConfig, SubscriptionPhase,

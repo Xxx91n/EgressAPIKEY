@@ -40,7 +40,7 @@ providers (IPQualityScore fraud score, AbuseIPDB abuse confidence; keys in L1
 `settings.json`) because the decision input is egress-IP trust, not geography.
 Resin's built-in GeoIP endpoints (`/api/v1/geoip/*`, rows R40-R43 in
 [RESIN_API_COVERAGE.md](RESIN_API_COVERAGE.md)) return region strings only and
-are deliberately unwired — selection rationale in ADR-0065.
+are deliberately unwired — the decision input is egress-IP reputation (fraud score / abuse confidence), not geography, so third-party providers were selected over Resin's region-only GeoIP.
 
 ### Config Authority (配置权威)
 
@@ -98,8 +98,8 @@ Known exception, read-only: `backup_create`
 from the Resin state dir, but only to package them into the user-facing zip
 export — it never writes them, and consistency during the backup is guarded
 by the Resin sidecar's own mutex (the shell only reads; the L3 REST-seam
-write rule is untouched). This exception is legislated by ADR-0050-bis and
-is the complete read-exception list: `request_logs*.db` stay outside it and
+write rule is untouched). This is the single declared read-only exception and
+the complete read-exception list: `request_logs*.db` stay outside it and
 never enter backups (leak prevention — CONTRIBUTING.md IPC & security contracts).
 
 `config_export` / `config_import` (ADR-0061) are whitebox-source, not Resin:
@@ -120,8 +120,8 @@ Two distinct write pipelines live behind L2 (verified in code;
 
 - Strategy: GUI or JSON edit → `strategy_config_put` (validate, write
   `egressapikey-strategy.json`) → `strategy_apply` (compute plan, create
-  missing-on-resin platforms per ADR-0056, PATCH Resin `region_filters`
-  only where the live row actually drifts — diff-then-skip per ADR-0057;
+  missing-on-resin platforms, PATCH Resin `region_filters`
+  only where the live row actually drifts — diff-then-skip, only drifting axes are sent;
   never deletes whitebox entries). Landed: ticket 10 converged
   read/validate/apply/read-back into the one StrategyService module
   (`crates/resin-core/src/strategy_service.rs`, ADR-0052; ADR-0036 stays in
@@ -219,7 +219,7 @@ never automatic:
    per file) and the listed backups roll back through the SAME
    validate-before-swap -> apply chain — never a bypass.
 
-**Tray notification** (ticket 16; edge semantics per ADR-0060): per drift
+**Tray notification** (ticket 16; rising-edge-per-episode semantics): per drift
 EPISODE, the first snapshot where unacknowledged drift appears (false→true
 rising edge) fires one OS notification (state machine in
 `src-tauri/src/tray.rs`, hooked on the snapshot command tail); sustained
@@ -266,7 +266,7 @@ ConvergePhase in {Converged, Drifted(acknowledged)}.
 2. Frontend IPC -> #[tauri::command] validates -> ResinClient -> Resin REST
 3. Ghost health poll: 3s /healthz, 3 fails -> tray red + clear OS proxy + real restart (kill/respawn on the same port, <=3 attempts, then Terminated)
 4. TopologyView subscribes sidecar-status -> red banner on unhealthy
-5. Resin Admin API is a pure pull model — no webhook / callback / push exit; the sole Resin → shell signal is Ghost G3's health poll emitting `sidecar-status` (G4, see CONTEXT.md「G4 (Signal Channel)」)
+5. Resin Admin API is a pure pull model — no webhook / callback / push exit; the sole Resin → shell signal is Ghost G3's health poll emitting `sidecar-status` (G4, see GLOSSARY.md「G4 (Signal Channel)」)
 
 ## Tech stack
 

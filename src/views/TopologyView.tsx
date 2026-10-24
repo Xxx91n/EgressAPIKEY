@@ -1189,10 +1189,10 @@ function TopologyCanvas() {
         },
       });
     });
-    // (ADR-0041 S1): C-column subscriptionGroup/regionGroup nodes are built by the
+    // C-column subscriptionGroup/regionGroup nodes are built by the
     // extracted `buildCColumnGroups` helper so a vitest can assert the viewMode guard directly
     // without driving jsdom-rendered ReactFlow custom-node DOM (which does not stamp C-column
-    // nodes reliably). See docs/adr/0041-canvas-v4-node-pool-toolbars-merge.md §S1.
+    // nodes reliably).
     const cNodes = buildCColumnGroups(viewMode, subGroups, platforms, t);
     list.push(...cNodes);
     return list;

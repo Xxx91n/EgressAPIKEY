@@ -3,12 +3,13 @@
 > Upstream surface: `resin/internal/api/server.go:65-157` (`NewServerWithAddress` mux
 > registrations) + `resin/cmd/resin/main.go` bootstrap wiring. Bundled sidecar: **v1.2.0**
 > (`docs/RESIN_UPSTREAM_MANIFEST.yaml`). Audited: 2026-09-04 (round5 T13).
-> Legislation + maintenance discipline: [ADR-0062](../adr/0062-resin-api-coverage.md).
+> Maintenance discipline: the row and the governing decision update in the same commit as the change.
+> ADR-XXXX citations in this file are historical attribution (records retired 2026-10); each row's 备注 carries the reason.
 
 This is the complete consumption ledger for every upstream Resin control-plane route:
 1 unauthenticated (`/healthz`) + 57 authenticated = **58 rows**. Any agent wiring a new
 ResinClient method, IPC command, or doc claim about a Resin endpoint MUST check the row
-here first and keep it in lockstep (ADR-0062 D5). ResinClient public endpoint methods
+here first and keep it in lockstep. ResinClient public endpoint methods
 carry `/// @see docs/architecture/RESIN_API_COVERAGE.md #R<NN>` doc lines pointing at
 their row id.
 
@@ -20,7 +21,7 @@ their row id.
 | 装饰 decorative | IPC command registered but its body does NOT call the endpoint it is named after | 0 |
 | 孤儿 orphan | ResinClient method exists with zero external callers (client unit tests only) | 2 |
 | 空白 blank | No ResinClient method, no IPC command — upstream-only surface | 22 |
-| 故意不接 deliberate | Unwired BY DECISION; reason recorded in ADR-0062 D3 or the cited ticket | 10 |
+| 故意不接 deliberate | Unwired BY DECISION; reason recorded in the row's 备注 column | 10 |
 
 > The 装饰 bucket is currently EMPTY. reports/03 §2 #3 flagged `system_config_get/patch`
 > as decorative commands, but their bodies have called `client.system_config_*` since T8-1
@@ -32,7 +33,7 @@ their row id.
 - Embedded WebUI: `resin/internal/api/webui.go` registers `/`, `/ui`, `/ui/` (SPA assets). The shell never calls these.
 - Data-plane token actions: `POST /{proxy_token}/api/v1/{platform}/actions/inherit-lease` (`handler_token_action.go:22`, mounted by `cmd/resin/inbound_mux.go:399/456`) — proxy-token authenticated, NOT part of the admin mux. `ResinClient` must never construct `/{token}/api/v1/...` paths.
 - `/healthz` is unauthenticated on every listener; the shell consumes it with direct reqwest in `src-tauri/src/sidecar.rs` (boot await 15s, G3 ghost 3s poll), never through ResinClient.
-- Headless BFF mode (ADR-0043): `src/lib/ipc.ts CMD_TO_HTTP` forwards a subset of the same IPC commands to `/api/v1/*` server-side; the rows below are identical, only the transport differs.
+- Headless BFF mode (the headless server is a separate required-features-gated bin): `src/lib/ipc.ts CMD_TO_HTTP` forwards a subset of the same IPC commands to `/api/v1/*` server-side; the rows below are identical, only the transport differs.
 
 ## D-34 finding: refresh-completion hook shape
 

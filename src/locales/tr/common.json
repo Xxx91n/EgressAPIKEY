@@ -94,7 +94,7 @@
     "collapseAll": "Tümünü daralt",
     "delayFilterHint": "delay>100 veya delay=timeout kullanın",
     "egressIps": "Çıkış IP'leri",
-    "egressPolicyNote": "Bölge başına çıkış politikası Topology tuvalinde ayarlanır: bir Platformu bir IP kanalı bölgesine sürükleyin ardından platformda Allocation policy ayarlayın. Platforms sekmesi strateji motorunu içerir (ADR-0022): A sınıfı hangi IP'lerin platforma gireceğini, B sınıfı portun çıkış IP'sini nasıl seçtiğini belirler.",
+    "egressPolicyNote": "Bölge başına çıkış politikası Topology tuvalinde ayarlanır: bir Platformu bir IP kanalı bölgesine sürükleyin ardından platformda Allocation policy ayarlayın. Platforms sekmesi strateji motorunu içerir: A sınıfı hangi IP'lerin platforma gireceğini, B sınıfı portun çıkış IP'sini nasıl seçtiğini belirler.",
     "empty": "Düğüm yok. Abonelik içe aktarın.",
     "expandAll": "Tümünü genişlet",
     "healthRate": "{{rate}}% sağlıklı",

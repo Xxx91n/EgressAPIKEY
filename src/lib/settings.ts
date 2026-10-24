@@ -379,7 +379,7 @@ export async function saveIpReputationConfig(cfg: IpReputationConfig): Promise<v
   } catch (e) { console.warn("[settings] reputation save failed:", e); }
 }
 
-// --- Port auth default toggle persistence (ADR-0031) ---
+// --- Port auth default toggle persistence ---
 export async function loadPortAuthDefault(): Promise<boolean | null> {
   try {
     const v = await store().get<boolean>("portAuthDefault");

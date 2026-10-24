@@ -594,7 +594,7 @@ export async function ipcPortUpsert(m: {
   if (protocol !== "socks5" && protocol !== "http" && protocol !== "mixed") {
     throw new Error("protocol must be socks5, http or mixed");
   }
-  // platform_name empty = unbound port (ADR-0029). Allow empty.
+  // platform_name empty = unbound port. Allow empty.
   if (m.platform_name) assertShortName(m.platform_name, "platform_name");
   const account = m.account ?? "";
   const label = m.label ?? "";
@@ -625,7 +625,7 @@ export async function ipcPortToggle(port: number, enabled: boolean): Promise<Por
   return invoke<PortMapping>("port_toggle", { port, enabled });
 }
 
-/// (ADR-0029): Bind a port to a platform without touching auth_required.
+/// Bind a port to a platform without touching auth_required.
 /// Calls port_bind_platform IPC (not port_upsert) to avoid auth flip.
 export async function ipcPortBindPlatform(port: number, platformName: string): Promise<boolean> {
   assertPort(port);
@@ -1432,7 +1432,7 @@ export async function ipcStrategyPlatformRegionsSet(
   return doc as StrategyConfig;
 }
 
-/// (ADR-0075): deep edit — set one platform's subscription-intent list
+/// Deep edit — set one platform's subscription-intent list
 /// through the StrategyService (stamps a_class=subscription server-side;
 /// the engine derives the region projection at apply time — the view never
 /// expands subscriptions into regions itself).
@@ -1483,7 +1483,7 @@ export async function ipcStrategyPlatformManualNodesSet(
 
 // ---------------------------------------------------------------------------
 // authoritative effective-config snapshot
-// (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config Authority).
+// (GLOSSARY.md: Authoritative Snapshot; ARCHITECTURE.md §Config Authority).
 // ONE pre-merged read-back of L2 strategy whitebox + L2 ports whitebox +
 // L3 Resin runtime. The merge lives in resin-core (snapshot.rs); views
 // consume this and must NOT re-merge stores. Responses are treated as
