@@ -175,7 +175,7 @@
     "passwordMasked": "كلمة المرور: (مخفية)",
     "port": "المنفذ",
     "portAddOk": "تمت إضافة المنفذ",
-    "portBound": "مرتبط:{{port}} → {{platform}}",
+    "portBound": "مرتبط :{{port}} → {{platform}}",
     "portDuplicate": "المنفذ موجود بالفعل",
     "portInvalid": "يجب أن يكون المنفذ 1024–65535",
     "portLabel": "التسمية",

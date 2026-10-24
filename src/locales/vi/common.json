@@ -175,7 +175,7 @@
     "passwordMasked": "mật khẩu: (ẩn)",
     "port": "Cổng",
     "portAddOk": "Đã thêm cổng",
-    "portBound": "Đã gắn:{{port}} → {{platform}}",
+    "portBound": "Đã gắn :{{port}} → {{platform}}",
     "portDuplicate": "Cổng đã tồn tại",
     "portInvalid": "Cổng phải là 1024–65535",
     "portLabel": "Nhãn",

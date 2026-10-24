@@ -175,7 +175,7 @@
     "passwordMasked": "kata sandi: (tersembunyi)",
     "port": "Port",
     "portAddOk": "Port ditambahkan",
-    "portBound": "Terikat:{{port}} → {{platform}}",
+    "portBound": "Terikat :{{port}} → {{platform}}",
     "portDuplicate": "Port sudah ada",
     "portInvalid": "Port harus 1024–65535",
     "portLabel": "Label",

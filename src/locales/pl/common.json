@@ -175,7 +175,7 @@
     "passwordMasked": "hasło: (ukryte)",
     "port": "Port",
     "portAddOk": "Port dodany",
-    "portBound": "Powiązano:{{port}} → {{platform}}",
+    "portBound": "Powiązano :{{port}} → {{platform}}",
     "portDuplicate": "Port już istnieje",
     "portInvalid": "Port musi być 1024–65535",
     "portLabel": "Etykieta",

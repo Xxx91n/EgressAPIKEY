@@ -175,7 +175,7 @@
     "passwordMasked": "รหัสผ่าน: (ซ่อนอยู่)",
     "port": "พอร์ต",
     "portAddOk": "เพิ่มพอร์ตแล้ว",
-    "portBound": "ผูก:{{port}} → {{platform}}",
+    "portBound": "ผูก :{{port}} → {{platform}}",
     "portDuplicate": "มีพอร์ตนี้อยู่แล้ว",
     "portInvalid": "พอร์ตต้องเป็น 1024–65535",
     "portLabel": "ป้าย",

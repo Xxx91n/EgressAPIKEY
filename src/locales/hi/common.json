@@ -175,7 +175,7 @@
     "passwordMasked": "पासवर्ड: (छिपा हुआ)",
     "port": "पोर्ट",
     "portAddOk": "पोर्ट जोड़ा गया",
-    "portBound": "बाउंड:{{port}} → {{platform}}",
+    "portBound": "बाउंड :{{port}} → {{platform}}",
     "portDuplicate": "पोर्ट पहले से मौजूद है",
     "portInvalid": "पोर्ट 1024–65535 होना चाहिए",
     "portLabel": "लेबल",

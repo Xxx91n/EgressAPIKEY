@@ -175,7 +175,7 @@
     "passwordMasked": "비밀번호: (숨김)",
     "port": "포트",
     "portAddOk": "포트 추가됨",
-    "portBound": "바인딩:{{port}} → {{platform}}",
+    "portBound": "바인딩 :{{port}} → {{platform}}",
     "portDuplicate": "포트가 이미 있음",
     "portInvalid": "포트는 1024–65535",
     "portLabel": "라벨",
