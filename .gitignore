@@ -39,6 +39,7 @@ src-tauri/binaries/resin*
 
 # temp
 .codex-tmp/
+.opencode/
 nul
 
 # secrets & env
@@ -81,7 +82,6 @@ release/
 playwright-report/
 test-results/
 .playwright/
-.codex-tmp/
 
 # session-local artifacts (context-mode plugin)
 .npmrc
