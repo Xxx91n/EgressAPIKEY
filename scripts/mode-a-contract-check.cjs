@@ -342,14 +342,14 @@ async function main() {
       'boundary: rewrite whitelist {socks5-handshake, http-connect, absolute-form->CONNECT} anchors intact',
       absent.join(', ') || undefined);
 
-    // Ban 2 - no TLS fronting: cite  verbatim, do not
+    // Ban 2 - no TLS fronting: cite the legislated sentence verbatim, do not
     // re-legislate. Tokens are code-shaped (a comment saying "TLS" is not
     // a violation; a TlsAcceptor or a 0x16 handshake byte is).
     const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const tlsHits = census.banned_tls_tokens.filter(t =>
       new RegExp('(?<![A-Za-z0-9_])' + esc(t) + '(?![A-Za-z0-9_])', 'i').test(fwdSrc));
     record(tlsHits.length === 0,
-      'boundary: no TLS fronting -  verbatim: "' + census.adr_0068_d4_verbatim + '"',
+      'boundary: no TLS fronting - legislated verbatim: "' + census.tls_fronting_out_of_scope + '"',
       tlsHits.join(', ') || undefined);
 
     // StreamSensor classification dimensions frozen (new dimension =

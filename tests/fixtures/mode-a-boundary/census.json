@@ -13,5 +13,5 @@
   "entry_port_protocols": ["http", "mixed", "socks5"],
   "stream_sensor_dimensions": ["sse", "unary", "unknown", "websocket"],
   "banned_tls_tokens": ["rustls", "native_tls", "tokio_rustls", "TlsAcceptor", "TlsConnector", "tls_acceptor", "SslAcceptor", "openssl", "STARTTLS", "accept_tls", "0x16"],
-  "adr_0068_d4_verbatim": "HTTPS/TLS fronting of entry ports is explicitly out of scope for this decision."
+  "tls_fronting_out_of_scope": "HTTPS/TLS fronting of entry ports is explicitly out of scope for this decision."
 }
