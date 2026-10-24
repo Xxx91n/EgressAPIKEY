@@ -14,10 +14,10 @@ role name.
 | `ready-for-human` | `ready-for-human` | Requires human implementation |
 | `wontfix` | `wontfix` | Will not be actioned |
 
-Because the tracker is local markdown
-([issue-tracker.md](issue-tracker.md)), "applying a label" means writing the
-label string into the issue file's `**Status:**` line — not calling a tracker
-API.
+Because the tracker is GitHub Issues
+([issue-tracker.md](issue-tracker.md)), "applying a label" means calling the
+tracker API: `gh issue edit <N> --add-label "<label>"` (remove with
+`--remove-label`). Listing what is waiting is `gh issue list --label <label>`.
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the
 corresponding label string from this table.

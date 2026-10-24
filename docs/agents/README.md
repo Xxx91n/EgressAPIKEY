@@ -29,7 +29,7 @@ The index lives at `.codegraph/` (gitignored). Before reading files for "how doe
 - New files: UTF-8 no BOM, LF endings (CRLF allow set: `.bat`, `.ps1`, `.cmd`). `git diff --check` must be clean before commit.
 - Re-read the affected region before destructive edits; after two failed patch attempts, do one whole-file rewrite and verify bytes.
 - Never inline `$` PowerShell logic; write a `.ps1` and run with `-File`.
-- Session-local dirs (`.scratch/`, `.codex-tmp/`, `.zcode/`, `.omx/`, `context-mode/`) never enter git tracking — each has a literal `.gitignore` line; untrack leftovers with `git rm -r --cached <path>` (files on disk are preserved, never deleted).
+- Session-local dirs (`.scratch/`, `.codex-tmp/`, `.opencode/`, `.zcode/`, `.omx/`, `context-mode/`) never enter git tracking. `.gitignore` is the authority for that list, not this line — before a broad `git add`, verify a tool's new dir with `git check-ignore -v <path>`; a dir missing from `.gitignore` gets swept in with everything else. Untrack leftovers with `git rm -r --cached <path>` (files on disk are preserved, never deleted).
 
 ### Working etiquette
 
