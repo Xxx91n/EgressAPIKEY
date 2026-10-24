@@ -21,20 +21,20 @@ import { translateError } from "../lib/i18n-error";
 import { HeadlessCapabilityNotice, commandBlocked } from "../components/HeadlessCapabilityNotice";
 
 // one-level "effective config" view
-// (CONTEXT.md: Authoritative Snapshot; spec Implementation Decision 1/7).
-// Consumer of the authoritative_snapshot IPC (ADR-0051): renders the
+// (GLOSSARY.md: Authoritative Snapshot; spec Implementation Decision 1/7).
+// Consumer of the authoritative_snapshot IPC: renders the
 // pre-merged desired|live comparison per platform/port with the three-state
 // badge (consistent / divergent / missingOnResin), a grey "known"
-// degradation for acknowledged entities (ADR-0054 D: exemptions never enter
+// degradation for acknowledged entities (exemptions never enter
 // the three-state merge), divergentSince per entry and lastCheckedAt on top.
-// (ADR-0054 §A): the "sync to desired state" action — click opens
+// The "sync to desired state" action — click opens
 // the PREVIEW dialog computed from the snapshot already in memory (zero
 // extra requests); confirm runs the serial reconcile_now (strategy apply ->
-// ports restore, fail-fast, IpcError per ADR-0045) and auto re-verifies by
+// ports restore, fail-fast, typed IpcError contract) and auto re-verifies by
 // re-pulling the snapshot; cancel closes with zero side effects; the button
 // is disabled while a reconcile is in flight (no re-entry). ONE-WAY: the
 // whitebox always wins; there is no "accept current state" button.
-// (ADR-0054 §B) adds the versioned-whitebox history + rollback.
+// The versioned-whitebox history + rollback rides the same write entry.
 
 const badgeBase =
   "ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium";
@@ -79,7 +79,7 @@ function StateBadge(props: { state: string; acknowledged: boolean; resinReachabl
     );
   }
   // missingOnResin. Amber while the sidecar is reachable; neutral zinc when
-  // resinReachable is false - ADR-0051: sidecar-down absence is NOT drift.
+  // resinReachable is false -: sidecar-down absence is NOT drift.
   const neutral = !props.resinReachable;
   return (
     <span
@@ -102,7 +102,7 @@ function desiredRegions(p: StrategySnapshot): string {
   return (p.state === "divergent" ? p.whitebox_regions : p.regions).join(", ");
 }
 
-// ADR-0058: top-level convergence chip. Data comes from the
+//: top-level convergence chip. Data comes from the
 // SAME 5s/open snapshot pull as the rest of the view (zero new requests).
 // Converged => green "effective at HH:MM (rev N)"; ApplyFailed => red with
 // the recorded reason; PendingApply => amber, clickable, opens the reconcile
@@ -186,11 +186,11 @@ export function EffectiveConfigView() {
   const [snap, setSnap] = useState<AuthoritativeSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // (ADR-0054 section B): versioned-whitebox history + rollback.
+  //: versioned-whitebox history + rollback.
   const [history, setHistory] = useState<{ strategy: WhiteboxBackupEntry[]; ports: WhiteboxBackupEntry[] }>({ strategy: [], ports: [] });
   const [confirmTarget, setConfirmTarget] = useState<{ store: "strategy" | "ports"; backup: WhiteboxBackupEntry } | null>(null);
   const [rollbackBusy, setRollbackBusy] = useState(false);
-  // (ADR-0054 §A): reconcile preview dialog + in-flight guard.
+  //: reconcile preview dialog + in-flight guard.
   const [previewOpen, setPreviewOpen] = useState(false);
   const [reconciling, setReconciling] = useState(false);
 
@@ -220,7 +220,7 @@ export function EffectiveConfigView() {
 
 // the confirm dialog shows the TARGET timestamp, then the
   // rollback re-enters the backend validate-before-swap -> apply chain and
-  // the view re-pulls snapshot + history ( post-rollback
+  // the view re-pulls snapshot + history (post-rollback
   // snapshot re-check).
   const performRollback = async (store: "strategy" | "ports", backup: WhiteboxBackupEntry) => {
     setRollbackBusy(true);
@@ -272,7 +272,7 @@ export function EffectiveConfigView() {
       <div className="flex items-center gap-2 flex-wrap">
         <ClipboardCheck size={16} strokeWidth={1.75} />
         <h2 className="text-sm font-semibold tracking-tight">{t("nav.effectiveConfig")}</h2>
- {/* ADR-0058: top-level convergence chip (green
+ {/* : top-level convergence chip (green
             Converged / red ApplyFailed / amber PendingApply-reconcile). */}
         {snap ? <ConvergeChip snap={snap} onReconcile={() => setPreviewOpen(true)} /> : null}
         <span className="text-xs text-zinc-500 dark:text-zinc-400" data-testid="ec-last-checked">

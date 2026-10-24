@@ -4,15 +4,15 @@
 // runners; local runs are dev aids, not acceptance evidence.
 //
 // Usage:
-//   node scripts/bench/run-bench.mjs [--duration short|long]
-//     [--gate warn|enforce] [--resin <path>] [--app-exe <path>]
-//     [--headless-exe <path>]  (vps-headless profile: whole-tree idle + cold start)
-//     [--out <dir>]
-//     [--phases <csv>]  an explicit list is EXACT (no exe-gated appends).
-//                       Default: idle,paired,rps,sse,soak,healthz,dbprobe
-//                       plus app/appstart (--app-exe) + headless/headlessstart
-//                       (--headless-exe). "faultinject" is opt-in evidence:
-//                       real WAN egress required, never in the default set.
+// node scripts/bench/run-bench.mjs [--duration short|long]
+// [--gate warn|enforce] [--resin <path>] [--app-exe <path>]
+// [--headless-exe <path>] (vps-headless profile: whole-tree idle + cold start)
+// [--out <dir>]
+// [--phases <csv>] an explicit list is EXACT (no exe-gated appends).
+// Default: idle,paired,rps,sse,soak,healthz,dbprobe
+// plus app/appstart (--app-exe) + headless/headlessstart
+// (--headless-exe). "faultinject" is opt-in evidence:
+// real WAN egress required, never in the default set.
 // Env: RESIN_BIN, VEGETA, BENCH_OUT
 
 import { spawn, spawnSync } from "node:child_process";
@@ -516,23 +516,23 @@ function evalGates(acc) {
 
 // ---- faultinject (R12-C1): opt-in evidence phase ---------------------------
 
-// SUT = egressapikey-headless (Mode B transport) driving the ADR-0080
+// SUT = egressapikey-headless (Mode B transport) driving the
 // signal-plane common-mode suppressor under REAL fault injection. The
 // assertions ARE the evidence: a breach is a hard fail (fatal), never a
 // warn-only measurement. Opt-in only - never in the default phase set or
 // the verify gate.
 //
 // Fixture (fresh state root per run, seeded BEFORE the SUT spawns):
-//   egressapikey.db - written directly, bypassing the establish cascade
-//     (the legal fixture path): 5 platforms x 1 enabled `mixed` port each.
-//     The probe plane enumerates from DbPool::list_ports(), not a whitebox
-//     shortcut. n=5 is the minimum non-trivial suppressor cell
-//     (ceil(0.8*5)=4 local fails needed to trip it).
-//   egressapikey-strategy.json - orchestration { enabled, autonomy:suggest,
-//     slow_call_ms:9000 }: suggest parks every transition so Auto-tier
-//     migration stays outside the assertion surface; the inflated
-//     slow_call_ms absorbs shared-runner WAN jitter (the probe client
-//     timeout is 10s).
+// egressapikey.db - written directly, bypassing the establish cascade
+// (the legal fixture path): 5 platforms x 1 enabled `mixed` port each.
+// The probe plane enumerates from DbPool::list_ports(), not a whitebox
+// shortcut. n=5 is the minimum non-trivial suppressor cell
+// (ceil(0.8*5)=4 local fails needed to trip it).
+// egressapikey-strategy.json - orchestration { enabled, autonomy:suggest,
+// slow_call_ms:9000 }: suggest parks every transition so Auto-tier
+// migration stays outside the assertion surface; the inflated
+// slow_call_ms absorbs shared-runner WAN jitter (the probe client
+// timeout is 10s).
 //
 // Dataplane provenance (D-002): each row port is materialised by a
 // bench-forwarder child - a real Mode A shell-side entry - relaying into an
@@ -542,12 +542,12 @@ function evalGates(acc) {
 // mock.mjs "zero internet" carve-out does NOT apply to this phase.
 //
 // Injection semantics (D-002):
-//   kill-forwarder == bind-refusal / Mode A entry failure class: loopback
-//     dead -> local_fail common-mode -> EnvironmentSuspect (suppressor on).
-//   kill-node == egress-path failure behind a live entry: loopback ok +
-//     egress dead -> remote_fail; the suppressor must stay OFF.
-//   kill-sidecar is NOT a valid injection: both probes die together and it
-//     would stamp local_fail (rejected in the ticket provenance).
+// kill-forwarder == bind-refusal / Mode A entry failure class: loopback
+// dead -> local_fail common-mode -> EnvironmentSuspect (suppressor on).
+// kill-node == egress-path failure behind a live entry: loopback ok +
+// egress dead -> remote_fail; the suppressor must stay OFF.
+// kill-sidecar is NOT a valid injection: both probes die together and it
+// would stamp local_fail (rejected in the ticket provenance).
 
 // Write the fixture state root (db rows + strategy whitebox). The db is
 // created at user_version=4 so the SUT's migrator sees the shipping schema.
@@ -726,7 +726,7 @@ async function phaseFaultInject(ctx) {
   let entries = await spawnEntries();
 
   // 1. baseline: all platforms ok (one retry - WAN jitter is the documented
-  //    flake source; the retry is the ticket's mitigation).
+  // flake source; the retry is the ticket's mitigation).
   let r = await tick();
   snap("baseline-1", r);
   if (!allAre(r, "ok")) {
@@ -737,11 +737,11 @@ async function phaseFaultInject(ctx) {
   assert(allAre(r, "ok"), `baseline not all ok: ${JSON.stringify(verdictMap(r))}`);
 
   // 2. kill-forwarder -> three manual ticks. Dead entries refuse the
-  //    loopback probe -> local_fail common-mode -> suppressor stamps
-  //    environment_suspect; the streak must climb monotonically to >=3 (the
-  //    audit row fires at the crossing tick). The 60s driver cannot produce
-  //    a clean tick inside this window, so driver interleavings only ever
-  //    add suspect ticks - the assertions stay monotonic-safe.
+  // loopback probe -> local_fail common-mode -> suppressor stamps
+  // environment_suspect; the streak must climb monotonically to >=3 (the
+  // audit row fires at the crossing tick). The 60s driver cannot produce
+  // a clean tick inside this window, so driver interleavings only ever
+  // add suspect ticks - the assertions stay monotonic-safe.
   for (const c of entries) killTree(c);
   // Trace only, never an acceptance signal (r12 wave-d): killTree already
   // proved the children are dead; port closure can lag milliseconds behind
@@ -753,7 +753,7 @@ async function phaseFaultInject(ctx) {
       : `entry ports refused within ${allClosedMs}ms`,
   );
   const suspectTicks = [];
-  // ADR-0080: the suspect-streak audit row fires when the streak CROSSES 3
+  //: the suspect-streak audit row fires when the streak CROSSES 3
   // (hardwired threshold - anti-Goodhart). Pinned as a named constant so the
   // assertions read against the legislation, not a bare literal; three
   // manual ticks are required to cross it.
@@ -780,7 +780,7 @@ async function phaseFaultInject(ctx) {
   );
 
   // 3. restore entries -> poll until probes go ok again (forwarder bind is
-  //    near-instant; the first clean tick resets the streak to 0).
+  // near-instant; the first clean tick resets the streak to 0).
   entries = await spawnEntries();
   let restored = null;
   for (let i = 0; i < 15; i++) {
@@ -799,8 +799,8 @@ async function phaseFaultInject(ctx) {
   );
 
   // 4. kill-node -> one tick. Entries stay up (loopback ok) but the egress
-  //    path dies at the CONNECT hop -> remote_fail; the suppressor must NOT
-  //    engage and the streak must stay 0.
+  // path dies at the CONNECT hop -> remote_fail; the suppressor must NOT
+  // engage and the streak must stay 0.
   await ctx.mockNode.kill();
   const rr = await tick();
   snap("remote-fail", rr);
@@ -814,8 +814,8 @@ async function phaseFaultInject(ctx) {
   );
 
   // 5. restart the node on the same port and drive Resin's own health
-  //    probes until the endpoint is routable again (the external probe
-  //    cadence is engine-side - the tick verdict is the truth source).
+  // probes until the endpoint is routable again (the external probe
+  // cadence is engine-side - the tick verdict is the truth source).
   ctx.mockNode = await startMockNode(ctx.mockNode.port);
   let recovered = null;
   for (let i = 0; i < 24; i++) {
@@ -839,16 +839,16 @@ async function phaseFaultInject(ctx) {
   );
 
   // 6. no migration may have executed anywhere in the run: under suggest the
-  //    evaluator parks every transition, so an ok:true switch row would mean
-  //    a real set_platform_regions+apply landed mid-evidence.
+  // evaluator parks every transition, so an ok:true switch row would mean
+  // a real set_platform_regions+apply landed mid-evidence.
   const migrated = timeline
     .flatMap((s) => s.executedActions)
     .filter((a) => a.action === "switch" && a.ok === true);
   assert(migrated.length === 0, `executed migrations during evidence run: ${JSON.stringify(migrated)}`);
 
   // 7. audit.jsonl: exactly one signal-plane/environment_suspect/orchestration:tick
-  //    row for the whole crossing (streak 4/5 must NOT re-emit). Other audit
-  //    rows (per-tick strategy status writes) are expected and ignored.
+  // row for the whole crossing (streak 4/5 must NOT re-emit). Other audit
+  // rows (per-tick strategy status writes) are expected and ignored.
   let envRows = [];
   try {
     envRows = fs

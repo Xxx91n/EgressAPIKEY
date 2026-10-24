@@ -94,7 +94,7 @@
     "collapseAll": "Alles inklappen",
     "delayFilterHint": "Gebruik delay>100 of delay=timeout",
     "egressIps": "Uitgangs-IPs",
-    "egressPolicyNote": "Per-regio egress-beleid wordt op het Topology-canvas ingesteld: sleep een Platform naar een IP-kanaalregio en zet er Allocation policy op. Het tabblad Platforms bevat de strategie-engine (ADR-0022): klasse A kiest welke IPs een platform binnenkomen, klasse B hoe de poort de uitgaande IP kiest.",
+    "egressPolicyNote": "Per-regio egress-beleid wordt op het Topology-canvas ingesteld: sleep een Platform naar een IP-kanaalregio en zet er Allocation policy op. Het tabblad Platforms bevat de strategie-engine: klasse A kiest welke IPs een platform binnenkomen, klasse B hoe de poort de uitgaande IP kiest.",
     "empty": "Geen nodes. Importeer een abonnement.",
     "expandAll": "Alles uitklappen",
     "healthRate": "{{rate}}% gezond",

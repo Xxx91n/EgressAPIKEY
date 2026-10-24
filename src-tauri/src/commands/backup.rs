@@ -3,8 +3,8 @@
 //! Extracted from the former commands/mod.rs monolith
 //! pure mechanical move - no behavior, naming, or IPC-surface change.
 //!
-//! `backup_create` was rewritten (ADR-0070) so the archive actually carries
-//! the configuration that decides behaviour (the CONTEXT.md "Backup Scope"
+//! `backup_create` was rewritten so the archive actually carries
+//! the configuration that decides behaviour (the GLOSSARY.md "Backup Scope"
 //! ledger), and `backup_restore` adds download -> verify -> import through the
 //! EXISTING authoritative write entries. The request-log DBs can never enter a
 //! package, enforced on both the packing and the restore side.
@@ -21,7 +21,7 @@ use tauri::{AppHandle, Manager, State};
 use tauri_plugin_store::StoreExt;
 
 /// L1 store file name. The tauri-plugin-store document is the single L1
-/// authoritative write entry (the ADR-0036 discipline applied to the GUI
+/// authoritative write entry (the discipline applied to the GUI
 /// layer), so a restore re-enters it instead of editing the file by hand.
 const SETTINGS_STORE: &str = "settings.json";
 /// Upper bound on a downloaded package: a hostile or broken WebDAV endpoint
@@ -36,7 +36,7 @@ const MAX_HISTORY_MEMBERS: usize = 32;
 
 /// L1 + L2 authority directory: settings.json, both whitebox documents,
 /// egressapikey.db, audit.jsonl and the whitebox backup/ history.
-/// CONTEXT.md "Config Authority".
+/// GLOSSARY.md "Config Authority".
 fn cfg_dir(app: &AppHandle) -> Result<PathBuf, IpcError> {
     app.path()
         .app_config_dir()
@@ -44,7 +44,7 @@ fn cfg_dir(app: &AppHandle) -> Result<PathBuf, IpcError> {
 }
 
 /// L3 runtime root: resin-state/ and resin-cache/. Resin private state is
-/// packaged read-only and never written back (ADR-0050-bis).
+/// packaged read-only and never written back.
 fn data_dir(app: &AppHandle) -> Result<PathBuf, IpcError> {
     app.path()
         .app_data_dir()
@@ -108,7 +108,7 @@ fn push_file(members: &mut Vec<(String, Vec<u8>)>, src: &Path, entry: &str) {
 /// explicitly: the copy can capture a torn page or a half-applied WAL. The
 /// snapshot goes through resin_core::db::snapshot_db_readonly, which runs
 /// VACUUM INTO on a read-only source handle - a fresh, fully checkpointed
-/// database with the source untouched, so the ADR-0050-bis read-only
+/// database with the source untouched, so the read-only
 /// constraint on Resin private state holds.
 ///
 /// When no consistent snapshot can be taken the database is packed as a cold
@@ -145,7 +145,7 @@ fn push_sqlite_snapshot(
 }
 
 /// Pack the whitebox version history (app_config_dir()/backup/*.bak).
-/// CONTEXT.md "Backup Scope" class (a) includes it, so it rides along; the
+/// GLOSSARY.md "Backup Scope" class (a) includes it, so it rides along; the
 /// list is name-filtered and truncated so a pathological directory cannot
 /// balloon the archive.
 fn push_whitebox_history(members: &mut Vec<(String, Vec<u8>)>, cfg: &Path) {
@@ -169,15 +169,15 @@ fn push_whitebox_history(members: &mut Vec<(String, Vec<u8>)>, cfg: &Path) {
 
 /// Create a backup package and return its path.
 ///
-/// ADR-0070: the archive carries exactly the
-/// CONTEXT.md "Backup Scope" ledger:
+///: the archive carries exactly the
+/// GLOSSARY.md "Backup Scope" ledger:
 ///
-///   manifest.json   integrity gate (sha256 + size per member); never written
-///   config.json     the ADR-0061 container, whitebox as the source
-///   settings.json   L1 GUI preferences
-///   l2/*            both whitebox documents, the port-mapping DB, the audit
-///                   chain and the whitebox version history
-///   l3/*            Resin runtime state, packaged READ-ONLY as evidence
+/// manifest.json integrity gate (sha256 + size per member); never written
+/// config.json the container, whitebox as the source
+/// settings.json L1 GUI preferences
+/// l2/* both whitebox documents, the port-mapping DB, the audit
+/// chain and the whitebox version history
+/// l3/* Resin runtime state, packaged READ-ONLY as evidence
 ///
 /// The previous implementation read app_data_dir() and packed only
 /// settings.json plus two Resin databases. On Linux, where app_config_dir()
@@ -214,7 +214,7 @@ pub async fn backup_create_impl(
 ) -> Result<String, IpcError> {
     let mut members: Vec<(String, Vec<u8>)> = Vec::new();
 
-    // Config layer: one canonical re-importable container (ADR-0061). This is
+    // Config layer: one canonical re-importable container. This is
     // the member a restore replays, which is how the two backup models stop
     // competing - backup now speaks the same container as config_export and
     // config_import.
@@ -277,7 +277,7 @@ pub async fn backup_create_impl(
         &out_dir,
     );
 
-    // Leak line (CONTEXT.md "Backup Scope" class c): the request-log DBs are
+    // Leak line (GLOSSARY.md "Backup Scope" class c): the request-log DBs are
     // refused by the manifest gate below, so this assert is the packing-side
     // half of the same rule.
     let names: Vec<String> = members.iter().map(|(n, _)| n.clone()).collect();
@@ -476,8 +476,8 @@ pub async fn backup_list(
     Ok(names)
 }
 
-/// ADR-0061: export the L2 whitebox configuration as JSON.
-/// Reads `egressapikey-strategy.json` (via StrategyService, ADR-0036) and
+///: export the L2 whitebox configuration as JSON.
+/// Reads `egressapikey-strategy.json` and
 /// `egressapikey-ports.json` (via the WhiteboxConfigStore snapshot) and wraps
 /// them verbatim in a versioned container. It does NOT read Resin — Resin is
 /// the derived L3 runtime, and the "Include Resin derived" option is deferred
@@ -507,15 +507,15 @@ pub async fn config_export_impl(
     ))
 }
 
-/// ADR-0061: import a config document (from config_export).
+///: import a config document (from config_export).
 /// Parses + validates the two whitebox documents up front (schema + version
 /// gate — any violation returns a clear IpcError and writes NOTHING), then
 /// persists them through the single sanctioned write entries:
-/// `StrategyService::store` (ADR-0036, versions the previous file) and
+/// `StrategyService::store` and
 /// `WhiteboxConfigStore::apply` (validate -> DB -> file backup-before-write
-/// -> atomic swap), and finally triggers the one-way reconcile (ADR-0054 §A)
+/// -> atomic swap), and finally triggers the one-way reconcile
 /// so Resin converges from the imported whitebox (diff-then-skip per
-/// ADR-0057; no direct Resin PATCH here). Subscriptions are not part of the
+///; no direct Resin PATCH here). Subscriptions are not part of the
 /// whitebox config layer and are not touched — the former Resin-derived
 /// subscription import is gone.
 #[tauri::command]
@@ -548,7 +548,7 @@ pub async fn config_import_impl(
         ));
     }
 
-    // ADR-0069 D4 phase 1: parse + validate BOTH whitebox documents through
+    // phase 1: parse + validate BOTH whitebox documents through
     // the one shared gate BEFORE either is committed. Any rejection returns a
     // clear error and writes NOTHING - this is what removes the
     // half-imported state (a rejection of the second document can no longer
@@ -556,23 +556,23 @@ pub async fn config_import_impl(
     let doc = resin_core::parse_import_doc(&config).map_err(IpcError::from)?;
     resin_core::validate_import_pair(&doc.strategy, &doc.ports).map_err(IpcError::from)?;
 
-    // ADR-0069 D4 phase 2: commit the two documents back-to-back through their
-    // sanctioned write entries - the strategy half through ADR-0036 (store
+    // phase 2: commit the two documents back-to-back through their
+    // sanctioned write entries - the strategy half through (store
     // bumps generation and returns the landed document), the ports half
-    // through ADR-0055. No fallible work sits between the two commits, and
+    // through. No fallible work sits between the two commits, and
     // each entry is itself a temp-file write followed by an atomic rename
     // (`atomic_write_bytes`), so the pair can only ever land whole. The
     // entries are deliberately NOT bypassed: they own the generation bump
-    // (ADR-0058), the backup-before-write (ADR-0054 section B) and the audit
-    // row (ADR-0059).
+    //, the backup-before-write and the audit
+    // row.
     svc.store(doc.strategy.clone()).map_err(IpcError::from)?;
     whitebox
         .apply(db, forwarder, doc.ports.clone())
         .await
         .map_err(IpcError::from)?;
 
-    // Trigger the one-way reconcile (ADR-0054 §A / F2): strategy apply
-    // (diff-then-skip, ADR-0057) then ports re-assert — the SAME path as
+    // Trigger the one-way reconcile: strategy apply
+    // then ports re-assert — the SAME path as
     // reconcile_now, fail-fast, whitebox always wins.
     let client = resin_client(sidecar)?;
     let now = std::time::SystemTime::now()
@@ -595,7 +595,7 @@ pub async fn config_import_impl(
             );
         }
         Err(e) => {
-            // The whitebox is already written (it is the truth, ADR-0036);
+            // The whitebox is already written;
             // Resin converges on the next apply / boot restore. Surface the
             // reconcile failure in the summary rather than falsely failing
             // the import after a successful write.
@@ -616,24 +616,24 @@ pub async fn config_import_impl(
 
 /// Restore a backup package produced by backup_create.
 ///
-/// ADR-0070. Deliberately verify-then-write:
+///. Deliberately verify-then-write:
 ///
-///   1. download the package from WebDAV (size-capped)
-///   2. open the passphrase envelope when the package magic says it is sealed
-///   3. read every member into memory, refusing the leak line, unsafe member
-///      paths, and the size / count caps
-///   4. parse the manifest and re-verify every member hash BEFORE writing
-///      anything - any failure aborts with zero writes
-///   5. replay the config half through the EXISTING authoritative entries
-///      (StrategyService::store + WhiteboxConfigStore::apply + the one-way
-///      reconcile) - the same path config_import uses, so backup/restore and
-///      export/import stop being two competing models
-///   6. replay the L1 half through the settings store, the L1 write entry
-///   7. extract L3 and audit members to a restore-artifacts directory as
-///      read-only evidence; they are never written back
+/// 1. download the package from WebDAV (size-capped)
+/// 2. open the passphrase envelope when the package magic says it is sealed
+/// 3. read every member into memory, refusing the leak line, unsafe member
+/// paths, and the size / count caps
+/// 4. parse the manifest and re-verify every member hash BEFORE writing
+/// anything - any failure aborts with zero writes
+/// 5. replay the config half through the EXISTING authoritative entries
+/// (StrategyService::store + WhiteboxConfigStore::apply + the one-way
+/// reconcile) - the same path config_import uses, so backup/restore and
+/// export/import stop being two competing models
+/// 6. replay the L1 half through the settings store, the L1 write entry
+/// 7. extract L3 and audit members to a restore-artifacts directory as
+/// read-only evidence; they are never written back
 ///
 /// Step 4 is the whole reason this is not a plain unzip: the whitebox is the
-/// truth (ADR-0036), so a tampered or truncated package has to be rejected
+/// truth, so a tampered or truncated package has to be rejected
 /// before it can reach it.
 #[tauri::command]
 pub async fn backup_restore(
@@ -863,18 +863,18 @@ pub async fn backup_restore_impl(
     resin_core::validate_import_pair(&doc.strategy, &doc.ports).map_err(IpcError::from)?;
 
     // The same two commits, in the same order, through the same entries as
-    // config_import (ADR-0069 D4): no fallible work between them, and neither
-    // entry is bypassed - they own the generation bump (ADR-0058), the
-    // backup-before-write (ADR-0054 section B) and the audit row (ADR-0059).
+    // config_import: no fallible work between them, and neither
+    // entry is bypassed - they own the generation bump, the
+    // backup-before-write and the audit row.
     svc.store(doc.strategy.clone()).map_err(IpcError::from)?;
     whitebox
         .apply(db, forwarder, doc.ports.clone())
         .await
         .map_err(IpcError::from)?;
 
-    // One-way reconcile (ADR-0054 section A): Resin converges from the
+    // One-way reconcile: Resin converges from the
     // restored whitebox. A reconcile failure does not fail the restore - the
-    // whitebox is already the truth (ADR-0036) and Resin converges on the
+    // whitebox is already the truth and Resin converges on the
     // next apply / boot restore.
     let client = resin_client(sidecar)?;
     let now = std::time::SystemTime::now()
@@ -920,7 +920,7 @@ pub async fn backup_restore_impl(
     }
 
     // ---- L3 + audit: read-only evidence, never written back --------------
-    // ADR-0070 D6: derived runtime state is not replayed over live leases,
+    //: derived runtime state is not replayed over live leases,
     // and the append-only audit chain is never rewritten. Both are extracted
     // next to the app so a human can inspect them, and the UI says so.
     let evidence_dir =

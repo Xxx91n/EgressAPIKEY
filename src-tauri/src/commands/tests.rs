@@ -51,7 +51,7 @@ fn resolve_id_in_matches() {
     assert_eq!(resin_core::resolve_id_in(&v, "Bar"), None);
 }
 
-/// ADR-0055: the conflict rule moved to document level in
+///: the conflict rule moved to document level in
 /// resin-core (same port, different process => typed error). Shell-side
 /// regression lock on the re-exported helper.
 #[test]
@@ -516,7 +516,7 @@ fn request_log_entry_from_value_defaults_on_malformed_row() {
     assert_eq!(e.duration_ms, 0.0);
 }
 
-/// ADR-0054 §C+§D wire-shape regression lock: lastCheckedAt
+/// +§D wire-shape regression lock: lastCheckedAt
 /// (top-level camelCase), per-entry divergent_since (snake_case, omitted
 /// when None), acknowledged flag stamps read-side only.
 #[test]
@@ -573,7 +573,7 @@ fn authoritative_snapshot_wire_shape() {
     let v = serde_json::to_value(&snap).unwrap();
     // Top-level field is camelCase (TS wrapper convention).
     assert_eq!(v["lastCheckedAt"], 1_756_521_601i64);
-    // Per-variant payload fields stay snake_case (ADR-0051 contract).
+    // Per-variant payload fields stay snake_case.
     assert_eq!(v["platforms"][0]["divergent_since"], 1_756_521_600i64);
     assert_eq!(v["platforms"][0]["acknowledged"], true);
     // None => the key is absent (skip_serializing_if).
@@ -599,7 +599,7 @@ fn authoritative_snapshot_wire_shape() {
 // returns only {"status":"ok"}) and decides `changed` from these pure fns.
 
 // -----------------------------------------------------------------------
-// ADR-0070 backup/restore audit - two invariants a later refactor can
+// backup/restore audit - two invariants a later refactor can
 // silently reverse: (1) backup_create packages the L3 databases through the
 // consistent-snapshot helper instead of raw-copying them, and it rejects
 // forbidden members before sealing the manifest; (2) backup_restore verifies
@@ -628,11 +628,11 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
     let create = body_of("backup_create_impl");
     assert!(
         create.contains("push_sqlite_snapshot("),
-        "backup_create must package the L3 databases through push_sqlite_snapshot (ADR-0070 D3)"
+        "backup_create must package the L3 databases through push_sqlite_snapshot"
     );
     assert!(
         !create.contains("std::fs::read("),
-        "backup_create must not raw-copy a database itself (ADR-0070 D3)"
+        "backup_create must not raw-copy a database itself"
     );
     let forbidden = create
         .find("assert_no_forbidden(")
@@ -642,7 +642,7 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
         .expect("backup_create: no manifest build");
     assert!(
         forbidden < manifest,
-        "backup_create must reject forbidden members before sealing the manifest (ADR-0070 D1)"
+        "backup_create must reject forbidden members before sealing the manifest"
     );
 
     let restore = body_of("backup_restore_impl");
@@ -654,7 +654,7 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
         .expect("backup_restore: no per-member verification");
     assert!(
         envelope < verify,
-        "backup_restore must open the envelope before verifying members (ADR-0070 D7)"
+        "backup_restore must open the envelope before verifying members"
     );
     // Every write entry the restore touches must come after verification.
     // (The L1 write entry is the injected settings_apply closure —
@@ -662,9 +662,9 @@ fn backup_create_snapshots_l3_and_restore_verifies_before_writing() {
     for writer in ["svc.store(", ".apply(db", "settings_apply("] {
         if let Some(pos) = restore.find(writer) {
             assert!(
-                    verify < pos,
-                    "backup_restore must verify every member before the write entry {writer} (ADR-0070 D4)"
-                );
+                verify < pos,
+                "backup_restore must verify every member before the write entry {writer}"
+            );
         }
     }
 }
@@ -718,11 +718,11 @@ fn extract_sub_row_stats_reads_count_and_version() {
 }
 
 // -----------------------------------------------------------------------
-// ADR-0069 D1 write-order audit - three commands, one by one.
+// write-order audit - three commands, one by one.
 //
 // L2-first is a contract a later refactor can silently reverse, so it is
 // pinned by a source-order assertion over the SHARED implementations (the
-//  ones the headless adapter also calls, option C). Each impl is
+// ones the headless adapter also calls, option C). Each impl is
 // checked for the whitebox persistence step preceding every L3 call.
 #[test]
 fn port_impls_persist_l2_before_mutating_l3() {
@@ -753,7 +753,7 @@ fn port_impls_persist_l2_before_mutating_l3() {
                 .unwrap_or_else(|| panic!("{name}: expected L3 marker {marker}"));
             assert!(
                 l2 < l3,
-                "{name}: L2 whitebox.apply must precede the L3 step {marker} (ADR-0069 D1)"
+                "{name}: L2 whitebox.apply must precede the L3 step {marker}"
             );
         }
     }
@@ -881,7 +881,7 @@ async fn orchestration_tick_collects_probe_signals_when_controller_disabled() {
     .unwrap();
     assert_eq!(out["enabled"], serde_json::json!(false));
     assert_eq!(out["signals"], serde_json::json!(1));
-    // ADR-0080: one dead port = 100% local_fail -> the common-mode
+    //: one dead port = 100% local_fail -> the common-mode
     // suppressor stamps the tick environment_suspect (n=1 degenerate).
     assert_eq!(
         out["platform_verdicts"][0]["platform"],

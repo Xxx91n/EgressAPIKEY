@@ -1,4 +1,4 @@
-//! Shell-side strategy engine (ADR-0022).
+//! Shell-side strategy engine.
 //!
 //! Two strategy classes:
 //! - A-class: which IPs enter a platform (manual / region / quality / subscription)
@@ -6,11 +6,11 @@
 //!
 //! B-class catalog already lives in `strategy.rs` (maps to Resin allocation_policy).
 //! This module owns:
-//!   1. A-class filter strategies that poll /nodes and compute region_filters
-//!      to PATCH onto each platform.
-//!   2. A per-platform strategy config document (whitebox JSON).
-//!   3. Liveness gate: Resin ProbeManager already does health probing + circuit
-//!      breaker, so we only filter on `has_outbound && failure_count == 0`.
+//! 1. A-class filter strategies that poll /nodes and compute region_filters
+//! to PATCH onto each platform.
+//! 2. A per-platform strategy config document (whitebox JSON).
+//! 3. Liveness gate: Resin ProbeManager already does health probing + circuit
+//! breaker, so we only filter on `has_outbound && failure_count == 0`.
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -126,14 +126,14 @@ pub enum EstablishStep {
     Import,
     /// resolve beat (nodes not landed yet — Resin fetcher still pulling).
     Resolve,
-    /// establish-platform beat (whitebox entry + ADR-0056 create seam).
+    /// establish-platform beat.
     Platform,
     /// strategy_config_put beat (the subscriptions-ref binding; fused into
     /// the platform write today, kept distinct for the wire contract).
     Bind,
     /// Default-port binding (owns the producer; reserved tag).
     Port,
-    /// strategy_apply beat (ADR-0057 diff-then-skip + ADR-0058 write-back).
+    /// strategy_apply beat.
     Apply,
 }
 
@@ -143,9 +143,9 @@ pub enum EstablishStep {
 /// fixed Vec<String> with ONE ordered entry per cascade step
 /// (sub/plat/port/apply), never extended into a dynamic object. Lives on the
 /// `SubscriptionStatus` status row (status subresource: written through the
-/// ONE store entry, generation does NOT move — ADR-0058 discipline); the
+/// ONE store entry, generation does NOT move — discipline); the
 /// next Converged status write clears it (the `last_apply_error`
-/// precedent, ADR-0058 D3).
+/// precedent).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CascadeError {
     /// The establish step that failed (same tag vocabulary as
@@ -166,7 +166,7 @@ pub struct CascadeError {
 /// not spec: writes go through the ONE store entry (validate + versioned
 /// backup + audit — the generation-aware path) but do NOT bump the
 /// desired-state generation. k8s status-subresource rule: a status write is
-/// not a write-authority change; bumping would flip ADR-0058's top-level
+/// not a write-authority change; bumping would flip 's top-level
 /// ConvergePhase into a false PendingApply after every successful cascade
 /// (existing ADR conclusions must not be broken).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -196,7 +196,7 @@ pub struct StrategyConfig {
     pub version: u8,
     #[serde(default)]
     pub platforms: Vec<PlatformStrategy>,
-    /// ADR-0054 §D: optional exemption list. Members are platform
+    ///: optional exemption list. Members are platform
     /// names the user has marked "known drift, don't notify". Parse-compat:
     /// absent = empty (older configs load unchanged). The list NEVER enters
     /// the three-state merge — it is surfaced read-side only. Validate caps:
@@ -210,7 +210,7 @@ pub struct StrategyConfig {
     /// (status subresource — no generation bump).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub subscriptions: Vec<SubscriptionStatus>,
-    /// ADR-0058: write-authority generation counter. Bumped by
+    ///: write-authority generation counter. Bumped by
     /// EVERY sanctioned store-path write (service `store`, deep region edit,
     /// rollback) after validate, before the file lands. Absent in a v1 file
     /// = 0 = "never applied" (k8s habit: a fresh boot is not a fake alarm).

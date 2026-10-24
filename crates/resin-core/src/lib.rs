@@ -10,7 +10,7 @@
 //! Modules:
 //! - backup: backup package model (member whitelist, sha256 manifest, AEAD envelope)
 //! - db: SQLite port->platform mapping store (reuses DbPool infra)
-//! - ipc_error: typed IPC error contract (ADR-0045)
+//! - ipc_error: typed IPC error contract
 //! - ip_reputation: pluggable egress-IP reputation providers
 //! - platform: Platform/Account registry (shell SharedRegistry state)
 //! - port_forwarder: entry-port forwarding + exit-IP probe helpers
@@ -18,14 +18,15 @@
 //! - resin_client: loopback REST client for the Resin Go sidecar API
 //! - strategy: B-class StrategyId type (shell strategy vocabulary)
 //! - strategy_engine: A/B-class strategy evaluation (shell-side)
-//! - strategy_service: StrategyConfig pipeline owner (read/validate/store/apply/snapshot, ADR-0052)
+//! - strategy_service: StrategyConfig pipeline owner
 //! - subscription_pipeline: subscription -> platform -> apply establish cascade
 //! - stream_sensor: AI stream (SSE/WS) classification
-//! - whitebox_config: egressapikey-ports.json whitebox store (ADR-0036)
+//! - whitebox_config: egressapikey-ports.json whitebox store
 //!
 //! The former in-Rust gateway face (lane/lease/tdewma/gateway/mihomo modules,
-//! CoreConfig, sanitize_lanes, and the resin-core stub bin) was deleted per
-//! ADR-0050; that ADR records the reference evidence.
+//! CoreConfig, sanitize_lanes, and the resin-core stub bin) was deleted when
+//! the resin-core public surface shrank to the shell-used set; the reference
+//! evidence lives in git history.
 
 pub mod audit;
 pub mod backup;

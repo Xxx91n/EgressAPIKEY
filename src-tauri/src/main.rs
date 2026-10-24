@@ -47,7 +47,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
-        // ADR-0054 §E: OS notification permission for the one-shot
+        //: OS notification permission for the one-shot
         // drift notice. The notification itself is fired from the snapshot
         // command; headless builds never construct this Builder.
         .plugin(tauri_plugin_notification::init())
@@ -122,9 +122,9 @@ fn main() {
             // #7: open config / log directory buttons in Settings.
             commands::get_config_dir,
             commands::get_log_dir,
-            // ADR-0059: Settings > Storage "Export audit log".
+            //: Settings > Storage "Export audit log".
             commands::export_audit_log,
-            // (ADR-0016 b): sidecar stderr ring buffer snapshot.
+            //: sidecar stderr ring buffer snapshot.
             commands::get_sidecar_logs,
             commands::get_sidecar_status,
             // Re3: Platform/Account registry + weighted account selection.
@@ -137,7 +137,7 @@ fn main() {
             commands::process_route_add,
             commands::process_route_remove,
             commands::process_route_list,
-            // ADR-0063: Resin account-header-rules family (R32-R35).
+            //: Resin account-header-rules family (R32-R35).
             commands::list_account_header_rules,
             commands::put_account_header_rules,
             commands::resolve_account_header_rule,
@@ -184,7 +184,7 @@ fn main() {
             commands::probe_exit_ip,
             commands::check_firewall_status,
             commands::request_log_tail,
-            // (ADR-0064): Resin metrics minimal set —
+            //: Resin metrics minimal set —
             // history/probes (#R53) + realtime/throughput (#R47).
             commands::metrics_probe_history,
             commands::metrics_realtime_throughput,
@@ -220,7 +220,7 @@ fn main() {
         .setup(|app| {
             build_tray(app.handle())?;
 
-            // ADR-0069 D3: give the port family a GUI handle so an L3-rejected
+            //: give the port family a GUI handle so an L3-rejected
             // mutation can ask the shell to re-pull the authoritative snapshot
             // immediately instead of waiting for the converge poll.
             egressapikey_app::commands::install_snapshot_refresh(app.handle().clone());
@@ -250,15 +250,15 @@ fn main() {
             #[cfg(target_os = "windows")]
             job_handle: sidecar.job_handle,
             });
-            // Port->platform mapping SQLite store (ADR-0012)
+            // Port->platform mapping SQLite store
             // The multi-port listener reads this to inject X-Resin-Account
             // based on which port the request arrived on.
             let cfg_dir = app.path().app_config_dir().unwrap_or_else(|_| {
                 std::env::temp_dir().join("com.egressapikey.desktop")
             });
-// ADR-0059: point the process-global audit log at
+//: point the process-global audit log at
             // audit.jsonl in the SAME directory as the two whitebox files
-// ( same level, never app_log_dir where rotation breaks the
+// (same level, never app_log_dir where rotation breaks the
             // prev_hash chain). Best-effort only; init failure cannot block
             // startup (argus principle).
             resin_core::audit::init(cfg_dir.join(resin_core::audit::AUDIT_LOG_FILE));
@@ -274,8 +274,8 @@ fn main() {
                 }
             };
             app.manage(db.clone());
-            // Phase 2: multi-port forwarder (ADR-0012, re-materialised by
- // ADR-0068 D1). Port = identity: the desktop shell
+            // Phase 2: multi-port forwarder (re-materialised by
+ //). Port = identity: the desktop shell
             // runs Data-Plane Mode A - it binds each enabled entry port,
             // sniffs the dialect, and injects Platform.Account:proxy_token
             // toward the Resin consolidated port. headless stays Mode B.
@@ -289,7 +289,7 @@ fn main() {
             // Seed from SQLite so first boot materializes the file from DB.
             let whitebox_path = cfg_dir.join(WHITEBOX_CONFIG_FILE);
             let mut seed = WhiteboxConfig::from_ports(db.list_ports().unwrap_or_default());
-// ADR-0055 D5: one-time L1 -> L2 migration. If the
+//: one-time L1 -> L2 migration. If the
             // legacy settings.json key exists, merge its rules into the seed
             // (whitebox wins per process name) and DELETE the key so the L1
             // path can never revive the rules. Idempotent: no key => no-op;
@@ -341,7 +341,7 @@ fn main() {
                         store_watch.watch_apply(db_wb, fwd_wb).await;
                     });
                     tracing::info!(path = %store.path().display(), "whitebox config opened");
-                    // (ADR-0042 S6): async restore Resin endpoints from whitebox.
+                    //: async restore Resin endpoints from whitebox.
                     // Non-blocking: failures log only, never fail startup.
                     let store_restore = store.clone();
                     let fwd_restore = forwarder.clone();
@@ -448,7 +448,7 @@ fn main() {
                     if let Some(mut child) = sidecar.child.lock().ok().and_then(|mut g| g.take()) {
                         let pid: u32 = child.id();
                         let _ = child.kill(); // std::process::Child::kill = &mut self (no consume)
-                        // (ADR-0016): Phase 2 — wait for OS to release
+                        //: Phase 2 — wait for OS to release
                         // port + SQLite lock before app exit, then verify PID.
                         std::thread::sleep(std::time::Duration::from_millis(
                             egressapikey_app::sidecar::SHUTDOWN_WAIT_MS,
@@ -482,7 +482,7 @@ fn main() {
                         }
                         tracing::info!("sidecar child killed on app exit");
                     }
-                    // ADR-0016: mark mode as NotRunning so any
+                    //: mark mode as NotRunning so any
                     // concurrent reader (health poll, crash restarter)
                     // sees the shutdown is intentional, not a crash.
                     sidecar.set_mode(

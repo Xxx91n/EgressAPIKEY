@@ -94,7 +94,7 @@
     "collapseAll": "Contraer todo",
     "delayFilterHint": "Usa delay>100 o delay=timeout",
     "egressIps": "IPs de salida",
-    "egressPolicyNote": "La política de egreso por región se configura en el lienzo Topology: arrastra una Plataforma a una región de canal IP y establece su Allocation policy. La pestaña Platforms contiene el motor de estrategias (ADR-0022): la clase A selecciona qué IPs entran a una plataforma, la clase B cómo el puerto elige la IP de salida.",
+    "egressPolicyNote": "La política de egreso por región se configura en el lienzo Topology: arrastra una Plataforma a una región de canal IP y establece su Allocation policy. La pestaña Platforms contiene el motor de estrategias: la clase A selecciona qué IPs entran a una plataforma, la clase B cómo el puerto elige la IP de salida.",
     "empty": "Sin nodos. Importa una suscripción primero.",
     "expandAll": "Expandir todo",
     "healthRate": "{{rate}}% saludable",

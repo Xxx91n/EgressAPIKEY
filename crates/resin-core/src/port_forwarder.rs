@@ -1,48 +1,48 @@
-//! Multi-port identity layer - the ADR-0012 listener surface, re-materialised
-//! as Data-Plane Mode A (ADR-0068 D1/D3).
+//! Multi-port identity layer - the listener surface, re-materialised
+//! as Data-Plane Mode A.
 //!
 //! Each Entry Port is an identity. The mode decides which process realises it:
 //!
-//!   Engine (Mode B - VPS/headless default): Resin binds every entry port
-//!     natively and the client supplies the Platform.Account credential once.
-//!     The shell binds nothing - exactly the thin shape ADR-0015 left behind.
+//! Engine (Mode B - VPS/headless default): Resin binds every entry port
+//! natively and the client supplies the Platform.Account credential once.
+//! The shell binds nothing - exactly the thin shape left behind.
 //!
-//!   Shell (Mode A - desktop default): the shell binds every enabled entry
-//!     port, the client connects credential-free, and every connection is
-//!     relayed to Resin's consolidated proxy port (resin_addr) with the
-//!     port's (platform, account) injected in the dialect the connection
-//!     speaks (ADR-0068 D3):
-//!       SOCKS5: RFC 1929 username-password subnegotiation,
-//!         username = Platform.Account, password = the sidecar proxy token.
-//!       HTTP:   Proxy-Authorization: Basic base64(Platform.Account:token),
-//!         with absolute-form requests re-tunnelled through CONNECT so the
-//!         relayed bytes never traverse the engine's buffered forward path.
-//!         That path copies a proxied response with io.Copy and NO flush, so
-//!         a text/event-stream body arrives in 2-4 KB batches; the CONNECT tunnel copies
-//!         raw bytes and per-event flush survives.
+//! Shell (Mode A - desktop default): the shell binds every enabled entry
+//! port, the client connects credential-free, and every connection is
+//! relayed to Resin's consolidated proxy port (resin_addr) with the
+//! port's (platform, account) injected in the dialect the connection
+//! speaks:
+//! SOCKS5: RFC 1929 username-password subnegotiation,
+//! username = Platform.Account, password = the sidecar proxy token.
+//! HTTP: Proxy-Authorization: Basic base64(Platform.Account:token),
+//! with absolute-form requests re-tunnelled through CONNECT so the
+//! relayed bytes never traverse the engine's buffered forward path.
+//! That path copies a proxied response with io.Copy and NO flush, so
+//! a text/event-stream body arrives in 2-4 KB batches; the CONNECT tunnel copies
+//! raw bytes and per-event flush survives.
 //!
 //! The connection's first byte picks the dialect (0x05 = SOCKS5, otherwise
 //! HTTP, detect_protocol). The port's declared protocol (entry_protocol:
 //! mixed | http | socks5) gates what is ACCEPTED here, because the
 //! consolidated port accepts both dialects and will not refuse the wrong one
 //! on the forwarder's behalf. The refusals mirror
-//! the per-endpoint behaviour the ADR-0068 D4 gate observed live: a SOCKS5
+//! the per-endpoint behaviour the gate observed live: a SOCKS5
 //! client on an http-only port gets a 05 FF method rejection, an HTTP client
 //! on a socks5-only port gets 403 + X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED.
 //!
-//! Relay semantics (D-004 SSE hard acceptance, tested in
+//! Relay semantics (SSE hard acceptance, tested in
 //! tests/forwarder_dataplane.rs):
-//!   - every chunk read is written and flushed before the next read: no
-//!     internal batching, per-event flush end to end;
-//!   - either side closing shuts the session down immediately: a client
-//!     disconnect cascades into the upstream so the engine cancels the origin
-//!     request instead of burning tokens;
-//!   - one fixed buffer per direction per session: a slow peer applies
-//!     backpressure through the sockets instead of buffering unbounded;
-//!   - errors are signalled inside the client's own channel: a failed
-//!     CONNECT gets a SOCKS5 failure reply / an HTTP 502, and an
-//!     event-stream response that breaks abnormally (upstream reset, not a
-//!     clean EOF) is terminated in-band with an event:error frame.
+//! - every chunk read is written and flushed before the next read: no
+//! internal batching, per-event flush end to end;
+//! - either side closing shuts the session down immediately: a client
+//! disconnect cascades into the upstream so the engine cancels the origin
+//! request instead of burning tokens;
+//! - one fixed buffer per direction per session: a slow peer applies
+//! backpressure through the sockets instead of buffering unbounded;
+//! - errors are signalled inside the client's own channel: a failed
+//! CONNECT gets a SOCKS5 failure reply / an HTTP 502, and an
+//! event-stream response that breaks abnormally (upstream reset, not a
+//! clean EOF) is terminated in-band with an event:error frame.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -64,7 +64,7 @@ pub const MAX_ENTRY_PORTS: usize = 256;
 pub const MIN_USER_PORT: u16 = 1024;
 /// Fixed per-direction relay buffer. The relay never allocates per byte of
 /// in-flight data: a slow peer blocks the pump and the TCP windows carry the
-/// backpressure (D-004 bounded-backpressure assertion).
+/// backpressure (bounded-backpressure assertion).
 pub const RELAY_BUF_BYTES: usize = 16 * 1024;
 /// Cap on a request / response head read off either side.
 pub const MAX_HEAD_BYTES: usize = 64 * 1024;
@@ -78,9 +78,9 @@ const BIND_RETRY_MIN_MS: u64 = 1_000;
 /// Backoff ceiling for a persistently-held entry port.
 const BIND_RETRY_MAX_MS: u64 = 30_000;
 
-/// Which process realises the port = identity data plane (ADR-0068 D1).
+/// Which process realises the port = identity data plane.
 /// Engine = Mode B (Resin listens, client credential once).
-/// Shell  = Mode A (shell listens, client credential-free).
+/// Shell = Mode A (shell listens, client credential-free).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataPlaneMode {
     Engine,
@@ -163,7 +163,7 @@ struct PortForwarderInner {
 
 impl PortForwarder {
     /// Mode B constructor (headless default and every legacy call
-    /// site): binds nothing, keeps the ADR-0015 thin behaviour.
+    /// site): binds nothing, keeps the thin behaviour.
     pub fn new(
         db: DbPool,
         resin_host: impl Into<String>,
@@ -242,11 +242,11 @@ impl PortForwarder {
     }
 
     /// Mode view of the live entry ports:
-    ///   Shell:  the ports whose accept loop currently holds a bound
-    ///           listener (a retrying bind is NOT yet serving, so it is
-    ///           honestly absent - the snapshot reads it MissingOnResin).
-    ///   Engine: the shell-side PortMapping metadata view the ADR-0015
-    ///           thin shell kept (the real listeners live in Resin).
+    /// Shell: the ports whose accept loop currently holds a bound
+    /// listener (a retrying bind is NOT yet serving, so it is
+    /// honestly absent - the snapshot reads it MissingOnResin).
+    /// Engine: the shell-side PortMapping metadata view the
+    /// thin shell kept (the real listeners live in Resin).
     pub fn running_ports(&self) -> Vec<u16> {
         if self.is_shell() {
             let mut v: Vec<u16> = self.inner.bound.lock().iter().copied().collect();
@@ -443,7 +443,7 @@ async fn handle_client(
 }
 
 /// Protocol-faithful refusal of the wrong dialect (mirrors what a tightened
-/// single-protocol Resin endpoint answers, ADR-0068 D4 observation).
+/// single-protocol Resin endpoint answers, observation).
 async fn refuse_dialect(client: &mut TcpStream, sniffed: &str) -> Result<(), String> {
     let out: &[u8] = if sniffed == "socks5" {
         &[0x05u8, 0xFFu8][..]
@@ -490,7 +490,7 @@ async fn handle_socks5(mut client: TcpStream, ctx: SessionCtx) -> Result<(), Str
     // URL - reqwest/hyper-util send a UserPass-ONLY offer, which is exactly
     // what probe_exit_ip builds for non-http rows - dies on a method
     // mismatch against a NoAuth-only reply, so every egress probe through a
-    // shell entry failed before CONNECT (R12-C1 finding). Prefer NoAuth
+    // shell entry failed before CONNECT (a dial-side finding). Prefer NoAuth
     // when offered (zero-RTT credential-free path), else accept-and-ignore
     // UserPass.
     if methods.contains(&0x00) {
@@ -523,7 +523,7 @@ async fn handle_socks5(mut client: TcpStream, ctx: SessionCtx) -> Result<(), Str
     }
     if hdr[1] != 0x01 {
         // CONNECT only: BIND (0x02) and UDP_ASSOCIATE (0x03) get the
-        // command-unsupported reply. D-001 scope is the HTTPS+SSE workload.
+        // command-unsupported reply. The scope is the HTTPS+SSE workload.
         let _ = client
             .write_all(&[0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
             .await;
@@ -568,7 +568,7 @@ async fn handle_socks5(mut client: TcpStream, ctx: SessionCtx) -> Result<(), Str
 /// RFC 1929 username/password subnegotiation, accept-any: the bytes are
 /// consumed so the stream is positioned at the CONNECT request, but the
 /// credential itself is never validated - Mode A is credential-free, the
-/// entry port is the identity (ADR-0068 D3).
+/// entry port is the identity.
 async fn consume_socks5_userpass(client: &mut TcpStream) -> Result<(), String> {
     let mut hdr = [0u8; 2];
     client
@@ -664,7 +664,7 @@ async fn read_socks_reply_addr(stream: &mut TcpStream) -> Result<(), String> {
 
 /// Authed SOCKS5 CONNECT toward the consolidated engine port: RFC 1929
 /// username-password subnegotiation carrying the port's identity
-/// (ADR-0068 D3 dialect injection).
+///.
 async fn socks5_connect_authed(
     ctx: &SessionCtx,
     dest_host: &str,
@@ -1067,7 +1067,7 @@ fn find_head_end(buf: &[u8]) -> Option<usize> {
 /// Bidirectional raw relay with per-chunk flush and close cascade: when
 /// either direction ends (EOF or error) the opposite peer write side is
 /// FINed immediately, so a client abort propagates to the engine as an
-/// upstream cancel (D-004 assertion 2). Byte-level error injection is
+/// upstream cancel (assertion 2). Byte-level error injection is
 /// impossible inside a tunnel (the payload is TLS), so both tunnels share
 /// this form; the absolute-form HTTP path with the event-stream error frame
 /// is handled by its own inline loop instead.
@@ -1343,7 +1343,7 @@ mod tests {
 
     #[tokio::test]
     async fn socks5_userpass_only_offer_is_accepted() {
-        // R12-C1 finding: clients that carry userinfo in the proxy URL
+        // A dial-side finding: clients that carry userinfo in the proxy URL
         // (reqwest/hyper-util - what probe_exit_ip builds for non-http rows)
         // send a UserPass-ONLY method offer. A NoAuth reply is then an
         // RFC 1928 method mismatch; the credential-free shell entry must

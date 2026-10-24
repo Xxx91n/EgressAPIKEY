@@ -1,9 +1,9 @@
-//! Shell-side port->platform mapping store (ADR-0012).
+//! Shell-side port->platform mapping store.
 //!
 //! A tiny SQLite store mapping each Entry Port number to a (platform_name,
 //! account_string) pair. The multi-port listener reads this on every inbound
 //! connection to inject the correct X-Resin-Account header before forwarding
-//! to Resin. Reuses the DbPool infrastructure from ADR-0011 (parking_lot::Mutex
+//! to Resin. Reuses the DbPool infrastructure from (parking_lot::Mutex
 //! + WAL + hand-rolled PRAGMA user_version migration).
 
 use parking_lot::Mutex;
@@ -37,7 +37,7 @@ pub struct PortMapping {
     pub auth_required: bool,
 }
 
-/// R12-H2 (D-004 step1, remedy order B): a dedicated read-only connection
+/// (remedy order B): a dedicated read-only connection
 /// for the read paths, lazily opened on first use and kept for the pool's
 /// life. hynek's WAL caveat applies - a short-lived reader pays the -shm
 /// handshake on every open/close and lands SQLITE_BUSY, so the handle MUST
@@ -63,11 +63,10 @@ fn no_read_conn() -> Arc<ReadConnLazy> {
     Arc::new(LazyLock::new(Box::new(|| None)))
 }
 
-/// R12-E3, adjudicated r12-wave-f D-002 (register row 'DbPool
-/// single-lock (bb8)'): a lock-wait instrument on every DbPool
+/// The adjudicated lock-wait instrument on every DbPool
 /// acquisition. The 1 ms existence threshold is anchored to the
 /// parking_lot eventual-fairness forcing line (~1 ms; 0.5 ms average);
-/// the 5 ms magnitude tier (r12-wave-i D-003.1) sits above it because
+/// the 5 ms magnitude tier sits above it because
 /// the fairness forcing line makes ~1 ms waits a SCHEDULER guarantee
 /// under contention - existence alone cannot discriminate a real
 /// contention event from fairness noise. Verdict history: arm (ii)
@@ -78,14 +77,14 @@ fn no_read_conn() -> Arc<ReadConnLazy> {
 /// pool-impl adjudication (successor: deadpool-sqlite; r2d2 is
 /// 404-dead on crates.io, recorded; remedy order B read-conn before A
 /// migration). The instrument sits behind the opt-in Cargo feature
-/// `db-lock-metrics` (r12-wave-i D-003.1): default-off builds compile
+/// `db-lock-metrics`: default-off builds compile
 /// it out entirely (zero-cost - acquire() collapses to the bare lock),
 /// and feature-on builds exist for observation cycles ONLY, never a
 /// shipping configuration.
 #[cfg(feature = "db-lock-metrics")]
 const LOCK_WAIT_REOPEN: Duration = Duration::from_millis(1);
 
-/// Magnitude tier (r12-wave-i D-003.1): waits >= 5 ms. Above this a wait
+/// Magnitude tier: waits >= 5 ms. Above this a wait
 /// is a real contention event, not parking_lot fairness forcing.
 #[cfg(feature = "db-lock-metrics")]
 const LOCK_WAIT_MAGNITUDE: Duration = Duration::from_millis(5);
@@ -100,19 +99,19 @@ const LOCK_WAIT_SAMPLE_CAP: usize = 16384;
 struct LockWaitStats {
     acquisitions: AtomicU64,
     over_threshold: AtomicU64,
-    /// r12-wave-i D-003.1: magnitude tier - writer waits >=
+    /// magnitude tier - writer waits >=
     /// LOCK_WAIT_MAGNITUDE (5 ms), counted separately so existence and
     /// magnitude stay distinguishable.
     over_magnitude: AtomicU64,
     max_wait_micros: AtomicU64,
     wait_micros: StdMutex<Vec<u64>>,
-    /// R12-H2 step0 (D-004): last WRITER acquisition callsite - the holder
+    /// step0: last WRITER acquisition callsite - the holder
     /// identity a >=1ms waiter was blocked on (the in-flight/preceding
     /// acquirer). Lets the next real-load WARN name its starver
     /// (candidates per the contention profile: replace_ports/backup
     /// self-check/migrate).
     holder: StdMutex<Option<&'static str>>,
-    /// r12-wave-i D-003.1/D-005: dedicated read-conn observation leg.
+    /// Dedicated read-conn observation leg.
     /// Reader-vs-reader waits on the read mutex get their own counters +
     /// holder slot so the writer-lock counts stay the pure B-side pivot.
     read_acquisitions: AtomicU64,
@@ -154,7 +153,7 @@ impl LockWaitStats {
     }
 
     /// Record a dedicated READ-CONN acquisition wait attributed to `who`
-    /// (r12-wave-i D-003.1: the reader-vs-reader leg the D-005 reopen-when
+    /// (the reader-vs-reader leg the reopen-when
     /// depends on). Read waits stay OUT of the writer p99 sample so the
     /// A/B readout keeps its single-lock caliber.
     fn observe_read(&self, wait: Duration, who: &'static str) {
@@ -209,13 +208,13 @@ impl LockWaitStats {
 }
 
 /// Snapshot of the lock-wait instrument (gated on the opt-in
-/// `db-lock-metrics` feature, r12-wave-i D-003.1 - observation builds
+/// `db-lock-metrics` feature - observation builds
 /// only). The synthetic concurrency probe reads `wait_micros` for its p99
 /// regression/A-B readout (arm (ii) discharged 2026-09-24, keep-Mutex
-/// verdict - r12-wave-f D-002); `over_threshold` is arm (i)'s
+/// verdict); `over_threshold` is arm (i)'s
 /// observation surface on real load - the primary instrument. The
 /// `read_*` leg observes the dedicated read conn (the reader-vs-reader
-/// surface for D-005's reopen-when) without polluting the writer p99.
+/// surface for the reopen-when) without polluting the writer p99.
 #[cfg(feature = "db-lock-metrics")]
 #[derive(Debug, Default, Clone)]
 pub struct LockWaitReport {
@@ -259,12 +258,12 @@ impl DbPool {
         guard
     }
 
-    /// Read seam for `list_ports`/`get_port` (D-004 step1): prefer the
+    /// Read seam for `list_ports`/`get_port`: prefer the
     /// dedicated read-only connection so reads never queue behind a writer's
     /// critical section; fall back to the instrumented writer lock when no
     /// dedicated connection exists (in-memory pool, failed read-only open).
     /// With `db-lock-metrics` on, the dedicated read-conn acquisition is
-    /// timed too (r12-wave-i D-003.1/D-005: the reader-vs-reader leg) -
+    /// timed too (the reader-vs-reader leg) -
     /// landing in the read_* counters, never the writer p99 sample.
     #[inline]
     fn read_guard(&self, who: &'static str) -> parking_lot::MutexGuard<'_, Connection> {
@@ -325,7 +324,7 @@ impl DbPool {
 
     /// True once the dedicated read-only connection initialized
     /// (file-backed pool). Read paths fall back to the writer lock on
-    /// false. Public observability surface (r12-wave-i D-004.3) -
+    /// false. Public observability surface -
     /// independent of the `db-lock-metrics` instrument feature.
     pub fn read_conn_dedicated(&self) -> bool {
         (&**self.1).is_some()
@@ -342,7 +341,7 @@ impl DbPool {
             .map_err(|e| format!("pragma synchronous=NORMAL: {e}"))?;
         Self::configure(&conn)?;
         Self::migrate(&conn)?;
-        // Dedicated read conn (D-004 step1): opened lazily on first read so
+        // Dedicated read conn: opened lazily on first read so
         // a pool that never reads pays nothing. Read-only + long-lived per
         // the hynek WAL caveat; any failure degrades to the writer lock.
         let read_path = path.to_path_buf();
@@ -409,7 +408,7 @@ impl DbPool {
             tracing::info!(target: "db", "migrated to user_version 3 (auth_required column)");
         }
         if v < 4 {
-            // (ADR-0068 D3): the entry-port protocol
+            //: the entry-port protocol
             // enum gained `mixed` and `socks5` was tightened to SOCKS5-only. A
             // pre-change `socks5` row produced BOTH engine flags, so it is
             // rewritten to the flag-preserving `mixed` - the "existing ports
@@ -554,7 +553,7 @@ impl DbPool {
 /// back as if it were trustworthy.
 ///
 /// This never writes to `src`; the destination is a fresh file. Callers keep
-/// the ADR-0050-bis constraint on Resin private state.
+/// the constraint on Resin private state.
 pub fn snapshot_db_readonly(src: &Path, dst: &Path) -> Result<(), String> {
     if !src.is_file() {
         return Err(format!("snapshot: source is not a file: {}", src.display()));
@@ -770,7 +769,7 @@ mod tests {
         assert!(pool.get_port(17990).unwrap().is_none());
     }
 
-    /// ADR-0070: the backup snapshot must be a consistent,
+    ///: the backup snapshot must be a consistent,
     /// self-checked copy of a LIVE database (the pool keeps a WAL writer open),
     /// and must refuse a source that is not a file rather than handing back an
     /// empty snapshot the caller would treat as real.
@@ -890,7 +889,7 @@ mod tests {
     }
 
     /// replace_ports commit-latency measurement. Two assertions that used
-    /// to live here left the push gate (r12-wave-i D-004; djust #2157
+    /// to live here left the push gate (adjust #2157
     /// precedent - benchmark bodies still run, duration assertions don't
     /// gate): the BEGIN-IMMEDIATE requirement is enforced by
     /// scripts/db-immediate-txn-check.cjs (a real source gate - comments
@@ -929,7 +928,7 @@ mod tests {
         }
         samples.sort();
         let p99 = samples[(samples.len() * 99 / 100).min(samples.len() - 1)];
-        // Measured, not asserted (r12-wave-i D-004): the <=50ms budget is a
+        // Measured, not asserted: the <=50ms budget is a
         // recorded bench row; DBPROBE is what the bench dbprobe phase parses.
         println!(
             "DBPROBE replace_ports_p99_us={} samples={}",
@@ -941,7 +940,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// r12-wave-i D-004: behavioral lock for the BEGIN-IMMEDIATE invariant -
+    /// behavioral lock for the BEGIN-IMMEDIATE invariant -
     /// while a competing connection holds a write txn, replace_ports must
     /// fail AT `begin` (SQLITE_BUSY after busy_timeout), not at the first
     /// write or commit. A deferred txn would take no write lock at BEGIN
@@ -1017,7 +1016,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// R12-E3 register arm (ii), adjudicated r12-wave-f D-002: synthetic
+    /// register arm (ii), adjudicated: synthetic
     /// concurrency probe measuring the acquisition-wait p99. The
     /// registered 1 ms arm FIRED on first measurement (CI run
     /// 35959139983, 2026-09-24: p99=9615us over 200 samples, 76/200 >=
@@ -1029,11 +1028,11 @@ mod tests {
     /// plus deterministic pivots; the p99 < 250ms hang-pathology bound
     /// (25x the observed 9.9ms max, catching an unreleased lock /
     /// pathological regression) moved to the bench.yml dbprobe artifact
-    /// row (r12-wave-i D-004 - recorded, never gated). Arm
+    /// row (recorded, never gated). Arm
     /// (i) - the dev counters on real load - is the primary instrument;
     /// arm (iii)'s probe leg is dropped; arm (iv)'s 2026-10-20 hard date
     /// is unchanged.
-    /// R12-H2 (D-004 step1) reframed the target: file-backed reads now go
+    /// reframed the target: file-backed reads now go
     /// through the dedicated read conn and never touch the instrumented
     /// writer lock, so the saturation hammer moved from `list_ports` to
     /// the WRITER path (`upsert_port` - the remaining real contention
@@ -1103,12 +1102,12 @@ mod tests {
         s.sort_unstable();
         assert!(!s.is_empty());
         let p99 = s[(s.len() * 99 / 100).min(s.len() - 1)];
-        // Post-verdict instrument line (r12-wave-f D-002): arm (ii) fired
+        // Post-verdict instrument line: arm (ii) fired
         // 2026-09-24 and discharged to a keep-Mutex verdict, so this
         // print is a regression/A-B readout - printed, not gated; arm (i)
         // on real load is the primary reopen instrument. The 250ms
         // hang-pathology bound left the push gate for the bench.yml
-        // dbprobe artifact row (r12-wave-i D-004) - DBPROBE is what the
+        // dbprobe artifact row - DBPROBE is what the
         // phase parses.
         println!(
             "DBPROBE lock_wait_p99_us={p99} max_us={} over_threshold={} over_magnitude={} read_over_threshold={} samples={} (arm ii FIRED+discharged 2026-09-24 run 35959139983, keep-Mutex verdict)",
@@ -1119,7 +1118,7 @@ mod tests {
             s.len()
         );
 
-        // D-004 step1 pivot assertion: the same read hammer that arm (ii)
+        // step1 pivot assertion: the same read hammer that arm (ii)
         // once saturated the lock with now registers ZERO acquisitions -
         // file-backed reads ride the dedicated read conn.
         let mut readers = Vec::with_capacity(THREADS);
@@ -1144,11 +1143,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// R12-H2 step0 (D-004): every acquisition attributes its callsite -
+    /// step0: every acquisition attributes its callsite -
     /// the stats record the LAST acquirer as the holder identity a >=1ms
     /// waiter was blocked on. In-memory reads land on the instrumented
-    /// fallback, so their callsites attribute identically. r12-wave-i
-    /// D-003.1 adds the dedicated read-conn leg: file-backed reads
+    /// fallback, so their callsites attribute identically. The instrument
+    /// adds the dedicated read-conn leg: file-backed reads
     /// attribute on the read domain's own holder slot.
     #[cfg(feature = "db-lock-metrics")]
     #[test]
@@ -1178,7 +1177,7 @@ mod tests {
         );
 
         // File-backed reads land on the dedicated read conn - attribution
-        // goes to the read domain's own holder slot (D-003.1/D-005).
+        // goes to the read domain's own holder slot.
         let dir = std::env::temp_dir().join(format!("resin-db-readattr-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("readattr.db");
@@ -1200,11 +1199,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// R12-H2 step1 (D-004): a file-backed pool serves list/get through the
+    /// step1: a file-backed pool serves list/get through the
     /// dedicated read-only connection - a separate handle on the same WAL
     /// database, lazily opened on first read and kept for the pool's life
     /// (hynek: short-lived readers pay the -shm handshake). In-memory pools
-    /// stay on the writer-lock fallback. Ungated per r12-wave-i D-004.3 -
+    /// stay on the writer-lock fallback. Ungated -
     /// observability comes from the public `read_conn_dedicated()`
     /// accessor, not the instrument feature.
     #[test]
@@ -1255,7 +1254,7 @@ mod tests {
     /// The dedicated read conn is a second handle on the same WAL file:
     /// readers keep observing committed snapshots while a writer is active,
     /// never queueing on the writer mutex. Functional closed-loop - the
-    /// latency shape is the dev-session A/B readout (R12-H2 step1).
+    /// latency shape is the dev-session A/B readout.
     #[test]
     fn dedicated_read_conn_serves_reads_while_writer_is_active() {
         let dir = std::env::temp_dir().join(format!("resin-db-readrace-{}", std::process::id()));

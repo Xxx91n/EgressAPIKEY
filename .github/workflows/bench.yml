@@ -1,4 +1,4 @@
-# Performance baseline benchmark (D-004).
+# Performance baseline benchmark.
 #
 # Runs scripts/bench/run-bench.mjs against a REAL Resin sidecar binary on
 # Windows, Linux and (tier-2 signal) macOS runners. The harness reads GITHUB_RUN_ID /
@@ -19,7 +19,7 @@ on:
         type: choice
         options: [short, long]
       gate:
-        description: "Gate mode: warn never fails; enforce hard-fails on assertion/smoke breaches only (measurement rows are recorded, never fatal - D-002)"
+        description: "Gate mode: warn never fails; enforce hard-fails on assertion/smoke breaches only (measurement rows are recorded, never fatal)"
         required: false
         default: "warn"
         type: choice
@@ -31,13 +31,13 @@ on:
         type: choice
         options: ["true", "false"]
       phases:
-        description: 'Comma-separated phase list; empty = default set + exe-gated app/headless phases. An explicit list is EXACT. "faultinject" (R12-C1) is opt-in evidence: needs real WAN egress to 1.1.1.1 and builds the headless SUT on both legs.'
+        description: 'Comma-separated phase list; empty = default set + exe-gated app/headless phases. An explicit list is EXACT. "faultinject" is opt-in evidence: needs real WAN egress to 1.1.1.1 and builds the headless SUT on both legs.'
         required: false
         default: ""
         type: string
   schedule:
     - cron: "0 2 * * 1" # Mondays 02:00 UTC
-    # r12-wave-d R12-D4b: monthly faultinject heartbeat (1st of month, 03:00
+    # monthly faultinject heartbeat (1st of month, 03:00
     # UTC). Two consecutive absent scheduled runs fire the trigger-line
     # register's monthly-faultinject line.
     - cron: "0 3 1 * *"
@@ -113,7 +113,7 @@ jobs:
           ${{ matrix.os == 'ubuntu-latest' && '--target x86_64-unknown-linux-gnu' || '' }}
         shell: bash
 
-      # R12-J2 / r12-wave-j D-004: macOS tier-2 test signal - the same cargo
+      # macOS tier-2 test signal - the same cargo
       # test scope the unix verify leg runs, periodic cost only (schedule +
       # dispatch), never on push. CARGO_BUILD_TARGET override is required:
       # the repo .cargo/config.toml pins x86_64-pc-windows-msvc. A first
@@ -126,7 +126,7 @@ jobs:
           cargo test -p resin-core --quiet
           cargo test -p egressapikey-app --lib --quiet
 
-      # R12-D4b dry-run verification for the schedule path: the resolved
+      # dry-run verification for the schedule path: the resolved
       # PHASES_ARG/HEADLESS_ARG land in the job log, so a monthly heartbeat
       # run can be audited for what it would execute without touching the
       # gate. Identical expressions as the Run benchmark step below.
@@ -140,9 +140,9 @@ jobs:
       - name: Run benchmark
         env:
           # Schedule runs the explicit full default set + faultinject
-          # (R12-D4b): the list is spelled out, not expanded from empty
+          # the list is spelled out, not expanded from empty
           # input, so the monthly heartbeat is immune to default-list drift.
-          # dbprobe (r12-wave-i D-004) carries the ex-push-gate duration
+          # dbprobe carries the ex-push-gate duration
           # measurements - it runs cargo test, so it needs no SUT plumbing.
           PHASES_ARG: ${{ github.event_name == 'schedule' && '--phases idle,paired,rps,sse,soak,healthz,app,appstart,headless,headlessstart,faultinject,dbprobe' || (inputs.phases != '' && format('--phases {0}', inputs.phases) || '') }}
           HEADLESS_ARG: ${{ (matrix.os == 'windows-latest' && (inputs.with_app == 'true' || contains(inputs.phases, 'faultinject') || github.event_name == 'schedule')) && '--headless-exe target/x86_64-pc-windows-msvc/release/egressapikey-headless.exe' || (matrix.os == 'ubuntu-latest' && (contains(inputs.phases, 'faultinject') || github.event_name == 'schedule')) && '--headless-exe target/x86_64-unknown-linux-gnu/release/egressapikey-headless' || '' }}

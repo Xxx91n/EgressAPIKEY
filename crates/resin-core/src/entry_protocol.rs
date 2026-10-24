@@ -1,4 +1,4 @@
-//! Entry-port protocol vocabulary - /, ADR-0068 D3.
+//! Entry-port protocol vocabulary (http / socks5 / mixed; `mixed` is the default and the only value that opens both engine capability flags).
 //!
 //! An Entry Port declares exactly ONE of three protocol values, and `mixed`
 //! is the default. `mixed` is a single listener that accepts both HTTP-proxy
@@ -6,17 +6,18 @@
 //! together and disambiguates on the connection's first byte (0x05 = SOCKS5,
 //! otherwise HTTP). The live same-port behaviour - including the per-protocol
 //! refusal the tightened mapping relies on - was verified against a running
-//! Resin before this module landed (ADR-0068 D4 gate; raw evidence in
-//! `.scratch//repro/d4-mixed/`).
+//! Resin before this module landed (the live four-scenario contract gate:
+//! one dual-flag port answered both HTTP CONNECT and the SOCKS5 greeting,
+//! while single-protocol ports refuse the other dialect).
 //!
 //! This module is the single source of truth for two things that used to be
 //! spread across the codebase and therefore drifted apart:
 //!
-//!   1. the CLOSED value set the whitebox validator and the IPC / headless
-//!      HTTP boundaries enforce (`canonical_protocol` / `is_valid_protocol`),
-//!      and
-//!   2. the Resin endpoint capability flags derived from the token
-//!      (`engine_flags`) - previously hand-rolled at four separate call sites.
+//! 1. the CLOSED value set the whitebox validator and the IPC / headless
+//! HTTP boundaries enforce (`canonical_protocol` / `is_valid_protocol`),
+//! and
+//! 2. the Resin endpoint capability flags derived from the token
+//! (`engine_flags`) - previously hand-rolled at four separate call sites.
 //!
 //! Behavioural change: `socks5` NO LONGER implies HTTP forwarding.
 //! Before the change a `socks5` port produced (allow_socks5 = true,
@@ -59,11 +60,11 @@ pub fn is_valid_protocol(raw: &str) -> bool {
 /// Resin endpoint capability flags for an entry-port protocol token, returned
 /// as `(allow_socks5, allow_http_forward)`.
 ///
-/// | protocol | allow_socks5 | allow_http_forward | listener      |
+/// | protocol | allow_socks5 | allow_http_forward | listener |
 /// |----------|--------------|--------------------|---------------|
-/// | `mixed`  | true         | true               | HTTP + SOCKS5 |
-/// | `http`   | false        | true               | HTTP only     |
-/// | `socks5` | true         | false              | SOCKS5 only   |
+/// | `mixed` | true | true | HTTP + SOCKS5 |
+/// | `http` | false | true | HTTP only |
+/// | `socks5` | true | false | SOCKS5 only |
 ///
 /// TOTAL by design: every boundary that can introduce a token rejects
 /// out-of-set values first (`canonical_protocol` in the whitebox validator, the
@@ -110,7 +111,7 @@ mod tests {
         }
     }
 
-    /// The flag table, locked against what the ADR-0068 D4 gate observed live
+    /// The flag table, locked against what the live contract gate observed
     /// against a running Resin: the dual-flag port answered BOTH dialects, the
     /// http-only port refused SOCKS5 (05 ff) and the socks5-only port refused
     /// HTTP (403 ENDPOINT_CAPABILITY_DISABLED).

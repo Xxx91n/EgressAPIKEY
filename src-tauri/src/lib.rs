@@ -1,10 +1,10 @@
 //! Tauri 2 desktop shell for EgressAPIKEY. Owns sidecar lifecycle, the
 //! system tray, and the Ghost-style safety net. Wires frontend IPC commands
-//! to the Resin Go sidecar control plane (ADR-0012 thin-shell multi-port).
+//! to the Resin Go sidecar control plane.
 //!
 //! IPC commands live in the `commands` submodule so the names registered via
 //! `tauri::generate_handler!` do not collide with the macro-generated helper
-//! items (Tauri 2 + Rust 1.97 build-time check). ADR-0024 removed the legacy
+//! items (Tauri 2 + Rust 1.97 build-time check). removed the legacy
 //! SharedGateway/GatewayState dead code: the data path now runs through the
 //! Resin sidecar, so the shell no longer constructs a gateway state instance.
 
@@ -25,7 +25,7 @@ pub type SharedRegistry = Arc<resin_core::platform::PlatformRegistry>;
 /// Construct a fresh empty PlatformRegistry for the desktop session. Platform
 /// and account state is owned by the Resin sidecar: the IPC commands go
 /// straight through `ResinClient`, and `account_add` is a validation-only echo
-/// (ADR-0050), so this registry is never populated from the frontend.
+///, so this registry is never populated from the frontend.
 pub fn build_shared_registry() -> SharedRegistry {
     Arc::new(resin_core::platform::PlatformRegistry::new())
 }

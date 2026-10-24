@@ -1,7 +1,7 @@
 //! Integration coverage for the Platform/Account registry composition the
 //! shell uses (SharedRegistry in src-tauri/src/lib.rs). The former
 //! lane/lease/tdewma/gateway composition tests were deleted together with
-//! those modules (ADR-0050); platform behaviour also stays covered by the
+//! those modules; platform behaviour also stays covered by the
 //! module unit tests in src/platform.rs.
 
 use resin_core::platform::{Account, Platform, PlatformRegistry};

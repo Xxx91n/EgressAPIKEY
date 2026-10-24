@@ -2,25 +2,24 @@
 'use strict';
 
 /*
- * mode-a-contract-check.cjs - ADR-0068 D4 four-scenario contract gate, live
+ * mode-a-contract-check.cjs - four-scenario contract gate, live
  * black-box against the real Resin sidecar binary.
  *
- * Evidence lineage: the original Mode A landing data-plane Mode A with the
- * byte-level D4 gate table verified live against the bundled Resin binary
- * (.scratch/-closed-2026-09-16/repro/{d4-mixed,t17-contract}).
+ * Evidence lineage: the original Mode A landing verified the byte-level
+ * four-scenario gate table live against the bundled Resin binary.
  * This script re-establishes the same evidence on every CI run so a Resin
  * upgrade that silently changes the engine contract fails the build instead
  * of surfacing as a user-visible regression. Hand recipe + baseline table:
  * tests/fixtures/t17-contract/README.md.
  *
- * Scenarios (per docs/adr/0068 D4, verified on custom endpoints):
- *   mixed  (allow_socks5 + allow_http_forward):
- *            HTTP CONNECT    -> HTTP/1.1 503 + X-Resin-Error: NO_AVAILABLE_NODES
- *            SOCKS5 greeting -> 05 00 (method accepted)
- *   http   (allow_http_forward only):
- *            SOCKS5 greeting -> 05 ff (no acceptable method)
- *   socks5 (allow_socks5 only):
- *            HTTP CONNECT    -> HTTP/1.1 403 + X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED
+ * Scenarios (the dialect contract gate, verified on custom endpoints):
+ * mixed (allow_socks5 + allow_http_forward):
+ * HTTP CONNECT -> HTTP/1.1 503 + X-Resin-Error: NO_AVAILABLE_NODES
+ * SOCKS5 greeting -> 05 00 (method accepted)
+ * http (allow_http_forward only):
+ * SOCKS5 greeting -> 05 ff (no acceptable method)
+ * socks5 (allow_socks5 only):
+ * HTTP CONNECT -> HTTP/1.1 403 + X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED
  *
  * Identity attribution ("credential is identity", tests/fixtures/t17-contract): with
  * RESIN_PROXY_TOKEN empty the no-auth default endpoint still PUBLISHES the
@@ -35,12 +34,12 @@
  * 2026-09-04: local never builds or downloads; live evidence = CI runs).
  *
  * Boundary law (R12-E1, registered legislation - NOT a new amnesty): Mode A
- * is a legislated dataplane under ADR-0068 D1/D3, so the static section also
+ * is a legislated dataplane under, so the static section also
  * freezes its boundary against tests/fixtures/mode-a-boundary/census.json:
  * protocol-family freeze {socks5-handshake, http-connect,
- * absolute-form->CONNECT}, no TLS fronting (ADR-0068 D4 verbatim), and no
+ * absolute-form->CONNECT}, no TLS fronting, and no
  * new L7 features (function inventory + StreamSensor dimensions). Net-new
- * dataplane behavior belongs to the ADR-0068 D2 fork line; a deliberate,
+ * dataplane behavior belongs to the fork line; a deliberate,
  * adjudicated change updates the census in the same commit.
  */
 
@@ -293,7 +292,7 @@ async function main() {
     const missing = census.functions.filter(f => !actualFns.includes(f));
     const extra = actualFns.filter(f => !census.functions.includes(f));
     record(missing.length === 0 && extra.length === 0,
-      'boundary: function inventory frozen at census (net-new dataplane behavior goes to the ADR-0068 D2 fork line)',
+      'boundary: function inventory frozen at census ',
       missing.map(m => 'missing:' + m).concat(extra.map(e => 'new:' + e)).join(', ') || undefined);
 
     // Extractor/census version coupling (r12-wave-f D-003): the
@@ -343,14 +342,14 @@ async function main() {
       'boundary: rewrite whitelist {socks5-handshake, http-connect, absolute-form->CONNECT} anchors intact',
       absent.join(', ') || undefined);
 
-    // Ban 2 - no TLS fronting: cite ADR-0068 D4 verbatim, do not
+    // Ban 2 - no TLS fronting: cite the legislated sentence verbatim, do not
     // re-legislate. Tokens are code-shaped (a comment saying "TLS" is not
     // a violation; a TlsAcceptor or a 0x16 handshake byte is).
     const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const tlsHits = census.banned_tls_tokens.filter(t =>
       new RegExp('(?<![A-Za-z0-9_])' + esc(t) + '(?![A-Za-z0-9_])', 'i').test(fwdSrc));
     record(tlsHits.length === 0,
-      'boundary: no TLS fronting - ADR-0068 D4 verbatim: "' + census.adr_0068_d4_verbatim + '"',
+      'boundary: no TLS fronting - legislated verbatim: "' + census.tls_fronting_out_of_scope + '"',
       tlsHits.join(', ') || undefined);
 
     // StreamSensor classification dimensions frozen (new dimension =

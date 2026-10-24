@@ -17,7 +17,7 @@
 //! The former catalog face (parse aliases, the Rust-side
 //! strategy->allocation_policy mapping, the protocol_weight table,
 //! strategy_catalog/StrategyInfo) had no consumer outside its own tests and
-//! was deleted (ADR-0050 direction). With
+//! was deleted. With
 //! the remaining many-to-one mapping collapsed to the IDENTITY: the
 //! whitebox stores the Resin wire value verbatim, so the desired-vs-observed
 //! comparison in `snapshot::merge_strategies` needs no second mapping table,
@@ -38,7 +38,7 @@ pub const LEGACY_B_CLASS_TOKENS: [&str; 6] = [
     "protocol_weight",
 ];
 
-/// User-facing strategy ids == Resin's `allocation_policy` enum (CONTEXT.md:
+/// User-facing strategy ids == Resin's `allocation_policy` enum (GLOSSARY.md:
 /// Egress IP Policy). Stable UPPER_SNAKE wire strings: the whitebox `b_class`
 /// field stores the Resin value verbatim, so the snapshot compares desired
 /// against observed with no translation at all.

@@ -94,7 +94,7 @@
     "collapseAll": "Alle einklappen",
     "delayFilterHint": "Verwende delay>100 oder delay=timeout",
     "egressIps": "Ausgangs-IPs",
-    "egressPolicyNote": "Die Egress-Richtlinie pro Region wird auf der Topology-Leinwand gesetzt: Plattform auf eine IP-Kanal-Region ziehen und Allocation policy auf der Plattform setzen. Der Reiter Platforms enthält die Strategie-Engine (ADR-0022): A-Klasse wählt welche IPs in eine Plattform kommen, B-Klasse wie der Port die Exit-IP wählt.",
+    "egressPolicyNote": "Die Egress-Richtlinie pro Region wird auf der Topology-Leinwand gesetzt: Plattform auf eine IP-Kanal-Region ziehen und Allocation policy auf der Plattform setzen. Der Reiter Platforms enthält die Strategie-Engine: A-Klasse wählt welche IPs in eine Plattform kommen, B-Klasse wie der Port die Exit-IP wählt.",
     "empty": "Keine Knoten. Abonnement importieren.",
     "expandAll": "Alle ausklappen",
     "healthRate": "{{rate}}% fehlerfrei",

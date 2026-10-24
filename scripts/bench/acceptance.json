@@ -194,7 +194,7 @@
     {
       "id": "appstart-title-match",
       "kind": "assert",
-      "desc": "every cold-start launch reaches MainWindowTitle == EgressAPIKEY (ADR-0072 liveness)",
+      "desc": "every cold-start launch reaches MainWindowTitle == EgressAPIKEY ",
       "op": "==",
       "target": 5,
       "unit": "launches",

@@ -6,9 +6,9 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 export const commands = {
 	setLogLevel: (level: LogLevel) => typedError<string, IpcError>(__TAURI_INVOKE("set_log_level", { level })),
 	/**
-	 *  (ADR-0042) / ADR-0069 D1: toggle the enabled flag on an entry-port
-	 *  without re-POST/Create or DELETE. L2 whitebox first, then the Resin PATCH.
-	 *  Thin state-extraction wrapper over [`port_toggle_impl`].
+	 * /: toggle the enabled flag on an entry-port
+	 * without re-POST/Create or DELETE. L2 whitebox first, then the Resin PATCH.
+	 * Thin state-extraction wrapper over [`port_toggle_impl`].
 	 */
 	portToggle: (port: number, enabled: boolean) => typedError<PortMapping, IpcError>(__TAURI_INVOKE("port_toggle", { port, enabled })),
 };
@@ -34,21 +34,21 @@ export type IpcError =
 	i18n_key: string,
 } } |
 /**
- *  Command input failed §7.5 validation (range/length cap) at the Rust
- *  boundary. introduced by the diag-poll-interval command
- *  pair; msg carries the rejected bound for log display. Reuses the
- *  existing "error.badRequest" locale key (no new i18n key, 不做清单).
+ * Command input failed §7.5 validation (range/length cap) at the Rust
+ * boundary. introduced by the diag-poll-interval command
+ * pair; msg carries the rejected bound for log display. Reuses the
+ * existing "error.badRequest" locale key (no new i18n key, 不做清单).
  */
 { kind: "InvalidInput"; data: {
 	msg: string,
 	i18n_key: string,
 } } |
 /**
- *  Name-based lookup miss: the typed face of the
- *  former stringly `format!("platform not found: {name}")` rejections the
- *  name→UUID call sites produced through `IpcError::from(String)`.
- *  Reuses the existing "error.notFound" locale key (already present in
- *  all 18 catalogs), so no new i18n key is added.
+ * Name-based lookup miss: the typed face of the
+ * former stringly `format!("platform not found: {name}")` rejections the
+ * name→UUID call sites produced through `IpcError::from(String)`.
+ * Reuses the existing "error.notFound" locale key (already present in
+ * all 18 catalogs), so no new i18n key is added.
  */
 { kind: "NotFound"; data: {
 	msg: string,
@@ -61,11 +61,11 @@ export type IpcError =
 } };
 
 /**
- *  (tauri-specta pilot): log level as a closed enum. The wire
- *  format is unchanged (lowercase string, serde rename_all); out-of-set
- *  values are now rejected by serde at deserialization instead of the
- *  former in-command String match. Exported into src/bindings.ts so the
- *  frontend narrows against the generated union.
+ * (tauri-specta pilot): log level as a closed enum. The wire
+ * format is unchanged (lowercase string, serde rename_all); out-of-set
+ * values are now rejected by serde at deserialization instead of the
+ * former in-command String match. Exported into src/bindings.ts so the
+ * frontend narrows against the generated union.
  */
 export type LogLevel = "error" | "warn" | "info" | "debug";
 

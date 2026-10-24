@@ -19,13 +19,13 @@ const NOTICE_CLS =
   "dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200";
 
 /** True when the command has no surface in this mode. Use it to disable a
- *  control without needing a hook (availability is static per page load). */
+ * control without needing a hook (availability is static per page load). */
 export function commandBlocked(command: string): boolean {
   return commandUnavailableReason(command) !== null;
 }
 
 /** Button gating for one command: `{ disabled, title }` ready to spread onto a
- *  <button>. The title carries the reason so a hover explains the block. */
+ * <button>. The title carries the reason so a hover explains the block. */
 export function useCommandGuard(command: string): {
   disabled: boolean;
   title: string | undefined;
@@ -39,8 +39,8 @@ export function useCommandGuard(command: string): {
 }
 
 /** View-level notice: lists the headless-unavailable commands this view uses.
- *  Renders nothing in Tauri mode (where every command is reachable) and
- *  nothing when the view only calls mapped commands. */
+ * Renders nothing in Tauri mode (where every command is reachable) and
+ * nothing when the view only calls mapped commands. */
 export function HeadlessCapabilityNotice({
   commands,
 }: {
@@ -75,7 +75,7 @@ export function HeadlessCapabilityNotice({
 }
 
 /** The COMPLETE disabled set, grouped by reason. Mounted once so the disabled
- *  commands are visible even when no view calls them. */
+ * commands are visible even when no view calls them. */
 export function HeadlessCapabilityPanel() {
   const { t } = useTranslation();
   const disabled = allDisabledCommands();

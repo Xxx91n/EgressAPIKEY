@@ -13,7 +13,7 @@
  * P19: "localSubOrder" (string[]) - user's drag-reorder override for subscriptions. The Rust tray reads "lang" directly via
  * tauri-plugin-store (see src-tauri/src/tray.rs::current_lang) so the tray is
  * localised even before the webview mounts. The legacy network preference
-* keys were never effective after (ADR-0012: the Resin sidecar owns the
+* keys were never effective after (the Resin sidecar owns the
  * listen port); purgeLegacyDeadKeys() removes any residue once at startup.
  */
 
@@ -30,12 +30,12 @@ interface StoreLike {
   save(): Promise<void>;
 }
 
-/** ADR-0071: headless-mode drop-in for tauri-plugin-store. The
- *  desktop LazyStore persists to app_config_dir/settings.json; the headless
- *  equivalent persists to <state_root>/settings.json through the BFF's
- *  settings KV (GET/PUT /api/v1/shell/settings). Same get/set/delete/save
- *  surface, so every L1 preference above (lang, theme, view, topology state,
- *  sub order, webdav creds, reputation keys, ...) survives in headless too. */
+/** : headless-mode drop-in for tauri-plugin-store. The
+ * desktop LazyStore persists to app_config_dir/settings.json; the headless
+ * equivalent persists to <state_root>/settings.json through the BFF's
+ * settings KV (GET/PUT /api/v1/shell/settings). Same get/set/delete/save
+ * surface, so every L1 preference above (lang, theme, view, topology state,
+ * sub order, webdav creds, reputation keys, ...) survives in headless too. */
 class HeadlessStore implements StoreLike {
   private doc: Record<string, unknown> | null = null;
   private dirty = false;
@@ -100,8 +100,8 @@ class HeadlessStore implements StoreLike {
 }
 
 /** One HeadlessStore per store file — the module-level cache mirrors
- *  tauri-plugin-store's own per-file document caching (per-call `new
- *  HeadlessStore()` would re-GET the document on every op). */
+ * tauri-plugin-store's own per-file document caching (per-call `new
+ * HeadlessStore()` would re-GET the document on every op). */
 const headlessStores = new Map<string, HeadlessStore>();
 
 function store(): StoreLike {
@@ -158,7 +158,7 @@ export async function saveTheme(theme: string): Promise<void> {
 
 // --- Migration (arch/02): one-time removal of legacy dead keys ---
 // These keys were read by a pre- main.rs block that dropped its
-// CoreConfig on the floor (ADR-0012: the Resin sidecar owns the listen
+// CoreConfig on the floor (the Resin sidecar owns the listen
 // port). This const is the ONLY remaining live-code mention of the dead
 // keys — delete this block and its test once the migration window closes.
 const LEGACY_DEAD_KEYS = ["gatewayBind", "mihomoApi"] as const;
@@ -195,7 +195,7 @@ export async function saveView(view: string): Promise<void> {
   } catch (e) { console.warn("[settings] save failed:", e); }
 }
 
-// Process routes (ADR-0055): the L1 persistence pair was
+// Process routes: the L1 persistence pair was
 // DELETED — the family lives in the L2 whitebox (egressapikey-ports.json
 // process_routes field) with the Rust process_route_* command family as the
 // single write entry. The frontend reads/writes through src/lib/ipc.ts only.
@@ -379,7 +379,7 @@ export async function saveIpReputationConfig(cfg: IpReputationConfig): Promise<v
   } catch (e) { console.warn("[settings] reputation save failed:", e); }
 }
 
-// --- Port auth default toggle persistence (ADR-0031) ---
+// --- Port auth default toggle persistence ---
 export async function loadPortAuthDefault(): Promise<boolean | null> {
   try {
     const v = await store().get<boolean>("portAuthDefault");
@@ -394,7 +394,7 @@ export async function savePortAuthDefault(value: boolean): Promise<void> {
   } catch (e) { console.warn("[settings] savePortAuthDefault failed:", e); }
 }
 
-// --- Node batch probe config (ADR-0044 S4) ---
+// --- Node batch probe config ---
 // Persisted in settings.json#nodeProbe; shell-local, controls batch probe UX.
 export interface NodeProbeConfig {
   concurrency: number;   // 1-50, but capped to min(concurrency, items, 10) at runtime

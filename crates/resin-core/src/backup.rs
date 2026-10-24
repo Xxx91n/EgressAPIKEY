@@ -1,21 +1,21 @@
-//! Backup package model (ADR-0070).
+//! Backup package model.
 //!
 //! Pure logic for the user-facing backup archive. It owns four things and
 //! nothing else:
 //!
-//! 1. **The member whitelist.** CONTEXT.md "Backup Scope" legislates a
-//!    three-class ledger (config layer / L3-derived / never-in-a-backup).
-//!    `classify_member` turns a package path into that class and
-//!    `restore_action` turns the class into what restore is allowed to do
-//!    with it. The request-log leak-prevention line is `is_forbidden_member`.
+//! 1. **The member whitelist.** GLOSSARY.md "Backup Scope" legislates a
+//! three-class ledger (config layer / L3-derived / never-in-a-backup).
+//! `classify_member` turns a package path into that class and
+//! `restore_action` turns the class into what restore is allowed to do
+//! with it. The request-log leak-prevention line is `is_forbidden_member`.
 //! 2. **The per-file SHA-256 manifest.** Generated at backup time, re-verified
-//!    before restore writes anything, so "this backup is restorable" is an
-//!    assertable claim rather than a hope.
+//! before restore writes anything, so "this backup is restorable" is an
+//! assertable claim rather than a hope.
 //! 3. **The optional passphrase envelope.** A random 256-bit file key wraps
-//!    the package; the file key itself is wrapped by a PBKDF2-HMAC-SHA256 key
-//!    derived from the user passphrase. AEAD is ChaCha20-Poly1305.
+//! the package; the file key itself is wrapped by a PBKDF2-HMAC-SHA256 key
+//! derived from the user passphrase. AEAD is ChaCha20-Poly1305.
 //! 4. **The restore disposition policy.** Which classes are written through
-//!    an authoritative write entry, and which are evidence-only.
+//! an authoritative write entry, and which are evidence-only.
 //!
 //! This module never touches the filesystem, the zip container, Tauri, or
 //! Resin: callers hand it member bytes and paths, so every rule here is
@@ -41,23 +41,23 @@ pub const BACKUP_FORMAT_VERSION: u8 = 1;
 
 /// Manifest member (itself excluded from its own entry list).
 pub const MANIFEST_ENTRY: &str = "manifest.json";
-/// The ADR-0061 config-transfer container, built from the two whitebox
+/// The config-transfer container, built from the two whitebox
 /// documents. Sharing that container is what makes backup and
 /// `config_export` ONE model instead of two.
 pub const CONFIG_ENTRY: &str = "config.json";
 /// L1 GUI preferences (L1 authoritative write entry: tauri-plugin-store).
 pub const SETTINGS_ENTRY: &str = "settings.json";
-/// L2 strategy whitebox (ADR-0036 write entry).
+/// L2 strategy whitebox.
 pub const STRATEGY_ENTRY: &str = "l2/egressapikey-strategy.json";
-/// L2 entry-port whitebox (ADR-0042 write entry).
+/// L2 entry-port whitebox.
 pub const PORTS_ENTRY: &str = "l2/egressapikey-ports.json";
 /// L2 port-mapping SQLite store (derived from the ports whitebox on apply).
 pub const PORT_DB_ENTRY: &str = "l2/egressapikey.db";
-/// L2 append-only write-audit log (ADR-0059).
+/// L2 append-only write-audit log.
 pub const AUDIT_ENTRY: &str = "l2/audit.jsonl";
 /// Directory prefix holding the rotated audit archives (audit.jsonl.1..10).
 pub const AUDIT_ARCHIVE_PREFIX: &str = "l2/audit.jsonl.";
-/// Directory holding the whitebox version history (ADR-0054 section B).
+/// Directory holding the whitebox version history.
 pub const WHITEBOX_HISTORY_DIR: &str = "l2/backup";
 /// L3 Resin strong-persistence store (read-only in, never written back).
 pub const STATE_DB_ENTRY: &str = "l3/resin-state/state.db";
@@ -75,11 +75,11 @@ pub const REQUEST_LOG_PREFIX: &str = "request_logs";
 // Member classification
 // ---------------------------------------------------------------------------
 
-/// The three-class ledger of CONTEXT.md "Backup Scope".
+/// The three-class ledger of GLOSSARY.md "Backup Scope".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackupClass {
     /// Configuration layer: the whitebox documents, their version history,
-    /// the port-mapping DB, and the shared ADR-0061 config container.
+    /// the port-mapping DB, and the shared config container.
     Config,
     /// L1 GUI preferences.
     L1,
@@ -101,7 +101,7 @@ pub enum RestoreAction {
 }
 
 /// True when a package member must never be produced or accepted: the Resin
-/// request-log DBs (CONTEXT.md "Backup Scope" class c). Matched on the file
+/// request-log DBs (GLOSSARY.md "Backup Scope" class c). Matched on the file
 /// name so any directory form is caught.
 pub fn is_forbidden_member(path: &str) -> bool {
     let base = path.rsplit('/').next().unwrap_or(path).to_ascii_lowercase();

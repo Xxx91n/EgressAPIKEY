@@ -57,7 +57,7 @@ function DiagField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-// (ADR-0064): zero-dependency inline SVG line chart. Recharts was
+//: zero-dependency inline SVG line chart. Recharts was
 // considered and rejected for the minimal set (ponytail: no new deps for a
 // two-card diagnostic; revisit when the full 12-endpoint Metrics tab lands).
 // Renders one polyline per series over a shared time axis; empty/NaN input
@@ -94,7 +94,7 @@ function MetricsSparkline({
 }
 
 export /** one collapsible payload half (headers/body). b64 decoded via
- *  decodePayloadPart — 1 MB display cap enforced there, flag drives the label. */
+ * decodePayloadPart — 1 MB display cap enforced there, flag drives the label. */
   function PayloadPart({ label, b64, truncatedUpstream, testId }: {
     label: string;
     b64: string;
@@ -144,7 +144,7 @@ export function DiagnosticsView() {
   const [healthProto, setHealthProto] = useState("mixed");
   const [healthResult, setHealthResult] = useState<PortHealthCheck | null>(null);
   const [healthBusy, setHealthBusy] = useState(false);
-  // (ADR-0064): Resin metrics minimal-set state (pull model).
+  //: Resin metrics minimal-set state (pull model).
   const [metricsThroughput, setMetricsThroughput] = useState<MetricsThroughput | null>(null);
   const [metricsProbes, setMetricsProbes] = useState<MetricsProbeHistory | null>(null);
   const [probeRange, setProbeRange] = useState<"1h" | "24h" | "7d">("24h");
@@ -173,7 +173,7 @@ export function DiagnosticsView() {
     try { await setDiagPollInterval(clamped); } catch { /* vitest no-op */ }
   };
 
-  // (ADR-0064): probe-history fetch with a from/to window computed here.
+  //: probe-history fetch with a from/to window computed here.
   // toISOString() is RFC3339 with millis — accepted by the upstream
   // RFC3339Nano parser; the window is boundary-validated on both the TS and
   // the Rust command side (§7.5 dual cover).
@@ -230,7 +230,7 @@ export function DiagnosticsView() {
         ipcCheckFirewallStatus().catch(() => null),
         ipcRequestLogTail(50).catch(() => []),
         ipcInvoke<string[]>("get_sidecar_logs").catch(() => []),
-        // (ADR-0064): realtime throughput rides the same poll cycle.
+        //: realtime throughput rides the same poll cycle.
         ipcMetricsRealtimeThroughput().catch(() => null),
       ]);
       if (status) setSidecarStatus(status);
@@ -602,7 +602,7 @@ export function DiagnosticsView() {
         {t("diagnostics.openLogDir")}
       </button>
 
- {/* (ADR-0064): Resin metrics minimal set — realtime throughput +
+ {/* : Resin metrics minimal set — realtime throughput +
           probe history. Pull model; rides the diagnostics poll cycle. */}
       <DiagCard icon={<Activity size={16} strokeWidth={1.75} />} title={t("metrics.title")}>
         <div className="space-y-3">

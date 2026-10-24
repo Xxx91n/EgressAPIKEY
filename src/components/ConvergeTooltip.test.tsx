@@ -4,7 +4,7 @@ import { ConvergeTooltip } from "./ConvergeTooltip";
 import enCommon from "../locales/en/common.json";
 
 // the four-field hover summary.
-// Uses React-state-driven open/close (NOT CSS :hover) so tests can drive it
+// Uses React-state-driven open/close (NOT CSS:hover) so tests can drive it
 // deterministically via fireEvent.mouseEnter / mouseLeave / focus / blur.
 describe("ConvergeTooltip (ticket 06)", () => {
   it("starts closed and opens on mouseEnter with the four-field summary", () => {

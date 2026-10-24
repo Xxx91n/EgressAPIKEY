@@ -1,7 +1,7 @@
 // Cross-platform per-PID memory/CPU sampler.
-//   linux:   /proc/<pid>/status VmRSS + /proc/<pid>/stat jiffy deltas
-//            (pidstat -r -u used as cross-check when sysstat is installed)
-//   windows: Get-Process WorkingSet64 + CPU seconds deltas
+// linux: /proc/<pid>/status VmRSS + /proc/<pid>/stat jiffy deltas
+// (pidstat -r -u used as cross-check when sysstat is installed)
+// windows: Get-Process WorkingSet64 + CPU seconds deltas
 // Units reported: rssBytes + cpuCores (fraction of one core) + cpuPct
 // (percent of ONE core, matching the D-004 "<1% idle" wording).
 

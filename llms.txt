@@ -1,6 +1,6 @@
 # EgressAPIKEY
 
-> Multi-port socks5/http proxy gateway between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas. Two data-plane modes (ADR-0068): Mode A (desktop) — the shell listens on each entry port and injects the port's `Platform.Account` credential toward Resin, so clients need none; Mode B (headless) — Resin listens natively and the client presents the credential once. Desktop shell (Tauri 2 + React 19) over a Resin Go sidecar reachable only through a loopback REST seam. License: GPL-3.0-or-later.
+> Multi-port socks5/http proxy gateway between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas. Two data-plane modes: Mode A (desktop) — the shell listens on each entry port and injects the port's `Platform.Account` credential toward Resin, so clients need none; Mode B (headless) — Resin listens natively and the client presents the credential once. Desktop shell (Tauri 2 + React 19) over a Resin Go sidecar reachable only through a loopback REST seam. License: GPL-3.0-or-later.
 
 ## Docs
 
@@ -13,9 +13,8 @@
 
 - [AGENTS.md](AGENTS.md): operating instructions and conventions for coding agents — storage layers L1/L2/L3, IPC command manifest, CI gates
 - [ARCHITECTURE](docs/architecture/ARCHITECTURE.md): config authority layers, runtime wiring, Resin sidecar lifecycle
-- [CONTEXT.md](CONTEXT.md): domain glossary / ubiquitous language
+- [GLOSSARY.md](GLOSSARY.md): domain glossary / ubiquitous language
 
-## Key ADRs
+## License
 
-- [ADR-0067 — License layering & provenance](docs/adr/0067-license-layering-provenance.md): GPL-3.0-or-later shell; Resin sidecar declared MIT with a GPL-3.0-or-later dependency tree (sing-box); mere-aggregation invariant
-- [ADRs](docs/adr/): full index of architecture decision records (MADR format)
+- License layering & provenance (see [THIRD_PARTY.md](THIRD_PARTY.md)): GPL-3.0-or-later shell; Resin sidecar declared MIT with a GPL-3.0-or-later dependency tree (sing-box); mere-aggregation invariant

@@ -1,20 +1,20 @@
 # Process Routes vs Account Header Rules (D-35)
 
 > Round 5 T16. Two routing mechanisms coexist BY DESIGN — neither replaces
-> the other (ADR-0063). This page is the decision aid for "which one do I
+> the other. This page is the decision aid for "which one do I
 > reach for".
 
 ## The two mechanisms
 
-- **project process_route_*** (ADR-0055): shell-side declarative memo with
+- **project process_route_***: shell-side declarative memo with
   drift alerting. A rule maps a local process executable name to an entry
   port — it does NOT intercept or redirect that process's connections. The
   rule takes effect only once the process's own proxy settings point at the
   selected port; a route is exactly as live as that port's Resin listener
-  (ADR-0055 D3). Stored in the L2 whitebox (`egressapikey-ports.json`),
+  . Stored in the L2 whitebox (`egressapikey-ports.json`),
   versioned + rolled back with the ports family, surfaced in the
   authoritative snapshot.
-- **Resin account-header-rules** (ADR-0063): Resin-side, proxy-data-plane.
+- **Resin account-header-rules**: Resin-side, proxy-data-plane.
   A rule maps a URL prefix (`host[/path]`, longest-prefix trie, wildcard
   `*` fallback) to a list of HTTP header NAMES. On the REVERSE-proxy data
   plane, when a platform's `empty_account_behavior` is
@@ -33,7 +33,7 @@
 | 动态性 | 低：白盒文件编辑 + `watch_apply` 热载，重启前由文件说了算 | 高：控制面 PUT/DELETE 即时生效（matcher 原子热替换，无重启） |
 | 跨进程 | 备忘可登记任意进程名，但不拦截连接——生效以进程自身代理指向为前提 | 否（仅反向代理数据面感知；`X-Resin-Account` 调试头在转发前被剥离，不会泄漏上游） |
 | 用途 | 本地进程代理（开发 / 调试：让某个 exe 走指定出口） | 远程客户端账号路由（生产：同一 URL 前缀下按请求头把不同账号粘到不同租约） |
-| 文档 | ADR-0055（L2 白盒字段 + 单写入口） | ADR-0063（本页 + RESIN_API_COVERAGE R32-R35） |
+| 文档 | L2 白盒字段 + 单写入口（docs/agents/storage-locations.md） | 本页 + RESIN_API_COVERAGE R32-R35 |
 
 ## When to use which
 
@@ -54,7 +54,7 @@ If Resin upstream ever ships a real process-group API, the snapshot seam is
 already shaped for it: `ProcessRouteSnapshot` carries the per-rule
 `process` / `target_port` three-state and `merge_routes` consumes the L3
 side as a normalized echo — today the caller feeds it the live entry-port
-listener set (Resin has no process-group registry, ADR-0055 D3). The upgrade
+listener set. The upgrade
 is then a half-executed defensive path: swap the caller's echo source to the
 process-group registry and the three-state merge, drift memory
 (`route:<name>` keys) and acknowledgement vocabulary keep working
@@ -70,4 +70,4 @@ reports/03 §2 #4 and the issue F3 sketch described the rule headers as
 (`reverse.go` `resolveReverseProxyAccount` phase 3 →
 `extractAccountFromHeaders`), ``X-Resin-Account`` itself wins earlier
 (phase 1) and is stripped before forwarding. This page carries the corrected
-semantics; ADR-0063 records the same.
+semantics.

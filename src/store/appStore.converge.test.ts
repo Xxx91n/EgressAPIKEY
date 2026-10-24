@@ -2,13 +2,13 @@
  * global converge loop tests.
  *
  * Covers the checkpoints at the store level:
- *   A. polling cadence: default 5s; Converged + settled (>60s) backoff to 30s;
- *   B. sidecar-status event boost: an event refetches immediately;
- *   C. the tray mirror's own state machine lives in src-tauri/src/tray.rs
- *      Rust unit tests; this suite locks the frontend half of the contract —
- *      the store drives everything through the EXISTING snapshot IPC
- *      (authoritative_snapshot), no new tray command is invoked;
- *   D. visibility pause: hidden clears the cadence, resume refetches.
+ * A. polling cadence: default 5s; Converged + settled (>60s) backoff to 30s;
+ * B. sidecar-status event boost: an event refetches immediately;
+ * C. the tray mirror's own state machine lives in src-tauri/src/tray.rs
+ * Rust unit tests; this suite locks the frontend half of the contract —
+ * the store drives everything through the EXISTING snapshot IPC
+ * (authoritative_snapshot), no new tray command is invoked;
+ * D. visibility pause: hidden clears the cadence, resume refetches.
  *
  * The Tauri core invoke is mocked in src/test/setup.ts (invokeMock); the
  * event module is mocked locally so tests can fire sidecar-status handlers;

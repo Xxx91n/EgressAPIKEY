@@ -10,26 +10,26 @@
 //! converged pipeline emits zero writes). There is no background loop and no
 //! auto-heal of DRIFT: the pipeline runs when enqueued, on explicit retry, and
 //! when the Inline-Polling driver (`drive_due`) drains a retry the user
-//! already enqueued. The driver NEVER enqueues, which keeps the ADR-0054
+//! already enqueued. The driver NEVER enqueues, which keeps the
 //! "reconcile is user-triggered" discipline intact — enqueueing IS the user
 //! action here (the subscription_add call that asked for pipeline=establish).
 //!
 //! The five steps and their per-step idempotence seam:
 //! 1. create_subscription — skip when the name is already on Resin (list read).
-//! 2. resolve          — the subscription exists AND its nodes arrived
-//!                       (node_count > 0). This is a pure read; failure here
-//!                       means Resin's own fetcher has not landed nodes yet.
-//! 3. establish platform — ADR-0056: ensure the whitebox has an
-//!                       a_class=subscription platform named after the
-//!                       subscription (bump generation through the Service
-//!                       store entry), then create it on Resin when missing.
+//! 2. resolve — the subscription exists AND its nodes arrived
+//! (node_count > 0). This is a pure read; failure here
+//! means Resin's own fetcher has not landed nodes yet.
+//! 3. establish platform —: ensure the whitebox has an
+//! a_class=subscription platform named after the
+//! subscription (bump generation through the Service
+//! store entry), then create it on Resin when missing.
 //! 4. strategy_config_put — folded into step 3's whitebox write (the sub name
-//!                       is appended to the platform's subscriptions list in
-//!                       the SAME store entry; a second run sees the ref
-//!                       present and writes nothing).
-//! 5. strategy_apply   — the existing diff-then-skip apply (ADR-0057) +
-//!                       generation write-back (ADR-0058). In-sync = zero
-//!                       PATCH.
+//! is appended to the platform's subscriptions list in
+//! the SAME store entry; a second run sees the ref
+//! present and writes nothing).
+//! 5. strategy_apply — the existing diff-then-skip apply +
+//! generation write-back. In-sync = zero
+//! PATCH.
 //!
 //! Terminal criterion: snapshot consumed_by non-empty AND the
 //! target platform not missing on Resin AND ConvergePhase in
@@ -234,7 +234,7 @@ impl SubscriptionPipeline {
     /// event is due at `now`; otherwise a true no-op that returns an empty
     /// report vec without touching the client, the service, or the queue.
     ///
-    /// It NEVER enqueues: ADR-0054 keeps "only a user action enqueues a
+    /// It NEVER enqueues: keeps "only a user action enqueues a
     /// desired establish" — the driver only finishes retries the user already
     /// asked for, so detection stays resident while the ACTION stays opt-in
     /// (atomcode C2/C6). `now` is injected so tests own the clock.
@@ -359,8 +359,8 @@ pub async fn resolve_subscription(client: &ResinClient, name: &str) -> StepStatu
 
 /// Step 3+4: ensure the whitebox carries an a_class=subscription platform
 /// named `name` with `name` in its subscriptions list (ONE store entry,
-/// generation bump per ADR-0058 D2), then ensure the platform exists on
-/// Resin (ADR-0056 create seam). Both halves are idempotent: an existing
+/// generation bump), then ensure the platform exists on
+/// Resin. Both halves are idempotent: an existing
 /// ref + an existing Resin row produce zero writes.
 pub async fn ensure_platform<S: StrategyConfigStore>(
     client: &ResinClient,
@@ -407,7 +407,7 @@ pub async fn ensure_platform<S: StrategyConfigStore>(
                 });
             }
             // The Service store entry: validate + generation bump + versioned
-            // file swap (ADR-0036 write entry, ADR-0058 D2 bump point).
+            // file swap.
             match svc.store(next) {
                 Ok(_) => StepStatus::Written,
                 Err(e) => StepStatus::Failed(format!("whitebox store: {e}")),
@@ -422,7 +422,7 @@ pub async fn ensure_platform<S: StrategyConfigStore>(
         );
     }
 
-    // ---- Resin half (ADR-0056 create seam) ----
+    // ---- Resin half ----
     let live = match client.list_platforms().await {
         Ok(v) => v,
         Err(e) => {
@@ -448,8 +448,8 @@ pub async fn ensure_platform<S: StrategyConfigStore>(
     }
 }
 
-/// Step 5: strategy_apply — the existing diff-then-skip apply (ADR-0057) +
-/// generation write-back (ADR-0058 D3). In-sync platforms cost zero PATCH.
+/// Step 5: strategy_apply — the existing diff-then-skip apply +
+/// generation write-back. In-sync platforms cost zero PATCH.
 /// Returns the step status plus the platform the failure BELONGS to (the
 /// first non-patched report row) — 's compensation keys on that owner so
 /// it never deletes a cascade resource for a failure this cascade did not
@@ -592,7 +592,7 @@ pub async fn run_pipeline(
 /// the caller only invokes this when at least one step IS Failed.
 fn failed_stage(base: EstablishStep, steps: &[&StepStatus]) -> (EstablishStep, String) {
     // Canonical beat order; the base stage anchors the caller's section and
-    // each position past it advances one beat ( inserts Port between Bind
+    // each position past it advances one beat (inserts Port between Bind
     // and Apply — the order already carries the slot).
     const ORDER: [EstablishStep; 6] = [
         EstablishStep::Import,
@@ -631,8 +631,8 @@ pub fn is_terminal_state(
 }
 
 // ---------------------------------------------------------------------------
-// Optional default-port tail ( spec
-// : the establish cascade may END by creating ONE socks5 entry port
+// Optional default-port tail (spec
+//: the establish cascade may END by creating ONE socks5 entry port
 // bound to the freshly established platform — only when the user did not
 // provide a binding target. Everything the step needs (ResinClient, DbPool,
 // PortForwarder, WhiteboxConfigStore) is resin-core-owned; the shell passes
@@ -650,7 +650,7 @@ pub fn is_terminal_state(
 // rejected) return Failed so they park/backoff like any other step.
 // ---------------------------------------------------------------------------
 
-/// Suggest a free entry port — the same ADR-0031 algorithm the shell's
+/// Suggest a free entry port — the same algorithm the shell's
 /// `port_suggest` command has always run: used ports from the DbPool (the
 /// whitebox's SQLite sync partner), scan 17990..=65535 skipping used, probe
 /// each candidate with a loopback TcpListener bind, first free port wins;
@@ -723,7 +723,7 @@ pub async fn ensure_default_port(
         return StepStatus::AlreadyPresent;
     }
     // (b) Candidate port: the user's explicit binding target wins (suggest
-    // skipped); otherwise the ADR-0031 suggestion probe.
+    // skipped); otherwise the suggestion probe.
     let port = match user_port {
         // §7.5: the IPC boundary already rejected privileged ports; this
         // core-side guard only keeps a deterministic input bug from burning
@@ -768,7 +768,7 @@ pub async fn ensure_default_port(
         return StepStatus::AlreadyPresent;
     }
     // (e) Create the mixed listener — the exact endpoint body port_upsert
-    // sends for a `mixed` mapping ( `socks5` no
+    // sends for a `mixed` mapping (`socks5` no
     // longer implies HTTP forwarding, so the dual-flag default port declares
     // itself `mixed`). require_proxy_auth_info defaults on, matching the
     // GUI's default for new ports).
@@ -778,7 +778,7 @@ pub async fn ensure_default_port(
     // endpoint_created_this_pass: true only when THIS step's create_endpoint
     // returned Ok — compensation at the (f) failure branch deletes exactly
     // that row, never a pre-existing engine listener (D-C1.4 compensate-
-    // only-what-this-pass-created discipline; D-007).
+    // only-what-this-pass-created discipline).
     let mut endpoint_created_this_pass = false;
     if !forwarder.is_shell() {
         let (allow_socks5, allow_http_forward) =
@@ -808,8 +808,8 @@ pub async fn ensure_default_port(
         endpoint_created_this_pass = true;
     }
     // (f) Whitebox write through the ONE write entry (validate -> SQLite ->
-    // listeners -> atomic JSON -> swap; ADR-0042 S2, generation bump per
-    // ADR-0058 ). Identity defaults mirror port_upsert's.
+    // listeners -> atomic JSON -> swap;, generation bump per
+    //). Identity defaults mirror port_upsert's.
     let mapping = PortMapping {
         port,
         protocol: crate::entry_protocol::DEFAULT_ENTRY_PORT_PROTOCOL.to_string(),
@@ -841,7 +841,7 @@ pub async fn ensure_default_port(
             StepStatus::Written
         }
         Err(e) => {
-            // (g) Compensation (D-007, Mode B residue):
+            // (g) Compensation (Mode B residue):
             // this pass created the engine endpoint but the L2 row never
             // landed — delete exactly that row so no orphan listener
             // survives the step. Fresh live read: an already-deleted row is
@@ -881,17 +881,17 @@ pub async fn ensure_default_port(
 }
 
 // ---------------------------------------------------------------------------
-// Partial-failure compensation ( spec
-// : a failed establish pass compensates ONLY the resources THIS pass
-// created. The law (ADR-0054-compliant explicit rollback — never a silent
+// Partial-failure compensation (spec
+//: a failed establish pass compensates ONLY the resources THIS pass
+// created. The law (-compliant explicit rollback — never a silent
 // auto-heal, never an L3->L2 write):
-//   - the subscription is the user's original data and is NEVER deleted;
-//   - the strategy whitebox (L2 desired state) is NEVER touched — whitebox
+// - the subscription is the user's original data and is NEVER deleted;
+// - the strategy whitebox (L2 desired state) is NEVER touched — whitebox
 //     deletion is another ticket's path (checkpoint B);
-//   - what CAN be undone is the Resin-side platform row created by this
-//     pass's `ensure_platform`, and only when the apply failure BELONGS to
-//     it (a failure owned by an unrelated platform must not delete this
-//     cascade's resource).
+// - what CAN be undone is the Resin-side platform row created by this
+// pass's `ensure_platform`, and only when the apply failure BELONGS to
+// it (a failure owned by an unrelated platform must not delete this
+// cascade's resource).
 // The default-port tail only arms after a GREEN pass, so it can never
 // be part of a failed establish marking here.
 // ---------------------------------------------------------------------------
@@ -977,10 +977,9 @@ async fn delete_cascade_platform(client: &ResinClient, name: &str) -> Result<(),
 }
 
 // ---------------------------------------------------------------------------
-// Reverse tail (D-007
-// D-007 option B): subscription_remove releases the default entry port the
+// Reverse tail (option B): subscription_remove releases the default entry port the
 // establish cascade bound to the subscription's platform. Same three-layer
-// order as port_remove (ADR-0069 D1): L2 whitebox retain -> apply (DB +
+// order as port_remove: L2 whitebox retain -> apply (DB +
 // listeners + atomic swap) FIRST, then the L3 Resin endpoint delete — and
 // only in Mode B; in Mode A the shell listener IS the port's L3
 // realisation, so the whitebox apply already tore it down and Resin is never
@@ -1139,7 +1138,7 @@ mod tests {
         let p = SubscriptionPipeline::new();
 
         let now: u64 = 1_000_000;
-        // Empty queue: no work AND no new establish (ADR-0054 discipline).
+        // Empty queue: no work AND no new establish.
         let reports = p.drive_due(&client, &svc, now).await;
         assert!(reports.is_empty(), "empty queue: the driver is a no-op");
         assert!(p.pending().is_empty(), "the driver must never enqueue");
@@ -1495,7 +1494,7 @@ mod tests {
             && ps.a_class == AClassStrategy::Subscription
             && ps.subscriptions.contains(&"newsub".to_string())));
         // generation: +1 from the pipeline's one store entry, +1 from apply's
-        // GREEN write-back (ADR-0058 D3 — the green pass lands applied ==
+        // GREEN write-back (— the green pass lands applied ==
         // generation at the post-bump value).
         assert_eq!(cfg.generation, 2);
 
@@ -1588,7 +1587,7 @@ mod tests {
         );
         // The PIPELINE's whitebox store entry did NOT run (ref already present,
         // platforms list unchanged). The generation DID advance 1->2 — that is
-        // apply's OWN green write-back (ADR-0058 D3: a diff-then-skip zero-PATCH
+        // apply's OWN green write-back (a diff-then-skip zero-PATCH
         // pass still refreshes last_apply_at, Terraform re-apply semantics).
         let cfg = svc.get().unwrap();
         assert_eq!(cfg.generation, 2, "only apply's green write-back may bump");
@@ -1702,7 +1701,7 @@ mod tests {
         // subscription tag so the computed region plan (["US"]) DIFFERS from
         // the live row ([]) — without it diff-then-skip would find the empty
         // plan in sync and the pass would go green without any PATCH.
-        // Research rule (atomcode D-1/A): every HTTP request INCLUDING retries
+        // Research rule (atomcode /A): every HTTP request INCLUDING retries
         // consumes one quota — ResinClient retries 5xx 3x total, so the 500
         // mock must accept exactly 3 hits (attempt 2-3 get 501 from the
         // exhausted chain, also 5xx-class, still retried to exhaustion).
@@ -1738,7 +1737,7 @@ mod tests {
             report.first_error().unwrap().contains("PATCH failed"),
             "reason carries the upstream failure: {report:?}"
         );
-        // ADR-0058: a failed apply keeps applied_generation at the old value
+        //: a failed apply keeps applied_generation at the old value
         // and records last_apply_error — no fake convergence.
         let cfg = svc.get().unwrap();
         assert!(
@@ -2513,8 +2512,8 @@ mod tests {
     }
 
     /// BRANCH A1 — default create success: no user port, no pre-existing
-    /// binding -> the ADR-0031 suggest probe picks a port, the mixed
-    /// endpoint POSTs (D-007: DEFAULT_ENTRY_PORT_PROTOCOL), and the
+    /// binding -> the suggest probe picks a port, the mixed
+    /// endpoint POSTs (DEFAULT_ENTRY_PORT_PROTOCOL), and the
     /// whitebox (plus its SQLite partner) carries exactly one bound row with
     /// port_upsert's identity defaults.
     #[tokio::test]
@@ -2760,7 +2759,7 @@ mod tests {
         assert!(got >= crate::port_forwarder::MIN_USER_PORT, "got {got}");
     }
 
-    // ---- (D-007): orphan-cleanup + idempotence ----
+    // ----: orphan-cleanup + idempotence ----
 
     /// The (e)->(f) window (Mode B): create_endpoint succeeded, the
     /// whitebox apply failed -> the step compensates by DELETE-ing exactly

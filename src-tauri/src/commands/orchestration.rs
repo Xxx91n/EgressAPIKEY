@@ -33,14 +33,14 @@ const TICK_INTERVAL_SECS: u64 = 60;
 const RING_CAP: usize = 64;
 
 /// Process-local verdict rings: platform_name -> recent typed tick
-/// verdicts (ADR-0080). In-memory by design; see module docs.
+/// verdicts. In-memory by design; see module docs.
 static SIGNALS: OnceLock<Mutex<HashMap<String, VecDeque<orch::ProbeVerdict>>>> = OnceLock::new();
 
 fn rings() -> &'static Mutex<HashMap<String, VecDeque<orch::ProbeVerdict>>> {
     SIGNALS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Tick-level environment-suspect streak (ADR-0080 §4): consecutive
+/// Tick-level environment-suspect streak: consecutive
 /// common-mode-suspect ticks, reset by any clean tick. Deliberately
 /// independent of the per-platform rings.
 static SUSPECT_STREAK: AtomicU32 = AtomicU32::new(0);
@@ -76,7 +76,7 @@ struct PortProbeBatch {
     local_fails: u32,
 }
 
-/// One tick's signal plane (ADR-0080): the evaluator-facing window stats,
+/// One tick's signal plane: the evaluator-facing window stats,
 /// the typed per-platform verdicts, and the environment streak.
 struct TickSignals {
     verdicts: HashMap<String, orch::WindowStats>,
@@ -94,7 +94,7 @@ struct TickSignals {
 /// longer own an enabled bound port are evicted here (rename/remove would
 /// otherwise leak them in-process forever).
 ///
-/// The common-mode suppressor runs at TICK level (ADR-0080 §3): when
+/// The common-mode suppressor runs at TICK level: when
 /// >=80% of all probed bound ports fail loopback, the tick is stamped
 /// environment_suspect for every probed platform — a local outage is one
 /// environmental event, never N platform failures.
@@ -189,16 +189,16 @@ async fn collect_all_verdicts(db: &DbPool, slow_call_ms: u64, proxy_token: &str)
 }
 
 /// Probe one platform's bound ports and return the per-port joined
-/// verdicts (ADR-0080 §1 join matrix). Returns None when the platform has
+/// verdicts. Returns None when the platform has
 /// no enabled bound ports (no signal source -> no evidence -> no action).
 ///
 /// Per port the verdict joins TWO independent SLI probes:
-///   loopback `port_health_check` - the shell listener is up and dialect-
+/// loopback `port_health_check` - the shell listener is up and dialect-
 ///   coherent (cheap, no dataplane);
-///   `probe_exit_ip` through the port - the real end-to-end egress path
-///   (port -> engine -> node -> Cloudflare trace). A port whose listener is
-///   healthy but whose egress is dead is a real failure the loopback probe
-///   alone could not see.
+/// `probe_exit_ip` through the port - the real end-to-end egress path
+/// (port -> engine -> node -> Cloudflare trace). A port whose listener is
+/// healthy but whose egress is dead is a real failure the loopback probe
+/// alone could not see.
 /// The probe count is bounded by the platform's bound-port count (one per
 /// port, concurrently) and neither probe consults or mutates any engine-side
 /// orchestration switch - pure measurement.
@@ -257,7 +257,7 @@ async fn probe_platform_ports(
             batch.local_fails += 1;
         }
         if v != orch::ProbeVerdict::Ok {
-            // <=64B operator evidence (ADR-0080 §1): the egress latency
+            // <=64B operator evidence: the egress latency
             // reading is what tells a half-dead WAN apart from a dead
             // platform on the remote_fail rows.
             let note = if !loopback_ok && egress_ok {
@@ -445,7 +445,7 @@ pub async fn orchestration_tick_impl(
     );
 
     // Signal-plane bookkeeping rides the same per-tick status write
-    // (ADR-0080 §7): latest verdicts + suspect streak, no generation bump.
+    //: latest verdicts + suspect streak, no generation bump.
     sec.signal_verdicts = sig.signal_map.clone();
     sec.suspect_streak = sig.suspect_streak;
     // Persist bookkeeping once per tick (status-subresource write: no

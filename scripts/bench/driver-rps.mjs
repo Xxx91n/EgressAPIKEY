@@ -1,10 +1,10 @@
 // Fixed-rate throughput phase (D-004: >=500 RPS at p99<50ms on 1 vCPU).
 // Two engines, same target path:
-//   openLoop  — built-in zero-dep scheduler: requests fire on a fixed interval
-//               regardless of in-flight count (no coordinated omission; the
-//               in-flight cap is a safety valve that flags saturation).
-//   vegeta    — optional cross-check when the binary is present (CI installs
-//               it). Hits Resin's reverse-proxy path so no proxy flag needed.
+// openLoop — built-in zero-dep scheduler: requests fire on a fixed interval
+// regardless of in-flight count (no coordinated omission; the
+// in-flight cap is a safety valve that flags saturation).
+// vegeta — optional cross-check when the binary is present (CI installs
+// it). Hits Resin's reverse-proxy path so no proxy flag needed.
 
 import { spawn } from "node:child_process";
 import fs from "node:fs";

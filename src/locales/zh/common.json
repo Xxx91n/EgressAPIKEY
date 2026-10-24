@@ -94,7 +94,7 @@
     "collapseAll": "全部折叠",
     "delayFilterHint": "可用 delay>100 或 delay=timeout",
     "egressIps": "出口 IP 数",
-    "egressPolicyNote": "按区域设置出口策略请在拓扑画布上操作：把平台拖到某个 IP 通道区域，并在该平台上设置分配策略。平台标签页承载策略引擎（ADR-0022）：A 类选择哪些 IP 进入平台，B 类选择端口如何选出口 IP。",
+    "egressPolicyNote": "按区域设置出口策略请在拓扑画布上操作：把平台拖到某个 IP 通道区域，并在该平台上设置分配策略。平台标签页承载策略引擎：A 类选择哪些 IP 进入平台，B 类选择端口如何选出口 IP。",
     "empty": "暂无节点，请先导入订阅。",
     "expandAll": "全部展开",
     "healthRate": "{{rate}}% 健康",

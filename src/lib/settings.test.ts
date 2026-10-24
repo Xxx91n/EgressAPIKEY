@@ -205,7 +205,7 @@ describe("T05: diagPollInterval typed L1 wrapper pair (bare store invoke elimina
 });
 
 describe("HeadlessStore: serialized saves (last writer wins)", () => {
-  // ADR-0071 headless store: overlapping save() calls must PUT in call
+  // headless store: overlapping save() calls must PUT in call
   // order - the LAST writer's snapshot must be the final write on the wire.
   // The Tauri injection flags are cleared so store() selects HeadlessStore,
   // and fetch is stubbed with deferred PUT gates to control the wire order.

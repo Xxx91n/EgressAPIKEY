@@ -1,7 +1,7 @@
 //! Authoritative effective-config snapshot.
 //!
 //! The read-back answer to "is my configuration actually in effect"
-//! (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config Authority):
+//! (GLOSSARY.md: Authoritative Snapshot; ARCHITECTURE.md §Config Authority):
 //! merge the L2 whitebox strategy config against the L3 Resin runtime and
 //! report per platform whether the two layers AGREE, DISAGREE (both values
 //! surfaced, never silently reconciled) or one side is MISSING. This module
@@ -13,7 +13,7 @@
 //!
 //! will move the strategy read/apply pipeline into a
 //! StrategyService; this module keeps the merge in resin-core so that move
-//! stays a pure relocation (AGENTS.md ADR-0036 write entry unchanged).
+//! stays a pure relocation (the strategy-whitebox single-write-entry rule is unchanged).
 
 use crate::strategy_engine::{
     CascadeError, EstablishStep, PlatformStrategy, StrategyConfig, SubscriptionPhase,
@@ -41,12 +41,12 @@ pub enum StrategySnapshot {
         b_class: String,
         /// A-class mode from the whitebox config.
         a_class: String,
-        /// Whitebox manual_nodes (ADR-0039 SS2: ALL strategy fields merged).
+        /// Whitebox manual_nodes (ALL strategy fields merged).
         manual_nodes: Vec<String>,
-        /// Whitebox subscription names (ADR-0039 SS2).
+        /// Whitebox subscription names.
         subscriptions: Vec<String>,
         /// Read-side exemption flag from the strategy whitebox `acknowledged`
-        /// array (ADR-0054 §D). NEVER influences the merge; set
+        /// array. NEVER influences the merge; set
         /// after merging via stamp_platform_acknowledged.
         #[serde(default)]
         acknowledged: bool,
@@ -67,18 +67,18 @@ pub enum StrategySnapshot {
         b_class: String,
         /// A-class mode from the whitebox config.
         a_class: String,
-        /// Whitebox manual_nodes (ADR-0039 SS2).
+        /// Whitebox manual_nodes.
         manual_nodes: Vec<String>,
-        /// Whitebox subscription names (ADR-0039 SS2).
+        /// Whitebox subscription names.
         subscriptions: Vec<String>,
         /// Unix seconds when this platform FIRST entered divergent within the
-        /// current process; None while consistent (ADR-0054 §C).
+        /// current process; None while consistent.
         /// In-process memory only: cleared when the state returns to
         /// consistent, and reset on process restart.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         divergent_since: Option<u64>,
         /// Read-side exemption flag from the strategy whitebox `acknowledged`
-        /// array (ADR-0054 §D). NEVER influences the merge.
+        /// array. NEVER influences the merge.
         #[serde(default)]
         acknowledged: bool,
     },
@@ -91,17 +91,17 @@ pub enum StrategySnapshot {
         regions: Vec<String>,
         a_class: String,
         b_class: String,
-        /// Whitebox manual_nodes (ADR-0039 SS2).
+        /// Whitebox manual_nodes.
         manual_nodes: Vec<String>,
-        /// Whitebox subscription names (ADR-0039 SS2).
+        /// Whitebox subscription names.
         subscriptions: Vec<String>,
         /// Unix seconds when this platform FIRST entered missing_on_resin
-        /// within the current process (ADR-0054 §C). In-process
+        /// within the current process. In-process
         /// memory only; re-times after restart or a consistent spell.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         divergent_since: Option<u64>,
         /// Read-side exemption flag from the strategy whitebox `acknowledged`
-        /// array (ADR-0054 §D). NEVER influences the merge.
+        /// array. NEVER influences the merge.
         #[serde(default)]
         acknowledged: bool,
     },
@@ -125,8 +125,8 @@ impl StrategySnapshot {
         }
     }
 
-    /// Read-side exemption flag (ADR-0054 §D). The notify-once
-    /// rule (ADR-0054 §E) and the view's grey "known" degradation
+    /// Read-side exemption flag. The notify-once
+    /// rule and the view's grey "known" degradation
     /// both consume this; the three-state merge itself never reads it.
     pub fn acknowledged(&self) -> bool {
         match self {
@@ -153,7 +153,7 @@ pub enum PortSnapshot {
         enabled: bool,
         auth_required: bool,
         /// Read-side exemption flag from the ports whitebox `acknowledged`
-        /// array (ADR-0054 §D). NEVER influences the merge; set
+        /// array. NEVER influences the merge; set
         /// after merging via stamp_port_acknowledged.
         #[serde(default)]
         acknowledged: bool,
@@ -170,12 +170,12 @@ pub enum PortSnapshot {
         label: String,
         auth_required: bool,
         /// Unix seconds when this port FIRST entered missing_on_resin within
-        /// the current process (ADR-0054 §C). In-process memory
+        /// the current process. In-process memory
         /// only; re-times after restart or a consistent spell.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         divergent_since: Option<u64>,
         /// Read-side exemption flag from the ports whitebox `acknowledged`
-        /// array (ADR-0054 §D). NEVER influences the merge.
+        /// array. NEVER influences the merge.
         #[serde(default)]
         acknowledged: bool,
     },
@@ -195,7 +195,7 @@ impl PortSnapshot {
         }
     }
 
-    /// Read-side exemption flag (ADR-0054 §D); see the platform
+    /// Read-side exemption flag; see the platform
     /// accessor for the consumers.
     pub fn acknowledged(&self) -> bool {
         match self {
@@ -221,7 +221,7 @@ pub struct AuthoritativeSnapshot {
     /// false => Resin-sourced fields are empty and every enabled entry is
     /// reported missing_on_resin; consumers must not treat that as divergence.
     pub resin_reachable: bool,
-    /// ADR-0055 D3: per-route three-state (whitebox
+    ///: per-route three-state (whitebox
     /// process_routes vs the Resin process-group echo). Empty when the
     /// whitebox defines no routes.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -237,11 +237,11 @@ pub struct AuthoritativeSnapshot {
     /// phase Never on the UI side).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub subscription_phases: Vec<SubscriptionPhaseSnapshot>,
-    /// Unix seconds when THIS snapshot was generated (ADR-0054 §C).
+    /// Unix seconds when THIS snapshot was generated.
     /// Pure metadata: stamped by the command layer, never participates in the
     /// three-state merge. Monotonic non-decreasing across consecutive calls.
     pub last_checked_at: u64,
-    /// ADR-0058: the whitebox write-authority generation
+    ///: the whitebox write-authority generation
     /// (equal to the strategy config's `generation` counter at snapshot time).
     #[serde(default)]
     pub strategy_generation: u64,
@@ -249,9 +249,9 @@ pub struct AuthoritativeSnapshot {
     /// with `strategy_generation` is the `Converged` precondition.
     #[serde(default)]
     pub strategy_applied_generation: u64,
-    /// ADR-0058: top-level convergence phase — the
+    ///: top-level convergence phase — the
     /// "wrote it, did it take effect?" axis, orthogonal to the per-entry
-    /// three-state (ADR-0051). Derived by `derive_converge_phase`.
+    /// three-state. Derived by `derive_converge_phase`.
     pub converge_phase: ConvergePhase,
     /// Unix seconds of the last green apply pass (None = never green).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -299,18 +299,18 @@ impl SubscriptionPhaseSnapshot {
     }
 }
 
-/// ADR-0058: top-level convergence phase of the
+///: top-level convergence phase of the
 /// strategy whitebox. Six states, mutually exclusive, derived from the
 /// generation pair + error record + Resin reachability:
 /// - `NeverApplied`: generation == 0 (k8s habit — a fresh boot is not a
-///   fake "pending apply" alarm).
+/// fake "pending apply" alarm).
 /// - `Unknown`: Resin was unreachable, so convergence cannot be asserted.
 /// - `ApplyFailed`: applied < generation with a recorded error.
 /// - `PendingApply`: applied < generation with no error (writes happened
-///   since the last green pass; the next apply should converge).
+/// since the last green pass; the next apply should converge).
 /// - `Drifted`: applied == generation but the merged entries show
-///   unacknowledged drift (someone/something moved Resin out from under
-///   the applied generation).
+/// unacknowledged drift (someone/something moved Resin out from under
+/// the applied generation).
 /// - `Converged`: applied == generation and no unacknowledged drift.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ConvergePhase {
@@ -336,10 +336,10 @@ impl ConvergePhase {
     }
 }
 
-/// Pure derivation of the top-level convergence phase (ADR-0058).
+/// Pure derivation of the top-level convergence phase.
 /// `unacknowledged_drift` is true when ANY merged entry (platform/port/route)
 /// is in a drift state AND is not marked acknowledged — the same read-side
-/// exemption discipline as the per-entry merge (ADR-0054 §D).
+/// exemption discipline as the per-entry merge.
 pub fn derive_converge_phase(
     generation: u64,
     applied_generation: u64,
@@ -366,15 +366,15 @@ pub fn derive_converge_phase(
     }
 }
 
-/// Process-local first-drift memory for `divergentSince` ( /
-/// ADR-0054 §C). Keyed by a stable entity id (platform name / port number
+/// Process-local first-drift memory for `divergentSince` (/
+///). Keyed by a stable entity id (platform name / port number
 /// string); the value is the Unix-second instant the entity FIRST entered a
 /// drift state (divergent or missingOnResin). Semantics:
 /// - first observation of a drifting entity => record `now`;
 /// - entity still drifting on later snapshots => keep the original instant;
 /// - entity back to consistent => the entry is removed (re-drift re-times);
 /// - process restart => the map is empty (in-memory only, never persisted),
-///   so the next drift observation re-times from zero.
+/// so the next drift observation re-times from zero.
 pub type DriftMemory = HashMap<String, u64>;
 
 /// Pure advance of the drift memory for one snapshot's entries. `entries`
@@ -405,7 +405,7 @@ pub fn divergent_since_for(memory: &DriftMemory, key: &str) -> Option<u64> {
 
 /// Deciding whether an entity is acknowledged is a read-side presentation
 /// concern: `acknowledged` NEVER participates in the three-state merge
-/// (ADR-0054 §D). This helper keeps that rule in one place: the
+///. This helper keeps that rule in one place: the
 /// merge functions below must not call it — callers stamp the flag AFTER
 /// the merge, on the merged output only.
 pub fn is_acknowledged(acknowledged: &[String], entity_key: &str) -> bool {
@@ -456,7 +456,7 @@ pub fn stamp_port_acknowledged(ports: &mut [PortSnapshot], acknowledged: &[Strin
     }
 }
 
-/// ADR-0055 D3: per-route agreement between the L2 whitebox
+///: per-route agreement between the L2 whitebox
 /// `process_routes` family and the L3 Resin process-group echo. The live
 /// side is the set of process names Resin currently routes (its own
 /// process-group registry, or the endpoints echo when the registry route
@@ -469,7 +469,7 @@ pub enum ProcessRouteSnapshot {
         process: String,
         target_port: u16,
         /// Read-side exemption flag from the ports whitebox
-        /// `route_acknowledged` array (ADR-0055 D6). NEVER influences the
+        /// `route_acknowledged` array. NEVER influences the
         /// merge; stamped after merging.
         #[serde(default)]
         acknowledged: bool,
@@ -484,7 +484,7 @@ pub enum ProcessRouteSnapshot {
         /// within the current process. In-process memory only.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         divergent_since: Option<u64>,
-        /// Read-side exemption flag (ADR-0055 D6).
+        /// Read-side exemption flag.
         #[serde(default)]
         acknowledged: bool,
     },
@@ -513,7 +513,7 @@ impl ProcessRouteSnapshot {
     }
 }
 
-/// ADR-0055 D3: merge the whitebox route family. Resin has no
+///: merge the whitebox route family. Resin has no
 /// per-process object, so the L3 side of a route IS its target port: a
 /// route is consistent when its port has a live Resin listener,
 /// missing_on_resin when the port is enabled-but-listenerless, and
@@ -698,26 +698,26 @@ pub fn merge_subscriptions(
 ///
 /// Semantics:
 /// - Whitebox platform absent from Resin => missing_on_resin (but only
-///   meaningful when resin_reachable; the caller decides what to emit when
-///   Resin is down — this function is pure and always runs the full merge).
+/// meaningful when resin_reachable; the caller decides what to emit when
+/// Resin is down — this function is pure and always runs the full merge).
 /// - Resin platform absent from the whitebox => it was created outside the
-///   strategy pipeline; it still appears, tagged divergent with the whitebox
-///   side empty, because the snapshot must surface ALL runtime platforms.
-///   The alternative (dropping runtime-only rows) would hide drift.
+/// strategy pipeline; it still appears, tagged divergent with the whitebox
+/// side empty, because the snapshot must surface ALL runtime platforms.
+/// The alternative (dropping runtime-only rows) would hide drift.
 /// - Comparison is on the ORDER-INSENSITIVE region set: region_filters is a
-///   membership filter, so [US, HK] and [HK, US] are the same effective
-///   configuration. Duplicates collapse (["US","US"] == ["US"]).
+/// membership filter, so [US, HK] and [HK, US] are the same effective
+/// configuration. Duplicates collapse (["US","US"] == ["US"]).
 /// - Manual A-class entries compare computed regions (a_class_regions output)
-///   against Resin: the whitebox intent for manual mode is the mapped region
-///   set, not raw node hashes.
+/// against Resin: the whitebox intent for manual mode is the mapped region
+/// set, not raw node hashes.
 /// - the observed
-///   `allocation_policy` is a judgement input, not a bystander field. A
-///   whitebox B-class value that resolves to a DIFFERENT policy than the one
-///   Resin reports is drift even when the region set matches — the user
-///   changed the egress-selection algorithm and the runtime did not follow.
-///   Comparison is case-insensitive and passes both sides through the
-///   legislated six->three convergence table first, so a not-yet-migrated
-///   whitebox is judged against the policy the shell would actually PATCH.
+/// `allocation_policy` is a judgement input, not a bystander field. A
+/// whitebox B-class value that resolves to a DIFFERENT policy than the one
+/// Resin reports is drift even when the region set matches — the user
+/// changed the egress-selection algorithm and the runtime did not follow.
+/// Comparison is case-insensitive and passes both sides through the
+/// legislated six->three convergence table first, so a not-yet-migrated
+/// whitebox is judged against the policy the shell would actually PATCH.
 pub fn merge_strategies(
     config: &StrategyConfig,
     resin: &[ResinPlatformRuntime],
@@ -910,7 +910,7 @@ pub fn merge_ports(whitebox: &[crate::PortMapping], resin_ports: &[u16]) -> Vec<
 
 /// Convenience: the B-class id that a whitebox entry maps onto in Resin terms.
 /// Exposed for the command layer so the snapshot's b_class field always uses
-/// the shell catalog vocabulary (ADR-0039 SS2 B badge contract).
+/// the shell catalog vocabulary.
 pub fn b_class_of(ps: &crate::strategy_engine::PlatformStrategy) -> String {
     ps.b_class.as_str().to_string()
 }
@@ -918,7 +918,7 @@ pub fn b_class_of(ps: &crate::strategy_engine::PlatformStrategy) -> String {
 #[cfg(test)]
 mod tests {
 
-    /// ADR-0054 §E: the acknowledged accessor reads the stamped
+    ///: the acknowledged accessor reads the stamped
     /// read-side flag on every variant (the once-per-process notify rule
     /// filters on it; the three-state merge must stay untouched).
     #[test]
@@ -1335,7 +1335,7 @@ mod tests {
         assert_eq!(b_class_of(&ps), "BALANCED");
     }
 
-    // ---- ADR-0055: routes merge ----
+    // ----: routes merge ----
 
     fn wb_rule(process: &str, port: u16) -> crate::whitebox_config::ProcessRouteRule {
         crate::whitebox_config::ProcessRouteRule {
@@ -1716,7 +1716,7 @@ mod tests {
             acknowledged: false,
         };
         let v2 = serde_json::to_value(&stamped).unwrap();
-        // ADR-0051 wire contract: per-variant payload fields stay snake_case
+        // wire contract: per-variant payload fields stay snake_case
         // (only the state TAG value is camelCase), so the wire key is
         // "divergent_since", not "divergentSince".
         assert_eq!(v2["divergent_since"], 1_756_521_600i64);
@@ -1725,7 +1725,7 @@ mod tests {
         assert_ne!(back2, missing);
     }
 
-    // ---- ADR-0058: ConvergePhase derivation ----
+    // ----: ConvergePhase derivation ----
     #[test]
     fn derive_converge_phase_table() {
         use ConvergePhase::*;
@@ -1738,7 +1738,7 @@ mod tests {
             (3, 1, None, true, false, PendingApply),
             (3, 3, None, true, true, Drifted),
             (3, 3, None, true, false, Converged),
-            // acknowledged drift does NOT break convergence (ADR-0054 D).
+            // acknowledged drift does NOT break convergence.
             (3, 3, Some("stale"), true, false, Converged),
             // Resin-down outranks the drift flag but not NeverApplied.
             (3, 3, None, false, true, Unknown),
@@ -1784,13 +1784,13 @@ mod tests {
         assert!(v.get("lastApplyError").is_none(), "None must be omitted");
     }
 
-    // ---- ADR-0058 (F2 / acceptance a): the FULL
+    // ---- (F2 / acceptance a): the FULL
     // valid-case table. F2 counts applied x gen x error x
     // reachable x drift = 3x3x2x2x2 = 72 raw combinations, of which exactly
     // 36 are representable store states: applied never exceeds generation
     // through the write entries (apply only catches up), and a coherent
     // file keeps last_apply_error set only while applied < gen (the green
-    // write-back clears it, ). Every valid row is enumerated below;
+    // write-back clears it). Every valid row is enumerated below;
     // the degenerate leftovers are locked separately in
     // _derive_converge_phase_boundary_states.
     #[test]
@@ -1850,7 +1850,7 @@ mod tests {
     }
 
     // Boundary states a coherent store cannot produce but the pure
-    // derivation must still classify deterministically ( F2
+    // derivation must still classify deterministically (F2
     // "all legal + boundary states").
     #[test]
     fn issue10_derive_converge_phase_boundary_states() {
@@ -1881,7 +1881,7 @@ mod tests {
     // Drifted at the top level while a per-entry row is divergent, and the
     // acknowledged exemption greys the badge WITHOUT resolving the phase
     // (only a green apply write-back can); the per-entry three-state tag
-    // is never rewritten by the top-level axis (ADR-0051 untouched).
+    // is never rewritten by the top-level axis.
     #[test]
     fn issue10_converge_phase_is_orthogonal_to_per_entry_state() {
         // gen == applied (the last apply landed) but Resin moved since:
@@ -1924,7 +1924,7 @@ mod tests {
             "same snapshot: Drifted on top, divergent per entry"
         );
 
-        // Acknowledged exemption (ADR-0054 D): the badge greys (flag set),
+        // Acknowledged exemption: the badge greys (flag set),
         // the per-entry tag is UNTOUCHED, and the identical generation pair
         // now reads Converged - the exemption crosses the axis boundary
         // only through the read-side flag.

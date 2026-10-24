@@ -8,18 +8,18 @@
  * invoke-wrapper body in lib/ipc.ts.
  */
 
-// --- dual-mode: cmd -> REST route map (ADR-0043 Q2=A) ---
+// --- dual-mode: cmd -> REST route map (=A) ---
 // In the Tauri webview ipc.ts uses the native invoke(). In a plain browser
 // (headless npm server) the dispatch falls back to fetch("/api/v1/...")
 // which the headless axum reverse-proxy forwards to the local Resin sidecar.
 //
 // Every route is DECLARATIVE so the three historical defect classes cannot
 // recur:
-//   - wrong resource path        -> `path` is the real Resin route (R-numbers
-//      cite docs/architecture/RESIN_API_COVERAGE.md)
-//   - GET args silently dropped  -> `query` / `queryConst`
-//   - body contract drift        -> `bodyArg` (unwrap the Tauri arg envelope)
-//      and `bodyKeys` (camelCase -> Resin snake_case)
+// - wrong resource path -> `path` is the real Resin route (R-numbers
+// cite docs/architecture/RESIN_API_COVERAGE.md)
+// - GET args silently dropped -> `query` / `queryConst`
+// - body contract drift -> `bodyArg` (unwrap the Tauri arg envelope)
+// and `bodyKeys` (camelCase -> Resin snake_case)
 // Commands that have NO reachable HTTP semantics in headless mode are NOT
 // absent-by-accident: they are listed in DISABLED_COMMANDS
 // (./headless-availability.ts) with a typed reason, and the UI renders an
@@ -29,28 +29,28 @@ export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 export interface HttpRoute {
   method: HttpMethod;
   /** Path template; `{argName}` placeholders are filled from the Tauri args
-   *  and URL-encoded as a single path segment. */
+   * and URL-encoded as a single path segment. */
   path: string;
   /** GET only: Tauri arg key -> query-param name. Mirrors the Rust command's
-   *  own parameter surface, so a dropped arg is a visible omission. */
+   * own parameter surface, so a dropped arg is a visible omission. */
   query?: Record<string, string>;
   /** GET only: constant query params the Rust command hard-codes
-   *  (e.g. list_nodes always sends limit=500, resin_client.rs). */
+   * (e.g. list_nodes always sends limit=500, resin_client.rs). */
   queryConst?: Record<string, string>;
   /** Non-GET: the Tauri arg that carries the real Resin body. Unwrapped so
-   *  Resin never receives the {"body":{...}} envelope. */
+   * Resin never receives the {"body":{...}} envelope. */
   bodyArg?: string;
   /** Non-GET: camelCase -> Resin snake_case key renames applied to the body. */
   bodyKeys?: Record<string, string>;
   /** Non-GET: constant fields merged into the body (e.g. two commands share
-   *  one restart route and differ only by a `reason` constant). */
+   * one restart route and differ only by a `reason` constant). */
   bodyConst?: Record<string, unknown>;
   /** Resin wraps list reads as {items:[...],total,limit,offset}. Set only when
-   *  the caller expects a bare array (mirrors the Rust items_arr call sites);
-   *  object-returning reads keep the wrapper. */
+   * the caller expects a bare array (mirrors the Rust items_arr call sites);
+   * object-returning reads keep the wrapper. */
   unwrapItems?: boolean;
   /** After unwrapping, project each row to this field (platform_list returns
-   *  string[] in Tauri mode, so headless must match). */
+   * string[] in Tauri mode, so headless must match). */
   project?: string;
 }
 

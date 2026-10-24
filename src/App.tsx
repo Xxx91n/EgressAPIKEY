@@ -152,7 +152,7 @@ export default function App() {
       if (savedView && !cancelled) {
         setView(savedView as any);
       }
-// ADR-0055: process routes are rehydrated by
+//: process routes are rehydrated by
       // ProcessRouteView from the L2 whitebox via process_route_list IPC —
       // the L1 bootstrap read is gone.
       if (!cancelled) setBootstrapped(true);

@@ -94,7 +94,7 @@
     "collapseAll": "Recolher tudo",
     "delayFilterHint": "Use delay>100 ou delay=timeout",
     "egressIps": "IPs de saída",
-    "egressPolicyNote": "A política de egress por região é configurada na tela Topology: arraste uma Plataforma para uma região de canal IP e defina Allocation policy. A aba Platforms contém o motor de estratégias (ADR-0022): a classe A seleciona quais IPs entram numa plataforma, a classe B como a porta escolhe a IP de saída.",
+    "egressPolicyNote": "A política de egress por região é configurada na tela Topology: arraste uma Plataforma para uma região de canal IP e defina Allocation policy. A aba Platforms contém o motor de estratégias: a classe A seleciona quais IPs entram numa plataforma, a classe B como a porta escolhe a IP de saída.",
     "empty": "Sem nós. Importe uma assinatura.",
     "expandAll": "Expandir tudo",
     "healthRate": "{{rate}}% saudáveis",

@@ -8,9 +8,9 @@
 // Descendant BFS from our root PID is exact: every WebView2 browser/renderer/
 // GPU/utility process we own is a transitive child of the app process.
 //
-//   windows: Get-CimInstance Win32_Process (ProcessId, ParentProcessId, Name,
-//            CommandLine, WorkingSetSize) -> BFS children-of map -> sum WS64.
-//   linux:   /proc/<pid>/{stat,status} PPid walk -> VmRSS sum.
+// windows: Get-CimInstance Win32_Process (ProcessId, ParentProcessId, Name,
+// CommandLine, WorkingSetSize) -> BFS children-of map -> sum WS64.
+// linux: /proc/<pid>/{stat,status} PPid walk -> VmRSS sum.
 //
 // One-shot snapshot per call; the caller re-walks every sample so renderers
 // spawned mid-run (navigation, crash-recovery) are picked up while dead PIDs
@@ -136,7 +136,7 @@ export function sampleDescendantTreeMB(rootPid) {
 }
 
 // Poll a spawned Windows process until its main window has a non-empty title
-// (ADR-0072 liveness contract: MainWindowTitle == productName means the shell
+// (liveness contract: MainWindowTitle == productName means the shell
 // actually booted, not just that the process exists). Returns ms elapsed, or
 // null on timeout. Linux has no window title to poll - callers skip there.
 export function waitMainWindowTitle(pid, deadlineMs = 30000) {

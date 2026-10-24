@@ -94,7 +94,7 @@
     "collapseAll": "Tutup semua",
     "delayFilterHint": "Gunakan delay>100 atau delay=timeout",
     "egressIps": "IP keluar",
-    "egressPolicyNote": "Kebijakan egress per-region diatur di kanvas Topology: seret Platform ke region kanal IP lalu set Allocation policy di platform. Tab Platforms berisi mesin strategi (ADR-0022): kelas A memilih IP mana yang masuk ke platform, kelas B bagaiman port memilih IP keluar.",
+    "egressPolicyNote": "Kebijakan egress per-region diatur di kanvas Topology: seret Platform ke region kanal IP lalu set Allocation policy di platform. Tab Platforms berisi mesin strategi: kelas A memilih IP mana yang masuk ke platform, kelas B bagaiman port memilih IP keluar.",
     "empty": "Tidak ada node. Impor langganan dulu.",
     "expandAll": "Buka semua",
     "healthRate": "{{rate}}% sehat",

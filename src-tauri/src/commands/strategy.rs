@@ -11,7 +11,7 @@ use resin_core::IpcError;
 use resin_core::ResinClient;
 use tauri::{AppHandle, Manager, State};
 
-/// ADR-0054 §C: process-local first-drift memory backing
+///: process-local first-drift memory backing
 /// `divergentSince`. Keyed by entity id (platform name, or decimal port
 /// number for ports), valued by the Unix second the entity FIRST entered a
 /// drift state within THIS process. Deliberately NOT persisted: a restart
@@ -31,7 +31,7 @@ static DRIFT_MEMORY: once_cell::sync::Lazy<std::sync::Mutex<resin_core::snapshot
 /// http://<api_port>/<proxy_token>/https/api.ipify.org
 ///
 /// Returns: { samples: [{ip, latency_ms}], distribution: {ip: count},
-///           avg_latency_ms, unique_ips, strategy: string, platform: string }
+/// avg_latency_ms, unique_ips, strategy: string, platform: string }
 #[tauri::command]
 pub async fn strategy_verify(
     sidecar: State<'_, SidecarHandle>,
@@ -158,7 +158,7 @@ pub async fn strategy_verify_impl(
     }))
 }
 
-/// Thin IPC facade over `resin_core::StrategyService` (ADR-0052): the
+/// Thin IPC facade over `resin_core::StrategyService`: the
 /// Service owns read/validate/store; the command validates only the IPC
 /// boundary (AGENTS 7.5) and maps errors. No JSON assembly here.
 #[tauri::command]
@@ -176,7 +176,7 @@ pub async fn strategy_config_put(
     let svc = strategy_service(&app)?;
     let typed: resin_core::StrategyConfig = serde_json::from_value(config)
         .map_err(|e| IpcError::from(format!("strategy config invalid: {e}")))?;
-    // ADR-0058: store() bumps generation and stamps updated_at.
+    //: store() bumps generation and stamps updated_at.
     svc.store(typed).map_err(IpcError::from)?;
     Ok(())
 }
@@ -213,7 +213,7 @@ pub async fn strategy_platform_regions_set(
 }
 
 /// deep edit: set one platform's subscription-intent list + stamp
-/// a_class=subscription (ADR-0075: the canvas writes subscription INTENT;
+/// a_class=subscription (the canvas writes subscription INTENT;
 /// the engine derives the region projection at apply time).
 #[tauri::command]
 pub async fn strategy_platform_subscriptions_set(
@@ -229,7 +229,7 @@ pub async fn strategy_platform_subscriptions_set(
     serde_json::to_value(&stored).map_err(|e| IpcError::from(e.to_string()))
 }
 
-/// deep edit: set one platform's manual_nodes list (ADR-0076 manual group
+/// deep edit: set one platform's manual_nodes list (manual group
 /// edges delete-projection write path).
 #[tauri::command]
 pub async fn strategy_platform_manual_nodes_set(
@@ -246,7 +246,7 @@ pub async fn strategy_platform_manual_nodes_set(
 }
 
 /// Build the Service against the app config dir. The Service owns the only
-/// strategyConfig write path in the shell (ADR-0036 discipline).
+/// strategyConfig write path in the shell.
 pub(crate) fn strategy_service(
     app: &AppHandle,
 ) -> Result<resin_core::StrategyService<resin_core::FsStrategyStore>, IpcError> {
@@ -258,12 +258,12 @@ pub(crate) fn strategy_service(
 }
 
 /// the authoritative effective-config
-/// snapshot (CONTEXT.md: Authoritative Snapshot; ARCHITECTURE.md §Config
+/// snapshot (GLOSSARY.md: Authoritative Snapshot; ARCHITECTURE.md §Config
 /// Authority). ONE call reads the three configuration sources and merges them
 /// at the single sanctioned merge point in resin-core:
-///   L2 whitebox strategy intent  <- egressapikey-strategy.json
-///   L2 whitebox ports + partner  <- WhiteboxConfigStore + egressapikey.db
-///   L3 Resin runtime             <- GET /api/v1/platforms + /api/v1/endpoints
+/// L2 whitebox strategy intent <- egressapikey-strategy.json
+/// L2 whitebox ports + partner <- WhiteboxConfigStore + egressapikey.db
+/// L3 Resin runtime <- GET /api/v1/platforms + /api/v1/endpoints
 /// Views consume the result and must not re-merge stores themselves. This is
 /// a read-only command; the Read Retry contract applies to the Resin GETs.
 /// The B-class plan uses the same compute_plan entry as strategy_apply, so
@@ -279,7 +279,7 @@ pub async fn authoritative_snapshot(
     let svc = strategy_service(&app)?;
     let snapshot = authoritative_snapshot_core(&svc, &sidecar, &whitebox, &db, &forwarder).await?;
 
-    // ADR-0054 §E: one-shot drift notice. Hooked on the only
+    //: one-shot drift notice. Hooked on the only
     // sanctioned merge point so every snapshot consumer (TopologyView 5s
     // poll, EffectiveConfigView open/re-check/reconcile/rollback re-verify)
     // feeds the same per-process notify-once state machine — no extra
@@ -306,9 +306,9 @@ pub async fn authoritative_snapshot(
     // surveyed (atomcode C3: "Inline Polling — reconcile 时顺手查"), so it
     // rides the existing snapshot poll (TopologyView 5s / EffectiveConfigView
     // open / manual re-check) instead of adding a second timer or a background
-    // loop (ADR-0054 rejects the latter outright).
+    // loop.
     //
-    // Discipline (ADR-0054): the driver drains ONLY retries the user already
+    // Discipline: the driver drains ONLY retries the user already
     // enqueued — it never enqueues a desired establish, so detection stays
     // resident while the ACTION stays opt-in (atomcode C2/C6). Gated on
     // `due_count > 0`, so a tick with nothing due costs one mutex read and
@@ -352,14 +352,14 @@ pub async fn authoritative_snapshot_core(
     db: &DbPool,
     forwarder: &resin_core::PortForwarder,
 ) -> Result<resin_core::AuthoritativeSnapshot, IpcError> {
-    // L2 strategy whitebox: file is the truth (ADR-0036); missing file =
-    // defaults. Read goes through the Service (ADR-0052).
+    // L2 strategy whitebox: file is the truth; missing file =
+    // defaults. Read goes through the Service.
     let config: resin_core::StrategyConfig = svc.get().map_err(IpcError::from)?;
     let strategy_path = svc.store_ref().path().clone();
     let strategy_path_exists = strategy_path.exists();
 
     // L2 ports whitebox + its SQLite sync partner. The whitebox file is the
-    // truth source (ADR-0042 S2); DB rows that are absent from the whitebox
+    // truth source; DB rows that are absent from the whitebox
     // snapshot (boot-seed temp-store fallback path) are still surfaced so the
     // partner drift stays visible instead of silently disappearing.
     let whitebox_cfg = whitebox.snapshot();
@@ -425,7 +425,7 @@ pub async fn authoritative_snapshot_core(
         strategy_path_exists,
     );
     // The listener set the three-state merge compares against is mode-aware
-    // (ADR-0068 D1): Engine mode reads the Resin endpoint ports
+    //: Engine mode reads the Resin endpoint ports
     // (the L3 runtime truth); Mode A unions in the forwarder's bound entry
     // ports, because there the shell listener IS the realisation of the row
     // and must read Consistent. The forwarder only ever binds whitebox rows,
@@ -449,14 +449,14 @@ pub async fn authoritative_snapshot_core(
     let subscriptions =
         resin_core::snapshot::merge_subscriptions(&live_subscriptions, &whitebox_refs);
 
-    // ADR-0054 §D: read-side exemption stamps. The whitebox
+    //: read-side exemption stamps. The whitebox
     // `acknowledged` arrays NEVER enter the three-state merge above — they
     // are stamped onto the merged output only. Platform key = platform_name;
     // port key = decimal port number.
     resin_core::snapshot::stamp_platform_acknowledged(&mut platforms, &config.acknowledged);
     resin_core::snapshot::stamp_port_acknowledged(&mut ports, &whitebox_cfg.acknowledged);
 
-    // ADR-0055 D3: route family merge — a route's live side IS
+    //: route family merge — a route's live side IS
     // its target port. The live listener set and the enabled desired ports
     // are both already in hand; no extra request. Then the D6 stamp.
     let desired_enabled_ports: Vec<u16> = whitebox_cfg
@@ -475,7 +475,7 @@ pub async fn authoritative_snapshot_core(
     );
     resin_core::snapshot::stamp_route_acknowledged(&mut routes, &whitebox_cfg.route_acknowledged);
 
-    // ADR-0054 §C: divergentSince = first in-process drift
+    //: divergentSince = first in-process drift
     // instant per entity. Advance the drift memory with this snapshot's
     // per-entity drift flags, then stamp the resolved instants onto the
     // drifting entries (consistent entries keep None). Process restart
@@ -556,11 +556,11 @@ pub async fn authoritative_snapshot_core(
         }
     }
 
-    // ADR-0058: top-level convergence phase. Pure
+    //: top-level convergence phase. Pure
     // derivation over data already in hand: the generation pair comes from
     // the whitebox strategy doc read at the top of this command, the drift
     // flag reuses the per-entry three-state stamps (acknowledged entries are
-    // exempt per ADR-0054 D — known drift never masks convergence).
+    // exempt D — known drift never masks convergence).
     let drift_platforms = platforms
         .iter()
         .any(|e| e.state_tag() != "consistent" && !e.acknowledged());
@@ -653,10 +653,10 @@ pub fn endpoint_ports(existing: &serde_json::Value) -> Vec<u16> {
     ports
 }
 
-/// ADR-0054 section B: strategy whitebox versioning - list + rollback.
+///: strategy whitebox versioning - list + rollback.
 // ---------------------------------------------------------------------------
 
-/// ADR-0054 section B: list the versioned backups of the strategy whitebox
+///: list the versioned backups of the strategy whitebox
 /// file (newest first). Read-only; no inputs to validate.
 #[tauri::command]
 pub async fn strategy_backup_list(
@@ -666,9 +666,9 @@ pub async fn strategy_backup_list(
     svc.store_ref().list_backups().map_err(IpcError::from)
 }
 
-/// ADR-0054 section B: roll the strategy whitebox back to a listed backup.
+///: roll the strategy whitebox back to a listed backup.
 /// The backup content re-enters the SAME validate + store write entry as
-/// strategy_config_put (ADR-0036, no bypass), then apply PATCHes the Resin
+/// strategy_config_put, then apply PATCHes the Resin
 /// region_filters so the next snapshot re-check reports the restored state.
 #[tauri::command]
 pub async fn strategy_rollback(
@@ -680,7 +680,7 @@ pub async fn strategy_rollback(
         return Err(IpcError::from("backup_name invalid".to_string()));
     }
     let svc = strategy_service(&app)?;
-    // ADR-0059: scope a rollback audit context so the row
+    //: scope a rollback audit context so the row
     // emitted by FsStrategyStore::store carries op:"rollback" + source_backup.
     let audit_ctx = resin_core::audit::AuditCtx {
         op: Some("rollback".into()),
@@ -704,12 +704,12 @@ pub async fn strategy_rollback(
 }
 
 // ---------------------------------------------------------------------------
-// ADR-0054 §A: one-way reconcile. Serial strategy apply ->
+//: one-way reconcile. Serial strategy apply ->
 // ports restore, fail-fast, whitebox always wins. There is deliberately NO
 // "accept current state" reverse write (§A rejection).
 // ---------------------------------------------------------------------------
 
-/// ADR-0054 §A: process-local reconcile idempotency memory. The
+///: process-local reconcile idempotency memory. The
 /// strategy half of a reconcile is naturally idempotent (re-PATCHing the
 /// computed plan is a no-op); the ports half is throttled by this window so
 /// a second reconcile NOW re-asserts nothing. In-process only; a restart
@@ -717,11 +717,11 @@ pub async fn strategy_rollback(
 static RECONCILE_MEMORY: once_cell::sync::Lazy<resin_core::ReconcileMemory> =
     once_cell::sync::Lazy::new(resin_core::ReconcileMemory::default);
 
-/// One-way reconcile (ADR-0054 §A): run the strategy apply then re-assert
+/// One-way reconcile: run the strategy apply then re-assert
 /// the whitebox ports, stopping at the first failure. Errors surface through
-/// the ADR-0045 IpcError contract; the frontend re-pulls the snapshot after
+/// the IpcError contract; the frontend re-pulls the snapshot after
 /// either outcome. The ports half goes through the SAME
-/// `restore_ports_from_whitebox` loop the boot path uses (ADR-0042 S6 seam),
+/// `restore_ports_from_whitebox` loop the boot path uses,
 /// minus its log-only error swallowing: a reconcile must FAIL loudly, not
 /// degrade silently, so the closure re-implements the per-port POST with the
 /// shared helpers and returns Err on the first non-409 failure.
@@ -769,7 +769,7 @@ pub async fn reconcile_now_impl(
 /// the reconcile contract is fail-fast, not best-effort. 409
 /// (endpoint already present) counts as satisfied, not an error. Shared with
 /// `config_import` so an import triggers the SAME one-way
-/// reconcile as `reconcile_now` (ADR-0054 §A) rather than a parallel path.
+/// reconcile as `reconcile_now` rather than a parallel path.
 pub(crate) async fn reconcile_ports_half(
     sidecar: &SidecarHandle,
     whitebox: &resin_core::WhiteboxConfigStore,
@@ -825,7 +825,7 @@ pub(crate) async fn reconcile_ports_half(
         });
         match client.create_endpoint(body).await {
             Ok(_) => {
-                // ADR-0069 D2: a SUCCESSFUL assertion is deliberately NOT
+                //: a SUCCESSFUL assertion is deliberately NOT
                 // stamped. Idempotency on the success path comes from the
                 // liveness filter (the endpoint is live now, so the next pass
                 // skips it); leaving it unstamped is what lets an
@@ -842,7 +842,7 @@ pub(crate) async fn reconcile_ports_half(
                 let msg = format!("{e:?}");
                 if msg.contains("409") || msg.contains("CONFLICT") || msg.contains("Only one usage")
                 {
-                    // ADR-0069 D2: this is the ONLY stamp site. 409 means the
+                    //: this is the ONLY stamp site. 409 means the
                     // port is held by something Resin refuses to re-create
                     // (typically a listener Resin does not own), so the TTL
                     // window exists to stop the pass from hammering it.

@@ -1,17 +1,20 @@
-// ipc-manifest-check.cjs - IPC manifest guard.
-// Keeps the generated command manifest equal to code truth:
-//   1. extracts every #[tauri::command] fn name under src-tauri/src (CRLF/LF safe),
-//   2. reconciles them against the generate_handler! registry in src-tauri/src/main.rs,
-//   3. diffs both against the ipc-manifest fenced block in
-//      docs/agents/ipc-manifest.md (command name + definition-file
-//      attribution); AGENTS.md keeps only a pointer fence with the command
-//      count, which this check verifies too.
-// Any drift exits non-zero. Style aligned with scripts/i18n-check.cjs (no deps).
+// ipc-manifest-check.cjs - IPC command registry guard (product invariants only).
+// Keeps the registered IPC surface equal to the code truth:
+// 1. extracts every #[tauri::command] fn name under src-tauri/src (CRLF/LF safe),
+// 2. reconciles it against the generate_handler! registry in
+// src-tauri/src/main.rs - a definition that is never registered, or a
+// registry entry with no definition, is a runtime bug (the command
+// silently does not exist / the router panics), so drift exits non-zero.
+// The former third leg (diffing a generated docs/agents/ipc-manifest.md fence
+// and an AGENTS.md pointer block) is gone: that was a documentation gate, the
+// manifest file and its --write mode were retired with the governance layer.
+// Duplicate command names are still a hard error (two commands cannot share
+// one invoke name).
+// Zero deps, style aligned with scripts/i18n-check.cjs.
 //
 // Usage:
-//   node scripts/ipc-manifest-check.cjs            # check (build gate)
-//   node scripts/ipc-manifest-check.cjs --write    # regenerate manifest file + AGENTS.md pointer
-//   node scripts/ipc-manifest-check.cjs --self-test
+// node scripts/ipc-manifest-check.cjs # check (build gate)
+// node scripts/ipc-manifest-check.cjs --self-test # parser self-test
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -19,10 +22,6 @@ const path = require("node:path");
 const ROOT = path.join(__dirname, "..");
 const SRC_DIR = path.join(ROOT, "src-tauri", "src");
 const MAIN_RS = path.join(SRC_DIR, "main.rs");
-const AGENTS_MD = path.join(ROOT, "AGENTS.md");
-const MANIFEST_MD = path.join(ROOT, "docs", "agents", "ipc-manifest.md");
-const FENCE_LANG = "ipc-manifest";
-const FENCE = "\x60\x60\x60";
 
 function listRsFiles(dir) {
   const out = [];
@@ -79,30 +78,15 @@ function extractCommandNames(src) {
 function parseRegistry(mainSrc) {
   const m = mainSrc.match(/generate_handler!\s*\[([\s\S]*?)\]/);
   if (!m) return null;
-  const body = m[1].split(/\r?\n/).map((l) => l.replace(/\/\/.*$/, "")).join("\n");
+  const body = m[1]
+    .split(/\r?\n/)
+    .map((l) => l.replace(/\/\/.*$/, ""))
+    .join("\n");
   const re = /(?:[A-Za-z_][A-Za-z0-9_]*::)*([A-Za-z_][A-Za-z0-9_]*)/g;
   const names = [];
   let mm;
   while ((mm = re.exec(body)) !== null) names.push(mm[1]);
   return names;
-}
-
-function manifestRe() {
-  return new RegExp(FENCE + FENCE_LANG + "\\r?\\n([\\s\\S]*?)" + FENCE);
-}
-
-function parseManifest(agentsSrc) {
-  const m = agentsSrc.match(manifestRe());
-  if (!m) return null;
-  const entries = [];
-  for (const raw of m[1].split(/\r?\n/)) {
-    const t = raw.trim();
-    if (t === "" || t.startsWith("#")) continue;
-    const em = t.match(/^([a-z_][a-z0-9_]*)\s*=\s*(\S+)$/);
-    if (!em) return null; // malformed entry counts as drift, never ignored
-    entries.push({ name: em[1], file: em[2] });
-  }
-  return entries;
 }
 
 function collectDefined() {
@@ -126,85 +110,21 @@ function diff(a, b) {
 
 function check() {
   const codeErrors = [];
-  const manifestErrors = [];
   const { defined, dups } = collectDefined();
-  const regNames = parseRegistry(fs.readFileSync(MAIN_RS, "utf8"));
-  if (regNames === null) codeErrors.push("generate_handler![...] not found in src-tauri/src/main.rs");
-  const agentsSrc = fs.readFileSync(AGENTS_MD, "utf8");
-  const agentsFence = agentsSrc.match(manifestRe());
-  const agentsEntries = parseManifest(agentsSrc);
-  if (agentsFence === null || agentsEntries === null) {
-    manifestErrors.push("ipc-manifest pointer fence missing or malformed in AGENTS.md section 7.6");
-  } else if (agentsEntries.length > 0) {
-    manifestErrors.push("AGENTS.md ipc-manifest fence must hold only the pointer - the command list lives in docs/agents/ipc-manifest.md");
-  } else {
-    const cm = agentsFence[1].match(/commands?:\s*(\d+)/i);
-    if (!cm || Number(cm[1]) !== defined.length) {
-      manifestErrors.push("AGENTS.md pointer count is stale (fence says " + (cm ? cm[1] : "none") + ", code defines " + defined.length + ") - run --write");
-    }
-  }
-  const manifest = parseManifest(fs.existsSync(MANIFEST_MD) ? fs.readFileSync(MANIFEST_MD, "utf8") : "");
-  if (manifest === null) manifestErrors.push("ipc-manifest fence missing or malformed in docs/agents/ipc-manifest.md");
   for (const d of dups) codeErrors.push("duplicate command name: " + d);
-  const definedNames = defined.map((c) => c.name);
-  if (regNames !== null) {
-    for (const n of diff(regNames, definedNames)) codeErrors.push("in generate_handler! registry but no #[tauri::command] definition: " + n);
-    for (const n of diff(definedNames, regNames)) codeErrors.push("#[tauri::command] defined but NOT registered in generate_handler!: " + n);
-  }
-  if (regNames !== null && manifest !== null) {
-    const manifestNames = manifest.map((e) => e.name);
-    for (const n of diff(definedNames, manifestNames)) manifestErrors.push("missing from docs/agents/ipc-manifest.md: " + n);
-    for (const n of diff(manifestNames, definedNames)) manifestErrors.push("phantom in docs/agents/ipc-manifest.md (no such command in src-tauri): " + n);
-    const fileOf = {};
-    for (const c of defined) fileOf[c.name] = c.file;
-    for (const e of manifest) {
-      if (fileOf[e.name] && fileOf[e.name] !== e.file) {
-        manifestErrors.push("wrong file attribution for " + e.name + ": manifest says " + e.file + ", code says " + fileOf[e.name]);
-      }
+  const regNames = parseRegistry(fs.readFileSync(MAIN_RS, "utf8"));
+  if (regNames === null) {
+    codeErrors.push("generate_handler![...] not found in src-tauri/src/main.rs");
+  } else {
+    const definedNames = defined.map((c) => c.name);
+    for (const n of diff(regNames, definedNames)) {
+      codeErrors.push("in generate_handler! registry but no #[tauri::command] definition: " + n);
+    }
+    for (const n of diff(definedNames, regNames)) {
+      codeErrors.push("#[tauri::command] defined but NOT registered in generate_handler!: " + n);
     }
   }
-  return { codeErrors: codeErrors, manifestErrors: manifestErrors, defined: defined };
-}
-
-function buildBlock(defined) {
-  const d = new Date();
-  const today = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-  const lines = [
-    "# Tauri IPC command manifest - REGENERATED by scripts/ipc-manifest-check.cjs --write.",
-    "# Machine-checked on every build (pnpm ipc:check / scripts/verify-build.sh / CI):",
-    "# entries must equal the #[tauri::command] set under src-tauri/src AND the",
-    "# generate_handler! registry in src-tauri/src/main.rs. Format: <command> = <file>.",
-    "# Do not hand-edit entries. Regenerated: " + today + " (" + defined.length + " commands)",
-  ];
-  for (const c of defined) lines.push(c.name + " = " + c.file);
-  return lines.join("\n");
-}
-
-function writeManifest(defined) {
-  const block = FENCE + FENCE_LANG + "\n" + buildBlock(defined) + "\n" + FENCE;
-  const md = [
-    "# IPC command manifest",
-    "",
-    "Machine-checked on every build (`pnpm ipc:check` / `scripts/verify-build.sh` / CI):",
-    "entries must equal the `#[tauri::command]` set under `src-tauri/src` AND the",
-    "`generate_handler!` registry in `src-tauri/src/main.rs`. Do not hand-edit;",
-    "regenerate via `node scripts/ipc-manifest-check.cjs --write`.",
-    "",
-    block,
-    "",
-  ].join("\n");
-  fs.writeFileSync(MANIFEST_MD, md);
-  let agentsSrc = fs.readFileSync(AGENTS_MD, "utf8");
-  const re = new RegExp("(" + FENCE + FENCE_LANG + "\\r?\\n)([\\s\\S]*?)(?=" + FENCE + ")");
-  if (!re.test(agentsSrc)) {
-    console.error("--write failed: no ipc-manifest fence in AGENTS.md");
-    process.exit(1);
-  }
-  agentsSrc = agentsSrc.replace(re, (whole, open) =>
-    open +
-    "# Moved to docs/agents/ipc-manifest.md - regenerate with\n" +
-    "# node scripts/ipc-manifest-check.cjs --write. Commands: " + defined.length + "\n");
-  fs.writeFileSync(AGENTS_MD, agentsSrc);
+  return { codeErrors: codeErrors, defined: defined };
 }
 
 function assertEq(actual, expected, label) {
@@ -218,15 +138,13 @@ function assertEq(actual, expected, label) {
 }
 
 // Minimal self-test on synthetic fixtures: CRLF vs LF, rename handling,
-// comment-stripped registry parsing, fence parsing in both line endings,
-// and drift detection on a manifest containing a phantom entry.
+// same-line attribute fn, non-command reset, comment-stripped registry parse.
 function selfTest() {
-  const fence = String.fromCharCode(96, 96, 96);
   const crlfSrc = [
     "#[tauri::command]",
     "pub async fn alpha(state: tauri::State<'_, crate::SharedRegistry>) -> u32 { 1 }",
     "",
-    "#[tauri::command(rename = \"bravo_char\")]",
+    '#[tauri::command(rename = "bravo_char")]',
     "fn bravo() {}",
     "",
     "/// doc comment",
@@ -234,7 +152,11 @@ function selfTest() {
     "struct NotACommand;",
     "fn plain_helper() {}",
   ].join("\r\n");
-  assertEq(extractCommandNames(crlfSrc), ["alpha", "bravo_char"], "CRLF + rename + same-line attr fn + non-command reset");
+  assertEq(
+    extractCommandNames(crlfSrc),
+    ["alpha", "bravo_char"],
+    "CRLF + rename + same-line attr fn + non-command reset"
+  );
   assertEq(extractCommandNames(crlfSrc.replace(/\r\n/g, "\n")), ["alpha", "bravo_char"], "LF variant equals CRLF variant");
   const wrapped = [
     "#[tauri::command]",
@@ -253,26 +175,8 @@ function selfTest() {
     "]",
   ].join("\n");
   assertEq(parseRegistry(reg), ["alpha", "bravo_char", "delta"], "registry: comments stripped, path suffix captured");
-  const agents = [
-    "intro",
-    "",
-    fence + FENCE_LANG,
-    "alpha = commands/mod.rs",
-    "# comment line is ignored",
-    "bravo_char = commands/mod.rs",
-    "ghost_cmd = commands/mod.rs",
-    fence,
-    "",
-    "outro",
-  ].join("\n");
-  const entries = parseManifest(agents);
-  assertEq(entries.map((e) => e.name), ["alpha", "bravo_char", "ghost_cmd"], "manifest parse skips comments");
-  assertEq(parseManifest(agents.replace(/\n/g, "\r\n")), entries, "manifest parse CRLF == LF");
-  assertEq(parseManifest("no fence here"), null, "missing fence -> null");
-  assertEq(parseManifest(fence + FENCE_LANG + "\nbad line!!\n" + fence), null, "malformed entry -> null");
-  const definedNames = ["alpha", "bravo_char"];
-  assertEq(diff(entries.map((e) => e.name), definedNames), ["ghost_cmd"], "phantom manifest entry detected");
-  assertEq(diff(["alpha", "bravo_char", "delta"], definedNames), ["delta"], "defined/registry drift detected");
+  assertEq(parseRegistry("no registry here"), null, "missing generate_handler! -> null");
+  assertEq(diff(["alpha", "bravo_char", "delta"], ["alpha", "bravo_char"]), ["delta"], "registry drift detected");
   console.log("self-test: all assertions passed");
 }
 
@@ -283,27 +187,12 @@ function main() {
     return;
   }
   const res = check();
-  if (argv.includes("--write")) {
-    // --write fixes MANIFEST drift from code truth; it only refuses when the
-    // code side itself is inconsistent (definitions vs registry), because
-    // regenerating from inconsistent code truth would freeze the bug in docs.
-    if (res.codeErrors.length) {
-      console.error("--write refused: fix code/registry drift first");
-      for (const e of res.codeErrors) console.error("  - " + e);
-      process.exit(1);
-    }
-    writeManifest(res.defined);
-    console.log("ipc-manifest regenerated: docs/agents/ipc-manifest.md + AGENTS.md pointer (" + res.defined.length + " commands)");
-    return;
-  }
-  const errors = res.codeErrors.concat(res.manifestErrors);
-  if (errors.length) {
-    console.error("IPC manifest drift detected (" + errors.length + " problem(s)):");
-    for (const e of errors) console.error("  - " + e);
-    console.error("Fix the drift, or regenerate the manifest: node scripts/ipc-manifest-check.cjs --write");
+  if (res.codeErrors.length) {
+    console.error("IPC command registry drift detected (" + res.codeErrors.length + " problem(s)):");
+    for (const e of res.codeErrors) console.error("  - " + e);
     process.exit(1);
   }
-  console.log("IPC manifest OK: " + res.defined.length + " commands; defined = registered = docs/agents/ipc-manifest.md = AGENTS.md pointer");
+  console.log("IPC command registry OK: " + res.defined.length + " commands; definitions = generate_handler!");
 }
 
 main();

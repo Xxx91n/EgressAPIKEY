@@ -1,7 +1,7 @@
 # 行业对照研究:桌面代理客户端的「配置权威」与三层模型
 
 > 沉淀自 2026-08-31 派发的 atomcode 三引擎调研(生态 17 源 + 学术/工业命名两轮;知识库留档批次 atomcode config-authority research、atomcode mental-model research v2/v3),落盘于 2026-09-01(architecture-recovery Round 3 · 票 21)。
-> 性质:研究记录(Explanation 象限),不是现状规范——as-built 模型见 docs/architecture/ARCHITECTURE.md 的 Config Authority 一节,设计决策见 docs/adr/。
+> 性质:研究记录(Explanation 象限),不是现状规范——as-built 模型见 docs/architecture/ARCHITECTURE.md 的 Config Authority 一节,设计决策见源码内联注释与 git 历史（ADR 目录已退役）。
 > 引用纪律:除 §8.1 中 S11/S12 两条沿用原调研「搜索摘要核验」标注外,全部链接在落盘当日逐一实抓核验(HTTP 200)。正文引注 [S#] 对应 §8.1, [A#]/[R#] 对应 §8.2。
 
 ## 1. 摘要
@@ -55,7 +55,7 @@
 
 官网原文(2026-09-01 实抓):Change configs safely — Validate before deployment, keep version history and restore a known-good configuration when something changes. 功能清单:Config validation and history;Git synchronization and backups;统一管理 HAProxy、NGINX、Apache、Keepalived [R1]。
 
-可借鉴点:部署前校验 + 版本历史 + 一键恢复已知良好配置,是「配置权威」在负载均衡运维 GUI 里的同族实现;本项目 ADR-0054 §B 的白盒版本化(写前备份 / 轮转 / 回滚复用同一 validate→apply 链)与之同构。
+可借鉴点:部署前校验 + 版本历史 + 一键恢复已知良好配置,是「配置权威」在负载均衡运维 GUI 里的同族实现;本项目 的白盒版本化(写前备份 / 轮转 / 回滚复用同一 validate→apply 链)与之同构。
 
 ### 4.2 Kubernetes controller / OpenGitOps:desired/live 对比的立法来源
 
@@ -76,7 +76,7 @@
 | Flux | 无第一方 UI(CLI + 指标)| reconcile 直接纠正,默认 5 分钟一轮 | 默认开(suspend 才关)| Git/OCI(desired)|
 | Terraform / TFC | plan 输出即 diff;TFC 有 Drift 专属页 | 定期漂移检测 | 不自动;plan → 人决策 → apply | HCL 配置 + state |
 | Clash Verge Rev | 设置内只读对话框(Settings → Runtime Config)| 仅展示合并后 YAML 原文,无逐字段 diff | 无 | verge.yaml + profile 管线 |
-| EgressAPIKEY(本仓)| 一级「生效配置」视图(ADR-0051,Round 2 落地)| 三态合并快照 + 单程调和 + 一次性托盘通知 | 无自动重放(仅启动恢复)| L2 白盒(desired)vs L3 Resin(live)|
+| EgressAPIKEY(本仓)| 一级「生效配置」视图| 三态合并快照 + 单程调和 + 一次性托盘通知 | 无自动重放(仅启动恢复)| L2 白盒(desired)vs L3 Resin(live)|
 
 范式分歧(如实记录):GitOps 原则 4「持续调和」与 Terraform 的「触发式 plan/apply」存在张力;ArgoCD selfHeal 默认关、Flux reconcile 默认开——两个工业默认相反。本项目取「触发式 + 用户显式调和」一侧(reconcile_now 单程、白盒必胜、无自动重放),与 ArgoCD 的谨慎默认同侧,并有立法:不引入 K8s 式级别触发调和(Round 3 spec Out of Scope)。
 
@@ -100,10 +100,10 @@
 
 本项目已落地的先发优势(全部有 ADR / 实现背书):
 
-- **漂移检测**:authoritative_snapshot 三态(consistent / divergent / missingOnResin)+ lastCheckedAt / divergentSince 元数据 + acknowledged 已知豁免(ADR-0051、ADR-0054 §C/§D)。
-- **版本化备份**:两份白盒 JSON 写前备份到 backup/(轮转 10 份),backup_list / rollback IPC 复用同一 validate→apply 链,回滚本身也被备份(ADR-0054 §B)。
-- **单程调和**:reconcile_now 预演(compute_plan)→ 用户确认 → strategy_apply + restore_ports_from_whitebox → 自动重快照;白盒必胜,无「接受现状」反写(ADR-0054 §A)。
-- **传达面**:一级「生效配置」视图 + 一次性托盘漂移通知 + WHY-NOT-EFFECTIVE 排障文档(ADR-0051/0054)。
+- **漂移检测**:authoritative_snapshot 三态(consistent / divergent / missingOnResin)+ lastCheckedAt / divergentSince 元数据 + acknowledged 已知豁免。
+- **版本化备份**:两份白盒 JSON 写前备份到 backup/(轮转 10 份),backup_list / rollback IPC 复用同一 validate→apply 链,回滚本身也被备份。
+- **单程调和**:reconcile_now 预演(compute_plan)→ 用户确认 → strategy_apply + restore_ports_from_whitebox → 自动重快照;白盒必胜,无「接受现状」反写。
+- **传达面**:一级「生效配置」视图 + 一次性托盘漂移通知 + WHY-NOT-EFFECTIVE 排障文档。
 
 有意不做(与差异定位同样重要):持续自动自愈 / 级别触发调和(Round 3 spec Out of Scope);跨客户端覆写语法标准化(业界亦无人推动,见 §7 缺口 5);Resin Go 侧改造。
 

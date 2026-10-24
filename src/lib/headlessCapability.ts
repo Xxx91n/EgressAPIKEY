@@ -20,7 +20,7 @@ export interface UnavailableCommand {
 }
 
 /** null when the command is reachable in the current mode. In Tauri mode every
- *  command is reachable, so this is always null there. */
+ * command is reachable, so this is always null there. */
 export function commandUnavailableReason(
   command: string,
 ): CommandDisabledReason | "unknown" | null {

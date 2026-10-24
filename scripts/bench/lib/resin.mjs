@@ -47,8 +47,8 @@ export function pickFreePort() {
 }
 
 // Spawn the sidecar. cpuPin options:
-//   linux:   { taskset: "0", gomaxprocs: 1 } -> taskset -c 0 + GOMAXPROCS=1
-//   windows: { affinity: 1, gomaxprocs: 1 }   -> ProcessorAffinity post-spawn
+// linux: { taskset: "0", gomaxprocs: 1 } -> taskset -c 0 + GOMAXPROCS=1
+// windows: { affinity: 1, gomaxprocs: 1 } -> ProcessorAffinity post-spawn
 // Returns { child, apiPort, adminToken, pid, logTail() }.
 export function spawnResin({ bin, workDir, apiPort, adminToken, cpuPin }) {
   const stateDir = path.join(workDir, "state");
@@ -182,10 +182,10 @@ export function proxyFetch({ epPort, identity, url, timeoutMs = 10000, agent }) 
 }
 
 // Bring the sidecar to a routable state for the bench:
-//   platform "bench" + local Clash subscription (http CONNECT node at
-//   nodePort) + node health probes (egress IP + latency record close the
-//   initial circuit break) + mixed entry endpoint. Polls until a real proxied
-//   /echo answers 200. Returns { endpointId, nodeHash }.
+// platform "bench" + local Clash subscription (http CONNECT node at
+// nodePort) + node health probes (egress IP + latency record close the
+// initial circuit break) + mixed entry endpoint. Polls until a real proxied
+// /echo answers 200. Returns { endpointId, nodeHash }.
 export async function ensureRoutable({ api, nodePort, epPort, upstreamPort }) {
   const clash = [
     "proxies:",

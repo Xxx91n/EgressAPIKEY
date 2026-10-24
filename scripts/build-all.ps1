@@ -1,4 +1,4 @@
-# Local build + stage pipeline for Windows (ADR-0019)
+# Local build + stage pipeline for Windows
 # PowerShell equivalent of build-all.sh: builds frontend + backend + GUI,
 # stages artifacts to release/windows-gui/, generates SHA256 checksums,
 # and reads the Resin sidecar version from the upstream manifest.

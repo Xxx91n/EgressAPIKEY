@@ -87,17 +87,13 @@ npx vitest run
 
 echo "[verify] i18n coverage"
 node scripts/i18n-check.cjs
-echo "[verify] ipc manifest guard"
+echo "[verify] license field consistency (spec D-06)"
+node scripts/license-field-check.cjs
+echo "[verify] ipc command registry (definitions = generate_handler!)"
 node scripts/ipc-manifest-check.cjs
 echo "[verify] vitest isolation guard"
 node scripts/vitest-isolation-guard.cjs
-echo "[verify] license field consistency (spec D-06)"
-node scripts/license-field-check.cjs
-echo "[verify] bilingual README alignment (spec D-06)"
-node scripts/readme-lang-check.cjs
-echo "[verify] upstream router integrity (spec D-C3.9)"
-node scripts/upstream-router-check.cjs
-echo "[verify] contracts (mode-a contract gate, ADR-0068)"
+echo "[verify] contracts (mode-a contract gate)"
 node scripts/mode-a-contract-check.cjs
 
 # r12-wave-i D-004: replace_ports' BEGIN-IMMEDIATE requirement is a source

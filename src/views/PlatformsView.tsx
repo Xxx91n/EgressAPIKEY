@@ -43,7 +43,7 @@ import { loadSplitRatio, saveSplitRatio, loadPortAuthDefault, savePortAuthDefaul
 import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 import { usePoll } from "../hooks/usePoll";
 
-/** Phase 5 / ADR-0012: left = Entry Ports, right = Platforms. Port = identity. */
+/** Phase 5 / : left = Entry Ports, right = Platforms. Port = identity. */
 interface PlatformInfoFull {
   name: string;
   allocationPolicy: string;
@@ -120,7 +120,7 @@ export function PlatformsView() {
 
   /// per-platform sync. Each chip change immediately PUTs config + PATCHes
   /// the specific platform's region_filters. No global Apply button.
-  /// ADR-0073: config_put takes the caller's complete desired state
+  ///: config_put takes the caller's complete desired state
   /// verbatim - never pruned by a live (L3) list read. A whitebox entry
   /// missing on live is a Drifted phase healed by apply / reconcile_now.
   const syncPlatformStrategy = async (_platformName?: string, configToSync?: StrategyConfig) => {

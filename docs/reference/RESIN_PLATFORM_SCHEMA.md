@@ -4,7 +4,7 @@
 > 本表把同一字段在五层的落位对齐成一行；上游权威为 `resin/DESIGN.md` §「Platform 模型」
 > （L1183-1300，创建与更新的字段要求同节）。基准版本 **v1.2.0**（`docs/RESIN_UPSTREAM_MANIFEST.yaml`）；
 > 端点消费面见 [RESIN_API_COVERAGE.md](../architecture/RESIN_API_COVERAGE.md) #R07/#R08/#R11。
-> 白盒写入口立法 ADR-0036（本表只做映射，不改字段与写路径）；人工维护、不做自动同步（spec §6）。
+> 白盒单写入口纪律（本表只做映射，不改字段与写路径）；人工维护、不做自动同步（spec §6）。
 
 ## 改动分流（先看这里）
 
@@ -23,11 +23,11 @@
 | `name` | `platform_name` | `platform_add{name}`、`platform_create_with_fields{body.name}`、`platform_update{name}`；TS `assertShortName`（1..128，无控制符） | PlatformsView 创建对话框 name 输入框（`platform-create-name`）与平台卡标题 | create 必填；全局唯一；保留名 `Default` 与 `api`（大小写不敏感）；禁特殊字符集（`.`、`:`、竖线、`/`、反斜杠、`@`、`?`、`#`、`%`、`~`）与空白；shell 1..128，ResinClient 侧 253 |
 | `sticky_ttl` | 无（白盒不存粘性时长） | `platform_update{stickyTtl}`、`platform_create_with_fields{body.sticky_ttl}`；TS 与 Rust 均 ≤32 字符且无控制符 | 无输入控件；画布 `PlatformFull.sticky_ttl` 仅展示（快照恒 `0s` 占位） | Go duration 字符串（如 `168h`）；create 可选；缺省走环境变量 `RESIN_DEFAULT_PLATFORM_STICKY_TTL`（默认 168h） |
 | `regex_filters` | 无（节点标签过滤属订阅与节点域） | `platform_update{regexFilters}`、`platform_create_with_fields{body.regex_filters}`；TS 与 Rust 均 ≤64 项且每项 ≤253 字符、无控制符 | 无 UI 入口（画布展示恒为 `null`） | 字符串数组；节点标签过滤规则（语义与校验见 DESIGN.md「节点标签过滤规则」）；缺省 `RESIN_DEFAULT_PLATFORM_REGEX_FILTERS`（空数组） |
-| `region_filters` | 意图来源：`a_class` 与 `regions` / `manual_nodes` / `subscriptions` / `top_n` 经 `compute_plan` 派生（白盒存意图，不存最终列表） | 直连 `platform_update{regionFilters}`（≤64 项、每项 ≤16 字符、无空格）；收敛 `strategy_apply` 仅在真漂移时 PATCH 单字段 body（diff-then-skip，ADR-0057）；白盒深编辑 `strategy_platform_regions_set`（≤64 项、每项 1..32 字符） | TopologyView 区域 chips 增删（`patchAndSyncOnce`）；深编辑 `ipcStrategyPlatformRegionsSet` + `ipcStrategyApply`；PlatformsView A 类面板 regions / 订阅 / top-N | 字符串数组；每项小写 ISO 3166-1 alpha-2；缺省 `RESIN_DEFAULT_PLATFORM_REGION_FILTERS`（空数组）；收敛路径零漂移零写、wire 幂等 |
+| `region_filters` | 意图来源：`a_class` 与 `regions` / `manual_nodes` / `subscriptions` / `top_n` 经 `compute_plan` 派生（白盒存意图，不存最终列表） | 直连 `platform_update{regionFilters}`（≤64 项、每项 ≤16 字符、无空格）；收敛 `strategy_apply` 仅在真漂移时 PATCH 单字段 body；白盒深编辑 `strategy_platform_regions_set`（≤64 项、每项 1..32 字符） | TopologyView 区域 chips 增删（`patchAndSyncOnce`）；深编辑 `ipcStrategyPlatformRegionsSet` + `ipcStrategyApply`；PlatformsView A 类面板 regions / 订阅 / top-N | 字符串数组；每项小写 ISO 3166-1 alpha-2；缺省 `RESIN_DEFAULT_PLATFORM_REGION_FILTERS`（空数组）；收敛路径零漂移零写、wire 幂等 |
 | `reverse_proxy_miss_action` | 无 | 无专用入参（仅 `platform_create_with_fields` 自由 body 透传可达；`platform_update` 不支持） | 无 | 枚举 `TREAT_AS_EMPTY` / `REJECT`；缺省 `RESIN_DEFAULT_PLATFORM_REVERSE_PROXY_MISS_ACTION`（`TREAT_AS_EMPTY`） |
 | `reverse_proxy_empty_account_behavior` | 无 | 无专用入参（同上，仅 create 自由 body 透传） | 无 | 枚举 `RANDOM` / `FIXED_HEADER` / `ACCOUNT_HEADER_RULE`；缺省默认 `ACCOUNT_HEADER_RULE`；组合约束：取 `FIXED_HEADER` 时下一行字段必填 |
 | `reverse_proxy_fixed_account_header` | 无 | 无专用入参（同上） | 无 | 多行字符串，每行一个合法 HTTP Header 字段名、按序尝试提取；缺省默认 `Authorization`；仅当上一字段取 `FIXED_HEADER` 时必填 |
-| `allocation_policy` | 语义对应 `b_class`（shell `StrategyId` 六值，ADR-0042 S3） | `platform_update{allocationPolicy}`、`platform_create_with_fields{body.allocation_policy}`；TS `strategyToResinPolicy` 六对三多对一，Rust `ALLOWED_ALLOCATION_POLICIES` 白名单复校验 | PlatformsView B 类 chips（`strategy-bclass-*`）与创建对话框策略下拉（`createPolicy`） | 枚举 `BALANCED` / `PREFER_LOW_LATENCY` / `PREFER_IDLE_IP`；缺省 `RESIN_DEFAULT_PLATFORM_ALLOCATION_POLICY`（`BALANCED`）；映射：random/bandwidth/protocol_weight 对 `BALANCED`，latency 对 `PREFER_LOW_LATENCY`，sequential/quality 对 `PREFER_IDLE_IP` |
+| `allocation_policy` | 语义对应 `b_class` | `platform_update{allocationPolicy}`、`platform_create_with_fields{body.allocation_policy}`；TS `strategyToResinPolicy` 六对三多对一，Rust `ALLOWED_ALLOCATION_POLICIES` 白名单复校验 | PlatformsView B 类 chips（`strategy-bclass-*`）与创建对话框策略下拉（`createPolicy`） | 枚举 `BALANCED` / `PREFER_LOW_LATENCY` / `PREFER_IDLE_IP`；缺省 `RESIN_DEFAULT_PLATFORM_ALLOCATION_POLICY`（`BALANCED`）；映射：random/bandwidth/protocol_weight 对 `BALANCED`，latency 对 `PREFER_LOW_LATENCY`，sequential/quality 对 `PREFER_IDLE_IP` |
 | `passive_circuit_breaker_disabled` | 无 | `platform_update{passive_circuit_breaker_disabled: bool}`（TS 第 6 参 `circuitBreakerDisabled`） | 无（wrapper 参数已通、视图暂无调用方） | bool；缺省 `false`（熔断启用）；`true` 时该平台用户代理失败不计熔断，成功仍清零计数，主动探测不受影响 |
 | `id`（只读） | 无（白盒以 `platform_name` 为标识） | 不入参；shell 以 name 到 id 反查（`platform_id_for_name`，T17 票收敛为 resolve helper）后拼 `/platforms/{id}` | 画布节点 id 取 `platform_id`，缺省回退 `platform_name`（仅展示） | UUID v4，服务端生成；create 或 PATCH 传 `id` 报 400 |
 | `routable_node_count`（只读） | 无 | 只读回传：`platform_list_full` / `authoritative_snapshot` | 平台卡只读展示 | 服务端计算；create 或 PATCH 传它报 400 |
@@ -64,7 +64,7 @@ Resin wire（PATCH /api/v1/platforms/{id}）：
 { "region_filters": ["hk", "us"] }
 ```
 
-shell 两条路。其一，收敛主路径 `strategy_apply`：`compute_plan` 派生各平台 region 列表，与 live 行做集合等值比对，仅对真漂移平台 PATCH 该单字段 body（ADR-0057 diff-then-skip）。其二，画布直连：区域 chip 增删 → `patchAndSyncOnce` → `ipcPlatformUpdate(name, undefined, undefined, next)` → IPC `platform_update`（name 到 id 反查后 PATCH，#R11）。PATCH 语义见 DESIGN.md「更新平台」：空 patch 400、不可改字段 400、改 `Default` 平台 409。
+shell 两条路。其一，收敛主路径 `strategy_apply`：`compute_plan` 派生各平台 region 列表，与 live 行做集合等值比对，仅对真漂移平台 PATCH 该单字段 body。其二，画布直连：区域 chip 增删 → `patchAndSyncOnce` → `ipcPlatformUpdate(name, undefined, undefined, next)` → IPC `platform_update`（name 到 id 反查后 PATCH，#R11）。PATCH 语义见 DESIGN.md「更新平台」：空 patch 400、不可改字段 400、改 `Default` 平台 409。
 
 ## issue 猜测字段在 v1.2.0 的核实结果（未来字段待补入口）
 
@@ -81,6 +81,6 @@ Resin 未来版本新增字段时：先在本页全字段表加行（五列填�
 ## 维护规则
 
 1. 任一层新增或改名 platform 字段：同一 commit 更新本表对应行，五列必须全部有内容（无对应物写「无 + 原因」）。
-2. 白盒 `PlatformStrategy` 增删字段属 schema 变更：须新 ADR 立法（ADR-0036 纪律），并同步更新收敛推导故事（ADR-0058）。
+2. 白盒 `PlatformStrategy` 增删字段属 schema 变更：须按白盒单写入口纪律留下明确决策记录，并同步更新收敛推导故事（generation 计数）。
 3. `resin_client.rs` 平台方法注释携带 `@see docs/reference/RESIN_PLATFORM_SCHEMA.md` 锚指向本表（update_platform 注释）。
 4. sidecar 升级：diff `resin/DESIGN.md` §Platform，核对 12 行与核实节，更新页头基准版本号。

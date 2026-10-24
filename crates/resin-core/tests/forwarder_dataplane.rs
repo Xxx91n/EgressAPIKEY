@@ -6,21 +6,21 @@
 //! endpoint). All legs are real loopback TCP sockets - per the spec's
 //! testing decision the behaviour is measured end to end, not through
 //! stubbed traits. The mock consolidated port replicates exactly what the
-//! ADR-0068 D4 gate and the ticket-17 contract probes observed live
+//! gate and the ticket-17 contract probes observed live
 //! (.scratch/architecture-recovery/repro/d4-mixed/ + t17-contract/): one
 //! port, both dialects, presented credentials parsed and relayed raw.
 //!
 //! Coverage map to the issue's acceptance boxes:
-//!   - per-entry-port TcpListener + dual-protocol state machine:
-//!     mode_a_socks5_..., mode_a_http_connect_..., dialect_gate_...
-//!   - credential injection per dialect: rfc1929_... + basic_... asserts
-//!   - SSE four behavioural assertions: sse_flushes_per_event...,
-//!     client_abort_cascades..., slow_client_backpressure...,
-//!     sse_upstream_reset_gets_in_band_error_frame
-//!   - p95 <= 5ms added latency (mock upstream full chain):
-//!     paired_request_added_latency_p95_under_5ms
-//!   - the ticket-04 SSE flush-defect fix (forward path never used):
-//!     absolute_form_never_reaches_the_engine_forward_path
+//! - per-entry-port TcpListener + dual-protocol state machine:
+//! mode_a_socks5_..., mode_a_http_connect_..., dialect_gate_...
+//! - credential injection per dialect: rfc1929_... + basic_... asserts
+//! - SSE four behavioural assertions: sse_flushes_per_event...,
+//! client_abort_cascades..., slow_client_backpressure...,
+//! sse_upstream_reset_gets_in_band_error_frame
+//! - p95 <= 5ms added latency (mock upstream full chain):
+//! paired_request_added_latency_p95_under_5ms
+//! - the ticket-04 SSE flush-defect fix (forward path never used):
+//! absolute_form_never_reaches_the_engine_forward_path
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -594,7 +594,7 @@ async fn absolute_form_never_reaches_the_engine_forward_path() {
 #[tokio::test]
 async fn dialect_gate_mirrors_the_engine_refusals() {
     // http-only entry port: a SOCKS5 greeting is refused with 05 FF, exactly
-    // like a tightened http-only Resin endpoint did at the D4 gate.
+    // like a tightened http-only Resin endpoint did at the gate.
     let (origin_port, _os) = spawn_origin(OriginMode::Echo).await;
     let (engine_port, _es) = spawn_engine(origin_port).await;
     let entry_http = free_port().await;
@@ -606,7 +606,7 @@ async fn dialect_gate_mirrors_the_engine_refusals() {
     assert_eq!(rep, [0x05, 0xFF], "http-only port must refuse SOCKS5");
 
     // socks5-only entry port: an HTTP request gets the 403 + capability
-    // header the D4 gate observed from Resin's socks5-only endpoint.
+    // header the gate observed from Resin's socks5-only endpoint.
     let entry_socks = free_port().await;
     let _f2 = boot_shell_forwarder(entry_socks, engine_port, "socks5").await;
     let mut s = TcpStream::connect(("127.0.0.1", entry_socks))
@@ -665,7 +665,7 @@ async fn socks5_upstream_dial_failure_answers_in_band() {
 }
 
 // ---------------------------------------------------------------------------
-// D-004 SSE: the four hard behavioural assertions
+// SSE: the four hard behavioural assertions
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -825,7 +825,7 @@ async fn sse_upstream_reset_gets_in_band_error_frame() {
 
 #[tokio::test]
 async fn paired_request_added_latency_p95_under_5ms() {
-    // D-004 item: full-chain added latency p95 <= 5 ms measured against a
+    // item: full-chain added latency p95 <= 5 ms measured against a
     // mock upstream, paired per iteration (direct vs via-forwarder) so host
     // noise cancels out. Initial value pending calibration after CI runs.
     let (origin_port, _os) = spawn_origin(OriginMode::Echo).await;
@@ -870,7 +870,7 @@ async fn paired_request_added_latency_p95_under_5ms() {
     println!("paired added latency: median {median:.3} ms, p95 {p95:.3} ms over {N}");
     assert!(
         p95 <= 5.0,
-        "p95 added latency {p95:.3} ms exceeds the D-004 5 ms initial value"
+        "p95 added latency {p95:.3} ms exceeds the 5 ms initial value"
     );
 }
 
@@ -919,7 +919,7 @@ async fn paired_request_added_latency_p99_under_10ms() {
     println!("paired added latency p99 {p99:.3} ms over {N} (established tunnels)");
     assert!(
         p99 <= 10.0,
-        "p99 added latency {p99:.3} ms exceeds the D-004 10 ms bound"
+        "p99 added latency {p99:.3} ms exceeds the 10 ms bound"
     );
 }
 
@@ -951,7 +951,7 @@ async fn sse_first_byte_ms(stream: &mut TcpStream, origin_port: u16) -> f64 {
 
 #[tokio::test]
 async fn sse_first_token_added_latency_median_under_1ms() {
-    // D-004: the relay must add <= 1 ms to time-to-first-token at
+    // the relay must add <= 1 ms to time-to-first-token at
     // p99. Paired measurement per iteration cancels host scheduling noise:
     // same origin, same payload, direct leg vs tunnelled leg. The "direct"
     // leg goes through the mock engine's CONNECT path so both legs share
@@ -991,14 +991,14 @@ async fn sse_first_token_added_latency_median_under_1ms() {
     let median = deltas[N / 2];
     let p99 = deltas[(N as f64 * 0.99) as usize - 1];
     println!("SSE first-token added latency: median {median:.3} ms, p99 {p99:.3} ms over {N}");
-    // D-004 bound (<=1 ms added) asserted on the robust estimator: the ticket
+    // bound (<=1 ms added) asserted on the robust estimator: the ticket
     // note defers absolute p99 calibration on shared runners to the baseline ticket, but
     // the MEDIAN is where the steady-state relay cost shows up, and it must
     // be well under 1 ms. The p99 tail gate (3 ms) catches a relay that
     // stalls arbitrarily without pretending timer-tick jitter is signal.
     assert!(
         median <= 1.0,
-        "first-token added latency median {median:.3} ms exceeds 1 ms (D-004)"
+        "first-token added latency median {median:.3} ms exceeds 1 ms "
     );
     assert!(
         p99 <= 3.0,
@@ -1008,7 +1008,7 @@ async fn sse_first_token_added_latency_median_under_1ms() {
 
 #[tokio::test]
 async fn sse_frames_arrive_unmerged_one_per_read() {
-    // D-004: frames-per-arrival == 1 — after the response head,
+    // frames-per-arrival == 1 — after the response head,
     // every read() that yields complete events must contain exactly ONE
     // 10-byte frame. Batching would deliver 2+ frames per read.
     let (origin_port, _os) = spawn_origin(OriginMode::SsePaced).await;
@@ -1087,13 +1087,13 @@ fn process_rss_bytes() -> Option<u64> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn sse_five_hundred_concurrent_streams_stay_bounded() {
-    // D-004: 500 simultaneous SSE tunnels through one entry port.
+    // 500 simultaneous SSE tunnels through one entry port.
     // Boundedness proof has two parts:
-    //   - every stream is alive and receives frames (no starvation, no
+    // - every stream is alive and receives frames (no starvation, no
     //     collapse under the conn count);
-    //   - where RSS is measurable (Linux CI), the delta over a 50-conn
-    //     baseline stays under a per-conn bound — unbounded per-stream
-    //     buffering or a task-per-frame leak would blow past it.
+    // - where RSS is measurable (Linux CI), the delta over a 50-conn
+    // baseline stays under a per-conn bound — unbounded per-stream
+    // buffering or a task-per-frame leak would blow past it.
     let (origin_port, _os) = spawn_origin(OriginMode::StreamForever).await;
     let (engine_port, _es) = spawn_engine(origin_port).await;
     let entry = free_port().await;

@@ -1,4 +1,4 @@
-//! Phase 5-2: typed IPC error contract (ADR-0026 Q6-Q8).
+//! Phase 5-2: typed IPC error contract.
 //!
 //! Every `#[tauri::command]` returns `Result<T, IpcError>` instead of
 //! `Result<T, String>`. The enum carries an `i18n_key` per variant so the
@@ -193,7 +193,7 @@ pub fn map_resin_error(raw: &str) -> IpcError {
     if raw.contains("UPSTREAM_REQUEST_FAILED") || raw.contains("upstream request") {
         return IpcError::internal_keyed("error.upstreamRequestFailed", raw);
     }
-    // Port bind conflict (ADR-0026 Q6): Resin returns 409 with a body like
+    // Port bind conflict: Resin returns 409 with a body like
     // "listen on port 17111: bind: Only one usage of each socket address ...".
     // Extract the port so the frontend can show "port {{port}} already in use"
     // and offer the change-port recovery action.
@@ -219,7 +219,7 @@ pub fn map_resin_error(raw: &str) -> IpcError {
     if raw.contains("UNAUTHORIZED") || raw.contains("unauthorized") {
         return IpcError::internal_keyed("error.unauthorized", raw);
     }
-    // An HTTP status embedded by ResinClient ("-> 418 : excerpt") surfaces as
+    // An HTTP status embedded by ResinClient ("-> 418: excerpt") surfaces as
     // typed ResinUpstream so the frontend can render status + excerpt.
     if let Some(status) = embedded_status(raw) {
         let excerpt = raw.rsplit("-> ").next().unwrap_or(raw);
@@ -452,7 +452,7 @@ mod tests {
 
     #[test]
     fn map_resin_error_embedded_http_status_surfaces_resin_upstream() {
-        // ADR-0045 contract: non-2xx without recognized vocabulary must keep
+        // contract: non-2xx without recognized vocabulary must keep
         // status + excerpt, not degrade to "internal error".
         let raw = "resin_client: GET /nodes -> 418 : I'm a teapot";
         let e = map_resin_error(raw);

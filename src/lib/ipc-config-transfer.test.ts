@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-/// ADR-0061: regression guard for the config_export/import
+///: regression guard for the config_export/import
 /// wrappers. The backend now reads/writes the L2 whitebox files (never Resin),
 /// and the CMD_TO_HTTP mapping to the non-existent /api/v1/config/* routes was
 /// deleted — config_export/config_import are Tauri-only. These tests lock the
@@ -15,7 +15,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 // import AFTER the mock is registered (matches ipc.test.ts).
 import { ipcConfigExport, ipcConfigImport } from "./ipc";
 
-describe("config export/import wrappers (ADR-0061)", () => {
+describe("config export/import wrappers ", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 
   it("ipcConfigExport dispatches the Tauri command", async () => {

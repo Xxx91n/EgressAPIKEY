@@ -125,7 +125,7 @@
 
 ---
 
-## 路线纠正结论 (2026-08-05, ADR-0012)
+## 路线纠正结论
 
 ### 前提交翻
 
@@ -153,12 +153,12 @@ X-Resin-Account，不需要任何 header 解析。
 6. AI 流感知模块 (SSE/WebSocket, 独立板块)
 7. hotswap-config (白盒配置层, 原子备份, 热重载)
 
-### 删除的死代码 (ADR-0014)
+### 删除的死代码
 
 - interceptor.rs (axum proxy_handler + route_id 注入)
 - lane.rs route_id + normalize_auth (8 cargo tests)
 - db.rs observed_keys 表 (DbPool 基础设施保留)
-- ADR-0003, ADR-0011 SUPERSEDED
+-,
 
 ### 保留的
 
@@ -167,7 +167,7 @@ X-Resin-Account，不需要任何 header 解析。
 
 ### 项目改名
 
-ai-api-route -> **EgressAPIKEY** (ADR-0013, 无撞名, 5 源审计)
+ai-api-route -> **EgressAPIKEY**
 
 ### 一句话结论 (更新)
 
