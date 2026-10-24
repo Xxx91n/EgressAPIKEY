@@ -1,0 +1,50 @@
+[
+  {
+    "id": "3036f1b6c6f24fb89f1e7468ee889a78",
+    "userID": "GT-2301_79867231",
+    "domainID": "GT-2301_79867231",
+    "type": "Language preference",
+    "content": "Prefers Chinese for communication and instructions; wants existing language kept consistent, and translation done only after asking separately.",
+    "remark": "new",
+    "namespace": "DevMate",
+    "createTime": "2026-10-24T03:59:24.778Z",
+    "updateTime": "2026-10-24T03:59:24.778Z",
+    "isDeleted": false
+  },
+  {
+    "id": "eb0f767a836549f0ba63f10358e6a2f2",
+    "userID": "GT-2301_79867231",
+    "domainID": "GT-2301_79867231",
+    "type": "Explanation preference",
+    "content": "Prefers raw command output and evidence over interpretation, summaries, suggestions, or extra explanations; wants failures reported as raw output without explanation or smoothing over.",
+    "remark": "new",
+    "namespace": "DevMate",
+    "createTime": "2026-10-24T03:59:24.808Z",
+    "updateTime": "2026-10-24T03:59:24.808Z",
+    "isDeleted": false
+  },
+  {
+    "id": "586db7cc27184d4fb4693b125efa1dde",
+    "userID": "GT-2301_79867231",
+    "domainID": "GT-2301_79867231",
+    "type": "Role setting",
+    "content": "Sets AI as a strict procedural executor: perform phases, paste evidence after each phase, wait for explicit next-stage instruction, and when told not to stop, continue through stage 5 without pausing.",
+    "remark": "new",
+    "namespace": "DevMate",
+    "createTime": "2026-10-24T03:59:24.812Z",
+    "updateTime": "2026-10-24T03:59:24.812Z",
+    "isDeleted": false
+  },
+  {
+    "id": "3f9f402d1ab54acd82ed2e4558887d5c",
+    "userID": "GT-2301_79867231",
+    "domainID": "GT-2301_79867231",
+    "type": "Naming convention",
+    "content": "For GitHub issue titles, prefers human-readable wording over bare D-xxx identifiers; code naming and variables should still prioritize English.",
+    "remark": "new",
+    "namespace": "DevMate",
+    "createTime": "2026-10-24T03:59:24.819Z",
+    "updateTime": "2026-10-24T03:59:24.819Z",
+    "isDeleted": false
+  }
+]
