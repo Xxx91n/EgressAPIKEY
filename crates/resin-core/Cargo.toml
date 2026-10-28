@@ -11,6 +11,8 @@ description = "Shell-side support crate for EgressAPIKEY: loopback REST client f
 [lib]
 name = "resin_core"
 path = "src/lib.rs"
+# No rustdoc examples in this repo, so skip the always-green empty doctest harness.
+doctest = false
 
 [dependencies]
 tokio = { workspace = true }
