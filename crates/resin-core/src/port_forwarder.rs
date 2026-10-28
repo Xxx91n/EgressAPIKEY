@@ -1120,6 +1120,8 @@ pub fn parse_trace_body_ip(body: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use super::*;
 
     #[test]
@@ -1274,42 +1276,114 @@ mod tests {
         }
     }
 
+    /// Let the kernel pick a loopback port, then release it. A hardcoded
+    /// entry port lands in the OS ephemeral range, where unrelated
+    /// `bind(:0)` servers in the same test binary (port_health,
+    /// subscription_pipeline) can take it and hold it. This shrinks the steal
+    /// window to the setup interval; a port taken in that window still fails.
+    fn free_port() -> u16 {
+        let l = std::net::TcpListener::bind("127.0.0.1:0").expect("ephemeral bind");
+        let port = l.local_addr().expect("local addr").port();
+        drop(l);
+        port
+    }
+
+    /// Two distinct ports from one simultaneous reservation. Re-probing after
+    /// a release is unbounded: the kernel commonly hands the just-freed port
+    /// back, so a "draw again while equal" loop can spin.
+    fn two_distinct_free_ports() -> (u16, u16) {
+        let a = std::net::TcpListener::bind("127.0.0.1:0").expect("ephemeral bind");
+        let b = std::net::TcpListener::bind("127.0.0.1:0").expect("ephemeral bind");
+        let pa = a.local_addr().expect("local addr").port();
+        let pb = b.local_addr().expect("local addr").port();
+        assert_ne!(pa, pb, "kernel issued the same port twice");
+        drop(a);
+        drop(b);
+        (pa, pb)
+    }
+
+    /// Bind-wait budget covering the production retry ladder in
+    /// `accept_loop`: sleep `BIND_RETRY_MIN_MS`, double, cap at
+    /// `BIND_RETRY_MAX_MS`. Three failed attempts push the fourth bind out to
+    /// 1s + 2s + 4s = 7s, while the former fixed 2s budget expired during the
+    /// second sleep. The trailing 500ms is grace for the loop to record it.
+    fn wait_budget() -> Duration {
+        const ATTEMPTS: u32 = 3;
+        const GRACE_MS: u64 = 500;
+        let cap = Duration::from_millis(BIND_RETRY_MAX_MS);
+        let mut step = Duration::from_millis(BIND_RETRY_MIN_MS);
+        let mut total = Duration::ZERO;
+        for _ in 0..ATTEMPTS {
+            total += step;
+            step = (step * 2).min(cap);
+        }
+        total + Duration::from_millis(GRACE_MS)
+    }
+
     async fn wait_bound(f: &PortForwarder, port: u16, want: bool) {
-        for _ in 0..100 {
-            let has = f.running_ports().contains(&port);
-            if has == want {
+        let budget = wait_budget();
+        let started = Instant::now();
+        loop {
+            if f.running_ports().contains(&port) == want {
                 return;
+            }
+            if started.elapsed() >= budget {
+                break;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
-        panic!("bound set did not reach want={want} for port {port}");
+        panic!(
+            "bound set did not reach want={want} for port {port} \
+             after waiting {}ms (budget {}ms)",
+            started.elapsed().as_millis(),
+            budget.as_millis()
+        );
     }
 
     #[tokio::test]
     async fn shell_reload_binds_and_stops_entry_ports() {
         let db = crate::db::DbPool::open_in_memory().expect("mem db");
-        let rows = vec![mapping(47991, "mixed", true), mapping(47992, "http", false)];
+        let (enabled_port, disabled_port) = two_distinct_free_ports();
+        let rows = vec![
+            mapping(enabled_port, "mixed", true),
+            mapping(disabled_port, "http", false),
+        ];
         let f = PortForwarder::shell(db, "127.0.0.1", 9, "tok");
         let started = f.reload(&rows).await.expect("reload");
         assert_eq!(started, 1, "only the enabled row spawns");
-        wait_bound(&f, 47991, true).await;
-        assert!(
-            !f.running_ports().contains(&47992),
-            "disabled must not bind"
-        );
+        wait_bound(&f, enabled_port, true).await;
+        // Absence must hold across a settle window, not at one instant: a
+        // wrongly-spawned loop binds on its own schedule, so polling catches
+        // it whenever it lands in this window. Asserting on the spawn map
+        // would be deterministic but reads a private field, and this suite
+        // observes Entry Ports through the public running_ports() view.
+        for i in 0..10 {
+            assert!(
+                !f.running_ports().contains(&disabled_port),
+                "disabled row must not bind"
+            );
+            if i < 9 {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        }
         // Idempotent reload adds nothing.
         let again = f.reload(&rows).await.expect("reload 2");
         assert_eq!(again, 0);
         // Removing the row stops the loop.
         f.reload(&[]).await.expect("reload empty");
-        wait_bound(&f, 47991, false).await;
+        wait_bound(&f, enabled_port, false).await;
     }
 
     #[tokio::test]
     async fn engine_reload_is_noop() {
         let db = crate::db::DbPool::open_in_memory().expect("mem db");
         let f = PortForwarder::new(db, "127.0.0.1", 9, "tok");
-        assert_eq!(f.reload(&[mapping(47993, "mixed", true)]).await.unwrap(), 0);
+        assert_eq!(
+            f.reload(&[mapping(free_port(), "mixed", true)])
+                .await
+                .unwrap(),
+            0
+        );
     }
 
     #[tokio::test]
@@ -1326,19 +1400,20 @@ mod tests {
     async fn entry_bind_survives_held_port_with_retry() {
         // Hold a port so the first bind must fail; the retry loop must bind
         // once the holder goes away (no apply-side error, snapshot-visible).
-        let holder = std::net::TcpListener::bind("127.0.0.1:47995").expect("hold port");
+        let holder = std::net::TcpListener::bind("127.0.0.1:0").expect("hold port");
+        let port = holder.local_addr().expect("local addr").port();
         let db = crate::db::DbPool::open_in_memory().expect("mem db");
         let f = PortForwarder::shell(db, "127.0.0.1", 9, "tok");
-        f.reload(&[mapping(47995, "mixed", true)])
+        f.reload(&[mapping(port, "mixed", true)])
             .await
             .expect("reload");
         tokio::time::sleep(Duration::from_millis(150)).await;
         assert!(
-            !f.running_ports().contains(&47995),
+            !f.running_ports().contains(&port),
             "held port must not read bound"
         );
         drop(holder);
-        wait_bound(&f, 47995, true).await;
+        wait_bound(&f, port, true).await;
     }
 
     #[tokio::test]
@@ -1348,13 +1423,14 @@ mod tests {
         // send a UserPass-ONLY method offer. A NoAuth reply is then an
         // RFC 1928 method mismatch; the credential-free shell entry must
         // select UserPass and accept any credential (port = identity).
+        let port = free_port();
         let db = crate::db::DbPool::open_in_memory().expect("mem db");
         let f = PortForwarder::shell(db, "127.0.0.1", 9, "tok");
-        f.reload(&[mapping(47996, "mixed", true)])
+        f.reload(&[mapping(port, "mixed", true)])
             .await
             .expect("reload");
-        wait_bound(&f, 47996, true).await;
-        let mut s = TcpStream::connect("127.0.0.1:47996").await.expect("dial");
+        wait_bound(&f, port, true).await;
+        let mut s = TcpStream::connect(("127.0.0.1", port)).await.expect("dial");
         // VER=5 NMETHODS=1 METHODS=[UserPass]
         s.write_all(&[0x05, 0x01, 0x02]).await.expect("offer");
         let mut sel = [0u8; 2];
@@ -1374,13 +1450,14 @@ mod tests {
     async fn socks5_noauth_still_preferred_when_offered() {
         // Dual-method offer keeps the zero-RTT credential-free path: the
         // loopback health probe sends exactly [0x00, 0x02].
+        let port = free_port();
         let db = crate::db::DbPool::open_in_memory().expect("mem db");
         let f = PortForwarder::shell(db, "127.0.0.1", 9, "tok");
-        f.reload(&[mapping(47997, "mixed", true)])
+        f.reload(&[mapping(port, "mixed", true)])
             .await
             .expect("reload");
-        wait_bound(&f, 47997, true).await;
-        let mut s = TcpStream::connect("127.0.0.1:47997").await.expect("dial");
+        wait_bound(&f, port, true).await;
+        let mut s = TcpStream::connect(("127.0.0.1", port)).await.expect("dial");
         s.write_all(&[0x05, 0x02, 0x00, 0x02]).await.expect("offer");
         let mut sel = [0u8; 2];
         s.read_exact(&mut sel).await.expect("method reply");
