@@ -23,9 +23,10 @@ CLI from the repository root:
 
 When CodeGraph is not fully available:
 
-- No CodeGraph MCP server in the session → use the CLI subcommands above; the
-  MCP tools are only wrappers around them (`explore` and `node` produce the
-  same output as `codegraph_explore` and `codegraph_node`).
+- No CodeGraph MCP server in the session → use the CLI above; it is the entry
+  point, so nothing is lost. The CLI help documents `codegraph explore` and
+  `codegraph node` as producing the same output as the `codegraph_explore` and
+  `codegraph_node` MCP tools.
 - `codegraph` is not on PATH, or this checkout has no `.codegraph/` index →
   explore with the built-in read/search tools and continue. A missing index is
   not a failure and never blocks delivery.
