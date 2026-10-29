@@ -1,4 +1,4 @@
-//! Whitebox entry-port configuration (Phase 3 / NEW-7).
+//! Whitebox entry-port configuration.
 //!
 //! `HotswapConfig` owns the active, validated document. Every update is
 //! validated before an atomic swap; application code persists the same document

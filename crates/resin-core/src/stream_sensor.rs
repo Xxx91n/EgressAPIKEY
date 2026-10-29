@@ -1,4 +1,4 @@
-//! AI stream sensor (Phase 3 / NEW-5).
+//! AI stream sensor.
 //!
 //! Independent, pluggable observation board. Classifies proxied HTTP traffic
 //! as Unary / SSE / WebSocket from **headers only** (no body sniffing, no API

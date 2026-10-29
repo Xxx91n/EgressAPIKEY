@@ -19,7 +19,7 @@ if [ "$IS_CI" = "true" ]; then
   if [ "$(uname -s 2>/dev/null)" = "Linux" ] || [ "$(uname -s 2>/dev/null)" = "Darwin" ]; then
     echo "[verify] NOTE: non-Windows CI - GUI app crate LINK skipped (GUI jobs cover it)"
     cargo build -p resin-core --quiet
- # f682940e-class guard: the
+    # Compile-blind-spot guard: the
     # headless bin lives in src-tauri, which this branch never compiled, so a
     # bin that no longer builds still passed the push gate. `cargo check` needs
     # no linker, so it can run here; --all-targets also type-checks the test
@@ -55,11 +55,11 @@ else
   cargo test -p resin-core --lib --quiet
 fi
 
-# r12-wave-i D-003.1: the lock-wait instrument compiles only under
+# The lock-wait instrument compiles only under
 # --features db-lock-metrics (observation builds, never shipping). This
 # pass keeps it live code rather than dead cfg text: --all-targets
-# type-checks the feature-gated test modules too (f682940e-class guard),
-# and the test run exercises the gated probe/holder tests once.
+# type-checks the feature-gated test modules too (the compile-blind-spot
+# guard above), and the test run exercises the gated probe/holder tests once.
 echo "[verify] db-lock-metrics feature pass (observation-only instrument)"
 cargo check -p resin-core --features db-lock-metrics --all-targets --quiet
 cargo test -p resin-core --features db-lock-metrics --lib --quiet
@@ -68,7 +68,7 @@ echo "[verify] pnpm build (tsc + vite)"
 npx tsc -b
 npx vite build
 
-# GUI half of the f682940e-class guard (
+# This is the GUI half of the compile-blind-spot guard.
 # The earlier pass closed the headless-bin hole; this closes the GUI
 # path that actually ships to users: custom-protocol is the ONLY feature that
 # embeds dist/ into the GUI exe. It MUST run AFTER `vite build` - with
@@ -87,7 +87,7 @@ npx vitest run
 
 echo "[verify] i18n coverage"
 node scripts/i18n-check.cjs
-echo "[verify] license field consistency (spec D-06)"
+echo "[verify] license field consistency"
 node scripts/license-field-check.cjs
 echo "[verify] ipc command registry (definitions = generate_handler!)"
 node scripts/ipc-manifest-check.cjs
@@ -98,7 +98,7 @@ node scripts/vitest-isolation-guard.cjs
 echo "[verify] contracts (mode-a contract gate)"
 node scripts/mode-a-contract-check.cjs
 
-# r12-wave-i D-004: replace_ports' BEGIN-IMMEDIATE requirement is a source
+# replace_ports' BEGIN-IMMEDIATE requirement is a source
 # gate, not a self-reading test - comments stripped, whitespace
 # normalized, only the transaction_with_behavior(Immediate) call counts.
 echo "[verify] db BEGIN IMMEDIATE source gate"

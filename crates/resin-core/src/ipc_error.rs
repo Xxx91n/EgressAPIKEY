@@ -1,4 +1,4 @@
-//! Phase 5-2: typed IPC error contract.
+//! Typed IPC error contract.
 //!
 //! Every `#[tauri::command]` returns `Result<T, IpcError>` instead of
 //! `Result<T, String>`. The enum carries an `i18n_key` per variant so the
