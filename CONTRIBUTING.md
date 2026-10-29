@@ -43,13 +43,14 @@ CI runs the same script on every push and pull request. Focused checks:
 
 - `pnpm test` — frontend vitest suite
 - `pnpm i18n:check` — locale catalog completeness (all 18 base locales vs the canonical `en` catalog)
+- `node scripts/i18n-content-check.cjs` — user-visible copy content: every locale/key value must still match its fingerprint in `docs/I18N_CONTENT_MANIFEST.json`
 - `node scripts/license-field-check.cjs` — README / root Cargo.toml / package.json license fields stay GPL-3.0-or-later
 
 ## Conventions that gate review
 
 These rules are authoritative here and are enforced by reviewers and CI (`scripts/verify-build.sh` mounts the machine checks):
 
-- **i18n full-key coverage** — every user-visible string in `src/` comes from `src/locales/<locale>/*.json` via `t()` / `Trans`; never hard-code locale text in components. A new key must land in **all 18 base locales** in the same commit (`pnpm i18n:check` fails the build otherwise); the `Locale` union in `src/store/appStore.ts` and the `ALL` list in `scripts/i18n-check.cjs` stay in lockstep with the `src/locales/` directories.
+- **i18n full-key coverage** — every user-visible string in `src/` comes from `src/locales/<locale>/*.json` via `t()` / `Trans`; never hard-code locale text in components. A new key must land in **all 18 base locales** in the same commit (`pnpm i18n:check` fails the build otherwise); the `Locale` union in `src/store/appStore.ts` and the `ALL` list in `scripts/i18n-check.cjs` stay in lockstep with the `src/locales/` directories. Coverage is the key set; values are gated separately by `scripts/i18n-content-check.cjs`, whose manifest stores per locale/key a `d` (sha256/12 of the raw value — what the gate compares) and a `t` (a code-point transcription, `[U+00A0]` for invisible characters — what the reviewer reads). Any value change fails CI until it is approved with `node scripts/i18n-content-check.cjs --update`, whose manifest diff is the approval record; never hand-edit the manifest.
 - **Test per behavior** — every public function in `crates/resin-core/` carries a unit test (same-file `#[cfg(test)]` or `crates/resin-core/tests/`); Zustand stores and pure reducers get vitest tests under `src/`; component interactions get Playwright e2e coverage under `e2e/`. The evaluator for the whole repo is `bash scripts/verify-build.sh` (what CI runs on every push/PR).
 - **CI-only delivery** — local builds are forbidden as delivery evidence: a source commit is finished when the CI verify job proves it, and a testable exe comes from a release-matrix dispatch. Never hand out a locally-built binary; never claim a UI change is testable before its CI-built artifact exists.
 - **Bilingual README pair** — `README.md` is the EN-canonical homepage skeleton (preserve its section order; route deep content to `docs/`); `README_CN.md` is the structure-locked CN mirror — update both sides in the same commit. The `## License` body stays exactly `GPL-3.0-or-later`.
