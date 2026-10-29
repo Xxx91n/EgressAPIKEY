@@ -38,6 +38,8 @@ const LOCALES_DIR = path.join(ROOT, "src", "locales");
 const MANIFEST_PATH = path.join(ROOT, "docs", "I18N_CONTENT_MANIFEST.json");
 const NAMESPACE = "common";
 const SCHEMA = 1;
+// 12 hex = 48 bits. That is an accident detector, not an adversarial boundary:
+// it catches a space that vanished, not someone crafting a hash collision.
 const DIGEST_HEX = 12;
 // A mass rewrite is the expected failure shape, so check-mode output stays
 // bounded. --update is the approval path, never runs in CI, and prints every
@@ -130,9 +132,17 @@ function flatten(obj, prefix, out) {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? prefix + "." + k : k;
     if (v && typeof v === "object" && !Array.isArray(v)) flatten(v, key, out);
-    else out.push({ key: key, value: typeof v === "string" ? v : JSON.stringify(v) });
+    // Every leaf is a string in the shipped catalogs. The type tag keeps a
+    // non-string leaf from hashing the same as its printed form (1 vs "1").
+    else out.push({ key: key, value: typeof v === "string" ? v : typeof v + ":" + JSON.stringify(v) });
   }
   return out;
+}
+
+function countEntries(catalog) {
+  let n = 0;
+  for (const lc of catalog.locales) n += lc.entries.length;
+  return n;
 }
 
 function collectCatalog(localesDir) {
@@ -241,7 +251,13 @@ function formatProblem(p) {
   if (p.kind === "locale-unrecorded") {
     return ["  " + p.locale + "  *  (locale directory has no entry in the manifest; " + p.count + " keys unguarded)"];
   }
-  return ["  " + p.locale + "  *  (locale directory is gone; " + p.count + " fingerprints still recorded)"];
+  if (p.kind === "locale-removed") {
+    return ["  " + p.locale + "  *  (locale directory is gone; " + p.count + " fingerprints still recorded)"];
+  }
+  // Loud on purpose: a new kind reaching this default would be reported as the
+  // wrong problem, and a gate that misnames its own failure is worse than one
+  // that crashes.
+  throw new Error("unhandled problem kind: " + p.kind);
 }
 
 function printProblems(problems, header, print, limit) {
@@ -280,9 +296,7 @@ function runCheck(localesDir, manifestPath) {
     return { errors: catalog.errors.concat(loaded.errors || []), problems: [], fingerprints: 0, localeCount: catalog.locales.length };
   }
   const problems = compare(catalog, loaded.manifest);
-  let fingerprints = 0;
-  for (const lc of catalog.locales) fingerprints += lc.entries.length;
-  return { errors: [], problems: problems, fingerprints: fingerprints, localeCount: catalog.locales.length };
+  return { errors: [], problems: problems, fingerprints: countEntries(catalog), localeCount: catalog.locales.length };
 }
 
 function runUpdate(localesDir, manifestPath) {
@@ -294,9 +308,7 @@ function runUpdate(localesDir, manifestPath) {
   const text = renderManifest(manifest);
   fs.writeFileSync(manifestPath, text, "utf8");
   const drifted = compare(catalog, previous);
-  let fingerprints = 0;
-  for (const lc of catalog.locales) fingerprints += lc.entries.length;
-  return { errors: [], drifted: drifted.length, problems: drifted, fingerprints: fingerprints, localeCount: catalog.locales.length };
+  return { errors: [], drifted: drifted.length, problems: drifted, fingerprints: countEntries(catalog), localeCount: catalog.locales.length };
 }
 
 function assertEq(actual, expected, label) {

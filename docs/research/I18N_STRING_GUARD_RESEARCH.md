@@ -878,7 +878,7 @@ opt2 在「修复」方向:  flagged(字符串内仅空白差异) = 32  missed(�
 
 - 复用 `scripts/` 的 guard 惯例（`i18n-check.cjs` 同级新增一个脚本，由 `scripts/verify-build.sh` 调用 —— 该脚本第 88-89 行已经在跑 `i18n-check.cjs`，CI 的 verify job 已经在跑 `verify-build.sh`，所以**接线成本为零**，无需新建 workflow）。
 - 基线取 `git show <base>:src/locales/<lc>/common.json`，`JSON.parse` 双侧，展平后比叶子值；任何值变更 → 非零退出并**打印每条变更的 `key`、locale、以及前后值的码点转写**（把 U+00A0 显示成 `[U+00A0]`，因为原始字符在终端里不可见 —— §5.4 实测）。
-- 批准机制按 Q4 借形：commit message 的 trailer（`git interpret-trailers` 原生支持 "a key-value pair with a colon as a separator"，例如 `I18N-Approved: <reason>`，且本仓历史已经在用 `Co-Authored-By:` trailer，格式不陌生）。guard 检测到该 trailer 则放行并把变更摘要打进日志。**这套"红→标记→放行"的语义与 Renovate 的 dashboard approval 同构**：批准是带外的状态转移，不在 diff 里，因此能扛住 rebase/squash。
+- 批准机制按 Q4 借形：commit message 的 trailer（`git interpret-trailers` 原生支持 "a key-value pair with a colon as a separator"，例如 `I18N-Approved: <reason>`，且本仓历史已经在用 `Co-Authored-By:` trailer，格式不陌生）。guard 检测到该 trailer 则放行并把变更摘要打进日志。**这套"红→标记→放行"的语义与 Renovate 的 dashboard approval 同构**：批准是带外的状态转移，不在 diff 里，因此能扛住 rebase/squash。**（未采用：落地时改成提交态哈希清单，理由见文末「落地记录」——版本控制写入走 GitButler，amend / squash 会改写提交消息。）**
 - 附带一个免费收益：把 `eslint-plugin` 层面或仓库自检里加一条 **`src/**/*.ts` 字符串内禁止 U+00A0/U+202F**（ESLint `no-irregular-whitespace` 的字符表已含这两者，见 `lib/rules/no-irregular-whitespace.js:20-21`；只需 `skipStrings: false` 且限定 `src/`）。这条对代码是零误报，且与 locale 数据互不干扰 —— 因为 locale 里的这些字符是**载荷**，代码里的这些字符**几乎必然是事故**。
 
 **另外两点应当写进决策记录：**
@@ -886,7 +886,7 @@ opt2 在「修复」方向:  flagged(字符串内仅空白差异) = 32  missed(�
 - **本次事故的破坏面比 issue 记录更大，而且回滚本身也不干净。** issue 说"17 个语种 portBound 各 1 条"；实测 `e8a2731f` 的 fr 是 **32 条**（27 冒号 + 5 分号，即法语"双标点"全集）。并且 en/de 的 `Bound :` / `Gebunden :` 空格**原本就存在**（`5f235d6f` 即如此），损坏提交 `e327def8` 反而在 en/de 上是对的，回滚 `e8a2731f` 又把它们改错了。所以"回滚 = 修复"这个前提不成立。这对选 guard 有直接后果：**机械修改和机械回滚同样会错**，guard 的目标因此不该是"自动回滚"，而只能是"强制人看"。
 - **`pnpm i18n:check` 对本次事故完全无效**（实测：key set 相同，543 keys，返回 OK）。所以"本仓已有 i18n guard"不能作为不新增 guard 的理由；现有 guard 守的是**覆盖率**，不守**内容**。
 
-**一句话：方案 1 存活，因为它是唯一一个承认"guard 不能判断正确性"的方案；方案 2 用实测数据证明它对合法修复 100% 误报；方案 3 在本仓连文件都不存在，且其依赖的人眼评审恰好对这类 diff 最不可靠。落地时必须禁止 NFKC/trim、禁止 `-w`、并在 CI 侧设 `fetch-depth: 2`。**
+**一句话：方案 1 存活，因为它是唯一一个承认"guard 不能判断正确性"的方案；方案 2 用实测数据证明它对合法修复 100% 误报；方案 3 在本仓连文件都不存在，且其依赖的人眼评审恰好对这类 diff 最不可靠。落地时必须禁止 NFKC/trim、禁止 `-w`，并在 CI 侧以提交态清单强制（只读清单、不依赖 git 历史——见文末「落地记录」）。**
 
 ## 落地记录（2026-10-29，issue #26）
 
