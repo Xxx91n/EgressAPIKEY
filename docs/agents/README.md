@@ -6,7 +6,7 @@ They are NOT user documentation. For user docs, see `docs/` parent.
 ## Agent operating rules
 
 No rule below blocks on a tool being present. Each entry states what to do when
-the tool is missing: degrade and continue, never stop.
+the tool is missing or fails: degrade and continue, never stop.
 
 ### CodeGraph (preferred first step for code exploration)
 
@@ -59,7 +59,9 @@ When CodeGraph is not fully available:
 
 - If uncommitted changes appear that this agent did not make, treat them as user/external — do not revert them.
 - Subagents: off by default; use them only when the session's user enables them, otherwise execute single-threaded.
-- AtomCode research, when that CLI is installed, runs serialized — one active run at a time. Without it use the built-in web search/fetch tools.
+- AtomCode research, when that CLI is installed, runs serialized — one active
+  run at a time. When it is absent, or a run fails or times out, use the
+  built-in web search/fetch tools.
 
 ## Index
 
