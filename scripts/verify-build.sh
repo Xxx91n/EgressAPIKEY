@@ -87,6 +87,14 @@ npx vitest run
 
 echo "[verify] i18n coverage"
 node scripts/i18n-check.cjs
+# Coverage only compares key sets, so the 17-locale value rewrite of e327def8
+# stayed green. This step gates the values themselves against the committed
+# fingerprint manifest; approving a change is an explicit --update whose diff is
+# the review record (docs/I18N_CONTENT_MANIFEST.json).
+echo "[verify] i18n copy content manifest (values, not key sets)"
+node scripts/i18n-content-check.cjs
+echo "[verify] i18n copy content guard self-test"
+node scripts/i18n-content-check.cjs --self-test
 echo "[verify] license field consistency"
 node scripts/license-field-check.cjs
 echo "[verify] ipc command registry (definitions = generate_handler!)"
