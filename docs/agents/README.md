@@ -23,24 +23,27 @@ CLI from the repository root:
 
 When CodeGraph is not fully available:
 
-- No CodeGraph MCP server in the session → use the CLI above; it is the entry
-  point, so nothing is lost. The CLI help documents `codegraph explore` and
-  `codegraph node` as producing the same output as the `codegraph_explore` and
-  `codegraph_node` MCP tools.
+- No CodeGraph MCP server in the session → use the CLI above. All five commands
+  listed there are CLI invocations, so exploration never depends on the MCP
+  server. `codegraph --help` additionally documents `explore` and `node` as
+  producing the same output as the `codegraph_explore` and `codegraph_node` MCP
+  tools.
 - `codegraph` is not on PATH, or this checkout has no `.codegraph/` index →
   explore with the built-in read/search tools and continue. A missing index is
   not a failure and never blocks delivery.
-- Source a CodeGraph command returned counts as already read; do not re-open
+- Treat source a CodeGraph command returned as already read; do not re-open
   those files in the same session.
 
 ### Windows host facts
 
 - Inline `$` is swallowed by the PowerShell transport and the command still
   exits 0. Put PowerShell logic in a `.ps1` and run it with `-File`.
-- Git arguments containing `^` (`HEAD^`, `<rev>^`) handed to Node `execSync` or
-  `spawn` run through cmd.exe, where `^` is the escape character: it is eaten
-  without an error and the wrong revision is read in silence. Use an explicit
-  `~1` rev, or compare blob ids with `git rev-parse <rev>:<path>`.
+- Git revs containing `^` (`HEAD^`, `<rev>^`) passed to a shell-backed Node
+  call — `exec` / `execSync`, or `spawn` / `execFile` with `shell: true` — go
+  through cmd.exe, where `^` is the escape character: it is eaten without an
+  error and the wrong revision is read in silence. `spawn` with an argv array
+  and no `shell` is unaffected. Use an explicit `~1` rev, or compare blob ids
+  with `git rev-parse <rev>:<path>`.
 
 ### File integrity
 
