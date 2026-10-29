@@ -18,21 +18,27 @@ CLI from the repository root:
 - `codegraph query "<symbol>"` — symbol search
 - `codegraph node <symbol>` — one symbol's source with its caller/callee trail
 - `codegraph files` — file structure as the index sees it
-- `codegraph sync .` — after a code change, in the same session; recommended,
-  not a gate (CI installs no index)
+- `codegraph status` — reports whether the index is up to date; this is the one
+  call that answers "can I trust what `explore` just returned?"
+- `codegraph sync .` — only when nothing is keeping the index current: the
+  background daemon is not running (a sandbox that blocks filesystem watchers,
+  or an explicit opt-out), files changed in another process, or the index is
+  being queried from a script outside a session (`--quiet` exists for git
+  hooks). Recommended, never a gate — CI installs no index.
 
 When CodeGraph is not fully available:
 
-- No CodeGraph MCP server in the session → use the CLI above. All five commands
-  listed there are CLI invocations, so exploration never depends on the MCP
+- No CodeGraph MCP server in the session → use the CLI above. Every command
+  listed there is a CLI invocation, so exploration never depends on the MCP
   server. `codegraph --help` additionally documents `explore` and `node` as
   producing the same output as the `codegraph_explore` and `codegraph_node` MCP
   tools.
 - `codegraph` is not on PATH, or this checkout has no `.codegraph/` index →
   explore with the built-in read/search tools and continue. A missing index is
   not a failure and never blocks delivery.
-- Treat source a CodeGraph command returned as already read; do not re-open
-  those files in the same session.
+- Count the source a CodeGraph command returned as already read only while the
+  index is current. When freshness is unknown, ask `codegraph status`; when that
+  cannot answer either, re-read the files the change touched.
 
 ### Windows host facts
 
