@@ -872,12 +872,12 @@ opt2 在「修复」方向:  flagged(字符串内仅空白差异) = 32  missed(�
 
 1. **绝不能归一化后再比较。** NFKC 会把 U+00A0/U+202F 压成 U+0020（实测：`"Trier\u202f: x".normalize("NFKC") === "Trier : x".normalize("NFKC")` → `true`）。用 NFKC 的 guard 会把"正确法语"与"被压平版本"判为相同，**放过 bug**。同理禁用 `trim()` 与 `\s`（ECMA-262 §12.2：U+00A0 属 `<USP>`，U+202F 属 `Zs` 因而也被 `\s` 匹配）。只允许 `===` 比较原始字符串。NFC 是安全的（实测保留两者）。
 2. **绝不能用 `git diff -w` 作为输入。** 源码实证 `xdiff/xutils.c:193-203` 在整个**原始行缓冲**上跳过空白，无引号状态机；`xdiff/xmacros.h:33` 的 `XDL_ISSPACE` 是 C-locale `isspace`，只认 6 个 ASCII 字节。实测：`"Trier : x"`→`"Trier: x"` 在 `-w` 下 **exit=0（看不见）**。用 `-w` 的 guard 会静默放过本次事故的主形态（本仓 27 处法语冒号全是普通 U+0020，正是被 `-w` 隐藏的形态）。guard 必须自己做 **JSON.parse 双侧 + 叶子值 `===` 比较**，不经过任何基于 `-w` 的 diff。
-3. **必须在 CI 侧强制、本地侧放行。** Jest 的 `--ci` 语义。CI ready 的细节：本仓 `ci.yml` 用 `actions/checkout@v4` **未设 `fetch-depth`**，默认为 1（"Only a single commit is fetched by default"），做不了基线 diff；需要 `fetch-depth: 2`（或 0）才能拿到 `HEAD^`。这是落地时最容易漏的一行。
+3. **必须在 CI 侧强制、本地侧放行。** Jest 的 `--ci` 语义。CI ready 的细节：本仓 `ci.yml` 用 `actions/checkout@v4` **未设 `fetch-depth`**，默认为 1（"Only a single commit is fetched by default"），因此**任何靠 `HEAD^` 做基线 diff 的设计都会静默失效**——`fetch-depth: 2`（或 0）是那种设计的前提条件。（实际落地的清单形态不读 git 历史，所以不需要它，见文末「落地记录」。）
 
 **可落地的形态（与既有机制最贴近、改动最小）：**
 
 - 复用 `scripts/` 的 guard 惯例（`i18n-check.cjs` 同级新增一个脚本，由 `scripts/verify-build.sh` 调用 —— 该脚本第 88-89 行已经在跑 `i18n-check.cjs`，CI 的 verify job 已经在跑 `verify-build.sh`，所以**接线成本为零**，无需新建 workflow）。
-- 基线取 `git show <base>:src/locales/<lc>/common.json`，`JSON.parse` 双侧，展平后比叶子值；任何值变更 → 非零退出并**打印每条变更的 `key`、locale、以及前后值的码点转写**（把 U+00A0 显示成 `[U+00A0]`，因为原始字符在终端里不可见 —— §5.4 实测）。
+- 基线取 `git show <base>:src/locales/<lc>/common.json`，`JSON.parse` 双侧，展平后比叶子值；任何值变更 → 非零退出并**打印每条变更的 `key`、locale、以及前后值的码点转写**（把 U+00A0 显示成 `[U+00A0]`，因为原始字符在终端里不可见 —— §5.4 实测）。**（基线来源未采用：`git show` 依赖被上面第 3 条否定的历史可用性，落地改为提交态清单，见文末「落地记录」。）**
 - 批准机制按 Q4 借形：commit message 的 trailer（`git interpret-trailers` 原生支持 "a key-value pair with a colon as a separator"，例如 `I18N-Approved: <reason>`，且本仓历史已经在用 `Co-Authored-By:` trailer，格式不陌生）。guard 检测到该 trailer 则放行并把变更摘要打进日志。**这套"红→标记→放行"的语义与 Renovate 的 dashboard approval 同构**：批准是带外的状态转移，不在 diff 里，因此能扛住 rebase/squash。**（未采用：落地时改成提交态哈希清单，理由见文末「落地记录」——版本控制写入走 GitButler，amend / squash 会改写提交消息。）**
 - 附带一个免费收益：把 `eslint-plugin` 层面或仓库自检里加一条 **`src/**/*.ts` 字符串内禁止 U+00A0/U+202F**（ESLint `no-irregular-whitespace` 的字符表已含这两者，见 `lib/rules/no-irregular-whitespace.js:20-21`；只需 `skipStrings: false` 且限定 `src/`）。这条对代码是零误报，且与 locale 数据互不干扰 —— 因为 locale 里的这些字符是**载荷**，代码里的这些字符**几乎必然是事故**。
 

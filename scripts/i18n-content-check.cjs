@@ -299,16 +299,27 @@ function runCheck(localesDir, manifestPath) {
   return { errors: [], problems: problems, fingerprints: countEntries(catalog), localeCount: catalog.locales.length };
 }
 
-function runUpdate(localesDir, manifestPath) {
+// Planning and writing are separate so the approval summary can be printed
+// before the manifest is replaced: a crash while formatting the report must not
+// leave a rewritten manifest with no record of what was approved.
+function planUpdate(localesDir, manifestPath) {
   const catalog = collectCatalog(localesDir);
-  if (catalog.errors.length) return { errors: catalog.errors, drifted: 0, fingerprints: 0 };
+  if (catalog.errors.length) return { errors: catalog.errors };
   const loaded = loadManifest(manifestPath);
   const previous = loaded.manifest || { schema: SCHEMA, locales: {} };
-  const manifest = buildManifest(catalog);
-  const text = renderManifest(manifest);
-  fs.writeFileSync(manifestPath, text, "utf8");
-  const drifted = compare(catalog, previous);
-  return { errors: [], drifted: drifted.length, problems: drifted, fingerprints: countEntries(catalog), localeCount: catalog.locales.length };
+  return {
+    errors: [],
+    text: renderManifest(buildManifest(catalog)),
+    drifted: compare(catalog, previous),
+    fingerprints: countEntries(catalog),
+    localeCount: catalog.locales.length,
+  };
+}
+
+function runUpdate(localesDir, manifestPath) {
+  const plan = planUpdate(localesDir, manifestPath);
+  if (!plan.errors.length) fs.writeFileSync(manifestPath, plan.text, "utf8");
+  return plan;
 }
 
 function assertEq(actual, expected, label) {
@@ -488,7 +499,7 @@ function selfTest() {
 
     assertEq(runCheck(localesDir, manifestPath).errors.length, 1, "missing manifest is an error naming --update");
     const updated = runUpdate(localesDir, manifestPath);
-    assertEq([updated.errors.length, updated.drifted], [0, 1], "--update reports the drift it approves");
+    assertEq([updated.errors.length, updated.drifted.length], [0, 1], "--update reports the drift it approves");
     const written = fs.readFileSync(manifestPath, "utf8");
 
     fs.writeFileSync(catalogFile, JSON.stringify({ backup: { passphraseHint: FR_COLON_SPACED } }), "utf8");
@@ -504,18 +515,18 @@ function selfTest() {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
-  // 9. Check mode lists at most MAX_REPORTED entries but still states the true
-  //    total, so truncation cannot hide the size of a mass rewrite.
+  // 9. Check mode bounds its listing at MAX_REPORTED entries and names the
+  //    remainder, so a mass rewrite cannot flood the log or silently look small.
   const many = [];
   for (let i = 0; i < MAX_REPORTED + 5; i++) {
     many.push({ locale: "fr", key: "k" + i, kind: "added", after: { d: digest("x" + i), t: "x" + i } });
   }
   const out = [];
-  printProblems(many, "i18n content drift: " + many.length + " value(s):", (line) => out.push(line), MAX_REPORTED);
+  printProblems(many, "header", (line) => out.push(line), MAX_REPORTED);
   assertEq(
-    [out.includes("i18n content drift: " + many.length + " value(s):"), out.some((l) => l.includes("5 more not listed"))],
-    [true, true],
-    "truncated check output still states the true total"
+    [out[0], out.filter((l) => l.startsWith("  fr  k")).length, out.some((l) => l.includes("5 more not listed"))],
+    ["header", MAX_REPORTED, true],
+    "listing stops at the cap and states the remainder"
   );
 
   console.log("self-test: all assertions passed");
@@ -528,17 +539,20 @@ function main() {
     return;
   }
   if (argv.includes("--update")) {
-    const res = runUpdate(LOCALES_DIR, MANIFEST_PATH);
-    if (res.errors.length) {
+    const plan = planUpdate(LOCALES_DIR, MANIFEST_PATH);
+    if (plan.errors.length) {
       console.error("i18n content manifest NOT written:");
-      for (const e of res.errors) console.error("  - " + e);
+      for (const e of plan.errors) console.error("  - " + e);
       process.exit(1);
     }
-    if (res.problems.length) {
-      printProblems(res.problems, "Approving " + res.drifted + " content change(s):", console.log);
+    // Report first, then approve: the listing is the record of what this run
+    // accepted, so it has to survive even if printing goes wrong.
+    if (plan.drifted.length) {
+      printProblems(plan.drifted, "Approving " + plan.drifted.length + " content change(s):", console.log);
     }
+    fs.writeFileSync(MANIFEST_PATH, plan.text, "utf8");
     console.log(
-      "i18n content manifest written: " + res.fingerprints + " fingerprints across " + res.localeCount + " locales (" + res.drifted + " drifted)"
+      "i18n content manifest written: " + plan.fingerprints + " fingerprints across " + plan.localeCount + " locales (" + plan.drifted.length + " drifted)"
     );
     return;
   }
