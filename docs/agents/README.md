@@ -21,8 +21,7 @@ CLI from the repository root:
 - `codegraph status` — whether the index is caught up
 - `codegraph sync .` — manual catch-up, for when nothing is keeping the index
   current: the watcher is off, or the index is being queried from a script
-  outside an agent session. Recommended, never a gate — CI installs no index. If
-  syncing is unavailable or fails, explore with the built-in read/search tools.
+  outside an agent session. Recommended, never a gate — CI installs no index.
 
 When CodeGraph is not fully available:
 
@@ -31,9 +30,10 @@ When CodeGraph is not fully available:
   server. `codegraph --help` additionally documents `explore` and `node` as
   producing the same output as the `codegraph_explore` and `codegraph_node` MCP
   tools.
-- `codegraph` is not on PATH, or this checkout has no `.codegraph/` index →
-  explore with the built-in read/search tools and continue. A missing index is
-  not a failure and never blocks delivery.
+- `codegraph` is not on PATH, this checkout has no `.codegraph/` index, or a
+  command errors or times out → explore with the built-in read/search tools and
+  continue. A missing index or a failed command is not a task failure and never
+  blocks delivery.
 - Count the source a CodeGraph command returned as already read only while the
   index is current; `codegraph status` answers that. When it is not current, or
   cannot be checked, re-read the files the change touched.
