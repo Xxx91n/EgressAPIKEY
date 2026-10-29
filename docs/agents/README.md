@@ -3,39 +3,65 @@
 Files here are **agent instructions** (read by AI agents when executing code tasks).
 They are NOT user documentation. For user docs, see `docs/` parent.
 
-## Agent operating rules (mandatory)
+## Agent operating rules
 
-### context-mode routing
+No rule below blocks on a tool being present. Each entry states what to do when
+the tool is missing or fails: degrade and continue, never stop.
 
-- File edits (including patches) go through `ctx_batch_execute` / `ctx_execute_file`, not apply_patch.
-- `ctx_*` first; fall back to builtins only when `ctx_*` can't do the job. Read-to-analyze / search / large grep: `ctx_batch_execute` or `ctx_search` — never Get-Content/Select-String into context. For data analysis use `ctx_execute(code)` and print only the answer.
-- Web/HTTP: `ctx_fetch_and_index(url, source)` then `ctx_search(queries)`. curl/wget/inline HTTP are forbidden.
-- Shell is fine for bounded execution: git ops, mkdir, rm, mv, cd, ls, builds, tests.
-- Windows paths in the ctx sandbox: forward-slash form `D:/Aworker/EgressAPIKEY/...`; the `shell` language routes to `pwsh.exe` (PowerShell 7), NOT bash; inline `$` is stripped by the host transport — put PowerShell logic in a `.ps1` and run with `-File`.
-- After resume: `ctx_search(sort:"timeline")` before asking the user anything.
-- Output artifacts as files + path + one-line summary; never inline large content into chat.
+### CodeGraph (preferred first step for code exploration)
 
-### CodeGraph (first step for code exploration)
+The index lives at `.codegraph/` (gitignored, created by `codegraph init`).
+Before reading files for "how does X work / where is X / what calls Y", try the
+CLI from the repository root:
 
-The index lives at `.codegraph/` (gitignored). Before reading files for "how does X work / where is X / what calls Y", query CodeGraph first:
+- `codegraph explore "<query>"` — relevant symbols' source plus call paths
+- `codegraph query "<symbol>"` — symbol search
+- `codegraph node <symbol>` — one symbol's source with its caller/callee trail
+- `codegraph files` — file structure as the index sees it
+- `codegraph status` — whether the index is caught up
+- `codegraph sync .` — manual catch-up, for when nothing is keeping the index
+  current: the watcher is off, or the index is being queried from a script
+  outside an agent session. Recommended, never a gate — CI installs no index.
 
-- MCP: `codegraph_explore` with `projectPath: "D:\Aworker\EgressAPIKEY"`
-- CLI: `codegraph explore "<query>"` / `codegraph query "<symbol>"` / `codegraph node <symbol>` / `codegraph files`
-- After any code change, run `codegraph sync .` in the same session (recommended, not a gate — CI holds no index)
-- Treat codegraph-returned source as already-Read; do not re-open those files in the same session
+When CodeGraph is not fully available:
+
+- No CodeGraph MCP server in the session → use the CLI above. Every command
+  listed there is a CLI invocation, so exploration never depends on the MCP
+  server. `codegraph --help` additionally documents `explore` and `node` as
+  producing the same output as the `codegraph_explore` and `codegraph_node` MCP
+  tools.
+- `codegraph` is not on PATH, this checkout has no `.codegraph/` index, or a
+  command errors or times out → explore with the built-in read/search tools and
+  continue. A missing index or a failed command is not a task failure and never
+  blocks delivery.
+- Count the source a CodeGraph command returned as already read only while the
+  index is current; `codegraph status` answers that. When it is not current, or
+  cannot be checked, re-read the files the change touched.
+
+### Windows host facts
+
+- Inline `$` is swallowed by the PowerShell transport and the command still
+  exits 0. Put PowerShell logic in a `.ps1` and run it with `-File`.
+- Git revs containing `^` (`HEAD^`, `<rev>^`) passed to a shell-backed Node
+  call — `exec` / `execSync`, or `spawn` / `execFile` with `shell: true` — go
+  through cmd.exe, where `^` is the escape character: it is eaten without an
+  error and the wrong revision is read in silence. `spawn` with an argv array
+  and no `shell` is unaffected. Use an explicit `~1` rev, or compare blob ids
+  with `git rev-parse <rev>:<path>`.
 
 ### File integrity
 
 - New files: UTF-8 no BOM, LF endings (CRLF allow set: `.bat`, `.ps1`, `.cmd`). `git diff --check` must be clean before commit.
 - Re-read the affected region before destructive edits; after two failed patch attempts, do one whole-file rewrite and verify bytes.
-- Never inline `$` PowerShell logic; write a `.ps1` and run with `-File`.
-- Session-local dirs (`.scratch/`, `.codex-tmp/`, `.opencode/`, `.zcode/`, `.omx/`, `context-mode/`) never enter git tracking. `.gitignore` is the authority for that list, not this line — before a broad `git add`, verify a tool's new dir with `git check-ignore -v <path>`; a dir missing from `.gitignore` gets swept in with everything else. Untrack leftovers with `git rm -r --cached <path>` (files on disk are preserved, never deleted).
+- Session-local dirs (`.scratch/`, `.codex-tmp/`, `.opencode/`, `.zcode/`, `.omx/`) never enter git tracking. `.gitignore` is the authority for that list, not this line — before a broad `git add`, verify a tool's new dir with `git check-ignore -v <path>`; a dir missing from `.gitignore` gets swept in with everything else. Untrack leftovers with `git rm -r --cached <path>` (files on disk are preserved, never deleted).
 
 ### Working etiquette
 
 - If uncommitted changes appear that this agent did not make, treat them as user/external — do not revert them.
 - Subagents: off by default; use them only when the session's user enables them, otherwise execute single-threaded.
-- AtomCode research runs are serialized — one active run at a time.
+- AtomCode research, when that CLI is installed, runs serialized — one active
+  run at a time. When it is absent, or a run fails or times out, use the
+  built-in web search/fetch tools.
 
 ## Index
 
