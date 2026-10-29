@@ -19,7 +19,7 @@
 //! sse_upstream_reset_gets_in_band_error_frame
 //! - p95 <= 5ms added latency (mock upstream full chain):
 //! paired_request_added_latency_p95_under_5ms
-//! - the upstream SSE flush-defect fix (forward path never used):
+//! - the fix for Resin's forward-GET flush defect (forward path never used):
 //! absolute_form_never_reaches_the_engine_forward_path
 
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -370,7 +370,7 @@ async fn engine_session(mut s: TcpStream, origin_port: u16, st: EngineState) {
     }
     if !line.starts_with("CONNECT ") {
         // The forwarder must never leave a forward-form request on this
-        // path (the upstream SSE flush defect); record it for assertion 3.
+        // path (Resin's forward-GET flush defect); record it for assertion 3.
         let _ = s
             .write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n")
             .await;
@@ -544,7 +544,7 @@ async fn mode_a_http_connect_injects_basic_and_shields_client_credential() {
 
 #[tokio::test]
 async fn absolute_form_never_reaches_the_engine_forward_path() {
-    // The upstream SSE flush defect: Resin's forward-GET copies without flush, so a
+    // Resin's forward-GET flush defect: the engine copies without flush, so a
     // proxied SSE arrives in 2-4 KB batches. Mode A neutralises it by
     // re-tunnelling absolute-form through CONNECT: the engine's forward path
     // is never entered, and the origin sees an origin-form request.
