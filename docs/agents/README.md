@@ -18,13 +18,15 @@ CLI from the repository root:
 - `codegraph query "<symbol>"` — symbol search
 - `codegraph node <symbol>` — one symbol's source with its caller/callee trail
 - `codegraph files` — file structure as the index sees it
-- `codegraph status` — reports whether the index is up to date; this is the one
-  call that answers "can I trust what `explore` just returned?"
-- `codegraph sync .` — only when nothing is keeping the index current: the
-  background daemon is not running (a sandbox that blocks filesystem watchers,
-  or an explicit opt-out), files changed in another process, or the index is
-  being queried from a script outside a session (`--quiet` exists for git
-  hooks). Recommended, never a gate — CI installs no index.
+- `codegraph status` — the freshness check. It prints `✓ Index is up to date`,
+  or a `### Pending sync:` block naming each pending file and its edit age.
+- `codegraph sync .` — only for the two cases the tool itself calls manual: the
+  watcher is disabled (a sandbox that blocks it, or `CODEGRAPH_NO_DAEMON=1`), or
+  the index is being queried from a script outside an agent session and needs a
+  pre-flight sync (`--quiet` exists for git hooks). Otherwise the watcher plus
+  the connect-time catch-up already took the change in — including edits from
+  another editor or a `git pull`. Recommended, never a gate: CI installs no
+  index.
 
 When CodeGraph is not fully available:
 
@@ -37,8 +39,11 @@ When CodeGraph is not fully available:
   explore with the built-in read/search tools and continue. A missing index is
   not a failure and never blocks delivery.
 - Count the source a CodeGraph command returned as already read only while the
-  index is current. When freshness is unknown, ask `codegraph status`; when that
-  cannot answer either, re-read the files the change touched.
+  index is current. Staleness has an explicit signal: an MCP response that
+  touches a still-pending file prepends a `⚠️` banner naming it and says to read
+  it directly, and `codegraph status` lists pending files under
+  `### Pending sync:`. No banner and no pending entry means the source is safe
+  to treat as read; otherwise re-read the files the change touched.
 
 ### Windows host facts
 
