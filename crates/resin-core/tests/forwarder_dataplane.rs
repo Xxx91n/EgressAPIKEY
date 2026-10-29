@@ -370,7 +370,7 @@ async fn engine_session(mut s: TcpStream, origin_port: u16, st: EngineState) {
     }
     if !line.starts_with("CONNECT ") {
         // The forwarder must never leave a forward-form request on this
-        // path (ticket-04 defect); record it for assertion 3.
+        // path (the upstream SSE flush defect); record it for assertion 3.
         let _ = s
             .write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n")
             .await;
@@ -544,7 +544,7 @@ async fn mode_a_http_connect_injects_basic_and_shields_client_credential() {
 
 #[tokio::test]
 async fn absolute_form_never_reaches_the_engine_forward_path() {
-    // The ticket-04 defect: Resin's forward-GET copies without flush, so a
+    // The upstream SSE flush defect: Resin's forward-GET copies without flush, so a
     // proxied SSE arrives in 2-4 KB batches. Mode A neutralises it by
     // re-tunnelling absolute-form through CONNECT: the engine's forward path
     // is never entered, and the origin sees an origin-form request.

@@ -20,7 +20,7 @@ if [ "$IS_CI" = "true" ]; then
     echo "[verify] NOTE: non-Windows CI - GUI app crate LINK skipped (GUI jobs cover it)"
     cargo build -p resin-core --quiet
     # Compile-blind-spot guard: the
-    # headless bin lives in src-tauri, which this branch never compiled, so a
+    # headless bin lives in src-tauri, which this CI path never compiled, so a
     # bin that no longer builds still passed the push gate. `cargo check` needs
     # no linker, so it can run here; --all-targets also type-checks the test
     # modules (a plain check leaves cfg(test) off, which would hide a broken
