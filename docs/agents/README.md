@@ -18,15 +18,11 @@ CLI from the repository root:
 - `codegraph query "<symbol>"` — symbol search
 - `codegraph node <symbol>` — one symbol's source with its caller/callee trail
 - `codegraph files` — file structure as the index sees it
-- `codegraph status` — the freshness check. It prints `✓ Index is up to date`,
-  or a `### Pending sync:` block naming each pending file and its edit age.
-- `codegraph sync .` — only for the two cases the tool itself calls manual: the
-  watcher is disabled (a sandbox that blocks it, or `CODEGRAPH_NO_DAEMON=1`), or
-  the index is being queried from a script outside an agent session and needs a
-  pre-flight sync (`--quiet` exists for git hooks). Otherwise the watcher plus
-  the connect-time catch-up already took the change in — including edits from
-  another editor or a `git pull`. Recommended, never a gate: CI installs no
-  index.
+- `codegraph status` — whether the index is caught up
+- `codegraph sync .` — manual catch-up, for when nothing is keeping the index
+  current: the watcher is off, or the index is being queried from a script
+  outside an agent session. Recommended, never a gate — CI installs no index. If
+  syncing is unavailable or fails, explore with the built-in read/search tools.
 
 When CodeGraph is not fully available:
 
@@ -39,11 +35,8 @@ When CodeGraph is not fully available:
   explore with the built-in read/search tools and continue. A missing index is
   not a failure and never blocks delivery.
 - Count the source a CodeGraph command returned as already read only while the
-  index is current. Staleness has an explicit signal: an MCP response that
-  touches a still-pending file prepends a `⚠️` banner naming it and says to read
-  it directly, and `codegraph status` lists pending files under
-  `### Pending sync:`. No banner and no pending entry means the source is safe
-  to treat as read; otherwise re-read the files the change touched.
+  index is current; `codegraph status` answers that. When it is not current, or
+  cannot be checked, re-read the files the change touched.
 
 ### Windows host facts
 
