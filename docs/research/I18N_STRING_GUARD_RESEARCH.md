@@ -866,7 +866,7 @@ opt2 在「修复」方向:  flagged(字符串内仅空白差异) = 32  missed(�
 
 **方案 1 存活，但必须带三条硬约束，否则会以更隐蔽的方式失败：**
 
-方案 1 的正确性来源不是"能判断对错"，而是**放弃了判断**：把"值变了"这一可判定事实转成"需要人批准"这一流程状态。这正是 Q4 找到的既有范式（Jest `--ci` + `-u`、Playwright `--update-snapshots`、Renovate `dashboardApproval`）：guard 只负责把静默变更变成**阻塞的、可归因的**变更，正确性判断留给批准动作。团队倾向的"红 = 需要显式批准（commit-message 标记）"是对的，且不是发明，是借用。
+方案 1 的正确性来源不是"能判断对错"，而是**放弃了判断**：把"值变了"这一可判定事实转成"需要人批准"这一流程状态。这正是 Q4 找到的既有范式（Jest `--ci` + `-u`、Playwright `--update-snapshots`、Renovate `dashboardApproval`）：guard 只负责把静默变更变成**阻塞的、可归因的**变更，正确性判断留给批准动作。团队倾向的"红 = 需要显式批准（commit-message 标记）"是对的，且不是发明，是借用。（标记的载体落地时改为提交态清单，见文末「落地记录」。）
 
 三条约束，每条都有本仓实测依据：
 
@@ -876,7 +876,7 @@ opt2 在「修复」方向:  flagged(字符串内仅空白差异) = 32  missed(�
 
 **可落地的形态（与既有机制最贴近、改动最小）：**
 
-- 复用 `scripts/` 的 guard 惯例（`i18n-check.cjs` 同级新增一个脚本，由 `scripts/verify-build.sh` 调用 —— 该脚本第 88-89 行已经在跑 `i18n-check.cjs`，CI 的 verify job 已经在跑 `verify-build.sh`，所以**接线成本为零**，无需新建 workflow）。
+- 复用 `scripts/` 的 guard 惯例（`i18n-check.cjs` 同级新增一个脚本，由 `scripts/verify-build.sh` 调用 —— 该脚本已经在跑 `i18n-check.cjs`，CI 的 verify job 已经在跑 `verify-build.sh`，所以**接线成本为零**，无需新建 workflow）。
 - 基线取 `git show <base>:src/locales/<lc>/common.json`，`JSON.parse` 双侧，展平后比叶子值；任何值变更 → 非零退出并**打印每条变更的 `key`、locale、以及前后值的码点转写**（把 U+00A0 显示成 `[U+00A0]`，因为原始字符在终端里不可见 —— §5.4 实测）。**（基线来源未采用：`git show` 依赖被上面第 3 条否定的历史可用性，落地改为提交态清单，见文末「落地记录」。）**
 - 批准机制按 Q4 借形：commit message 的 trailer（`git interpret-trailers` 原生支持 "a key-value pair with a colon as a separator"，例如 `I18N-Approved: <reason>`，且本仓历史已经在用 `Co-Authored-By:` trailer，格式不陌生）。guard 检测到该 trailer 则放行并把变更摘要打进日志。**这套"红→标记→放行"的语义与 Renovate 的 dashboard approval 同构**：批准是带外的状态转移，不在 diff 里，因此能扛住 rebase/squash。**（未采用：落地时改成提交态哈希清单，理由见文末「落地记录」——版本控制写入走 GitButler，amend / squash 会改写提交消息。）**
 - 附带一个免费收益：把 `eslint-plugin` 层面或仓库自检里加一条 **`src/**/*.ts` 字符串内禁止 U+00A0/U+202F**（ESLint `no-irregular-whitespace` 的字符表已含这两者，见 `lib/rules/no-irregular-whitespace.js:20-21`；只需 `skipStrings: false` 且限定 `src/`）。这条对代码是零误报，且与 locale 数据互不干扰 —— 因为 locale 里的这些字符是**载荷**，代码里的这些字符**几乎必然是事故**。

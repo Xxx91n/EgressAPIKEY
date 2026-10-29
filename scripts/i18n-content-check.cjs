@@ -287,8 +287,9 @@ function loadManifest(manifestPath) {
   return { manifest: parsed };
 }
 
-// Read-only by construction: the only writeFileSync call in this file lives in
-// runUpdate, and the self-test asserts the manifest bytes are untouched here.
+// Read-only: neither this function nor anything it calls writes. The manifest is
+// written only by applyUpdate, and the self-test asserts the bytes are untouched
+// here even when the check fails.
 function runCheck(localesDir, manifestPath) {
   const catalog = collectCatalog(localesDir);
   const loaded = loadManifest(manifestPath);
@@ -302,6 +303,8 @@ function runCheck(localesDir, manifestPath) {
 // Planning and writing are separate so the approval summary can be printed
 // before the manifest is replaced: a crash while formatting the report must not
 // leave a rewritten manifest with no record of what was approved.
+// An unreadable manifest is a warning, not a refusal: --update is the documented
+// repair for one, so the rebuild has to be possible - but it must not be silent.
 function planUpdate(localesDir, manifestPath) {
   const catalog = collectCatalog(localesDir);
   if (catalog.errors.length) return { errors: catalog.errors };
@@ -309,6 +312,7 @@ function planUpdate(localesDir, manifestPath) {
   const previous = loaded.manifest || { schema: SCHEMA, locales: {} };
   return {
     errors: [],
+    warnings: fs.existsSync(manifestPath) && loaded.errors ? loaded.errors : [],
     text: renderManifest(buildManifest(catalog)),
     drifted: compare(catalog, previous),
     fingerprints: countEntries(catalog),
@@ -316,9 +320,15 @@ function planUpdate(localesDir, manifestPath) {
   };
 }
 
-function runUpdate(localesDir, manifestPath) {
+// The single writer. Report first, then approve, so the listing is the record of
+// what this run accepted and survives a printing failure.
+function applyUpdate(localesDir, manifestPath, say) {
   const plan = planUpdate(localesDir, manifestPath);
-  if (!plan.errors.length) fs.writeFileSync(manifestPath, plan.text, "utf8");
+  if (plan.errors.length) return plan;
+  const print = say || console.log;
+  for (const w of plan.warnings) print("note: " + w);
+  if (plan.drifted.length) printProblems(plan.drifted, "Approving " + plan.drifted.length + " content change(s):", print);
+  fs.writeFileSync(manifestPath, plan.text, "utf8");
   return plan;
 }
 
@@ -498,8 +508,12 @@ function selfTest() {
     fs.writeFileSync(catalogFile, JSON.stringify({ backup: { passphraseHint: FR_COLON_UNSPACED } }), "utf8");
 
     assertEq(runCheck(localesDir, manifestPath).errors.length, 1, "missing manifest is an error naming --update");
-    const updated = runUpdate(localesDir, manifestPath);
-    assertEq([updated.errors.length, updated.drifted.length], [0, 1], "--update reports the drift it approves");
+    const updated = applyUpdate(localesDir, manifestPath, () => {});
+    assertEq(
+      [updated.errors.length, updated.warnings.length, updated.drifted.length],
+      [0, 0, 1],
+      "--update reports the drift it approves, and a first run is not a warning"
+    );
     const written = fs.readFileSync(manifestPath, "utf8");
 
     fs.writeFileSync(catalogFile, JSON.stringify({ backup: { passphraseHint: FR_COLON_SPACED } }), "utf8");
@@ -507,11 +521,29 @@ function selfTest() {
     assertEq(kinds(failed.problems), ["changed:fr:backup.passphraseHint"], "check catches the repaired value");
     assertEq(fs.readFileSync(manifestPath, "utf8"), written, "check mode never rewrites the manifest");
 
-    runUpdate(localesDir, manifestPath);
+    // The approval listing must reach the caller before the manifest changes,
+    // because it is the record of what this run accepted.
+    const seen = [];
+    applyUpdate(localesDir, manifestPath, (line) => seen.push([line, fs.readFileSync(manifestPath, "utf8") === written]));
+    assertEq(
+      [seen.some(([line]) => line.startsWith("Approving 1 content change(s):")), seen.every(([, beforeWrite]) => beforeWrite)],
+      [true, true],
+      "the approval report is printed before the manifest is replaced"
+    );
     const afterApproval = fs.readFileSync(manifestPath, "utf8");
     assertEq(kinds(runCheck(localesDir, manifestPath).problems), [], "approved value checks clean");
-    runUpdate(localesDir, manifestPath);
+    applyUpdate(localesDir, manifestPath, () => {});
     assertEq(fs.readFileSync(manifestPath, "utf8"), afterApproval, "--update is idempotent");
+
+    // A corrupt manifest is rebuilt, but never silently.
+    fs.writeFileSync(manifestPath, "{ not json", "utf8");
+    const notes = [];
+    const rebuilt = applyUpdate(localesDir, manifestPath, (line) => notes.push(line));
+    assertEq(
+      [rebuilt.warnings.length, notes.some((l) => l.startsWith("note: ")), runCheck(localesDir, manifestPath).problems.length],
+      [1, true, 0],
+      "a corrupt manifest is rebuilt with a warning, not silently replaced"
+    );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -539,20 +571,14 @@ function main() {
     return;
   }
   if (argv.includes("--update")) {
-    const plan = planUpdate(LOCALES_DIR, MANIFEST_PATH);
-    if (plan.errors.length) {
+    const res = applyUpdate(LOCALES_DIR, MANIFEST_PATH);
+    if (res.errors.length) {
       console.error("i18n content manifest NOT written:");
-      for (const e of plan.errors) console.error("  - " + e);
+      for (const e of res.errors) console.error("  - " + e);
       process.exit(1);
     }
-    // Report first, then approve: the listing is the record of what this run
-    // accepted, so it has to survive even if printing goes wrong.
-    if (plan.drifted.length) {
-      printProblems(plan.drifted, "Approving " + plan.drifted.length + " content change(s):", console.log);
-    }
-    fs.writeFileSync(MANIFEST_PATH, plan.text, "utf8");
     console.log(
-      "i18n content manifest written: " + plan.fingerprints + " fingerprints across " + plan.localeCount + " locales (" + plan.drifted.length + " drifted)"
+      "i18n content manifest written: " + res.fingerprints + " fingerprints across " + res.localeCount + " locales (" + res.drifted.length + " drifted)"
     );
     return;
   }
