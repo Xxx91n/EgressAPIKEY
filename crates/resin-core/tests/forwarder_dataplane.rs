@@ -1,4 +1,4 @@
-//! Mode A data-plane integration tests (round-8 ticket 17; A-001 + A-015).
+//! Mode A data-plane integration tests.
 //!
 //! Chain under test: client -> shell forwarder (entry port, Mode A)
 //! -> mock consolidated port (fake Resin proxy listener: SOCKS5 RFC 1929
@@ -6,7 +6,7 @@
 //! endpoint). All legs are real loopback TCP sockets - per the spec's
 //! testing decision the behaviour is measured end to end, not through
 //! stubbed traits. The mock consolidated port replicates exactly what the
-//! gate and the ticket-17 contract probes observed live
+//! gate and the contract probes observed live
 //! (.scratch/architecture-recovery/repro/d4-mixed/ + t17-contract/): one
 //! port, both dialects, presented credentials parsed and relayed raw.
 //!
@@ -19,7 +19,7 @@
 //! sse_upstream_reset_gets_in_band_error_frame
 //! - p95 <= 5ms added latency (mock upstream full chain):
 //! paired_request_added_latency_p95_under_5ms
-//! - the ticket-04 SSE flush-defect fix (forward path never used):
+//! - Resin's forward-GET flush defect avoided (forward path never used):
 //! absolute_form_never_reaches_the_engine_forward_path
 
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -370,7 +370,7 @@ async fn engine_session(mut s: TcpStream, origin_port: u16, st: EngineState) {
     }
     if !line.starts_with("CONNECT ") {
         // The forwarder must never leave a forward-form request on this
-        // path (ticket-04 defect); record it for assertion 3.
+        // path (Resin's forward-GET flush defect); record it for assertion 3.
         let _ = s
             .write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n")
             .await;
@@ -544,7 +544,7 @@ async fn mode_a_http_connect_injects_basic_and_shields_client_credential() {
 
 #[tokio::test]
 async fn absolute_form_never_reaches_the_engine_forward_path() {
-    // The ticket-04 defect: Resin's forward-GET copies without flush, so a
+    // Resin's forward-GET flush defect: its forward path copies without flush, so a
     // proxied SSE arrives in 2-4 KB batches. Mode A neutralises it by
     // re-tunnelling absolute-form through CONNECT: the engine's forward path
     // is never entered, and the origin sees an origin-form request.
@@ -820,12 +820,12 @@ async fn sse_upstream_reset_gets_in_band_error_frame() {
 }
 
 // ---------------------------------------------------------------------------
-// A-015: p95 added-latency initial check (mock upstream full chain)
+// p95 added-latency initial check (mock upstream full chain)
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn paired_request_added_latency_p95_under_5ms() {
-    // item: full-chain added latency p95 <= 5 ms measured against a
+    // Full-chain added latency p95 <= 5 ms measured against a
     // mock upstream, paired per iteration (direct vs via-forwarder) so host
     // noise cancels out. Initial value pending calibration after CI runs.
     let (origin_port, _os) = spawn_origin(OriginMode::Echo).await;

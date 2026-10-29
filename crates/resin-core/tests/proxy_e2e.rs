@@ -1,4 +1,4 @@
-//! T6-4 proxy_e2e: integration tests for the exit-IP probe pipeline.
+//! Integration tests for the exit-IP probe pipeline.
 //!
 //! Layer 1 (unit): mockito echo server returns a fake cdn-cgi/trace body;
 //! we verify parse_trace_body_ip extracts the exit IP correctly.
