@@ -11,6 +11,8 @@ description = "Tauri 2 desktop shell for EgressAPIKEY"
 [lib]
 name = "egressapikey_app"
 path = "src/lib.rs"
+# No rustdoc examples in this repo, so skip the always-green empty doctest harness.
+doctest = false
 
 [[bin]]
 name = "EgressAPIKEY"

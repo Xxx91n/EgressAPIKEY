@@ -91,6 +91,8 @@ echo "[verify] license field consistency (spec D-06)"
 node scripts/license-field-check.cjs
 echo "[verify] ipc command registry (definitions = generate_handler!)"
 node scripts/ipc-manifest-check.cjs
+echo "[verify] ipc command registry parser self-test"
+node scripts/ipc-manifest-check.cjs --self-test
 echo "[verify] vitest isolation guard"
 node scripts/vitest-isolation-guard.cjs
 echo "[verify] contracts (mode-a contract gate)"
