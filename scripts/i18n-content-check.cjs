@@ -13,9 +13,13 @@
 //     U+202F into U+0020, so a normalizing guard passes the damage it exists to catch;
 //   - no `git diff -w` as input: it reports "Trier : x" -> "Trier: x" as identical.
 // The guard judges nothing about typography - the same one-space delta is a fix in
-// fr and a defect in en/de. Key coverage stays with i18n-check.cjs; a key with no
-// recorded fingerprint is drift here only because the manifest then no longer
-// describes the catalog.
+// fr and a defect in en/de. Trust boundary: d (the digest) is what the gate
+// compares; t is only the rendering recorded at approval time, so a hand-edited t
+// can mislead a reader but can never make the gate pass. Key drift (an unrecorded
+// key, a deleted key, a new or vanished locale directory) is reported as well: the
+// manifest has to describe the catalog it fingerprints, otherwise a tool adding one
+// bad string to all 18 locales at once would pass this guard and the coverage check
+// together. Cross-locale key-set equality stays i18n-check.cjs's job.
 // Zero deps, style aligned with scripts/i18n-check.cjs; --self-test follows the
 // assertEq skeleton of scripts/ipc-manifest-check.cjs.
 //
@@ -35,9 +39,10 @@ const MANIFEST_PATH = path.join(ROOT, "docs", "I18N_CONTENT_MANIFEST.json");
 const NAMESPACE = "common";
 const SCHEMA = 1;
 const DIGEST_HEX = 12;
-// A mass rewrite is the expected failure shape, so the log stays bounded and
-// names the rest rather than burying the signal in 9774 entries.
-const MAX_REPORTED = 40;
+// A mass rewrite is the expected failure shape, so check-mode output stays
+// bounded. --update is the approval path, never runs in CI, and prints every
+// entry: the full list must be available to whoever approves it.
+const MAX_REPORTED = 100;
 
 const REMEDY =
   "If these changes are intended, approve them by regenerating the manifest and\n" +
@@ -222,16 +227,16 @@ function formatProblem(p) {
   if (p.kind === "changed") {
     return [
       "  " + p.locale + "  " + p.key,
-      "    before  " + JSON.stringify(p.before.t) + "  [" + p.before.d + "]",
-      "    after   " + JSON.stringify(p.after.t) + "  [" + p.after.d + "]",
+      "    before  " + JSON.stringify(p.before.t) + "  (manifest " + p.before.d + ")",
+      "    after   " + JSON.stringify(p.after.t) + "  (file " + p.after.d + ")",
       "    " + diffPoint(p.before.t, p.after.t),
     ];
   }
   if (p.kind === "added") {
-    return ["  " + p.locale + "  " + p.key + "  (no recorded fingerprint)", "    value   " + JSON.stringify(p.after.t) + "  [" + p.after.d + "]"];
+    return ["  " + p.locale + "  " + p.key + "  (no recorded fingerprint)", "    value   " + JSON.stringify(p.after.t) + "  (file " + p.after.d + ")"];
   }
   if (p.kind === "removed") {
-    return ["  " + p.locale + "  " + p.key + "  (key deleted, fingerprint still recorded)", "    was     " + JSON.stringify(p.before.t) + "  [" + p.before.d + "]"];
+    return ["  " + p.locale + "  " + p.key + "  (key deleted, fingerprint still recorded)", "    was     " + JSON.stringify(p.before.t) + "  (manifest " + p.before.d + ")"];
   }
   if (p.kind === "locale-unrecorded") {
     return ["  " + p.locale + "  *  (locale directory has no entry in the manifest; " + p.count + " keys unguarded)"];
@@ -239,13 +244,14 @@ function formatProblem(p) {
   return ["  " + p.locale + "  *  (locale directory is gone; " + p.count + " fingerprints still recorded)"];
 }
 
-function printProblems(problems, header, print) {
+function printProblems(problems, header, print, limit) {
   print(header);
-  for (const p of problems.slice(0, MAX_REPORTED)) {
+  const shown = limit ? problems.slice(0, limit) : problems;
+  for (const p of shown) {
     for (const line of formatProblem(p)) print(line);
   }
-  if (problems.length > MAX_REPORTED) {
-    print("  ... and " + (problems.length - MAX_REPORTED) + " more not listed");
+  if (shown.length < problems.length) {
+    print("  ... " + (problems.length - shown.length) + " more not listed here; --update prints them all");
   }
 }
 
@@ -370,13 +376,19 @@ function selfTest() {
     assertEq(kinds(problems), ["changed:fr:" + key], "fr damage is caught: " + key);
   }
 
-  // 3. Negative assertion: a legitimate typographic repair is not an error once
-  //    approved. The guard owns no whitespace rule, so the repaired fr string
-  //    passes exactly as the damaged one did.
+  // 3. Negative assertion: the legitimate repair (space restored) is an approval,
+  //    never a rejection. It is reported as drift exactly like the damage, and it
+  //    passes as soon as it is recorded - no typography rule can keep a correct
+  //    French fix permanently red.
+  assertEq(
+    kinds(compare(catalogOf([entry("fr", "backup.passphraseHint", FR_COLON_SPACED)]), manifestOf("fr", "backup.passphraseHint", FR_COLON_UNSPACED))),
+    ["changed:fr:backup.passphraseHint"],
+    "fr repair direction is drift, same shape as the damage"
+  );
   assertEq(
     compare(catalogOf([entry("fr", "backup.passphraseHint", FR_COLON_SPACED)]), manifestOf("fr", "backup.passphraseHint", FR_COLON_SPACED)).length,
     0,
-    "legitimate fr repair (space restored) is not judged an error"
+    "the same repair passes once recorded: a legitimate fix is never permanently red"
   );
 
   // 4. The en/de reverse fixture: the same one-space delta, opposite verdict in
@@ -405,8 +417,8 @@ function selfTest() {
     formatProblem(problem),
     [
       "  fr  backup.passphraseHint",
-      "    before  \"Facultatif : chiffre l'archive\"  [" + digest(FR_COLON_SPACED) + "]",
-      "    after   \"Facultatif: chiffre l'archive\"  [" + digest(FR_COLON_UNSPACED) + "]",
+      "    before  \"Facultatif : chiffre l'archive\"  (manifest " + digest(FR_COLON_SPACED) + ")",
+      "    after   \"Facultatif: chiffre l'archive\"  (file " + digest(FR_COLON_UNSPACED) + ")",
       "    first difference at token 11: [U+0020] -> [U+003A]",
     ],
     "report prints locale, key, before/after transcription and the difference"
@@ -437,11 +449,19 @@ function selfTest() {
   );
 
   // 7. Rendering is deterministic and round-trips, so an unchanged catalog
-  //    produces a byte-identical manifest and --update cannot smuggle churn.
-  const m = buildManifest(catalogOf([entry("fr", "k", FR_SEMI_SPACED), entry("en", "k2", "quote \" and \\ back")]));
+  //    produces a byte-identical manifest and --update cannot smuggle churn. The
+  //    fixture carries a real U+00A0 / U+202F so the no-raw-invisible assertion
+  //    has something to catch.
+  const m = buildManifest(
+    catalogOf([entry("fr", "k", FR_SEMI_SPACED), entry("fr", "nbsp", nbsp + nnbsp), entry("en", "k2", "quote \" and \\ back")])
+  );
   const rendered = renderManifest(m);
   assertEq(renderManifest(JSON.parse(rendered)), rendered, "manifest render is deterministic and round-trips");
-  assertEq(rendered.includes("\u00a0"), false, "manifest text carries no raw invisible character");
+  assertEq(
+    [rendered.includes("\u00a0"), rendered.includes("\u202f"), rendered.includes("[U+00A0]"), rendered.includes("[U+202F]")],
+    [false, false, true, true],
+    "invisible characters are transcribed in the manifest, never stored raw"
+  );
 
   // 8. Filesystem half: --update is the only writer, and check mode is read-only
   //    even when it fails.
@@ -472,6 +492,20 @@ function selfTest() {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+  // 9. Check mode lists at most MAX_REPORTED entries but still states the true
+  //    total, so truncation cannot hide the size of a mass rewrite.
+  const many = [];
+  for (let i = 0; i < MAX_REPORTED + 5; i++) {
+    many.push({ locale: "fr", key: "k" + i, kind: "added", after: { d: digest("x" + i), t: "x" + i } });
+  }
+  const out = [];
+  printProblems(many, "i18n content drift: " + many.length + " value(s):", (line) => out.push(line), MAX_REPORTED);
+  assertEq(
+    [out.includes("i18n content drift: " + many.length + " value(s):"), out.some((l) => l.includes("5 more not listed"))],
+    [true, true],
+    "truncated check output still states the true total"
+  );
+
   console.log("self-test: all assertions passed");
 }
 
@@ -503,7 +537,7 @@ function main() {
     process.exit(1);
   }
   if (res.problems.length) {
-    printProblems(res.problems, "i18n content drift: " + res.problems.length + " value(s) differ from " + path.basename(MANIFEST_PATH) + ":", console.error);
+    printProblems(res.problems, "i18n content drift: " + res.problems.length + " value(s) differ from " + path.basename(MANIFEST_PATH) + ":", console.error, MAX_REPORTED);
     console.error(REMEDY);
     process.exit(1);
   }
