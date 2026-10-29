@@ -132,9 +132,7 @@ function flatten(obj, prefix, out) {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? prefix + "." + k : k;
     if (v && typeof v === "object" && !Array.isArray(v)) flatten(v, key, out);
-    // Every leaf is a string in the shipped catalogs. The type tag keeps a
-    // non-string leaf from hashing the same as its printed form (1 vs "1").
-    else out.push({ key: key, value: typeof v === "string" ? v : typeof v + ":" + JSON.stringify(v) });
+    else out.push({ key: key, value: v });
   }
   return out;
 }
@@ -161,7 +159,21 @@ function collectCatalog(localesDir) {
       errors.push("cannot parse " + path.relative(ROOT, file).split(path.sep).join("/") + ": " + e.message);
       continue;
     }
-    locales.push({ locale: locale, entries: flatten(parsed, "", []) });
+    // Catalogs hold strings only. A non-string leaf is rejected rather than
+    // encoded into the digest, because every encoding can be collided with: a
+    // string "boolean:true" and the boolean true would hash alike, so a type
+    // change could slip through the gate.
+    const entries = flatten(parsed, "", []);
+    const nonString = entries.filter((e) => typeof e.value !== "string");
+    if (nonString.length) {
+      const sample = nonString[0];
+      const kind = Array.isArray(sample.value) ? "array" : typeof sample.value;
+      errors.push(
+        locale + ": " + nonString.length + " non-string value(s) (e.g. " + sample.key + " is " + kind + ") - locale catalogs hold strings only"
+      );
+      continue;
+    }
+    locales.push({ locale: locale, entries: entries });
   }
   return { locales: locales, errors: errors };
 }
@@ -288,8 +300,8 @@ function loadManifest(manifestPath) {
 }
 
 // Read-only: neither this function nor anything it calls writes. The manifest is
-// written only by applyUpdate, and the self-test asserts the bytes are untouched
-// here even when the check fails.
+// written only by applyUpdate through writeManifest, and the self-test asserts
+// the bytes are untouched here even when the check fails.
 function runCheck(localesDir, manifestPath) {
   const catalog = collectCatalog(localesDir);
   const loaded = loadManifest(manifestPath);
@@ -320,6 +332,20 @@ function planUpdate(localesDir, manifestPath) {
   };
 }
 
+// Same-directory temp file, then rename over the manifest: an interrupted
+// --update must not leave a truncated manifest, because the next check would
+// read the truncation as "every value changed".
+function writeManifest(manifestPath, text) {
+  const tmp = manifestPath + ".tmp";
+  fs.writeFileSync(tmp, text, "utf8");
+  try {
+    fs.renameSync(tmp, manifestPath);
+  } catch (e) {
+    fs.rmSync(tmp, { force: true });
+    throw e;
+  }
+}
+
 // The single writer. Report first, then approve, so the listing is the record of
 // what this run accepted and survives a printing failure.
 function applyUpdate(localesDir, manifestPath, say) {
@@ -328,7 +354,7 @@ function applyUpdate(localesDir, manifestPath, say) {
   const print = say || console.log;
   for (const w of plan.warnings) print("note: " + w);
   if (plan.drifted.length) printProblems(plan.drifted, "Approving " + plan.drifted.length + " content change(s):", print);
-  fs.writeFileSync(manifestPath, plan.text, "utf8");
+  writeManifest(manifestPath, plan.text);
   return plan;
 }
 
@@ -543,6 +569,40 @@ function selfTest() {
       [rebuilt.warnings.length, notes.some((l) => l.startsWith("note: ")), runCheck(localesDir, manifestPath).problems.length],
       [1, true, 0],
       "a corrupt manifest is rebuilt with a warning, not silently replaced"
+    );
+
+    // The replace is atomic: no temp file survives a successful write, and a
+    // failed one keeps what was there and cleans up after itself.
+    assertEq(fs.readdirSync(dir).filter((n) => n.endsWith(".tmp")), [], "a successful write leaves no temp file behind");
+    const blocked = path.join(dir, "blocked");
+    fs.mkdirSync(blocked);
+    fs.writeFileSync(path.join(blocked, "keep"), "1", "utf8");
+    let threw = false;
+    try {
+      writeManifest(blocked, "replacement");
+    } catch (e) {
+      threw = true;
+    }
+    assertEq(
+      [threw, fs.existsSync(blocked + ".tmp"), fs.existsSync(path.join(blocked, "keep"))],
+      [true, false, true],
+      "a failed replace keeps the previous file and leaves no temp file"
+    );
+
+    // A non-string leaf stops the catalog at the door instead of being encoded,
+    // because any type encoding can collide with real copy.
+    fs.writeFileSync(catalogFile, JSON.stringify({ backup: { passphraseHint: true } }), "utf8");
+    const nonString = runCheck(localesDir, manifestPath);
+    assertEq(
+      [nonString.errors.length, nonString.errors[0].includes("non-string")],
+      [1, true],
+      "a non-string catalog leaf is rejected, not encoded"
+    );
+    const beforeRefusal = fs.readFileSync(manifestPath, "utf8");
+    assertEq(
+      [applyUpdate(localesDir, manifestPath, () => {}).errors.length, fs.readFileSync(manifestPath, "utf8") === beforeRefusal],
+      [1, true],
+      "--update refuses a catalog with a non-string leaf and writes nothing"
     );
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

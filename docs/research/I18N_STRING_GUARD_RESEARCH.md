@@ -872,7 +872,7 @@ opt2 在「修复」方向:  flagged(字符串内仅空白差异) = 32  missed(�
 
 1. **绝不能归一化后再比较。** NFKC 会把 U+00A0/U+202F 压成 U+0020（实测：`"Trier\u202f: x".normalize("NFKC") === "Trier : x".normalize("NFKC")` → `true`）。用 NFKC 的 guard 会把"正确法语"与"被压平版本"判为相同，**放过 bug**。同理禁用 `trim()` 与 `\s`（ECMA-262 §12.2：U+00A0 属 `<USP>`，U+202F 属 `Zs` 因而也被 `\s` 匹配）。只允许 `===` 比较原始字符串。NFC 是安全的（实测保留两者）。
 2. **绝不能用 `git diff -w` 作为输入。** 源码实证 `xdiff/xutils.c:193-203` 在整个**原始行缓冲**上跳过空白，无引号状态机；`xdiff/xmacros.h:33` 的 `XDL_ISSPACE` 是 C-locale `isspace`，只认 6 个 ASCII 字节。实测：`"Trier : x"`→`"Trier: x"` 在 `-w` 下 **exit=0（看不见）**。用 `-w` 的 guard 会静默放过本次事故的主形态（本仓 27 处法语冒号全是普通 U+0020，正是被 `-w` 隐藏的形态）。guard 必须自己做 **JSON.parse 双侧 + 叶子值 `===` 比较**，不经过任何基于 `-w` 的 diff。
-3. **必须在 CI 侧强制、本地侧放行。** Jest 的 `--ci` 语义。CI ready 的细节：本仓 `ci.yml` 用 `actions/checkout@v4` **未设 `fetch-depth`**，默认为 1（"Only a single commit is fetched by default"），因此**任何靠 `HEAD^` 做基线 diff 的设计都会静默失效**——`fetch-depth: 2`（或 0）是那种设计的前提条件。（实际落地的清单形态不读 git 历史，所以不需要它，见文末「落地记录」。）
+3. **必须在 CI 侧强制、本地侧放行。** Jest 的 `--ci` 语义。CI ready 的细节：本仓 `ci.yml` 用 `actions/checkout@v4` **未设 `fetch-depth`**，默认为 1（"Only a single commit is fetched by default"），因此**任何靠 `HEAD^` 做基线 diff 的设计都会静默失效**——`fetch-depth: 2`（或 0）是那种设计的前提条件。（实际落地的清单形态不读 git 历史，所以不需要它，见文末「落地记录」。）**落地时也没有做本地/CI 分权**：同一条检查在两边都拒绝未批准的 drift，见文末「落地记录」第 3 条。
 
 **可落地的形态（与既有机制最贴近、改动最小）：**
 
@@ -894,5 +894,6 @@ opt2 在「修复」方向:  flagged(字符串内仅空白差异) = 32  missed(�
 
 1. **批准机制是提交态哈希清单，不是 commit-message trailer。** 本文"可落地的形态"推荐用 trailer；实际采用 `docs/I18N_CONTENT_MANIFEST.json`——每 locale 每 key 一条 `{d, t}`，`d` 是原始值的 sha256 前 12 位并作为比较对象，`t` 是批准时的码点转写（不换行空格写成 `[U+00A0]`），`node scripts/i18n-content-check.cjs --update` 是唯一的批准动作。理由：版本控制写入走 GitButler，amend / squash 会改写提交消息；清单是普通文件，其 diff 在 PR 里直接可见，正好是 Q4 借形时看重的"批准是提交态产物"。
 2. **不需要 `fetch-depth: 2`。** 守卫只读提交态清单、不读 git 历史，浅克隆（默认 1 层）即可工作，也因此不依赖 `actions/checkout` 的任何改动。
+3. **没有"本地放行"这一档。** 上文第 3 条把 Jest `--ci` 的"本地自动接受、CI 拒绝"当作前提；落地时守卫在本地与 CI **同权**：`scripts/verify-build.sh` 本地跑同样对未批准的 drift 报红，批准只有一个动作——`--update`。代价是改文案时必须显式跑一次 `--update`，好处是本地不会替人预先接受变更（本来也要提交清单 diff 才生效）。
 
 另有一处上文未涉及、落地时补上的判断：守卫除值之外也报告**清单与目录树的漂移**（未记录的 key、被删的 key、新增或消失的 locale 目录），因为清单必须描述它所指纹化的目录树，否则一个往 18 个 locale 同时塞同一条坏文案的工具能同时躲过内容守卫与覆盖率守卫。跨 locale 的 key 集合一致性仍归 `scripts/i18n-check.cjs`。
