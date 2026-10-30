@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup, act } from "@testing-library/react";
 import { invokeMock } from "../test/setup";
-import { SubscriptionsView } from "./SubscriptionsView";
+import {
+  SubscriptionsView,
+  SUBSCRIPTION_POLL_INTERVAL_MS,
+} from "./SubscriptionsView";
 import { useAppStore } from "../store/appStore";
 
 afterEach(() => cleanup());
@@ -404,7 +407,6 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
     // not on how many reads the view happened to issue: an unrequested extra
     // read re-serves its own window instead of skipping an edge. No
     // shouldAdvanceTime and no waitFor, so nothing here advances on real time.
-    const POLL_MS = 30_000;
     const healthy = (checked: string) => [{ name: "sub-x", node_count: 5, healthy_node_count: 5, last_error: "", last_checked: checked }];
     const batches = [
       healthy("2026-08-02T10:00:00Z"),
@@ -418,7 +420,7 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
       const startedAt = Date.now();
       invokeMock.mockImplementation(async (cmd: string) => {
         if (cmd === "subscription_list") {
-          const pollIndex = Math.floor((Date.now() - startedAt) / POLL_MS);
+          const pollIndex = Math.floor((Date.now() - startedAt) / SUBSCRIPTION_POLL_INTERVAL_MS);
           return batches[Math.min(pollIndex, batches.length - 1)];
         }
         return undefined;
@@ -434,16 +436,16 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
       // poll 1 (baseline): steady healthy -> still silent. The timestamp is the
       // positive half: it proves the baseline read landed, so "silent" below is a
       // comparison that ran, not a poll that never fired.
-      await tick(POLL_MS);
+      await tick(SUBSCRIPTION_POLL_INTERVAL_MS);
       expect(screen.getByText(/2026-08-02 10:00:30/)).toBeInTheDocument();
       expect(screen.queryByText(/fetch failed/i)).toBeNull();
       expect(screen.queryByTestId("sub-error-banner")).toBeNull();
       // poll 2: healthy -> error edge -> failure toast + banner
-      await tick(POLL_MS);
+      await tick(SUBSCRIPTION_POLL_INTERVAL_MS);
       expect(screen.getByText(/Subscription sub-x fetch failed/)).toBeInTheDocument();
       expect(screen.getByTestId("sub-error-banner")).toBeInTheDocument();
       // poll 3: error -> healthy edge -> recovery toast, banner cleared
-      await tick(POLL_MS);
+      await tick(SUBSCRIPTION_POLL_INTERVAL_MS);
       expect(screen.getByText(/Subscription sub-x fetch recovered/)).toBeInTheDocument();
       expect(screen.queryByTestId("sub-error-banner")).toBeNull();
       expect(screen.getByText(/2026-08-02 10:01:30/)).toBeInTheDocument();
@@ -453,7 +455,7 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
       // timestamp - that is what proves the read landed and the view updated.
       // Silence then means the recovery toast is still the only toast on screen,
       // no failure edge fired again, and the banner stayed cleared.
-      await tick(POLL_MS);
+      await tick(SUBSCRIPTION_POLL_INTERVAL_MS);
       expect(screen.getByText(/2026-08-02 10:02:00/)).toBeInTheDocument();
       expect(screen.queryByText(/fetch failed/i)).toBeNull();
       expect(screen.getByText(/Subscription sub-x fetch recovered/)).toBeInTheDocument();
