@@ -95,6 +95,15 @@ echo "[verify] i18n copy content manifest (values, not key sets)"
 node scripts/i18n-content-check.cjs
 echo "[verify] i18n copy content guard self-test"
 node scripts/i18n-content-check.cjs --self-test
+# Coverage and content both judge only keys that already exist, so a key that
+# src/ uses but no catalog holds (diagnostics.portHealth.platform under a string
+# leaf) rendered as the raw key with both green. This step checks the reference
+# side: every whole-literal t()/i18nKey key, and every Rust-emitted error.* key,
+# must resolve in en/common.json.
+echo "[verify] i18n key references (used keys exist in en)"
+node scripts/i18n-key-ref-check.cjs
+echo "[verify] i18n key reference guard self-test"
+node scripts/i18n-key-ref-check.cjs --self-test
 echo "[verify] license field consistency"
 node scripts/license-field-check.cjs
 echo "[verify] ipc command registry (definitions = generate_handler!)"

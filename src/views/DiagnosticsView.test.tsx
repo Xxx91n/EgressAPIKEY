@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { DiagnosticsView } from "./DiagnosticsView";
+import i18next from "i18next";
+import enCommon from "../locales/en/common.json";
 
 // Mock @tauri-apps/api/core
 const invokeMock = vi.fn();
@@ -120,6 +122,31 @@ describe("DiagnosticsView closed-loop tests", () => {
       expect(calls).toContain("request_log_tail");
       expect(calls).toContain("get_sidecar_logs");
     });
+  });
+
+  it("strategy verify result labels render the shipped en copy, never a raw key", async () => {
+    // The row once read diagnostics.portHealth.platform / .policy, which sit under
+    // a string leaf in every locale, so users saw the raw key. Load the real en
+    // strategyVerify section so this asserts against the catalog that ships.
+    i18next.addResourceBundle("en", "translation", { strategyVerify: enCommon.strategyVerify }, true, true);
+    const base = invokeMock.getMockImplementation() ?? (() => Promise.resolve(null));
+    invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "platform_list_full") return Promise.resolve({ items: [{ name: "Default" }] });
+      if (cmd === "strategy_verify") return Promise.resolve({
+        platform: "Default", strategy: "random", unique_ips: 3, avg_latency_ms: 42, sample_count: 10,
+      });
+      return base(cmd, args);
+    });
+    render(<DiagnosticsView />);
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Default" })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByTestId("verify-platform-sel"), { target: { value: "Default" } });
+    fireEvent.click(screen.getByTestId("verify-run-btn"));
+    const row = await screen.findByTestId("verify-result");
+    expect(row).toHaveTextContent(`${enCommon.strategyVerify.platform}: Default`);
+    expect(row).toHaveTextContent(`${enCommon.strategyVerify.policy}: random`);
+    expect(row).not.toHaveTextContent("diagnostics.portHealth");
   });
 
   it("exit IP probe button triggers probe IPC", async () => {

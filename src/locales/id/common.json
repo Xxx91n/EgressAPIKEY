@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "Verifikasi strategi",
     "platform": "Platform",
+    "policy": "Kebijakan",
     "sampleCount": "Jumlah sampel",
     "run": "Jalankan verifikasi",
     "latency": "Latensi rata-rata",

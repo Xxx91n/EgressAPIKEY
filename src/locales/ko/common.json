@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "전략 검증",
     "platform": "플랫폼",
+    "policy": "정책",
     "sampleCount": "샘플 수",
     "run": "검증 실행",
     "latency": "평균 지연",

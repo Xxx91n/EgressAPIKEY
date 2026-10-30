@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "Weryfikacja strategii",
     "platform": "Platforma",
+    "policy": "Polityka",
     "sampleCount": "Liczba próbek",
     "run": "Uruchom weryfikację",
     "latency": "Średnie opóźnienie",
