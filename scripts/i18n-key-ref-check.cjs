@@ -80,13 +80,17 @@ function opensComment(src, i) {
 // survive) while leaving string, template and regex literals intact. Inside a
 // template literal, ${...} is code again (tracked by brace depth). A `/` starts a
 // regex literal when the previous significant character cannot end an operand.
-// Bare JSX text is not parsed as such, so every ambiguity is resolved toward
-// scanning MORE text (a loud false red), never less (a silent miss):
+// Bare JSX text is not parsed as such, so ambiguities are resolved toward
+// scanning MORE text (a loud false red) wherever the position allows:
 //   - `//` and `/*` open a comment only at line start or after one of ; , { } ( ) [ ]
 //     (code punctuation). After a word, `:` or `>` - "a // b", "https://x.io",
 //     "<p>// x" in JSX text - they stay text and their line is still scanned;
 //   - an apostrophe in JSX text (don't) opens a pseudo-string to the end of that
-//     line, so a comment after it on that line is scanned as code.
+//     line, so a comment after it on that line is scanned as code;
+//   - an unterminated `/*` blanks only to the end of its own line.
+// Residual silent-miss shape (none in src/ today; JSX lint flags it): JSX text
+// that itself contains `//` at line start, or `/*` after punctuation with a
+// later `*/`, is taken as a comment.
 function blankComments(src) {
   const out = src.split("");
   const n = src.length;
@@ -115,7 +119,8 @@ function blankComments(src) {
     }
     if (c === "/" && src[i + 1] === "*" && opensComment(src, i)) {
       const end = src.indexOf("*/", i + 2);
-      const j = end === -1 ? n : end + 2;
+      const eol = src.indexOf("\n", i);
+      const j = end !== -1 ? end + 2 : eol === -1 ? n : eol;
       blank(i, j);
       i = j;
       continue;
@@ -320,6 +325,11 @@ function selfTest() {
     keysOf('foo(); // t("a.gone")\nconst o = { a: 1, // t("b.gone")\n};\n{/* t("c.gone") */}\n  /** t("d.gone") */'),
     [],
     "real comments (line start or after code punctuation) are blanked"
+  );
+  assertEq(
+    keysOf('<p>Note, /* x {t("a.b")}</p>\n<p>{t("nav.topology")}</p>'),
+    ["nav.topology"],
+    "unterminated /* blanks only its own line"
   );
   assertEq(keysOf('<Trans i18nKey={`nav.topology`} />\n<Trans i18nKey={`nav.${k}`} />'), ["nav.topology"], "backtick i18nKey: whole literal checked, interpolation ignored");
   assertEq(extractKeyRefs('/* a\n b */\nt("x.y")').map((r) => r.line), [3], "line numbers survive comment blanking");
