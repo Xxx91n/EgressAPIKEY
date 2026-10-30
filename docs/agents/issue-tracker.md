@@ -67,7 +67,8 @@ write each verdict into the ticket. Every step is re-runnable as written;
    short one returns an empty list — which reads like "no run" and is not. The
    run must be on the dependency's own merge commit, and its conclusion must be
    `success`; `--commit` queries that one sha, so a green run on a later commit
-   of the base branch does not substitute for it.
+   of the base branch does not substitute for it. An empty list for the full sha
+   — or a run the concurrency group cancelled — is `not met`, not "unknown".
 4. **Name the guard that keeps it fixed.** For a fix, find the test or guard
    (`git grep -n '<test name>' <base>`) and confirm it is wired into
    `scripts/verify-build.sh`; a fix with no guard re-rots silently and is not a
