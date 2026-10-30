@@ -44,6 +44,7 @@ CI runs the same script on every push and pull request. Focused checks:
 - `pnpm test` — frontend vitest suite
 - `pnpm i18n:check` — locale catalog completeness (all 18 base locales vs the canonical `en` catalog)
 - `node scripts/i18n-content-check.cjs` — user-visible copy content: every locale/key value must still match its fingerprint in `docs/I18N_CONTENT_MANIFEST.json`
+- `node scripts/i18n-key-ref-check.cjs` — key references: every whole-literal `t("…")` / `i18nKey="…"` key in `src/`, and every `error.*` key emitted by `ipc_error.rs`, resolves in `en/common.json`
 - `node scripts/license-field-check.cjs` — README / root Cargo.toml / package.json license fields stay GPL-3.0-or-later
 
 ## Conventions that gate review

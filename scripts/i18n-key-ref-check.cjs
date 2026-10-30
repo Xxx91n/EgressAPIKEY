@@ -50,6 +50,10 @@ const EN_CATALOG = path.join(SRC_DIR, "locales", "en", "common.json");
 const RUST_EMITTER = path.join(ROOT, "crates", "resin-core", "src", "ipc_error.rs");
 const PLURAL_SUFFIXES = ["zero", "one", "two", "few", "many", "other"];
 
+function relPosix(file) {
+  return path.relative(ROOT, file).split(path.sep).join("/");
+}
+
 function listSourceFiles(dir) {
   const out = [];
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -68,6 +72,9 @@ function listSourceFiles(dir) {
 // survive) while leaving string, template and regex literals intact. Inside a
 // template literal, ${...} is code again (tracked by brace depth). A `/` starts a
 // regex literal when the previous significant character cannot end an operand.
+// Known limit: bare JSX text is not parsed as such, so an apostrophe in it
+// (don't) opens a pseudo-string to the end of that line; a comment after it on
+// the same line is then scanned as code - a loud false red, never a silent miss.
 function blankComments(src) {
   const out = src.split("");
   const n = src.length;
@@ -87,7 +94,8 @@ function blankComments(src) {
       i++;
       continue;
     }
-    if (c === "/" && src[i + 1] === "/") {
+    // `//` right after `:` is a URL in bare JSX text (see https://x.io), not a comment.
+    if (c === "/" && src[i + 1] === "/" && src[i - 1] !== ":") {
       let j = i;
       while (j < n && src[j] !== "\n") j++;
       blank(i, j);
@@ -153,8 +161,13 @@ function extractKeyRefs(src) {
     if (quote === "`" && body.includes("${")) continue;
     refs.push({ key: body, line: lineAt(m.index) });
   }
-  const attr = /(?<![A-Za-z0-9_$])i18nKey\s*=\s*(?:\{\s*)?(["'])([^"'\n]*)\1/g;
-  while ((m = attr.exec(code)) !== null) refs.push({ key: m[2], line: lineAt(m.index) });
+  // i18nKey="a.b" or i18nKey={"a.b"}; in the braced form the literal must close
+  // the expression (i18nKey={"strategy." + x} is concatenation and is ignored).
+  const attr = /(?<![A-Za-z0-9_$])i18nKey\s*=\s*(\{\s*)?(["'])([^"'\n]*)\2\s*([^\s])?/g;
+  while ((m = attr.exec(code)) !== null) {
+    if (m[1] && m[4] !== "}") continue;
+    refs.push({ key: m[3], line: lineAt(m.index) });
+  }
   return refs;
 }
 
@@ -191,13 +204,13 @@ function check() {
   const problems = [];
   let checked = 0;
   for (const f of listSourceFiles(SRC_DIR)) {
-    const rel = path.relative(ROOT, f).split(path.sep).join("/");
+    const rel = relPosix(f);
     for (const ref of extractKeyRefs(fs.readFileSync(f, "utf8"))) {
       checked++;
       if (!resolves(catalog, ref.key)) problems.push(rel + ":" + ref.line + "  " + ref.key);
     }
   }
-  const rustRel = path.relative(ROOT, RUST_EMITTER).split(path.sep).join("/");
+  const rustRel = relPosix(RUST_EMITTER);
   const rustKeys = extractRustErrorKeys(fs.readFileSync(RUST_EMITTER, "utf8"));
   for (const key of rustKeys) {
     if (!resolves(catalog, key)) problems.push(rustRel + "  " + key + "  (Rust-emitted i18n_key)");
@@ -273,6 +286,16 @@ function selfTest() {
     ].join("\n")),
     ["nav.topology", "strategy.random", "error.notFound"],
     "other identifiers, comments, strings with //, regex and nested template braces"
+  );
+  assertEq(
+    keysOf('<Trans i18nKey={"strategy." + aClass} />\n<Trans i18nKey={labelKey} />'),
+    [],
+    "Trans i18nKey concatenation and identifier are ignored"
+  );
+  assertEq(
+    keysOf('<a>see https://x.io {t("nav.topology")}</a>\n<p>a // b</p>'),
+    ["nav.topology"],
+    "URL // in JSX text is not a comment"
   );
   assertEq(extractKeyRefs('/* a\n b */\nt("x.y")').map((r) => r.line), [3], "line numbers survive comment blanking");
 
