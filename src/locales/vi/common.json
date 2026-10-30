@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "Xác minh chiến lược",
     "platform": "Nền tảng",
+    "policy": "Chính sách",
     "sampleCount": "Số mẫu",
     "run": "Chạy xác minh",
     "latency": "Độ trễ trung bình",

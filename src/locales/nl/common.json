@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "Strategie verificatie",
     "platform": "Platform",
+    "policy": "Beleid",
     "sampleCount": "Steekproefaantal",
     "run": "Verificatie uitvoeren",
     "latency": "Gemiddelde latentie",

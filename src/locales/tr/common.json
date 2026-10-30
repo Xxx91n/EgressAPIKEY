@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "Strateji doğrulama",
     "platform": "Platform",
+    "policy": "Politika",
     "sampleCount": "Örnek sayısı",
     "run": "Doğrulamayı çalıştır",
     "latency": "Ortalama gecikme",

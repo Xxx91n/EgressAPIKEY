@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "Verificación de estrategia",
     "platform": "Plataforma",
+    "policy": "Política",
     "sampleCount": "Número de muestras",
     "run": "Ejecutar verificación",
     "latency": "Latencia promedio",

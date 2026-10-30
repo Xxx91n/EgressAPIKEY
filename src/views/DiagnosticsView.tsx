@@ -692,8 +692,8 @@ export function DiagnosticsView() {
           {verifyResult && (
             <div className="rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 p-3 space-y-1" data-testid="verify-result">
               <div className="flex gap-4 text-xs">
-                <span className="text-zinc-500">{t("diagnostics.portHealth.platform")}: <b className="text-zinc-700 dark:text-zinc-300">{String(verifyResult.platform ?? "-")}</b></span>
-                <span className="text-zinc-500">{t("diagnostics.portHealth.policy")}: <b className="text-zinc-700 dark:text-zinc-300">{String(verifyResult.strategy ?? "-")}</b></span>
+                <span className="text-zinc-500">{t("strategyVerify.platform")}: <b className="text-zinc-700 dark:text-zinc-300">{String(verifyResult.platform ?? "-")}</b></span>
+                <span className="text-zinc-500">{t("strategyVerify.policy")}: <b className="text-zinc-700 dark:text-zinc-300">{String(verifyResult.strategy ?? "-")}</b></span>
                 <span className="text-zinc-500">{t("strategyVerify.uniqueIps")}: <b className="text-zinc-700 dark:text-zinc-300">{String(verifyResult.unique_ips ?? "-")}</b></span>
                 <span className="text-zinc-500">{t("strategyVerify.latency")}: <b className="text-zinc-700 dark:text-zinc-300">{String(verifyResult.avg_latency_ms ?? "-")}ms</b></span>
               </div>

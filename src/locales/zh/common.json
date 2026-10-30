@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "策略验证",
     "platform": "平台",
+    "policy": "策略",
     "sampleCount": "采样数",
     "run": "开始验证",
     "latency": "平均延时",

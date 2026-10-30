@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "रणनीति सत्यापन",
     "platform": "प्लेटफ़ॉर्म",
+    "policy": "नीति",
     "sampleCount": "नमूना संख्या",
     "run": "सत्यापन चलाएं",
     "latency": "औसत विलंबता",
