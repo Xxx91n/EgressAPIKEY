@@ -6,7 +6,7 @@ EgressAPIKEY is a Tauri 2 + React 19 desktop app: an L7 proxy gateway for AI API
 
 - Dev: `pnpm install` → `bash scripts/fetch_resin.sh` → `pnpm tauri dev` (full setup: [CONTRIBUTING.md](CONTRIBUTING.md))
 - Verify: `bash scripts/verify-build.sh` — the same script CI runs. Delivery is CI-only: a change is done when the CI verify job is green, never when a local build passes.
-- VCS writes go through GitButler `but`; never push or open PRs unless the user asks.
+- VCS writes go through GitButler `but`; never push or open PRs unless the user asks. Empty-branch exemption: a ticket with no code change by scope (pure closeout or verification ticket) may push a branch that sits exactly at the base SHA — the empty ref is a delivery receipt that makes CI verify run against the base, not a "no substantive change" violation; it still needs the explicit ask, and any ticket that does have code to change carries a commit.
 
 ## Do not edit
 
