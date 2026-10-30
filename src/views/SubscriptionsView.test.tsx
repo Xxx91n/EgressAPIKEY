@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, act } from "@testing-library/react";
 import { invokeMock } from "../test/setup";
 import { SubscriptionsView } from "./SubscriptionsView";
 import { useAppStore } from "../store/appStore";
@@ -399,38 +399,55 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
   });
 
   it("F3: 30s poll toasts on the failure edge and the recovery edge, silent on steady state", async () => {
-    let batch = 0;
+    // Resin's update_interval tick is what changes last_error over time, so the
+    // scripted server state is keyed on the poll clock (elapsed fake time) and
+    // not on how many reads the view happened to issue: an unrequested extra
+    // read re-serves its own window instead of skipping an edge. No
+    // shouldAdvanceTime and no waitFor, so nothing here advances on real time.
+    const POLL_MS = 30_000;
+    const healthy = (checked: string) => [{ name: "sub-x", node_count: 5, healthy_node_count: 5, last_error: "", last_checked: checked }];
     const batches = [
-      [{ name: "sub-x", node_count: 5, healthy_node_count: 5, last_error: "", last_checked: "2026-08-02T10:00:00Z" }],
-      [{ name: "sub-x", node_count: 5, healthy_node_count: 5, last_error: "", last_checked: "2026-08-02T10:00:30Z" }],
+      healthy("2026-08-02T10:00:00Z"),
+      healthy("2026-08-02T10:00:30Z"),
       [{ name: "sub-x", node_count: 0, healthy_node_count: 0, last_error: "dial tcp 1.2.3.4:443: i/o timeout", last_checked: "2026-08-02T10:01:00Z" }],
-      [{ name: "sub-x", node_count: 5, healthy_node_count: 5, last_error: "", last_checked: "2026-08-02T10:01:30Z" }],
+      healthy("2026-08-02T10:01:30Z"),
     ];
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers();
     try {
+      const startedAt = Date.now();
       invokeMock.mockImplementation(async (cmd: string) => {
         if (cmd === "subscription_list") {
-          const b = batches[Math.min(batch, batches.length - 1)];
-          batch++;
-          return b;
+          const pollIndex = Math.floor((Date.now() - startedAt) / POLL_MS);
+          return batches[Math.min(pollIndex, batches.length - 1)];
         }
         return undefined;
       });
+      // One tick of the poll clock, flushed through React before asserting.
+      const tick = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+
       render(<SubscriptionsView />);
-      // mount refresh consumes batch 0 (steady healthy): no toast, no banner
-      await waitFor(() => expect(screen.getByText(/sub-x/)).toBeInTheDocument());
+      // mount refresh consumes the first healthy batch: no toast, no banner
+      await tick(0);
+      expect(screen.getByText(/sub-x/)).toBeInTheDocument();
       expect(screen.queryByTestId("sub-error-banner")).toBeNull();
       // poll 1 (baseline): steady healthy -> still silent
-      await vi.advanceTimersByTimeAsync(30_000);
+      await tick(POLL_MS);
       expect(screen.queryByText(/fetch failed/i)).toBeNull();
+      expect(screen.queryByTestId("sub-error-banner")).toBeNull();
       // poll 2: healthy -> error edge -> failure toast + banner
-      await vi.advanceTimersByTimeAsync(30_000);
-      await waitFor(() => expect(screen.getByText(/Subscription sub-x fetch failed/)).toBeInTheDocument());
-      await waitFor(() => expect(screen.getByTestId("sub-error-banner")).toBeTruthy());
+      await tick(POLL_MS);
+      expect(screen.getByText(/Subscription sub-x fetch failed/)).toBeInTheDocument();
+      expect(screen.getByTestId("sub-error-banner")).toBeInTheDocument();
       // poll 3: error -> healthy edge -> recovery toast, banner cleared
-      await vi.advanceTimersByTimeAsync(30_000);
-      await waitFor(() => expect(screen.getByText(/Subscription sub-x fetch recovered/)).toBeInTheDocument());
-      await waitFor(() => expect(screen.queryByTestId("sub-error-banner")).toBeNull());
+      await tick(POLL_MS);
+      expect(screen.getByText(/Subscription sub-x fetch recovered/)).toBeInTheDocument();
+      expect(screen.queryByTestId("sub-error-banner")).toBeNull();
+      // poll 4: state unchanged, so this is the steady state that has a baseline
+      // to compare against (poll 1 does not). Silence here means the recovery
+      // toast is still the only toast on screen and no failure edge fired again.
+      await tick(POLL_MS);
+      expect(screen.queryByText(/fetch failed/i)).toBeNull();
+      expect(screen.getByText(/Subscription sub-x fetch recovered/)).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
