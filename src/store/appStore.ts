@@ -207,7 +207,7 @@ export const CONVERGE_POLL_CONVERGED_MS = 30_000;
 /// is at least this old (checkpoint A: lastApplyAt > 60s).
 export const CONVERGE_SETTLE_SECONDS = 60;
 
-/// Event channel owned by src-tauri/src/sidecar.rs (G3 health poll / G4).
+/// Event channel owned by src-tauri/src/sidecar.rs (Ghost safety-net health poll; G4 signal channel).
 export const SIDECAR_STATUS_EVENT = "sidecar-status";
 ///: emitted by the Rust port family when an L2 intent was
 /// persisted but the L3 (Resin) mutation was rejected, so the drift becomes
@@ -318,7 +318,7 @@ function convergeSubscribe(): () => void {
       typeof document === "undefined" ? false : document.visibilityState === "hidden",
   });
   // Checkpoint B: sidecar lifecycle transitions (healthy/unhealthy/
-  // terminated/restarting from the G3 health poll) refetch immediately.
+  // terminated/restarting from the Ghost safety-net health poll) refetch immediately.
   void listen(SIDECAR_STATUS_EVENT, () => {
     convergeDevMark("sidecar-status");
     void useAppStore.getState().refreshConvergeSnapshot();

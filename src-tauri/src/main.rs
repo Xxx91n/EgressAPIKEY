@@ -225,7 +225,7 @@ fn main() {
             // immediately instead of waiting for the converge poll.
             egressapikey_app::commands::install_snapshot_refresh(app.handle().clone());
 
-            // G1: boot the Resin Go sidecar and expose it to IPC commands (G2
+            // Boot the Resin Go sidecar and expose it to IPC commands (the
             // ResinClient reads admin_token from this State). boot_resin blocks
             // up to 15s waiting for the sidecar /health endpoint; on timeout we
             // surface the error to setup so the app refuses to start rather
@@ -415,7 +415,7 @@ fn main() {
             app.manage(forwarder);
             // Phase 1: shared pause flag for watch_port_health batch probe.
             app.manage(commands::PortHealthPaused::new(false));
-            // G3: Ghost safety-net - /healthz poll every 3s, 3 consecutive
+            // Ghost safety-net - /healthz poll every 3s, 3 consecutive
             // failures flip the tray red, clear OS system proxy if any, and
             // emit a sidecar-status "unhealthy" event to the webview. When
             // the sidecar recovers, tray flips green and a "healthy" event

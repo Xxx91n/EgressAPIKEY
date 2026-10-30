@@ -32,7 +32,7 @@ their row id.
 
 - Embedded WebUI: `resin/internal/api/webui.go` registers `/`, `/ui`, `/ui/` (SPA assets). The shell never calls these.
 - Data-plane token actions: `POST /{proxy_token}/api/v1/{platform}/actions/inherit-lease` (`handler_token_action.go:22`, mounted by `cmd/resin/inbound_mux.go:399/456`) — proxy-token authenticated, NOT part of the admin mux. `ResinClient` must never construct `/{token}/api/v1/...` paths.
-- `/healthz` is unauthenticated on every listener; the shell consumes it with direct reqwest in `src-tauri/src/sidecar.rs` (boot await 15s, G3 ghost 3s poll), never through ResinClient.
+- `/healthz` is unauthenticated on every listener; the shell consumes it with direct reqwest in `src-tauri/src/sidecar.rs` (boot await 15s, Ghost safety-net 3s poll), never through ResinClient.
 - Headless BFF mode (the headless server is a separate required-features-gated bin): `src/lib/ipc.ts CMD_TO_HTTP` forwards a subset of the same IPC commands to `/api/v1/*` server-side; the rows below are identical, only the transport differs.
 
 ## Finding: refresh-completion hook shape
@@ -57,7 +57,7 @@ lists only the tag-filter DB migration), so this table matches the bundled v1.2.
 
 | # | HTTP method + path | Resin handler (file:line) | ResinClient method (resin_client.rs:line) | IPC command / consumer | 状态 | 文档位置 | 引入版本 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| R01 | GET /healthz | handler_healthz.go:7 | — (direct reqwest, not via client) | — (sidecar boot await + G3 ghost poll) | 已对接 | ARCHITECTURE.md sidecar section; sidecar.rs:371/956 | v1.0 | 唯一无鉴权端点；shell 直连轮询，不经 ResinClient |
+| R01 | GET /healthz | handler_healthz.go:7 | — (direct reqwest, not via client) | — (sidecar boot await + Ghost safety-net poll) | 已对接 | ARCHITECTURE.md sidecar section; sidecar.rs:371/956 | v1.0 | 唯一无鉴权端点；shell 直连轮询，不经 ResinClient |
 | R02 | GET /api/v1/system/info | handler_system.go:57 | — | — | 空白 | — | v1.0 | WebUI 顶部信息用；shell 无消费场景（诊断卡候选） |
 | R03 | GET /api/v1/system/config | handler_system.go:64 | system_config_get:441 | system_config_get (settings.rs:62) | 已对接 | settings.rs:58 | v1.0 | 熔断阈值等只读展示 |
 | R04 | GET /api/v1/system/config/default | handler_system.go:75 | — | — | 故意不接 | — | v1.0 | 出厂默认值由 Resin 自身管理；shell 无需展示不可改值 |
