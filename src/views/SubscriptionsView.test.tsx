@@ -431,8 +431,11 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
       await tick(0);
       expect(screen.getByText(/sub-x/)).toBeInTheDocument();
       expect(screen.queryByTestId("sub-error-banner")).toBeNull();
-      // poll 1 (baseline): steady healthy -> still silent
+      // poll 1 (baseline): steady healthy -> still silent. The timestamp is the
+      // positive half: it proves the baseline read landed, so "silent" below is a
+      // comparison that ran, not a poll that never fired.
       await tick(POLL_MS);
+      expect(screen.getByText(/2026-08-02 10:00:30/)).toBeInTheDocument();
       expect(screen.queryByText(/fetch failed/i)).toBeNull();
       expect(screen.queryByTestId("sub-error-banner")).toBeNull();
       // poll 2: healthy -> error edge -> failure toast + banner
