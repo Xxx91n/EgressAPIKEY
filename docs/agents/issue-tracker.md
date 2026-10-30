@@ -65,8 +65,9 @@ write each verdict into the ticket. Every step is re-runnable as written;
 
    Resolve the sha first: `--commit` matches the full 40-character sha, and a
    short one returns an empty list — which reads like "no run" and is not. The
-   run must be on the dependency's merge commit (or a descendant of it on the
-   base branch), and its conclusion must be `success`.
+   run must be on the dependency's own merge commit, and its conclusion must be
+   `success`; `--commit` queries that one sha, so a green run on a later commit
+   of the base branch does not substitute for it.
 4. **Name the guard that keeps it fixed.** For a fix, find the test or guard
    (`git grep -n '<test name>' <base>`) and confirm it is wired into
    `scripts/verify-build.sh`; a fix with no guard re-rots silently and is not a
@@ -79,6 +80,6 @@ write each verdict into the ticket. Every step is re-runnable as written;
    empty.
 6. **Closed but not met → do not start.** Reopen the dependency
    (`gh issue reopen <N> --comment "<missing evidence>"`), or file a follow-up,
-   and leave the blocked ticket alone until step 5 reads `met` in the
-   dependency's own ticket. Starting because the dependency is "probably fine"
-   is the failure this section exists to prevent.
+   and leave the blocked ticket alone until step 5 records `met` for that
+   dependency. Starting because the dependency is "probably fine" is the
+   failure this section exists to prevent.
