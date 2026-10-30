@@ -7,9 +7,9 @@
 // of the commit that introduced boot_resin() carries the actual
 // pid/title/sidecar evidence) plus the
 // `gen_token` unit tests in src-tauri/src/sidecar.rs. This spec exists so CI
-// fails fast if the React shell ever stops mounting before Rust-side
-// integration wiring (ResinClient, IPC retarget, sidecar-status channel)
-// lands.
+// fails fast if the React shell ever stops mounting, independently of the
+// Rust-side integration wiring (ResinClient, IPC retarget, sidecar-status
+// channel).
 
 import { test, expect } from "@playwright/test";
 

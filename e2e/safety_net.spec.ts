@@ -4,8 +4,8 @@
 // Like sidecar_boot.spec.ts, we cannot drive the native Tauri webview from
 // Playwright. The Rust-side behavior is verified by the release-exe smoke
 // harness in .codex-tmp/smoke3.ps1 (run when the safety net landed; the
-// message of the commit that introduced it carries the kill+9s evidence). This spec documents the
-// contract the React shell is expected to honour:
+// message of the commit that introduced it carries the kill+9s evidence).
+// This spec documents the contract the React shell is expected to honour:
 //
 // 1. A "sidecar-status" event is emitted from Rust with payload
 // "healthy" | "unhealthy".

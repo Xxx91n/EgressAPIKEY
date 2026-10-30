@@ -227,7 +227,7 @@ fn main() {
 
             // Boot the Resin Go sidecar and expose it to IPC commands (the
             // ResinClient reads admin_token from this State). boot_resin blocks
-            // up to 15s waiting for the sidecar /health endpoint; on timeout we
+            // up to 15s waiting for the sidecar /healthz endpoint; on timeout we
             // surface the error to setup so the app refuses to start rather
             // than running a half-broken shell with no proxy backend.
             let sidecar = boot_resin(app.handle())?;
