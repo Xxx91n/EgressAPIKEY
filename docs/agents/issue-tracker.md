@@ -59,12 +59,14 @@ will branch from (`git rev-parse origin/main`).
    not evidence:
 
    ```bash
-   gh pr view <PR> --json mergeCommit -q .mergeCommit.oid
-   gh run list --workflow ci --commit <dep-sha> --json conclusion,url
+   gh pr view <PR> --json mergeCommit -q .mergeCommit.oid   # full 40-char sha
+   gh run list --workflow ci --commit <full-sha> --json conclusion,url
    ```
 
-   The run must be on the dependency's merge commit (or a descendant of it on
-   the base branch), and its conclusion must be `success`.
+   Resolve the sha first: `--commit` matches the full 40-character sha, and a
+   short one returns an empty list — which reads like "no run" and is not. The
+   run must be on the dependency's merge commit (or a descendant of it on the
+   base branch), and its conclusion must be `success`.
 4. **Name the guard that keeps it fixed.** For a fix, find the test or guard
    (`git grep -n '<test name>' <base>`) and confirm it is wired into
    `scripts/verify-build.sh`; a fix with no guard re-rots silently and is not a
