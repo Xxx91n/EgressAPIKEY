@@ -51,8 +51,13 @@ write here), then `git rev-parse origin/main`.
    the dependency's title. If the sentence needs a "because the ticket says so",
    the dependency is not understood yet — read it first.
 2. **Find the commit that carries it on `<base>`, and call it `<dep-sha>`.**
-   `git log --oneline <base> -- <path>` for the files the behaviour lives in,
-   and `git log -S'<symbol>' --oneline <base>` for when the code itself moved.
+   The commands print full hashes, because step 3 needs one:
+
+   ```bash
+   git log --format='%H %s' <base> -- <path>      # files the behaviour lives in
+   git log -S'<symbol>' --format='%H %s' <base>   # when the code itself moved
+   ```
+
    When the dependency landed as a pull request, the commit it put on the base
    is the PR's merge commit — the squash result, not the pre-merge head:
 
