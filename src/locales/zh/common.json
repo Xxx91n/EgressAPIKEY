@@ -175,7 +175,7 @@
     "passwordMasked": "密码: (已隐藏)",
     "port": "端口",
     "portAddOk": "入口端口已添加",
-    "portBound": "已绑定 :{{port}} → {{platform}}",
+    "portBound": "已绑定:{{port}} → {{platform}}",
     "portDuplicate": "端口已存在",
     "portInvalid": "端口必须在 1024–65535",
     "portLabel": "标签",

@@ -175,7 +175,7 @@
     "passwordMasked": "wachtwoord: (verborgen)",
     "port": "Poort",
     "portAddOk": "Poort toegevoegd",
-    "portBound": "Gebonden :{{port}} → {{platform}}",
+    "portBound": "Gebonden:{{port}} → {{platform}}",
     "portDuplicate": "Poort bestaat al",
     "portInvalid": "Poort moet 1024–65535 zijn",
     "portLabel": "Label",

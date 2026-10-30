@@ -175,7 +175,7 @@
     "passwordMasked": "password: (masked)",
     "port": "Port",
     "portAddOk": "Entry port added",
-    "portBound": "Bound :{{port}} → {{platform}}",
+    "portBound": "Bound:{{port}} → {{platform}}",
     "portDuplicate": "Port already exists",
     "portInvalid": "Port must be 1024–65535",
     "portLabel": "Label",

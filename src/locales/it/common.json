@@ -175,7 +175,7 @@
     "passwordMasked": "password: (nascosta)",
     "port": "Porta",
     "portAddOk": "Porta aggiunta",
-    "portBound": "Collegato :{{port}} → {{platform}}",
+    "portBound": "Collegato:{{port}} → {{platform}}",
     "portDuplicate": "La porta esiste già",
     "portInvalid": "La porta deve essere 1024–65535",
     "portLabel": "Etichetta",
