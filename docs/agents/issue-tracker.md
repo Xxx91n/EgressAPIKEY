@@ -16,6 +16,29 @@ gh issue create --title "<title>" --label needs-triage --body "<body>"
 gh issue view <number>
 ```
 
+## Tickets that produce no diff
+
+A `Type: research` (or `prototype` / `grilling`) ticket whose deliverable is a
+verdict, an evaluation or an answer carries **no code change**. Its acceptance
+evidence is the issue itself — the resolution comment with conclusion, reasoning
+and measured evidence — not a passing diff.
+
+Do not invent a commit to manufacture a review surface. `gh pr create` refuses a
+head with no commits (`GraphQL: No commits between <base> and <branch>`), and an
+empty marker commit buys a review of prose already recorded on the issue. GitHub
+enforces this for us; treat the refusal as the correct answer rather than an
+obstacle to route around.
+
+Delivery still runs through CI. Push a branch that sits exactly at the base SHA
+so the `verify` job executes against the base, and record the run with the
+resolution comment. The empty ref is a delivery receipt, not a change: say
+plainly that a green run attests the base and attests nothing about the ticket's
+findings, because there is no diff for it to exercise.
+
+When the evaluation concludes that work should be done, file the implementation
+ticket (`Type: task`) and let a diff exist there. That ticket is what a PR and a
+code review apply to.
+
 ## Wayfinding operations
 
 - **Map**: a GitHub issue whose body carries the Notes / Decisions-so-far / Fog
