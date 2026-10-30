@@ -15,11 +15,13 @@ import { loadSubOrder, saveSubOrder } from "../lib/settings";
 import { usePoll } from "../hooks/usePoll";
 import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
-/// How often this view re-reads subscription_list to catch an edge. It is the
-/// shell's own cadence, not Resin's Subscription Update Interval (GLOSSARY:
-/// upstream >=30s floor), which it merely mirrors. Exported because F3 both
-/// ticks and splits its batches by this number - a second literal would let the
-/// two drift apart.
+/// How often this view re-reads subscription_list to catch an edge. Resin
+/// re-pulls on its own Subscription Update Interval (GLOSSARY "Subscription
+/// Update Interval": upstream enforces a ≥30s floor, per-subscription and
+/// caller-supplied), and this cadence is set to that floor rather than to each
+/// subscription's interval - a 1m sub is still read here every 30s. Exported
+/// because the F3 case steps its clock and splits its poll batches by this
+/// number.
 export const SUBSCRIPTION_POLL_INTERVAL_MS = 30_000;
 
 /// State of the INLINE (never a modal) bind
