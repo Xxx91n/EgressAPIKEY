@@ -68,13 +68,25 @@ function listSourceFiles(dir) {
   return out;
 }
 
+// True when a `//` or `/*` at index i sits where only a comment can start: at
+// line start or after code punctuation. Anything else is kept as text.
+function opensComment(src, i) {
+  let j = i - 1;
+  while (j >= 0 && (src[j] === " " || src[j] === "\t")) j--;
+  return j < 0 || src[j] === "\n" || src[j] === "\r" || ";,{}()[]".includes(src[j]);
+}
+
 // Replace every comment with spaces (newlines kept, so offsets and line numbers
 // survive) while leaving string, template and regex literals intact. Inside a
 // template literal, ${...} is code again (tracked by brace depth). A `/` starts a
 // regex literal when the previous significant character cannot end an operand.
-// Known limit: bare JSX text is not parsed as such, so an apostrophe in it
-// (don't) opens a pseudo-string to the end of that line; a comment after it on
-// the same line is then scanned as code - a loud false red, never a silent miss.
+// Bare JSX text is not parsed as such, so every ambiguity is resolved toward
+// scanning MORE text (a loud false red), never less (a silent miss):
+//   - `//` and `/*` open a comment only at line start or after one of ; , { } ( ) [ ]
+//     (code punctuation). After a word, `:` or `>` - "a // b", "https://x.io",
+//     "<p>// x" in JSX text - they stay text and their line is still scanned;
+//   - an apostrophe in JSX text (don't) opens a pseudo-string to the end of that
+//     line, so a comment after it on that line is scanned as code.
 function blankComments(src) {
   const out = src.split("");
   const n = src.length;
@@ -94,15 +106,14 @@ function blankComments(src) {
       i++;
       continue;
     }
-    // `//` right after `:` is a URL in bare JSX text (see https://x.io), not a comment.
-    if (c === "/" && src[i + 1] === "/" && src[i - 1] !== ":") {
+    if (c === "/" && src[i + 1] === "/" && opensComment(src, i)) {
       let j = i;
       while (j < n && src[j] !== "\n") j++;
       blank(i, j);
       i = j;
       continue;
     }
-    if (c === "/" && src[i + 1] === "*") {
+    if (c === "/" && src[i + 1] === "*" && opensComment(src, i)) {
       const end = src.indexOf("*/", i + 2);
       const j = end === -1 ? n : end + 2;
       blank(i, j);
@@ -161,17 +172,20 @@ function extractKeyRefs(src) {
     if (quote === "`" && body.includes("${")) continue;
     refs.push({ key: body, line: lineAt(m.index) });
   }
-  // i18nKey="a.b" or i18nKey={"a.b"}; in the braced form the literal must close
+  // i18nKey="a.b" or i18nKey={"a.b"} / {`a.b`}; in the braced form the literal must close
   // the expression (i18nKey={"strategy." + x} is concatenation and is ignored).
-  const attr = /(?<![A-Za-z0-9_$])i18nKey\s*=\s*(\{\s*)?(["'])([^"'\n]*)\2\s*([^\s])?/g;
+  const attr = /(?<![A-Za-z0-9_$])i18nKey\s*=\s*(\{\s*)?(["'`])((?:(?!\2)[^\\\n])*)\2\s*([^\s])?/g;
   while ((m = attr.exec(code)) !== null) {
     if (m[1] && m[4] !== "}") continue;
+    if (m[2] === "`" && (!m[1] || m[3].includes("${"))) continue;
     refs.push({ key: m[3], line: lineAt(m.index) });
   }
   return refs;
 }
 
-// Rust emitter pass: every "error.<ident>" string literal, comment lines excluded.
+// Rust emitter pass: every "error.<ident>" string literal, `//` line comments
+// excluded. Deliberately line-based: a `/* */` block or a "..//.." literal before a
+// key on the same line is not modelled (ipc_error.rs has neither).
 function extractRustErrorKeys(src) {
   const keys = new Set();
   for (const raw of src.split(/\r?\n/)) {
@@ -293,10 +307,21 @@ function selfTest() {
     "Trans i18nKey concatenation and identifier are ignored"
   );
   assertEq(
-    keysOf('<a>see https://x.io {t("nav.topology")}</a>\n<p>a // b</p>'),
-    ["nav.topology"],
-    "URL // in JSX text is not a comment"
+    keysOf([
+      '<a>see https://x.io {t("nav.topology")}</a>',
+      '<p>a // b {t("strategy.random")}</p>',
+      '<p>// note {t("error.notFound")}</p>',
+      '<a>https://x.io/* docs {t("strategyVerify.platform")}</a>',
+    ].join("\n")),
+    ["nav.topology", "strategy.random", "error.notFound", "strategyVerify.platform"],
+    "// and /* inside JSX text stay text: keys after them are still scanned"
   );
+  assertEq(
+    keysOf('foo(); // t("a.gone")\nconst o = { a: 1, // t("b.gone")\n};\n{/* t("c.gone") */}\n  /** t("d.gone") */'),
+    [],
+    "real comments (line start or after code punctuation) are blanked"
+  );
+  assertEq(keysOf('<Trans i18nKey={`nav.topology`} />\n<Trans i18nKey={`nav.${k}`} />'), ["nav.topology"], "backtick i18nKey: whole literal checked, interpolation ignored");
   assertEq(extractKeyRefs('/* a\n b */\nt("x.y")').map((r) => r.line), [3], "line numbers survive comment blanking");
 
   // Resolution: legitimate keys pass, plural siblings pass.
