@@ -15,6 +15,15 @@ import { loadSubOrder, saveSubOrder } from "../lib/settings";
 import { usePoll } from "../hooks/usePoll";
 import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice";
 
+/// How often this view re-reads subscription_list to catch an edge. Resin
+/// re-pulls on its own Subscription Update Interval (GLOSSARY.md "Subscription
+/// Update Interval": upstream enforces a ≥30s floor); that interval is
+/// caller-supplied per subscription, so this cadence tracks the floor rather
+/// than each subscription - a 1m sub is still read every 30s here, while the
+/// window is visible. Exported because the F3 case steps its clock and splits
+/// its poll batches by this number.
+export const SUBSCRIPTION_POLL_INTERVAL_MS = 30_000;
+
 /// State of the INLINE (never a modal) bind
 /// step. After a successful import the form area switches to a second step
 /// where the user optionally binds the new subscription to platforms (and,
@@ -175,7 +184,7 @@ export function SubscriptionsView() {
     }
     prevSubStateRef.current = next;
   }, [applyOrder, localOrder, summarizeError, t]);
-  usePoll(pollEdge, { intervalMs: 30_000, fireImmediately: false });
+  usePoll(pollEdge, { intervalMs: SUBSCRIPTION_POLL_INTERVAL_MS, fireImmediately: false });
 
   // P13 B4: Resin parses local subscription content on its 30s update_interval
   // tick. Poll up to 5 times at 3s so the user sees the real node_count within
