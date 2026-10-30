@@ -1,4 +1,4 @@
-# Mode A boundary-law census (R12-E1)
+# Mode A boundary-law census
 
 `census.json` is the **frozen inventory** of the Mode A dataplane
 (`crates/resin-core/src/port_forwarder.rs`): every non-test function, the
@@ -27,10 +27,10 @@ adjudication.
 `port_forwarder.rs` line count is reported warn-only — a reference
 column, never the trigger (register wording).
 
-Convention: `content.split('\n').length` (r12-wave-f D-003),
+Convention: `content.split('\n').length`,
 recorded in census.json as `line_count_convention`.
 
-Two fail-closed extractor guards (r12-wave-f D-003) sit beside the
+Two fail-closed extractor guards sit beside the
 three bans above:
 
 - `extractor_version` couples the gate regexes to this file: any
@@ -49,6 +49,6 @@ three bans above:
 ## Deliberate change path
 
 If a change is adjudicated to extend Mode A, update `census.json` **in
-the same commit** and cite the adjudication (decision-ledger D-id or ADR)
+the same commit** and cite the adjudication (the issue or PR that decided it)
 in the commit message. A gate failure with no matching adjudication is
 the trigger line firing — stop and re-open, do not "fix" the census.

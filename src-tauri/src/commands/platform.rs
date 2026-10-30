@@ -1017,7 +1017,7 @@ pub struct LeaseEntry {
 
 /// Live active lease map from the Resin sidecar. The GUI polls this alongside
 /// platform_list + node_list in the Topology sync loop and renders a per-platform
-/// lease chip showing "(account short): egress_ip". Used by A4-3 to prove the
+/// lease chip showing "(account short): egress_ip", which proves the
 /// (key, endpoint) -> distinct egress IP contract is live in the GUI, not just
 /// prose.
 #[tauri::command]

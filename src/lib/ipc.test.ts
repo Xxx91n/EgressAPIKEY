@@ -117,7 +117,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(invokeMock).toHaveBeenCalledWith("subscription_add", expect.objectContaining({ name: "n", url: "https://x.invalid/sub", pipeline: null }));
   });
 
-  it("subscription_add forwards pipeline=establish when requested (round7 T01)", async () => {
+  it("subscription_add forwards pipeline=establish when requested", async () => {
     invokeMock.mockResolvedValue(undefined);
     await ipcSubscriptionAdd("n", "https://x.invalid/sub", undefined, "establish");
     expect(invokeMock).toHaveBeenCalledWith("subscription_add", expect.objectContaining({ pipeline: "establish" }));
@@ -140,7 +140,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(r).toEqual([{ name: "n", node_count: 7 }]);
   });
 
-  it("T02: ipcSubscriptionRefresh forwards name and resolves changed result", async () => {
+  it("ipcSubscriptionRefresh forwards name and resolves changed result", async () => {
     const result = { node_count: 42, changed: true };
     invokeMock.mockResolvedValue(result);
     const r = await ipcSubscriptionRefresh("main");
@@ -148,26 +148,26 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(invokeMock).toHaveBeenCalledWith("subscription_refresh", expect.objectContaining({ name: "main" }));
   });
 
-  it("T19-P2: ipcSubscriptionRefresh validates name length", async () => {
+  it("ipcSubscriptionRefresh validates name length", async () => {
     await expect(ipcSubscriptionRefresh("")).rejects.toThrow(/subscription invalid/);
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  it("T19-P3: ipcNodeProbe forwards hash + kind for latency", async () => {
+  it("ipcNodeProbe forwards hash + kind for latency", async () => {
     invokeMock.mockResolvedValue({ latency_ewma_ms: 89 });
     const r = (await ipcNodeProbe("abc123", "latency")) as { latency_ewma_ms: number };
     expect(r.latency_ewma_ms).toBe(89);
     expect(invokeMock).toHaveBeenCalledWith("node_probe", expect.objectContaining({ nodeHash: "abc123", kind: "latency" }));
   });
 
-  it("T19-P3: ipcNodeProbe forwards hash + kind for egress", async () => {
+  it("ipcNodeProbe forwards hash + kind for egress", async () => {
     invokeMock.mockResolvedValue({ egress_ip: "1.2.3.4", region: "us", latency_ewma_ms: 12 });
     const r = (await ipcNodeProbe("abc123", "egress")) as { egress_ip: string };
     expect(r.egress_ip).toBe("1.2.3.4");
     expect(invokeMock).toHaveBeenCalledWith("node_probe", expect.objectContaining({ nodeHash: "abc123", kind: "egress" }));
   });
 
-  it("T19-P3: ipcNodeProbe rejects control chars in hash (TS guard)", async () => {
+  it("ipcNodeProbe rejects control chars in hash (TS guard)", async () => {
     await expect(ipcNodeProbe("bad\x01hash", "latency")).rejects.toThrow(/node_hash invalid/);
     expect(invokeMock).not.toHaveBeenCalled();
   });
@@ -418,7 +418,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     await expect(ipcPortRunning()).resolves.toEqual([17990, 17991]);
     expect(invokeMock).toHaveBeenCalledWith("port_running", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
-  it("T8-1 ipcPortBindPlatform forwards port + platformName (empty = unbind)", async () => {
+  it("ipcPortBindPlatform forwards port + platformName (empty = unbind)", async () => {
     const { ipcPortBindPlatform } = await import("./ipc");
     invokeMock.mockResolvedValue(true);
     const ok = await ipcPortBindPlatform(17990, "Default");
@@ -428,7 +428,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     await ipcPortBindPlatform(17990, "");
     expect(invokeMock).toHaveBeenLastCalledWith("port_bind_platform", expect.objectContaining({ port: 17990, platformName: "" }));
   });
-  it("T8-1 ipcPortBindPlatform rejects invalid platformName chars", async () => {
+  it("ipcPortBindPlatform rejects invalid platformName chars", async () => {
     const { ipcPortBindPlatform } = await import("./ipc");
     await expect(ipcPortBindPlatform(17990, "bad\x00name")).rejects.toThrow();
   });
@@ -469,7 +469,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  describe("strategy IPC (T4-4)", () => {
+  describe("strategy IPC", () => {
     it("ipcStrategyConfigGet forwards to strategy_config_get", async () => {
       invokeMock.mockResolvedValueOnce({ version: 1, platforms: [] });
       const cfg = await ipcStrategyConfigGet();
@@ -502,7 +502,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
       expect(invokeMock).toHaveBeenCalledWith("strategy_apply", expect.objectContaining({ __trace_id: expect.any(String) }));
     });
 
-    it("ipcStrategyPlatformRegionsSet forwards name + regions (ticket 10 deep IPC)", async () => {
+    it("ipcStrategyPlatformRegionsSet forwards name + regions (deep IPC)", async () => {
       invokeMock.mockResolvedValue({ version: 1, platforms: [] });
       await ipcStrategyPlatformRegionsSet("openai", ["US", "HK"]);
       expect(invokeMock).toHaveBeenCalledWith("strategy_platform_regions_set", expect.objectContaining({ platformName: "openai", regions: ["US", "HK"] }));
@@ -523,7 +523,7 @@ describe("port IPC (P2 multi-port thin forwarder)", () => {
 });
 
 // probe_exit_ip IPC wrapper closed-loop.
-describe("T6-4 ipcProbeExitIp", () => {
+describe("ipcProbeExitIp", () => {
   it("forwards port + protocol to probe_exit_ip invoke", async () => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue({ port: 1790, protocol: "http", exit_ip: "1.2.3.4", latency_ms: 50, status: 200 });
@@ -547,7 +547,7 @@ describe("T6-4 ipcProbeExitIp", () => {
 });
 
 // Firewall + request log tail IPC wrappers.
-describe("T6-5 firewall + request log tail", () => {
+describe("firewall + request log tail", () => {
   it("ipcCheckFirewallStatus forwards to check_firewall_status", async () => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue({ platform: "windows", firewall_on: true, inbound_blocked: true, detail: "..." });
@@ -571,7 +571,7 @@ describe("T6-5 firewall + request log tail", () => {
   });
 });
 
-describe("T19  metrics minimal-set wrappers", () => {
+describe("metrics minimal-set wrappers", () => {
   it("ipcMetricsRealtimeThroughput forwards with no params and coerces items", async () => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue({ step_seconds: 10, items: [{ ts: "2026-09-04T00:00:00Z", ingress_bps: 1, egress_bps: 2 }] });
@@ -642,7 +642,7 @@ describe("T19  metrics minimal-set wrappers", () => {
   });
 });
 
-describe("T21 (Round 5) request-log detail + payload wrappers", () => {
+describe("request-log detail + payload wrappers", () => {
   it("ipcRequestLogDetail forwards a valid UUID log_id", async () => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue({ id: "abc123", http_method: "POST", http_status: 200 });
@@ -736,7 +736,7 @@ describe("T21 (Round 5) request-log detail + payload wrappers", () => {
 
 
 // --- dual-mode tests (isTauri=false → fetch fallback) ---
-describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
+describe("dual-mode: isTauri=false falls back to fetch", () => {
   let originalTauriInternals: unknown;
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -876,7 +876,7 @@ describe("T17 dual-mode: isTauri=false falls back to fetch", () => {
 });
 
 // ---- (tauri-specta pilot): type-contract swap regression ----
-describe("specta-pilot wrappers (ticket 09)", () => {
+describe("specta-pilot wrappers", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 
   it("ipcSetLogLevel rejects out-of-union values before invoke", async () => {
@@ -892,7 +892,7 @@ describe("specta-pilot wrappers (ticket 09)", () => {
 });
 
 // --- snapshot metadata + acknowledged exemption sanitizers ---
-describe("ticket 12: authoritative snapshot metadata + acknowledged", () => {
+describe("authoritative snapshot metadata + acknowledged", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 
   it("ipcAuthoritativeSnapshot passes lastCheckedAt + divergent_since + acknowledged through", async () => {
@@ -1028,7 +1028,7 @@ describe("ticket 12: authoritative snapshot metadata + acknowledged", () => {
 });
 
 // --- reconcile plan/report sanitizers (untrusted backend data) ---
-describe("ticket 14: reconcile plan + report wrappers", () => {
+describe("reconcile plan + report wrappers", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 
   it("snapReconcilePlan narrows an untrusted plan and drops malformed rows", () => {
@@ -1078,7 +1078,7 @@ describe("ticket 14: reconcile plan + report wrappers", () => {
 
 
 // ---: routes in the authoritative snapshot ---
-describe("ticket 17: route snapshot sanitizers", () => {
+describe("route snapshot sanitizers", () => {
   beforeEach(() => { invokeMock.mockReset(); });
 
   it("ipcAuthoritativeSnapshot passes route variants through with the routes array", async () => {
@@ -1136,7 +1136,7 @@ describe("ticket 17: route snapshot sanitizers", () => {
 });
 
 // --- subscription_phases sanitizers ---
-describe("ticket T02: subscriptionPhases sanitizers", () => {
+describe("subscriptionPhases sanitizers", () => {
   it("passes well-formed phase rows through (camelCase parent field)", async () => {
     invokeMock.mockResolvedValueOnce({
       strategyVersion: 1,
@@ -1181,7 +1181,7 @@ describe("ticket T02: subscriptionPhases sanitizers", () => {
     ]);
   });
 
-  it("T04: passes a well-formed last_cascade_error through and drops it on rows without one", async () => {
+  it("passes a well-formed last_cascade_error through and drops it on rows without one", async () => {
     invokeMock.mockResolvedValueOnce({
       strategyVersion: 1,
       resinReachable: true,
@@ -1222,7 +1222,7 @@ describe("ticket T02: subscriptionPhases sanitizers", () => {
     expect(snap.subscriptionPhases?.[1].last_cascade_error).toBeUndefined();
   });
 
-  it("T04: a malformed cascade record drops WHOLE (no half-valid marking)", async () => {
+  it("a malformed cascade record drops WHOLE (no half-valid marking)", async () => {
     invokeMock.mockResolvedValueOnce({
       strategyVersion: 1,
       resinReachable: true,

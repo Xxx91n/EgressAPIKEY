@@ -1,4 +1,4 @@
-// Fixed-rate throughput phase (D-004: >=500 RPS at p99<50ms on 1 vCPU).
+// Fixed-rate throughput phase (original budget: >=500 RPS at p99<50ms on 1 vCPU).
 // Two engines, same target path:
 // openLoop — built-in zero-dep scheduler: requests fire on a fixed interval
 // regardless of in-flight count (no coordinated omission; the

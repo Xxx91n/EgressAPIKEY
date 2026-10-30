@@ -777,7 +777,7 @@ pub async fn ensure_default_port(
     // binds it). A create_endpoint here would EADDRINUSE-collide.
     // endpoint_created_this_pass: true only when THIS step's create_endpoint
     // returned Ok — compensation at the (f) failure branch deletes exactly
-    // that row, never a pre-existing engine listener (D-C1.4 compensate-
+    // that row, never a pre-existing engine listener (the compensate-
     // only-what-this-pass-created discipline).
     let mut endpoint_created_this_pass = false;
     if !forwarder.is_shell() {

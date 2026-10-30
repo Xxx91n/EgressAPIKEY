@@ -1,6 +1,6 @@
 //! Integration test: the subscription establish pipeline end-to-end against
 //! a mockito Resin (mock ResinClient seam — the Resin sidecar is NEVER
-//! started; architecture-recovery Round 7 ticket 01 acceptance).
+//! started).
 //!
 //! The load-bearing assertion is ORDER: the wire must see
 //! POST /subscriptions -> (GET subscriptions resolve) -> whitebox store
@@ -141,7 +141,7 @@ async fn e2e_sub_then_platform_then_apply_in_wire_order() {
     // at the post-bump value). Ref present, no duplicate entry.
     let cfg = svc.get().unwrap();
     assert_eq!(cfg.generation, 2);
-    // Round 7 T02 (D-C1.2): the pass drove the phase state machine. The
+    // The pass drove the phase state machine. The
     // status write landed in the SAME store entry machinery but did NOT
     // move the generation counter (asserted above — status ≠ spec).
     assert_eq!(

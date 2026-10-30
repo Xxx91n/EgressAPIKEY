@@ -7,7 +7,7 @@
 //! testing decision the behaviour is measured end to end, not through
 //! stubbed traits. The mock consolidated port replicates exactly what the
 //! gate and the contract probes observed live
-//! (.scratch/architecture-recovery/repro/d4-mixed/ + t17-contract/): one
+//! (baseline recorded in tests/fixtures/t17-contract/README.md): one
 //! port, both dialects, presented credentials parsed and relayed raw.
 //!
 //! Coverage map to the issue's acceptance boxes:

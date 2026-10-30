@@ -24,7 +24,7 @@ function baseSnap(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("EffectiveConfigView (ticket 13, read-only)", () => {
+describe("EffectiveConfigView (read-only)", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue(null);
@@ -48,7 +48,7 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
     render(<EffectiveConfigView />);
     const alpha = await screen.findByTestId("ec-platform-alpha");
     expect(within(alpha).getByTestId("ec-badge-consistent")).toHaveAttribute("data-state", "consistent");
-    // round9 ticket 02 (A-002): the Consistent row also surfaces the live policy value.
+    // The Consistent row also surfaces the live policy value.
     expect(within(alpha).getByTestId("ec-live-policy-alpha")).toHaveTextContent("p2c");
     const beta = screen.getByTestId("ec-platform-beta");
     expect(within(beta).getByTestId("ec-badge-divergent")).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
     );
     expect(within(beta).getByText(/r1, r2/)).toBeInTheDocument(); // desired half
     expect(within(beta).getByText(/r1(?!, r2)/)).toBeInTheDocument(); // live half
-    // ticket 02 scope is the Consistent row: the Divergent row keeps the region-only layout.
+    // Live-policy scope is the Consistent row: the Divergent row keeps the region-only layout.
     expect(within(beta).queryByTestId("ec-live-policy-beta")).not.toBeInTheDocument();
     const portRow = screen.getByTestId("ec-port-1790");
     expect(within(portRow).getByTestId("ec-badge-consistent")).toBeInTheDocument();
@@ -126,7 +126,7 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
     await screen.findByTestId("ec-no-entries");
   });
 
-  it("ticket 15: lists whitebox history and opens a confirm dialog with the target timestamp", async () => {
+  it("lists whitebox history and opens a confirm dialog with the target timestamp", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "authoritative_snapshot") return Promise.resolve(baseSnap());
       if (cmd === "strategy_backup_list") return Promise.resolve([{ file_name: "egressapikey-strategy.json.100.bak", unix_ts: TS, size_bytes: 55 }]);
@@ -146,7 +146,7 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
     expect(invokeMock).not.toHaveBeenCalledWith("strategy_rollback", expect.anything());
   });
 
-  it("ticket 15: rollback only fires after confirm, then refreshes snapshot and history", async () => {
+  it("rollback only fires after confirm, then refreshes snapshot and history", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "authoritative_snapshot") return Promise.resolve(baseSnap());
       if (cmd === "strategy_backup_list") return Promise.resolve([{ file_name: "egressapikey-strategy.json.100.bak", unix_ts: TS, size_bytes: 55 }]);
@@ -166,7 +166,7 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
     expect(screen.queryByTestId("ec-confirm-dialog")).toBeNull();
   });
 
-  it("ticket 15: rollback failure surfaces in the view error slot", async () => {
+  it("rollback failure surfaces in the view error slot", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "authoritative_snapshot") return Promise.resolve(baseSnap());
       if (cmd === "strategy_backup_list") return Promise.resolve([{ file_name: "egressapikey-strategy.json.100.bak", unix_ts: TS, size_bytes: 55 }]);
@@ -193,7 +193,7 @@ describe("EffectiveConfigView (ticket 13, read-only)", () => {
 //: reconcile preview dialog — confirm / cancel /
 // failure paths, re-entry guard, auto re-verify. Preview data comes from
 // the snapshot in memory (no extra request besides the re-verify pull).
-describe("EffectiveConfigView reconcile (ticket 14)", () => {
+describe("EffectiveConfigView reconcile", () => {
   const driftedSnap = () =>
     baseSnap({
       platforms: [
@@ -337,7 +337,7 @@ describe("EffectiveConfigView reconcile (ticket 14)", () => {
 // (instead of being folded into the divergent patch). The REAL en catalog is
 // wired into the test i18n so the assertions lock the shipped wording values,
 // not key fallbacks (src/test/setup.ts ships no effectiveConfig.* keys).
-describe("EffectiveConfigView reconcile preview coverage (ticket 19)", () => {
+describe("EffectiveConfigView reconcile preview coverage", () => {
   beforeAll(() => {
     i18next.addResourceBundle("en", "translation", { effectiveConfig: enCommon.effectiveConfig }, true, true);
   });
@@ -426,7 +426,7 @@ describe("EffectiveConfigView reconcile preview coverage (ticket 19)", () => {
 
 //: the top-level convergence chip. The REAL en
 // catalog is wired in so the assertions lock the shipped wording values.
-describe("EffectiveConfigView converge chip (round5 T09)", () => {
+describe("EffectiveConfigView converge chip", () => {
   beforeAll(() => {
     i18next.addResourceBundle("en", "translation", { effectiveConfig: enCommon.effectiveConfig }, true, true);
   });
@@ -552,11 +552,11 @@ describe("EffectiveConfigView converge chip (round5 T09)", () => {
   });
 });
 
-// round9 ticket 02 (A-002): the Consistent row surfaces the live
+// The Consistent row surfaces the live
 // allocation_policy Resin reported for the platform — the visible half of the
-// D-002 two-axis reconcile. The REAL en catalog is wired in so the assertions
+// two-axis reconcile. The REAL en catalog is wired in so the assertions
 // lock the shipped wording values, not key fallbacks.
-describe("EffectiveConfigView live policy render (round9 ticket 02)", () => {
+describe("EffectiveConfigView live policy render", () => {
   beforeAll(() => {
     i18next.addResourceBundle("en", "translation", { effectiveConfig: enCommon.effectiveConfig }, true, true);
   });

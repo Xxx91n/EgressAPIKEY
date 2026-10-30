@@ -1,6 +1,6 @@
-# Process Routes vs Account Header Rules (D-35)
+# Process Routes vs Account Header Rules
 
-> Round 5 T16. Two routing mechanisms coexist BY DESIGN — neither replaces
+> Two routing mechanisms coexist BY DESIGN — neither replaces
 > the other. This page is the decision aid for "which one do I
 > reach for".
 
@@ -48,7 +48,7 @@
 - 两者可以同时使用：本地调试走 process_route 固定端口；远程生产流量走
   header 规则。互不感知，互不替代。
 
-## Upgrade path (archived — Round 8 ticket 05 / D-005)
+## Upgrade path (archived)
 
 If Resin upstream ever ships a real process-group API, the snapshot seam is
 already shaped for it: `ProcessRouteSnapshot` carries the per-rule
@@ -60,9 +60,9 @@ process-group registry and the three-state merge, drift memory
 (`route:<name>` keys) and acknowledgement vocabulary keep working
 unchanged. INTERCEPTING a process's traffic is a different decision
 entirely — a separate round on the same level as the Resin-fork decision
-point (D-005), not part of this seam.
+point, not part of this seam.
 
-## Erratum vs the round5 research sketch
+## Erratum vs the earlier research sketch
 
 reports/03 §2 #4 and the issue F3 sketch described the rule headers as
 "X-Resin-Account 值路由". The upstream source is more precise: the rule's

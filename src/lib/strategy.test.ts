@@ -10,7 +10,7 @@ import {
   bClassLabel,
 } from "./strategy";
 
-describe("STRATEGY_IDS (round 8 ticket 01 / D-002)", () => {
+describe("STRATEGY_IDS", () => {
   it("is exactly Resin's three allocation policies", () => {
     expect([...STRATEGY_IDS]).toEqual([
       "BALANCED",
@@ -100,7 +100,7 @@ describe("isLegacyStrategyToken", () => {
   });
 });
 
-describe("bClassLabel (ticket 01: no parameter interpolation left)", () => {
+describe("bClassLabel (no parameter interpolation left)", () => {
   const t = (key: string): string =>
     ({
       "strategy.balanced": "Balanced",

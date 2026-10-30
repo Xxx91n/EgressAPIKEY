@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-/// Phase 5-1: trace_id passthrough closed-loop test.
+/// trace_id passthrough closed-loop test.
 /// Verifies that the invoke wrapper always generates a UUID v4 and injects
 /// it as __trace_id into the args passed to the Tauri backend.
 
@@ -49,7 +49,7 @@ describe("invokeWithTrace trace_id injection", () => {
 /// Audit — verify no silent .catch(() => {}) remains in source files.
 /// This is a source-level guard: it scans the actual .ts/.tsx files for
 /// the empty-catch pattern and fails if any are found.
-describe("T10 silent catch audit", () => {
+describe("silent catch audit", () => {
   it("no .catch(() => {}) in src/ source files", async () => {
     const fs = await import("fs");
     const path = await import("path");

@@ -33,7 +33,7 @@
  * static self-checks only, warns, and exits 0 (CI-only build policy
  * 2026-09-04: local never builds or downloads; live evidence = CI runs).
  *
- * Boundary law (R12-E1, registered legislation - NOT a new amnesty): Mode A
+ * Boundary law (registered legislation - NOT a new amnesty): Mode A
  * is a legislated dataplane under, so the static section also
  * freezes its boundary against tests/fixtures/mode-a-boundary/census.json:
  * protocol-family freeze {socks5-handshake, http-connect,
@@ -58,7 +58,7 @@ const BIN_DIR = path.join(REPO_ROOT, 'src-tauri', 'binaries');
 const IS_CI = process.env.CI === 'true';
 const WIN = process.platform === 'win32';
 
-// Extractor generation marker (r12-wave-f D-003): any change to the
+// Extractor generation marker: any change to the
 // fn-extraction regex below MUST bump this constant AND census.json's
 // extractor_version + refresh the census in the same commit - the gate
 // asserts the equality so a regex-only edit fails closed.
@@ -263,7 +263,7 @@ async function main() {
   record(fs.existsSync(path.join(REPO_ROOT, 'tests', 'fixtures', 't17-contract', 'README.md')),
     'tests/fixtures/t17-contract/README.md present (baseline table + hand recipe)');
 
-  // ---- Mode A boundary law (R12-E1 registered legislation assertions) ----
+  // ---- Mode A boundary law (registered legislation assertions) ----
   // These run on every invocation (CI and local): they assert the Mode A
   // dataplane still matches the frozen census, so net-new dataplane
   // behavior trips the register line instead of landing quietly.
@@ -277,7 +277,7 @@ async function main() {
   if (census) {
     // Ban 3 - no new L7 features: the non-test function inventory must
     // equal the census exactly (either direction of drift fails).
-    // Extractor v3 (r12-wave-f D-003, post-audit tighten): pub(..)?
+    // Extractor v3 (post-audit tighten): pub(..)?
     // then ANY combination/order of const / async / unsafe (whitespace-
     // separated) / extern (bare or "abi", whitespace optional both
     // sides: extern"C"fn is legal Rust) before fn. Qualifier combos
@@ -295,7 +295,7 @@ async function main() {
       'boundary: function inventory frozen at census ',
       missing.map(m => 'missing:' + m).concat(extra.map(e => 'new:' + e)).join(', ') || undefined);
 
-    // Extractor/census version coupling (r12-wave-f D-003): the
+    // Extractor/census version coupling: the
     // assertion self-documents the rule - a regex upgrade bumps
     // EXTRACTOR_VERSION above AND census.extractor_version AND refreshes
     // the census, all in one commit.
@@ -305,7 +305,7 @@ async function main() {
         : 'census has ' + JSON.stringify(census.extractor_version)
           + ' - bump EXTRACTOR_VERSION + census.extractor_version + refresh census in the same commit');
 
-    // Declarative-macro fail-closed (r12-wave-f D-003): the regex
+    // Declarative-macro fail-closed: the regex
     // extractor cannot see macro-generated fns, so ANY macro_rules!
     // or macro definition in port_forwarder.rs fails the gate with the
     // offending line number - a ten-second human decision, not a silent
@@ -362,8 +362,8 @@ async function main() {
       'got ' + JSON.stringify(dims));
   }
   // Register wording: line count is a warn-only reference column, not a
-  // trigger - report it, never assert on it. Convention (r12-wave-f
-  // D-003): content.split('\n').length, matching census.json's
+  // trigger - report it, never assert on it. Convention:
+  // content.split('\n').length, matching census.json's
   // line_count_convention; the frozen figure is read from census
   // .frozen_at, not hardcoded.
   console.log('WARN  port_forwarder.rs = ' + fwdSrc.split('\n').length

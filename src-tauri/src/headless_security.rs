@@ -268,7 +268,7 @@ pub fn token_cookie(token: &str) -> String {
 /// instance is merged in wire order and only the rightmost segment is
 /// consulted: that segment is the scheme the trusted hop NEAREST this
 /// process observed - earlier segments are client-suppliable and never
-/// rescue a non-https tail (r12 wave-i D-002; same direction as ASP.NET
+/// rescue a non-https tail (same direction as ASP.NET
 /// ForwardLimit=1 / Envoy xff_num_trusted_hops, which consume XFP/XFF from
 /// the right). IPv4-mapped-IPv6 peers (`::ffff:a.b.c.d`) normalize via
 /// `to_ipv4_mapped()` - NOT `to_ipv4()`, which also maps `::1` ->
@@ -564,7 +564,7 @@ mod tests {
         );
     }
 
-    // -- R12-D1: X-Forwarded-Proto trust boundary --
+    // -- X-Forwarded-Proto trust boundary --
 
     fn v4(s: &str) -> std::net::IpAddr {
         s.parse().expect("v4 addr")

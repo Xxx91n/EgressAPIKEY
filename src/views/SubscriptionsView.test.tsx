@@ -316,7 +316,7 @@ describe("SubscriptionsView item 2 row hint ", () => {
 });
 
 // --- last_error promotion - banner / collapse / chip / 30s poll ---
-describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s poll)", () => {
+describe("last_error promotion (banner collapse + toast chip + 30s poll)", () => {
   beforeEach(() => {
     useAppStore.setState({ subscriptions: [] });
     invokeMock.mockReset();
@@ -539,7 +539,7 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
 // step still runs strategy_config_put -> strategy_apply for user-selected
 // EXTRA platforms + port_bind_platform; badges come from the
 // authoritative_snapshot subscriptions reverse-lookup section.
-describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => {
+describe("F1 inline bind step + F2 apply trigger + F4 badge", () => {
   beforeEach(() => {
     useAppStore.setState({ subscriptions: [] });
     invokeMock.mockReset();
@@ -790,7 +790,7 @@ describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => 
     }, { timeout: 15000 });
   }, 20000);
 
-  it("F2 (D-C1.8): import passes pipeline=establish and the import path no longer calls strategy_apply directly", async () => {
+  it("F2: import passes pipeline=establish and the import path no longer calls strategy_apply directly", async () => {
     baseMock();
     render(<SubscriptionsView />);
     const urlInput = await screen.findByPlaceholderText(/Subscription URL|订阅地址/i);
@@ -824,7 +824,7 @@ describe("T01 round5: F1 inline bind step + F2 apply trigger + F4 badge", () => 
 });
 
 // --- establish-phase chip — 6-state render ---
-describe("SubscriptionsView T02: subscription phase chips (6-state palette)", () => {
+describe("SubscriptionsView subscription phase chips (6-state palette)", () => {
   beforeEach(() => {
     useAppStore.setState({ subscriptions: [], subscriptionPhases: [] });
     invokeMock.mockReset();
@@ -905,7 +905,7 @@ describe("SubscriptionsView T02: subscription phase chips (6-state palette)", ()
     expect(chip.className).toContain("bg-amber-100");
   }, 20000);
 
-  it("T04 (checkpoint C): a Failed row with last_cascade_error expands its compensation record", async () => {
+  it("a Failed row with last_cascade_error expands its compensation record", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "subscription_list") {
         return [{ name: "cascade-f", node_count: 3, healthy_node_count: 3, last_error: "", last_checked: "" }];
@@ -960,7 +960,7 @@ describe("SubscriptionsView T02: subscription phase chips (6-state palette)", ()
     await waitFor(() => expect(screen.queryByTestId("sub-cascade-detail-cascade-f")).toBeNull());
   }, 20000);
 
-  it("T04: a Failed row WITHOUT a persisted record renders the plain chip (no toggle)", async () => {
+  it("a Failed row WITHOUT a persisted record renders the plain chip (no toggle)", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "subscription_list") {
         return [{ name: "legacy-f", node_count: 2, healthy_node_count: 2, last_error: "", last_checked: "" }];
@@ -986,8 +986,8 @@ describe("SubscriptionsView T02: subscription phase chips (6-state palette)", ()
   }, 20000);
 });
 
-// --- ticket 08: the Failed chip's retry affordance (backoff driver closed loop) ---
-describe("SubscriptionsView T08: Failed chip retry re-enqueues the subscription", () => {
+// --- The Failed chip's retry affordance (backoff driver closed loop) ---
+describe("SubscriptionsView Failed chip retry re-enqueues the subscription", () => {
   beforeEach(() => {
     useAppStore.setState({ subscriptions: [], subscriptionPhases: [] });
     invokeMock.mockReset();

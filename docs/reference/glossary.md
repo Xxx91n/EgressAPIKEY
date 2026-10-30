@@ -5,8 +5,8 @@
 > **Stale-reference warning**: this file is a historical record — entries
 > may reference symbols or behaviors deleted since they were written
 > (e.g. the platform_snapshot IPC, route_id/lane.rs, the A4-3 interceptor
-> header injection; see the retired decision records in git history and
-> architecture-recovery ticket 23). Never treat such a reference as
+> header injection; see the retired decision records in git history).
+> Never treat such a reference as
 > current; GLOSSARY.md is the as-built truth.
 >
 > Domain terms used across ADRs, AGENTS.md, and docs/. Maintained by the
@@ -32,7 +32,7 @@ produces leases with the expected egress IPs. Stronger than mockito-only.
 ## routable-view
 
 > **Stale reference (historical)**: the `platform_snapshot` IPC mentioned
-> below was deleted (architecture-recovery ticket 23). This entry is kept
+> below was deleted. This entry is kept
 > as term history only; current truth lives in GLOSSARY.md.
 
 Resin admin endpoint: GET /api/v1/platforms/{id}/routable-view. Returns the

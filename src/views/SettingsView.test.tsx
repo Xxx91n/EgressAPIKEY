@@ -16,7 +16,7 @@ afterEach(() => cleanup());
 
 // P25-item4: closed-loop for the tray i18n half-beat fix. The user reported that
 // switching the GUI language in Settings left the OS tray right-click menu showing
-// the PREVIOUS locale. The fix (commit 1aaab6b / P24-A4-3) made SettingsView.changeLocale
+// the PREVIOUS locale. The fix (commit 1aaab6b) made SettingsView.changeLocale
 // await saveLocale(next) THEN await invoke("tray_refresh_labels") so the Rust side
 // reads the freshly-persisted "lang" key. This test pins that contract: a locale
 // change MUST fire the tray_refresh_labels invoke exactly once, proving the webview
@@ -113,7 +113,7 @@ describe("SettingsView P4 IP reputation settings", () => {
 // save, and clear all fields on reset-to-default. This proves the GUI -> IPC ->
 // Rust whitebox JSON write path is wired for the 7 network env vars that
 // injects into the Resin sidecar.
-describe("SettingsView T6-3 network layer card closed-loop", () => {
+describe("SettingsView network layer card closed-loop", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     // whitebox_get returns empty network config by default
@@ -169,7 +169,7 @@ describe("SettingsView T6-3 network layer card closed-loop", () => {
 });
 
 //: Settings > Storage "Export audit log" button.
-describe("SettingsView T11 export audit log button ", () => {
+describe("SettingsView export audit log button ", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     vi.mocked(mockDialogSave).mockReset();
@@ -205,11 +205,11 @@ describe("SettingsView T11 export audit log button ", () => {
   });
 });
 
-// R12-B4 C4: the debounced ipcLightweightSet call is fire-and-forget inside
+// The debounced ipcLightweightSet call is fire-and-forget inside
 // a setTimeout - a rejecting invoke (sidecar busy, not-in-tauri) previously
 // escaped as an unhandledRejection in the webview. The .catch contains it;
 // this test pins that containment so a future refactor cannot silently drop it.
-describe("SettingsView R12-B4 lightweight_set rejection containment", () => {
+describe("SettingsView lightweight_set rejection containment", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string) => {

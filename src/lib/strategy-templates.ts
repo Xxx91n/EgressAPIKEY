@@ -8,7 +8,7 @@
  *. The generation bump and the audit row are produced by
  * that path unchanged; a preset adds no privilege and no bypass.
  *
- * The presets are deliberately region-level honest (D-002): no preset
+ * The presets are deliberately region-level honest: no preset
  * promises per-node pinning Resin does not have. `quality` presets land as
  * the top-N nodes' REGION SET; `region` with an empty list means "all
  * healthy regions" (see strategy_engine::resolve_regions).

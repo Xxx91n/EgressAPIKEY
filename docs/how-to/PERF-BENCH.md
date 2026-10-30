@@ -1,8 +1,8 @@
-# Performance baseline & acceptance line (R12-00)
+# Performance baseline & acceptance line
 
 Reproducible measurement of the Resin sidecar + shell data plane against the
-**r12-wave-a acceptance line** (decision-ledger D-001/D-002 — this table
-supersedes the round-8 D-004 single-threshold budget). Produces
+**dual-threshold acceptance line** (`scripts/bench/acceptance.json` — this table
+supersedes the earlier single-threshold budget). Produces
 `bench-results/results.json` (machine-readable, CI-stamped) +
 `bench-results/SUMMARY.md` (split measurement/assertion tables).
 
@@ -77,7 +77,7 @@ forwarder on both runners, builds the portable exe on the windows leg
 (`with_app` input), and uploads results artifacts; CI run id/url/sha/runner
 image are stamped into `results.env` automatically.
 
-## Failure semantics (D-002)
+## Failure semantics
 
 Two disjoint planes, never mixed:
 
@@ -89,7 +89,7 @@ Two disjoint planes, never mixed:
   hard-fail a run under `--gate enforce` (bench) or turn the smoke workflow
   red. The webview smoke itself is report-only this round.
 
-## Fault-injection evidence (`faultinject` phase, R12-C1)
+## Fault-injection evidence (`faultinject` phase)
 
 Opt-in only: `--phases faultinject` (an explicit `--phases` list is EXACT - no
 exe-gated appends). Never in the default set and never in the verify gate.
@@ -109,7 +109,7 @@ cell: `ceil(0.8*5)=4` local fails trip the common-mode suppressor.
 Dataplane provenance: each row port is materialised by a `bench-forwarder`
 child (a real Mode A shell-side entry) relaying into an endpoint on the SUT's
 own resin sidecar - configured through the headless admin-proxy surface -
-exiting via the shared mock CONNECT node. Injection semantics (D-002):
+exiting via the shared mock CONNECT node. Injection semantics:
 
 - `kill-forwarder` = bind-refusal / Mode A entry failure class -> loopback
   dead -> `local_fail` common-mode -> `environment_suspect`, suspect streak
@@ -153,7 +153,7 @@ on both platforms: Linux walks `/proc/<pid>/stat` PPid links (VmRSS sum),
 Windows walks the same CIM descendant BFS (WorkingSet64 sum). A cgroup
 boundary was considered and rejected: the bench spawns ad-hoc children
 without wrapping them in a dedicated cgroup, and PPid-BFS needs no root —
-the descendant semantics match the desktop tree exactly (R12-B2). The
+the descendant semantics match the desktop tree exactly. The
 headless readiness signal is TCP-connectable on `--bind:--port`, which the
 binary only binds AFTER the sidecar has booted — the headless analogue of
 `MainWindowTitle` liveness.
@@ -199,8 +199,8 @@ Rules:
   **only** basis for activating the `†` absolute gates.
 - Never let a `pull_request`- or `push`-triggered job reference the
   `self-hosted` label (public-repo runner-hijack rail).
-- Round-12 runner-deadline clause: if the self-hosted runner still has not
-  materialized ~4 weeks after this round, this Windows box is the documented
+- Runner-deadline clause: if the self-hosted runner still has not
+  materialized ~4 weeks after the acceptance line landed (2026-09-22), this Windows box is the documented
   fallback profile and the absolute pins get locked from its numbers.
 
 ## Real-WebView smoke (assertion plane)

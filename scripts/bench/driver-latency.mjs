@@ -1,4 +1,4 @@
-// Paired-request full-link added latency (D-004: p95 <=5ms, p99 <=10ms).
+// Paired-request full-link added latency (original budget: p95 <=5ms, p99 <=10ms).
 // Same runner, same job: direct-to-mock-upstream vs through-Resin-endpoint
 // requests alternate per pair; the delta distribution is what we assert on,
 // so runner CPU jitter hits both legs and cancels out (Floe/Istio-style

@@ -1,7 +1,7 @@
 {
- "_comment": " acceptance line (D-001/D-002): dual threshold (target/danger) per deployment profile. kind=measure rows are RECORDED-ONLY - a breach is evidence, never a job failure; kind=assert/smoke rows are the only hard-fails under --gate enforce. Absolute-memory rows carry dagger-provisional values until the self-hosted representative run locks them. Mode B SSE buffering is a Registered Exemption, not a failure.",
+ "_comment": "Acceptance line: dual threshold (target/danger) per deployment profile. kind=measure rows are RECORDED-ONLY - a breach is evidence, never a job failure; kind=assert/smoke rows are the only hard-fails under --gate enforce. Absolute-memory rows carry dagger-provisional values until the self-hosted representative run locks them. Mode B SSE buffering is a Registered Exemption, not a failure.",
   "schema": 2,
-  "basis": "decision-ledger D-001/D-002 (+D-005 fix-1); supersedes the prior D-004 single-threshold budget table",
+  "basis": "dual-threshold acceptance line (docs/how-to/PERF-BENCH.md); supersedes the prior single-threshold budget table",
   "state": "legislated-provisional",
   "measuredAt": null,
   "ciRun": null,
@@ -237,7 +237,7 @@
     {
       "id": "db-replace-ports-p99-us",
       "kind": "measure",
-      "desc": "replace_ports full-map commit latency p99 over 200 sequential writes (file-backed WAL). Ex-push-gate duration bound (the D-004 <=50ms budget) demoted to a recorded row per r12-wave-i D-004 - the benchmark body still runs in cargo test, the assertion does not gate",
+      "desc": "replace_ports full-map commit latency p99 over 200 sequential writes (file-backed WAL). Ex-push-gate duration bound (the former <=50ms budget) demoted to a recorded row - the benchmark body still runs in cargo test, the assertion does not gate",
       "op": "measure-only",
       "target": null,
       "unit": "us",
@@ -263,7 +263,7 @@
     "decisions": [
       "assert rows beyond the legislated set are implementation decisions, registered here: appstart-title-match (every cold-start launch reaches the window title - the acceptance line's own smoke semantics), soak-200-streams-alive (all streams connected + zero unexpected closes), rps-error-rate (kind=measure, never hard-fails). They hard-fail only under --gate enforce; the default warn gate keeps them as recorded evidence.",
       "sse-eventgap-goodratio expresses the legislated single-metric two-layer caliber via dangerMeasure (same ratio, wider 500ms window for the danger layer)",
-      "idle-rss-mb/soak-rss-mb scope = bench SUT process set (sidecar + forwarder). The full VPS deployment tree moved IN scope in r12-wave-b: headless-idle-tree-mb + headless-coldstart-ready-ms measure egressapikey-headless + sidecar via descendant-tree sampling (same caliber as the desktop tree) when --headless-exe resolves"
+      "idle-rss-mb/soak-rss-mb scope = bench SUT process set (sidecar + forwarder). The full VPS deployment tree is also IN scope: headless-idle-tree-mb + headless-coldstart-ready-ms measure egressapikey-headless + sidecar via descendant-tree sampling (same caliber as the desktop tree) when --headless-exe resolves"
     ]
   }
 }

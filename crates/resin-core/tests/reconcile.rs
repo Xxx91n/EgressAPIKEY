@@ -1,4 +1,4 @@
-//! Architecture-recovery ticket 14 /: reconcile integration
+//! Reconcile integration
 //! coverage against a mockito Resin. The hard acceptance gate is idempotency:
 //! running the reconcile pass TWICE must produce ZERO changes the second
 //! time — no PATCH reaches Resin and the ports half re-asserts nothing

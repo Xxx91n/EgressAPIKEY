@@ -7,4 +7,4 @@ Moved out of `AGENTS.md` (progressive disclosure).
 - `PULL_REQUEST_TEMPLATE.md` (root): PR verification checklist (verify-build, tests-per-behavior, i18n x18, license-field-check, docs same-commit).
 - `SECURITY.md`: supported versions (latest `main`) + GitHub private vulnerability reporting — never public issues.
 - `CODE_OF_CONDUCT.md`: Contributor Covenant 2.1 verbatim; enforcement contact = maintainer via GitHub profile.
-- GitHub Discussions enabled (`has_discussions=true`, gh api). GOVERNANCE / FUNDING / SUPPORT stay deferred (spec D-07 P2).
+- GitHub Discussions enabled (`has_discussions=true`, gh api). GOVERNANCE / FUNDING / SUPPORT stay deferred.

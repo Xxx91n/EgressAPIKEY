@@ -80,7 +80,7 @@ describe("C2-3: keyCandidates persist round-trip through settings.json#keyCandid
   });
 });
 
-describe("T19-P4: batchChunkSize pure helper (clash-verge-rev hard cap)", () => {
+describe("batchChunkSize pure helper (clash-verge-rev hard cap)", () => {
   it("returns min(concurrency, itemCount, 10) when all > 1", () => {
     expect(batchChunkSize(20, 50)).toBe(10); // capped at 10
     expect(batchChunkSize(5, 50)).toBe(5);   // concurrency is the limit
@@ -99,7 +99,7 @@ describe("T19-P4: batchChunkSize pure helper (clash-verge-rev hard cap)", () => 
   });
 });
 
-describe("T19-P4: nodeProbe config round-trip through settings.json#nodeProbe", () => {
+describe("nodeProbe config round-trip through settings.json#nodeProbe", () => {
   it("saveNodeProbe then loadNodeProbe returns clamped values", async () => {
     const cfg: NodeProbeConfig = { concurrency: 15, timeout_ms: 8000, batch_on_load: true };
     await saveNodeProbe(cfg);
@@ -130,7 +130,7 @@ describe("T19-P4: nodeProbe config round-trip through settings.json#nodeProbe", 
   });
 });
 
-describe("arch/02: legacy dead network keys are purged on startup, live keys untouched", () => {
+describe("legacy dead network keys are purged on startup, live keys untouched", () => {
   it("removes both legacy dead keys and preserves every other key", async () => {
     backing.set("gatewayBind", "127.0.0.1:7897");
     backing.set("mihomoApi", "http://127.0.0.1:9090");
@@ -168,7 +168,7 @@ describe("arch/02: legacy dead network keys are purged on startup, live keys unt
   });
 });
 
-describe("T05: diagPollInterval typed L1 wrapper pair (bare store invoke eliminated)", () => {
+describe("diagPollInterval typed L1 wrapper pair (bare store invoke eliminated)", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     invokeMock.mockImplementation(async () => 5000);

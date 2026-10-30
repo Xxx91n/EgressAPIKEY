@@ -25,7 +25,7 @@ function baseSnap(overrides: Partial<AuthoritativeSnapshot> = {}): Authoritative
   };
 }
 
-describe("reconcilePreviewFromSnapshot (ticket 14)", () => {
+describe("reconcilePreviewFromSnapshot", () => {
   it("maps divergent platforms to patch_regions and missing to create_platform", () => {
     const snap = baseSnap({
       platforms: [

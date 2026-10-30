@@ -239,10 +239,10 @@ let convergeUnlistenSidecar: (() => void) | null = null;
 let convergeUnlistenSnapshotRefresh: (() => void) | null = null;
 let convergeOnVisibility: (() => void) | null = null;
 let convergeInFlight = false;
-/// r12-wave-d D4c probe for the React-Query register line (arm (a)): a
+/// Probe for the React-Query register line (arm (a)): a
 /// monotonic dev-only counter that records a snapshot-trigger mark landing
 /// while the previous ipcAuthoritativeSnapshot invoke is still unresolved.
-/// OVERLAP-ONLY semantics (r12-wave-i D-003.3): a zero reading proves
+/// OVERLAP-ONLY semantics: a zero reading proves
 /// zero-overlap ONLY - it does NOT prove churn-free. Sequential-duplicate
 /// detection is out of scope here; the parent register line must define
 /// redundancy semantics before such a check can exist (React Query itself

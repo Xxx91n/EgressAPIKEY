@@ -34,7 +34,7 @@ Before promoting a build (and after any Resin sidecar version bump):
   re-establishes the four-scenario byte-level contract (mixed-port
   503 `NO_AVAILABLE_NODES` + SOCKS5 `05 00`; http-only refuses SOCKS5 with
   `05 ff`; socks5-only refuses HTTP with 403 `ENDPOINT_CAPABILITY_DISABLED`)
-  plus the ticket-17 identity-attribution cases (HTTP Basic and SOCKS5
+  plus the identity-attribution cases (HTTP Basic and SOCKS5
   UserPass credentials land in the request log attributed to their account
   even on the failure path). Baseline table + hand recipe:
   `tests/fixtures/t17-contract/README.md`. A contract failure after a Resin bump is a

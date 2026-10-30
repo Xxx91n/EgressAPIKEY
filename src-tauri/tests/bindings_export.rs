@@ -1,4 +1,4 @@
-//! Ticket 09 (tauri-specta pilot): regenerate src/bindings.ts in a debug
+//! tauri-specta pilot: regenerate src/bindings.ts in a debug
 //! cargo-test build and assert the pilot contract is present. See
 //! src/specta_bindings.rs for why this lives in an integration test.
 

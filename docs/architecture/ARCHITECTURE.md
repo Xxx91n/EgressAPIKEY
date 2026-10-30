@@ -70,7 +70,7 @@ needing to edit L3 state to change behavior is a bug. No new config storage
 may be introduced without re-legislating this subsection. Logs
 (`app_log_dir()`, Resin request logs) are observability data, not a layer.
 
-Headless storage root (round-8 ticket 02 / A-006; re-legislates the paragraph
+Headless storage root (re-legislates the paragraph
 above for the second binary). The `egressapikey-headless` binary links the SAME
 `crates/resin-core` stores and serves the same control surface without a
 webview, so it opens the identical L2 files (`egressapikey-ports.json`,
@@ -85,7 +85,7 @@ entry for L2.
 The limitation is explicit and load-bearing: **a host runs EITHER the desktop
 shell OR the headless server, never both.** Two instances would each hold
 their own L2 and neither would observe the other's edits - the Docker-Desktop
-dual-daemon anti-pattern the round-8 ticket 02 research cites as a cautionary
+dual-daemon anti-pattern, a known cautionary
 tale. The headless deployment guide ships a systemd unit precisely so the
 server owns the host. Commands whose truth source is desktop-only (tray, OS
 proxy, `tauri-plugin-store`, streaming channels, local path/export surfaces)
@@ -122,7 +122,7 @@ Two distinct write pipelines live behind L2 (verified in code;
   `egressapikey-strategy.json`) → `strategy_apply` (compute plan, create
   missing-on-resin platforms, PATCH Resin `region_filters`
   only where the live row actually drifts — diff-then-skip, only drifting axes are sent;
-  never deletes whitebox entries). Landed: ticket 10 converged
+  never deletes whitebox entries). Landed: a consolidation moved
   read/validate/apply/read-back into the one StrategyService module
   (`crates/resin-core/src/strategy_service.rs`,; stays in
   force).
@@ -159,15 +159,15 @@ existing ports-restore half (Resin has no per-process API — verified against
 upstream). The family is a declarative memo — adding a rule never takes over
 the process's traffic; the target process's own proxy settings must point at
 the entry port (the ProcessRoute view banner and the troubleshooting table
-state this verbatim). The snapshot is the ONLY sanctioned cross-store merge point. The Resin-side account-header-rules family (R32-R35, wired by
-round5 ticket 16 /) is the proxy-data-plane counterpart — URL-prefix
+state this verbatim). The snapshot is the ONLY sanctioned cross-store merge point. The Resin-side account-header-rules family (R32-R35 in
+[RESIN_API_COVERAGE.md](RESIN_API_COVERAGE.md)) is the proxy-data-plane counterpart — URL-prefix
 → header-name rules for account extraction on the reverse proxy — and is
 deliberately NOT an L2 config family: four thin IPC pass-throughs over the
 ResinClient seam, no whitebox file, no snapshot/reconcile participation; the
 coexistence comparison lives in
 [PROCESS_ROUTE_VS_HEADER_RULES.md](PROCESS_ROUTE_VS_HEADER_RULES.md).
 
-Landed wiring (ticket 07 / — views consume the one authoritative
+Landed wiring (views consume the one authoritative
 snapshot; the former view-layer cross-store merge is deleted, its diagram
 preserved in git history). One write entry per layer + one authoritative
 read-back:
@@ -182,7 +182,7 @@ flowchart TD
     SNAP --> L3
 ```
 
-Effective-snapshot read-back contract (ticket 07, landed): a single deep
+Effective-snapshot read-back contract (landed): a single deep
 IPC (authoritative-snapshot semantics) returns the merged effective
 configuration in ONE call, reading three sources (L2 strategy JSON, L2 ports
 JSON + `egressapikey.db`, L3 Resin runtime) and marking divergence per
@@ -198,28 +198,28 @@ Reconciliation closure: the loop above is
 closed by four increments, all read-side or explicitly user-triggered —
 never automatic:
 
-1. **Metadata** (ticket 12): `lastCheckedAt` stamps each snapshot's
+1. **Metadata**: `lastCheckedAt` stamps each snapshot's
    generation instant; `divergentSince` is the first-drift instant per
    entity kept in PROCESS-LOCAL memory only (a restart clears it and a
    re-drift re-times); an `acknowledged` array per whitebox marks
    user-exempted entities — exemptions NEVER touch the three-state merge,
    they only degrade the badge to grey "known" and silence the notification.
-2. **View** (ticket 13): the one-level Effective Config view
+2. **View**: the one-level Effective Config view
    (`effectiveConfig`, nav slot before diagnostics) consumes the snapshot
    read-only — desired|live columns, three-state badges, timestamps, manual
    re-check; zero write paths.
-3. **Reconcile** (ticket 14): a single user-triggered `reconcile_now` runs
+3. **Reconcile**: a single user-triggered `reconcile_now` runs
    the previewed, serial strategy-apply + ports-restore with the whitebox
    ALWAYS winning (one-way); no "accept current state" reverse write exists.
    The pass is wire-idempotent end to end: the strategy half
    diff-then-skips in-sync platforms, the ports half is TTL-throttled — a
    second pass emits zero write requests.
-4. **Versioned whitebox** (ticket 15): every atomic whitebox write first
+4. **Versioned whitebox**: every atomic whitebox write first
    copies the previous file to the sibling `backup/` directory (10 kept
    per file) and the listed backups roll back through the SAME
    validate-before-swap -> apply chain — never a bypass.
 
-**Tray notification** (ticket 16; rising-edge-per-episode semantics): per drift
+**Tray notification** (rising-edge-per-episode semantics): per drift
 EPISODE, the first snapshot where unacknowledged drift appears (false→true
 rising edge) fires one OS notification (state machine in
 `src-tauri/src/tray.rs`, hooked on the snapshot command tail); sustained
@@ -229,8 +229,8 @@ absence never notifies. See `docs/how-to/WHY-NOT-EFFECTIVE.md`
 for the user-facing troubleshooting table.
 
 The snapshot is the ONLY sanctioned cross-store merge point. View layers
-consume it and must not re-merge stores. Implemented 2026-08-30 (ticket 07,
-): the former `TopologyView.tsx` `sync()`-time merge of
+consume it and must not re-merge stores. Implemented 2026-08-30: the
+former `TopologyView.tsx` `sync()`-time merge of
 `cfgRaw.platforms` into Resin platform rows is deleted; the view polls the
 `authoritative_snapshot` IPC, and the merge lives in
 `crates/resin-core/src/snapshot.rs` (pure, unit-tested against the three
@@ -239,14 +239,14 @@ legislated fixtures). Adding a new view-layer merge is a review blocker.
 Upstream Resin also exposes three platform action POST endpoints
 (reset-to-default R13, rebuild-routable-view R14, preview-filter R09 in
 [RESIN_API_COVERAGE.md](RESIN_API_COVERAGE.md)); all three are deliberate
-non-adoptions (round5 T22): reset-to-default would rewrite L3
+non-adoptions: reset-to-default would rewrite L3
 platform config from env defaults behind the L2 whitebox's back,
 rebuild-routable-view re-derives Resin-internal pool state that
 diff-then-skip already keeps converged, and preview-filter duplicates the
  shell-side in-memory snapshot (it stays the one wiring candidate
 for a later ticket).
 
-Subscription establish cascade (Round 7 ticket 01,
+Subscription establish cascade (implemented in
 `crates/resin-core/src/subscription_pipeline.rs`): an import that asks for
 it (`subscription_add pipeline=establish`) continues past the POST into a
 level-triggered five-step cascade — create_subscription (skipped when the
