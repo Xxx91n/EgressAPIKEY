@@ -243,7 +243,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(invokeMock).toHaveBeenCalledWith("node_list", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 
-  // P21-B: platform_create_with_fields closed-loop guards
+  // platform_create_with_fields closed-loop guards
   it("platform_create_with_fields rejects non-object body", async () => {
     await expect(ipcPlatformCreateWithFields("not an object")).rejects.toThrow(/JSON object/);
     await expect(ipcPlatformCreateWithFields(null)).rejects.toThrow(/JSON object/);
@@ -267,7 +267,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(invokeMock).toHaveBeenCalledWith("platform_create_with_fields", expect.objectContaining({ body }));
   });
 
-  // P21-B: platform_leases closed-loop guards
+  // platform_leases closed-loop guards
   it("platform_leases forwards name and returns value", async () => {
     invokeMock.mockResolvedValue({ items: [{ account: "acct1", egress_ip: "1.2.3.4" }] });
     const r = await ipcPlatformLeases("my-platform");
@@ -280,7 +280,7 @@ describe("IPC wrappers (issue 1 closed-loops)", () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
-  // P21-C: ip_channel_* wrapper tests — verify the semantic aliases forward
+  // ip_channel_* wrapper tests — verify the semantic aliases forward
   // to the correct Resin-backed IPC commands.
   it("ip_channel_list forwards to node_list", async () => {
     invokeMock.mockResolvedValue({ items: [] });

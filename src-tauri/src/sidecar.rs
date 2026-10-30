@@ -9,14 +9,14 @@
 //! - Tokens (`RESIN_ADMIN_TOKEN`, `RESIN_PROXY_TOKEN`) are generated here in
 //! the Rust shell and passed to the sidecar via the child env. These are
 //! server-side trust only — they NEVER cross into the webview. The webview
-//! can only reach Resin through the Rust-side ResinClient (G2) which holds
+//! can only reach Resin through the Rust-side ResinClient, which holds
 //! this handle's admin token.
 //! - We pick a free port up front (TCP bind:0, probe listener held until
 //! just before spawn) and tell Resin to listen on it. A foreign process
 //! can still win the residual exec->bind race, so a cold boot re-picks on
 //! the lost-race signature (bounded by PORT_PICK_ATTEMPTS).
 //!
-//! Crash-restart loops live in the Ghost safety net (G3), not here.
+//! Crash-restart loops live in the Ghost safety net, not here.
 use std::collections::VecDeque;
 use std::net::TcpListener;
 use std::sync::Arc;
@@ -90,7 +90,7 @@ impl LogBuffer {
 
 /// The running sidecar process plus the connection info the Rust side needs.
 /// Lives in Tauri managed state as `State<SidecarHandle>` so IPC commands
-/// (G2 ResinClient) can reach it without piping admin tokens anywhere else.
+/// (through the ResinClient) can reach it without piping admin tokens anywhere else.
 pub struct SidecarHandle {
     /// Owned in a Mutex<Option<_>> so the app exit hook can take() the
     /// child once and call .kill() + .wait(). std::process::Child::kill
@@ -1482,9 +1482,8 @@ mod tests {
 }
 
 // ---------------------------------------------------------------------------
-// G3: Ghost safety net (health poll + tray + system proxy cutoff).
+// Ghost safety net (health poll + tray + system proxy cutoff).
 //
-// - spec: Ghost safety net G3 (health poll + tray + system-proxy cutoff).
 // - safety posture: the Resin sidecar is the OS-facing proxy runtime. If it
 // dies (crash, OOM-kill, malicious quit) we must NOT silently keep the
 // desktop tray pretending the proxy is up, and we must NOT let a stale

@@ -189,7 +189,7 @@ impl AuditLog {
             .map_err(|e| format!("open audit log: {e}"))?;
         f.write_all(line)
             .map_err(|e| format!("append audit log: {e}"))?;
-        // Best-effort fsync (issue F1); ignore failure rather than block.
+        // Best-effort fsync; ignore failure rather than block.
         let _ = f.sync_data();
         Ok(())
     }
@@ -316,7 +316,7 @@ pub fn append(event: &AuditEvent) -> Result<(), String> {
     }
 }
 
-/// Rollback context carried down to the write entry points (issue F3). The
+/// Rollback context carried down to the write entry points. The
 /// rollback IPC commands set this via `tokio::task_local!` before calling
 /// the store, so the single audit row knows it was a rollback, which backup
 /// it restored, and an optional reason. Absent context = the store defaults.

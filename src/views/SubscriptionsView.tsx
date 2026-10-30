@@ -20,7 +20,7 @@ import { HeadlessCapabilityNotice } from "../components/HeadlessCapabilityNotice
 /// Update Interval": upstream enforces a ≥30s floor); that interval is
 /// caller-supplied per subscription, so this cadence tracks the floor rather
 /// than each subscription - a 1m sub is still read every 30s here, while the
-/// window is visible. Exported because the F3 case steps its clock and splits
+/// window is visible. Exported because the poll-edge toast test steps its clock and splits
 /// its poll batches by this number.
 export const SUBSCRIPTION_POLL_INTERVAL_MS = 30_000;
 
@@ -33,9 +33,11 @@ interface BindStep {
   nodeCount: number;
 }
 
-/// SubscriptionsView - Resin subscription import surface (P20 rewrite).
+/// SubscriptionsView - Resin subscription import surface.
 ///
-/// Fixes vs the P19 version:
+/// Fixes vs the earlier version (items 3, 4 and 6 are referenced below by
+/// number; item 6's HTML5 drag was later replaced by Pointer Events, see the
+/// Pointer Events drag section):
 /// - Item 3: duplicate-name detection BEFORE import. Resin POST /api/v1/subscriptions
 /// is name-keyed - posting the same name silently overwrites the prior sub.
 /// We fetch the live list, and if the chosen name already exists we refuse to
@@ -70,10 +72,10 @@ export function SubscriptionsView() {
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState<SubscriptionSnapshotEntry[]>([]);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string; withErrorHint?: boolean } | null>(null);
-  // P20 item 6: HTML5 drag tracks the dragged index in a ref so re-renders do
+  // Item 6: HTML5 drag tracks the dragged index in a ref so re-renders do
   // not lose the in-flight drag; the browser owns the drag session lifetime.
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  // P20 item 6: local order override. Loaded once on mount, persisted on every
+  // Item 6: local order override. Loaded once on mount, persisted on every
   // reorder. Reset (item 4) clears this to [] and re-renders from server only.
   const [localOrder, setLocalOrder] = useState<string[]>([]);
 
@@ -99,7 +101,7 @@ export function SubscriptionsView() {
   // B2: persist form draft so navigating away+back keeps input contents.
   useEffect(() => { setSubFormDraft({ name, url }); }, [name, url, setSubFormDraft]);
 
-  // P20 item 6: load the persisted local order once on mount.
+  // Item 6: load the persisted local order once on mount.
   useEffect(() => {
     void (async () => {
       const saved = await loadSubOrder().catch(() => null);
@@ -109,7 +111,7 @@ export function SubscriptionsView() {
 
   /// Re-sort a fresh list by the user's local order. Items in the server list
   /// that the user has never reordered (new subs, or order cleared) fall through
-  /// to the end, keeping the server-defined order. P20 item 4: only names that
+  /// to the end, keeping the server-defined order. Item 4: only names that
   /// are STILL in the server list are kept in the output - a stale localOrder
   /// entry that Resin no longer returns is dropped, so reset never duplicates.
   const applyOrder = useCallback((lst: SubscriptionSnapshotEntry[], order: string[]): SubscriptionSnapshotEntry[] => {
@@ -134,7 +136,7 @@ export function SubscriptionsView() {
   const refresh = useCallback(async () => {
     try {
       const lst = await ipcSubscriptionList();
-      // P20 item 4: server fetch is the source of truth - applyOrder only
+      // Item 4: server fetch is the source of truth - applyOrder only
       // re-sorts names that exist in BOTH the order array and the server list.
       setLive(applyOrder(lst, localOrder));
     } catch { /* keep last */ }
@@ -186,7 +188,7 @@ export function SubscriptionsView() {
   }, [applyOrder, localOrder, summarizeError, t]);
   usePoll(pollEdge, { intervalMs: SUBSCRIPTION_POLL_INTERVAL_MS, fireImmediately: false });
 
-  // P13 B4: Resin parses local subscription content on its 30s update_interval
+  // Resin parses local subscription content on its 30s update_interval
   // tick. Poll up to 5 times at 3s so the user sees the real node_count within
   // ~15s instead of staying at 0.
   // exit early not only on nodes but also on a surfaced
@@ -218,7 +220,7 @@ export function SubscriptionsView() {
     return last;
   }, [applyOrder, localOrder, summarizeError, t]);
 
-  // P20 item 3: check the live list for a duplicate name BEFORE posting to
+  // Item 3: check the live list for a duplicate name BEFORE posting to
   // Resin. Resin POST /api/v1/subscriptions is name-keyed - a second POST with
   // an existing name silently overwrites the prior subscription's nodes. By
   // detecting first we refuse the import and surface a toast so the user
@@ -313,7 +315,7 @@ export function SubscriptionsView() {
     }
   };
 
-  /// P19 item 6: rename via delete + recreate. Resin has no PATCH
+  /// Rename via delete + recreate. Resin has no PATCH
   /// /api/v1/subscriptions, so we delete the old sub and create a new one
   /// with the new name. Item 3 applies: we also reject a rename target that
   /// collides with another existing sub's name.
@@ -331,7 +333,7 @@ export function SubscriptionsView() {
       setBusy(false);
       return;
     }
-    // P20 item 3: reject a rename that would collide with another live sub.
+    // Item 3: reject a rename that would collide with another live sub.
     if (live.some((s) => s.name === renamed)) {
       setToast({ kind: "err", msg: t("subscription.duplicate", { name: renamed }) });
       setBusy(false);
@@ -363,7 +365,7 @@ export function SubscriptionsView() {
     }
   };
 
-  /// P20 item 4: clear the persisted order and re-render from the server list
+  /// Item 4: clear the persisted order and re-render from the server list
   /// ONLY. The old code called refresh() which applyOrder'd against the (now
   /// empty) localOrder, but also re-merged stale names that were once in
   /// localOrder - leading to duplicate / leftover rows after reset. The new
@@ -377,9 +379,9 @@ export function SubscriptionsView() {
     } catch { /* keep */ }
   };
 
-  // ---- F4 reverse-lookup data + F1 bind-step loaders ----
+  // ---- reverse-lookup data + bind-step loaders ----
 
-  // F4: consume the authoritative_snapshot reverse-lookup section so every
+  // Consume the authoritative_snapshot reverse-lookup section so every
   // row can badge "bound to N platforms / unbound". Read-only, best-effort:
   // outside Tauri the badge simply does not render.
   const refreshSubRows = useCallback(async () => {
@@ -397,7 +399,7 @@ export function SubscriptionsView() {
   }, []);
   useEffect(() => { void refreshSubRows(); }, [refreshSubRows, live.length]);
 
-  // F1: which a_class=subscription whitebox platforms already consume the
+  // Which a_class=subscription whitebox platforms already consume the
   // subscription (the "do not duplicate" oracle) + the selectable chip list.
   // Per the issue hint, only a_class=Subscription platforms consume a
   // subscription, so the chips offer exactly those (+ the auto-create chip).
@@ -423,7 +425,7 @@ export function SubscriptionsView() {
     }
   }, []);
 
-  // F1 confirm: strategy_config_put -> strategy_apply (the PlatformsView
+  // Bind-step confirm: strategy_config_put -> strategy_apply (the PlatformsView
   // chip chain) for EVERY selected platform plus the optional same-name
   // auto-create; then the optional port bindings. One put + one apply for
   // the whole batch (apply is diff-then-skip,, so re-applying an
@@ -437,8 +439,8 @@ export function SubscriptionsView() {
     setBindBusy(true); setToast(null);
     const portsBound: number[] = [];
     try {
-      // Auto-create the same-name platform on Resin when requested (issue
-      // F1 "自动建 platform"). The a_class/subscriptions semantics are L2
+      // Auto-create the same-name platform on Resin when requested
+      // ("自动建 platform"). The a_class/subscriptions semantics are L2
       // whitebox vocabulary, so the Resin row is created with its own
       // schema fields and the binding lands via strategy_config_put below;
       // strategy_apply is the fallback establish path when the
@@ -475,7 +477,7 @@ export function SubscriptionsView() {
         }
       }
       await ipcStrategyConfigPut({ ...cfg, platforms });
-      // F2: explicit activation beat — apply derives region_filters from the
+      // Explicit activation beat — apply derives region_filters from the
       // current node pool, so the subscription is consumable without a trip
       // to the Platforms view.
       let applyOk = true;
@@ -525,7 +527,7 @@ export function SubscriptionsView() {
     void loadBindData(subName);
   };
 
-  // ---- P21 item 1: Pointer Events drag (WebView2-stable; HTML5 DnD showed
+  // ---- Pointer Events drag (WebView2-stable; HTML5 DnD showed
   // a "禁止符号" because onDragStart never set e.dataTransfer.effectAllowed/
   // setData — WebView2 suppresses the drag session entirely without them, and
   // Tauri's webview intercepts text/plain drags for native window drag.

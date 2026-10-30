@@ -399,7 +399,8 @@ pub async fn subscription_add(
     // POST source_type=remote directly. Resin's Scheduler
     // re-pulls the remote URL via its own clash.meta UA fetcher
     // (cmd/resin/main.go const downloadUserAgent); the shell no longer
-    // re-fetches or converts the Clash YAML itself (P13 B4 chain deleted).
+    // re-fetches or converts the Clash YAML itself (the shell-side
+    // fetch_clash_subscription chain was deleted).
     // update_interval default 30s — the 30s scheduler tick lands the first
     // background fetch within seconds, so the import path itself does not need
     // to force one. (Resin DOES expose a synchronous force-refresh:
@@ -519,7 +520,8 @@ pub async fn subscription_remove(
 /// The paired subscription_add migrated to source_type=remote so refresh
 /// actually pulls new nodes. Resin's Scheduler re-fetches via its own clash.meta
 /// UA fetcher (cmd/resin/main.go const downloadUserAgent); the shell no longer
-/// re-fetches or converts the Clash YAML itself (P13 B4 chain deleted).
+/// re-fetches or converts the Clash YAML itself (the shell-side
+/// fetch_clash_subscription chain was deleted).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SubscriptionRefreshResult {
     pub node_count: u64,
@@ -855,7 +857,8 @@ pub async fn node_probe(
     result.map_err(|e| map_resin_error(&e.to_string()))
 }
 
-/// POST /api/v1/platforms with the full create schema (P21 Milestone B).
+/// POST /api/v1/platforms with the full create schema (dual-pane PlatformsView;
+/// see docs/architecture/REFACTOR_PLAN_RESIN_ACCOUNT_MODEL.md).
 /// The webview identifies the platform by a fully-formed body; we validate the
 /// name (required) and any obviously-hostile fields at the IPC boundary per
 /// AGENTS s7.5. allocation_policy is validated against the live-probed enum.

@@ -218,7 +218,7 @@ pub struct StrategyConfig {
     pub generation: u64,
     /// Observed generation: the value `generation` had when the last FULLY
     /// GREEN apply pass returned. Written back inside the same store entry by
-    /// `StrategyService::apply` (R-B Q2); failures keep the old value and
+    /// `StrategyService::apply`; failures keep the old value and
     /// record `last_apply_error` instead.
     #[serde(default)]
     pub applied_generation: u64,

@@ -23,7 +23,7 @@ their row id.
 | 空白 blank | No ResinClient method, no IPC command — upstream-only surface | 22 |
 | 故意不接 deliberate | Unwired BY DECISION; reason recorded in the row's 备注 column | 10 |
 
-> The 装饰 bucket is currently EMPTY. reports/03 §2 #3 flagged `system_config_get/patch`
+> The 装饰 bucket is currently EMPTY. An earlier audit flagged `system_config_get/patch`
 > as decorative commands, but their bodies have called `client.system_config_*` since commit
 > 856a0ff (the file only moved later). Any change that deletes or rewires them must first re-verify its premise
 > against this table.
@@ -32,7 +32,7 @@ their row id.
 
 - Embedded WebUI: `resin/internal/api/webui.go` registers `/`, `/ui`, `/ui/` (SPA assets). The shell never calls these.
 - Data-plane token actions: `POST /{proxy_token}/api/v1/{platform}/actions/inherit-lease` (`handler_token_action.go:22`, mounted by `cmd/resin/inbound_mux.go:399/456`) — proxy-token authenticated, NOT part of the admin mux. `ResinClient` must never construct `/{token}/api/v1/...` paths.
-- `/healthz` is unauthenticated on every listener; the shell consumes it with direct reqwest in `src-tauri/src/sidecar.rs` (boot await 15s, G3 ghost 3s poll), never through ResinClient.
+- `/healthz` is unauthenticated on every listener; the shell consumes it with direct reqwest in `src-tauri/src/sidecar.rs` (boot await 15s, Ghost safety-net 3s poll), never through ResinClient.
 - Headless BFF mode (the headless server is a separate required-features-gated bin): `src/lib/ipc.ts CMD_TO_HTTP` forwards a subset of the same IPC commands to `/api/v1/*` server-side; the rows below are identical, only the transport differs.
 
 ## Finding: refresh-completion hook shape
@@ -57,7 +57,7 @@ lists only the tag-filter DB migration), so this table matches the bundled v1.2.
 
 | # | HTTP method + path | Resin handler (file:line) | ResinClient method (resin_client.rs:line) | IPC command / consumer | 状态 | 文档位置 | 引入版本 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| R01 | GET /healthz | handler_healthz.go:7 | — (direct reqwest, not via client) | — (sidecar boot await + G3 ghost poll) | 已对接 | ARCHITECTURE.md sidecar section; sidecar.rs:371/956 | v1.0 | 唯一无鉴权端点；shell 直连轮询，不经 ResinClient |
+| R01 | GET /healthz | handler_healthz.go:7 | — (direct reqwest, not via client) | — (sidecar boot await + Ghost safety-net poll) | 已对接 | ARCHITECTURE.md sidecar section; sidecar.rs:371/956 | v1.0 | 唯一无鉴权端点；shell 直连轮询，不经 ResinClient |
 | R02 | GET /api/v1/system/info | handler_system.go:57 | — | — | 空白 | — | v1.0 | WebUI 顶部信息用；shell 无消费场景（诊断卡候选） |
 | R03 | GET /api/v1/system/config | handler_system.go:64 | system_config_get:441 | system_config_get (settings.rs:62) | 已对接 | settings.rs:58 | v1.0 | 熔断阈值等只读展示 |
 | R04 | GET /api/v1/system/config/default | handler_system.go:75 | — | — | 故意不接 | — | v1.0 | 出厂默认值由 Resin 自身管理；shell 无需展示不可改值 |
@@ -105,7 +105,7 @@ lists only the tag-filter DB migration), so this table matches the bundled v1.2.
 | R46 | GET /api/v1/request-logs/{log_id}/payloads | handler_requestlog.go:198 | get_request_log_payloads:507 | request_log_payloads | 已对接 | — | v1.0 | b64 载荷 + truncated 元数据；payload logging 关闭时 200 空串 |
 | R47 | GET /api/v1/metrics/realtime/throughput | handler_metrics.go:147 | realtime_throughput:547 | metrics_realtime_throughput | 已对接 | — | v1.0 | 实时吞吐；无入参（上游默认最近 1h） |
 | R48 | GET /api/v1/metrics/realtime/connections | handler_metrics.go:172 | — | — | 空白 | — | v1.0 | 实时连接 |
-| R49 | GET /api/v1/metrics/realtime/leases | handler_metrics.go:197 | active_leases:292 | lease_map / ip_reputation_snapshot | 已对接 | P21/R2 | v1.0 | 顶替已删 resin-core LeaseTable |
+| R49 | GET /api/v1/metrics/realtime/leases | handler_metrics.go:197 | active_leases:292 | lease_map / ip_reputation_snapshot | 已对接 | REFACTOR_PLAN.md | v1.0 | 顶替已删 resin-core LeaseTable |
 | R50 | GET /api/v1/metrics/history/traffic | handler_metrics.go:236 | — | — | 空白 | — | v1.0 | 历史流量 |
 | R51 | GET /api/v1/metrics/history/requests | handler_metrics.go:269 | — | — | 空白 | — | v1.0 | 访问成功率同源 |
 | R52 | GET /api/v1/metrics/history/access-latency | handler_metrics.go:308 | — | — | 空白 | — | v1.0 | 访问延迟 |

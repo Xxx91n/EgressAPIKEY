@@ -172,7 +172,7 @@ export function SettingsView() {
   const [resinMaxFailures, setResinMaxFailures] = useState<number>(3);
   const [resinLatencyInterval, setResinLatencyInterval] = useState<string>("1h");
   const [resinLatencyUrl, setResinLatencyUrl] = useState<string>("");
-  // 4 Resin hot-update knobs missing from P4
+  // 4 more Resin hot-update knobs
   const [resinMaxEgressInterval, setResinMaxEgressInterval] = useState<string>("24h");
   const [resinLatencyAuthorities, setResinLatencyAuthorities] = useState<string>("");
   const [resinP2cLatencyWindow, setResinP2cLatencyWindow] = useState<string>("30s");

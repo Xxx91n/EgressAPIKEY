@@ -412,11 +412,11 @@ pub struct ExitIpProbe {
 // Two endpoints of the 12 registered by resin/internal/api/handler_metrics.go
 // (裂痕 #5): GET /metrics/realtime/throughput (#R47) and GET
 // /metrics/history/probes (#R53). Pull model (spec: no WebSocket push); the
-// Ghost G3 health poll is a separate channel and is untouched. The remaining
+// Ghost safety-net health poll is a separate channel and is untouched. The remaining
 // 10 endpoints stay documented as blank in RESIN_API_COVERAGE.md pending a
-// full-set round (issue F1/F3).
+// full-set round.
 
-/// §7.5 input validation for the metrics history window (issue F4). Parsed +
+/// §7.5 input validation for the metrics history window. Parsed +
 /// bounded at the IPC boundary before Resin ever sees the query string —
 /// the TS wrapper applies the same rules first (dual cover), this is the
 /// second line. Rules:
@@ -507,7 +507,7 @@ pub async fn metrics_probe_history(
 
 ///: GET /api/v1/metrics/realtime/throughput — realtime
 /// ingress/egress ring samples for the Diagnostics metrics card. No input
-/// params (issue F4: realtime 无入参) — Resin's parseMetricsTimeRange defaults
+/// params — Resin's parseMetricsTimeRange defaults
 /// apply upstream (last hour). Response shape (handler_metrics.go:147):
 /// {"step_seconds": N, "items": [{"ts","ingress_bps","egress_bps"}]}.
 #[tauri::command]

@@ -683,7 +683,7 @@ impl ResinClient {
     /// re-implemented the "list all -> match name -> take id" two-step hop;
     /// this helper (plus the pure `resolve_id_in`) is the one canonical
     /// implementation. Miss resolves to `IpcError::NotFound` — NOT a panic
-    /// and not a stringly error (F3/§7.5).
+    /// and not a stringly error (§7.5).
     ///
     /// The list GET failure is mapped through `map_resin_error` so upstream
     /// errors keep their typed face (`ResinUpstream` for a 5xx, etc.) exactly
@@ -1195,7 +1195,7 @@ mod tests {
 
     #[tokio::test]
     async fn mockito_subscription_update_interval_three_states_wire_contract() {
-        // F3: Resin parses update_interval as a Go time.Duration and
+        // Resin parses update_interval as a Go time.Duration and
         // enforces >= 30s (resin/internal/service/control_plane_subscription.go
         // minSubscriptionUpdateInterval, create AND PATCH paths). Wire contract
         // at the shell boundary: 30s and 1m pass through and are accepted; 5s
@@ -2039,7 +2039,7 @@ mod tests {
 
     #[test]
     fn resolve_helpers_reject_bad_names_before_any_http() {
-        // F3/§7.5: DNS-host length cap (253) + NUL/control rejection, both
+        // §7.5: DNS-host length cap (253) + NUL/control rejection, both
         // surfacing as IpcError::InvalidInput (never a panic). Validation
         // fires before the list GET, so no mockito server is even needed.
         let rt = tokio::runtime::Builder::new_current_thread()

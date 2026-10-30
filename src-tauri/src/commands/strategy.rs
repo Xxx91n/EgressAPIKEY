@@ -387,7 +387,7 @@ pub async fn authoritative_snapshot_core(
             .list_endpoints()
             .await
             .map_err(|e| map_resin_error(&e.to_string()))?;
-        // F4: one extra GET /api/v1/subscriptions so the
+        // One extra GET /api/v1/subscriptions so the
         // reverse-lookup section can join Resin stats against the whitebox
         // references. Read-only cosmetic section: a failed read degrades to
         // an empty live list (whitebox refs still surface as dangling).
@@ -436,7 +436,7 @@ pub async fn authoritative_snapshot_core(
     }
     let mut ports = resin_core::snapshot::merge_ports(&all_ports, &listener_ports);
 
-    // F4: subscription reverse lookup — union of live Resin
+    // Subscription reverse lookup — union of live Resin
     // subscription rows and every whitebox reference, each with its
     // consuming platforms. Pure assembly of data already in hand; the
     // platform rows' own `subscriptions` field stays untouched.
@@ -609,7 +609,7 @@ pub async fn authoritative_snapshot_core(
     Ok(snapshot)
 }
 
-/// F4: parse GET /api/v1/subscriptions into (name, node_count,
+/// Parse GET /api/v1/subscriptions into (name, node_count,
 /// healthy_node_count) triples for the snapshot's reverse-lookup section.
 /// Accepts both the items-wrapper and bare-array shapes (mirrors
 /// `subscription_snapshot` in platform.rs); malformed rows are skipped.

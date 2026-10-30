@@ -1366,7 +1366,7 @@ mod tests {
 
     #[test]
     fn barrier_tick_never_heals_degraded() {
-        // F1 regression lock: a barrier tick is not positive evidence — the
+        // Regression lock: a barrier tick is not positive evidence — the
         // Degraded else-branch must not read "not failed" as "healthy" and
         // bounce the row back to Healthy.
         for name in ["suspect", "skipped"] {
@@ -1383,7 +1383,7 @@ mod tests {
 
     #[test]
     fn barrier_tick_never_advances_observing() {
-        // F1 regression lock: an Observing row must not accumulate
+        // Regression lock: an Observing row must not accumulate
         // good_cycles — or cement + drop its rollback baseline — on
         // evidence-free ticks.
         let (mut s, v) = degraded_platform();

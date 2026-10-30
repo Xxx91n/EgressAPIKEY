@@ -89,7 +89,7 @@ aggregate health.
 ### Phase R3 - Node/IP-channel management tab
 
 - New tab: node pool list with health, egress IP, protocol.
-- Import from subscription URL or local clash YAML (already works via P13).
+- Import from subscription URL or local clash YAML (already works: Resin imports both).
 - Per-node health polling (already in node-pool snapshot).
 
 ### Phase R4 - Whitebox config layer + backup

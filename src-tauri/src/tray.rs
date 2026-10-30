@@ -578,7 +578,7 @@ pub fn current_lang(app: &AppHandle) -> TrayLang {
 pub fn apply_labels(app: &AppHandle) -> tauri::Result<()> {
     let lc = current_lang(app);
     let l = labels(lc);
-    // P25-item4: observable diagnostics. The user reported the tray right-click
+    // Observable diagnostics. The user reported the tray right-click
     // menu shows the PREVIOUS locale after a language switch in Settings. The
     // SettingsView awaits saveLocale then invokes this cmd, so by the time we
     // run current_lang the persisted "lang" SHOULD already be the new value.

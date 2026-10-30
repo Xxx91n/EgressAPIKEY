@@ -28,7 +28,7 @@ test("G4: 5-tab desktop shell switches and each tab mounts a non-empty surface",
   await page.getByRole("combobox", { name: /language|Language|\u8bed\u8a00|Sprache|Idioma|\u4ee3|\u5b57/i }).first();
 });
 
-test("G4: TopologyView raises the G3 red banner when sidecar-status is unhealthy", async ({ page }) => {
+test("G4: TopologyView raises the red sidecar banner when sidecar-status is unhealthy", async ({ page }) => {
   await page.goto("/");
   // We cannot fire a Tauri event from the DOM-side; this spec instead asserts
   // that TopologyView imports the events module (verified via the absence of a

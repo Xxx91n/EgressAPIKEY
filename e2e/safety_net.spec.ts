@@ -1,11 +1,11 @@
-// G3 acceptance: Ghost safety net flips the tray red and clears the OS
+// Acceptance: Ghost safety net flips the tray red and clears the OS
 // system proxy when the Resin sidecar becomes unhealthy.
 //
 // Like sidecar_boot.spec.ts, we cannot drive the native Tauri webview from
 // Playwright. The Rust-side behavior is verified by the release-exe smoke
-// harness in .codex-tmp/smoke3.ps1 (run as part of G3 verification; see the
-// G3 commit message for the kill+9s evidence). This spec documents the
-// contract the React shell is expected to honour:
+// harness in .codex-tmp/smoke3.ps1 (run when the safety net landed; the
+// message of the commit that introduced it carries the kill+9s evidence).
+// This spec documents the contract the React shell is expected to honour:
 //
 // 1. A "sidecar-status" event is emitted from Rust with payload
 // "healthy" | "unhealthy".
@@ -18,7 +18,7 @@
 
 import { test, expect } from "@playwright/test";
 
-test("G3: contract — sidecar-status event name and payloads", async ({ page }) => {
+test("Ghost safety net contract — sidecar-status event name and payloads", async ({ page }) => {
   // Smoke-test that the React shell mounts and does not crash reading past
   // the environment. This is intentionally weak; the meaningful assertion is
   // the release-exe harness at commit time.
@@ -26,6 +26,6 @@ test("G3: contract — sidecar-status event name and payloads", async ({ page })
   await expect(page.getByText("EgressAPIKEY").first()).toBeVisible();
   const labels = ["healthy", "unhealthy"];
   // The contract is enforced by src-tauri/src/sidecar.rs
-  // (STATUS_EVENT = "sidecar-status"); see G3 commit.
+  // (STATUS_EVENT = "sidecar-status").
   expect(labels).toEqual(["healthy", "unhealthy"]);
 });

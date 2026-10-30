@@ -1,4 +1,4 @@
-# P21 — Resin Account / Platform 模型映射（架构基线）
+# Resin Account / Platform 模型映射（架构基线）
 
 > 来源：Resin DESIGN.md (master 分支, v1.1.2/v1.2.0) + ai-api-route IPC 现状。
 > 用途：定义"平台 / api key 组合 / ip 通道"三者在 Resin 真实后端里的对应实体，

@@ -74,8 +74,8 @@ tauri-plugin-notification = "2"
 tauri-plugin-single-instance = "2"
 # Structured logging via tauri-plugin-tracing: native `tracing` consumer
 # with a WebviewLayer (Rust logs -> frontend log panel) + daily-rotating file
-# appender to the OS log dir (Re7) + stdout. Replaces tauri-plugin-log so the
-# whole codebase (resin-core + shell) uses one `tracing` pipeline (Re7/Re6).
+# appender to the OS log dir + stdout. Replaces tauri-plugin-log so the
+# whole codebase (resin-core + shell) uses one `tracing` pipeline.
 tauri-plugin-tracing = "0.3"
 # Embedded WebDriver server for the webview-smoke CI harness. Optional + feature-gated: release builds never carry a
 # remote-control surface. The capability file that references it

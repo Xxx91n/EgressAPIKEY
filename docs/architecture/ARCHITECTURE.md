@@ -266,7 +266,7 @@ ConvergePhase in {Converged, Drifted(acknowledged)}.
 2. Frontend IPC -> #[tauri::command] validates -> ResinClient -> Resin REST
 3. Ghost health poll: 3s /healthz, 3 fails -> tray red + clear OS proxy + real restart (kill/respawn on the same port, <=3 attempts, then Terminated)
 4. TopologyView subscribes sidecar-status -> red banner on unhealthy
-5. Resin Admin API is a pure pull model — no webhook / callback / push exit; the sole Resin → shell signal is Ghost G3's health poll emitting `sidecar-status` (G4, see GLOSSARY.md「G4 (Signal Channel)」)
+5. Resin Admin API is a pure pull model — no webhook / callback / push exit; the sole Resin → shell signal is the Ghost safety net's health poll emitting `sidecar-status` (G4, see GLOSSARY.md「G4 (Signal Channel)」)
 
 ## Tech stack
 

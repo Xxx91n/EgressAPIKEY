@@ -1022,8 +1022,9 @@ mod tests {
     /// 35959139983, 2026-09-24: p99=9615us over 200 samples, 76/200 >=
     /// 1ms) and discharged to a keep-Mutex verdict - saturation
     /// existence proven, production impact not (a fairness-forced
-    /// microbenchmark is not a production criterion; emschwartz/abseil
-    /// per the ledger). Post-verdict semantics: this probe is a
+    /// microbenchmark is not a production criterion; sources:
+    /// https://emschwartz.me/psa-your-sqlite-connection-pool-might-be-ruining-your-write-performance/
+    /// and https://abseil.io/fast/39). Post-verdict semantics: this probe is a
     /// regression/A-B instrument only - it asserts instrument sanity
     /// plus deterministic pivots; the p99 < 250ms hang-pathology bound
     /// (25x the observed 9.9ms max, catching an unreleased lock /

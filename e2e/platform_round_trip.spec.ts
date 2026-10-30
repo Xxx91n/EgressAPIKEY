@@ -1,4 +1,4 @@
-// G2 phase 2 acceptance: the PlatformsView contract round-trips.
+// IPC retarget acceptance: the PlatformsView contract round-trips.
 //
 // The Rust-side retarget (commands/mod.rs -> ResinClient) is backend-side
 // and cannot be driven from Playwright (no Tauri webview driver + Vite dev
