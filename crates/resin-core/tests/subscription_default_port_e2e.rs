@@ -1,4 +1,4 @@
-//! Integration test (architecture-recovery Round 7 ticket 03, spec D-C1.3):
+//! Integration test:
 //! the establish cascade ends with ONE socks5 entry port when the user did
 //! not provide a binding target, and unbind releases it through the SAME
 //! row-level mutation the existing ipcPortRemove path performs (Resin
@@ -157,15 +157,15 @@ async fn import_creates_one_socks5_port_and_unbind_releases_it() {
     let report = run_pipeline(&client, &svc, "e2e-sub", "https://example.invalid/e2e.yaml").await;
     assert!(report.all_ok(), "establish pass must be green: {report:?}");
 
-    // Cascade end (D-C1.3): no binding target provided -> one default port.
+    // Cascade end: no binding target provided -> one default port.
     let status = ensure_default_port(&client, &db, &forwarder, &whitebox, "e2e-sub", None).await;
     assert!(
         matches!(status, StepStatus::Written),
         "default port must be created: {status:?}"
     );
 
-    // "导入 sub 后 1 个入口端口可用": exactly ONE default-protocol (mixed,
-    // round-8) entry bound to the platform, enabled, present in BOTH
+    // "导入 sub 后 1 个入口端口可用": exactly ONE default-protocol (mixed)
+    // entry bound to the platform, enabled, present in BOTH
     // the whitebox and its SQLite sync partner.
     let rows = db.list_ports().unwrap();
     assert_eq!(rows.len(), 1, "exactly one default port: {rows:?}");
@@ -230,8 +230,7 @@ async fn import_creates_one_socks5_port_and_unbind_releases_it() {
 }
 
 // ---------------------------------------------------------------------------
-// Orphan-cleanup e2e (architecture-recovery ticket 05, spec IMP-5 / A-008 /
-// Round 9 option B): Mode B (engine) residue — the default-port tail's
+// Orphan-cleanup e2e: Mode B (engine) residue — the default-port tail's
 // create-then-whitebox window and the un-bind on subscription_remove.
 // ---------------------------------------------------------------------------
 

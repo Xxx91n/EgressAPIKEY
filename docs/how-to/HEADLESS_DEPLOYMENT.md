@@ -61,11 +61,11 @@ start window. Comparison against the expected token is constant-time.
 ### Local reproduction
 
 The rebinding primitive was reproduced locally before this hardening
-(`.scratch/architecture-recovery/repro/dns-rebinding-repro.cjs`): the pre-fix
+(with a local, uncommitted repro script): the pre-fix
 request shape served the admin plane to `Host: evil.example` with `HTTP 200`,
 while the post-fix allowlist returns `403` and still accepts the loopback
-`Host`. Evidence is recorded in
-`.scratch/architecture-recovery/reports/03-headless-security-report.md`.
+`Host`. That evidence was kept in local scratch notes and is not part of the
+repository.
 
 ## Layout
 

@@ -10,7 +10,7 @@ import enCommon from "../locales/en/common.json";
 // Checkpoint C: Converged state MUST hide via literal `display: none`
 // (NOT opacity); the element stays in the DOM so tests can assert the hide
 // and so a phase transition animates the same mounted instance.
-describe("SideRailConvergeDot (ticket 06)", () => {
+describe("SideRailConvergeDot", () => {
   const PHASES = ["Converged", "PendingApply", "ApplyFailed", "NeverApplied", "Drifted", "Unknown"] as const;
 
   it.each(PHASES)("renders the dot with data-phase=%s", (phase) => {

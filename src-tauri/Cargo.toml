@@ -49,7 +49,7 @@ getrandom = "0.2"
 # Lowercase hex encoding for the sidecar admin token (gen_token) and the
 # headless CSPRNG token; 0.4.3 already sits in Cargo.lock transitively.
 hex = "0.4"
-# IP/CIDR matching for the headless --trusted-proxy flag (R12-D1); 2.12.0 is
+# IP/CIDR matching for the headless --trusted-proxy flag; 2.12.0 is
 # already in Cargo.lock transitively via the reqwest/hyper tree.
 ipnet = "2"
 # (tauri-specta pilot): trio pinned with `=` per the upstream
@@ -114,7 +114,7 @@ default = []
 # the Vite dev server running.
 custom-protocol = ["tauri/custom-protocol"]
 headless = []
-# r12-wave-i D-003.1: forwards the resin-core lock-wait observation
+# Forwards the resin-core lock-wait observation
 # instrument for feature-on OBSERVATION builds only - no shipping or CI
 # release configuration enables it.
 db-lock-metrics = ["resin-core/db-lock-metrics"]

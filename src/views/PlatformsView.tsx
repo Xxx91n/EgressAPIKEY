@@ -63,7 +63,7 @@ function unwrapItems(raw: unknown): unknown[] {
 }
 
 // subscription-fold grouping comes from src/lib/nodeGroup.ts (shared with
-// NodesView since r12 wave-d D4).
+// NodesView).
 
 export function PlatformsView() {
   const { t } = useTranslation();

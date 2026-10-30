@@ -5,7 +5,7 @@
 #
 # Breaking changes between v1.1 and v1.2: endpoint API surface changes
 # (allocation_policy enum, region_filters field, /nodes pagination).
-# Compat notes (architecture-recovery ticket 11, 2026-08-30):
+# Compat notes (2026-08-30):
 # - The shell consumes GET /api/v1/request-logs (ResinClient::request_logs,
 # src-tauri request_log_tail). Verified present in the v1.2.0 sidecar
 # (embedded WebUI + route strings in resin.exe). If a future Resin bump
@@ -13,7 +13,7 @@
 # IpcError ("response has no items array") — that is the seam alarm, not a
 # silent misparse.
 # - The shell no longer reads Resin's private request_logs*.db files (the
-# former direct-DB seam exception was closed by ticket 11).
+# former direct-DB seam exception was closed on 2026-08-30).
 
 repo: "Resinat/Resin"
 version: "v1.2.0"
@@ -39,7 +39,7 @@ assets:
   linux-arm64: "resin-linux-arm64.tar.gz"
   linux-amd64: "resin-linux-amd64.tar.gz"
 # ---------------------------------------------------------------------------
-# Registered Exemption (r12-wave-a D-002 / R12-00; removal condition required):
+# Registered Exemption (bench acceptance line, docs/how-to/PERF-BENCH.md; removal condition required):
 # id: mode-b-sse-buffering
 # scope: forward-GET response path (resin/internal/proxy/forward.go) -
 # io.Copy(w, resp.Body) without a Flush, so SSE over the Mode B
@@ -53,7 +53,7 @@ assets:
 # Known-measured-behavior paragraph together.
 known_exemptions:
   - id: mode-b-sse-buffering
-    since: "r12-wave-a (2026-09-22)"
+    since: "2026-09-22"
     removal_condition: "upstream per-event flush on the forward-GET path"
-    # r12-wave-h D-002: "upstream" reads as "the shipped engine implements it" -
+    # Reading rule: "upstream" reads as "the shipped engine implements it" -
     # a governed patch-fork release asset also lifts this exemption (upstream-first PR remains the default path).

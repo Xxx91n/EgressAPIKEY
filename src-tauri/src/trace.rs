@@ -1,4 +1,4 @@
-//! Phase 5-1 trace helpers.
+//! Trace-ID helpers (frontend `__trace_id` -> tracing span).
 //!
 //! Frontend injects `__trace_id` (UUID v4 via crypto.randomUUID()) into every
 //! Tauri IPC call's args. The Rust command entry extracts it and opens a

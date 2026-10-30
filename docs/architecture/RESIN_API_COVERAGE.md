@@ -2,7 +2,7 @@
 
 > Upstream surface: `resin/internal/api/server.go:65-157` (`NewServerWithAddress` mux
 > registrations) + `resin/cmd/resin/main.go` bootstrap wiring. Bundled sidecar: **v1.2.0**
-> (`docs/RESIN_UPSTREAM_MANIFEST.yaml`). Audited: 2026-09-04 (round5 T13).
+> (`docs/RESIN_UPSTREAM_MANIFEST.yaml`). Audited: 2026-09-04.
 > Maintenance discipline: the row and the governing decision update in the same commit as the change.
 > The retired ADR citations were stripped from this file (2026-10); each row's 备注 carries the reason.
 
@@ -24,8 +24,8 @@ their row id.
 | 故意不接 deliberate | Unwired BY DECISION; reason recorded in the row's 备注 column | 10 |
 
 > The 装饰 bucket is currently EMPTY. reports/03 §2 #3 flagged `system_config_get/patch`
-> as decorative commands, but their bodies have called `client.system_config_*` since T8-1
-> (commit 856a0ff; the file only moved in arch/08). T15 must re-verify its premise against
+> as decorative commands, but their bodies have called `client.system_config_*` since commit
+> 856a0ff (the file only moved later). Any change that deletes or rewires them must re-verify its premise against
 > this table before deleting or rewiring anything.
 
 ## Out-of-table surfaces
@@ -35,16 +35,16 @@ their row id.
 - `/healthz` is unauthenticated on every listener; the shell consumes it with direct reqwest in `src-tauri/src/sidecar.rs` (boot await 15s, G3 ghost 3s poll), never through ResinClient.
 - Headless BFF mode (the headless server is a separate required-features-gated bin): `src/lib/ipc.ts CMD_TO_HTTP` forwards a subset of the same IPC commands to `/api/v1/*` server-side; the rows below are identical, only the transport differs.
 
-## D-34 finding: refresh-completion hook shape
+## Finding: refresh-completion hook shape
 
 `cmd/resin/main.go` wires bootstrap only — Resin exposes **no webhook and no event push**
 (grep for webhook/callback/notify in `resin/internal/api/*.go` + `cmd/resin/main.go`:
 zero hits). `POST /api/v1/subscriptions/{id}/actions/refresh` (R30) is a synchronous
 blocking call that returns `{"status":"ok"}` with **no `changed` flag** in v1.2.0.
-Therefore the T01/T14 refresh hook shape is: synchronous POST return + poll-based
-observation of `GET /api/v1/subscriptions` field deltas (the round5-T03 30s edge poll).
-The upstream-side `changed` output extension (spec D-24) is a Resin-side contract change
-and stays outside T13 scope (issue 不做清单).
+Therefore the shell's refresh hook shape is: synchronous POST return + poll-based
+observation of `GET /api/v1/subscriptions` field deltas (the SubscriptionsView 30s edge poll).
+The upstream-side `changed` output extension is a Resin-side contract change
+and stays out of scope for this audit.
 
 ## Coverage table
 
@@ -59,13 +59,13 @@ lists only the tag-filter DB migration), so this table matches the bundled v1.2.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | R01 | GET /healthz | handler_healthz.go:7 | — (direct reqwest, not via client) | — (sidecar boot await + G3 ghost poll) | 已对接 | ARCHITECTURE.md sidecar section; sidecar.rs:371/956 | v1.0 | 唯一无鉴权端点；shell 直连轮询，不经 ResinClient |
 | R02 | GET /api/v1/system/info | handler_system.go:57 | — | — | 空白 | — | v1.0 | WebUI 顶部信息用；shell 无消费场景（诊断卡候选） |
-| R03 | GET /api/v1/system/config | handler_system.go:64 | system_config_get:441 | system_config_get (settings.rs:62) | 已对接 | settings.rs:58 (T8-1) | v1.0 | 熔断阈值等只读展示 |
+| R03 | GET /api/v1/system/config | handler_system.go:64 | system_config_get:441 | system_config_get (settings.rs:62) | 已对接 | settings.rs:58 | v1.0 | 熔断阈值等只读展示 |
 | R04 | GET /api/v1/system/config/default | handler_system.go:75 | — | — | 故意不接 | — | v1.0 | 出厂默认值由 Resin 自身管理；shell 无需展示不可改值 |
 | R05 | GET /api/v1/system/config/env | handler_system.go:82 | — | — | 故意不接 | — | v1.0 | env 由 boot_resin 注入（含 token）；读回无信息量且不得进 webview |
-| R06 | PATCH /api/v1/system/config | handler_system.go:89 | system_config_patch:447 | system_config_patch (settings.rs:76) | 已对接 | settings.rs:72 (T8-1 / T19-P4) | v1.0 | max_consecutive_failures 1..=100 壳侧校验 |
-| R07 | GET /api/v1/platforms | handler_platform.go:75 | list_platforms:274 | platform_list / platform_list_full / strategy_verify / authoritative_snapshot / reconcile_now / strategy_apply (Service) | 已对接 | — | v1.0 | name→id 两步跳模式核心（T17 helper 票收敛） |
+| R06 | PATCH /api/v1/system/config | handler_system.go:89 | system_config_patch:447 | system_config_patch (settings.rs:76) | 已对接 | settings.rs:72 | v1.0 | max_consecutive_failures 1..=100 壳侧校验 |
+| R07 | GET /api/v1/platforms | handler_platform.go:75 | list_platforms:274 | platform_list / platform_list_full / strategy_verify / authoritative_snapshot / reconcile_now / strategy_apply (Service) | 已对接 | — | v1.0 | name→id 两步跳模式核心（已收敛为 name→id resolve helper） |
 | R08 | POST /api/v1/platforms | handler_platform.go:118 | create_platform:247 / create_platform_from_name:254 / create_platform_with_fields:394 | platform_add / platform_create_with_fields / strategy_apply | 已对接 | — | v1.0 | 三方法同端点；from_name 镜像 Resin V1 名字规则 |
-| R09 | POST /api/v1/platforms/preview-filter | handler_platform.go:202 | — | — | 故意不接 | — | v1.0 | dry-run 只读不改 Resin 状态；与 壳侧内存快照重叠 — 唯一下轮接线候选 T23 |
+| R09 | POST /api/v1/platforms/preview-filter | handler_platform.go:202 | — | — | 故意不接 | — | v1.0 | dry-run 只读不改 Resin 状态；与 壳侧内存快照重叠 — 唯一的后续接线候选 |
 | R10 | GET /api/v1/platforms/{id} | handler_platform.go:101 | get_platform:279 | — | 孤儿 | — | v1.0 | 列表已覆盖单读；仅 client 单测调用 |
 | R11 | PATCH /api/v1/platforms/{id} | handler_platform.go:135 | update_platform:342 | platform_update / strategy_apply (region_filters diff-then-skip) | 已对接 | — | v1.0 | 收敛只 PATCH 真实漂移 |
 | R12 | DELETE /api/v1/platforms/{id} | handler_platform.go:156 | delete_platform:285 | platform_remove | 已对接 | — | v1.0 | 先 list 反查 id 再删 |
@@ -80,41 +80,41 @@ lists only the tag-filter DB migration), so this table matches the bundled v1.2.
 | R21 | DELETE /api/v1/platforms/{id}/leases | handler_lease.go:153 | — | — | 故意不接 | — | v1.0 | 全平台清租破坏性大；close_all_connections 语义走 sidecar 重启（settings.rs:98） |
 | R22 | GET /api/v1/platforms/{id}/leases/{account} | handler_lease.go:112 | — | — | 空白 | — | v1.0 | 单租约详情（租约抽屉候选） |
 | R23 | DELETE /api/v1/platforms/{id}/leases/{account} | handler_lease.go:133 | — | — | 空白 | — | v1.0 | 单账户释放（候选） |
-| R24 | GET /api/v1/platforms/{id}/ip-load | handler_lease.go:168 | — | — | 空白 | — | v1.0 | IP 负载分布（T19 邻接） |
-| R25 | GET /api/v1/subscriptions | handler_subscription.go:46 | list_subscriptions:312 | subscription_list / subscription_refresh / subscription_remove / authoritative_snapshot / strategy_apply (引用解析) | 已对接 | round5 T01/T03 | v1.0 | last_error 晋升 + 30s 边沿轮询的数据源 |
-| R26 | POST /api/v1/subscriptions | handler_subscription.go:98 | create_subscription:306 | subscription_add | 已对接 | round5 T04 write-retry | v1.0 | update_interval ≥30s 上游地板（GAP-01） |
+| R24 | GET /api/v1/platforms/{id}/ip-load | handler_lease.go:168 | — | — | 空白 | — | v1.0 | IP 负载分布（与 metrics 最小集相邻） |
+| R25 | GET /api/v1/subscriptions | handler_subscription.go:46 | list_subscriptions:312 | subscription_list / subscription_refresh / subscription_remove / authoritative_snapshot / strategy_apply (引用解析) | 已对接 | — | v1.0 | last_error 晋升 + 30s 边沿轮询的数据源 |
+| R26 | POST /api/v1/subscriptions | handler_subscription.go:98 | create_subscription:306 | subscription_add | 已对接 | GLOSSARY.md Write Retry | v1.0 | update_interval ≥30s 上游地板（GAP-01） |
 | R27 | GET /api/v1/subscriptions/{id} | handler_subscription.go:82 | — | — | 空白 | — | v1.0 | 列表已覆盖单读 |
-| R28 | PATCH /api/v1/subscriptions/{id} | handler_subscription.go:115 | — | — | 空白 | GAP-01 (T04) | v1.0 | shell 现走 delete+recreate；PATCH 可免节点抖动（候选） |
+| R28 | PATCH /api/v1/subscriptions/{id} | handler_subscription.go:115 | — | — | 空白 | docs/research/OPENAPI-GAP.md GAP-01 | v1.0 | shell 现走 delete+recreate；PATCH 可免节点抖动（候选） |
 | R29 | DELETE /api/v1/subscriptions/{id} | handler_subscription.go:135 | delete_subscription:318 | subscription_remove | 已对接 | — | v1.0 | 204 → Null |
-| R30 | POST /api/v1/subscriptions/{id}/actions/refresh | handler_subscription.go:150 | refresh_subscription_native:332 | subscription_refresh | 已对接 | — | v1.0 | 同步阻塞至 scheduler tick；出参仅 {status:ok} 无 changed（D-24 上游扩展不在本票）——见 D-34 finding |
+| R30 | POST /api/v1/subscriptions/{id}/actions/refresh | handler_subscription.go:150 | refresh_subscription_native:332 | subscription_refresh | 已对接 | — | v1.0 | 同步阻塞至 scheduler tick；出参仅 {status:ok} 无 changed（上游 `changed` 出参扩展不在范围内）——见 refresh-completion hook shape finding |
 | R31 | POST /api/v1/subscriptions/{id}/actions/cleanup-circuit-open-nodes | handler_subscription.go:166 | — | — | 空白 | — | v1.0 | 返回 cleaned_count；订阅节点卫生 UI 候选 |
-| R32 | GET /api/v1/account-header-rules | handler_rules.go:41 | list_account_header_rules | list_account_header_rules | 已对接 | T16 | v1.0 | keyword/limit/offset 参数面；limit=1000 单页全量 |
-| R33 | PUT /api/v1/account-header-rules/{prefix...} | handler_rules.go:59 | put_account_header_rules | put_account_header_rules | 已对接 | T16 | v1.0 | url_prefix 只能走 path（encodeURIComponent 编码，%2F 保留） |
-| R34 | POST /api/v1/account-header-rules:resolve | handler_rules.go:106 | resolve_account_header_rule | resolve_account_header_rule | 已对接 | T16 | v1.0 | matcher 调试辅助；body {"url"}，未命中 200 + 空字段 |
-| R35 | DELETE /api/v1/account-header-rules/{prefix...} | handler_rules.go:94 | delete_account_header_rule | delete_account_header_rule | 已对接 | T16 | v1.0 | 按 url_prefix 删（非 id）；"*" 兜底规则不可删 |
+| R32 | GET /api/v1/account-header-rules | handler_rules.go:41 | list_account_header_rules | list_account_header_rules | 已对接 | PROCESS_ROUTE_VS_HEADER_RULES.md | v1.0 | keyword/limit/offset 参数面；limit=1000 单页全量 |
+| R33 | PUT /api/v1/account-header-rules/{prefix...} | handler_rules.go:59 | put_account_header_rules | put_account_header_rules | 已对接 | PROCESS_ROUTE_VS_HEADER_RULES.md | v1.0 | url_prefix 只能走 path（encodeURIComponent 编码，%2F 保留） |
+| R34 | POST /api/v1/account-header-rules:resolve | handler_rules.go:106 | resolve_account_header_rule | resolve_account_header_rule | 已对接 | PROCESS_ROUTE_VS_HEADER_RULES.md | v1.0 | matcher 调试辅助；body {"url"}，未命中 200 + 空字段 |
+| R35 | DELETE /api/v1/account-header-rules/{prefix...} | handler_rules.go:94 | delete_account_header_rule | delete_account_header_rule | 已对接 | PROCESS_ROUTE_VS_HEADER_RULES.md | v1.0 | 按 url_prefix 删（非 id）；"*" 兜底规则不可删 |
 | R36 | GET /api/v1/nodes | handler_node.go:95 | list_nodes:352 / list_nodes_for_platform:359 (孤儿) | node_list / authoritative_snapshot / strategy_apply | 已对接 | — | v1.0 | limit=500 显式分页（v1.2 分页契约变化）；platform_id 变体方法零调用 |
 | R37 | GET /api/v1/nodes/{hash} | handler_node.go:177 | — | — | 空白 | — | v1.0 | 单节点详情列表已覆盖 |
-| R38 | POST /api/v1/nodes/{hash}/actions/probe-egress | handler_node.go:190 | probe_node_egress:369 | node_probe | 已对接 | T19-P3 | v1.2.0 | 副作用更新 egress_ip/TD-EWMA |
-| R39 | POST /api/v1/nodes/{hash}/actions/probe-latency | handler_node.go:203 | probe_node_latency:379 | node_probe | 已对接 | T19-P3 | v1.2.0 | TD-EWMA 更新 |
+| R38 | POST /api/v1/nodes/{hash}/actions/probe-egress | handler_node.go:190 | probe_node_egress:369 | node_probe | 已对接 | — | v1.2.0 | 副作用更新 egress_ip/TD-EWMA |
+| R39 | POST /api/v1/nodes/{hash}/actions/probe-latency | handler_node.go:203 | probe_node_latency:379 | node_probe | 已对接 | — | v1.2.0 | TD-EWMA 更新 |
 | R40 | GET /api/v1/geoip/status | handler_geoip.go:11 | — | — | 故意不接 | — | v1.0 | 纯地理 region 无信誉维度；ip_reputation_snapshot 走第三方 |
 | R41 | GET /api/v1/geoip/lookup | handler_geoip.go:19 | — | — | 故意不接 | — | v1.0 | 单 IP region 查询 — 纯地理，无信誉维度 |
 | R42 | POST /api/v1/geoip/lookup | handler_geoip.go:50 | — | — | 故意不接 | — | v1.0 | 批量 region 查询 — 纯地理，无信誉维度 |
 | R43 | POST /api/v1/geoip/actions/update-now | handler_geoip.go:39 | — | — | 故意不接 | — | v1.0 | Resin 自身 GeoIP 库刷新；shell 不消费其数据 |
 | R44 | GET /api/v1/request-logs | handler_requestlog.go:16 | request_logs:464 | request_log_tail | 已对接 | arch-recovery 11 | v1.0 | 8 过滤参数 + cursor；REST 化封死 request_logs*.db 直读 |
-| R45 | GET /api/v1/request-logs/{log_id} | handler_requestlog.go:174 | get_request_log:500 | request_log_detail | 已对接 | T21 | v1.0 | 单条详情；§7.5 log_id 校验（1..=64 UUID 字符集） |
-| R46 | GET /api/v1/request-logs/{log_id}/payloads | handler_requestlog.go:198 | get_request_log_payloads:507 | request_log_payloads | 已对接 | T21 | v1.0 | b64 载荷 + truncated 元数据；payload logging 关闭时 200 空串 |
+| R45 | GET /api/v1/request-logs/{log_id} | handler_requestlog.go:174 | get_request_log:500 | request_log_detail | 已对接 | — | v1.0 | 单条详情；§7.5 log_id 校验（1..=64 UUID 字符集） |
+| R46 | GET /api/v1/request-logs/{log_id}/payloads | handler_requestlog.go:198 | get_request_log_payloads:507 | request_log_payloads | 已对接 | — | v1.0 | b64 载荷 + truncated 元数据；payload logging 关闭时 200 空串 |
 | R47 | GET /api/v1/metrics/realtime/throughput | handler_metrics.go:147 | realtime_throughput:547 | metrics_realtime_throughput | 已对接 | — | v1.0 | 实时吞吐；无入参（上游默认最近 1h） |
-| R48 | GET /api/v1/metrics/realtime/connections | handler_metrics.go:172 | — | — | 空白 | T19 | v1.0 | 实时连接 |
+| R48 | GET /api/v1/metrics/realtime/connections | handler_metrics.go:172 | — | — | 空白 | — | v1.0 | 实时连接 |
 | R49 | GET /api/v1/metrics/realtime/leases | handler_metrics.go:197 | active_leases:292 | lease_map / ip_reputation_snapshot | 已对接 | P21/R2 | v1.0 | 顶替已删 resin-core LeaseTable |
-| R50 | GET /api/v1/metrics/history/traffic | handler_metrics.go:236 | — | — | 空白 | T19 | v1.0 | 历史流量 |
-| R51 | GET /api/v1/metrics/history/requests | handler_metrics.go:269 | — | — | 空白 | T19 | v1.0 | 访问成功率同源 |
-| R52 | GET /api/v1/metrics/history/access-latency | handler_metrics.go:308 | — | — | 空白 | T19 | v1.0 | 访问延迟 |
+| R50 | GET /api/v1/metrics/history/traffic | handler_metrics.go:236 | — | — | 空白 | — | v1.0 | 历史流量 |
+| R51 | GET /api/v1/metrics/history/requests | handler_metrics.go:269 | — | — | 空白 | — | v1.0 | 访问成功率同源 |
+| R52 | GET /api/v1/metrics/history/access-latency | handler_metrics.go:308 | — | — | 空白 | — | v1.0 | 访问延迟 |
 | R53 | GET /api/v1/metrics/history/probes | handler_metrics.go:351 | probe_history:560 | metrics_probe_history | 已对接 | — | v1.0 | 主动探测次数；from/to RFC3339（§7.5 边界校验，7 天窗口上限） |
-| R54 | GET /api/v1/metrics/history/node-pool | handler_metrics.go:383 | — | — | 空白 | T19 | v1.0 | 节点数量历史 |
-| R55 | GET /api/v1/metrics/history/lease-lifetime | handler_metrics.go:417 | — | — | 空白 | T19 | v1.0 | 租约存活分布 |
+| R54 | GET /api/v1/metrics/history/node-pool | handler_metrics.go:383 | — | — | 空白 | — | v1.0 | 节点数量历史 |
+| R55 | GET /api/v1/metrics/history/lease-lifetime | handler_metrics.go:417 | — | — | 空白 | — | v1.0 | 租约存活分布 |
 | R56 | GET /api/v1/metrics/snapshots/node-pool | handler_metrics.go:458 | node_pool_snapshot:298 | node_pool_snapshot | 已对接 | — | v1.0 | 全局节点池快照 |
-| R57 | GET /api/v1/metrics/snapshots/platform-node-pool | handler_metrics.go:479 | — | — | 空白 | T19 | v1.0 | 平台节点池快照 |
-| R58 | GET /api/v1/metrics/snapshots/node-latency-distribution | handler_metrics.go:509 | — | — | 空白 | T19 | v1.0 | 节点延迟分布 |
+| R57 | GET /api/v1/metrics/snapshots/platform-node-pool | handler_metrics.go:479 | — | — | 空白 | — | v1.0 | 平台节点池快照 |
+| R58 | GET /api/v1/metrics/snapshots/node-latency-distribution | handler_metrics.go:509 | — | — | 空白 | — | v1.0 | 节点延迟分布 |
 
 ## Maintenance
 

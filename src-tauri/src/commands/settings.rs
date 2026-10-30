@@ -122,7 +122,7 @@ pub async fn reset_kernel(
 
 /// shared kill+restart helper. Delegates to the Ghost-tested restart seam
 /// `crate::sidecar::restart_resin` (two-phase shutdown +
-/// RespawnSlot-preserving respawn, D-004 B'). BLOCKING by
+/// RespawnSlot-preserving respawn). BLOCKING by
 /// contract — restart_resin parks on std::process + blocking reqwest healthz
 /// polls, so it runs on the blocking pool, never on the async runtime
 /// directly (mirrors the Ghost caller in sidecar.rs). Failure surfaces as

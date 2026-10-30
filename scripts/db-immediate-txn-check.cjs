@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// r12-wave-i D-004: the BEGIN-IMMEDIATE requirement for
+// Guard: the BEGIN-IMMEDIATE requirement for
 // DbPool::replace_ports. Previously a #[test] read its own source file and
 // contains()'d it - the check and the checked were the same artifact, and
 // the assertion lived in the wall-clock push gate where it did not belong.

@@ -1,15 +1,15 @@
 # t17 contract - data-plane Mode A byte-level baseline
 
 Authoritative sources: the four-scenario gate table verified live against
-Resin v1.2.0, plus round8 ticket 17 (A-001, "credential is identity"). The
+Resin v1.2.0, plus the Mode A "credential is identity" rule. The
 automated gate living in
 `scripts/mode-a-contract-check.cjs` re-establishes everything below on every
 CI run; this document records the hand recipe and the byte-level baseline so
 a failing gate can be reproduced and diagnosed without archaeology.
 
-Original live evidence (raw transcripts, gitignored scratch):
-`.scratch/architecture-recovery-closed-2026-09-16/repro/d4-mixed/` and
-`.scratch/architecture-recovery-closed-2026-09-16/repro/t17-contract/`.
+The original live evidence (raw transcripts) was kept in a local,
+gitignored scratch directory and is not part of the repository; the gate
+and the baseline below are the reproducible record.
 
 ## Byte-level baseline (Resin v1.2.0, custom endpoints)
 

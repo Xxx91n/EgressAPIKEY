@@ -7,7 +7,7 @@ import enCommon from "../locales/en/common.json";
 // This component is pure presentational; no IPC mocks needed. The
 // pins the 6-state colour palette + compact label mapping; the test must
 // lock the wiring for every phase.
-describe("TopConvergeStatus (ticket 06)", () => {
+describe("TopConvergeStatus", () => {
   const PHASES = ["Converged", "PendingApply", "ApplyFailed", "NeverApplied", "Drifted", "Unknown"] as const;
 
   it.each(PHASES)("renders the pill with data-phase=%s and the matching compact label", (phase) => {

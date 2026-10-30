@@ -110,7 +110,7 @@ apply/reconcile。
 名称集合」塑形(`ProcessRouteSnapshot` / `merge_routes`,snapshot.rs 的
 process-group echo 注释),届时把数据源从端口监听器回显换成进程组注册表即可
 完成无痛升级的半执行;真正的进程级流量拦截属独立 round,与 Resin fork 决策点
-同级(D-005)。
+同级。
 
 ## 相关文档
 

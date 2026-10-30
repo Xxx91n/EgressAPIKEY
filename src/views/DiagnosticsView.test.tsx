@@ -134,7 +134,7 @@ describe("DiagnosticsView closed-loop tests", () => {
     });
   });
 
-  it("T05: loads poll interval via typed get_diag_poll_interval, never via bare get_store_value", async () => {
+  it("loads poll interval via typed get_diag_poll_interval, never via bare get_store_value", async () => {
     render(<DiagnosticsView />);
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("get_diag_poll_interval", expect.anything());
@@ -144,7 +144,7 @@ describe("DiagnosticsView closed-loop tests", () => {
     expect(commands).not.toContain("set_store_value");
   });
 
-  it("T05: changing the poll selector persists via typed set_diag_poll_interval", async () => {
+  it("changing the poll selector persists via typed set_diag_poll_interval", async () => {
     render(<DiagnosticsView />);
     await waitFor(() => {
       expect(screen.getByTestId("diag-poll-select")).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe("DiagnosticsView closed-loop tests", () => {
     });
   });
 
-  it("T19: renders Resin metrics card with throughput + probe history charts", async () => {
+  it("renders Resin metrics card with throughput + probe history charts", async () => {
     render(<DiagnosticsView />);
     await waitFor(() => {
       // Both metrics fetches ride the initial poll cycle.
@@ -169,7 +169,7 @@ describe("DiagnosticsView closed-loop tests", () => {
     expect(screen.queryByTestId("metrics-probes-empty")).not.toBeInTheDocument();
   });
 
-  it("T19: probe-history range change refetches with a new from/to window", async () => {
+  it("probe-history range change refetches with a new from/to window", async () => {
     render(<DiagnosticsView />);
     await waitFor(() => {
       expect(screen.getByTestId("metrics-probe-range")).toBeInTheDocument();
@@ -196,7 +196,7 @@ describe("DiagnosticsView closed-loop tests", () => {
   });
 
 
-  it("T21: clicking a request-log row opens the detail drawer with detail + payloads", async () => {
+  it("clicking a request-log row opens the detail drawer with detail + payloads", async () => {
     render(<DiagnosticsView />);
     await waitFor(() => {
       expect(screen.getByTestId("diag-log-table")).toBeInTheDocument();
@@ -213,7 +213,7 @@ describe("DiagnosticsView closed-loop tests", () => {
     expect(screen.getByTestId("diag-payload-req-body")).toHaveTextContent('{"a":1}');
   });
 
-  it("T21: drawer close button hides the drawer without extra detail calls", async () => {
+  it("drawer close button hides the drawer without extra detail calls", async () => {
     render(<DiagnosticsView />);
     await waitFor(() => {
       expect(screen.getByTestId("diag-log-table")).toBeInTheDocument();
@@ -228,7 +228,7 @@ describe("DiagnosticsView closed-loop tests", () => {
     expect(invokeMock.mock.calls.filter((c: unknown[]) => c[0] === "request_log_detail").length).toBe(detailCalls);
   });
 
-  it("T21: a row without an id stays inert (no detail IPC)", async () => {
+  it("a row without an id stays inert (no detail IPC)", async () => {
     // Negative fixture (row WITHOUT id) must be installed before render,
     // otherwise the beforeEach default row (which HAS an id) is what renders.
     invokeMock.mockImplementation((cmd: string) => {
@@ -250,7 +250,7 @@ describe("DiagnosticsView closed-loop tests", () => {
 });
 
 
-describe("T15-1: DiagnosticsView uses usePoll (not setInterval)", () => {
+describe("DiagnosticsView uses usePoll (not setInterval)", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string, _args?: Record<string, unknown>) => {
@@ -315,7 +315,7 @@ describe("DiagnosticsView negative tests", () => {
     });
   });
 
-  it("T19: metrics card shows empty state when IPC rejects", async () => {
+  it("metrics card shows empty state when IPC rejects", async () => {
     render(<DiagnosticsView />);
     await waitFor(() => {
       expect(screen.getByTestId("metrics-throughput-empty")).toBeInTheDocument();

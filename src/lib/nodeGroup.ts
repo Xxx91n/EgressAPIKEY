@@ -3,7 +3,7 @@
 /// first tag's subscription_name/subscriptionName/tag fallback; untagged
 /// nodes group under "__untagged__" (rendered via the `untagged` locale key).
 ///
-/// Extracted in r12 wave-d (D4 hygiene): the pattern had drifted into two
+/// Extracted as a hygiene fix: the pattern had drifted into two
 /// copies (subName/groupBySub in NodesView, platformSubName/
 /// platformGroupBySub in PlatformsView).
 export interface SubTagged {

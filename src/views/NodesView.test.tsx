@@ -4,7 +4,7 @@ import { invokeMock } from "../test/setup";
 import { useAppStore } from "../store/appStore";
 import { NodesView, parseDelayQuery, applyProbeResult, nextBatchProgress } from "./NodesView";
 
-/// vitest-isolation-guard: sub-header click helpers — BEGIN (ticket 18)
+/// vitest-isolation-guard: sub-header click helpers — BEGIN
 ///
 /// NodesView seeds default-collapse in a post-commit effect (NodesView.tsx
 /// seeding useEffect): after the first data render it wholesale-overwrites
@@ -34,11 +34,11 @@ async function clickSubHeaderCollapse(name: string): Promise<void> {
 }
 /// vitest-isolation-guard: sub-header click helpers — END
 
-describe("NodesView T4-3", () => {
+describe("NodesView", () => {
   // closure fix: handleRefreshSub reads the POST-refresh node count from the app
   // store (useAppStore.getState().nodes) after refresh() re-syncs it — the stale
   // pre-refresh closure snapshot would still report 1.
-  it("T02: refresh toast reports post-refresh node count read from the store", async () => {
+  it("refresh toast reports post-refresh node count read from the store", async () => {
     useAppStore.setState({ nodes: [] });
     let refreshed = false;
     const nodeOf = (hash: string, tag: string) => ({
@@ -131,7 +131,7 @@ describe("NodesView T4-3", () => {
   });
 
   // groups default-collapsed — flip: nodes hidden after first refresh, expandable on click
-  it("T4-3b (T19): groups are collapsed by default after first refresh; expand reveals nodes", async () => {
+  it("groups are collapsed by default after first refresh; expand reveals nodes", async () => {
     mockTwoSubs();
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
@@ -265,7 +265,7 @@ describe("NodesView T4-3", () => {
   // VirtualNodeList component — threshold-based virtualization
   // In jsdom, virtualized mode can't measure scroll, so we test the <threshold path
 
-  it("T14-7a: renders subscription header for a node list under threshold", async () => {
+  it("renders subscription header for a node list under threshold", async () => {
     mockLargeSub(30);
     render(<NodesView />);
     await waitFor(() => expect(screen.getByText("sub-alpha")).toBeTruthy());
@@ -273,7 +273,7 @@ describe("NodesView T4-3", () => {
   });
 
   // flip — subscription collapsed by default, expand reveals all 10 nodes
-  it("T14-7b (T19): subscription collapsed by default; expand shows all nodes", async () => {
+  it("subscription collapsed by default; expand shows all nodes", async () => {
     mockLargeSub(10);
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
@@ -287,7 +287,7 @@ describe("NodesView T4-3", () => {
     await waitFor(() => expect(screen.queryAllByText(/server-\d+\.example\.com/).length).toBe(0));
   });
 
-  it("T14-7c: VirtualNodeList renders small list without virtualizer overhead", async () => {
+  it("VirtualNodeList renders small list without virtualizer overhead", async () => {
     mockLargeSub(5);
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
@@ -301,7 +301,7 @@ describe("NodesView T4-3", () => {
 });
 
 /// pure-function closed loops for parseDelayQuery + sortMode + hideUnhealthy
-describe("NodesView T19-P1 parseDelayQuery + sort + hide-unhealthy", () => {
+describe("NodesView parseDelayQuery + sort + hide-unhealthy", () => {
   it("P1-1a: delay>100 admits 200, rejects 50 and null", () => {
     const { delayFilter } = parseDelayQuery("delay>100");
     expect(delayFilter).toBeTruthy();
@@ -410,7 +410,7 @@ describe("NodesView T19-P1 parseDelayQuery + sort + hide-unhealthy", () => {
   });
 });
 
-describe("NodesView T19-P4 batch probe timeout + batch_on_load=false gate", () => {
+describe("NodesView batch probe timeout + batch_on_load=false gate", () => {
   beforeEach(() => {
     invokeMock.mockReset();
   });
@@ -481,16 +481,16 @@ describe("NodesView T19-P4 batch probe timeout + batch_on_load=false gate", () =
     expect(probeCalls).toHaveLength(0);
   });
 });
-describe("NodesView T21 pure helpers + layout + tooltip sync", () => {
+describe("NodesView pure helpers + layout + tooltip sync", () => {
   // applyProbeResult — pure helper move (clash-rev DelayManager.setListener model)
-  it("T21-1a: applyProbeResult — latency merge into empty Map", () => {
+  it("applyProbeResult — latency merge into empty Map", () => {
     const m = applyProbeResult(new Map(), "hash-a", "latency", { latency_ewma_ms: 42 });
     const e = m.get("hash-a");
     expect(e).toBeTruthy();
     expect(e?.latency).toBe(42);
   });
 
-  it("T21-1b: applyProbeResult — egress probe carries egress_ip + region + latency_ewma_ms", () => {
+  it("applyProbeResult — egress probe carries egress_ip + region + latency_ewma_ms", () => {
     const prev = new Map([["h", { latency: 10 }]]);
     const m = applyProbeResult(prev, "h", "egress", { egress_ip: "8.8.8.8", region: "US", latency_ewma_ms: 77 });
     const e = m.get("h");
@@ -499,7 +499,7 @@ describe("NodesView T21 pure helpers + layout + tooltip sync", () => {
     expect(e?.latency).toBe(77); // overwrites prior 10
   });
 
-  it("T21-1c: nextBatchProgress — increments done; keeps total; preserves other subs", () => {
+  it("nextBatchProgress — increments done; keeps total; preserves other subs", () => {
     const seed = new Map([["other-sub", { done: 5, total: 10 }], ["cur", { done: 2, total: 4 }]]);
     const m = nextBatchProgress(seed, "cur");
     expect(m.get("cur")).toEqual({ done: 3, total: 4 });
@@ -507,7 +507,7 @@ describe("NodesView T21 pure helpers + layout + tooltip sync", () => {
   });
 
   // top-right "Re-sync backend node snapshot" tooltip + outer <div role=button> inline layout
-  it("T21-2a: top-right refresh button title is nodes.syncCache", async () => {
+  it("top-right refresh button title is nodes.syncCache", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return { items: [] };
       if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
@@ -517,7 +517,7 @@ describe("NodesView T21 pure helpers + layout + tooltip sync", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /Re-sync backend/i })).toBeTruthy());
   });
 
-  it("T21-3a: sub-group header is <div role=button>, not nested <button> (no spec violation)", async () => {
+  it("sub-group header is <div role=button>, not nested <button> (no spec violation)", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return { items: [
         { node_hash: "h1", display_tag: "X", region: "HK", failure_count: 0, has_outbound: true, tags: [{ subscription_name: "sub1", tag: "v" }] },

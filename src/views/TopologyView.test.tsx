@@ -169,7 +169,7 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
     expect(screen.getAllByText("17991").length).toBeGreaterThan(0);
   });
 
-  it("T9-1: C column shows subscription group names (not region labels)", async () => {
+  it("C column shows subscription group names (not region labels)", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "platform_list_full") return Promise.resolve({
         items: [{ id: "p1", name: "OpenAI", regex_filters: [], region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 2, sticky_ttl: "", aClass: "region" }],
@@ -193,7 +193,7 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
     });
   });
 
-  it("T9-3: platform node shows B-class strategy badge (blue badge)", async () => {
+  it("platform node shows B-class strategy badge (blue badge)", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "platform_list_full") return Promise.resolve({
         items: [{ id: "p1", name: "TestPlat", regex_filters: [], region_filters: ["us"], allocation_policy: "PREFER_LOW_LATENCY", routable_node_count: 1, sticky_ttl: "" }],
@@ -212,7 +212,7 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
     });
   });
 
-  it("T9-3: platform node shows A-class strategy badge (green badge)", async () => {
+  it("platform node shows A-class strategy badge (green badge)", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "platform_list_full") return Promise.resolve({
         items: [{ id: "p1", name: "TestPlat2", regex_filters: [], region_filters: ["hk", "us"], allocation_policy: "BALANCED", routable_node_count: 1, sticky_ttl: "" }],
@@ -231,7 +231,7 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
     });
   });
 
-  it("T9-3: platform node shows A: manual when no region_filters", async () => {
+  it("platform node shows A: manual when no region_filters", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "platform_list_full") return Promise.resolve({
         items: [{ id: "p2", name: "ManualPlat", regex_filters: [], region_filters: [], allocation_policy: "BALANCED", routable_node_count: 0, sticky_ttl: "" }],
@@ -284,7 +284,7 @@ describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dua
       expect(out).not.toBeNull();
     });
 
-describe("T15-3: React.memo canvas node optimization", () => {
+describe("React.memo canvas node optimization", () => {
   it("memoized node components are defined (not undefined)", () => {
     // The memo() wrapper should produce a valid component, not undefined.
     // We verify via the exported nodeTypes map containing non-null entries.
@@ -373,7 +373,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
   // --- C1-3: buildEdges with strategy labels ---
-  describe("C1-3 + T9-2: buildEdges B->C edge with strategy labels", () => {
+  describe("buildEdges B->C edge with strategy labels", () => {
     // Old shape (region groups) for backward compat
     const regionGroups = [{ region: "hk" }, { region: "us" }];
     it("renders B->C edge for each region in region_filters (old shape)", () => {
@@ -401,7 +401,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
 
     // New shape (subscription groups) with strategy labels
-    it("T9-2: buildEdges with subscription groups produces strategy-labeled edges", () => {
+    it("buildEdges with subscription groups produces strategy-labeled edges", () => {
       const platforms = [{ name: "OpenAI", region_filters: ["hk"], allocation_policy: "BALANCED", aClass: "region" }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk", "jp"] }];
       const edges = buildEdges(platforms, subGroups as any, []);
@@ -412,7 +412,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       expect(bcEdges[0].deletable).toBe(false);
     });
 
-    it("T9-2: no edge when platform region_filters don't intersect subscription regions", () => {
+    it("no edge when platform region_filters don't intersect subscription regions", () => {
       const platforms = [{ name: "OpenAI", region_filters: ["us"], allocation_policy: "BALANCED", aClass: "region" }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk", "jp"] }];
       const edges = buildEdges(platforms, subGroups as any, []);
@@ -420,7 +420,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       expect(bcEdges).toHaveLength(0);
     });
 
-    it("T9-2: edge label shows region:<matched> for multi-region intersection", () => {
+    it("edge label shows region:<matched> for multi-region intersection", () => {
       const platforms = [{ name: "OpenAI", region_filters: ["hk", "jp"], allocation_policy: "BALANCED", aClass: "region" }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk", "jp", "us"] }];
       const edges = buildEdges(platforms, subGroups as any, []);
@@ -492,7 +492,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
   // --- closed-loop tests ---
-  describe("T22-1: isNodeSelectedByAnyPlatform a_class-semantic filtering", () => {
+  describe("isNodeSelectedByAnyPlatform a_class-semantic filtering", () => {
     it("subscription: node in selected subscription -> true", () => {
       const node = { node_hash: "h1", region: "hk", tags: [{ subscriptionName: "sub1" }] } as any;
       const platforms = [{ name: "P1", aClass: "subscription", subscriptionNames: ["sub1"] }] as any;
@@ -535,7 +535,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T22-3: buildEdges a_class-semantic B->C edge", () => {
+  describe("buildEdges a_class-semantic B->C edge", () => {
     it("subscription+empty = edges to ALL groups with NO label ", () => {
       const platforms = [{ name: "OpenAI", region_filters: [], aClass: "subscription", subscriptionNames: [] }];
       const subGroups = [{ subscriptionName: "sub1", regions: ["hk"] }, { subscriptionName: "sub2", regions: ["us"] }];
@@ -782,7 +782,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T13-2: layoutNodesViaDagre assigns valid x/y positions", () => {
+  describe("layoutNodesViaDagre assigns valid x/y positions", () => {
     it("assigns non-zero positions to all nodes when both nodes + edges", () => {
       const nodes: any[] = [
         { id: "a", position: { x: 0, y: 0 }, data: {} },
@@ -810,7 +810,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T13-4: empty-state messages inside opacity gate (not flash)", () => {
+  describe("empty-state messages inside opacity gate (not flash)", () => {
     it("renders noPorts/noNodes/noPlatforms messages only after ready", async () => {
       invokeMock.mockImplementation(() => Promise.resolve(undefined));
       render(<TopologyView />);
@@ -825,7 +825,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
 
-  describe("T13-3: Handle style is fixed-position (not full-area overlay)", () => {
+  describe("Handle style is fixed-position (not full-area overlay)", () => {
     it("fixedHandleStyle has bounded pixel dimensions, not 100%", () => {
       expect(typeof fixedHandleStyle.width).toBe("number");
       expect(typeof fixedHandleStyle.height).toBe("number");
@@ -842,7 +842,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T13-5: zustand shallow skip prevents re-render on same data", () => {
+  describe("zustand shallow skip prevents re-render on same data", () => {
     it("setPlatforms with shallow-equal array returns empty update (no re-render)", () => {
       // Import the store directly from TopologyView module
       const store = useTopologyStore.getState();
@@ -861,7 +861,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
 
 
   // --- closed-loop tests ---
-  describe("T14-1: A badge renders before B badge in PlatformNode", () => {
+  describe("A badge renders before B badge in PlatformNode", () => {
     it("A badge comes before B badge in DOM order", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({
@@ -889,7 +889,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T14-2: A strategy i18n uses t() calls", () => {
+  describe("A strategy i18n uses t() calls", () => {
     it("A: Manual comes from strategy.manual i18n key", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({
@@ -908,7 +908,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T14-3: SubscriptionGroupNode collapsible — max 10 nodes visible", () => {
+  describe("SubscriptionGroupNode collapsible — max 10 nodes visible", () => {
     it("renders regionStats chips when collapsed and shows +N more when expanded", async () => {
       // Build 15 fake nodes in one subscription
       const fakeNodes = Array.from({ length: 15 }, (_, i) => ({
@@ -933,7 +933,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T14-4: region view mode builds regionGroup nodes", () => {
+  describe("region view mode builds regionGroup nodes", () => {
     it("viewMode=region creates regiongroup- prefixed node ids", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({
@@ -960,7 +960,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T14-5: CanvasControls has Home (reset to center) button", () => {
+  describe("CanvasControls has Home (reset to center) button", () => {
     it("renders resetCenter tooltip text", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
@@ -980,7 +980,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
 
 
   // --- closed-loop tests ---
-  describe("T15-1: C column hides subscription groups with no selected nodes", () => {
+  describe("C column hides subscription groups with no selected nodes", () => {
     it("does not render subscription card when no platform selects its region", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({
@@ -1005,7 +1005,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T15-2: CanvasControls icon buttons have w-fit self-center", () => {
+  describe("CanvasControls icon buttons have w-fit self-center", () => {
     it("all icon buttons (not segmented toggle) have w-fit class", async () => {
       invokeMock.mockImplementation(() => Promise.resolve(undefined));
       const { container } = render(<TopologyView />);
@@ -1023,7 +1023,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T15-3: topologyState persistence round-trip", () => {
+  describe("topologyState persistence round-trip", () => {
     it("saveTopologyState then loadTopologyState restores viewMode and locked", async () => {
       // Reconfigure the global LazyStore mock to use an in-memory map for a real round-trip.
       const db = new Map<string, unknown>();
@@ -1063,7 +1063,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T15-4: dagre layout centers graph to origin", () => {
+  describe("dagre layout centers graph to origin", () => {
     it("layoutNodesViaDagre positions nodes around coordinate origin", () => {
       const nodes: any[] = [
         { id: "a", position: { x: 0, y: 0 }, data: {} },
@@ -1086,7 +1086,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T15-5: onConnect routes through strategyConfig not direct PATCH ", () => {
+  describe("onConnect routes through strategyConfig not direct PATCH ", () => {
     it("sync() fetches ONLY the authoritative snapshot; legacy cross-store commands are not invoked", async () => {
       const invokedCmds: string[] = [];
       invokeMock.mockImplementation((cmd: string) => {
@@ -1153,7 +1153,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       });
     });
   
-  describe("T15-4-anti-flash: empty-state messages do not appear before ready=true", () => {
+  describe("empty-state messages do not appear before ready=true", () => {
     it("noPorts/noNodes/noPlatforms messages absent before sync resolves", async () => {
       // Block all IPC so sync() never resolves (ready stays false initially)
       invokeMock.mockImplementation(() => new Promise(() => {}));
@@ -1169,10 +1169,10 @@ describe("T15-3: React.memo canvas node optimization", () => {
   });
 
   // === tests (Canvas v4 node pool + toolbar merge + MiniMap ariaLabel + dedup) ===
-  describe("T17-1 : viewMode guard on subGroup loop", () => {
+  describe("viewMode guard on subGroup loop", () => {
     beforeEach(() => { invokeMock.mockReset(); });
 
-    it("T17-1a: region viewMode does not render subscription group nodes ", async () => {
+    it("region viewMode does not render subscription group nodes ", async () => {
 // assertion strategy switched from ReactFlow-rendered DOM textContent to
       // a direct call of the extracted `buildCColumnGroups` pure helper. Reason (atomcode
       // research + local evidence): under jsdom, ReactFlow only reliably stampedes entry-port
@@ -1255,7 +1255,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       }
     });
 
-    it("T17-1b: subscription viewMode still renders subGroup labels (regression guard)", async () => {
+    it("subscription viewMode still renders subGroup labels (regression guard)", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({
           items: [{ id: "p1", name: "OpenAI", regex_filters: [], region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 1, sticky_ttl: "" }],
@@ -1277,10 +1277,10 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T17-2 : cross-subscription node dedup by node_hash", () => {
+  describe("cross-subscription node dedup by node_hash", () => {
     beforeEach(() => { invokeMock.mockReset(); });
 
-    it("T17-2a: duplicate node_hash within one subscription is deduped", async () => {
+    it("duplicate node_hash within one subscription is deduped", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({
           items: [{ id: "p1", name: "P", regex_filters: [], region_filters: ["hk"], allocation_policy: "BALANCED", routable_node_count: 2, sticky_ttl: "" }],
@@ -1319,7 +1319,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       });
     });
 
-    it("T17-2b: dedupNodesByHash removes duplicates across two subscriptions (pure function contract)", () => {
+    it("dedupNodesByHash removes duplicates across two subscriptions (pure function contract)", () => {
       // Pure-function contract test for dedupNodesByHash — independent of React render
       // timing, viewMode state, or DOM polling. This replaces the flaky DOM-based test
       // that had to click the region toggle + Expand button with waitFor polling.
@@ -1342,8 +1342,8 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T17-3 : MiniMap ariaLabel replaces div[title]", () => {
-    it("T17-3a: MiniMap receives ariaLabel prop with translated tooltip text", async () => {
+  describe("MiniMap ariaLabel replaces div[title]", () => {
+    it("MiniMap receives ariaLabel prop with translated tooltip text", async () => {
       invokeMock.mockImplementation(() => Promise.resolve(undefined));
       const { container } = render(<TopologyView />);
       await waitFor(() => {
@@ -1355,7 +1355,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       });
     });
 
-    it("T17-3b: no <div title=...> wrapper around MiniMap (anti-regression)", () => {
+    it("no <div title=...> wrapper around MiniMap (anti-regression)", () => {
       invokeMock.mockImplementation(() => Promise.resolve(undefined));
       const { container } = render(<TopologyView />);
       // Ensure no wrapper div with title=topology.minimapHint literal exists
@@ -1369,8 +1369,8 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T18-1 : port health chip — 4-state + authRequired + disabled", () => {
-    it("T18-1a: entry port renders Alive green dot when watch_port_health emits alive snapshot", async () => {
+  describe("port health chip — 4-state + authRequired + disabled", () => {
+    it("entry port renders Alive green dot when watch_port_health emits alive snapshot", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
         if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
@@ -1397,7 +1397,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       });
     });
 
-    it("T18-1b: entry port renders Dead red dot and Disabled overlay when enabled=false", async () => {
+    it("entry port renders Dead red dot and Disabled overlay when enabled=false", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
         if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
@@ -1425,7 +1425,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       expect(dot?.className).toContain("bg-red-500");
     });
 
-    it("T18-1c: entry port Lock icon aria-label=i18n(portAuthRequired) when auth_required=true", async () => {
+    it("entry port Lock icon aria-label=i18n(portAuthRequired) when auth_required=true", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
         if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
@@ -1444,7 +1444,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       expect(lockEl).toBeTruthy();
     });
 
-    it("T18-4 : A badge shows Manual (N nodes) when strategyConfig.manual_nodes is non-empty", async () => {
+    it("A badge shows Manual (N nodes) when strategyConfig.manual_nodes is non-empty", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({
           items: [{ id: "p1", name: "platManual", allocation_policy: "BALANCED", routable_node_count: 0, region_filters: null, regex_filters: null, sticky_ttl: "0s" }],
@@ -1468,8 +1468,8 @@ describe("T15-3: React.memo canvas node optimization", () => {
     });
   });
 
-  describe("T17-4 : openStrategyConfig button merged into CanvasControls toolbar", () => {
-    it("T17-4a/T18-5a : ConfigToolbar toggle button title=i18n(openConfig) at top-right and dropdown expands 2 options", async () => {
+  describe("openStrategyConfig button merged into CanvasControls toolbar", () => {
+    it("ConfigToolbar toggle button title=i18n(openConfig) at top-right and dropdown expands 2 options", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
         if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
@@ -1497,7 +1497,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       });
     });
 
-    it("T18-5b : clicking Open ports config dropdown option closes the dropdown", async () => {
+    it("clicking Open ports config dropdown option closes the dropdown", async () => {
       invokeMock.mockImplementation((cmd: string) => {
         if (cmd === "platform_list_full") return Promise.resolve({ items: [], total: 0, limit: 50, offset: 0 });
         if (cmd === "node_list") return Promise.resolve({ items: [], total: 0, limit: 500, offset: 0 });
@@ -1531,7 +1531,7 @@ describe("T15-3: React.memo canvas node optimization", () => {
       });
     });
 
-    it("T17-4b: no standalone button at absolute bottom-20 left-4 remains (anti-regression)", () => {
+    it("no standalone button at absolute bottom-20 left-4 remains (anti-regression)", () => {
       invokeMock.mockImplementation(() => Promise.resolve(undefined));
       const { container } = render(<TopologyView />);
       // The old standalone button had className "absolute bottom-20 left-4 z-10 ..."

@@ -74,7 +74,7 @@ function collectFiles(dir: string, ext: string[]): string[] {
   return out;
 }
 
-describe("T20: no raw error in display functions (catch-block lint guard)", () => {
+describe("no raw error in display functions (catch-block lint guard)", () => {
   it("all catch blocks pass errors through translateError or instanceof narrowing", () => {
     const files = collectFiles(SRC_DIR, [".ts", ".tsx"]);
     const allIssues: Array<{ file: string; line: number; code: string; fn: string }> = [];

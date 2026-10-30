@@ -3,7 +3,7 @@
 // (pidstat -r -u used as cross-check when sysstat is installed)
 // windows: Get-Process WorkingSet64 + CPU seconds deltas
 // Units reported: rssBytes + cpuCores (fraction of one core) + cpuPct
-// (percent of ONE core, matching the D-004 "<1% idle" wording).
+// (percent of ONE core, matching the original budget's "<1% idle" wording).
 
 import { execFile } from "node:child_process";
 import fs from "node:fs";

@@ -171,7 +171,7 @@ function liveRegions(p: StrategySnapshot): string {
 }
 
 // The Consistent row also surfaces the live
-// allocation_policy Resin reported for the platform — the D-002 two-axis
+// allocation_policy Resin reported for the platform — the two-axis
 // reconcile already keeps it equal to the whitebox, so this is the visible
 // proof of the policy axis on the converged row. Divergent rows keep the
 // region-only layout: the snapshot already shows the drift, and the

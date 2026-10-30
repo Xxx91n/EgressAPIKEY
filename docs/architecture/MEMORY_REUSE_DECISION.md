@@ -129,7 +129,7 @@
 
 ### 前提交翻
 
-原 P24-A4-3 interceptor 架构假设：shell 能从 HTTPS 代理流中读取 Authorization
+原 HTTPS interceptor（已删除的按 key 注入头方案）架构假设：shell 能从 HTTPS 代理流中读取 Authorization
 header 来识别 (api_key, upstream v1 endpoint) 组合。
 
 **事实**：HTTPS 上游加密后，代理层只看到 CONNECT 隧道字节，Authorization header

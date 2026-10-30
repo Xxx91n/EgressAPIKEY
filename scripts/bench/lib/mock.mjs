@@ -1,6 +1,6 @@
 // Mock upstream target + mock outbound node for the perf baseline harness.
 // All loopback, zero external deps, zero internet requirement on the data path.
-// EXCEPTION: the opt-in faultinject phase (R12-C1) egresses for real -
+// EXCEPTION: the opt-in faultinject phase egresses for real -
 // probe_exit_ip is hardcoded to 1.1.1.1/cdn-cgi/trace through this node and
 // Resin node health probes need live WAN reachability to flip routable.
 //
@@ -15,7 +15,7 @@
 // CONNECT host:port through it; we pipe to the real target. Load traffic
 // targets only loopback (the mock upstream), but external CONNECTs ARE
 // served - Resin's mandatory node health probes (cloudflare.com/gstatic)
-// and the R12-C1 faultinject probe_exit_ip leg to 1.1.1.1 ride it.
+// and the faultinject probe_exit_ip leg to 1.1.1.1 ride it.
 
 import http from "node:http";
 import net from "node:net";

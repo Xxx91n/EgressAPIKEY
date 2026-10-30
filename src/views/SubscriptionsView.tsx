@@ -817,7 +817,7 @@ export function SubscriptionsView() {
                       </span>
                     );
                   })()}
- {/* (D-C1.2): establish-phase chip — Never when the
+ {/* Establish-phase chip — Never when the
                       whitebox has no status row for this subscription yet. */}
                   {(() => {
                     const prow = phaseRowMap.get(s.name);

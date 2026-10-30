@@ -172,7 +172,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
   // platform card collapsed by default, expand shows strategy
-  it("T11-1: platform card collapsed by default; expand reveals strategy-split", async () => {
+  it("platform card collapsed by default; expand reveals strategy-split", async () => {
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument(), { timeout: 5000 });
     expect(screen.queryByTestId("strategy-split-Default")).toBeNull();
@@ -183,14 +183,14 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
   // collapsed card shows A/B badges
-  it("T11-1: collapsed card shows A badge + B badge", async () => {
+  it("collapsed card shows A badge + B badge", async () => {
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("platform-abadge-Default")).toBeInTheDocument(), { timeout: 5000 });
     expect(screen.getByTestId("platform-bbadge-Default")).toBeInTheDocument();
   });
 
   // selected chip has ring class
-  it("T11-2: selected A-class chip has ring-2 ring-primary", async () => {
+  it("selected A-class chip has ring-2 ring-primary", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
@@ -211,7 +211,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
   // manual search filters nodes within subscription-folded groups
-  it("T12-3: manual search shows subscription group headers; selected nodes highlighted blue", async () => {
+  it("manual search shows subscription group headers; selected nodes highlighted blue", async () => {
     const nodes = [
       { display_tag: "HK-1", region: "HK", node_hash: "h1", tags: [] },
       { display_tag: "US-1", region: "US", node_hash: "h2", tags: [] },
@@ -246,14 +246,14 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
   // no global Apply button
-  it("T11-4b: global Apply button is NOT present (per-platform sync)", async () => {
+  it("global Apply button is NOT present (per-platform sync)", async () => {
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
     expect(screen.queryByTestId("strategy-apply")).toBeNull();
   });
 
   // clicking A-class region chip fires strategy_config_put + strategy_apply (per-platform sync)
-  it("T11-4b: clicking region chip triggers strategy_config_put + strategy_apply", async () => {
+  it("clicking region chip triggers strategy_config_put + strategy_apply", async () => {
     let putCalled = false;
     let applyCalled = false;
     invokeMock.mockImplementation((cmd: string) => {
@@ -406,7 +406,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
 
 
   // port card collapsed by default; expand shows details
-  it("T11-8: port card collapsed by default; expand shows auth details", async () => {
+  it("port card collapsed by default; expand shows auth details", async () => {
     render(<PlatformsView />);
     await waitFor(() => expect(screen.getByTestId("port-row-17990")).toBeInTheDocument());
     expect(screen.queryByTestId("port-auth-17990")).toBeNull();
@@ -415,7 +415,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
   // port row shows Unbound text when platform_name is empty
-  it("T8-7: port row shows Unbound text when platform_name is empty", async () => {
+  it("port row shows Unbound text when platform_name is empty", async () => {
     const unboundPort = { ...samplePort, port: 17992, platform_name: "" };
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([unboundPort]);
@@ -437,7 +437,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
   // region strategy from config renders region chip toggle with US+JP selected (after expand)
-  it("T10-2: region strategy from config shows US+JP selected chips after expand", async () => {
+  it("region strategy from config shows US+JP selected chips after expand", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([]);
       if (cmd === "platform_list_full") return Promise.resolve([samplePlatform]);
@@ -460,7 +460,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
   // click on port card should NOT trigger opacity-50 (gray) or blue ring (selection removed)
-  it("T12-fix: click on port card does not trigger opacity-50 or ring-2", async () => {
+  it("click on port card does not trigger opacity-50 or ring-2", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([{ port: 17990, platform_name: null, require_auth: false, protocol: "http" }]);
       if (cmd === "platform_list_full") return Promise.resolve([]);
@@ -484,7 +484,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
   // drag beyond 5px threshold triggers opacity-50 (gray)
-  it("T12-fix: drag beyond threshold triggers opacity-50 gray", async () => {
+  it("drag beyond threshold triggers opacity-50 gray", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "port_list") return Promise.resolve([{ port: 17991, platform_name: null, require_auth: false, protocol: "http" }]);
       if (cmd === "platform_list_full") return Promise.resolve([]);
@@ -507,7 +507,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });
 
   // strategy chip selection persists across re-mount (stale closure fix)
-  it("T12-persist: strategy_config_put called after chip selection (stale closure fix)", async () => {
+  it("strategy_config_put called after chip selection (stale closure fix)", async () => {
     let putCallCount = 0;
     let lastPutConfig: any = null;
     invokeMock.mockImplementation((cmd: string, args: any) => {
@@ -540,7 +540,7 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
   });;
 
   // top_n quality strategy persists after page switch
-  it("T12-persist: top_n quality strategy persists across re-mount", async () => {
+  it("top_n quality strategy persists across re-mount", async () => {
     let savedConfig: any = null;
     invokeMock.mockImplementation((cmd: string, args: any) => {
       if (cmd === "port_list") return Promise.resolve([]);

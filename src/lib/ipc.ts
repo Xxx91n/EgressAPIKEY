@@ -42,7 +42,7 @@ const NAME_MAX = 128;
 const USER_PORT_MIN = 1024;
 const USER_PORT_MAX = 65535;
 
-// --- Phase 5-1: trace_id passthrough ---
+// --- trace_id passthrough ---
 // Every IPC call automatically gets a UUID v4 trace_id injected into args.
 // The Rust side extracts __trace_id and opens a tracing::info_span! so
 // log files carry a per-call trace_id for end-to-end bug reproduction.
@@ -2039,7 +2039,7 @@ export function snapshotPlatformName(p: StrategySnapshot): string {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 5-2: typed IPC error contract.
+// Typed IPC error contract.
 // Discriminated union matching the Rust IpcError enum (externally-tagged serde).
 // Each variant carries an i18n_key so the GUI renders a locale-specific message
 // without parsing English error text.

@@ -93,7 +93,7 @@ const children = [];
 const results = {
   meta: {
     tool: "scripts/bench/run-bench.mjs",
- basis: "D-002 acceptance line (supersedes D-004)",
+ basis: "dual-threshold acceptance line (supersedes the single-threshold budget)",
     startedAt: new Date().toISOString(),
     duration: DURATION,
     gate: GATE,
@@ -142,7 +142,7 @@ async function resinRssMB(pid) {
 
 // Shared whole-tree sampling caliber for the app/headless steady-state
 // phases: settleMs settle -> 30 x 2s descendant-tree samples -> kill.
-// Attribution is parentage, never name-matching (D-002); same caliber on
+// Attribution is parentage, never name-matching; same caliber on
 // both OSes (CIM descendant walk on Windows, /proc PPid BFS on Linux).
 async function sampleTreeWindow(child, settleMs) {
   await sleep(settleMs);
@@ -207,7 +207,7 @@ async function phaseApp(ctx) {
   // Attribution is parentage, never process-name matching: WebView2
   // (msedgewebview2) is a shared runtime whose processes pool per
   // user-data-dir and re-parent across app boundaries, so a name glob would
- // count other apps' webview processes (D-002).
+ // count other apps' webview processes.
   if (process.platform !== "win32") {
     return { skipped: "whole-app steady-state is measured on the windows job" };
   }
@@ -292,7 +292,7 @@ async function waitTcpReady(port, deadlineMs, t0 = nowMs()) {
 
 // Kill a spawned headless process AND its whole tree: taskkill /T on
 // Windows, the detached process group (kill -pid) elsewhere. Descendant
-// boundary matches the sampling caliber exactly (R12-B2).
+// boundary matches the sampling caliber exactly.
 function killTree(child) {
   try {
     if (process.platform === "win32") {
@@ -326,7 +326,7 @@ function spawnHeadless(port, token, stateDir, ctx) {
   );
 }
 
-// VPS profile whole-tree idle (R12-B2): spawn egressapikey-headless, wait
+// VPS profile whole-tree idle: spawn egressapikey-headless, wait
 // for its control surface (sidecar already up by then), settle, then sum
 // RSS over the DESCENDANT TREE every 2s for 60s - same attribution caliber
 // as the desktop app phase (PPid BFS on Linux, CIM descendant walk on
@@ -360,7 +360,7 @@ async function phaseHeadless(ctx) {
   };
 }
 
-// VPS profile cold start (R12-B2): N fresh headless launches -> control
+// VPS profile cold start: N fresh headless launches -> control
 // surface TCP-ready (sidecar boot included inside the timed span).
 async function phaseHeadlessStart(ctx) {
   if (!HEADLESS_EXE || !fs.existsSync(HEADLESS_EXE)) {
@@ -389,7 +389,7 @@ async function phaseHeadlessStart(ctx) {
   };
 }
 
-// r12-wave-i D-004: the two duration assertions that used to live in the
+// The two duration assertions that used to live in the
 // cargo-test push gate (replace_ports p99 <= 50ms; lock-wait probe p99 <
 // 250ms hang bound) record here as measurement rows instead - the phase
 // runs the measurement tests and parses their DBPROBE key=value markers.
@@ -413,7 +413,7 @@ async function phaseDbProbe() {
         // without this override cargo test on the unix legs
         // cross-compiles to msvc and exits 101 (ci.yml's verify job does
         // the same override). The bench matrix is win/ubuntu/macos
-        // (r12-wave-j D-004 added the macOS tier-2 signal leg).
+        // (macOS is the tier-2 signal leg).
         env: {
           ...process.env,
           CARGO_BUILD_TARGET:
@@ -514,7 +514,7 @@ function evalGates(acc) {
   return gates;
 }
 
-// ---- faultinject (R12-C1): opt-in evidence phase ---------------------------
+// ---- faultinject: opt-in evidence phase ---------------------------
 
 // SUT = egressapikey-headless (Mode B transport) driving the
 // signal-plane common-mode suppressor under REAL fault injection. The
@@ -534,14 +534,14 @@ function evalGates(acc) {
 // slow_call_ms absorbs shared-runner WAN jitter (the probe client
 // timeout is 10s).
 //
-// Dataplane provenance (D-002): each row port is materialised by a
+// Dataplane provenance: each row port is materialised by a
 // bench-forwarder child - a real Mode A shell-side entry - relaying into an
 // endpoint on the SUT's OWN resin sidecar (configured through the headless
 // admin-proxy surface), exiting via the shared mock CONNECT node to the
 // real WAN (probe_exit_ip is hardcoded to 1.1.1.1/cdn-cgi/trace). The
 // mock.mjs "zero internet" carve-out does NOT apply to this phase.
 //
-// Injection semantics (D-002):
+// Injection semantics:
 // kill-forwarder == bind-refusal / Mode A entry failure class: loopback
 // dead -> local_fail common-mode -> EnvironmentSuspect (suppressor on).
 // kill-node == egress-path failure behind a live entry: loopback ok +
@@ -743,7 +743,7 @@ async function phaseFaultInject(ctx) {
   // a clean tick inside this window, so driver interleavings only ever
   // add suspect ticks - the assertions stay monotonic-safe.
   for (const c of entries) killTree(c);
-  // Trace only, never an acceptance signal (r12 wave-d): killTree already
+  // Trace only, never an acceptance signal: killTree already
   // proved the children are dead; port closure can lag milliseconds behind
   // process teardown. The wait is diagnostic output, not a gate.
   const allClosedMs = await waitAllClosed(rowPorts, 15000);
@@ -1031,7 +1031,7 @@ async function main() {
   results.gates = evalGates(acc);
   results.acceptance = acc;
 
- // Failure semantics (D-002): measurement numbers are always RECORDED -
+ // Failure semantics: measurement numbers are always RECORDED -
   // a breach is evidence, not a job failure, until representative-hardware
   // pins activate. Only assertion/smoke rows hard-fail under --gate enforce.
   const fails = results.gates.filter((g) => g.status === "breach");

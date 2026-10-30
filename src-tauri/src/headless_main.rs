@@ -97,16 +97,16 @@ struct Cli {
     allowed_host: Vec<String>,
     /// Reverse-proxy peer trusted to assert X-Forwarded-Proto (repeatable;
     /// exact IP or CIDR, e.g. 127.0.0.1 or 10.8.0.0/16). Without this flag
-    /// XFP is ignored entirely - it is a client-writable header (R12-D1).
+    /// XFP is ignored entirely - it is a client-writable header.
     /// Wildcard CIDRs (0.0.0.0/0,::/0) refuse startup unless the second
     /// explicit `--trusted-proxy-unrestricted` switch is also given
-    /// (r12-wave-i D-002); see docs/how-to/HEADLESS_DEPLOYMENT.md.
+    /// (see docs/how-to/HEADLESS_DEPLOYMENT.md).
     #[arg(long = "trusted-proxy", value_name = "IP_OR_CIDR", value_parser = parse_trusted_proxy)]
     trusted_proxy: Vec<ipnet::IpNet>,
     /// Explicit acknowledgement that `--trusted-proxy` may carry a wildcard
     /// CIDR (0.0.0.0/0 or::/0): every reachable peer is then trusted to
     /// assert X-Forwarded-Proto, which disables the boundary the flag
-    /// exists to keep (r12-wave-i D-002). Only meaningful on networks where
+    /// exists to keep. Only meaningful on networks where
     /// every possible client hop is already inside the trusted set.
     #[arg(long = "trusted-proxy-unrestricted")]
     trusted_proxy_unrestricted: bool,
@@ -126,8 +126,8 @@ fn parse_trusted_proxy(s: &str) -> Result<ipnet::IpNet, String> {
 /// True when `net` matches every peer address (`0.0.0.0/0`, `::/0`, or any
 /// /0-prefix CIDR - host bits do not narrow a zero-length prefix). A
 /// wildcard --trusted-proxy entry accepts XFP assertions from the whole
-/// reachable network, silently disabling the R12-D1 boundary (r12-wave-i
-/// D-002).
+/// reachable network, silently disabling the X-Forwarded-Proto trust
+/// boundary.
 fn is_wildcard_proxy_net(net: &ipnet::IpNet) -> bool {
     net.prefix_len() == 0
 }
@@ -150,7 +150,7 @@ fn trusted_proxy_scope_error(nets: &[ipnet::IpNet], unrestricted: bool) -> Optio
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-    // r12-wave-i D-002: refuse a wildcard --trusted-proxy unless the second
+    // Refuse a wildcard --trusted-proxy unless the second
     // explicit switch acknowledged it (before any dir/tracing/sidecar work).
     if let Some(e) = trusted_proxy_scope_error(&cli.trusted_proxy, cli.trusted_proxy_unrestricted) {
         anyhow::bail!("{e}");
@@ -637,10 +637,10 @@ async fn security_guard(
         }
     }
 
-    // R12-D1: the XFP read lives next to the cookie plant
+    // X-Forwarded-Proto trust boundary: the XFP read lives next to the cookie plant
     // that consumes it - next.run consumes the request, so the header values
     // are captured here and the trust decision (socket peer vs the
-    // --trusted-proxy set) is evaluated at plant time. r12-wave-i D-002:
+    // --trusted-proxy set) is evaluated at plant time.
     // EVERY header instance is captured in wire order (get_all, not get - a
     // sender may split the list across headers); the merged rightmost
     // segment is what trusted_forwarded_https consults.
@@ -1969,7 +1969,7 @@ mod guard_wiring_tests {
     }
 }
 
-/// r12-wave-i D-002: the wildcard --trusted-proxy startup gate.
+/// The wildcard --trusted-proxy startup gate.
 #[cfg(test)]
 mod trusted_proxy_scope_tests {
     use super::*;

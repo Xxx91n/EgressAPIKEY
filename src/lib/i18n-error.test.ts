@@ -60,7 +60,7 @@ describe("translateError", () => {
   // Tauri serializes IpcError as {kind, data:{i18n_key,...}}. The old
   // String(e) path turned this into "[object Object]". translateError now
   // inlines the object narrowing and extracts i18n_key.
-  it("T8-Bug2: IpcError {kind:Internal, data:{i18n_key}} renders localized msg not [object Object]", () => {
+  it("IpcError {kind:Internal, data:{i18n_key}} renders localized msg not [object Object]", () => {
     const t = makeT({ "error.cannotDeleteDefaultPlatform": "cannot delete Default platform" });
     const ipcErr = { kind: "Internal", data: { msg: "raw message", i18n_key: "error.cannotDeleteDefaultPlatform" } };
     const out = translateError(ipcErr, t);
@@ -68,7 +68,7 @@ describe("translateError", () => {
     expect(out).not.toBe("[object Object]");
   });
 
-  it("T8-Bug2: IpcError {kind:BindConflict, data:{port}} renders localized bind conflict", () => {
+  it("IpcError {kind:BindConflict, data:{port}} renders localized bind conflict", () => {
     const t = makeT({ "error.bindConflict": "Port already in use" });
     const ipcErr = { kind: "BindConflict", data: { port: 17111, i18n_key: "error.bindConflict" } };
     const out = translateError(ipcErr, t);
@@ -76,7 +76,7 @@ describe("translateError", () => {
     expect(out).not.toBe("[object Object]");
   });
 
-  it("T8-Bug2: IpcError {kind:ResinUpstream, data:{excerpt}} renders localized upstream error", () => {
+  it("IpcError {kind:ResinUpstream, data:{excerpt}} renders localized upstream error", () => {
     const t = makeT({ "error.resinUpstream": "Upstream error: {{excerpt}}" });
     const ipcErr = { kind: "ResinUpstream", data: { status: 503, excerpt: "timeout", i18n_key: "error.resinUpstream" } };
     const out = translateError(ipcErr, t);
@@ -84,7 +84,7 @@ describe("translateError", () => {
     expect(out).not.toBe("[object Object]");
   });
 
-  it("T20-P4: IpcError {kind:InvalidStrategy, data:{value, accepted}} renders with value and accepted", () => {
+  it("IpcError {kind:InvalidStrategy, data:{value, accepted}} renders with value and accepted", () => {
     const t = makeT({ "error.invalidStrategy": "Invalid strategy value: {{value}}. Accepted: {{accepted}}" });
     const ipcErr = {
       kind: "InvalidStrategy",
@@ -100,7 +100,7 @@ describe("translateError", () => {
     expect(out).not.toContain("{{");
   });
 
-  it("T20-P4: IpcError {kind:ResinUpstream} renders with status and excerpt interpolated", () => {
+  it("IpcError {kind:ResinUpstream} renders with status and excerpt interpolated", () => {
     const t = makeT({ "error.resinUpstream": "Backend returned HTTP {{status}}: {{excerpt}}" });
     const ipcErr = {
       kind: "ResinUpstream",

@@ -22,7 +22,7 @@ if (!window.matchMedia) {
   );
 }
 
-// webview-smoke contract (R12-B3): the e2e harness navigates via
+// webview-smoke contract: the e2e harness navigates via
 // button[data-testid="nav-<view>"]. The side rail is icon-only - the label
 // lives on aria-label/title, textContent is empty - so nav-<key> is the only
 // stable, locale-independent selector. These tests pin that contract.

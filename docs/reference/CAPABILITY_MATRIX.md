@@ -2,8 +2,8 @@
 
 > **What this page is.** The repo-level answer to "how mature is this
 > project, really" — a list of capabilities where every entry is anchored to
-> evidence that CI executes, plus an explicit list of what no CI gate proves
-> (round-8 A-021). It replaces the "70 ADRs" maturity narrative: an ADR count
+> evidence that CI executes, plus an explicit list of what no CI gate proves.
+> It replaces the "70 ADRs" maturity narrative: an ADR count
 > says how many decisions were recorded, not which behaviors are verified.
 >
 > **Reading rule.** A capability appears as *verified* only when the cited
@@ -11,9 +11,9 @@
 > evidence. Rows marked **not CI-verified** are still true statements about
 > the code — they just carry no automated regression proof.
 >
-> **Snapshot.** Tree state at round-8 execution: applied ticket branches
-> 01/02/03/05/06/07/08/09/10 + grill-docs over base `911e35e1`. Uncommitted
-> in-flight work (tickets 04/12/13/17/18) is excluded and listed in §5.
+> **Snapshot.** Tree state at base `911e35e1` plus the ticket branches
+> applied at that time. Work still uncommitted then is excluded and listed
+> in §5.
 
 ## 1. Evidence tiers
 
@@ -38,7 +38,7 @@ The T1 guard scripts (all wired through `scripts/verify-build.sh`):
 | --- | --- | --- | --- |
 | Entry-port lifecycle (upsert/remove/toggle/bind, 1024–65535, ≤256 ports) | Validation, persistence, Resin endpoint CRUD order | whitebox_config + db + ports IPC vitest wrappers (T1) | Listener lifecycle is Resin-owned by design — no shell TcpListener |
 | Port = (platform, account) identity record | `resin_identity()` string + PortMapping persistence | port_forwarder tests: `identity_defaults_account_to_port`, `distinct_ports_distinct_identities` (T1) | Binding is config-plane only; live exit selection still keys on the client-supplied credential (Mode B) until Mode A lands (§5) |
-| Entry protocols {http, socks5} | Closed-set validation at whitebox + IPC boundaries | validator tests + `ipcPortUpsert` rejection tests (T1) | `mixed` default + socks5-tightening in flight (ticket 13, §5) |
+| Entry protocols {http, socks5} | Closed-set validation at whitebox + IPC boundaries | validator tests + `ipcPortUpsert` rejection tests (T1) | `mixed` default + socks5-tightening in flight (§5) |
 | Exit-IP probe parsing | Cloudflare-trace body → IP parse | proxy_e2e mockito tests ×3 + port_forwarder parse tests (T1) | Real-network probe `test_probe_real_1_1_1_1` is `#[ignore]`d (T0) |
 | Port health classification | alive/degraded/restarting/dead + adaptive interval + backoff cap | port_health 12 tests (T1) | Watch-stream delivery to UI tested at component level only |
 | Stream classification (SSE / WebSocket / unary) | First-bytes classifier | stream_sensor 4 tests (T1) | Classification ≠ stickiness; SSE lock-to-node is Resin lease behavior (§4) |
@@ -62,7 +62,7 @@ The T1 guard scripts (all wired through `scripts/verify-build.sh`):
 | Capability | What CI proves | Anchor (tier) | Residual gap |
 | --- | --- | --- | --- |
 | Whitebox atomic write + backup/rollback | no partial file; backup-before-write; tampered backup rejected | whitebox_config 20 + whitebox_backup 10 (T1) | — |
-| Config export/import | export embeds both whitebox docs verbatim; invalid schema/version rejected with zero writes | config_transfer 8 tests (T1) | Both docs validated up front, but sequential writes can still half-land on mid-sequence failure — two-phase atomic swap in flight (ticket 12, §5) |
+| Config export/import | export embeds both whitebox docs verbatim; invalid schema/version rejected with zero writes | config_transfer 8 tests (T1) | Both docs validated up front, but sequential writes can still half-land on mid-sequence failure — two-phase atomic swap in flight (§5) |
 | Audit log | sha256-chained JSONL, restart relinks tail, rotation keeps chain | audit 8 tests (T1) | — |
 | Port map store (egressapikey.db) | idempotent migration, upsert/delete/replace | db 5 tests (T1) | — |
 | IPC error contract | serde round-trips + Resin error → typed IpcError mapping (incl. bind-conflict precedence) | ipc_error 27 + ipc_error.test.ts (T1) | — |
@@ -79,7 +79,7 @@ The T1 guard scripts (all wired through `scripts/verify-build.sh`):
 
 | Capability | What CI proves | Anchor (tier) | Residual gap |
 | --- | --- | --- | --- |
-| Browser control surface | 35/79 IPC commands have real HTTP semantics (26 Resin-proxy translations + 9 native port routes); 44 carry typed disabled reasons — no runtime Tauri-only throws | CMD_TO_HTTP/DISABLED_COMMANDS tables + T17 dual-mode vitest cases (T1); headless_main.rs 17 tests (T0) | 44 shell-local commands intentionally absent (L1 prefs, L2 whitebox raw files, snapshot/reconcile, process routes, config transfer, backup, sidecar lifecycle, tray/OS) — "full parity" is not the design |
+| Browser control surface | 35/79 IPC commands have real HTTP semantics (26 Resin-proxy translations + 9 native port routes); 44 carry typed disabled reasons — no runtime Tauri-only throws | CMD_TO_HTTP/DISABLED_COMMANDS tables + dual-mode vitest cases in `src/lib/ipc.test.ts` (T1); headless_main.rs 17 tests (T0) | 44 shell-local commands intentionally absent (L1 prefs, L2 whitebox raw files, snapshot/reconcile, process routes, config transfer, backup, sidecar lifecycle, tray/OS) — "full parity" is not the design |
 | Server-side token injection | browser never holds Resin admin token; BFF strips inbound Authorization, injects server-side | headless BFF code + headless_security tests (T0 — not CI-run) | Structurally enforced in code; tests run only on Windows-capable hosts |
 | Non-loopback security gate | refuses to bind beyond loopback without explicit --auth-token; Host/Origin allowlist; CSPRNG token | headless_security.rs 14 tests (T0) | Same T0 caveat |
 | Headless binary ships | egressapikey-headless compiles for linux/win/macos×2 | backend matrix (T3) | Release-track only; no push-gate compile of the app crate |
@@ -105,7 +105,7 @@ The T1 guard scripts (all wired through `scripts/verify-build.sh`):
 | 3 | "guarantees a distinct sticky exit IP per pair" (README) | **not CI-verified** | Guarantee is Resin-side; shell anchors identity plumbing only; live probe is #[ignore]d (T0) |
 | 4 | "SSE session stickiness — locks its node until completion, auto-switching on failure" (README) | **not CI-verified** | Classification anchored (T1); stickiness = Resin lease behavior, no e2e in any gate |
 | 5 | "Per-request TCP freshness — pool_max_idle_per_host(0)" (README + README_CN) | **stale mechanism name** | Symbol absent from codebase; actual knob is whitebox `network.max_idle_conns*` → sidecar transport env. Claim intent survives; named mechanism is wrong |
-| 6 | "Strategy engine — B-class decides how a port picks its exit (random / round-robin / low-latency)" (README) | **stale vocabulary** | Post ticket-01 truth set is the three Resin allocation policies; the six-way per-port picker narrative is withdrawn (GLOSSARY.md B-Class Strategy) |
+| 6 | "Strategy engine — B-class decides how a port picks its exit (random / round-robin / low-latency)" (README) | **stale vocabulary** | The current truth set is the three Resin allocation policies; the six-way per-port picker narrative is withdrawn (GLOSSARY.md B-Class Strategy) |
 | 7 | "Topology canvas — drag-to-connect hot-patches region filters on the live sidecar" (README) | **anchored (partial)** | `strategy_platform_regions_set` → apply path tested (T1) + TopologyView vitest; live-sidecar effect covered by contract, not e2e |
 | 8 | "Zero adaptation — point your gateway at an entry port; client code stays unchanged" (README) | **partially true today** | No-auth entry ports accept credential-free clients; per-port (platform,account) binding still needs client-supplied credential until Mode A lands (tickets 13/17/18) |
 | 9 | "Headless twin — the full GUI control surface over HTTP" (README) | **overstated** | 35/79 mapped + 44 typed-disabled by design (§2 Headless); "same control surface" holds only for the Resin-backed subset |
@@ -118,9 +118,9 @@ The T1 guard scripts (all wired through `scripts/verify-build.sh`):
 - **Real exit-IP correctness**: no gate opens a live upstream connection; the
   only real-network probe is `#[ignore]`d and needs a running sidecar.
 - **End-to-end SSE behavior**: per-event flush, disconnect cascade-cancel,
-  bounded backpressure, in-band error signaling (D-004 hard assertions) have
+  bounded backpressure, in-band error signaling (the four hard SSE assertions) have
   no automated evidence yet.
-- **Performance budgets**: all D-004 targets (memory/CPU/latency/RPS) are
+- **Performance budgets**: all performance targets (memory/CPU/latency/RPS) are
   measure-then-calibrate placeholders; the bench harness (`scripts/bench/`)
   is in flight, no locked values exist.
 - **App-crate Rust tests**: ~156 src-tauri unit tests (sidecar lifecycle,
@@ -130,17 +130,17 @@ The T1 guard scripts (all wired through `scripts/verify-build.sh`):
   under test.
 - **Windows/macOS push-gate coverage**: T1 runs on ubuntu-latest only.
 
-## 5. In-flight work (uncommitted / parallel round-8 tickets)
+## 5. In-flight work at snapshot time (uncommitted / parallel tickets)
 
 Excluded from "verified" above until they land with green CI:
 
-- Ticket 13/17/18 — `mixed` entry protocol, Mode-A shell forwarder
+- `mixed` entry protocol, Mode-A shell forwarder
   (credential injection so the client needs none), perf/SSE acceptance.
-- Ticket 12 — config_import two-phase atomic swap; reconcile stamp semantics.
-- Ticket 04/17 — bench drivers + acceptance table (scripts/bench/*).
-- Ticket 11 — ADR Status-line batch (shares A-021 with this ticket).
-- Ticket 14 — backup/restore unification.
-- Ticket 15 — production-code process-trace comment strip (A-019).
+- config_import two-phase atomic swap; reconcile stamp semantics.
+- Bench drivers + acceptance table (scripts/bench/*).
+- ADR Status-line batch (same maturity-evidence effort as this page).
+- Backup/restore unification.
+- Production-code process-trace comment strip.
 
 ## 6. Maintenance rule
 

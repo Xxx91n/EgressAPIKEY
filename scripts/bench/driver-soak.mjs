@@ -1,4 +1,4 @@
-// Concurrency soak (D-004: 200 concurrent SSE streams, zero OOM/deadlock,
+// Concurrency soak (original budget: 200 concurrent SSE streams, zero OOM/deadlock,
 // sidecar RSS<=128MB under load, CPU <0.5 core on 1 vCPU).
 // Opens N proxied SSE streams, holds them for durationS while sampling resin
 // RSS/CPU, then verifies: all connected inside the connect window, zero

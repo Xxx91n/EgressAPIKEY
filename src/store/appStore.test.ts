@@ -47,7 +47,7 @@ describe("appStore", () => {
     expect(useAppStore.getState().subscriptions[0].nodeCount).toBe(42);
   });
 
-  it("switches to the effectiveConfig view (ticket 13)", () => {
+  it("switches to the effectiveConfig view", () => {
     useAppStore.getState().setView("effectiveConfig");
     expect(useAppStore.getState().view).toBe("effectiveConfig");
   });

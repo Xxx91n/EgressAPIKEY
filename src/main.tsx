@@ -23,7 +23,7 @@ void attachLogger((entry) => {
   });
 }).catch(() => { /* no-op outside tauri */ });
 
-// arch/02: drop legacy dead settings keys (if any residue exists) before the
+// Drop legacy dead settings keys (if any residue exists) before the
 // UI mounts, so settings.json only ever carries live keys.
 void purgeLegacyDeadKeys();
 

@@ -1,4 +1,4 @@
-# Resin Platform Schema 字段映射表（round5 T18 / 裂痕 #8）
+# Resin Platform Schema 字段映射表
 
 > 回答的问题：**前端同学要加或改一个 platform 字段时，该改白盒还是改 ResinClient body 形状？**
 > 本表把同一字段在五层的落位对齐成一行；上游权威为 `resin/DESIGN.md` §「Platform 模型」
@@ -29,7 +29,7 @@
 | `reverse_proxy_fixed_account_header` | 无 | 无专用入参（同上） | 无 | 多行字符串，每行一个合法 HTTP Header 字段名、按序尝试提取；缺省默认 `Authorization`；仅当上一字段取 `FIXED_HEADER` 时必填 |
 | `allocation_policy` | 语义对应 `b_class` | `platform_update{allocationPolicy}`、`platform_create_with_fields{body.allocation_policy}`；TS `strategyToResinPolicy` 六对三多对一，Rust `ALLOWED_ALLOCATION_POLICIES` 白名单复校验 | PlatformsView B 类 chips（`strategy-bclass-*`）与创建对话框策略下拉（`createPolicy`） | 枚举 `BALANCED` / `PREFER_LOW_LATENCY` / `PREFER_IDLE_IP`；缺省 `RESIN_DEFAULT_PLATFORM_ALLOCATION_POLICY`（`BALANCED`）；映射：random/bandwidth/protocol_weight 对 `BALANCED`，latency 对 `PREFER_LOW_LATENCY`，sequential/quality 对 `PREFER_IDLE_IP` |
 | `passive_circuit_breaker_disabled` | 无 | `platform_update{passive_circuit_breaker_disabled: bool}`（TS 第 6 参 `circuitBreakerDisabled`） | 无（wrapper 参数已通、视图暂无调用方） | bool；缺省 `false`（熔断启用）；`true` 时该平台用户代理失败不计熔断，成功仍清零计数，主动探测不受影响 |
-| `id`（只读） | 无（白盒以 `platform_name` 为标识） | 不入参；shell 以 name 到 id 反查（`platform_id_for_name`，T17 票收敛为 resolve helper）后拼 `/platforms/{id}` | 画布节点 id 取 `platform_id`，缺省回退 `platform_name`（仅展示） | UUID v4，服务端生成；create 或 PATCH 传 `id` 报 400 |
+| `id`（只读） | 无（白盒以 `platform_name` 为标识） | 不入参；shell 以 name 到 id 反查（`platform_id_for_name`，已收敛为 resolve helper）后拼 `/platforms/{id}` | 画布节点 id 取 `platform_id`，缺省回退 `platform_name`（仅展示） | UUID v4，服务端生成；create 或 PATCH 传 `id` 报 400 |
 | `routable_node_count`（只读） | 无 | 只读回传：`platform_list_full` / `authoritative_snapshot` | 平台卡只读展示 | 服务端计算；create 或 PATCH 传它报 400 |
 | `updated_at`（只读） | 无（白盒文档级 `StrategyConfig.updated_at` 同名不同义：Unix 秒写时间戳） | 只读回传（RFC3339） | 不展示 | 服务端维护；create 或 PATCH 传它报 400 |
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { extractIpcErr, ipcErrI18nKey } from "./ipc";
 
-/// Phase 5-2: IpcError extractIpcErr closed-loop tests.
+/// IpcError extractIpcErr closed-loop tests.
 /// Covers 4 variant narrowing + i18n_key presence + template params.
 
 describe("extractIpcErr variant narrowing", () => {

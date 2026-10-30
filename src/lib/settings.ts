@@ -156,7 +156,7 @@ export async function saveTheme(theme: string): Promise<void> {
   }
 }
 
-// --- Migration (arch/02): one-time removal of legacy dead keys ---
+// --- Migration: one-time removal of legacy dead keys ---
 // These keys were read by a pre- main.rs block that dropped its
 // CoreConfig on the floor (the Resin sidecar owns the listen
 // port). This const is the ONLY remaining live-code mention of the dead
