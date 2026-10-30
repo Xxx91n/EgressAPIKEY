@@ -53,9 +53,11 @@ describe("PlatformsView P2 (entry-ports dual-pane, IPC-mocked)", () => {
 
   it("renders entry-ports pane + platforms pane with live rows", async () => {
     render(<PlatformsView />);
-    await waitFor(() => expect(screen.getByTestId("platforms-view")).toBeInTheDocument());
-    expect(screen.getByTestId("ports-pane")).toBeInTheDocument();
-    expect(screen.getByTestId("platforms-pane")).toBeInTheDocument();
+    // `platforms-view` also renders in the loading shell; gate on the panes, which mount only after bootstrap.
+    await waitFor(() => {
+      expect(screen.getByTestId("ports-pane")).toBeInTheDocument();
+      expect(screen.getByTestId("platforms-pane")).toBeInTheDocument();
+    }, { timeout: 5000 });
     await waitFor(() => expect(screen.getByTestId("port-row-17990")).toBeInTheDocument());
     await waitFor(() => expect(screen.getByTestId("platform-card-Default")).toBeInTheDocument());
   });
