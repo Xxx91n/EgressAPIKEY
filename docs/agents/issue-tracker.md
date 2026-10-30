@@ -42,33 +42,43 @@ the blocked ticket needs is on the base branch. Before a ticket whose
 `Blocked by` section names a dependency is claimed — and before its
 `ready-for-agent` label is trusted — run these steps once per dependency and
 write each verdict into the ticket. Every step is re-runnable as written;
-"<base>" is the commit the work will branch from (`git rev-parse origin/main`).
+"<base>" is the commit the work will branch from, resolved after a refresh —
+`but pull --check` fetches without touching a branch (a bare `git fetch` is a VCS
+write here), then `git rev-parse origin/main`.
 
 1. **Restate the dependency as a behaviour.** One sentence naming what the
    blocked ticket needs from it: the merged fix, the guard, the API shape. Not
    the dependency's title. If the sentence needs a "because the ticket says so",
    the dependency is not understood yet — read it first.
-2. **Find the commit on the base branch.** `git log --oneline <base> --
-   <path>` for the files the behaviour lives in, `git log -S'<symbol>'
-   --oneline <base>` for when the code itself moved, then
+2. **Find the commit that carries it on `<base>`, and call it `<dep-sha>`.**
+   `git log --oneline <base> -- <path>` for the files the behaviour lives in,
+   and `git log -S'<symbol>' --oneline <base>` for when the code itself moved.
+   When the dependency landed as a pull request, the commit it put on the base
+   is the PR's merge commit — the squash result, not the pre-merge head:
+
+   ```bash
+   gh pr view <PR> --json mergeCommit -q .mergeCommit.oid   # full 40-char sha
+   ```
+
+   Check that sha rather than the branch head, then
    `git merge-base --is-ancestor <dep-sha> <base> && echo landed`. A dependency
    whose commit is not an ancestor of `<base>` has not arrived, whatever its
-   issue state says.
+   issue state says. This one sha is what steps 3 and 5 use.
 3. **Confirm the CI verify run on that commit is green.** Delivery here is
    CI-only, so a local build or a run on a branch that was later rewritten is
    not evidence:
 
    ```bash
-   gh pr view <PR> --json mergeCommit -q .mergeCommit.oid   # full 40-char sha
-   gh run list --workflow ci --commit <full-sha> --json conclusion,url
+   gh run list --workflow ci --commit <dep-sha> --json conclusion,url
    ```
 
-   Resolve the sha first: `--commit` matches the full 40-character sha, and a
-   short one returns an empty list — which reads like "no run" and is not. The
-   run must be on the dependency's own merge commit, and its conclusion must be
-   `success`; `--commit` queries that one sha, so a green run on a later commit
-   of the base branch does not substitute for it. An empty list for the full sha
-   — or a run the concurrency group cancelled — is `not met`, not "unknown".
+   `<dep-sha>` is the full 40-character sha from step 2: `--commit` matches the
+   full sha only, and a short one returns an empty list — which reads like "no
+   run" and is not. The run must be on `<dep-sha>` itself, and its conclusion
+   must be `success`; `--commit` queries that one sha, so a green run on a later
+   commit of the base branch does not substitute for it. An empty list for the
+   full sha — or a run the concurrency group cancelled — is `not met`, not
+   "unknown".
 4. **Name the guard that keeps it fixed.** For a fix, find the test or guard
    (`git grep -n '<test name>' <base>`) and confirm it is wired into
    `scripts/verify-build.sh`; a fix with no guard re-rots silently and is not a
