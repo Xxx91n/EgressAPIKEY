@@ -101,7 +101,7 @@ function snapshotFromMocks(cmdMock: (cmd: string) => unknown) {
 }
 
 
-describe("TopologyView (T9 canvas: subscription-folded C + strategy labels + dual badges)", () => {
+describe("TopologyView (canvas: subscription-folded C + strategy labels + dual badges)", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     // migration shim: per-test mocks still declare the legacy

@@ -117,7 +117,7 @@ describe("NodesView", () => {
     });
   }
 
-  it("T4-3a: groups nodes by subscription_name in collapsible tree", async () => {
+  it("groups nodes by subscription_name in collapsible tree", async () => {
     mockTwoSubs();
     render(<NodesView />);
     await waitFor(() => {
@@ -150,7 +150,7 @@ describe("NodesView", () => {
     expect(screen.queryByText("US-01")).toBeNull();
   });
 
-  it("T4-3c: collapsing an expanded subscription hides its nodes", async () => {
+  it("collapsing an expanded subscription hides its nodes", async () => {
     mockTwoSubs();
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
@@ -162,7 +162,7 @@ describe("NodesView", () => {
     await waitFor(() => expect(screen.queryByText("HK-01")).toBeNull());
   });
 
-  it("T4-3d: search filters nodes across subscriptions", async () => {
+  it("search filters nodes across subscriptions", async () => {
     mockTwoSubs();
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
@@ -184,7 +184,7 @@ describe("NodesView", () => {
     });
   });
 
-  it("T4-3e: shows no-match state when search has no hits", async () => {
+  it("shows no-match state when search has no hits", async () => {
     mockTwoSubs();
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
@@ -197,7 +197,7 @@ describe("NodesView", () => {
     });
   });
 
-  it("T4-3f: health rate percentage shown per subscription", async () => {
+  it("health rate percentage shown per subscription", async () => {
     mockTwoSubs();
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
@@ -208,7 +208,7 @@ describe("NodesView", () => {
     expect(healthEls.length).toBe(2);
   });
 
-  it("T4-3g: empty state when no nodes returned", async () => {
+  it("empty state when no nodes returned", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return { items: [], total: 0 };
       if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
@@ -220,7 +220,7 @@ describe("NodesView", () => {
     });
   });
 
-  it("T4-3h: aggregate stats render from node_pool_snapshot", async () => {
+  it("aggregate stats render from node_pool_snapshot", async () => {
     mockTwoSubs();
     render(<NodesView />);
     await waitFor(() => screen.getByText("sub-alpha"));
@@ -230,7 +230,7 @@ describe("NodesView", () => {
     expect(invokeMock).toHaveBeenCalledWith("node_pool_snapshot", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 
-  it("T4-3i: P4 reputation card renders when IPC returns entries", async () => {
+  it("P4 reputation card renders when IPC returns entries", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return { items: [] };
       if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };

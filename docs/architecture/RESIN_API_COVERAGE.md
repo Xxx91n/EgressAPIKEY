@@ -25,8 +25,8 @@ their row id.
 
 > The 装饰 bucket is currently EMPTY. reports/03 §2 #3 flagged `system_config_get/patch`
 > as decorative commands, but their bodies have called `client.system_config_*` since commit
-> 856a0ff (the file only moved later). Any change that deletes or rewires them must re-verify its premise against
-> this table before deleting or rewiring anything.
+> 856a0ff (the file only moved later). Any change that deletes or rewires them must first re-verify its premise
+> against this table.
 
 ## Out-of-table surfaces
 
@@ -100,7 +100,7 @@ lists only the tag-filter DB migration), so this table matches the bundled v1.2.
 | R41 | GET /api/v1/geoip/lookup | handler_geoip.go:19 | — | — | 故意不接 | — | v1.0 | 单 IP region 查询 — 纯地理，无信誉维度 |
 | R42 | POST /api/v1/geoip/lookup | handler_geoip.go:50 | — | — | 故意不接 | — | v1.0 | 批量 region 查询 — 纯地理，无信誉维度 |
 | R43 | POST /api/v1/geoip/actions/update-now | handler_geoip.go:39 | — | — | 故意不接 | — | v1.0 | Resin 自身 GeoIP 库刷新；shell 不消费其数据 |
-| R44 | GET /api/v1/request-logs | handler_requestlog.go:16 | request_logs:464 | request_log_tail | 已对接 | arch-recovery 11 | v1.0 | 8 过滤参数 + cursor；REST 化封死 request_logs*.db 直读 |
+| R44 | GET /api/v1/request-logs | handler_requestlog.go:16 | request_logs:464 | request_log_tail | 已对接 | — | v1.0 | 8 过滤参数 + cursor；REST 化封死 request_logs*.db 直读 |
 | R45 | GET /api/v1/request-logs/{log_id} | handler_requestlog.go:174 | get_request_log:500 | request_log_detail | 已对接 | — | v1.0 | 单条详情；§7.5 log_id 校验（1..=64 UUID 字符集） |
 | R46 | GET /api/v1/request-logs/{log_id}/payloads | handler_requestlog.go:198 | get_request_log_payloads:507 | request_log_payloads | 已对接 | — | v1.0 | b64 载荷 + truncated 元数据；payload logging 关闭时 200 空串 |
 | R47 | GET /api/v1/metrics/realtime/throughput | handler_metrics.go:147 | realtime_throughput:547 | metrics_realtime_throughput | 已对接 | — | v1.0 | 实时吞吐；无入参（上游默认最近 1h） |

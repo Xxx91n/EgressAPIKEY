@@ -85,7 +85,7 @@ entry for L2.
 The limitation is explicit and load-bearing: **a host runs EITHER the desktop
 shell OR the headless server, never both.** Two instances would each hold
 their own L2 and neither would observe the other's edits - the Docker-Desktop
-dual-daemon anti-pattern, the well-known cautionary
+dual-daemon anti-pattern, a known cautionary
 tale. The headless deployment guide ships a systemd unit precisely so the
 server owns the host. Commands whose truth source is desktop-only (tray, OS
 proxy, `tauri-plugin-store`, streaming channels, local path/export surfaces)
@@ -122,7 +122,7 @@ Two distinct write pipelines live behind L2 (verified in code;
   `egressapikey-strategy.json`) → `strategy_apply` (compute plan, create
   missing-on-resin platforms, PATCH Resin `region_filters`
   only where the live row actually drifts — diff-then-skip, only drifting axes are sent;
-  never deletes whitebox entries). Landed: one refactor converged
+  never deletes whitebox entries). Landed: a consolidation moved
   read/validate/apply/read-back into the one StrategyService module
   (`crates/resin-core/src/strategy_service.rs`,; stays in
   force).
