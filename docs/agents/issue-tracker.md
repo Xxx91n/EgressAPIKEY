@@ -74,16 +74,18 @@ write here), then `git rev-parse origin/main`.
    not evidence:
 
    ```bash
-   gh run list --workflow ci --commit <dep-sha> --json conclusion,url
+   gh run list --workflow ci --commit <dep-sha> --json conclusion,url,createdAt
    ```
 
    `<dep-sha>` is the full 40-character sha from step 2: `--commit` matches the
    full sha only, and a short one returns an empty list — which reads like "no
-   run" and is not. The run must be on `<dep-sha>` itself, and its conclusion
-   must be `success`; `--commit` queries that one sha, so a green run on a later
-   commit of the base branch does not substitute for it. An empty list for the
-   full sha — or a run the concurrency group cancelled — is `not met`, not
-   "unknown".
+   run" and is not. The workflow triggers on both `push` and `pull_request`, so
+   one commit carries several runs, newest first: the newest run that is not
+   `cancelled` decides, and its conclusion must be `success`. A `cancelled` run
+   was superseded and carries no verdict, so it neither passes nor fails. A
+   green run on a later commit of the base branch does not substitute for
+   `<dep-sha>`. If no run for the sha has a verdict — an empty list, or every
+   run cancelled — that is `not met`, not "unknown".
 4. **Name the guard that keeps it fixed.** For a fix, find the test or guard
    (`git grep -n '<test name>' <base>`) and confirm it is wired into
    `scripts/verify-build.sh`; a fix with no guard re-rots silently and is not a
