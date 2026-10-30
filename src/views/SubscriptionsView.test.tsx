@@ -411,6 +411,7 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
       healthy("2026-08-02T10:00:30Z"),
       [{ name: "sub-x", node_count: 0, healthy_node_count: 0, last_error: "dial tcp 1.2.3.4:443: i/o timeout", last_checked: "2026-08-02T10:01:00Z" }],
       healthy("2026-08-02T10:01:30Z"),
+      healthy("2026-08-02T10:02:00Z"),
     ];
     vi.useFakeTimers();
     try {
@@ -442,12 +443,18 @@ describe("T03 round5: last_error promotion (banner collapse + toast chip + 30s p
       await tick(POLL_MS);
       expect(screen.getByText(/Subscription sub-x fetch recovered/)).toBeInTheDocument();
       expect(screen.queryByTestId("sub-error-banner")).toBeNull();
+      expect(screen.getByText(/2026-08-02 10:01:30/)).toBeInTheDocument();
       // poll 4: state unchanged, so this is the steady state that has a baseline
-      // to compare against (poll 1 does not). Silence here means the recovery
-      // toast is still the only toast on screen and no failure edge fired again.
+      // to compare against (poll 1 does not). Resin's tick still moves
+      // last_checked while last_error stays empty, so the row must show the new
+      // timestamp - that is what proves the read landed and the view updated.
+      // Silence then means the recovery toast is still the only toast on screen,
+      // no failure edge fired again, and the banner stayed cleared.
       await tick(POLL_MS);
+      expect(screen.getByText(/2026-08-02 10:02:00/)).toBeInTheDocument();
       expect(screen.queryByText(/fetch failed/i)).toBeNull();
       expect(screen.getByText(/Subscription sub-x fetch recovered/)).toBeInTheDocument();
+      expect(screen.queryByTestId("sub-error-banner")).toBeNull();
     } finally {
       vi.useRealTimers();
     }
