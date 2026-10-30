@@ -91,7 +91,7 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
     const urlAgain = await screen.findByPlaceholderText(/Subscription URL|订阅地址/i);
     expect((urlAgain as HTMLInputElement).value).toBe("https://persist.example/sub.yaml");
   });
-  it("P19-6-a: rename button triggers subscription_remove + subscription_add with new name", async () => {
+  it("rename button triggers subscription_remove + subscription_add with new name", async () => {
     useAppStore.setState({
       subscriptions: [{ id: "x", url: "https://cached.example/x.yaml", nodeCount: 0 }],
     });
@@ -113,7 +113,7 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
     promptSpy.mockRestore();
   });
 
-  it("P19-6-d: applyOrder keeps a saved order stale-safe against a new server batch", async () => {
+  it("applyOrder keeps a saved order stale-safe against a new server batch", async () => {
     // We do not import the helper (it is private to the component file);
     // instead we exercise the public contract: refresh() takes the server
     // list and our persisted order, and the rendered name column follows
@@ -138,7 +138,7 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
   });
 
 
-  it("P20-3: refuses import when a subscription with the same name exists", async () => {
+  it("refuses import when a subscription with the same name exists", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "subscription_list") return [{ name: "mySub", node_count: 5 }];
       if (cmd === "node_pool_snapshot") return { total_nodes: 5, healthy_nodes: 5, egress_ip_count: 5, healthy_egress_ip_count: 5 };
@@ -164,7 +164,7 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
     });
   });
 
-  it("P20-4: reset-order re-renders from server without stale duplicates", async () => {
+  it("reset-order re-renders from server without stale duplicates", async () => {
     let calls = 0;
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "subscription_list") {
@@ -192,7 +192,7 @@ describe("SubscriptionsView (closed-loop, IPC-mocked)", () => {
     expect(calls).toBeGreaterThanOrEqual(1);
   });
 
-  it("P21-A: Pointer-Events drag reorders rows live and persists order", async () => {
+  it("Pointer-Events drag reorders rows live and persists order", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "subscription_list") {
         return [
@@ -401,7 +401,7 @@ describe("last_error promotion (banner collapse + toast chip + 30s poll)", () =>
     expect(screen.queryByTestId("toast-error-chip")).toBeNull();
   });
 
-  it("F3: 30s poll toasts on the failure edge and the recovery edge, silent on steady state", async () => {
+  it("30s poll toasts on the failure edge and the recovery edge, silent on steady state", async () => {
     // Resin's update_interval tick is what changes last_error over time, so the
     // scripted server state is keyed on the poll clock (elapsed fake time) and
     // not on how many reads the view happened to issue: an unrequested extra
@@ -533,13 +533,13 @@ describe("last_error promotion (banner collapse + toast chip + 30s poll)", () =>
     });
   });
 
-// --- F1 inline bind
-// step + F4 reverse-lookup badge. The import path passes pipeline=establish
+// --- Inline bind
+// step + reverse-lookup badge. The import path passes pipeline=establish
 // (the backend cascade owns resolve/platform/apply now); the inline bind
 // step still runs strategy_config_put -> strategy_apply for user-selected
 // EXTRA platforms + port_bind_platform; badges come from the
 // authoritative_snapshot subscriptions reverse-lookup section.
-describe("F1 inline bind step + F2 apply trigger + F4 badge", () => {
+describe("inline bind step + apply trigger + reverse-lookup badge", () => {
   beforeEach(() => {
     useAppStore.setState({ subscriptions: [] });
     invokeMock.mockReset();
@@ -697,7 +697,7 @@ describe("F1 inline bind step + F2 apply trigger + F4 badge", () => {
       }
       if (cmd === "subscription_list") {
         // The live row must NOT be "mysub" — the import name must pass the
-        // P20-3 duplicate guard, so the existing row is a different sub.
+        // duplicate-name guard, so the existing row is a different sub.
         return [{ name: "pre-existing", node_count: 2, healthy_node_count: 2, last_error: "", last_checked: "" }];
       }
       if (cmd === "node_pool_snapshot") {
@@ -790,7 +790,7 @@ describe("F1 inline bind step + F2 apply trigger + F4 badge", () => {
     }, { timeout: 15000 });
   }, 20000);
 
-  it("F2: import passes pipeline=establish and the import path no longer calls strategy_apply directly", async () => {
+  it("import passes pipeline=establish and the import path no longer calls strategy_apply directly", async () => {
     baseMock();
     render(<SubscriptionsView />);
     const urlInput = await screen.findByPlaceholderText(/Subscription URL|订阅地址/i);

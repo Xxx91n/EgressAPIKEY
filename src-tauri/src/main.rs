@@ -27,7 +27,7 @@ fn main() {
     let registry = build_shared_registry();
 
     let builder = tauri::Builder::default()
-        // Re9: Single-instance must be the FIRST plugin registered (Tauri 2
+        // Single-instance must be the FIRST plugin registered (Tauri 2
         // requirement). When a second GUI exe is launched, this plugin kills
         // the new process and runs the closure in the already-running instance:
         // we focus the existing main window instead of opening a second GUI.
@@ -51,10 +51,10 @@ fn main() {
         // drift notice. The notification itself is fired from the snapshot
         // command; headless builds never construct this Builder.
         .plugin(tauri_plugin_notification::init())
-        // Re7: tauri-plugin-tracing — one `tracing` pipeline for resin-core +
+        // tauri-plugin-tracing — one `tracing` pipeline for resin-core +
         // shell. Wires stdout + a WebviewLayer (Rust logs -> frontend log panel
         // via the `tracing://log` event the npm guest binds) + a daily-rotating
-        // file appender under app_log_dir() (Re6). Replaces tauri-plugin-log so
+        // file appender under app_log_dir(). Replaces tauri-plugin-log so
         // every `tracing::` macro in the codebase flows through one subscriber.
         .plugin(
             // log hardening. Rotate daily OR at 10MB, keep the 7 most
@@ -127,7 +127,7 @@ fn main() {
             //: sidecar stderr ring buffer snapshot.
             commands::get_sidecar_logs,
             commands::get_sidecar_status,
-            // Re3: Platform/Account registry + weighted account selection.
+            // Platform/Account registry + weighted account selection.
             commands::platform_add,
             commands::platform_remove,
             commands::platform_list,
@@ -285,7 +285,7 @@ fn main() {
                 api_port,
                 proxy_token,
             );
-            // Phase 3 / NEW-7: whitebox entry-port JSON + hotswap-config.
+            // Whitebox entry-port JSON + hotswap-config.
             // Seed from SQLite so first boot materializes the file from DB.
             let whitebox_path = cfg_dir.join(WHITEBOX_CONFIG_FILE);
             let mut seed = WhiteboxConfig::from_ports(db.list_ports().unwrap_or_default());
@@ -432,7 +432,7 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building EgressAPIKEY Tauri shell")
         .run(|app_handle, event| {
-            // P22 audit fix: the Resin Go sidecar is a child process spawned
+            // Audit fix: the Resin Go sidecar is a child process spawned
             // via tauri_plugin_shell::CommandChild. Its Drop impl in plugin
             // version 2.3.5 does NOT kill the child (you must call .kill()
             // explicitly). Without this hook, app.exit(0) from the tray Quit

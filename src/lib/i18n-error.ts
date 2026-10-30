@@ -11,7 +11,7 @@
  * generic "error.<name>" translation can reference `{{code}}` and surface
  * "Upstream HTTP 525" without needing per-code translations. Per-code keys
  * still win when defined. (Historically the first user of this mechanism was
-* the P13 B4 fetch_clash_subscription chain; that chain was deleted in
+* the shell-side fetch_clash_subscription chain; that chain was deleted in
  * along with its error.subscriptionFetch i18n key, but the mechanism stays.)
  */
 import type { TFunction } from "i18next";

@@ -1,4 +1,4 @@
-# t17 contract - data-plane Mode A byte-level baseline
+# Data-plane Mode A contract - byte-level baseline
 
 Authoritative sources: the four-scenario gate table verified live against
 Resin v1.2.0, plus the Mode A "credential is identity" rule. The

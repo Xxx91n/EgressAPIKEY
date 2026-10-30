@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(a.anchor_ip(), Some("203.0.113.5"));
     }
 
-    /// Re3: TD-EWMA weighted pick chooses the cold lane over a saturated one.
+    /// TD-EWMA weighted pick chooses the cold lane over a saturated one.
     #[test]
     fn pick_account_weighted_prefers_unsampled_lane() {
         let mut p = Platform::new("openai");
@@ -186,7 +186,7 @@ mod tests {
         );
     }
 
-    /// Re3: When all candidates are sampled, the lowest EMA wins.
+    /// When all candidates are sampled, the lowest EMA wins.
     #[test]
     fn pick_account_weighted_prefers_lower_latency() {
         let mut p = Platform::new("openai");
@@ -203,7 +203,7 @@ mod tests {
         assert_eq!(pick.lane, 4, "lower EMA lane should win");
     }
 
-    /// Re3: Ties on (sample, latency) fall back to lane preference — preserving
+    /// Ties on (sample, latency) fall back to lane preference — preserving
     /// the SSE stickiness invariant: the same key always lands on the same lane.
     #[test]
     fn pick_account_weighted_lane_match_breaks_ties() {

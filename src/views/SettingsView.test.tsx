@@ -14,7 +14,7 @@ import { save as mockDialogSave } from "@tauri-apps/plugin-dialog";
 
 afterEach(() => cleanup());
 
-// P25-item4: closed-loop for the tray i18n half-beat fix. The user reported that
+// Closed-loop for the tray i18n half-beat fix. The user reported that
 // switching the GUI language in Settings left the OS tray right-click menu showing
 // the PREVIOUS locale. The fix (commit 1aaab6b) made SettingsView.changeLocale
 // await saveLocale(next) THEN await invoke("tray_refresh_labels") so the Rust side
@@ -23,7 +23,7 @@ afterEach(() => cleanup());
 // -> Rust -> tray menu rebuild path is wired. The live-side proof (Resin sidecar
 // honors the rebuilt menu) is the release-exe smoke + tracing log line; this test
 // proves the webview side of the loop is never silently broken by a future refactor.
-describe("SettingsView P25-item4 tray i18n refresh closed-loop", () => {
+describe("SettingsView tray i18n refresh closed-loop", () => {
   beforeEach(() => {
     useAppStore.setState({ locale: "en" });
     invokeMock.mockReset();
@@ -85,7 +85,7 @@ describe("SettingsView P25-item4 tray i18n refresh closed-loop", () => {
 // The save bar must be hidden when clean, visible when dirty, show a spinner while
 // saving, and hide again after baseline resets on save success. This is the
 // enterprise-pattern dirty-tracking gate (minimal baseline + JSON.stringify diff).
-describe("SettingsView P4 IP reputation settings", () => {
+describe("SettingsView IP reputation settings", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     invokeMock.mockImplementation((cmd: string) => {

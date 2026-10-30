@@ -23,7 +23,7 @@ their row id.
 | 空白 blank | No ResinClient method, no IPC command — upstream-only surface | 22 |
 | 故意不接 deliberate | Unwired BY DECISION; reason recorded in the row's 备注 column | 10 |
 
-> The 装饰 bucket is currently EMPTY. reports/03 §2 #3 flagged `system_config_get/patch`
+> The 装饰 bucket is currently EMPTY. An earlier audit flagged `system_config_get/patch`
 > as decorative commands, but their bodies have called `client.system_config_*` since commit
 > 856a0ff (the file only moved later). Any change that deletes or rewires them must first re-verify its premise
 > against this table.
@@ -105,7 +105,7 @@ lists only the tag-filter DB migration), so this table matches the bundled v1.2.
 | R46 | GET /api/v1/request-logs/{log_id}/payloads | handler_requestlog.go:198 | get_request_log_payloads:507 | request_log_payloads | 已对接 | — | v1.0 | b64 载荷 + truncated 元数据；payload logging 关闭时 200 空串 |
 | R47 | GET /api/v1/metrics/realtime/throughput | handler_metrics.go:147 | realtime_throughput:547 | metrics_realtime_throughput | 已对接 | — | v1.0 | 实时吞吐；无入参（上游默认最近 1h） |
 | R48 | GET /api/v1/metrics/realtime/connections | handler_metrics.go:172 | — | — | 空白 | — | v1.0 | 实时连接 |
-| R49 | GET /api/v1/metrics/realtime/leases | handler_metrics.go:197 | active_leases:292 | lease_map / ip_reputation_snapshot | 已对接 | P21/R2 | v1.0 | 顶替已删 resin-core LeaseTable |
+| R49 | GET /api/v1/metrics/realtime/leases | handler_metrics.go:197 | active_leases:292 | lease_map / ip_reputation_snapshot | 已对接 | REFACTOR_PLAN_RESIN_ACCOUNT_MODEL.md | v1.0 | 顶替已删 resin-core LeaseTable |
 | R50 | GET /api/v1/metrics/history/traffic | handler_metrics.go:236 | — | — | 空白 | — | v1.0 | 历史流量 |
 | R51 | GET /api/v1/metrics/history/requests | handler_metrics.go:269 | — | — | 空白 | — | v1.0 | 访问成功率同源 |
 | R52 | GET /api/v1/metrics/history/access-latency | handler_metrics.go:308 | — | — | 空白 | — | v1.0 | 访问延迟 |

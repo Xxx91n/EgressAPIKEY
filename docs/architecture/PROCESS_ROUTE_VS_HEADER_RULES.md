@@ -64,7 +64,7 @@ point, not part of this seam.
 
 ## Erratum vs the earlier research sketch
 
-reports/03 §2 #4 and the issue F3 sketch described the rule headers as
+The earlier research sketch described the rule headers as
 "X-Resin-Account 值路由". The upstream source is more precise: the rule's
 `headers` array holds header NAMES to EXTRACT the account from
 (`reverse.go` `resolveReverseProxyAccount` phase 3 →

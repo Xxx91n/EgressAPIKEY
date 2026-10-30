@@ -161,7 +161,7 @@ beforeAll(async () => {
         "subscription.showError": "Show error",
         "subscription.hideError": "Hide error",
         "subscription.lastSuccess": "last check succeeded",
-        // (F1/F4): bind step + reverse-lookup badge vocabulary.
+        // Bind step + reverse-lookup badge vocabulary.
         "subscription.bindStepTitle": "Bind \"{{name}}\" to platforms (optional, {{count}} nodes imported)",
         "subscription.bindHint": "Only platforms with a_class=Subscription consume this subscription.",
         "subscription.bindCreate": "Auto-create platform \"{{name}}\"",

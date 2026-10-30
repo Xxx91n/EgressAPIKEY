@@ -1315,7 +1315,7 @@ impl StrategyService<FsStrategyStore> {
         // green => applied_generation catches up to the generation the
         // write-back itself will LAND at (store() bumps, so that is
         // generation + 1) and the error slot clears — inside the same store
-        // write entry (R-B Q2). Anything not green => the old applied value
+        // write entry. Anything not green => the old applied value
         // stays (no fake convergence) and the failure is recorded. A green
         // pass over an already-converged world (diff-then-skip, zero PATCH)
         // still refreshes last_apply_at — Terraform re-apply semantics.

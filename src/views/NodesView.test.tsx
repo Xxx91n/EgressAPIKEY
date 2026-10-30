@@ -72,8 +72,8 @@ describe("NodesView", () => {
     expect(useAppStore.getState().nodes.length).toBe(2);
   });
 
-  // F3 fallback: changed=false must show the no-change toast, never a fabricated count
-  it("T02b: changed=false shows the no-change fallback toast", async () => {
+  // Fallback: changed=false must show the no-change toast, never a fabricated count
+  it("changed=false shows the no-change fallback toast", async () => {
     useAppStore.setState({ nodes: [] });
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") {
@@ -230,7 +230,7 @@ describe("NodesView", () => {
     expect(invokeMock).toHaveBeenCalledWith("node_pool_snapshot", expect.objectContaining({ __trace_id: expect.any(String) }));
   });
 
-  it("P4 reputation card renders when IPC returns entries", async () => {
+  it("IP reputation card renders when IPC returns entries", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return { items: [] };
       if (cmd === "node_pool_snapshot") return { total_nodes: 0, healthy_nodes: 0, egress_ip_count: 0, healthy_egress_ip_count: 0 };
@@ -302,7 +302,7 @@ describe("NodesView", () => {
 
 /// pure-function closed loops for parseDelayQuery + sortMode + hideUnhealthy
 describe("NodesView parseDelayQuery + sort + hide-unhealthy", () => {
-  it("P1-1a: delay>100 admits 200, rejects 50 and null", () => {
+  it("delay>100 admits 200, rejects 50 and null", () => {
     const { delayFilter } = parseDelayQuery("delay>100");
     expect(delayFilter).toBeTruthy();
     expect(delayFilter!(200)).toBe(true);
@@ -310,33 +310,33 @@ describe("NodesView parseDelayQuery + sort + hide-unhealthy", () => {
     expect(delayFilter!(null)).toBe(false); // null treated as 0, not >100
   });
 
-  it("P1-1b: delay<200 admits 100, rejects 300 and null", () => {
+  it("delay<200 admits 100, rejects 300 and null", () => {
     const { delayFilter } = parseDelayQuery("delay<200");
     expect(delayFilter!(100)).toBe(true);
     expect(delayFilter!(300)).toBe(false);
     expect(delayFilter!(null)).toBe(false);
   });
 
-  it("P1-1c: delay=timeout admits null and 9999+, rejects 200", () => {
+  it("delay=timeout admits null and 9999+, rejects 200", () => {
     const { delayFilter } = parseDelayQuery("delay=timeout");
     expect(delayFilter!(null)).toBe(true);
     expect(delayFilter!(15000)).toBe(true);
     expect(delayFilter!(200)).toBe(false);
   });
 
-  it("P1-1d: delay=error admits null, rejects numeric", () => {
+  it("delay=error admits null, rejects numeric", () => {
     const { delayFilter } = parseDelayQuery("delay=error");
     expect(delayFilter!(null)).toBe(true);
     expect(delayFilter!(200)).toBe(false);
   });
 
-  it("P1-1e: plain text query passes through as text (no delayFilter)", () => {
+  it("plain text query passes through as text (no delayFilter)", () => {
     const r = parseDelayQuery("JP");
     expect(r.text).toBe("JP");
     expect(r.delayFilter).toBeUndefined();
   });
 
-  it("P1-2a: hide-unhealthy toggle excludes failure_count>0 rows (integration)", async () => {
+  it("hide-unhealthy toggle excludes failure_count>0 rows (integration)", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return {
         items: [
@@ -361,7 +361,7 @@ describe("NodesView parseDelayQuery + sort + hide-unhealthy", () => {
     });
   });
 
-  it("P1-3a: 3-state sortMode cycles default → asc → desc → default (integration)", async () => {
+  it("3-state sortMode cycles default → asc → desc → default (integration)", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return {
         items: [
@@ -420,7 +420,7 @@ describe("NodesView batch probe timeout + batch_on_load=false gate", () => {
   // when a probe never resolves, the setTimeout timeout fires, the inner
   // try/catch swallows it, and the batch loop continues -> refresh() is
   // called and the subscription is no longer flagged as inflight.
-  it("P4-2a: individual probe timeout fires (Promise.race) and batch completes", async () => {
+  it("individual probe timeout fires (Promise.race) and batch completes", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       invokeMock.mockImplementation(async (cmd: string) => {
@@ -462,7 +462,7 @@ describe("NodesView batch probe timeout + batch_on_load=false gate", () => {
   // useEffect reading batch_on_load to auto-trigger, so on mount + the 10s
   // poll refresh the node_probe IPC is never invoked; only node_list and
   // node_pool_snapshot fire.
-  it("P4-2b: batch_on_load=false skips auto-batch on mount ", async () => {
+  it("batch_on_load=false skips auto-batch on mount ", async () => {
     invokeMock.mockImplementation(async (cmd: string) => {
       if (cmd === "node_list") return {
         items: [

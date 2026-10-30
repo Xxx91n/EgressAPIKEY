@@ -226,7 +226,7 @@ pub struct AuthoritativeSnapshot {
     /// whitebox defines no routes.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routes: Vec<ProcessRouteSnapshot>,
-    /// F4: per-subscription reverse lookup
+    /// Per-subscription reverse lookup
     /// (consumed_by = whitebox platforms listing the subscription).
     /// Empty when Resin is unreachable and the whitebox references nothing.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -626,7 +626,7 @@ pub fn parse_resin_platforms(v: &serde_json::Value) -> Vec<ResinPlatformRuntime>
         .collect()
 }
 
-/// F4: per-subscription reverse-lookup row (the
+/// Per-subscription reverse-lookup row (the
 /// Gateway API "attachedRoutes" analog). `resolvable` is true when Resin
 /// returned the row (name present in its subscriptions list); a false row
 /// means the whitebox references a subscription Resin no longer knows.
@@ -644,7 +644,7 @@ pub struct SubscriptionSnapshot {
     pub resolvable: bool,
 }
 
-/// The pure F4 merge: union of the live Resin subscription rows and every
+/// The pure reverse-lookup merge: union of the live Resin subscription rows and every
 /// subscription name referenced by the whitebox, each with its consuming
 /// platform list. Zero new write paths — both inputs are data the snapshot
 /// pass already holds (or one extra list_subscriptions read by the caller).
@@ -1424,7 +1424,7 @@ mod tests {
         assert!(v2.get("routes").is_some());
     }
 
-    // ---- F4: subscription reverse lookup ----
+    // ---- subscription reverse lookup ----
 
     #[test]
     fn merge_subscriptions_unions_live_rows_with_whitebox_refs() {
@@ -1784,8 +1784,7 @@ mod tests {
         assert!(v.get("lastApplyError").is_none(), "None must be omitted");
     }
 
-    // ---- (F2 / acceptance a): the FULL
-    // valid-case table. F2 counts applied x gen x error x
+    // ---- the FULL valid-case table. It counts applied x gen x error x
     // reachable x drift = 3x3x2x2x2 = 72 raw combinations, of which exactly
     // 36 are representable store states: applied never exceeds generation
     // through the write entries (apply only catches up), and a coherent
@@ -1850,8 +1849,8 @@ mod tests {
     }
 
     // Boundary states a coherent store cannot produce but the pure
-    // derivation must still classify deterministically (F2
-    // "all legal + boundary states").
+    // derivation must still classify deterministically (all legal states
+    // plus the boundary states).
     #[test]
     fn issue10_derive_converge_phase_boundary_states() {
         use ConvergePhase::*;

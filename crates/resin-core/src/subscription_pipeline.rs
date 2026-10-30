@@ -2,7 +2,7 @@
 //! — the between-steps glue the ADR lattice implies but never
 //! wired: import (POST /subscriptions) no longer stops at "data landed".
 //!
-//! Mental model (spec §9 R-A research verdict): a LEVEL-TRIGGERED desired-
+//! Mental model: a LEVEL-TRIGGERED desired-
 //! state reconciler in the K8s controller tradition, NOT an event-driven
 //! callback cascade. The caller enqueues a DesiredEstablish event; a SINGLE
 //! drain loop walks the five steps in order; every step is IDEMPOTENT (it

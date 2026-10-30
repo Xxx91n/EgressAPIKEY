@@ -1,5 +1,5 @@
 /**
- * Re3 IPC bridge: typed wrappers over Tauri commands exposing the Resin
+ * IPC bridge: typed wrappers over Tauri commands exposing the Resin
  * Platform/Account registry. TS-layer validation per AGENTS s7.6.
  */
 import { invoke as _invoke, Channel } from "@tauri-apps/api/core";
@@ -180,7 +180,7 @@ export async function ipcNodeList(): Promise<unknown> {
   return invoke("node_list");
 }
 
-/// P21-B: POST /api/v1/platforms with full field schema (name, allocation_policy,
+/// POST /api/v1/platforms with full field schema (name, allocation_policy,
 /// regex_filters, region_filters, sticky_ttl, etc). The body is a JSON object;
 /// name is validated at the TS boundary. Resin re-validates server-side.
 export async function ipcPlatformCreateWithFields(body: unknown): Promise<unknown> {
@@ -191,14 +191,14 @@ export async function ipcPlatformCreateWithFields(body: unknown): Promise<unknow
   return invoke("platform_create_with_fields", { body });
 }
 
-/// P21-B: GET /api/v1/platforms/{id}/leases - live leases for a platform,
+/// GET /api/v1/platforms/{id}/leases - live leases for a platform,
 /// used by the right pane to show which keys already have an exit IP bound.
 export async function ipcPlatformLeases(name: string): Promise<unknown> {
   assertShortName(name, "platform");
   return invoke("platform_leases", { name });
 }
 
-/// P21-C: IP channel IPC wrappers — semantic aliases over the existing Resin
+/// IP channel IPC wrappers — semantic aliases over the existing Resin
 /// platform + node endpoints. The GUI sees "IP channels" which are Resin
 /// Region-grouped nodes; the management surface is the platform PATCH surface
 /// (allocation_policy, region_filters). These thin wrappers make the user's
@@ -369,7 +369,7 @@ export interface ReputationSnapshot {
   entries: ReputationEntry[];
 }
 
-/** P4: server-side lookup of Resin's real public lease egress IPs. No free-form IP/URL reaches Rust. */
+/** IP reputation: server-side lookup of Resin's real public lease egress IPs. No free-form IP/URL reaches Rust. */
 export async function ipcIpReputationSnapshot(): Promise<ReputationSnapshot> {
   const raw = await invoke<ReputationSnapshot>("ip_reputation_snapshot");
   return raw && Array.isArray(raw.entries) ? raw : { provider: null, status: "disabled", entries: [] };
@@ -1019,7 +1019,7 @@ export async function ipcRequestLogDetail(logId: string): Promise<RequestLogDeta
   };
 }
 
-/** 1 MB display cap for one decoded payload part (issue F2). */
+/** 1 MB display cap for one decoded payload part. */
 export const PAYLOAD_DISPLAY_CAP_BYTES = 1024 * 1024;
 
 /** Decode one upstream base64 payload part to UTF-8 text for display.

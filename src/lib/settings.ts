@@ -7,10 +7,8 @@
  * the appStore + apply side effects (html class, tray refresh) themselves.
  *
  * Persisted keys (all in settings.json, single source of truth): "lang" (Locale),
- * "theme" (Theme). P19: "topologyViewport" ({x,y,zoom} canvas pan/zoom memory),
- * P19: "localSubOrder" (string[]) - user's drag-reorder override for subscriptions.
- * P19: "topologyViewport" ({x,y,zoom} canvas pan/zoom memory),
- * P19: "localSubOrder" (string[]) - user's drag-reorder override for subscriptions. The Rust tray reads "lang" directly via
+ * "theme" (Theme), "topologyViewport" ({x,y,zoom} canvas pan/zoom memory),
+ * "localSubOrder" (string[]) - user's drag-reorder override for subscriptions. The Rust tray reads "lang" directly via
  * tauri-plugin-store (see src-tauri/src/tray.rs::current_lang) so the tray is
  * localised even before the webview mounts. The legacy network preference
 * keys were never effective after (the Resin sidecar owns the
@@ -220,7 +218,7 @@ export async function saveWebdavConfig(url: string, username: string, password: 
 }
 
 
-// --- P19 item 1: Topology canvas viewport memory ({x, y, zoom}) ---
+// --- Topology canvas viewport memory ({x, y, zoom}) ---
 // ReactFlow onMoveEnd fires after every pan/zoom completes; we persist the
 // resulting viewport so reopening the topology view lands the user back at
 // the exact spot they left. Ponytail: persisted as a single small object,
@@ -273,7 +271,7 @@ export async function saveTopologyViewport(vp: TopologyViewport): Promise<void> 
   await saveTopologyState({ ...existing, ...vp, viewMode: existing?.viewMode ?? "subscription", locked: existing?.locked ?? false });
 }
 
-// --- P19 item 6: Subscription list drag-order override ---
+// --- Subscription list drag-order override ---
 // Resin /api/v1/subscriptions returns the list sorted by updated_at (server-
 // defined). The user's drag-reorder would be lost on every 10s refresh.
 // We persist a string[] of subscription names in the user's chosen order; the
@@ -293,7 +291,7 @@ export async function saveSubOrder(order: string[]): Promise<void> {
   } catch (e) { console.warn("[settings] save failed:", e); }
 }
 
-// --- P21-B: Key candidates (left pane of PlatformsView dual-pane) ---
+// --- Key candidates (left pane of PlatformsView dual-pane) ---
 // Each candidate = { uid, endpoint, apiKey } where uid = sha1(endpoint+"::"+apiKey)[:8].
 // Persisted in settings.json#keyCandidates; this is shell-local, never sent to Resin.
 export interface KeyCandidate {
@@ -316,7 +314,7 @@ export async function saveKeyCandidates(candidates: KeyCandidate[]): Promise<voi
   } catch (e) { console.warn("[settings] save failed:", e); }
 }
 
-// --- P21-B: Splitter ratio for dual-pane PlatformsView ---
+// --- Splitter ratio for dual-pane PlatformsView ---
 export async function loadSplitRatio(): Promise<number | null> {
   try {
     const v = await store().get<number>("splitRatio");
@@ -331,7 +329,7 @@ export async function saveSplitRatio(ratio: number): Promise<void> {
   } catch (e) { console.warn("[settings] save failed:", e); }
 }
 
-// --- P21-C: IP channel policy map (GUI label -> Resin allocation_policy) ---
+// --- IP channel policy map (GUI label -> Resin allocation_policy) ---
 export async function loadIpChannelPolicyMap(): Promise<Record<string, string> | null> {
   try {
     const v = await store().get<Record<string, string>>("ipChannelPolicyMap");
