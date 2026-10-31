@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "Strategieüberprüfung",
     "platform": "Plattform",
+    "policy": "Richtlinie",
     "sampleCount": "Stichprobenzahl",
     "run": "Überprüfung starten",
     "latency": "Ø Latenz",

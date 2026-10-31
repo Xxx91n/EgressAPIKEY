@@ -503,6 +503,7 @@
   "strategyVerify": {
     "title": "戦略検証",
     "platform": "プラットフォーム",
+    "policy": "ポリシー",
     "sampleCount": "サンプル数",
     "run": "検証を実行",
     "latency": "平均遅延",

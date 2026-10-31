@@ -18,7 +18,7 @@ EgressAPIKEY is a Tauri 2 + React 19 desktop app: an L7 proxy gateway for AI API
 - Whitebox is truth: `egressapikey-strategy.json` / `egressapikey-ports.json` each have exactly ONE writer module; writes are validated, versioned (`backup/` ring of 10), audited, generation-counted. Reconcile is one-way — the whitebox always wins; desired-state entries leave only through explicit deletion.
 - The Resin admin token never crosses into the webview; every upstream call goes through the loopback-only `ResinClient` seam. Never read Resin's private `*.db` files — the single exception is `backup_create` reading `state.db`/`cache.db` read-only for zip packaging.
 - IPC boundary: validate every input on BOTH the TS and Rust sides (length caps, control chars, port ranges); errors are typed `IpcError` with i18n keys, never raw strings. Read-only GETs auto-retry; writes retry only on 5xx/network.
-- i18n: a user-visible string lands in all 18 locales in the same commit (`pnpm i18n:check`).
+- i18n: a user-visible string lands in all 18 locales in the same commit (`pnpm i18n:check`); every whole-literal key `src/` uses must exist in `en/common.json` (`node scripts/i18n-key-ref-check.cjs`).
 - Runtime wiring detail: `docs/agents/architecture-state.md` · L1/L2/L3 key inventory: `docs/agents/storage-locations.md` · vocabulary: `GLOSSARY.md`
 
 ## Agent skills
