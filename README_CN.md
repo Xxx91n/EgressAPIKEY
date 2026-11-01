@@ -1,5 +1,3 @@
-<!-- synced-with: README.md @ 0de816af4a5a629504e5fb7fe9ce6d0c8161aa13 -->
-
 # EgressAPIKEY
 
 **面向 AI 网关与上游服务商的多端口 socks5/http 代理网关 —— 为 AI API Key 提供粘性出口 IP 路由，并配有拓扑画布。**
@@ -22,7 +20,7 @@
 
 EgressAPIKEY 是一款桌面应用（Tauri 2 + React 19），位于你的 AI 网关（OmniRoute / LiteLLM / CLIProxy）与上游 OpenAI 兼容 v1 服务商之间。它暴露多个 socks5/http 入口端口；每个端口即一个（平台，账户）身份对的标识，Resin Go 侧车保证每一对都拥有独立的粘性出口 IP —— 除非你明确允许，一个 AI API Key 绝不与其他 Key 共享出口 IP。
 
-单一统一代理无法为 HTTPS 上游携带按 Key 的身份（CONNECT 隧道对目的地不可见），因此多端口才是正确的身份机制。壳侧后端核心是 `crates/resin-core`（Rust：tokio、reqwest、rusqlite）；代理引擎是 Resin 侧车 v1.2.0，仅通过环回 REST 接缝访问（构建期由 `scripts/fetch_resin.sh` 获取）。
+单一统一代理无法为 HTTPS 上游携带按 Key 的身份（CONNECT 隧道对目的地不可见），因此多端口才是正确的身份机制。壳侧后端核心是 `crates/resin-core`（Rust：tokio、reqwest、rusqlite）；代理引擎是 Resin 侧车 v1.2.0，仅通过环回 REST 接缝访问，构建期由 [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh) 从上游 Release 拉取二进制。磁盘上的 `resin/` 目录是 gitignored 的本地参考克隆，不属于本仓库。
 
 ## 架构
 
@@ -44,7 +42,7 @@ graph LR
     G["client requests"]
   end
   subgraph SHELL["EgressAPIKEY shell (Tauri 2 + resin-core)"]
-    EP["Entry ports<br/>:18000…:18049<br/>one per (platform, account)"]
+    EP["Entry ports<br/>one per (platform, account)"]
     RC["resin-core<br/>strategy · whitebox · ResinClient"]
   end
   subgraph SIDECAR["Resin sidecar (Go, loopback REST)"]
@@ -62,6 +60,7 @@ graph LR
 ```
 
 </details>
+
 ## 下载
 
 **桌面版** —— 安装包（MSI / NSIS / deb / AppImage / dmg）与每平台一个免安装、开箱即用的可执行文件发布在 [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) 页面。macOS 以 arm64（Apple Silicon）为一等支持；x86_64 为可选加入、尽力而为直至 2027-08（仅 macOS 15+ Intel，经 `include_intel_mac` 调度开关）。目前尚无 tagged release —— 产物将随首个 tagged release 一并发布。
@@ -91,13 +90,6 @@ Windows 下二进制为 `target\release\egressapikey-headless.exe`。部署布�
 - **无头孪生** —— GUI 控制面经 HTTP 提供，无需桌面壳；确需桌面壳的命令在 UI 中显示为禁用并注明原因，而非运行时才失败
 
 ## 截图
-
-<!-- 占位：以下三张截图是用户提供的资产，刻意不代生成（readme-crafter 规则）。 -->
-<!-- 投放：拿到真实 PNG（<=1280px）后，把每个注释块替换为 <img src="assets/readme/<名称>.png" width="1200">。 -->
-
-<!-- SLOT topology: assets/readme/topology.png —— 拓扑画布（平台连线到出口节点）。 -->
-<!-- SLOT platforms: assets/readme/platforms.png —— 平台双栏（平台列表 + 账户）。 -->
-<!-- SLOT effective-config: assets/readme/effective-config.png —— Effective Config 视图与收敛阶段徽标。 -->
 
 _截图待补 —— 预留给真实截屏：拓扑画布、平台双栏、Effective Config 视图。_
 
@@ -129,7 +121,7 @@ pnpm tauri dev
 
 ## 参与贡献
 
-欢迎提交 Issue 与 Pull Request —— 请到 [GitHub Issue](https://github.com/Xxx91n/EgressAPIKEY/issues)。首次提交 PR 前，请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)（仓库约定：i18n 全键覆盖、每个行为必须有测试、许可证字段纪律）与[架构总览](docs/architecture/ARCHITECTURE.md)。Agent 操作指引见 [AGENTS.md](AGENTS.md)。
+欢迎提交 Issue 与 Pull Request —— 请到 [GitHub Issue](https://github.com/Xxx91n/EgressAPIKEY/issues)。首次提交 PR 前，请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)（仓库约定：i18n 全键覆盖、每个行为必须有测试、许可证字段纪律）与[架构总览](docs/architecture/ARCHITECTURE.md)。安全问题走 [SECURITY.md](SECURITY.md)（私下漏洞报告，勿开公开 issue）；社区行为见 [Code of Conduct](CODE_OF_CONDUCT.md)；疑问与开放讨论去 [Discussions](https://github.com/Xxx91n/EgressAPIKEY/discussions)。Agent 操作指引见 [AGENTS.md](AGENTS.md)。
 
 ## 第三方声明
 
