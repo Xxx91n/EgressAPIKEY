@@ -1,5 +1,3 @@
-<!-- synced-with: README_CN.md @ 0de816af4a5a629504e5fb7fe9ce6d0c8161aa13 -->
-
 # EgressAPIKEY
 
 **Multi-port socks5/http proxy gateway between AI gateways and upstream providers — sticky exit-IP routing for AI API keys, with a topology canvas.**
@@ -20,9 +18,9 @@ English | [简体中文](README_CN.md)
 
 ## What & why
 
-EgressAPIKEY is a desktop application (Tauri 2 + React 19) that sits between your AI gateway (OmniRoute / LiteLLM / CLIProxy) and upstream OpenAI-compatible v1 providers. It exposes many socks5/http entry ports; each port is the identity of one (platform, account) pair, and a Resin Go sidecar — its binary pulled at build time from the upstream Release by scripts/fetch_resin.sh (resin/ on disk is a gitignored local reference clone, not part of the repo) — guarantees a distinct sticky exit IP per pair — one AI API key never shares an egress IP with another unless you decide it should.
+EgressAPIKEY is a desktop application (Tauri 2 + React 19) that sits between your AI gateway (OmniRoute / LiteLLM / CLIProxy) and upstream OpenAI-compatible v1 providers. It exposes many socks5/http entry ports; each port is the identity of one (platform, account) pair, and a Resin Go sidecar guarantees a distinct sticky exit IP per pair — one AI API key never shares an egress IP with another unless you decide it should.
 
-A single unified proxy cannot carry per-key identity for HTTPS upstreams (the CONNECT tunnel hides the destination), so multi-port is the correct identity mechanism. The shell backend core is `crates/resin-core` (Rust: tokio, reqwest, rusqlite); the proxy engine is the Resin sidecar v1.2.0, whose binary is pulled at build time from the upstream Release by [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh) — the `resin/` directory on disk is a gitignored local reference clone — and it is reachable only over a loopback REST seam.
+A single unified proxy cannot carry per-key identity for HTTPS upstreams (the CONNECT tunnel hides the destination), so multi-port is the correct identity mechanism. The shell backend core is `crates/resin-core` (Rust: tokio, reqwest, rusqlite). The proxy engine is the Resin sidecar v1.2.0; [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh) pulls its binary from the upstream Release at build time, and the shell reaches it only over a loopback REST seam. The `resin/` directory on disk is a gitignored local reference clone, not part of the repo.
 
 ## Architecture
 
@@ -44,7 +42,7 @@ graph LR
     G["client requests"]
   end
   subgraph SHELL["EgressAPIKEY shell (Tauri 2 + resin-core)"]
-    EP["Entry ports<br/>:18000…:18049<br/>one per (platform, account)"]
+    EP["Entry ports<br/>one per (platform, account)"]
     RC["resin-core<br/>strategy · whitebox · ResinClient"]
   end
   subgraph SIDECAR["Resin sidecar (Go, loopback REST)"]
@@ -62,6 +60,7 @@ graph LR
 ```
 
 </details>
+
 ## Download
 
 **Desktop** — installers (MSI / NSIS / deb / AppImage / dmg) and one portable, drop-and-run executable per OS are published on the [Releases](https://github.com/Xxx91n/EgressAPIKEY/releases) page. macOS is arm64 (Apple Silicon) first-class; x86_64 is opt-in best-effort until 2027-08 (macOS 15+ Intel only, via the `include_intel_mac` dispatch input). No tagged release yet — artifacts ship with the first tagged release.
@@ -91,13 +90,6 @@ On Windows the binary is `target\release\egressapikey-headless.exe`. Deployment 
 - **Headless twin** — the GUI control surface over HTTP, without the desktop shell; commands that require the desktop shell render as disabled with their reason instead of failing at runtime
 
 ## Screenshots
-
-<!-- PLACEHOLDER: the three screenshots below are user-provided assets, deliberately NOT fabricated (readme-crafter rule). -->
-<!-- Drop-in: replace each comment block with <img src="assets/readme/<name>.png" width="1200"> once the real PNG (<=1280px) is provided. -->
-
-<!-- SLOT topology: assets/readme/topology.png — the topology canvas with platforms wired to exit nodes. -->
-<!-- SLOT platforms: assets/readme/platforms.png — the platforms dual-pane (platform list + accounts). -->
-<!-- SLOT effective-config: assets/readme/effective-config.png — the Effective Config view with the converge-phase chip. -->
 
 _Screenshots pending — reserved for real captures: topology canvas, platforms dual-pane, Effective Config view._
 
@@ -129,11 +121,11 @@ pnpm tauri dev
 
 ## Contributing
 
-Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) — desktop dev-environment setup and the verification workflow. Security issues follow [SECURITY.md](SECURITY.md) (private vulnerability reporting, never public issues); community behavior is covered by the [Code of Conduct](CODE_OF_CONDUCT.md); questions and open discussion belong in [Discussions](https://github.com/Xxx91n/EgressAPIKEY/discussions). Before your first PR, read [CONTRIBUTING.md](CONTRIBUTING.md) (repo conventions: i18n full-key coverage, test-per-behavior, license-field discipline) and the [architecture overview](docs/architecture/ARCHITECTURE.md). Agent operating pointers live in [AGENTS.md](AGENTS.md).
+Issues and pull requests are welcome. Before your first PR, read [CONTRIBUTING.md](CONTRIBUTING.md) — desktop dev-environment setup, the verification workflow, and repo conventions (i18n full-key coverage, test-per-behavior, license-field discipline). Security issues follow [SECURITY.md](SECURITY.md) (private vulnerability reporting, never public issues); community behavior is covered by the [Code of Conduct](CODE_OF_CONDUCT.md); questions and open discussion belong in [Discussions](https://github.com/Xxx91n/EgressAPIKEY/discussions). Agent operating pointers live in [AGENTS.md](AGENTS.md).
 
 ## Third-party notices
 
-The Resin Go sidecar (v1.2.0, its binary pulled at build time from the upstream Release by [`scripts/fetch_resin.sh`](scripts/fetch_resin.sh), upstream [github.com/Resinat/Resin](https://github.com/Resinat/Resin)) carries a two-layer license value: **declared MIT** (per its own `LICENSE`) while its compiled dependency tree conveys **GPL-3.0-or-later** obligations via `github.com/sagernet/sing-box v1.12.21` (pinned in `resin/go.mod`). The shell and the sidecar are separate processes interacting only over a loopback REST seam (mere aggregation). Full registry with citations: [THIRD_PARTY.md](THIRD_PARTY.md) · complete license text: [LICENSE](LICENSE).
+The Resin Go sidecar (v1.2.0, upstream [github.com/Resinat/Resin](https://github.com/Resinat/Resin)) carries a two-layer license value: **declared MIT** (per its own `LICENSE`) while its compiled dependency tree conveys **GPL-3.0-or-later** obligations via `github.com/sagernet/sing-box v1.12.21` (pinned in `resin/go.mod`). The shell and the sidecar are separate processes interacting only over a loopback REST seam (mere aggregation). Full registry with citations: [THIRD_PARTY.md](THIRD_PARTY.md) · complete license text: [LICENSE](LICENSE).
 
 ## License
 

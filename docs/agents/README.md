@@ -1,7 +1,7 @@
 # docs/agents/ — Agent Instruction Layer
 
 Files here are **agent instructions** (read by AI agents when executing code tasks).
-They are NOT user documentation. For user docs, see `docs/` parent.
+User documentation is a non-goal of this directory — see `docs/` parent instead.
 
 ## Agent operating rules
 

@@ -1,15 +1,15 @@
-# Data-plane Mode A contract - byte-level baseline
+# Data-plane Mode A contract — byte-level baseline
 
 Authoritative sources: the four-scenario gate table verified live against
 Resin v1.2.0, plus the Mode A "credential is identity" rule. The
-automated gate living in
-`scripts/mode-a-contract-check.cjs` re-establishes everything below on every
-CI run; this document records the hand recipe and the byte-level baseline so
-a failing gate can be reproduced and diagnosed without archaeology.
+automated gate living in `scripts/mode-a-contract-check.cjs` re-establishes
+everything below on every CI run (under platform names `T17G.ac*`); this
+document records the hand recipe and the byte-level baseline so a failing
+gate can be reproduced and diagnosed without archaeology.
 
-The original live evidence (raw transcripts) was kept in a local,
-gitignored scratch directory and is not part of the repository; the gate
-and the baseline below are the reproducible record.
+Known limitation: the original live evidence (raw transcripts) was kept in a
+local, gitignored scratch directory and is not part of the repository; the
+gate and the baseline below are the reproducible record.
 
 ## Byte-level baseline (Resin v1.2.0, custom endpoints)
 
@@ -19,7 +19,7 @@ and the baseline below are the reproducible record.
 | http only (`allow_http_forward` only) | (HTTP served normally) | refused: `05 ff` (no acceptable methods) |
 | socks5 only (`allow_socks5` only) | refused: `HTTP/1.1 403` + `X-Resin-Error: ENDPOINT_CAPABILITY_DISABLED`, body `Proxy capability is disabled on this endpoint` | (SOCKS5 served normally) |
 
-Note the underscore in `NO_AVAILABLE_NODES` - the error token is carried
+Note the underscore in `NO_AVAILABLE_NODES` — the error token is carried
 verbatim in the `X-Resin-Error` header; hyphenated variants are wrong.
 
 ## Identity attribution ("credential is identity")
@@ -27,7 +27,7 @@ verbatim in the `X-Resin-Error` header; hyphenated variants are wrong.
 Boot with `RESIN_AUTH_VERSION=V1` and `RESIN_PROXY_TOKEN=""` (explicitly
 empty = no-auth on endpoints with `require_proxy_auth_info=0`). The read-only
 default (consolidated) endpoint then PUBLISHES whatever credential the client
-supplies into routing metadata - the request log attributes it even though no
+supplies into routing metadata — the request log attributes it even though no
 auth check happens, and even on the 503 failure path (attribution happens
 before route resolution, `forward.go` `lifecycle.setAccount` precedes
 `resolveRoutedOutbound`):
@@ -65,7 +65,7 @@ Provision three endpoints (all `allow_proxy=true`, `allow_http_reverse=false`,
     POST /api/v1/endpoints http-only:{port, allow_socks5:false, allow_http_forward:true}
     POST /api/v1/endpoints socks5-only:{port, allow_socks5:true, allow_http_forward:false}
 
-(All flag fields must be explicit - omitted bools default to the engines
+(All flag fields must be explicit — omitted bools default to the engine's
 fallback, not to false.) Optionally `POST /api/v1/platforms {"name":"T17P"}`.
 
 Probe (curl equivalents of the four scenarios):
@@ -83,7 +83,7 @@ rows carry `account`, `http_status`, `resin_error`, `proxy_type`,
 `platform_name` (paged as `{"items":[...]}`).
 
 A practical curl-vs-node note: curl draws `05 ff` refusals as exit 97 (or 1)
-with no distinguishing stdout - byte-faithful assertions are far easier over a
+with no distinguishing stdout — byte-faithful assertions are far easier over a
 raw socket, which is what the automated gate does.
 
 Automated re-establishment: `node scripts/mode-a-contract-check.cjs` (mounted
