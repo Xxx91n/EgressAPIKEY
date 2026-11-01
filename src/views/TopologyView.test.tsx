@@ -1028,11 +1028,17 @@ describe("React.memo canvas node optimization", () => {
       // Reconfigure the global LazyStore mock to use an in-memory map for a real round-trip.
       const db = new Map<string, unknown>();
       const { LazyStore } = await import("@tauri-apps/plugin-store");
-      vi.mocked(LazyStore).mockImplementation((() => ({
-        get: vi.fn(async (k: string) => db.get(k) ?? null),
-        set: vi.fn(async (k: string, v: unknown) => { db.set(k, v); }),
-        save: vi.fn(async () => {}),
-      })) as never);
+      // Constructible implementation required: `new LazyStore(STORE)` in
+      // settings.ts runs Reflect.construct under vitest 4 — an arrow function
+      // is not a constructor, so the store() call throws and the round-trip
+      // silently resolves to null.
+      vi.mocked(LazyStore).mockImplementation((function () {
+        return {
+          get: vi.fn(async (k: string) => db.get(k) ?? null),
+          set: vi.fn(async (k: string, v: unknown) => { db.set(k, v); }),
+          save: vi.fn(async () => {}),
+        };
+      }) as never);
 
       const settingsMod = await import("../lib/settings");
       const ts = { x: 100, y: -50, zoom: 1.25, viewMode: "region" as const, locked: true };
@@ -1048,11 +1054,13 @@ describe("React.memo canvas node optimization", () => {
       const db = new Map<string, unknown>();
       db.set("topologyViewport", { x: 10, y: 20, zoom: 0.5 });
       const { LazyStore } = await import("@tauri-apps/plugin-store");
-      vi.mocked(LazyStore).mockImplementation((() => ({
-        get: vi.fn(async (k: string) => db.get(k) ?? null),
-        set: vi.fn(async () => {}),
-        save: vi.fn(async () => {}),
-      })) as never);
+      vi.mocked(LazyStore).mockImplementation((function () {
+        return {
+          get: vi.fn(async (k: string) => db.get(k) ?? null),
+          set: vi.fn(async () => {}),
+          save: vi.fn(async () => {}),
+        };
+      }) as never);
 
       const settingsMod = await import("../lib/settings");
       const loaded = await settingsMod.loadTopologyState();

@@ -42,11 +42,17 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
 }));
 
 vi.mock("@tauri-apps/plugin-store", () => ({
-  LazyStore: vi.fn().mockImplementation(() => ({
-    get: vi.fn(async () => null),
-    set: vi.fn(async () => {}),
-    save: vi.fn(async () => {}),
-  })),
+  // `new LazyStore(...)` is called in settings.ts; vitest 4 constructs mocks via
+  // Reflect.construct, so the implementation must be a `function` (constructible),
+  // not an arrow — otherwise every Tauri-path store() call throws and silently
+  // degrades to null/save-churn assertions fail.
+  LazyStore: vi.fn().mockImplementation(function () {
+    return {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {}),
+      save: vi.fn(async () => {}),
+    };
+  }),
 }));
 
 beforeAll(async () => {

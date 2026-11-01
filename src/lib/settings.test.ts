@@ -11,18 +11,24 @@ const backing = new Map<string, unknown>();
 let saveCalls = 0;
 
 vi.mock("@tauri-apps/plugin-store", () => ({
-  LazyStore: vi.fn().mockImplementation(() => ({
-    get: vi.fn(async (k: string) => backing.get(k) ?? null),
-    set: vi.fn(async (k: string, v: unknown) => {
-      backing.set(k, v);
-    }),
-    delete: vi.fn(async (k: string) => {
-      backing.delete(k);
-    }),
-    save: vi.fn(async () => {
-      saveCalls++;
-    }),
-  })),
+  // Constructible implementation required: `new LazyStore(STORE)` in settings.ts
+  // runs Reflect.construct under vitest 4, and an arrow function is not a
+  // constructor (the whole store() call then throws and is swallowed by the
+  // callers' try/catch, silently breaking every round-trip assertion).
+  LazyStore: vi.fn().mockImplementation(function () {
+    return {
+      get: vi.fn(async (k: string) => backing.get(k) ?? null),
+      set: vi.fn(async (k: string, v: unknown) => {
+        backing.set(k, v);
+      }),
+      delete: vi.fn(async (k: string) => {
+        backing.delete(k);
+      }),
+      save: vi.fn(async () => {
+        saveCalls++;
+      }),
+    };
+  }),
 }));
 
 // the diag-poll-interval wrapper pair goes through @tauri-apps/api/core
