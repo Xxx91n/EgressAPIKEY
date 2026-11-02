@@ -68,7 +68,7 @@ When CodeGraph is not fully available:
 | File | Purpose |
 |---|---|
 | `architecture-state.md` | Runtime wiring, sidecar lifecycle, ResinClient, IPC retarget, CI pipeline |
-| `issue-tracker.md` | Issue tracker declaration: GitHub Issues |
+| `issue-tracker.md` | Issue tracker declaration: GitHub Issues; dependency-shipped and wave-spec closeout verification recipes |
 | `domain.md` | Domain doc layout (`GLOSSARY.md`) and consumer rules |
 | `triage-labels.md` | Triage label vocabulary: five default state roles |
 | `storage-locations.md` | L1/L2/L3 config layers, key inventory, write paths |
