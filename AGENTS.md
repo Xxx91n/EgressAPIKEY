@@ -23,6 +23,6 @@ EgressAPIKEY is a Tauri 2 + React 19 desktop app: an L7 proxy gateway for AI API
 
 ## Agent skills
 
-- Issue tracker: GitHub — conventions in [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md)
+- Issue tracker: GitHub — conventions in [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md), including the wave-spec closeout check (verify a source ticket's own criterion before closing a spec)
 - Triage labels: [docs/agents/triage-labels.md](docs/agents/triage-labels.md)
 - Domain docs: [docs/agents/domain.md](docs/agents/domain.md)
