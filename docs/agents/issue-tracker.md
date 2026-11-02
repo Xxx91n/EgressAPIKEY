@@ -126,3 +126,17 @@ write here), then `git rev-parse origin/main`.
    and leave the blocked ticket alone until step 5 records `met` for that
    dependency. Starting because the dependency is "probably fine" is the
    failure this section exists to prevent.
+
+## Wave spec closeout: verify the source ticket's criterion
+
+A wave spec's implementation tickets being CLOSED records only that those
+conversations ended. It does not record that the source ticket the spec set out
+to clear met that ticket's own acceptance criterion. Before closing a wave
+spec, restate each source ticket named in its Problem Statement, check that
+ticket's criterion against the base with evidence (not against its issue state),
+and name in the closeout comment any source ticket still open plus the ticket
+carrying the remaining evidence. Do not record "all debts cleared" while a
+source ticket's criterion is unmet: deriving a follow-up ticket and closing the
+implementation tickets is not the same as satisfying the criterion. The case
+that motivated this rule is a spec closed with its source ticket still OPEN at
+9/10 while the spec's own user story required ten consecutive green runs.
