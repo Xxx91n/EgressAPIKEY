@@ -134,8 +134,9 @@ conversations ended. It does not record that the source ticket the spec set out
 to clear met that ticket's own acceptance criterion. Before closing a wave
 spec, restate each source ticket named in its Problem Statement, check that
 ticket's criterion against the base with evidence (not against its issue state),
-and name in the closeout comment any source ticket still open plus the ticket
-carrying the remaining evidence. Do not record "all debts cleared" while a
+and name in the closeout comment any source ticket still open or whose criterion
+is unmet, plus the ticket carrying the remaining evidence. Do not record
+"all debts cleared" while a
 source ticket's criterion is unmet: deriving a follow-up ticket and closing the
 implementation tickets is not the same as satisfying the criterion. The case
 that motivated this rule is a spec closed with its source ticket still OPEN at
