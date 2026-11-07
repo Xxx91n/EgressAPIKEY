@@ -1,6 +1,6 @@
 {
   "name": "@egressapikey/server",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Headless launcher for EgressAPIKEY — runs the Resin-backed control surface in any browser without installing the Tauri desktop shell.",
   "license": "GPL-3.0-or-later",
   "keywords": [

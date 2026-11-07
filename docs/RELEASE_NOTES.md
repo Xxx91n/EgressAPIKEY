@@ -9,14 +9,115 @@ every CHANGELOG version must have a section here.
 
 ## Unreleased
 
+## 0.2.1 (2026-11-07)
+
+Pre-release (beta) focused on release-pipeline packaging completeness, unified
+`0.2.1` manifest versioning, headless reverse-proxy trust hardening, SQLite
+read-path separation, and i18n / audit-log integrity guards.
+
+### Compatibility
+
+- **License / sidecar / i18n**: unchanged from 0.2.0 (GPL-3.0-or-later shell;
+  vendored Resin v1.2.0 pinned in `docs/RESIN_UPSTREAM_MANIFEST.yaml`; 18
+  locales gated on key parity, content fingerprints, and static key
+  references).
+- **Release artifacts**: a single GitHub Release now carries all three
+  distribution tracks together (`prerelease` selectable at dispatch;
+  `docs/how-to/RELEASE.md`):
+  - **Desktop installers**: Windows MSI + NSIS (`*-setup.exe`), Linux `.deb` +
+    `.AppImage`, macOS arm64 `.dmg` (macOS x86_64 `.dmg` opt-in best-effort
+    until 2027-08 on `macos-15-intel` via `include_intel_mac`).
+  - **Desktop portable archives**: `windows-gui-portable.zip`,
+    `linux-gui-portable.tar.gz`, `macos-gui-portable-arm64.tar.gz` (each
+    bundling `EgressAPIKEY(.exe)` alongside the required `resin(.exe)`
+    sidecar).
+  - **Headless backend tarballs**: `linux-backend.tar.gz`,
+    `windows-backend.tar.gz`, `macos-arm64-backend.tar.gz` (plus opt-in
+    `macos-x86_64-backend.tar.gz`), and `SHA256SUMS.txt` across all bundles.
+- **Upgrade surface**: drop-in over 0.2.0 and 0.1.0; whitebox documents and
+  `egressapikey.db` carry forward automatically with no manual migration step
+  (except headless deployments behind a TLS-terminating reverse proxy — see
+  Upgrade notes below).
+
 ### Upgrade notes
 
-- **Headless behind a TLS-terminating proxy** (R12-D1): the headless server
-  now ignores `X-Forwarded-Proto` unless the socket peer is declared via the
-  new repeatable `--trusted-proxy <ip-or-cidr>` flag. If your proxy
-  terminates TLS and forwards plain HTTP to the binary, add
-  `--trusted-proxy=<proxy address>` to keep the `Secure` session cookie;
-  direct/plain-HTTP deployments need no change.
+- **Headless behind a TLS-terminating proxy**: the headless server now ignores
+  `X-Forwarded-Proto` unless the socket peer matches the repeatable
+  `--trusted-proxy <ip-or-cidr>` flag, and evaluates only the **rightmost**
+  segment of the merged `X-Forwarded-Proto` chain (the hop nearest the binary).
+  If your reverse proxy terminates TLS and forwards plain HTTP to
+  `egressapikey-headless`, configure the proxy to overwrite
+  `X-Forwarded-Proto` with the client-facing scheme (for example,
+  `proxy_set_header X-Forwarded-Proto $scheme;` in nginx; Caddy's
+  `reverse_proxy` sets it automatically), and add
+  `--trusted-proxy=<proxy address or CIDR>` so HTTPS bootstrap cookies carry
+  `Secure`. Wildcard `/0` CIDRs (`0.0.0.0/0`, `::/0`) refuse startup unless
+  `--trusted-proxy-unrestricted` is also supplied. Direct/plain-HTTP
+  deployments need no change
+  ([docs/how-to/HEADLESS_DEPLOYMENT.md](how-to/HEADLESS_DEPLOYMENT.md)).
+
+### Highlights
+
+Summarized from the CHANGELOG [0.2.1] section:
+
+- **Complete release packaging & verification**: `.github/workflows/ci.yml`
+  gates `workflow_dispatch` releases behind both `verify` and the tier-2
+  `macos-test` gate, enforces Resin sidecar presence in every portable and
+  headless stage, verifies four-manifest version parity (`package.json`,
+  `Cargo.toml`, `src-tauri/tauri.conf.json`, `scripts/npm/package.json`), and
+  attaches portable archives, headless tarballs, and `SHA256SUMS.txt` to the
+  Draft Release with `prerelease` support.
+- **SQLite dedicated read connection & lock-wait instrumentation**: `DbPool`
+  routes read queries onto a dedicated read connection separate from the writer
+  `Mutex`, backed by the opt-in `db-lock-metrics` observation feature and the
+  `BEGIN IMMEDIATE` source gate (`scripts/db-immediate-txn-check.cjs`).
+- **Three-layer i18n verification**: key-set parity (`i18n-check.cjs`) is now
+  joined by committed SHA-256 copy value fingerprints
+  (`i18n-content-check.cjs` / `docs/I18N_CONTENT_MANIFEST.json`) and static
+  key-reference resolution (`i18n-key-ref-check.cjs`).
+- **Encoding & contract hardening**: unified RFC 3986 percent-encoding helpers
+  in `resin_core::encoding` and v3 fail-closed Mode A boundary census checks.
+
+### Fixed
+
+- Audit log single-critical-section append, typed tail adoption, stored-byte
+  hash chaining, and file-size re-seeding before rotation.
+- IPQS API-key path-segment percent-encoding (`%20` instead of `+`),
+  `DiagnosticsView` port-health i18n key mismatches, 18-locale CLDR colon
+  spacing on `portBound`, `TopologyView` no-op state reference preservation,
+  and Vitest 4 / pnpm 11 test & build compatibility.
+
+### Known issues
+
+Tracked in open issues (retained open for ongoing triage and follow-up):
+
+- **[#13](https://github.com/Xxx91n/EgressAPIKEY/issues/13)** — Strategy
+  orchestration `pending.diff` and `pending.reason` strings produced in Rust
+  are currently rendered verbatim in English in the UI rather than localized
+  through the 18-locale catalog.
+- **[#14](https://github.com/Xxx91n/EgressAPIKEY/issues/14)** — Upstream Resin
+  v1.2.0 plain-HTTP forward-form requests on headless Mode B ports buffer SSE
+  responses (`forward.go` `io.Copy` without per-chunk flush). Standard AI API
+  traffic over CONNECT-tunnelled HTTPS is unaffected, and desktop Mode A
+  re-tunnels through CONNECT; upstream issue filing is tracked in #14.
+- **[#35](https://github.com/Xxx91n/EgressAPIKEY/issues/35)** — `DbPool`'s
+  single dedicated read connection eliminates writer-lock contention, but
+  stress-level concurrent read fan-out (`list_ports`) still serializes on that
+  single reader; read-only connection pooling (`deadpool-sqlite`) is queued for
+  evaluation in #35.
+- **[#7](https://github.com/Xxx91n/EgressAPIKEY/issues/7)** — Absolute
+  acceptance thresholds marked `†` in `scripts/bench/acceptance.json` /
+  `bench-selfhosted.yml` remain provisional pending calibration on
+  representative self-hosted hardware.
+- **[#6](https://github.com/Xxx91n/EgressAPIKEY/issues/6)** —
+  `crates/resin-core/src/strategy_service.rs` (~3,600+ lines) remains under
+  watch for modular decomposition prior to major feature additions.
+- **Distribution notes** — Desktop installers and portable binaries are
+  unsigned community pre-release artifacts (Windows SmartScreen / macOS
+  Gatekeeper first-run confirmation applies); macOS Intel (`x86_64`) builds are
+  opt-in best-effort via `include_intel_mac`; `@egressapikey/server` is not
+  published to npm (use the release `<os>-backend.tar.gz` archive or run from
+  source).
 
 ## 0.2.0 (2026-09-23)
 
