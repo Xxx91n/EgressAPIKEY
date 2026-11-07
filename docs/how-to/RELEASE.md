@@ -8,7 +8,7 @@ CI (`workflow_dispatch` on `.github/workflows/ci.yml`) produces artifact groups 
 | linux-gui | `gui` + `gui-portable` + `release-assets` | deb + AppImage + `linux-gui-portable.tar.gz` (`EgressAPIKEY` + `resin`) |
 | macos-gui | `gui` + `gui-portable` + `release-assets` (+ opt-in `gui-intel`) | arm64 dmg + `macos-gui-portable-arm64.tar.gz` (`EgressAPIKEY` + `resin`); x86_64 dmg opt-in via `include_intel_mac` |
 | backend | `backend` + `release-assets` (+ opt-in `backend-intel`) | `linux-backend.tar.gz`, `windows-backend.tar.gz`, `macos-arm64-backend.tar.gz` (+ opt-in `macos-x86_64-backend.tar.gz`) |
-| checksums | `release-assets` | `SHA256SUMS.txt` covering installers, portable archives, and headless backend tarballs |
+| checksums | `release-assets` | `SHA256SUMS.txt` covering all Draft Release assets (installers/bundles, portable archives, and headless backend tarballs) |
 
 ## Portable variant
 

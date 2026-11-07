@@ -575,7 +575,7 @@ jobs:
         with:
           path: release-artifacts
 
-      - name: verify manifests, package portable archives & SHA256SUMS
+      - name: verify manifests & stage portable and backend archives
         shell: bash
         run: |
           set -euo pipefail
@@ -600,7 +600,7 @@ jobs:
           fi
           echo "Manifest version verified: $PKG_VER (tag: $RELEASE_TAG)"
 
-          mkdir -p dist-release checksum-inputs
+          mkdir -p dist-release
 
           # Helper: file must exist and exceed 1 MB (guards against truncated binaries).
           require_min_1mb() {
@@ -653,19 +653,17 @@ jobs:
             cp "$TAR_PATH" "dist-release/${b}.tar.gz"
           done
 
-          # 4. Verify staged installer artifacts and build SHA256SUMS.txt across
-          # installers + portable archives + headless backend tarballs.
+          # 4. Verify staged installer artifact directories are present and non-empty.
           INSTALLER_DIRS=("linux-gui-installers" "windows-gui-installers" "macos-gui-arm64-installers")
           if [ "$INCLUDE_INTEL_MAC" = "true" ]; then
             INSTALLER_DIRS+=("macos-gui-x86_64-installers")
           fi
           for d in "${INSTALLER_DIRS[@]}"; do
-            [ -d "release-artifacts/$d" ] || { echo "::error::missing installer artifact dir $d"; exit 1; }
-            cp "release-artifacts/$d"/* checksum-inputs/
+            if [ ! -d "release-artifacts/$d" ] || [ -z "$(ls -A "release-artifacts/$d" 2>/dev/null)" ]; then
+              echo "::error::missing or empty installer artifact dir $d"
+              exit 1
+            fi
           done
-          cp dist-release/* checksum-inputs/
-          (cd checksum-inputs && sha256sum -- * | LC_ALL=C sort -k2 > "../dist-release/SHA256SUMS.txt")
-          cat "dist-release/SHA256SUMS.txt"
           ls -lh dist-release
 
       - name: attach portable, backend & SHA256SUMS to draft GitHub Release
@@ -707,7 +705,42 @@ jobs:
             echo "Uploaded $fname"
           done
 
-          # Final completeness gate against the live Draft Release asset list.
+          # Reconcile SHA256SUMS.txt against EVERY non-checksum asset present on
+          # the Draft Release (covers tauri-action bundles such as *.app.tar.gz
+          # and any retained draft installer assets alongside dist-release/*).
+          rm -rf checksum-inputs
+          mkdir -p checksum-inputs
+          cp dist-release/* checksum-inputs/
+          LIVE_ASSETS="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases/${REL_ID}/assets" | jq -cs 'add // []')"
+          while IFS= read -r -d '' aname && IFS= read -r -d '' aurl; do
+            if [[ -z "$aname" || "$aname" == *"/"* || "$aname" == *"\\"* || "$aname" == *$'\n'* || "$aname" == "." || "$aname" == ".." || "$aname" == -* ]]; then
+              echo "::error::unsafe release asset filename: $aname"
+              exit 1
+            fi
+            if [ ! -f "checksum-inputs/$aname" ]; then
+              curl < /dev/null --fail-with-body -sSL --retry 3 \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H "Accept: application/octet-stream" \
+                "$aurl" -o "checksum-inputs/$aname"
+            fi
+          done < <(jq -j '.[] | select(.name != "SHA256SUMS.txt") | .name, "\u0000", .url, "\u0000"' <<<"$LIVE_ASSETS")
+
+          (cd checksum-inputs && sha256sum -- * | LC_ALL=C sort -k2 > "../SHA256SUMS.txt")
+          cat SHA256SUMS.txt
+
+          EXISTING_SUM_ID="$(jq -r '.[] | select(.name == "SHA256SUMS.txt") | .id // empty' <<<"$LIVE_ASSETS" | head -n1)"
+          if [ -n "$EXISTING_SUM_ID" ]; then
+            gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${EXISTING_SUM_ID}"
+          fi
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @"SHA256SUMS.txt" \
+            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${REL_ID}/assets?name=SHA256SUMS.txt" >/dev/null
+          echo "Uploaded SHA256SUMS.txt"
+
+          # Final completeness & 1:1 checksum coverage gate against the live Draft Release.
           FINAL_REL="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${REL_ID}")"
           ASSET_NAMES="$(jq -r '.assets[].name' <<<"$FINAL_REL")"
           for pattern in \
@@ -737,14 +770,21 @@ jobs:
             done
           fi
 
+          EXPECTED_SUM_NAMES="$(jq -r '.assets[].name | select(. != "SHA256SUMS.txt")' <<<"$FINAL_REL" | LC_ALL=C sort)"
+          ACTUAL_SUM_NAMES="$(sed 's/^[0-9a-f]\{64\} [ *]//' SHA256SUMS.txt | LC_ALL=C sort)"
+          if [ "$EXPECTED_SUM_NAMES" != "$ACTUAL_SUM_NAMES" ]; then
+            echo "::error::SHA256SUMS.txt entries disagree with Draft Release asset list"
+            exit 1
+          fi
+
           {
             echo "## Draft Release Verified (\`${RELEASE_TAG}\`)"
             echo ""
             echo "- **Release ID**: \`${REL_ID}\`"
-            echo "- **Draft**: \`$(echo "$FINAL_REL" | jq -r '.draft')\`"
-            echo "- **Pre-release**: \`$(echo "$FINAL_REL" | jq -r '.prerelease')\`"
+            echo "- **Draft**: \`$(jq -r '.draft' <<<"$FINAL_REL")\`"
+            echo "- **Pre-release**: \`$(jq -r '.prerelease' <<<"$FINAL_REL")\`"
             echo ""
             echo "| Asset | Size (bytes) | Digest |"
             echo "| --- | ---: | --- |"
-            echo "$FINAL_REL" | jq -r '.assets | sort_by(.name)[] | "| `\(.name)` | \(.size) | `\(.digest // "—")` |"'
+            jq -r '.assets | sort_by(.name)[] | "| `\(.name)` | \(.size) | `\(.digest // "—")` |"' <<<"$FINAL_REL"
           } >> "$GITHUB_STEP_SUMMARY"
