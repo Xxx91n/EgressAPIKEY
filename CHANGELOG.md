@@ -20,7 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   IP/CIDR (`ipnet`; an exact IP becomes a `/32` or `/128` host net, CIDR is
   taken verbatim, and IPv4-mapped IPv6 peers normalize via `to_ipv4_mapped()`)
   and the rightmost segment of the merged `X-Forwarded-Proto` chain is `https`
-  (fail-closed; forged client headers dropped silently). Wildcard `/0` proxy
+  (fail-closed: `X-Forwarded-Proto` from untrusted peers is ignored, and
+  earlier client-supplied segments cannot override a trusted proxy that
+  overwrites or appends the client-facing scheme). Wildcard `/0` proxy
   CIDRs (`0.0.0.0/0`, `::/0`) refuse startup unless
   `--trusted-proxy-unrestricted` is also passed. Documented in
   `docs/how-to/HEADLESS_DEPLOYMENT.md`.

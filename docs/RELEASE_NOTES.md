@@ -46,10 +46,14 @@ read-path separation, and i18n / audit-log integrity guards.
   `--trusted-proxy <ip-or-cidr>` flag, and evaluates only the **rightmost**
   segment of the merged `X-Forwarded-Proto` chain (the hop nearest the binary).
   If your reverse proxy terminates TLS and forwards plain HTTP to
-  `egressapikey-headless`, add `--trusted-proxy=<proxy address or CIDR>` so the
-  bootstrap session cookie keeps its `Secure` attribute. Wildcard `/0` CIDRs
-  (`0.0.0.0/0`, `::/0`) refuse startup unless `--trusted-proxy-unrestricted` is
-  also supplied. Direct/plain-HTTP deployments need no change
+  `egressapikey-headless`, configure the proxy to overwrite
+  `X-Forwarded-Proto` with the client-facing scheme (for example,
+  `proxy_set_header X-Forwarded-Proto $scheme;` in nginx; Caddy's
+  `reverse_proxy` sets it automatically), and add
+  `--trusted-proxy=<proxy address or CIDR>` so HTTPS bootstrap cookies carry
+  `Secure`. Wildcard `/0` CIDRs (`0.0.0.0/0`, `::/0`) refuse startup unless
+  `--trusted-proxy-unrestricted` is also supplied. Direct/plain-HTTP
+  deployments need no change
   ([docs/how-to/HEADLESS_DEPLOYMENT.md](how-to/HEADLESS_DEPLOYMENT.md)).
 
 ### Highlights

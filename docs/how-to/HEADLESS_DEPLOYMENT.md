@@ -187,9 +187,10 @@ egress.example.com {
 }
 ```
 
-**Declare the public hostname.** Caddy and nginx forward the original `Host`
-header by default, so the Host allowlist would reject `egress.example.com`
-with `403`. Pass it explicitly:
+**Declare the public hostname.** Caddy forwards the original `Host` header by
+default (as does nginx when configured with `proxy_set_header Host $host;`), so
+the Host allowlist would reject `egress.example.com` with `403`. Pass it
+explicitly:
 
 ```bash
 --bind=127.0.0.1 --auth-token=<secret> --allowed-host=egress.example.com
@@ -203,24 +204,37 @@ reverse_proxy 127.0.0.1:14200 {
 }
 ```
 
-**Declare the proxy as a trusted peer.** Caddy and nginx set
-`X-Forwarded-Proto: https` on the browser leg while forwarding plain HTTP
-to this binary. The header is client-writable, so it is ignored unless the
-socket peer is declared via the repeatable flag:
+**Overwrite `X-Forwarded-Proto` at the proxy and declare the proxy as a trusted peer.**
+`--trusted-proxy` alone does not add `Secure` — the proxy must also send the
+client-facing scheme in `X-Forwarded-Proto`. Caddy's `reverse_proxy` sets
+`X-Forwarded-Proto` automatically; **nginx does not set `X-Forwarded-Proto` by
+default** and forwards incoming client headers unchanged unless you overwrite it
+explicitly:
+
+```nginx
+location / {
+  proxy_pass http://127.0.0.1:14200;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Because `X-Forwarded-Proto` is client-writable on direct connections, the binary
+ignores it unless the socket peer is declared via the repeatable flag:
 
 ```bash
 --trusted-proxy=127.0.0.1 # exact IP; a CIDR like 10.8.0.0/16 also works
 ```
 
-Only then does `X-Forwarded-Proto: https` add `; Secure` to the bootstrap
-session cookie (the LAST - rightmost - list value wins: it is the scheme
-the nearest trusted hop observed, so earlier client-writable segments are
-ignored; anything outside the literal `http`/`https` pair fails closed;
-forged headers are dropped silently). Multiple `X-Forwarded-Proto` header
-instances are merged in wire order before that rule applies. A wildcard
-CIDR - `--trusted-proxy=0.0.0.0/0` or `::/0` - is refused at startup
-unless the second explicit switch `--trusted-proxy-unrestricted` is also
-passed; list only the addresses your proxy can actually arrive from.
+Only when both conditions hold does `X-Forwarded-Proto: https` add `; Secure`
+to the bootstrap session cookie (headers from untrusted peers are ignored; for
+declared peers, multiple `X-Forwarded-Proto` header instances are merged in
+wire order and only the LAST — rightmost — segment is read, so earlier
+client-supplied segments cannot override a proxy that overwrites or appends its
+observed scheme; anything outside the literal `http`/`https` pair fails
+closed). A wildcard CIDR — `--trusted-proxy=0.0.0.0/0` or `::/0` — is refused
+at startup unless the second explicit switch `--trusted-proxy-unrestricted` is
+also passed; list only the addresses your proxy can actually arrive from.
 
 The proxy's auth gate is defence in depth - the in-process token and Host
 allowlist are the actual boundary (see Security model).

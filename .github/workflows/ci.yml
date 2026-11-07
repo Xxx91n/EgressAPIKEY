@@ -664,7 +664,7 @@ jobs:
             cp "release-artifacts/$d"/* checksum-inputs/
           done
           cp dist-release/* checksum-inputs/
-          (cd checksum-inputs && LC_ALL=C sha256sum * | sort -k2 > "../dist-release/SHA256SUMS.txt")
+          (cd checksum-inputs && sha256sum -- * | LC_ALL=C sort -k2 > "../dist-release/SHA256SUMS.txt")
           cat "dist-release/SHA256SUMS.txt"
           ls -lh dist-release
 
