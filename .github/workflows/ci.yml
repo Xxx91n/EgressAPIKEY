@@ -5,8 +5,10 @@ name: ci
 # (tsc + vite) + vitest + every guard script (scripts/verify-build.sh) + the
 # line-ending guard. This is the push->verify gate: no green verify, no merge.
 # workflow_dispatch -> `verify` + `macos-test` (tier-2
-# release gate) + the 5-job release matrix, unchanged and still
-# manual: the user opens the Actions tab and types a tag. Input
+# release gate) + the release matrix (`e2e` / `backend` / `gui` / `gui-portable`)
+# + `release-assets` (verifies portable/backend contents and attaches them +
+# SHA256SUMS.txt to the draft GitHub Release), still manual: the user opens the
+# Actions tab and types a tag. Input `prerelease` marks beta/test releases;
 # `include_intel_mac` (default off) additionally gates the two opt-in
 # macOS x86_64 legs (backend-intel + gui-intel on macos-15-intel).
 # Release packaging NEVER runs on push: every release/e2e job carries
@@ -21,9 +23,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Git tag for the release (e.g. v0.1.0). The user runs: git tag <tag> && git push origin <tag> first, then triggers this workflow with the same tag.'
+        description: 'Git tag for the release (e.g. v0.2.1). The user runs: git tag <tag> && git push origin <tag> first, then triggers this workflow with the same tag.'
         required: true
         type: string
+      prerelease:
+        description: 'Mark the draft GitHub Release as a pre-release (beta / test release)'
+        required: false
+        type: boolean
+        default: false
       # macOS x86_64 demoted to opt-in best-effort (release-strategy revision)
       # - macos-13 was retired wholesale (2025-12-04/08) so the legs moved to
       # macos-15-intel, the last Intel image (retires 2027-08). Default off:
@@ -206,7 +213,8 @@ jobs:
           if [ -n "$SIDECAR_BIN" ]; then
             cp "$SIDECAR_BIN" "$STAGE/resin${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
           else
-            echo "::warning::resin sidecar not found — headless will fail to boot resin"
+            echo "::error::resin sidecar not found — headless will fail to boot resin"
+            exit 1
           fi
           # Include docs
           cp -r docs "$STAGE/docs" 2>/dev/null || true
@@ -266,7 +274,8 @@ jobs:
           if [ -n "$SIDECAR_BIN" ]; then
             cp "$SIDECAR_BIN" "$STAGE/resin"
           else
-            echo "::warning::resin sidecar not found — headless will fail to boot resin"
+            echo "::error::resin sidecar not found — headless will fail to boot resin"
+            exit 1
           fi
           cp -r docs "$STAGE/docs" 2>/dev/null || true
           tar -czf "$STAGE.tar.gz" "$STAGE"
@@ -342,9 +351,9 @@ jobs:
           args: --target ${{ matrix.target }} --features custom-protocol
           tagName: ${{ inputs.tag }}
           releaseName: "EgressAPIKEY ${{ inputs.tag }}"
-          releaseBody: "Windows MSI+NSIS setup, Linux deb+AppImage, macOS dmg (arm64; x86_64 opt-in via include_intel_mac), plus per-OS headless backend tarballs."
+          releaseBody: "Windows MSI+NSIS setup + portable zip, Linux deb+AppImage + portable tar.gz, macOS dmg + portable tar.gz (arm64; x86_64 dmg/backend opt-in via include_intel_mac), per-OS headless backend tarballs, and SHA256SUMS.txt."
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ inputs.prerelease }}
       - name: stage release/
         shell: bash
         run: |
@@ -419,9 +428,9 @@ jobs:
           args: --target ${{ env.TARGET }} --features custom-protocol
           tagName: ${{ inputs.tag }}
           releaseName: "EgressAPIKEY ${{ inputs.tag }}"
-          releaseBody: "Windows MSI+NSIS setup, Linux deb+AppImage, macOS dmg (arm64; x86_64 opt-in via include_intel_mac), plus per-OS headless backend tarballs."
+          releaseBody: "Windows MSI+NSIS setup + portable zip, Linux deb+AppImage + portable tar.gz, macOS dmg + portable tar.gz (arm64; x86_64 dmg/backend opt-in via include_intel_mac), per-OS headless backend tarballs, and SHA256SUMS.txt."
           releaseDraft: true
-          prerelease: false
+          prerelease: ${{ inputs.prerelease }}
       - name: stage release/
         shell: bash
         run: |
@@ -521,7 +530,8 @@ jobs:
           if [ -n "$SIDECAR_BIN" ]; then
             cp "$SIDECAR_BIN" "$STAGE/resin${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
           else
-            echo "::warning::resin sidecar not found — portable app cannot boot resin"
+            echo "::error::resin sidecar not found — portable app cannot boot resin"
+            exit 1
           fi
           ls -lh "$STAGE"
       - uses: actions/upload-artifact@v4
@@ -529,3 +539,212 @@ jobs:
           name: ${{ matrix.name }}
           path: release/${{ matrix.name }}/*
           if-no-files-found: error
+
+  # 6. Release asset verification & draft-release attachment:
+  # tauri-action in `gui` / `gui-intel` creates the draft GitHub Release and
+  # uploads installer bundles (.msi / -setup.exe / .deb / .AppImage / .dmg).
+  # This fan-in job verifies version alignment + portable/backend package
+  # completeness (app binary + Resin sidecar + dist/), packages the per-OS
+  # portable archives, generates SHA256SUMS.txt, and attaches them all to the
+  # same draft release while enforcing the requested `prerelease` flag.
+  release-assets:
+    name: release assets (verify + attach portable & backend)
+    runs-on: ubuntu-latest
+    needs: [gui, gui-intel, gui-portable, backend, backend-intel]
+    if: |
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      needs.gui.result == 'success' &&
+      needs['gui-portable'].result == 'success' &&
+      needs.backend.result == 'success' &&
+      (needs['gui-intel'].result == 'success' || needs['gui-intel'].result == 'skipped') &&
+      (needs['backend-intel'].result == 'success' || needs['backend-intel'].result == 'skipped')
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      PRERELEASE: ${{ inputs.prerelease }}
+      INCLUDE_INTEL_MAC: ${{ inputs.include_intel_mac }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: verify manifests, package portable archives & SHA256SUMS
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # 1. Verify all four manifests agree on the version string, and when
+          # RELEASE_TAG is a semver tag (vX.Y.Z...), require it to match.
+          PKG_VER="$(jq -r '.version' package.json)"
+          TAURI_VER="$(jq -r '.version' src-tauri/tauri.conf.json)"
+          NPM_SRV_VER="$(jq -r '.version' scripts/npm/package.json)"
+          CARGO_VER="$(sed -n '/^\[workspace\.package\]/,/^\[/{s/^version = "\([^"]*\)"/\1/p;}' Cargo.toml | head -n1)"
+
+          if [ -z "$PKG_VER" ] || [ "$PKG_VER" != "$TAURI_VER" ] || [ "$PKG_VER" != "$NPM_SRV_VER" ] || [ "$PKG_VER" != "$CARGO_VER" ]; then
+            echo "::error::manifest version mismatch: package.json=$PKG_VER tauri.conf.json=$TAURI_VER scripts/npm/package.json=$NPM_SRV_VER Cargo.toml=$CARGO_VER"
+            exit 1
+          fi
+          if [[ "$RELEASE_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            TAG_BASE="${BASH_REMATCH[1]}"
+            if [ "$TAG_BASE" != "$PKG_VER" ]; then
+              echo "::error::release tag $RELEASE_TAG disagrees with manifest version $PKG_VER"
+              exit 1
+            fi
+          fi
+          echo "Manifest version verified: $PKG_VER (tag: $RELEASE_TAG)"
+
+          mkdir -p dist-release checksum-inputs
+
+          # Helper: file must exist and exceed 1 MB (guards against truncated binaries).
+          require_min_1mb() {
+            local f="$1"
+            if [ ! -f "$f" ]; then
+              echo "::error::missing expected binary: $f"
+              exit 1
+            fi
+            local sz
+            sz="$(wc -c < "$f")"
+            if [ "$sz" -lt 1000000 ]; then
+              echo "::error::binary unexpectedly small ($sz bytes): $f"
+              exit 1
+            fi
+          }
+
+          # 2. Verify & archive portable GUI bundles (app binary + Resin sidecar).
+          require_min_1mb "release-artifacts/windows-gui-portable/EgressAPIKEY.exe"
+          require_min_1mb "release-artifacts/windows-gui-portable/resin.exe"
+          (cd release-artifacts && zip -rq "../dist-release/windows-gui-portable.zip" "windows-gui-portable")
+
+          require_min_1mb "release-artifacts/linux-gui-portable/EgressAPIKEY"
+          require_min_1mb "release-artifacts/linux-gui-portable/resin"
+          chmod 0755 "release-artifacts/linux-gui-portable/EgressAPIKEY" "release-artifacts/linux-gui-portable/resin"
+          tar -C release-artifacts -czf "dist-release/linux-gui-portable.tar.gz" "linux-gui-portable"
+
+          require_min_1mb "release-artifacts/macos-gui-portable-arm64/EgressAPIKEY"
+          require_min_1mb "release-artifacts/macos-gui-portable-arm64/resin"
+          chmod 0755 "release-artifacts/macos-gui-portable-arm64/EgressAPIKEY" "release-artifacts/macos-gui-portable-arm64/resin"
+          tar -C release-artifacts -czf "dist-release/macos-gui-portable-arm64.tar.gz" "macos-gui-portable-arm64"
+
+          # 3. Verify & stage headless backend tarballs (headless bin + sidecar + dist/index.html).
+          BACKENDS=("linux-backend" "windows-backend" "macos-arm64-backend")
+          if [ "$INCLUDE_INTEL_MAC" = "true" ]; then
+            BACKENDS+=("macos-x86_64-backend")
+          fi
+          for b in "${BACKENDS[@]}"; do
+            TAR_PATH="release-artifacts/${b}/${b}.tar.gz"
+            if [ ! -s "$TAR_PATH" ]; then
+              echo "::error::missing backend archive: $TAR_PATH"
+              exit 1
+            fi
+            LISTING="$(tar -tzf "$TAR_PATH")"
+            grep -Eq '/egressapikey-headless(\.exe)?$' <<<"$LISTING" || {
+              echo "::error::$TAR_PATH missing egressapikey-headless binary"; exit 1; }
+            grep -Eq '/resin(\.exe)?$' <<<"$LISTING" || {
+              echo "::error::$TAR_PATH missing resin sidecar binary"; exit 1; }
+            grep -Eq '/dist/index\.html$' <<<"$LISTING" || {
+              echo "::error::$TAR_PATH missing dist/index.html"; exit 1; }
+            cp "$TAR_PATH" "dist-release/${b}.tar.gz"
+          done
+
+          # 4. Verify staged installer artifacts and build SHA256SUMS.txt across
+          # installers + portable archives + headless backend tarballs.
+          INSTALLER_DIRS=("linux-gui-installers" "windows-gui-installers" "macos-gui-arm64-installers")
+          if [ "$INCLUDE_INTEL_MAC" = "true" ]; then
+            INSTALLER_DIRS+=("macos-gui-x86_64-installers")
+          fi
+          for d in "${INSTALLER_DIRS[@]}"; do
+            [ -d "release-artifacts/$d" ] || { echo "::error::missing installer artifact dir $d"; exit 1; }
+            cp "release-artifacts/$d"/* checksum-inputs/
+          done
+          cp dist-release/* checksum-inputs/
+          (cd checksum-inputs && LC_ALL=C sha256sum * | sort -k2 > "../dist-release/SHA256SUMS.txt")
+          cat "dist-release/SHA256SUMS.txt"
+          ls -lh dist-release
+
+      - name: attach portable, backend & SHA256SUMS to draft GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Draft releases return 404 on /releases/tags/<tag>; list draft
+          # releases and match `.tag_name` directly (never mutate an already
+          # published release).
+          REL_ID="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
+            | jq -rs --arg tag "$RELEASE_TAG" '(add // []) | [.[] | select(.draft == true and .tag_name == $tag)] | sort_by(.created_at) | reverse | .[0].id // empty')"
+          if [ -z "$REL_ID" ]; then
+            echo "::error::draft release for tag '$RELEASE_TAG' not found"
+            exit 1
+          fi
+          echo "Resolved GitHub Release ID: $REL_ID (tag: $RELEASE_TAG, prerelease: $PRERELEASE)"
+
+          # Enforce draft=true and the requested prerelease boolean on the release.
+          if [ "$PRERELEASE" = "true" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${REL_ID}" -F draft=true -F prerelease=true >/dev/null
+          else
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${REL_ID}" -F draft=true -F prerelease=false >/dev/null
+          fi
+
+          EXISTING_JSON="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases/${REL_ID}/assets" | jq -cs 'add // []')"
+          for f in dist-release/*; do
+            fname="$(basename "$f")"
+            EXISTING_ID="$(jq -r --arg n "$fname" '.[] | select(.name == $n) | .id // empty' <<<"$EXISTING_JSON" | head -n1)"
+            if [ -n "$EXISTING_ID" ]; then
+              gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${EXISTING_ID}"
+            fi
+            curl --fail-with-body -sS -X POST \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"$f" \
+              "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${REL_ID}/assets?name=${fname}" >/dev/null
+            echo "Uploaded $fname"
+          done
+
+          # Final completeness gate against the live Draft Release asset list.
+          FINAL_REL="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${REL_ID}")"
+          ASSET_NAMES="$(jq -r '.assets[].name' <<<"$FINAL_REL")"
+          for pattern in \
+            '\.msi$' \
+            '-setup\.exe$' \
+            '\.deb$' \
+            '\.AppImage$' \
+            '_aarch64\.dmg$' \
+            '^windows-gui-portable\.zip$' \
+            '^linux-gui-portable\.tar\.gz$' \
+            '^macos-gui-portable-arm64\.tar\.gz$' \
+            '^linux-backend\.tar\.gz$' \
+            '^windows-backend\.tar\.gz$' \
+            '^macos-arm64-backend\.tar\.gz$' \
+            '^SHA256SUMS\.txt$'; do
+            grep -Eq "$pattern" <<<"$ASSET_NAMES" || {
+              echo "::error::draft release $REL_ID missing asset matching $pattern"
+              exit 1
+            }
+          done
+          if [ "$INCLUDE_INTEL_MAC" = "true" ]; then
+            for pattern in '_x64\.dmg$' '^macos-x86_64-backend\.tar\.gz$'; do
+              grep -Eq "$pattern" <<<"$ASSET_NAMES" || {
+                echo "::error::draft release $REL_ID missing Intel macOS asset matching $pattern"
+                exit 1
+              }
+            done
+          fi
+
+          {
+            echo "## Draft Release Verified (\`${RELEASE_TAG}\`)"
+            echo ""
+            echo "- **Release ID**: \`${REL_ID}\`"
+            echo "- **Draft**: \`$(echo "$FINAL_REL" | jq -r '.draft')\`"
+            echo "- **Pre-release**: \`$(echo "$FINAL_REL" | jq -r '.prerelease')\`"
+            echo ""
+            echo "| Asset | Size (bytes) | Digest |"
+            echo "| --- | ---: | --- |"
+            echo "$FINAL_REL" | jq -r '.assets | sort_by(.name)[] | "| `\(.name)` | \(.size) | `\(.digest // "—")` |"'
+          } >> "$GITHUB_STEP_SUMMARY"

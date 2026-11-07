@@ -9,17 +9,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-07
+
 ### Security
 
-- (r12 wave-d, R12-D1) headless `X-Forwarded-Proto` trust boundary: XFP is
-  now ignored by default; the `; Secure` suffix on the bootstrap session
-  cookie is applied only when the socket peer matches the new repeatable
-  `--trusted-proxy <ip-or-cidr>` flag (ipnet; an exact IP becomes a
-  /32-or-/128 host net, CIDR is taken verbatim; IPv4-mapped-IPv6 peers
-  normalize via `to_ipv4_mapped()`; first XFP list value wins; fail-closed;
-  forged headers dropped silently). Previously any client could forge the
-  header and pin `Secure` on a plain-HTTP deployment. Documented in
-  `docs/how-to/HEADLESS_DEPLOYMENT.md` + the errata.
+- Headless `X-Forwarded-Proto` trust boundary (`--trusted-proxy <ip-or-cidr>` +
+  `--trusted-proxy-unrestricted`): `X-Forwarded-Proto` is now ignored by
+  default; the `; Secure` suffix on the bootstrap session cookie is applied
+  only when the socket peer matches a declared repeatable `--trusted-proxy`
+  IP/CIDR (`ipnet`; an exact IP becomes a `/32` or `/128` host net, CIDR is
+  taken verbatim, and IPv4-mapped IPv6 peers normalize via `to_ipv4_mapped()`)
+  and the rightmost segment of the merged `X-Forwarded-Proto` chain is `https`
+  (fail-closed; forged client headers dropped silently). Wildcard `/0` proxy
+  CIDRs (`0.0.0.0/0`, `::/0`) refuse startup unless
+  `--trusted-proxy-unrestricted` is also passed. Documented in
+  `docs/how-to/HEADLESS_DEPLOYMENT.md`.
+
+### Added
+
+- Dedicated SQLite read connection in `DbPool` separating read queries from the
+  writer `Mutex`, plus the opt-in `db-lock-metrics` observation feature (dual
+  `>=1ms` / `>=5ms` thresholds with waiter/holder attribution across both
+  connections, checked and unit-tested in `scripts/verify-build.sh`).
+- `scripts/db-immediate-txn-check.cjs` source gate locking `BEGIN IMMEDIATE`
+  transaction discipline on `replace_ports`.
+- Two i18n CI guards mounted into `scripts/verify-build.sh`:
+  `scripts/i18n-content-check.cjs` (`docs/I18N_CONTENT_MANIFEST.json`
+  per-locale SHA-256 value-fingerprint manifest across all 18 locales) and
+  `scripts/i18n-key-ref-check.cjs` (verifies every static `t()` / `i18nKey`
+  reference in `src/` and `error.*` key in `ipc_error.rs` resolves in
+  `en/common.json`).
+- Release pipeline gates and asset attachment in `.github/workflows/ci.yml`:
+  tier-2 `macos-test` required release gate on `macos-latest`, opt-in
+  `include_intel_mac` input on `macos-15-intel`, `prerelease` dispatch input,
+  hard sidecar presence checks across `gui-portable` and `backend`, and the
+  `release-assets` fan-in job verifying four-manifest version parity plus
+  portable/backend archive contents before attaching
+  `windows-gui-portable.zip`, `linux-gui-portable.tar.gz`,
+  `macos-gui-portable-arm64.tar.gz`, `<os>-backend.tar.gz`, and
+  `SHA256SUMS.txt` to the Draft GitHub Release alongside `tauri-action`
+  installers.
+- Informational Codecov workflow (`.github/workflows/coverage.yml` +
+  `codecov.yml` on Vitest 4 / `@vitest/coverage-v8@^4`) and consolidated domain
+  glossary (`GLOSSARY.md`).
+
+### Changed
+
+- Unified package version `0.2.1` across `package.json`, workspace `Cargo.toml`
+  (`Cargo.lock`), `src-tauri/tauri.conf.json`, and `scripts/npm/package.json`
+  (resolving the `0.1.0` version drift in `@egressapikey/server`).
+- Centralised RFC 3986 URL path-segment and query-component percent-encoding in
+  `resin_core::encoding` (`encode_path_segment` / `encode_uri_component`),
+  shared across `ResinClient`, IP reputation lookups, and the headless BFF.
+- Mode A boundary-law census extractor hardened (v3 fail-closed edges) and
+  enforced in `scripts/mode-a-contract-check.cjs`.
+- Subscription poll cadence consolidated onto one exported constant
+  (`SUBSCRIPTION_POLL_INTERVAL_MS`), and all seven repository READMEs rewritten
+  against verified repository receipts.
+
+### Fixed
+
+- Audit log (`AuditLog::append`) tail adoption and single-critical-section
+  append: typed `AuditEvent` candidate parsing, stored-byte hash chaining
+  without re-serialization, non-blocking single-link back-verification, and
+  `written_bytes` re-seeding from file metadata before rotation checks.
+- IPQS reputation URL encoding for API keys in path segments (`%20` rather than
+  form `+`).
+- `DiagnosticsView` mismatched i18n keys (`diagnostics.portHealth.*`),
+  CLDR-compliant `portBound` colon spacing across all 18 locales, remaining
+  hardcoded strings in `PlatformsView` / `NodesView` moved to 18-locale keys,
+  and `TopologyView` shallow state guards returning the existing reference on
+  no-op updates.
+- Dynamic kernel-assigned ports and retry-aligned bind-wait budgets in
+  `port_forwarder` tests, deterministic fake-clock synchronization in
+  `SubscriptionsView` / `PlatformsView` tests, Vitest 4 constructible
+  `LazyStore` mocks, and `pnpm-workspace.yaml` `allowBuilds` alignment for
+  pnpm 11.
 
 ## [0.2.0] - 2026-09-23
 
