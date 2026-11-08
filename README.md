@@ -30,11 +30,14 @@ Request flow — the data plane runs in two modes; the diagram below shows Mode 
 - **Mode B — engine direct** (headless/VPS default): AI gateway → entry port bound by Resin itself → the client presents the port's `Platform.Account` proxy credential once → sticky exit IP.
 
 <p align="center">
-  <img src="assets/readme/architecture.svg" alt="Architecture: AI gateway to entry ports to resin-core to Resin sidecar to exit nodes" width="1200">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/architecture-dark.svg">
+    <img src="assets/readme/architecture.svg" alt="Architecture: AI gateway to entry ports to resin-core to Resin sidecar to exit IPs" width="1200">
+  </picture>
 </p>
 
 <details>
-<summary>Mermaid source (GitHub renders this natively; <code>assets/readme/architecture.svg</code> above is rendered from it)</summary>
+<summary>Mermaid source (GitHub renders this natively; the diagram above is drawn from it)</summary>
 
 ```mermaid
 graph LR

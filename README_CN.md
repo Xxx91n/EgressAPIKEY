@@ -11,8 +11,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-dark.svg">
-    <img src="assets/readme/hero.svg" alt="EgressAPIKEY — sticky exit-IP routing for AI API keys" width="1200">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero.zh-CN-dark.svg">
+    <img src="assets/readme/hero.zh-CN.svg" alt="EgressAPIKEY：每个 AI API Key 都有自己固定的出口 IP" width="1200">
   </picture>
 </p>
 
@@ -30,11 +30,14 @@ EgressAPIKEY 是一款桌面应用（Tauri 2 + React 19），位于你的 AI 网
 - **Mode B —— 引擎直听**（headless/VPS 默认）：AI 网关 → Resin 自行绑定的入口端口 → 客户端一次性出示该端口的 `Platform.Account` 代理凭据 → 粘性出口 IP。
 
 <p align="center">
-  <img src="assets/readme/architecture.svg" alt="架构：AI 网关到入口端口到 resin-core 到 Resin 侧车到出口节点" width="1200">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/architecture.zh-CN-dark.svg">
+    <img src="assets/readme/architecture.zh-CN.svg" alt="架构：AI 网关到入口端口到 resin-core 到 Resin 侧车到出口 IP" width="1200">
+  </picture>
 </p>
 
 <details>
-<summary>Mermaid 源码（GitHub 原生渲染；上方 <code>assets/readme/architecture.svg</code> 由此渲染）</summary>
+<summary>Mermaid 源码（GitHub 原生渲染；上面的图照这段画的）</summary>
 
 ```mermaid
 graph LR
